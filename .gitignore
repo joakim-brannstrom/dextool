@@ -1,0 +1,11 @@
+tags
+*.taghl
+*.orig
+*.pyc
+*~
+*.svn
+*.class
+*.[oa]
+results.json
+*.dub
+build/
