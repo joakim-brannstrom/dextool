@@ -18,13 +18,15 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.stub.types;
 
-import std.typecons;
+import std.typecons : Typedef, Tuple;
 
-import clang.c.index;
+import clang.c.index : CX_CXXAccessSpecifier;
 
 import dsrcgen.cpp;
 
 import translator.Type : TypeKind;
+
+package:
 
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");

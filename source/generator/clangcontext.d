@@ -18,8 +18,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.clangcontext;
 
-private:
-
 import std.ascii;
 import std.array;
 import std.conv;
@@ -27,8 +25,6 @@ import std.stdio;
 import std.string;
 import std.typecons;
 import logger = std.experimental.logger;
-
-import tested;
 
 import clang.c.index;
 import clang.Compiler;
@@ -39,17 +35,6 @@ import clang.TranslationUnit;
 import clang.Visitor;
 
 import dsrcgen.cpp;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(generator.analyzer)(new ConsoleTestResultWriter),
-            "Unit tests failed.");
-    }
-}
-
-public:
 
 /// Holds the context of the file.
 class ClangContext {

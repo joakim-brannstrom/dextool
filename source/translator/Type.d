@@ -21,17 +21,14 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module translator.Type;
 
-import std.array;
-import std.conv;
-import std.string;
+//import std.array;
+import std.conv : to;
+import std.string : format;
 import logger = std.experimental.logger;
 
-import clang.c.index;
-import clang.Cursor;
-import clang.Token;
-import clang.Type;
-
-public:
+import clang.c.index : CXTypeKind;
+import clang.Cursor : Cursor;
+import clang.Type : Type;
 
 /** Type information for a cursor.
  *
@@ -68,8 +65,8 @@ in {
     assert(type.isValid);
 }
 body {
-    import std.algorithm;
-    import std.array;
+    import clang.Cursor : cursor_abilities = abilities;
+    import clang.Type : type_abilities = abilities;
 
     TypeKind result = type.toProperty;
     result.t = type;
@@ -78,7 +75,8 @@ body {
     auto tmp_c = type.declaration;
     auto tmp_t = tmp_c.typedefUnderlyingType;
     logger.trace(format("%s %s %s %s c:%s t:%s", type.spelling,
-        to!string(type.kind), tmp_c.spelling, abilities(tmp_t), abilities(tmp_c), abilities(type)));
+        to!string(type.kind), tmp_c.spelling, type_abilities(tmp_t),
+        cursor_abilities(tmp_c), type_abilities(type)));
 
     with (CXTypeKind) {
         if (type.kind == CXType_BlockPointer || type.isFunctionPointerType)

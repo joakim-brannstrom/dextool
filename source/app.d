@@ -17,12 +17,13 @@
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module app;
-import tested;
 import std.stdio;
 
 import app_main : rmain;
 
 version (unittest) {
+    import tested;
+
     shared static this() {
         import core.runtime;
 

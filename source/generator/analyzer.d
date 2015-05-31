@@ -18,8 +18,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.analyzer;
 
-private:
-
 import std.ascii;
 import std.array;
 import std.conv;
@@ -27,8 +25,6 @@ import std.stdio;
 import std.string;
 import std.typecons;
 import logger = std.experimental.logger;
-
-import tested;
 
 import clang.c.index;
 import clang.Compiler;
@@ -41,17 +37,6 @@ import clang.Visitor;
 import dsrcgen.cpp;
 
 import translator.Type;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(generator.analyzer)(new ConsoleTestResultWriter),
-            "Unit tests failed.");
-    }
-}
-
-public:
 
 /** Visit all nodes in a Clang AST to call apply on the nodes.
  * The functions incr() and decr() are infered at compile time.

@@ -6,7 +6,6 @@
  *  1.1 additional features missing compared to cindex.py. 2015-03-06 $(BR)
  *    Joakim Brännström
  */
-
 module clang.SourceRange;
 
 import std.conv;
@@ -16,16 +15,6 @@ import std.experimental.logger;
 import clang.c.index;
 import clang.SourceLocation;
 import clang.Util;
-
-import tested;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(clang.SourceRange)(new ConsoleTestResultWriter), "Unit tests failed.");
-    }
-}
 
 string toString(SourceRange value) {
     import std.string;
@@ -81,7 +70,8 @@ SourceRange range(ref SourceLocation begin, SourceLocation end) {
     return SourceRange(r);
 }
 
-@name("Test of null range") unittest {
+unittest {
+    // Test of null range.
     auto r = SourceRange.empty();
 
     assert(r.isNull == true);
