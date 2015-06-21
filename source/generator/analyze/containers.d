@@ -146,6 +146,10 @@ pure @safe nothrow struct CppMethod {
         this(name, CppParam[].init, void_, const_, virtual);
     }
 
+    void put(CppParam p) {
+        params ~= p;
+    }
+
     auto paramRange() @nogc @safe pure nothrow {
         import std.array;
 
@@ -153,18 +157,37 @@ pure @safe nothrow struct CppMethod {
     }
 
     string toString() @safe pure {
-        import std.array : appender;
+        import std.array;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne;
+        import std.range : takeOne, dropOne;
 
         auto ps = appender!string();
         auto pr = paramRange();
         pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
-        pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+        if (!pr.empty) {
+            pr.dropOne.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+        }
 
         auto rval = appender!string();
+        switch (isVirtual) {
+        case VirtualType.Yes:
+        case VirtualType.Pure:
+            rval.put("virtual ");
+            break;
+        default:
+        }
         formattedWrite(rval, "%s %s(%s)", returnType.toString, name.str, ps.data);
+
+        if (isConst) {
+            rval.put(" const");
+        }
+        switch (isVirtual) {
+        case VirtualType.Pure:
+            rval.put(" = 0");
+            break;
+        default:
+        }
 
         return rval.data;
     }
@@ -216,10 +239,10 @@ pure @safe nothrow struct CppClass {
 
         auto r = appender!string();
 
-        formattedWrite(r, "class %s (isVirtual %s) {%s", name.str, to!string(isVirtual),
-            newline);
-        methodRange.each!(a => formattedWrite(r, "  %s%s", a.toString, newline));
-        formattedWrite(r, "}%s", newline);
+        formattedWrite(r, "class %s { // isVirtual %s%s", name.str,
+            to!string(isVirtual), newline);
+        methodRange.each!(a => formattedWrite(r, "  %s;%s", a.toString, newline));
+        formattedWrite(r, "}; //Class:%s%s", name.str, newline);
 
         return r.data;
     }
@@ -324,13 +347,14 @@ pure @safe nothrow struct CppNamespace {
         auto ns_app = appender!string();
         auto ns_r = nsNestingRange().retro;
         ns_r.takeOne.each!(a => ns_app.put(a.str));
-        ns_r.popFront;
-        ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
+        if (!ns_r.empty) {
+            ns_r.dropOne.each!(a => formattedWrite(ns_app, "::%s", a.str));
+        }
 
         auto app = appender!string();
         formattedWrite(app, "namespace %s {%s", ns_app.data, newline);
-
-        formattedWrite(app, "}%s", newline);
+        classRange.each!(a => formattedWrite(app, "%s", a.toString));
+        formattedWrite(app, "} //NS:%s%s", ns_app.data, newline);
 
         return app.data;
     }
@@ -344,7 +368,7 @@ private:
     CFunction[] funcs;
 }
 
-pure @safe nothrow struct Root {
+pure @safe nothrow struct CppRoot {
     void put(CFunction f) {
         funcs ~= f;
     }
@@ -420,7 +444,9 @@ unittest {
     auto m = CppMethod(CppMethodName("voider"));
     c.put(m);
     assert(c.methods.length == 1);
-    assert(c.toString == "class Foo (isVirtual No) {\n  void voider()\n}\n", c.toString);
+    assert(
+        c.toString == "class Foo { // isVirtual No\n  void voider();\n}; //Class:Foo\n",
+        c.toString);
 }
 
 //@name("Create an anonymous namespace struct")
@@ -456,9 +482,66 @@ unittest {
     assert(app.data == "void voider()", app.data);
 }
 
-//@name("Test of printing root")
+@name("Test of toString for CppClass")
 unittest {
-    Root root;
+    auto c = CppClass(CppClassName("Foo"));
+    c.put(CppMethod(CppMethodName("voider")));
+
+    {
+        auto tk = makeTypeKind("int", "int", false, false, false);
+        auto m = CppMethod(CppMethodName("fun"), CppReturnType(tk),
+            CppConstMethod(false), CppVirtualMethod(VirtualType.Pure));
+        c.put(m);
+    }
+
+    {
+        auto m = CppMethod(CppMethodName("gun"),
+            CppReturnType(makeTypeKind("char", "char*", false, false, true)),
+            CppConstMethod(false), CppVirtualMethod(VirtualType.No));
+        m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
+            false, false), CppVariable("x"))));
+        m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
+            false, false), CppVariable("y"))));
+        c.put(m);
+    }
+
+    {
+        auto m = CppMethod(CppMethodName("wun"),
+            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CppConstMethod(true), CppVirtualMethod(VirtualType.No));
+        c.put(m);
+    }
+
+    assert(c.toString == "class Foo { // isVirtual No
+  void voider();
+  virtual int fun() = 0;
+  char* gun(int x, int y);
+  int wun() const;
+}; //Class:Foo
+",
+        c.toString);
+}
+
+//@name("Test of toString for CppNamespace")
+unittest {
+    auto ns = CppNamespace.makeSimple("simple");
+
+    auto c = CppClass(CppClassName("Foo"));
+    c.put(CppMethod(CppMethodName("voider")));
+    ns.put(c);
+
+    assert(ns.toString == "namespace simple {
+class Foo { // isVirtual No
+  void voider();
+}; //Class:Foo
+} //NS:simple
+",
+        ns.toString);
+}
+
+//@name("Test of toString for CppRoot")
+unittest {
+    CppRoot root;
 
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"));
@@ -467,5 +550,7 @@ unittest {
 
     root.put(CppNamespace.makeSimple("simple"));
 
-    assert(root.toString == "", root.toString);
+    assert(root.toString == "namespace simple {
+} //NS:simple
+", root.toString);
 }

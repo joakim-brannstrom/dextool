@@ -110,7 +110,7 @@ struct EntryContext {
         return descend;
     }
 
-    containers.Root root;
+    containers.CppRoot root;
 }
 
 int main(string[] args) {

@@ -58,6 +58,7 @@ private:
     Type t;
 }
 
+///TODO change thhe bools to using the Flag from typecons
 TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef, bool isPointer) pure @safe nothrow {
     TypeKind t;
     t.name = name;
