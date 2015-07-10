@@ -437,10 +437,13 @@ pure @safe nothrow struct CppRoot {
     string toString() {
         import std.algorithm : each;
         import std.array : appender;
+        import std.ascii : newline;
         import std.format : formattedWrite;
 
         auto app = appender!string();
 
+        classRange.each!(a => app.put(a.toString));
+        app.put(newline);
         namespaceRange.each!(a => app.put(a.toString));
 
         return app.data;
@@ -609,7 +612,12 @@ unittest {
 
     root.put(CppNamespace.makeSimple("simple"));
 
-    assert(root.toString == "namespace simple {
+    assert(root.toString == "class Foo { // isVirtual No
+public:
+  void voider();
+}; //Class:Foo
+
+namespace simple {
 } //NS:simple
 ", root.toString);
 }
