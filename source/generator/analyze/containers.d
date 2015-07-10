@@ -112,8 +112,28 @@ pure @safe nothrow struct CFunction {
         }
     }
 
-    @property auto returnType() const {
+    @property auto returnType() const pure @safe {
         return this.returnType_;
+    }
+
+    string toString() @safe pure {
+        import std.array;
+        import std.algorithm : each;
+        import std.format : formattedWrite;
+        import std.range : takeOne;
+
+        auto ps = appender!string();
+        auto pr = paramRange();
+        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
+        if (!pr.empty) {
+            pr.popFront;
+            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+        }
+
+        auto rval = appender!string();
+        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
+
+        return rval.data;
     }
 
     immutable CFunctionName name;
@@ -537,6 +557,16 @@ unittest {
     }
 
     assert(app.data == "void voider()", app.data);
+}
+
+//@name("Test of toString for a free function")
+unittest {
+    auto ptk = makeTypeKind("char", "char*", false, false, true);
+    auto rtk = makeTypeKind("int", "int", false, false, false);
+    auto f = CFunction(CFunctionName("nothing"), [CParam(TypeKindVariable(ptk,
+        CppVariable("x"))), CParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
+
+    assert(f.toString == "int nothing(char* x, char* y);", f.toString);
 }
 
 //@name("Test of toString for CppClass")
