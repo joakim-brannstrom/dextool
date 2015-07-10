@@ -18,8 +18,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.analyze.containers;
 
-import std.array : appender;
-
 import std.typecons;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
@@ -95,8 +93,6 @@ pure @safe nothrow struct CFunction {
     }
 
     auto paramRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return params[];
     }
 
@@ -181,8 +177,6 @@ pure @safe nothrow struct CppMethod {
     }
 
     auto paramRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return params[];
     }
 
@@ -190,13 +184,14 @@ pure @safe nothrow struct CppMethod {
         import std.array;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne, dropOne;
+        import std.range : takeOne;
 
         auto ps = appender!string();
         auto pr = paramRange();
         pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
         if (!pr.empty) {
-            pr.dropOne.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+            pr.popFront;
+            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
         }
 
         auto rval = appender!string();
@@ -399,14 +394,10 @@ pure @safe nothrow struct CppNamespace {
     }
 
     auto classRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return classes[];
     }
 
     auto funcRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return funcs[];
     }
 
@@ -414,14 +405,15 @@ pure @safe nothrow struct CppNamespace {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne, retro, dropOne;
+        import std.range : takeOne, retro;
         import std.ascii : newline;
 
         auto ns_app = appender!string();
         auto ns_r = nsNestingRange().retro;
         ns_r.takeOne.each!(a => ns_app.put(a.str));
         if (!ns_r.empty) {
-            ns_r.dropOne.each!(a => formattedWrite(ns_app, "::%s", a.str));
+            ns_r.popFront;
+            ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
         }
 
         auto app = appender!string();
@@ -462,6 +454,7 @@ pure @safe nothrow struct CppRoot {
 
         auto app = appender!string();
 
+        funcRange.each!(a => app.put(a.toString));
         classRange.each!(a => app.put(a.toString));
         app.put(newline);
         namespaceRange.each!(a => app.put(a.toString));
@@ -470,20 +463,14 @@ pure @safe nothrow struct CppRoot {
     }
 
     auto namespaceRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return ns[];
     }
 
     auto classRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return classes[];
     }
 
     auto funcRange() @nogc @safe pure nothrow {
-        import std.array;
-
         return funcs[];
     }
 
@@ -649,5 +636,6 @@ public:
 
 namespace simple {
 } //NS:simple
-", root.toString);
+",
+        root.toString);
 }
