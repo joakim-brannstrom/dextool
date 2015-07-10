@@ -115,6 +115,7 @@ pure @safe nothrow struct CFunction {
     string toString() @safe pure {
         import std.array;
         import std.algorithm : each;
+        import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range : takeOne;
 
@@ -127,7 +128,8 @@ pure @safe nothrow struct CFunction {
         }
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
+        formattedWrite(rval, "%s %s(%s);%s", returnType.toString, name.str, ps.data,
+            newline);
 
         return rval.data;
     }
@@ -455,6 +457,7 @@ pure @safe nothrow struct CppRoot {
         auto app = appender!string();
 
         funcRange.each!(a => app.put(a.toString));
+        app.put(newline);
         classRange.each!(a => app.put(a.toString));
         app.put(newline);
         namespaceRange.each!(a => app.put(a.toString));
@@ -553,7 +556,7 @@ unittest {
     auto f = CFunction(CFunctionName("nothing"), [CParam(TypeKindVariable(ptk,
         CppVariable("x"))), CParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
 
-    assert(f.toString == "int nothing(char* x, char* y);", f.toString);
+    assert(f.toString == "int nothing(char* x, char* y);\n", f.toString);
 }
 
 //@name("Test of toString for CppClass")
@@ -622,6 +625,11 @@ public:
 unittest {
     CppRoot root;
 
+    { // free function
+        auto f = CFunction(CFunctionName("nothing"));
+        root.put(f);
+    }
+
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public));
     c.put(m);
@@ -629,7 +637,9 @@ unittest {
 
     root.put(CppNamespace.makeSimple("simple"));
 
-    assert(root.toString == "class Foo { // isVirtual No
+    assert(root.toString == "void nothing();
+
+class Foo { // isVirtual No
 public:
   void voider();
 }; //Class:Foo
