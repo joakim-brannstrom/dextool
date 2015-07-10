@@ -1,6 +1,9 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.json $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/test/run_tests.sh"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata"
+if [[ -e "$ROOT/test/run_tests.sh" ]]; then
+    INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_tests.sh"
+fi
 
 C_NONE='\e[m'
 C_RED='\e[1;31m'
@@ -8,18 +11,19 @@ C_YELLOW='\e[1;33m'
 C_GREEN='\e[1;32m'
 
 # sanity check
-test ! -e $ROOT/dub.json && echo "Missing dub.json" && exit 1
+test ! -e $ROOT/dub.sdl && echo "Missing dub.sdl" && exit 1
 
 # create build if missing
 test ! -d build && mkdir build
 
-export LD_LIBRARY_PATH=$ROOT:$LD_LIBRARY_PATH
+trap "cleanup" INT
 
-# trap "build_release" INT
+export LD_LIBRARY_PATH=$ROOT:$LD_LIBRARY_PATH
 
 # init
 # wait
 # ut_run
+# ut_cov
 # release_build
 # release_test
 # test_passed
@@ -33,6 +37,11 @@ CHECK_STATUS_RVAL=1
 # Incremented each loop. When it reaches MAX_CNT it will build with documentation and reset counter.
 DOC_CNT=9 # force a rebuild on first pass. then reset to 0.
 DOC_MAX_CNT=9
+
+function cleanup() {
+    find . -iname "*.lst" -delete
+    exit 0
+}
 
 function check_status() {
     CHECK_STATUS_RVAL=$?
@@ -59,8 +68,26 @@ function state_wait() {
 }
 
 function state_ut_run() {
-    dub run -c unittest -b unittest
+    dub run -c unittest -b unittest-cov
     check_status "Compile and run UnitTest"
+}
+
+function state_ut_cov() {
+    CHECK_STATUS_RVAL=0
+    for F in $(find . -iname "*.lst"|grep -v 'dub-packages'); do
+        tail -n1 "$F"| grep -q "100% cov"
+        if [[ $? -ne 0 ]]; then
+            echo -e "${C_RED}Warning${C_NONE} missing coverage in ${C_YELLOW}${F}${C_NONE}"
+            CHECK_STATUS_RVAL=1
+        fi
+    done
+
+    MSG="Coverage stat of unittests is"
+    if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
+        echo -e "${C_GREEN}=== $MSG OK ===${C_NONE}"
+    else
+        echo -e "${C_RED}=== $MSG ERROR ===${C_NONE}"
+    fi
 }
 
 function state_release_build() {
@@ -69,10 +96,13 @@ function state_release_build() {
 }
 
 function state_release_test() {
-    pushd test
-    ./run_tests.sh
-    check_status "Release Tests"
-    popd
+    if [[ -d "$ROOT/test/run_tests.sh" ]]; then
+        pushd test
+        ./run_tests.sh
+        check_status "Release Tests"
+        popd
+    fi
+    return
 }
 
 function state_doc_build() {
@@ -116,14 +146,18 @@ do
             state_ut_run
             STATE="wait"
             if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
-                STATE="release_build"
+                STATE="ut_cov"
             else
                 play_sound "fail"
             fi
             ;;
+        "ut_cov")
+            state_ut_cov
+            STATE="release_build"
+            ;;
         "release_build")
-            STATE="wait"
             state_release_build
+            STATE="wait"
             if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
                 STATE="release_test"
             else
@@ -131,8 +165,8 @@ do
             fi
             ;;
         "release_test")
-            STATE="wait"
             state_release_test
+            STATE="wait"
             if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
                 STATE="test_passed"
             else
@@ -151,13 +185,13 @@ do
             DOC_CNT=$(($DOC_CNT + 1))
             ;;
         "doc_build")
-            STATE="slocs"
             state_doc_build
+            STATE="slocs"
             play_sound "ok"
             ;;
         "slocs")
-            STATE="wait"
             state_sloc
+            STATE="wait"
             play_sound "ok"
             ;;
         *) echo "Unknown state $STATE"

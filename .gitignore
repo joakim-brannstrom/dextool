@@ -6,5 +6,6 @@ results.json
 *.dub
 build/
 *.so
+*.lst
 docs/
 test/outdata/
