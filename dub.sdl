@@ -1,0 +1,45 @@
+name "gen-test-double"
+description "Generate test doubles from C/C++ code by analyzing with LLVM/Clang"
+copyright "Copyright © 2014-2015, Joakim Brännström"
+authors "Joakim Brännström"
+license "GPL"
+
+dependency "tested" version="~>0.9.4"
+dependency "docopt" version="~>0.6.1-b.3"
+dependency "dsrcgen" path="dsrcgen"
+
+targetPath "build"
+mainSourceFile "source/app.d"
+sourcePaths "source" "clang"
+importPaths "source" "clang"
+stringImportPaths "clang/resources"
+excludedSourceFiles "source/wip_main.d" "source/analyze"
+lflags "-lclang" "-rpath" "." "-L."
+
+buildRequirements {
+    "requireBoundsCheck"
+    "requireContracts"
+}
+
+buildType "unittest-cov" {
+    buildOptions "unittests" "debugMode" "debugInfo" "coverage"
+}
+
+configuration "release" {
+    targetType "executable"
+    excludedSourceFiles "source/wip_main.d" "source/generator/analyze"
+}
+
+configuration "wip" {
+    targetName "wip"
+    targetType "executable"
+    buildType "debugInfo"
+    mainSourceFile "source/wip_main.d"
+    excludedSourceFiles "source/app.d" "source/app_main.d"
+}
+
+configuration "unittest" {
+    targetName "unittest"
+    targetType "executable"
+    buildType "debugInfo"
+}
