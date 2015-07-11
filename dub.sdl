@@ -14,7 +14,7 @@ sourcePaths "source" "clang"
 importPaths "source" "clang"
 stringImportPaths "clang/resources"
 excludedSourceFiles "source/wip_main.d" "source/analyze"
-lflags "-lclang" "-rpath" "." "-L."
+lflags "-lclang" "-rpath" "." "-L." "$LFLAGS"
 
 buildRequirements {
     "requireBoundsCheck"

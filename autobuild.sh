@@ -18,8 +18,6 @@ test ! -d build && mkdir build
 
 trap "cleanup" INT
 
-export LD_LIBRARY_PATH=$ROOT:$LD_LIBRARY_PATH
-
 # init
 # wait
 # ut_run
@@ -56,8 +54,7 @@ function check_status() {
 function state_init() {
     echo "Started watching path: "
     echo $INOTIFY_PATH | tr "[:blank:]" "\n"
-    # cp $HOME/sync/src/extern/llvm/Release+Asserts/lib/libclang.so $ROOT
-    cp /usr/lib/llvm-3.5/lib/libclang.so $ROOT
+    export LFLAGS="-L/usr/lib/llvm-3.5/lib"
 }
 
 function state_wait() {
