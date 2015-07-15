@@ -54,7 +54,7 @@ function check_status() {
 function state_init() {
     echo "Started watching path: "
     echo $INOTIFY_PATH | tr "[:blank:]" "\n"
-    export LFLAGS="-L/usr/lib/llvm-3.5/lib"
+    export LFLAGS="-L/usr/lib/llvm-3.6/lib/"
 }
 
 function state_wait() {
