@@ -26,5 +26,6 @@ function check_status() {
 }
 
 build/wip test/testdata/stage_1/class_empty.hpp
+build/wip test/testdata/stage_1/class_const.hpp
 
 exit 0

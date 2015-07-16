@@ -34,12 +34,63 @@ import generator.analyze.containers : AccessType;
 
 import generator.stub.misc;
 
-/** The constructor is disabled to force the class to be in a consistent state.
+/** Descend a class cursor to extract interior information.
+ * C'tors, d'tors, member methods etc.
+ * Cleanly separates the functionality for initializing the container for a
+ * class and the analyze logic.
+ */
+struct ClassDescendVisitor {
+    import generator.analyze.containers;
+    import std.typecons : NullableRef;
+
+    @disable this();
+
+    this(NullableRef!CppClass data) {
+        if (data.isNull) {
+            logger.error("Parameter is null");
+        }
+        this.data = &data.get();
+        this.accessType = CppMethodAccess(AccessType.Private);
+    }
+
+    void visit(ref Cursor c) {
+        wip.visitAst!(typeof(this))(c, this);
+    }
+
+    bool apply(ref Cursor c, ref Cursor parent) {
+        bool descend = true;
+
+        switch (c.kind) with (CXCursorKind) {
+        case CXCursor_Constructor:
+            auto params = paramDeclToTypeKindVariable(c);
+            auto name = CppMethodName(c.spelling);
+            logger.infof("ctor params: %s", params);
+
+            break;
+        case CXCursor_Destructor:
+            break;
+        case CXCursor_CXXAccessSpecifier:
+            this.accessType = CppMethodAccess(toAccessType(c.access.accessSpecifier));
+            break;
+        default:
+            break;
+        }
+        return descend;
+    }
+
+private:
+    CppClass* data;
+    CppMethodAccess accessType;
+}
+
+/** Extract information about a class.
+ * The constructor is disabled to force the class to be in a consistent state.
  * static make to create ClassVisitor objects to avoid the unnecessary storage
  * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
     import generator.analyze.containers;
+    import std.typecons : NullableRef;
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
@@ -55,42 +106,20 @@ struct ClassVisitor {
 
     private this(CppClassName name, CppVirtualClass virtual) {
         this.data = CppClass(name, virtual);
-        this.accessType = CppMethodAccess(AccessType.Private);
     }
 
     auto visit(ref Cursor c) {
         if (!c.isDefinition) {
             return data;
         }
-        wip.visitAst!(typeof(this))(c, this);
+        auto d = NullableRef!CppClass(&data);
+        ClassDescendVisitor(d).visit(c);
 
         return data;
     }
 
-    bool apply(ref Cursor c, ref Cursor parent) {
-        bool descend = true;
-
-        switch (c.kind) with (CXCursorKind) {
-        case CXCursor_Constructor:
-            auto cls = CppClass(CppClassName(c.spelling));
-            auto params = paramDeclToTypeKindVariable(c);
-
-            break;
-        case CXCursor_Destructor:
-            break;
-        case CXCursor_CXXAccessSpecifier:
-            this.accessType =
-                CppMethodAccess(toAccessType(c.access.accessSpecifier));
-            break;
-        default:
-            break;
-        }
-        return descend;
-    }
-
 private:
     CppClass data;
-    CppMethodAccess accessType;
 }
 
 AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
@@ -106,7 +135,8 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
     }
 }
 
-struct EntryContext {
+/// Context for AST visit.
+struct ParseContext {
     import generator.analyze.containers;
 
     private VisitNodeDepth depth_;
@@ -152,7 +182,7 @@ int main(string[] args) {
 
     logger.infof("Testing '%s'", infile);
 
-    EntryContext foo;
+    ParseContext foo;
     foo.visit(file_ctx.cursor);
     writeln("Content from root: ", foo.root.toString);
 
