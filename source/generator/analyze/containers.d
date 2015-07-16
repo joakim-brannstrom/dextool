@@ -141,6 +141,76 @@ private:
     CReturnType returnType_;
 }
 
+/// Constructor or destructor methods.
+pure @safe nothrow struct CppTorMethod {
+    @disable this();
+
+    this(const CppMethodName name, const CppParam[] params_, const CppMethodAccess access, const CppVirtualMethod virtual) {
+        this.name = name;
+        this.accessType = access;
+        this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
+
+        //TODO how do you replace this with a range?
+        CppParam[] tmp;
+        foreach (p; params_) {
+            tmp ~= CppParam(TypeKindVariable(duplicate(p.type), p.name));
+        }
+        this.params = tmp;
+    }
+
+    auto paramRange() @nogc @safe pure nothrow {
+        return params[];
+    }
+
+    string toString() @safe pure {
+        import std.array;
+        import std.algorithm : each;
+        import std.format : formattedWrite;
+        import std.range : takeOne;
+
+        auto ps = appender!string();
+        auto pr = paramRange();
+        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
+        if (!pr.empty) {
+            pr.popFront;
+            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+        }
+
+        auto rval = appender!string();
+        switch (isVirtual) {
+        case VirtualType.Yes:
+        case VirtualType.Pure:
+            rval.put("virtual ");
+            break;
+        default:
+        }
+        formattedWrite(rval, "%s(%s)", name.str, ps.data);
+
+        return rval.data;
+    }
+
+    void opAssign(CppTorMethod rhs) {
+        this = rhs;
+    }
+
+    invariant() {
+        assert(name.length > 0);
+
+        foreach (p; params) {
+            assert(p.name.length > 0);
+            assert(p.type.name.length > 0);
+            assert(p.type.toString.length > 0);
+        }
+    }
+
+    immutable VirtualType isVirtual;
+    immutable CppMethodAccess accessType;
+
+private:
+    CppMethodName name;
+    CppParam[] params;
+}
+
 pure @safe nothrow struct CppMethod {
     @disable this();
 
@@ -219,6 +289,10 @@ pure @safe nothrow struct CppMethod {
         return rval.data;
     }
 
+    void opAssign(CppMethod rhs) {
+        this = rhs;
+    }
+
     invariant() {
         assert(name.length > 0);
         assert(returnType.name.length > 0);
@@ -242,6 +316,8 @@ private:
 }
 
 pure @safe nothrow struct CppClass {
+    import std.variant;
+
     @disable this();
 
     this(const CppClassName name, const CppVirtualClass virtual = VirtualType.No) {
@@ -249,16 +325,18 @@ pure @safe nothrow struct CppClass {
         this.isVirtual = cast(TypedefType!CppVirtualClass) virtual;
     }
 
-    void put(CppMethod method) {
-        final switch (cast(TypedefType!CppMethodAccess) method.accessType) {
+    void put(T)(T func)
+        if (is(T == CppMethod) || is (T == CppTorMethod))
+    {
+        final switch (cast(TypedefType!CppMethodAccess) func.accessType) {
         case AccessType.Public:
-            methods_pub ~= method;
+            methods_pub ~= CppFunc(func);
             break;
         case AccessType.Protected:
-            methods_prot ~= method;
+            methods_prot ~= CppFunc(func);
             break;
         case AccessType.Private:
-            methods_priv ~= method;
+            methods_priv ~= CppFunc(func);
             break;
         }
     }
@@ -287,12 +365,17 @@ pure @safe nothrow struct CppClass {
         return methods_priv;
     }
 
-    string toString() @safe pure {
-        import std.array : appender;
+    string toString() @safe {
+        import std.array : Appender, appender;
         import std.conv : to;
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
+
+        static string funcToString(ref CppFunc func) {
+            return func.visit!((CppMethod a) => a.toString,
+                               (CppTorMethod a) => a.toString);
+        }
 
         auto r = appender!string();
 
@@ -300,15 +383,15 @@ pure @safe nothrow struct CppClass {
             to!string(isVirtual), newline);
         if (methods_pub.length > 0) {
             formattedWrite(r, "public:%s", newline);
-            methods_pub.each!(a => formattedWrite(r, "  %s;%s", a.toString, newline));
+            methods_pub.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
         }
         if (methods_prot.length > 0) {
             formattedWrite(r, "protected:%s", newline);
-            methods_prot.each!(a => formattedWrite(r, "  %s;%s", a.toString, newline));
+            methods_prot.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
         }
         if (methods_priv.length > 0) {
             formattedWrite(r, "private:%s", newline);
-            methods_priv.each!(a => formattedWrite(r, "  %s;%s", a.toString, newline));
+            methods_priv.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
         }
         formattedWrite(r, "}; //Class:%s%s", name.str, newline);
 
@@ -323,9 +406,11 @@ pure @safe nothrow struct CppClass {
 
 private:
     CppClassName name;
-    CppMethod[] methods_pub;
-    CppMethod[] methods_prot;
-    CppMethod[] methods_priv;
+
+    alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
+    CppFunc[] methods_pub;
+    CppFunc[] methods_prot;
+    CppFunc[] methods_priv;
 }
 
 pure @safe nothrow struct CppNamespace {
@@ -403,7 +488,7 @@ pure @safe nothrow struct CppNamespace {
         return funcs[];
     }
 
-    string toString() @safe pure {
+    string toString() @safe {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -490,7 +575,6 @@ string str(T)(T value) @property @safe pure nothrow if (is(T : T!TL, TL : string
 //@name("Test of creating a function")
 unittest {
     auto f = CFunction(CFunctionName("nothing"));
-    assert(f.name == "nothing");
     assert(f.returnType.name == "void");
 }
 
@@ -559,15 +643,33 @@ unittest {
     assert(f.toString == "int nothing(char* x, char* y);\n", f.toString);
 }
 
+//@name("Test of toString for CppTorMethod")
+unittest {
+    auto tk = makeTypeKind("char", "char*", false, false, true);
+    auto p = [CppParam(TypeKindVariable(tk, CppVariable("x")))];
+
+    auto ctor = CppTorMethod(CppMethodName("ctor"), p, CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+    auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init, CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+
+    assert(ctor.toString == "ctor(char* x)", ctor.toString);
+    assert(dtor.toString == "virtual ~dtor()", dtor.toString);
+}
+
 //@name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public)));
 
     {
+        auto m = CppTorMethod(CppMethodName("Foo"), CppParam[].init,
+            CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+        c.put(m);
+    }
+
+    {
         auto tk = makeTypeKind("int", "int", false, false, false);
         auto m = CppMethod(CppMethodName("fun"), CppReturnType(tk),
-            CppMethodAccess(AccessType.Public), CppConstMethod(false),
+            CppMethodAccess(AccessType.Protected), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
         c.put(m);
     }
@@ -575,7 +677,7 @@ unittest {
     {
         auto m = CppMethod(CppMethodName("gun"),
             CppReturnType(makeTypeKind("char", "char*", false, false, true)),
-            CppMethodAccess(AccessType.Public), CppConstMethod(false),
+            CppMethodAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(VirtualType.No));
         m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
             false, false), CppVariable("x"))));
@@ -595,9 +697,12 @@ unittest {
     assert(c.toString == "class Foo { // isVirtual No
 public:
   void voider();
-  virtual int fun() = 0;
-  char* gun(int x, int y);
+  Foo();
   int wun() const;
+protected:
+  virtual int fun() = 0;
+private:
+  char* gun(int x, int y);
 }; //Class:Foo
 ",
         c.toString);
