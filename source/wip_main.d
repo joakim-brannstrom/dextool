@@ -79,8 +79,8 @@ struct ClassVisitor {
         case CXCursor_Destructor:
             break;
         case CXCursor_CXXAccessSpecifier:
-            this.accessType = CppMethodAccess(
-                CppMethodAccess(toAccessType(c.access.accessSpecifier)));
+            this.accessType =
+                CppMethodAccess(toAccessType(c.access.accessSpecifier));
             break;
         default:
             break;
