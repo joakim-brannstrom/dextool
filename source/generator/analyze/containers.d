@@ -66,6 +66,7 @@ enum AccessType {
     Private
 }
 
+/// Information about free functions.
 pure @safe nothrow struct CFunction {
     @disable this();
 
@@ -92,7 +93,7 @@ pure @safe nothrow struct CFunction {
         this(name, CParam[].init, void_);
     }
 
-    auto paramRange() @nogc @safe pure nothrow {
+    auto paramRange() const @nogc @safe pure nothrow {
         return params[];
     }
 
@@ -112,7 +113,7 @@ pure @safe nothrow struct CFunction {
         return this.returnType_;
     }
 
-    string toString() @safe pure {
+    string toString() const @safe pure {
         import std.array;
         import std.algorithm : each;
         import std.ascii : newline;
@@ -134,7 +135,7 @@ pure @safe nothrow struct CFunction {
         return rval.data;
     }
 
-    immutable CFunctionName name;
+    immutable CFunctionName name; /// Function name.
 
 private:
     CParam[] params;
@@ -145,7 +146,8 @@ private:
 pure @safe nothrow struct CppTorMethod {
     @disable this();
 
-    this(const CppMethodName name, const CppParam[] params_, const CppMethodAccess access, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CppParam[] params_,
+        const CppMethodAccess access, const CppVirtualMethod virtual) {
         this.name = name;
         this.accessType = access;
         this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
@@ -158,11 +160,11 @@ pure @safe nothrow struct CppTorMethod {
         this.params = tmp;
     }
 
-    auto paramRange() @nogc @safe pure nothrow {
+    auto paramRange() const @nogc @safe pure nothrow {
         return params[];
     }
 
-    string toString() @safe pure {
+    string toString() const @safe pure {
         import std.array;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -248,11 +250,11 @@ pure @safe nothrow struct CppMethod {
         params ~= p;
     }
 
-    auto paramRange() @nogc @safe pure nothrow {
+    auto paramRange() const @nogc @safe pure nothrow {
         return params[];
     }
 
-    string toString() @safe pure {
+    string toString() const @safe pure {
         import std.array;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -325,9 +327,7 @@ pure @safe nothrow struct CppClass {
         this.isVirtual = cast(TypedefType!CppVirtualClass) virtual;
     }
 
-    void put(T)(T func)
-        if (is(T == CppMethod) || is (T == CppTorMethod))
-    {
+    void put(T)(T func) @safe nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
         final switch (cast(TypedefType!CppMethodAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
@@ -365,6 +365,7 @@ pure @safe nothrow struct CppClass {
         return methods_priv;
     }
 
+    ///TODO make the function const.
     string toString() @safe {
         import std.array : Appender, appender;
         import std.conv : to;
@@ -373,8 +374,7 @@ pure @safe nothrow struct CppClass {
         import std.format : formattedWrite;
 
         static string funcToString(ref CppFunc func) {
-            return func.visit!((CppMethod a) => a.toString,
-                               (CppTorMethod a) => a.toString);
+            return func.visit!((CppMethod a) => a.toString, (CppTorMethod a) => a.toString);
         }
 
         auto r = appender!string();
@@ -648,8 +648,10 @@ unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = [CppParam(TypeKindVariable(tk, CppVariable("x")))];
 
-    auto ctor = CppTorMethod(CppMethodName("ctor"), p, CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
-    auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init, CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+    auto ctor = CppTorMethod(CppMethodName("ctor"), p,
+        CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+    auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init,
+        CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
 
     assert(ctor.toString == "ctor(char* x)", ctor.toString);
     assert(dtor.toString == "virtual ~dtor()", dtor.toString);
