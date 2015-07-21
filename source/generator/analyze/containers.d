@@ -51,8 +51,8 @@ alias CppMethodAccess = Typedef!(AccessType, AccessType.Private, "CppMethodAcces
 
 // Types for free functions
 alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
-alias CParam = Typedef!(TypeKindVariable, TypeKindVariable.init, "CppParam");
-alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
+alias CParam = Typedef!(TypeKindVariable, TypeKindVariable.init, "CParam");
+alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CReturnType");
 
 enum VirtualType {
     No,
