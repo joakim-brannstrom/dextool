@@ -83,6 +83,35 @@ auto paramDeclToTypeKindVariable(Cursor cursor) {
     return params;
 }
 
+/** Travers a node tree and gather all paramdecl to an array.
+ * Params:
+ * T = Type that shall wrap TypeKindVariable.
+ * cursor = A node containing ParmDecl nodes as children.
+ * Example:
+ * -----
+ * class Simple{ Simple(char x, char y); }
+ * -----
+ * The AST for the above is kind of the following:
+ * Example:
+ * ---
+ * Simple [CXCursor_Constructor Type(CXType(CXType_FunctionProto))
+ *   x [CXCursor_ParmDecl Type(CXType(CXType_Char_S))
+ *   y [CXCursor_ParmDecl Type(CXType(CXType_Char_S))
+ * ---
+ * It is translated to the array [("char", "x"), ("char", "y")].
+ */
+T[] paramDeclTo(T)(Cursor cursor) {
+    T[] params;
+
+    foreach (param; cursor.func.parameters) {
+        auto type = translateType(param.type);
+        params ~= T(TypeKindVariable(type, CppVariable(param.spelling)));
+    }
+
+    logger.trace(params);
+    return params;
+}
+
 string getPointerStars(const TypeKind v) pure @safe {
     import std.algorithm : count;
 
