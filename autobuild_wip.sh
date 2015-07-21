@@ -1,8 +1,8 @@
 #!/bin/bash
 ROOT=$PWD
 INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata"
-if [[ -e "$ROOT/test/run_tests.sh" ]]; then
-    INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_tests.sh"
+if [[ -e "$ROOT/test/run_wip_tests.sh" ]]; then
+    INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_wip_tests.sh"
 fi
 
 C_NONE='\e[m'
