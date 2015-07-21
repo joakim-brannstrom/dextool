@@ -15,6 +15,8 @@ importPaths "source" "clang"
 stringImportPaths "clang/resources"
 excludedSourceFiles "source/wip_main.d" "source/analyze"
 
+dflags "-dip25"
+
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "-rpath" "." "$LFLAGS"
 libs ":libclang.so.1"
