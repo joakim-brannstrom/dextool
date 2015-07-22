@@ -441,7 +441,8 @@ pure @safe nothrow struct CppNamespace {
         classes ~= s;
     }
 
-    /** The implementation of the stack is such that new elements are appended
+    /** Traverse stack from top to bottom.
+     * The implementation of the stack is such that new elements are appended
      * to the end. Therefor the range normal direction is from the end of the
      * array to the beginning.
      */
