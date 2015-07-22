@@ -42,7 +42,9 @@ import generator.stub.misc;
  * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
-    import generator.analyze.containers;
+    import generator.analyze.containers : CppClass, CppMethodAccess, CppParam,
+        CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
+        CppReturnType, CppMethod, CppConstMethod;
     import std.typecons : NullableRef;
 
     @disable this();
@@ -137,7 +139,8 @@ private:
  * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
-    import generator.analyze.containers;
+    import generator.analyze.containers : CppClassName, CppVirtualClass,
+        CppClass, VirtualType;
     import std.typecons : NullableRef;
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
@@ -186,7 +189,7 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
 
 /// Context for AST visit.
 struct ParseContext {
-    import generator.analyze.containers;
+    import generator.analyze.containers : CppRoot;
 
     private VisitNodeDepth depth_;
     alias depth_ this;
@@ -214,7 +217,7 @@ struct ParseContext {
 }
 
 int main(string[] args) {
-    import std.stdio;
+    import std.stdio : writeln;
 
     logger.globalLogLevel(logger.LogLevel.all);
     logger.info("WIP mode");
