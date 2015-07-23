@@ -502,23 +502,25 @@ pure @safe nothrow struct CppNamespace {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne, retro;
+        import std.range : retro;
         import std.ascii : newline;
 
         auto ns_app = appender!string();
         auto ns_r = nsNestingRange().retro;
-        ns_r.takeOne.each!(a => ns_app.put(a.str));
+        string ns_top_name;
         if (!ns_r.empty) {
+            ns_top_name = ns_r.back.str;
+            ns_app.put(ns_r.front.str);
             ns_r.popFront;
             ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
         }
 
         auto app = appender!string();
-        formattedWrite(app, "namespace %s {%s", ns_app.data, newline);
+        formattedWrite(app, "namespace %s { //%s%s", ns_top_name, ns_app.data, newline);
         funcRange.each!(a => formattedWrite(app, "%s", a.toString));
         classRange.each!(a => formattedWrite(app, "%s", a.toString));
         namespaceRange.each!(a => formattedWrite(app, "%s", a.toString));
-        formattedWrite(app, "} //NS:%s%s", ns_app.data, newline);
+        formattedWrite(app, "} //NS:%s%s", ns_top_name, newline);
 
         return app.data;
     }
@@ -731,7 +733,7 @@ unittest {
     c.put(CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public)));
     ns.put(c);
 
-    assert(ns.toString == "namespace simple {
+    assert(ns.toString == "namespace simple { //simple
 class Foo { // isVirtual No
 public:
   void voider();
@@ -739,6 +741,15 @@ public:
 } //NS:simple
 ",
         ns.toString);
+}
+
+//@name("Should show nesting of namespaces as valid C++ code")
+unittest {
+    auto stack = [CppNs("foo"), CppNs("bar")];
+    auto n = CppNamespace(stack);
+    assert("namespace bar { //foo::bar
+} //NS:bar
+" == n.toString, n.toString);
 }
 
 //@name("Test of toString for CppRoot")
@@ -764,24 +775,25 @@ public:
   void voider();
 }; //Class:Foo
 
-namespace simple {
+namespace simple { //simple
 } //NS:simple
 ",
         root.toString);
 }
 
-@name("CppNamespace.toString should return nested namespace")
+//@name("CppNamespace.toString should return nested namespace")
 unittest {
-    auto depth1 = CppNamespace.make(CppNs("Depth1"));
-    auto depth2 = CppNamespace.make(CppNs("Depth2"));
-    auto depth3 = CppNamespace.make(CppNs("Depth3"));
+    auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
+    auto depth1 = CppNamespace(stack[0 .. 1]);
+    auto depth2 = CppNamespace(stack[0 .. 2]);
+    auto depth3 = CppNamespace(stack[0 .. $]);
 
     depth2.put(depth3);
     depth1.put(depth2);
 
-    assert(depth1.toString == "namespace Depth1 {
-namespace Depth2 {
-namespace Depth3 {
+    assert(depth1.toString == "namespace Depth1 { //Depth1
+namespace Depth2 { //Depth1::Depth2
+namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth3
 } //NS:Depth2
 } //NS:Depth1
