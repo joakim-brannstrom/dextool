@@ -91,6 +91,10 @@ struct ClassDescendVisitor {
         wip.visitAst!(typeof(this))(c, this);
     }
 
+    void applyRoot(ref Cursor root) {
+        logNode(root, 0);
+    }
+
     bool apply(ref Cursor c, ref Cursor parent) {
         bool descend = true;
 
@@ -231,21 +235,23 @@ struct NamespaceDescendVisitor {
         wip.visitAst!(typeof(this))(c, this);
     }
 
+    void applyRoot(ref Cursor root) {
+        logNode(root, 0);
+    }
+
     bool apply(ref Cursor c, ref Cursor parent) {
         bool descend = true;
-        logNode(c, 0);
 
         switch (c.kind) with (CXCursorKind) {
-        case CXCursor_Namespace:
-            //data.put(NamespaceVisitor.make(c, stack).visit(c));
-            //descend = false;
-            break;
         case CXCursor_ClassDecl:
             // visit node to find nested classes
             data.put(ClassVisitor.make(c).visit(c));
             break;
         case CXCursor_FunctionDecl:
             data.put(FunctionVisitor.make(c).visit(c));
+            descend = false;
+            break;
+        case CXCursor_Namespace:
             descend = false;
             break;
         default:
@@ -286,9 +292,28 @@ struct NamespaceVisitor {
     }
 
     auto visit(ref Cursor c) {
-        auto d = NullableRef!CppNamespace(&data);
-        NamespaceDescendVisitor(d).visit(c);
+        wip.visitAst!(typeof(this))(c, this);
         return data;
+    }
+
+    void applyRoot(ref Cursor root) {
+        logNode(root, 0);
+        auto d = NullableRef!CppNamespace(&data);
+        NamespaceDescendVisitor(d).visit(root);
+    }
+
+    bool apply(ref Cursor c, ref Cursor parent) {
+        logNode(c, 0);
+
+        switch (c.kind) with (CXCursorKind) {
+        case CXCursor_Namespace:
+            data.put(NamespaceVisitor.make(c, stack).visit(c));
+            break;
+        default:
+            break;
+        }
+
+        return false;
     }
 
 private:
@@ -305,6 +330,10 @@ struct ParseContext {
 
     void visit(Cursor cursor) {
         wip.visitAst!(typeof(this))(cursor, this);
+    }
+
+    void applyRoot(ref Cursor root) {
+        logNode(root, depth);
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
