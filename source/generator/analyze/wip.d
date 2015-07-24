@@ -22,9 +22,9 @@ import clang.Cursor;
 import clang.Visitor : Visitor;
 
 void visitAst(VisitorType)(ref Cursor cursor, ref VisitorType v) {
-    static void helperVisitAst(VisitorType)(ref Cursor child, ref Cursor parent, ref VisitorType v) {
-        import std.traits;
+    import std.traits;
 
+    static void helperVisitAst(VisitorType)(ref Cursor child, ref Cursor parent, ref VisitorType v) {
         static if (__traits(hasMember, VisitorType, "incr")) {
             v.incr();
         }
@@ -41,6 +41,23 @@ void visitAst(VisitorType)(ref Cursor cursor, ref VisitorType v) {
         }
     }
 
-    Cursor e = Cursor.empty(cursor.translationUnit);
-    helperVisitAst(cursor, e, v);
+    static void helperVisitRoot(VisitorType)(ref Cursor root, ref VisitorType v) if (
+            is(ReturnType!(VisitorType.applyRoot) == void)) {
+        static if (__traits(hasMember, VisitorType, "incr")) {
+            v.incr();
+        }
+
+        v.applyRoot(root);
+        if (!root.isEmpty) {
+            foreach (child_, parent_; Visitor(root)) {
+                helperVisitAst(child_, root, v);
+            }
+        }
+
+        static if (__traits(hasMember, VisitorType, "decr")) {
+            v.decr();
+        }
+    }
+
+    helperVisitRoot(cursor, v);
 }
