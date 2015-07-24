@@ -41,12 +41,7 @@ struct FunctionVisitor {
         CFunction;
 
     static auto make(ref Cursor) {
-        return typeof(this)(true);
-    }
-
-    @disable this();
-
-    private this(bool dummy) {
+        return typeof(this)();
     }
 
     auto visit(ref Cursor c) {
@@ -221,6 +216,9 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
 }
 
 struct NamespaceDescendVisitor {
+    import std.typecons : NullableRef;
+    import generator.analyze.containers : CppNamespace;
+
     @disable this();
 
     this(NullableRef!CppNamespace data) {
@@ -265,30 +263,40 @@ private:
     CppNamespace* data;
 }
 
+/** Extracts all namespaces.
+ * Visits the interior of its own namespace with a Descender.
+ * For others use a standard NamespaceVisitor.
+ * The design separates the logic for finding namespaces inside the first from
+ * analyzing the content of a namespace.
+ */
 struct NamespaceVisitor {
+    import std.typecons : NullableRef;
     import generator.analyze.containers : CppNsStack, CppNs, CppNamespace;
 
     static auto make(ref Cursor c) {
-        CppNsStack stack = [CppNs(c.spelling)];
-
-        return typeof(this).make(c, stack);
+        return NamespaceVisitor.make(c, CppNsStack.init);
     }
 
-    static auto make(ref Cursor c, const CppNsStack stack_) {
+    /** Initialize the visitor with a stack constiting of [c] + [stack_].
+     * Params:
+     *  c = cursor to pull name from, must be a namespace.
+     *  stack = namespace nesting that c reside in.
+     */
+    static auto make(ref Cursor c, const CppNsStack stack) {
         if (c.kind != CXCursorKind.CXCursor_Namespace) {
             logger.error("Expected cursor to be of type Namespace. It is: ", to!string(c));
         }
-        auto stack = stack_.dup;
-        stack ~= CppNs(c.spelling);
+        auto stack_ = stack.dup;
+        stack_ ~= CppNs(c.spelling);
 
-        return NamespaceVisitor(stack);
+        return NamespaceVisitor(stack_);
     }
 
     @disable this();
 
-    private this(CppNsStack stack) {
+    private this(const CppNsStack stack) {
         this.data = typeof(data)(stack);
-        this.stack = stack;
+        this.stack = stack.dup;
     }
 
     auto visit(ref Cursor c) {
@@ -321,7 +329,7 @@ private:
     CppNsStack stack;
 }
 
-/// Context for AST visit.
+/// Root visitor of AST.
 struct ParseContext {
     import generator.analyze.containers : CppRoot;
 
