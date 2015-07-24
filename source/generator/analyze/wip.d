@@ -21,10 +21,19 @@ module generator.analyze.wip;
 import clang.Cursor;
 import clang.Visitor : Visitor;
 
+/** Traverses a clang AST.
+ * Required functions of VisitorType:
+ *   void applyRoot(ref Cursor root). Called with the root node.
+ *   bool apply(ref Cursor child, ref Cursor parent). Called for all nodes under root.
+ * Optional functions:
+ *   void incr(). Called before descending a node.
+ *   void decr(). Called after ascending a node.
+ */
 void visitAst(VisitorType)(ref Cursor cursor, ref VisitorType v) {
     import std.traits;
 
-    static void helperVisitAst(VisitorType)(ref Cursor child, ref Cursor parent, ref VisitorType v) {
+    static void helperVisitAst(VisitorType)(ref Cursor child, ref Cursor parent, ref VisitorType v) if (
+            is(ReturnType!(VisitorType.apply) == bool)) {
         static if (__traits(hasMember, VisitorType, "incr")) {
             v.incr();
         }
