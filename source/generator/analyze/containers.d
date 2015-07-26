@@ -375,7 +375,10 @@ pure @safe nothrow struct CppClass {
         import std.format : formattedWrite;
 
         static string funcToString(ref CppFunc func) {
-            return func.visit!((CppMethod a) => a.toString, (CppTorMethod a) => a.toString);
+            //dfmt off
+            return func.visit!((CppMethod a) => a.toString,
+                               (CppTorMethod a) => a.toString);
+            //dfmt on
         }
 
         auto r = appender!string();
