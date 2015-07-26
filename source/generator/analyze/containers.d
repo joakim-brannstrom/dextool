@@ -328,7 +328,7 @@ pure @safe nothrow struct CppClass {
         this.isVirtual = cast(TypedefType!CppVirtualClass) virtual;
     }
 
-    void put(T)(T func) @safe nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
+    void put(T)(T func) @trusted nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
         final switch (cast(TypedefType!CppMethodAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
@@ -374,7 +374,7 @@ pure @safe nothrow struct CppClass {
         import std.ascii : newline;
         import std.format : formattedWrite;
 
-        static string funcToString(ref CppFunc func) {
+        static string funcToString(ref CppFunc func) @trusted {
             //dfmt off
             return func.visit!((CppMethod a) => a.toString,
                                (CppTorMethod a) => a.toString);
@@ -586,7 +586,7 @@ private:
     CFunction[] funcs;
 }
 
-string str(T)(T value) @property @safe pure nothrow if (is(T : T!TL, TL : string)) {
+string str(T)(const T value) @safe pure nothrow {
     return cast(string) value;
 }
 

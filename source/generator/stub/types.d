@@ -76,6 +76,6 @@ alias StaticContVariable = Typedef!(TypeName, TypeName.init, "StaticContVariable
 alias PoolName = Typedef!(string, string.init, "PoolName");
 
 // convenient function for converting Typedef's to string representation.
-string str(T)(T value) @property @safe pure nothrow if (is(T : T!TL, TL : string)) {
+string str(T)(T value) @safe pure nothrow {
     return cast(string) value;
 }
