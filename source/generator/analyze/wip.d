@@ -18,6 +18,8 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.analyze.wip;
 
+import std.traits : ReturnType;
+
 import clang.Cursor;
 import clang.Visitor : Visitor;
 
@@ -29,44 +31,44 @@ import clang.Visitor : Visitor;
  *   void incr(). Called before descending a node.
  *   void decr(). Called after ascending a node.
  */
-void visitAst(VisitorType)(ref Cursor cursor, ref VisitorType v) {
-    import std.traits;
+void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v) if (
+        hasApply!VisitorT && hasApplyRoot!VisitorT) {
+    enum NodeType {
+        Root,
+        Child
+    }
 
-    static void helperVisitAst(VisitorType)(ref Cursor child, ref Cursor parent, ref VisitorType v) if (
-            is(ReturnType!(VisitorType.apply) == bool)) {
-        static if (__traits(hasMember, VisitorType, "incr")) {
+    static void helperVisitAst(NodeType NodeT)(ref Cursor child, ref Cursor parent,
+        ref VisitorT v) {
+        static if (__traits(hasMember, VisitorT, "incr")) {
             v.incr();
         }
-        bool decend = v.apply(child, parent);
 
-        if (!child.isEmpty && decend) {
+        bool descend;
+
+        // Root has no parent.
+        static if (NodeT == NodeType.Root) {
+            v.applyRoot(child);
+            descend = true;
+        }
+        else {
+            descend = v.apply(child, parent);
+        }
+
+        if (!child.isEmpty && descend) {
             foreach (child_, parent_; Visitor(child)) {
-                helperVisitAst(child_, parent_, v);
+                helperVisitAst!(NodeType.Child)(child_, parent_, v);
             }
         }
 
-        static if (__traits(hasMember, VisitorType, "decr")) {
+        static if (__traits(hasMember, VisitorT, "decr")) {
             v.decr();
         }
     }
 
-    static void helperVisitRoot(VisitorType)(ref Cursor root, ref VisitorType v) if (
-            is(ReturnType!(VisitorType.applyRoot) == void)) {
-        static if (__traits(hasMember, VisitorType, "incr")) {
-            v.incr();
-        }
-
-        v.applyRoot(root);
-        if (!root.isEmpty) {
-            foreach (child_, parent_; Visitor(root)) {
-                helperVisitAst(child_, root, v);
-            }
-        }
-
-        static if (__traits(hasMember, VisitorType, "decr")) {
-            v.decr();
-        }
-    }
-
-    helperVisitRoot(cursor, v);
+    helperVisitAst!(NodeType.Root)(cursor, cursor, v);
 }
+
+private:
+enum hasApply(T) = __traits(hasMember, T, "apply") && is(ReturnType!(T.apply) == bool);
+enum hasApplyRoot(T) = __traits(hasMember, T, "applyRoot") && is(ReturnType!(T.applyRoot) == void);
