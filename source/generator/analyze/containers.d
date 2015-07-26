@@ -21,6 +21,7 @@ module generator.analyze.containers;
 import std.typecons;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
+import generator.analyze.wip : arrayRange;
 
 import logger = std.experimental.logger;
 
@@ -94,7 +95,7 @@ pure @safe nothrow struct CFunction {
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
-        return params[];
+        return arrayRange(params);
     }
 
     invariant() {
@@ -114,7 +115,7 @@ pure @safe nothrow struct CFunction {
     }
 
     string toString() const @safe pure {
-        import std.array;
+        import std.array : appender;
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -161,11 +162,11 @@ pure @safe nothrow struct CppTorMethod {
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
-        return params[];
+        return arrayRange(params);
     }
 
     string toString() const @safe pure {
-        import std.array;
+        import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
         import std.range : takeOne;
@@ -251,11 +252,11 @@ pure @safe nothrow struct CppMethod {
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
-        return params[];
+        return arrayRange(params);
     }
 
     string toString() const @safe pure {
-        import std.array;
+        import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
         import std.range : takeOne;
@@ -349,21 +350,15 @@ pure @safe nothrow struct CppClass {
     }
 
     auto methodPublicRange() @nogc @safe pure nothrow {
-        import std.range;
-
-        return methods_pub;
+        return arrayRange(methods_pub);
     }
 
     auto methodProtectedRange() @nogc @safe pure nothrow {
-        import std.range;
-
-        return methods_prot;
+        return arrayRange(methods_prot);
     }
 
     auto methodPrivateRange() @nogc @safe pure nothrow {
-        import std.range;
-
-        return methods_priv;
+        return arrayRange(methods_priv);
     }
 
     ///TODO make the function const.
@@ -455,50 +450,21 @@ pure @safe nothrow struct CppNamespace {
      * array to the beginning.
      */
     auto nsNestingRange() @nogc @safe pure nothrow {
-        static @nogc struct Result {
-            CppNsStack stack;
-            @property auto front() @safe pure nothrow {
-                assert(!empty, "Can't get front of an empty range");
-                return stack[$ - 1];
-            }
+        import std.range : retro;
 
-            @property auto back() @safe pure nothrow {
-                assert(!empty, "Can't get back of an empty range");
-                return stack[0];
-            }
-
-            @property void popFront() @safe pure nothrow {
-                assert(!empty, "Can't pop front of an empty range");
-                stack = stack[0 .. $ - 1];
-            }
-
-            @property void popBack() @safe pure nothrow {
-                assert(!empty, "Can't pop back of an empty range");
-                stack = stack[1 .. $];
-            }
-
-            @property bool empty() @safe pure nothrow const {
-                return stack.length == 0;
-            }
-
-            @property auto save() @safe pure nothrow {
-                return Result(stack);
-            }
-        }
-
-        return Result(stack);
+        return arrayRange(stack).retro;
     }
 
     auto classRange() @nogc @safe pure nothrow {
-        return classes[];
+        return arrayRange(classes);
     }
 
     auto funcRange() @nogc @safe pure nothrow {
-        return funcs[];
+        return arrayRange(funcs);
     }
 
     auto namespaceRange() @nogc @safe pure nothrow {
-        return namespaces;
+        return arrayRange(namespaces);
     }
 
     string toString() @safe {
@@ -569,15 +535,15 @@ pure @safe nothrow struct CppRoot {
     }
 
     auto namespaceRange() @nogc @safe pure nothrow {
-        return ns[];
+        return arrayRange(ns);
     }
 
     auto classRange() @nogc @safe pure nothrow {
-        return classes[];
+        return arrayRange(classes);
     }
 
     auto funcRange() @nogc @safe pure nothrow {
-        return funcs[];
+        return arrayRange(funcs);
     }
 
 private:
