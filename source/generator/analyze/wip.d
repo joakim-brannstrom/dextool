@@ -23,6 +23,45 @@ import std.traits : ReturnType;
 import clang.Cursor;
 import clang.Visitor : Visitor;
 
+@nogc struct ArrayRange(T) {
+    @property auto front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range of " ~ T.stringof);
+        return payload[0];
+    }
+
+    @property auto back() @safe pure nothrow {
+        assert(!empty, "Can't get back of an empty range of " ~ T.stringof);
+        return payload[$ - 1];
+    }
+
+    @property void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range of " ~ T.stringof);
+        payload = payload[1 .. $];
+    }
+
+    @property void popBack() @safe pure nothrow {
+        assert(!empty, "Can't pop back of an empty range of " ~ T.stringof);
+        payload = payload[0 .. $ - 1];
+    }
+
+    @property bool empty() @safe pure nothrow const {
+        return payload.length == 0;
+    }
+
+    @property auto save() @safe pure nothrow {
+        return typeof(this)(payload);
+    }
+
+private:
+    T payload;
+}
+
+auto arrayRange(T)(T[] s) {
+    return ArrayRange!(T[])(s);
+}
+
+private enum isArray(T) = is(T : T[]);
+
 /** Traverses a clang AST.
  * Required functions of VisitorType:
  *   void applyRoot(ref Cursor root). Called with the root node.
