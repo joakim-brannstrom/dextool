@@ -29,7 +29,6 @@ import logger = std.experimental.logger;
 
 import docopt;
 import argvalue; // from docopt
-import tested;
 import dsrcgen.cpp;
 
 import generator.stub.context : StubController;
@@ -190,15 +189,6 @@ class StubVariant1 : StubController, ClassController, MethodController {
 
     StubPrefix getMethodPrefix() {
         return prefix;
-    }
-}
-
-shared static this() {
-    version (unittest) {
-        import core.runtime;
-
-        Runtime.moduleUnitTester = () => true;
-        assert(runUnitTests!app_main(new ConsoleTestResultWriter), "Unit tests failed.");
     }
 }
 

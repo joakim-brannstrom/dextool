@@ -4,19 +4,9 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.cpp;
 
-import tested;
-
 import dsrcgen.base;
 
 public import dsrcgen.c;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(dsrcgen.cpp)(new ConsoleTestResultWriter), "Unit tests failed.");
-    }
-}
 
 mixin template CppModuleX() {
     // Statements
@@ -246,7 +236,7 @@ struct CppHModule {
     }
 }
 
-@name("Test of C++ suits")
+//@name("Test of C++ suits")
 unittest {
     string expect = "
     namespace foo {
@@ -292,7 +282,7 @@ private:
     assert(rval == expect, rval);
 }
 
-@name("Test of cast statements")
+//@name("Test of cast statements")
 unittest {
     auto expect = "    static_cast<char>(foo);
     dynamic_cast<char*>(bar);
@@ -312,7 +302,7 @@ unittest {
     assert(expect == r, r);
 }
 
-@name("Test new and delete")
+//@name("Test new and delete")
 unittest {
     auto expect = "    new foo;
     delete bar;

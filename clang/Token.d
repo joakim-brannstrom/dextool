@@ -18,16 +18,6 @@ import clang.TranslationUnit;
 import clang.Util;
 import clang.Visitor;
 
-import tested;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(clang.Token)(new ConsoleTestResultWriter), "Unit tests failed.");
-    }
-}
-
 @property auto toString(Token tok) {
     import std.conv;
 

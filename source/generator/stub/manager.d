@@ -26,21 +26,12 @@ import dsrcgen.cpp;
 
 import generator.stub.types;
 
-import tested;
-
 /// C++ pool for generated objects.
 interface StubPool {
     void renderClass(CppModule hdr, CppModule impl);
     void renderRegisterFunc(CppModule hdr, CppModule impl);
     void renderRegister(const CppVariable var, CppModule impl);
     void renderUnRegister(const CppVariable var, CppModule impl);
-}
-
-version (unittest) {
-    shared static this() {
-        assert(runUnitTests!(generator.stub.manager)(new ConsoleTestResultWriter),
-            "Unit tests failed.");
-    }
 }
 
 /** Generated code for a manager that allows access and cleanup of registered
@@ -229,7 +220,7 @@ version (unittest) {
     }
 }
 
-@name("Test rendering of register declaration")
+//@name("Test rendering of register declaration")
 unittest {
     auto expect = "    void StubStubManagerRegister(Simple* instance);
     void StubStubManagerUnRegister(Simple* instance);
@@ -241,7 +232,7 @@ unittest {
     assert(expect == r, r);
 }
 
-@name("Test rendering of register implementation")
+//@name("Test rendering of register implementation")
 unittest {
     auto expect = "    Simple** stubsimplemanager_pool = 0;
     unsigned stubsimplemanager_size = 0;
@@ -290,7 +281,7 @@ unittest {
     assert(expect == r, r);
 }
 
-@name("Test rendering of register and unregister implementation")
+//@name("Test rendering of register and unregister implementation")
 unittest {
     auto expect = "    ::StubInternalSimple::StubStubManagerRegister(instance);
 ";
@@ -308,7 +299,7 @@ unittest {
     assert(expect == r, r);
 }
 
-@name("Test rendering of class declaration")
+//@name("Test rendering of class declaration")
 unittest {
     auto expect = "class StubSimpleManager {
 public:
@@ -334,7 +325,7 @@ public:
 }
 
 ///TODO add check if pool is zero. Then force a crash.
-@name("Test rendering of class implementation")
+//@name("Test rendering of class implementation")
 unittest {
     auto expect = "    StubSimpleManager::StubSimpleManager() {
     }

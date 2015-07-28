@@ -34,17 +34,6 @@ import generator.stub.mangling : NameMangling, mangleToStubDataClass,
     mangleToStubStructType, mangleToStubStructMember;
 import generator.stub.types;
 
-import tested;
-
-version (unittest) {
-    shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(generator.stub.containers)(new ConsoleTestResultWriter),
-            "Unit tests failed.");
-    }
-}
-
 /** Variables discovered during traversal of AST that data storage in the stub.
  * A common case is pointers to callbacks and parameters.
  *
@@ -439,7 +428,7 @@ private:
     CallbackPrefix cprefix;
 }
 
-@name("Test CallbackContainer length")
+//@name("Test CallbackContainer length")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     assert(cb.length == 0, "expected 0, actual " ~ to!string(cb.length));
@@ -448,7 +437,7 @@ unittest {
     assert(cb.length == 1, "expected 1, actual " ~ to!string(cb.length));
 }
 
-@name("Test CallbackContainer exists")
+//@name("Test CallbackContainer exists")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     cb.push(CppType("void"), CppMethodName("smurf"), TypeName[].init);
@@ -456,7 +445,7 @@ unittest {
     assert(cb.exists(CppMethodName("smurf"), TypeName[].init), "expected true");
 }
 
-@name("Test CallbackContainer rendering")
+//@name("Test CallbackContainer rendering")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("Foo"), CallbackPrefix("Stub"));
 

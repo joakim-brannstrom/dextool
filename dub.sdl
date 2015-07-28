@@ -4,7 +4,6 @@ copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "GPL"
 
-dependency "tested" version="~>0.9.4"
 dependency "docopt" version="~>0.6.1-b.3"
 dependency "dsrcgen" path="dsrcgen"
 
