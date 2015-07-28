@@ -146,9 +146,11 @@ private auto writeFile(in Options options, in string[] modules)
     wfile.writeln("    writeln(`Running unit tests from dirs " ~ options.dirs.to!string ~ "`);");
 
     immutable indent = "                          ";
+    wfile.writeln("    //dfmt off");
     wfile.writeln("    return args.runTests!(\n" ~
                   modules.map!(a => indent ~ `"` ~ a ~ `"`).join(",\n") ~
                   "\n" ~ indent ~ ");");
+    wfile.writeln("    //dfmt on");
     wfile.writeln("}");
     wfile.close();
 }
