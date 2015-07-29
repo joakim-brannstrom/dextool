@@ -36,6 +36,13 @@ import generator.stub.mangling;
 import generator.stub.misc : paramDeclToTypeKindVariable;
 import generator.stub.types;
 
+import unit_threaded : name;
+
+version (unittest) {
+    import test.helpers : shouldEqualPretty;
+    import unit_threaded : shouldEqual;
+}
+
 void functionTranslator(Cursor c, const StubPrefix prefix,
     const CppClassName class_name, ref VariableContainer vars,
     ref CallbackContainer callbacks, ref CppModule hdr, ref CppModule impl) {
@@ -122,33 +129,33 @@ auto castAndStoreValue(const TypeKindVariable v) @safe {
     return get_ptr ~ v.name.str;
 }
 
-//@name("Test helper for parameter casting when storing parameters")
+@name("Test helper for parameter casting when storing parameters")
 unittest {
     auto kind = TypeKind("int", false, false, false, "int");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
-    assert(rval == "bar", rval);
+    shouldEqual(rval, "bar");
 }
 
-//@name("Test helper for parameter casting of ref and ptr")
+@name("Test helper for parameter casting of ref and ptr")
 unittest {
     auto kind = TypeKind("int", false, false, true, "int*");
 
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
-    assert(rval == "bar", to!string(__LINE__) ~ rval);
+    shouldEqual(rval, "bar");
 
     kind = TypeKind("int", false, true, false, "int&");
     rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
-    assert(rval == "&bar", to!string(__LINE__) ~ rval);
+    shouldEqual(rval, "&bar");
 }
 
-//@name("Test helper for const parameter casting of ref")
+@name("Test helper for const parameter casting of ref")
 unittest {
     auto kind = TypeKind("int", true, false, true, "const int*");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
-    assert(rval == "const_cast<int*>(bar)", rval);
+    shouldEqual(rval, "const_cast<int*>(bar)");
 }
 
-//@name("Test helper for const parameter casting of ptr")
+@name("Test helper for const parameter casting of ptr")
 unittest {
     auto kind = TypeKind("int", true, true, false, "const int&");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));

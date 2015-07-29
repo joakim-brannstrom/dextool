@@ -34,6 +34,13 @@ import generator.stub.mangling : NameMangling, mangleToStubDataClass,
     mangleToStubStructType, mangleToStubStructMember;
 import generator.stub.types;
 
+import unit_threaded : name;
+
+version (unittest) {
+    import test.helpers : shouldEqualPretty;
+    import unit_threaded : shouldEqual, shouldBeTrue;
+}
+
 /** Variables discovered during traversal of AST that data storage in the stub.
  * A common case is pointers to callbacks and parameters.
  *
@@ -428,24 +435,24 @@ private:
     CallbackPrefix cprefix;
 }
 
-//@name("Test CallbackContainer length")
+@name("Test CallbackContainer length")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
-    assert(cb.length == 0, "expected 0, actual " ~ to!string(cb.length));
+    shouldEqual(cb.length, 0);
 
     cb.push(CppType("void"), CppMethodName("smurf"), TypeName[].init);
-    assert(cb.length == 1, "expected 1, actual " ~ to!string(cb.length));
+    shouldEqual(cb.length, 1);
 }
 
-//@name("Test CallbackContainer exists")
+@name("Test CallbackContainer exists")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     cb.push(CppType("void"), CppMethodName("smurf"), TypeName[].init);
 
-    assert(cb.exists(CppMethodName("smurf"), TypeName[].init), "expected true");
+    shouldBeTrue(cb.exists(CppMethodName("smurf"), TypeName[].init));
 }
 
-//@name("Test CallbackContainer rendering")
+@name("Test CallbackContainer rendering")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("Foo"), CallbackPrefix("Stub"));
 
@@ -461,5 +468,5 @@ struct Stubsmurf { virtual void smurf() = 0; };
 
 ";
 
-    assert(rval == exp, rval);
+    shouldEqual(rval, exp);
 }

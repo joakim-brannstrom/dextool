@@ -19,11 +19,17 @@
 module generator.analyze.containers;
 
 import std.typecons;
+import logger = std.experimental.logger;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
 import generator.analyze.wip : arrayRange;
 
-import logger = std.experimental.logger;
+import unit_threaded : name;
+
+version (unittest) {
+    import test.helpers : shouldEqualPretty;
+    import unit_threaded : shouldEqual;
+}
 
 public:
 
@@ -597,52 +603,51 @@ string str(T)(const T value) @safe pure nothrow {
     return cast(string) value;
 }
 
-//@name("Test of creating a function")
+@name("Test of creating a function")
 unittest {
     auto f = CFunction(CFunctionName("nothing"));
-    assert(f.returnType.name == "void");
+    shouldEqual(f.returnType.name, "void");
 }
 
-//@name("Test of creating simples CppMethod")
+@name("Test of creating simples CppMethod")
 unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
-    assert(m.isConst == false);
-    assert(m.isVirtual == VirtualType.No);
-    assert(m.name == "voider");
-    assert(m.params.length == 0);
-    assert(m.returnType.name == "void");
-    assert(m.accessType == AccessType.Public);
+    shouldEqual(m.isConst, false);
+    shouldEqual(m.isVirtual, VirtualType.No);
+    shouldEqual(m.name, "voider");
+    shouldEqual(m.params.length, 0);
+    shouldEqual(m.returnType.name, "void");
+    shouldEqual(m.accessType, AccessType.Public);
 }
 
-//@name("Test of creating a class")
+@name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
-    assert(c.methods_pub.length == 1);
-    assert(
-        c.toString == "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo\n",
-        c.toString);
+    shouldEqual(c.methods_pub.length, 1);
+    shouldEqualPretty(c.toString,
+        "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo\n");
 }
 
-//@name("Create an anonymous namespace struct")
+@name("Create an anonymous namespace struct")
 unittest {
     import std.conv;
 
     auto n = CppNamespace(CppNsStack.init);
-    assert(n.name.length == 0, text(n.name.length));
-    assert(n.isAnonymous == true, text(n.isAnonymous));
+    shouldEqual(n.name.length, 0);
+    shouldEqual(n.isAnonymous, true);
 }
 
-//@name("Create a namespace struct two deep")
+@name("Create a namespace struct two deep")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
-    assert(n.name == "bar", cast(string) n.name);
-    assert(n.isAnonymous == false);
+    shouldEqual(n.name, "bar");
+    shouldEqual(n.isAnonymous, false);
 }
 
-//@name("Test of iterating over parameters in a class")
+@name("Test of iterating over parameters in a class")
 unittest {
     import std.array : appender;
 
@@ -655,20 +660,20 @@ unittest {
         app.put(d.toString);
     }
 
-    assert(app.data == "void voider()", app.data);
+    shouldEqual(app.data, "void voider()");
 }
 
-//@name("Test of toString for a free function")
+@name("Test of toString for a free function")
 unittest {
     auto ptk = makeTypeKind("char", "char*", false, false, true);
     auto rtk = makeTypeKind("int", "int", false, false, false);
     auto f = CFunction(CFunctionName("nothing"), [CParam(TypeKindVariable(ptk,
         CppVariable("x"))), CParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
 
-    assert(f.toString == "int nothing(char* x, char* y);\n", f.toString);
+    shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
 
-//@name("Test of toString for CppTorMethod")
+@name("Test of toString for CppTorMethod")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = [CppParam(TypeKindVariable(tk, CppVariable("x")))];
@@ -678,11 +683,11 @@ unittest {
     auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init,
         CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
 
-    assert(ctor.toString == "ctor(char* x)", ctor.toString);
-    assert(dtor.toString == "virtual ~dtor()", dtor.toString);
+    shouldEqual(ctor.toString, "ctor(char* x)");
+    shouldEqual(dtor.toString, "virtual ~dtor()");
 }
 
-//@name("Test of toString for CppClass")
+@name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
@@ -720,7 +725,7 @@ unittest {
         c.put(m);
     }
 
-    assert(c.toString == "class Foo { // isVirtual No
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
 public:
   void voider();
   Foo();
@@ -730,11 +735,10 @@ protected:
 private:
   char* gun(int x, int y);
 }; //Class:Foo
-",
-        c.toString);
+");
 }
 
-//@name("Result should contain the inherited classes")
+@name("should contain the inherited classes")
 unittest {
     CppClassInherit[] inherit;
     inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
@@ -746,14 +750,13 @@ unittest {
 
     auto c = CppClass(CppClassName("Foo"), CppClassVirtual(VirtualType.No), inherit);
 
-    //    assert(
-    //        c.toString == "class Foo : public pub, protected prot, private priv { // isVirtual No
-    //} //Class:Foo
-    //",
-    //        c.toString);
+    shouldEqualPretty(c.toString,
+        "class Foo : public pub, protected prot, private priv { // isVirtual No
+}; //Class:Foo
+");
 }
 
-//@name("Test of toString for CppNamespace")
+@name("Test of toString for CppNamespace")
 unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
@@ -761,26 +764,25 @@ unittest {
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
     ns.put(c);
 
-    assert(ns.toString == "namespace simple { //simple
+    shouldEqualPretty(ns.toString, "namespace simple { //simple
 class Foo { // isVirtual No
 public:
   void voider();
 }; //Class:Foo
 } //NS:simple
-",
-        ns.toString);
+");
 }
 
-//@name("Should show nesting of namespaces as valid C++ code")
+@name("Should show nesting of namespaces as valid C++ code")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
-    assert("namespace bar { //foo::bar
+    shouldEqualPretty(n.toString, "namespace bar { //foo::bar
 } //NS:bar
-" == n.toString, n.toString);
+");
 }
 
-//@name("Test of toString for CppRoot")
+@name("Test of toString for CppRoot")
 unittest {
     CppRoot root;
 
@@ -796,7 +798,7 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    assert(root.toString == "void nothing();
+    shouldEqualPretty(root.toString, "void nothing();
 
 class Foo { // isVirtual No
 public:
@@ -805,11 +807,10 @@ public:
 
 namespace simple { //simple
 } //NS:simple
-",
-        root.toString);
+");
 }
 
-//@name("CppNamespace.toString should return nested namespace")
+@name("CppNamespace.toString should return nested namespace")
 unittest {
     auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
     auto depth1 = CppNamespace(stack[0 .. 1]);
@@ -819,12 +820,11 @@ unittest {
     depth2.put(depth3);
     depth1.put(depth2);
 
-    assert(depth1.toString == "namespace Depth1 { //Depth1
+    shouldEqualPretty(depth1.toString, "namespace Depth1 { //Depth1
 namespace Depth2 { //Depth1::Depth2
 namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth3
 } //NS:Depth2
 } //NS:Depth1
-",
-        depth1.toString);
+");
 }
