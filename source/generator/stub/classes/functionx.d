@@ -36,7 +36,7 @@ import generator.stub.mangling;
 import generator.stub.misc : paramDeclToTypeKindVariable;
 import generator.stub.types;
 
-import unit_threaded : name;
+import unit_threaded : Name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
@@ -129,14 +129,14 @@ auto castAndStoreValue(const TypeKindVariable v) @safe {
     return get_ptr ~ v.name.str;
 }
 
-@name("Test helper for parameter casting when storing parameters")
+@Name("Test helper for parameter casting when storing parameters")
 unittest {
     auto kind = TypeKind("int", false, false, false, "int");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
     shouldEqual(rval, "bar");
 }
 
-@name("Test helper for parameter casting of ref and ptr")
+@Name("Test helper for parameter casting of ref and ptr")
 unittest {
     auto kind = TypeKind("int", false, false, true, "int*");
 
@@ -148,14 +148,14 @@ unittest {
     shouldEqual(rval, "&bar");
 }
 
-@name("Test helper for const parameter casting of ref")
+@Name("Test helper for const parameter casting of ref")
 unittest {
     auto kind = TypeKind("int", true, false, true, "const int*");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
     shouldEqual(rval, "const_cast<int*>(bar)");
 }
 
-@name("Test helper for const parameter casting of ptr")
+@Name("Test helper for const parameter casting of ptr")
 unittest {
     auto kind = TypeKind("int", true, true, false, "const int&");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));

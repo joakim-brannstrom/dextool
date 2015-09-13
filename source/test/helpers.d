@@ -22,7 +22,7 @@ import unit_threaded;
 import std.ascii : newline;
 import std.traits : isSomeString;
 
-import unit_threaded : name;
+import unit_threaded : Name;
 
 version (unittest) {
     import unit_threaded : shouldEqual;
@@ -42,7 +42,8 @@ version (unittest) {
  *  line = line check is on.
  * dfmt off
  */
-void shouldEqualPretty(V, E, string file = __FILE__, ulong line = __LINE__)(V value, E expected) {
+void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V value,
+    E expected) {
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
@@ -55,7 +56,7 @@ void shouldEqualPretty(V, E, string file = __FILE__, ulong line = __LINE__)(V va
     shouldEqual(count(value), count(expected), file, line);
 }
 
-@name("shouldEqualPretty should throw the first value that is different")
+@Name("shouldEqualPretty should throw the first value that is different")
 unittest {
     import unit_threaded : UnitTestException;
 
@@ -70,7 +71,9 @@ unittest {
     catch (UnitTestException ex) {
         msg = ex.toString;
     }
-    //shouldEqualPretty(msg, "foo");
+
+    msg = "foo";
+    shouldEqualPretty(msg, "foo");
     shouldEqual(msg, "foo");
 }
 
@@ -87,9 +90,8 @@ unittest {
  *
  *  dfmt off
  */
-void shouldEqualPretty(V, E, Separator, string file = __FILE__, ulong line= __LINE__)(V value, E expected, Separator sep)
-    if (!isAllSomeString!(V, E))
-{
+void shouldEqualPretty(V, E, Separator, string file = __FILE__, size_t line = __LINE__)(
+    V value, E expected, Separator sep) if (!isAllSomeString!(V, E)) {
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
@@ -115,9 +117,8 @@ void shouldEqualPretty(V, E, Separator, string file = __FILE__, ulong line= __LI
  *
  * dfmt off
  */
-void shouldEqualPretty(V, E, string file = __FILE__, ulong line = __LINE__)(V value, E expected, string sep = newline)
-    if (isAllSomeString!(V, E))
-{
+void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(
+    V value, E expected, string sep = newline) if (isAllSomeString!(V, E)) {
     // dfmt on
     import std.algorithm : splitter;
 

@@ -34,7 +34,7 @@ import generator.stub.mangling : NameMangling, mangleToStubDataClass,
     mangleToStubStructType, mangleToStubStructMember;
 import generator.stub.types;
 
-import unit_threaded : name;
+import unit_threaded : Name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
@@ -435,7 +435,7 @@ private:
     CallbackPrefix cprefix;
 }
 
-@name("Test CallbackContainer length")
+@Name("Test CallbackContainer length")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     shouldEqual(cb.length, 0);
@@ -444,7 +444,7 @@ unittest {
     shouldEqual(cb.length, 1);
 }
 
-@name("Test CallbackContainer exists")
+@Name("Test CallbackContainer exists")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     cb.push(CppType("void"), CppMethodName("smurf"), TypeName[].init);
@@ -452,7 +452,7 @@ unittest {
     shouldBeTrue(cb.exists(CppMethodName("smurf"), TypeName[].init));
 }
 
-@name("Test CallbackContainer rendering")
+@Name("Test CallbackContainer rendering")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("Foo"), CallbackPrefix("Stub"));
 
