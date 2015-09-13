@@ -9,10 +9,14 @@ int main(string[] args) {
     return args.runTests!(
         "tests.fail.normal",
         "tests.fail.delayed",
+        "tests.fail.priv",
         "tests.fail.composite",
         "tests.fail.exception",
+        "tests.fail.klass",
         "tests.pass.normal",
         "tests.pass.delayed",
         "tests.pass.attributes",
-        "tests.pass.io");
+        "tests.pass.register",
+        "tests.pass.io",
+        );
 }

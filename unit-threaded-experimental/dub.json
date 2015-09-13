@@ -1,38 +1,18 @@
 {
-	"sourcePaths": [
-		"source/"
-	],
-	"copyright": "Copyright © 2013, Atila Neves",
-	"version": "~experimental",
-	"excludedSourceFiles": [
-		"source/unit_threaded/gen_ut_main.d"
-	],
-	"name": "unit-threaded",
-	"configurations": [
-		{
-			"name": "library",
-			"targetType": "library"
-		},
-		{
-			"sourcePaths": [
-				"tests/pass"
-			],
-			"sourceFiles": [
-				"example/example_pass.d"
-			],
-			"name": "unittest",
-			"targetType": "executable",
-			"mainSourceFile": "example/example_pass.d"
-		}
-	],
-	"importPaths": [
-		"source/"
-	],
-	"homepage": "https://github.com/atilaneves/unit-threaded",
-	"authors": [
-		"Atila Neves"
-	],
-	"targetType": "library",
-	"description": "Advanced multi-threaded unit testing framework with minimal to no boilerplate",
-	"license": "BSD 3-clause"
+    "name": "unit-threaded",
+    "description": "Advanced multi-threaded unit testing framework with minimal to no boilerplate",
+    "authors": ["Atila Neves"],
+    "homepage": "https://github.com/atilaneves/unit-threaded",
+    "copyright": "Copyright © 2013, Atila Neves",
+    "license": "BSD 3-clause",
+    "targetType": "library",
+    "configurations": [
+        { "name": "library" },
+        { "name": "unittest",
+          "targetType": "executable",
+          "sourcePaths": ["tests/pass"],
+          "sourceFiles": ["example/example_pass.d"],
+          "mainSourceFile": "example/example_pass.d"
+        }
+    ]
 }

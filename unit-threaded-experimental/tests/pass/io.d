@@ -1,28 +1,33 @@
 module tests.pass.io;
 
 import unit_threaded;
-import std.stdio;
 
 
-@name("testNoIo1") unittest
-{
+class TestIo: TestCase {
+    override void test() {
+        writelnUt("Class writelnUt should only print with '-d' option");
+    }
+}
+
+void testNoIo1() {
+    import std.stdio;
     writeln("This should not be seen except for -d option");
+    writeln("Or this");
     stderr.writeln("Stderr shouldn't be seen either");
     writelnUt("But this should show up when using -d option");
 }
 
-@name("testNoStdout") unittest
-{
-    writeln("This should not be seen except for -d option");
-}
 
-@name("testNoStderr") unittest
-{
+void testNoIo2() {
+    import std.stdio;
+    writeln("This should not be seen except for -d option");
+    writeln("Or this");
     stderr.writeln("Stderr shouldn't be seen either");
 }
 
-@name("testNoIo2") unittest
-{
+void testNoIo3() {
+    import std.stdio;
     writeln("This should not be seen except for -d option");
+    writeln("Or this");
     stderr.writeln("Stderr shouldn't be seen either");
 }
