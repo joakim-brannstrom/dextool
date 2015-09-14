@@ -43,7 +43,7 @@ version (unittest) {
  * dfmt off
  */
 void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V value,
-    E expected) {
+    E expected) if (!isAllSomeString!(V, E)) {
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
@@ -93,9 +93,6 @@ unittest {
 void shouldEqualPretty(V, E, Separator, string file = __FILE__, size_t line = __LINE__)(
     V value, E expected, Separator sep) if (!isAllSomeString!(V, E)) {
     //dfmt on
-    import std.algorithm : count;
-    import std.range : lockstep;
-    import unit_threaded : shouldEqual;
     import std.algorithm : splitter;
 
     auto rValue = value.splitter(sep);
