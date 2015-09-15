@@ -34,11 +34,11 @@ import generator.stub.mangling : NameMangling, mangleToStubDataClass,
     mangleToStubStructType, mangleToStubStructMember;
 import generator.stub.types;
 
-import unit_threaded : Name;
+import std.experimental.testing : name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import unit_threaded : shouldEqual, shouldBeTrue;
+    import std.experimental.testing : shouldEqual, shouldBeTrue;
 }
 
 /** Variables discovered during traversal of AST that data storage in the stub.
@@ -435,7 +435,7 @@ private:
     CallbackPrefix cprefix;
 }
 
-@Name("Test CallbackContainer length")
+@name("Test CallbackContainer length")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     shouldEqual(cb.length, 0);
@@ -444,7 +444,7 @@ unittest {
     shouldEqual(cb.length, 1);
 }
 
-@Name("Test CallbackContainer exists")
+@name("Test CallbackContainer exists")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("foo"), CallbackPrefix("Stub"));
     cb.push(CppType("void"), CppMethodName("smurf"), TypeName[].init);
@@ -452,7 +452,7 @@ unittest {
     shouldBeTrue(cb.exists(CppMethodName("smurf"), TypeName[].init));
 }
 
-@Name("Test CallbackContainer rendering")
+@name("Test CallbackContainer rendering")
 unittest {
     CallbackContainer cb = CallbackContainer(CallbackNs("Foo"), CallbackPrefix("Stub"));
 

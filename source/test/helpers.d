@@ -17,15 +17,14 @@
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module test.helpers;
-import unit_threaded;
 
 import std.ascii : newline;
 import std.traits : isSomeString;
 
-import unit_threaded : Name;
+import std.experimental.testing : name;
 
 version (unittest) {
-    import unit_threaded : shouldEqual;
+    import std.experimental.testing : shouldEqual;
 }
 
 /**
@@ -47,18 +46,22 @@ void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V v
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
-    import unit_threaded : shouldEqual;
+    import std.experimental.testing : shouldEqual;
 
     foreach (index, val, exp; lockstep(value, expected)) {
         shouldEqual(val, exp, file, line);
     }
 
+    import std.stdio : writeln;
+
+    writeln(file, " ", line);
+
     shouldEqual(count(value), count(expected), file, line);
 }
 
-@Name("shouldEqualPretty should throw the first value that is different")
+@name("shouldEqualPretty should throw the first value that is different")
 unittest {
-    import unit_threaded : UnitTestException;
+    import std.experimental.testing : UnitTestException;
 
     string msg;
     try {

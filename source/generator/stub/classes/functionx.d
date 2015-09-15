@@ -36,11 +36,11 @@ import generator.stub.mangling;
 import generator.stub.misc : paramDeclToTypeKindVariable;
 import generator.stub.types;
 
-import unit_threaded : Name;
+import std.experimental.testing : name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import unit_threaded : shouldEqual;
+    import std.experimental.testing : shouldEqual;
 }
 
 void functionTranslator(Cursor c, const StubPrefix prefix,
@@ -129,14 +129,14 @@ auto castAndStoreValue(const TypeKindVariable v) @safe {
     return get_ptr ~ v.name.str;
 }
 
-@Name("Test helper for parameter casting when storing parameters")
+@name("Test helper for parameter casting when storing parameters")
 unittest {
     auto kind = TypeKind("int", false, false, false, "int");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
     shouldEqual(rval, "bar");
 }
 
-@Name("Test helper for parameter casting of ref and ptr")
+@name("Test helper for parameter casting of ref and ptr")
 unittest {
     auto kind = TypeKind("int", false, false, true, "int*");
 
@@ -148,14 +148,14 @@ unittest {
     shouldEqual(rval, "&bar");
 }
 
-@Name("Test helper for const parameter casting of ref")
+@name("Test helper for const parameter casting of ref")
 unittest {
     auto kind = TypeKind("int", true, false, true, "const int*");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));
     shouldEqual(rval, "const_cast<int*>(bar)");
 }
 
-@Name("Test helper for const parameter casting of ptr")
+@name("Test helper for const parameter casting of ptr")
 unittest {
     auto kind = TypeKind("int", true, true, false, "const int&");
     auto rval = castAndStoreValue(TypeKindVariable(kind, CppVariable("bar")));

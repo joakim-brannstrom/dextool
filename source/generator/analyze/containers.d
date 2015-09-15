@@ -24,11 +24,11 @@ import logger = std.experimental.logger;
 import translator.Type : TypeKind, makeTypeKind, duplicate;
 import generator.analyze.wip : arrayRange;
 
-import unit_threaded : Name;
+import std.experimental.testing : name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import unit_threaded : shouldEqual;
+    import std.experimental.testing : shouldEqual;
 }
 
 public:
@@ -603,7 +603,7 @@ string str(T)(const T value) @safe pure nothrow {
     return cast(string) value;
 }
 
-@Name("Test of c-function ctors")
+@name("Test of c-function ctors")
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"));
@@ -628,7 +628,7 @@ unittest {
     }
 }
 
-@Name("Test of creating simples CppMethod")
+@name("Test of creating simples CppMethod")
 unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     shouldEqual(m.isConst, false);
@@ -639,7 +639,7 @@ unittest {
     shouldEqual(m.accessType, AccessType.Public);
 }
 
-@Name("Test of creating a class")
+@name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
@@ -649,7 +649,7 @@ unittest {
         "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo\n");
 }
 
-@Name("Create an anonymous namespace struct")
+@name("Create an anonymous namespace struct")
 unittest {
     import std.conv;
 
@@ -658,7 +658,7 @@ unittest {
     shouldEqual(n.isAnonymous, true);
 }
 
-@Name("Create a namespace struct two deep")
+@name("Create a namespace struct two deep")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
@@ -666,7 +666,7 @@ unittest {
     shouldEqual(n.isAnonymous, false);
 }
 
-@Name("Test of iterating over parameters in a class")
+@name("Test of iterating over parameters in a class")
 unittest {
     import std.array : appender;
 
@@ -682,7 +682,7 @@ unittest {
     shouldEqual(app.data, "void voider()");
 }
 
-@Name("Test of toString for a free function")
+@name("Test of toString for a free function")
 unittest {
     auto ptk = makeTypeKind("char", "char*", false, false, true);
     auto rtk = makeTypeKind("int", "int", false, false, false);
@@ -692,7 +692,7 @@ unittest {
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
 
-@Name("Test of toString for CppTorMethod")
+@name("Test of toString for CppTorMethod")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
@@ -706,7 +706,7 @@ unittest {
     shouldEqual(dtor.toString, "virtual ~dtor()");
 }
 
-@Name("Test of toString for CppClass")
+@name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
@@ -757,7 +757,7 @@ private:
 ");
 }
 
-@Name("should contain the inherited classes")
+@name("should contain the inherited classes")
 unittest {
     CppClassInherit[] inherit;
     inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
@@ -775,7 +775,7 @@ unittest {
 ");
 }
 
-@Name("Test of toString for CppNamespace")
+@name("Test of toString for CppNamespace")
 unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
@@ -792,7 +792,7 @@ public:
 ");
 }
 
-@Name("Should show nesting of namespaces as valid C++ code")
+@name("Should show nesting of namespaces as valid C++ code")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
@@ -801,7 +801,7 @@ unittest {
 ");
 }
 
-@Name("Test of toString for CppRoot")
+@name("Test of toString for CppRoot")
 unittest {
     CppRoot root;
 
@@ -829,7 +829,7 @@ namespace simple { //simple
 ");
 }
 
-@Name("CppNamespace.toString should return nested namespace")
+@name("CppNamespace.toString should return nested namespace")
 unittest {
     auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
     auto depth1 = CppNamespace(stack[0 .. 1]);
