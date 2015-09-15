@@ -1,6 +1,6 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/unit-threaded-experimental"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
 if [[ -e "$ROOT/test/run_wip_tests.sh" ]]; then
     INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_wip_tests.sh"
 fi
