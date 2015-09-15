@@ -4,8 +4,7 @@ copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "GPL"
 
-//dependency "unit-threaded" version="~>0.4.10"
-dependency "unit-threaded" path="unit-threaded-experimental"
+dependency "unit-threaded" path="experimental/testing"
 dependency "docopt" version="~>0.6.1-b.3"
 dependency "dsrcgen" path="dsrcgen"
 
