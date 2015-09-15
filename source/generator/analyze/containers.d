@@ -603,10 +603,29 @@ string str(T)(const T value) @safe pure nothrow {
     return cast(string) value;
 }
 
-@Name("Test of creating a function")
+@Name("Test of c-function ctors")
 unittest {
-    auto f = CFunction(CFunctionName("nothing"));
-    shouldEqual(f.returnType.name, "void");
+    { // simple version, no return or parameters.
+        auto f = CFunction(CFunctionName("nothing"));
+        shouldEqual(f.returnType.name, "void");
+        shouldEqual(f.toString, "void nothing();\n");
+    }
+
+    { // a return type.
+        auto rtk = makeTypeKind("int", "int", false, false, false);
+        auto f = CFunction(CFunctionName("nothing"), CReturnType(rtk));
+        shouldEqual(f.toString, "int nothing();\n");
+    }
+
+    { // return type and parameters.
+        auto p0 = CParam(TypeKindVariable(makeTypeKind("int", "int", false,
+            false, false), CppVariable("x")));
+        auto p1 = CParam(TypeKindVariable(makeTypeKind("char", "char", false,
+            false, false), CppVariable("y")));
+        auto rtk = makeTypeKind("int", "int", false, false, false);
+        auto f = CFunction(CFunctionName("nothing"), [p0, p1], CReturnType(rtk));
+        shouldEqual(f.toString, "int nothing(int x, char y);\n");
+    }
 }
 
 @Name("Test of creating simples CppMethod")
@@ -676,14 +695,14 @@ unittest {
 @Name("Test of toString for CppTorMethod")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
-    auto p = [CppParam(TypeKindVariable(tk, CppVariable("x")))];
+    auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
 
-    auto ctor = CppTorMethod(CppMethodName("ctor"), p,
+    auto ctor = CppTorMethod(CppMethodName("ctor"), [p, p],
         CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
     auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init,
         CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
 
-    shouldEqual(ctor.toString, "ctor(char* x)");
+    shouldEqual(ctor.toString, "ctor(char* x, char* x)");
     shouldEqual(dtor.toString, "virtual ~dtor()");
 }
 
