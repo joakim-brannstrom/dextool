@@ -204,8 +204,10 @@ pure @safe nothrow struct CppTorMethod {
         return rval.data;
     }
 
+    // because ctor is disabled the assign must be defined.
     void opAssign(CppTorMethod rhs) {
-        this = rhs;
+        this.name = rhs.name;
+        this.params = rhs.params.dup;
     }
 
     invariant() {
@@ -704,6 +706,12 @@ unittest {
 
     shouldEqual(ctor.toString, "ctor(char* x, char* x)");
     shouldEqual(dtor.toString, "virtual ~dtor()");
+
+    // test assign
+    auto q = CppTorMethod(CppMethodName("ctor2"), [p, p],
+        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+    q = ctor;
+    shouldEqual(ctor.toString, q.toString);
 }
 
 @name("Test of toString for CppClass")
