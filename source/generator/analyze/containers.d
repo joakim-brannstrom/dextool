@@ -641,6 +641,15 @@ unittest {
     shouldEqual(m.accessType, AccessType.Public);
 }
 
+@name("Test creating a CppMethod with multiple parameters")
+unittest {
+    auto tk = makeTypeKind("char", "char*", false, false, true);
+    auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
+
+    auto m = CppMethodName(CppMethodName("none"), [p, p], CppReturnType(tk),
+        CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.Yes));
+}
+
 @name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
@@ -694,7 +703,7 @@ unittest {
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
 
-@name("Test of toString for CppTorMethod")
+@name("Test of CppTorMethod")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
