@@ -467,6 +467,9 @@ pure @safe nothrow struct CppClass {
 
     invariant() {
         assert(name.length > 0);
+        foreach (i; inherits) {
+            assert(i.name.length > 0);
+        }
     }
 
     @property const {
@@ -576,6 +579,12 @@ pure @safe nothrow struct CppNamespace {
 
         auto name() {
             return name_;
+        }
+    }
+
+    invariant() {
+        foreach (s; stack) {
+            assert(s.length > 0);
         }
     }
 
