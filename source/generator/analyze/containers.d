@@ -110,19 +110,7 @@ pure @safe nothrow struct CFunction {
         return arrayRange(params);
     }
 
-    invariant() {
-        assert(name_.length > 0);
-        assert(returnType_.name.length > 0);
-        assert(returnType_.toString.length > 0);
-
-        foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
-        }
-    }
-
-    @property auto returnType() const pure @safe {
+    auto returnType() const pure @safe @property {
         return this.returnType_;
     }
 
@@ -148,9 +136,19 @@ pure @safe nothrow struct CFunction {
         return rval.data;
     }
 
-    @property const {
-        auto name() {
-            return name_;
+    auto name() @property const {
+        return name_;
+    }
+
+    invariant() {
+        assert(name_.length > 0);
+        assert(returnType_.name.length > 0);
+        assert(returnType_.toString.length > 0);
+
+        foreach (p; params) {
+            assert(p.name.length > 0);
+            assert(p.type.name.length > 0);
+            assert(p.type.toString.length > 0);
         }
     }
 
@@ -210,16 +208,6 @@ pure @safe nothrow struct CppTorMethod {
         return rval.data;
     }
 
-    invariant() {
-        assert(name.length > 0);
-
-        foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
-        }
-    }
-
     @property const {
         auto isVirtual() {
             return isVirtual_;
@@ -227,6 +215,16 @@ pure @safe nothrow struct CppTorMethod {
 
         auto accessType() {
             return accessType_;
+        }
+    }
+
+    invariant() {
+        assert(name.length > 0);
+
+        foreach (p; params) {
+            assert(p.name.length > 0);
+            assert(p.type.name.length > 0);
+            assert(p.type.toString.length > 0);
         }
     }
 
@@ -316,18 +314,6 @@ pure @safe nothrow struct CppMethod {
         return rval.data;
     }
 
-    invariant() {
-        assert(name.length > 0);
-        assert(returnType.name.length > 0);
-        assert(returnType.toString.length > 0);
-
-        foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
-        }
-    }
-
     @property const {
         auto isConst() {
             return isConst_;
@@ -339,6 +325,18 @@ pure @safe nothrow struct CppMethod {
 
         auto accessType() {
             return accessType_;
+        }
+    }
+
+    invariant() {
+        assert(name.length > 0);
+        assert(returnType.name.length > 0);
+        assert(returnType.toString.length > 0);
+
+        foreach (p; params) {
+            assert(p.name.length > 0);
+            assert(p.type.name.length > 0);
+            assert(p.type.toString.length > 0);
         }
     }
 
