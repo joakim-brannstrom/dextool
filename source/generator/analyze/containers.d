@@ -84,7 +84,7 @@ pure @safe nothrow struct CFunction {
     @disable this();
 
     this(const CFunctionName name, const CParam[] params_, const CReturnType return_type) {
-        this.name = name;
+        this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CReturnType) return_type);
 
         //TODO how do you replace this with a range?
@@ -111,7 +111,7 @@ pure @safe nothrow struct CFunction {
     }
 
     invariant() {
-        assert(name.length > 0);
+        assert(name_.length > 0);
         assert(returnType_.name.length > 0);
         assert(returnType_.toString.length > 0);
 
@@ -148,9 +148,15 @@ pure @safe nothrow struct CFunction {
         return rval.data;
     }
 
-    immutable CFunctionName name;
+    @property const {
+        auto name() {
+            return name_;
+        }
+    }
 
 private:
+    CFunctionName name_;
+
     CParam[] params;
     CReturnType returnType_;
 }
@@ -162,8 +168,8 @@ pure @safe nothrow struct CppTorMethod {
     this(const CppMethodName name, const CppParam[] params_, const CppAccess access,
         const CppVirtualMethod virtual) {
         this.name = name;
-        this.accessType = access;
-        this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
+        this.accessType_ = access;
+        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
         CppParam[] tmp;
@@ -204,12 +210,6 @@ pure @safe nothrow struct CppTorMethod {
         return rval.data;
     }
 
-    // because ctor is disabled the assign must be defined.
-    void opAssign(CppTorMethod rhs) {
-        this.name = rhs.name;
-        this.params = rhs.params.dup;
-    }
-
     invariant() {
         assert(name.length > 0);
 
@@ -220,10 +220,20 @@ pure @safe nothrow struct CppTorMethod {
         }
     }
 
-    immutable VirtualType isVirtual;
-    immutable CppAccess accessType;
+    @property const {
+        auto isVirtual() {
+            return isVirtual_;
+        }
+
+        auto accessType() {
+            return accessType_;
+        }
+    }
 
 private:
+    VirtualType isVirtual_;
+    CppAccess accessType_;
+
     CppMethodName name;
     CppParam[] params;
 }
@@ -236,9 +246,9 @@ pure @safe nothrow struct CppMethod {
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name = name;
         this.returnType = duplicate(cast(const TypedefType!CppReturnType) return_type);
-        this.accessType = access;
-        this.isConst = cast(TypedefType!CppConstMethod) const_;
-        this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
+        this.accessType_ = access;
+        this.isConst_ = cast(TypedefType!CppConstMethod) const_;
+        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
         CppParam[] tmp;
@@ -306,10 +316,6 @@ pure @safe nothrow struct CppMethod {
         return rval.data;
     }
 
-    void opAssign(CppMethod rhs) {
-        this = rhs;
-    }
-
     invariant() {
         assert(name.length > 0);
         assert(returnType.name.length > 0);
@@ -322,11 +328,25 @@ pure @safe nothrow struct CppMethod {
         }
     }
 
-    immutable bool isConst;
-    immutable VirtualType isVirtual;
-    immutable CppAccess accessType;
+    @property const {
+        auto isConst() {
+            return isConst_;
+        }
+
+        auto isVirtual() {
+            return isVirtual_;
+        }
+
+        auto accessType() {
+            return accessType_;
+        }
+    }
 
 private:
+    bool isConst_;
+    VirtualType isVirtual_;
+    CppAccess accessType_;
+
     CppMethodName name;
     CppParam[] params;
     CppReturnType returnType;
@@ -340,7 +360,7 @@ pure @safe nothrow struct CppClass {
 
     this(const CppClassName name, const CppClassVirtual virtual, const CppClassInherit[] inherits) {
         this.name = name;
-        this.isVirtual = cast(TypedefType!CppClassVirtual) virtual;
+        this.isVirtual_ = cast(TypedefType!CppClassVirtual) virtual;
         this.inherits = inherits.dup;
     }
 
@@ -353,7 +373,7 @@ pure @safe nothrow struct CppClass {
         this(name, CppClassVirtual(VirtualType.No));
     }
 
-    void put(T)(T func) @trusted nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
+    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppTorMethod)) {
         final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
@@ -449,11 +469,17 @@ pure @safe nothrow struct CppClass {
         assert(name.length > 0);
     }
 
-    immutable VirtualType isVirtual;
+    @property const {
+        auto isVirtual() {
+            return isVirtual_;
+        }
+    }
 
 private:
     CppClassName name;
     CppClassInherit[] inherits;
+
+    VirtualType isVirtual_;
 
     alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
     CppFunc[] methods_pub;
@@ -475,9 +501,9 @@ pure @safe nothrow struct CppNamespace {
 
     this(const CppNsStack stack) {
         if (stack.length > 0) {
-            this.name = stack[$ - 1];
+            this.name_ = stack[$ - 1];
         }
-        this.isAnonymous = stack.length == 0;
+        this.isAnonymous_ = stack.length == 0;
         this.stack = stack.dup;
     }
 
@@ -543,10 +569,20 @@ pure @safe nothrow struct CppNamespace {
         return app.data;
     }
 
-    immutable bool isAnonymous;
-    immutable CppNs name;
+    @property const {
+        auto isAnonymous() {
+            return isAnonymous_;
+        }
+
+        auto name() {
+            return name_;
+        }
+    }
 
 private:
+    bool isAnonymous_;
+    CppNs name_;
+
     CppNsStack stack;
     CppClass[] classes;
     CFunction[] funcs;
@@ -646,8 +682,10 @@ unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
 
-    auto m = CppMethodName(CppMethodName("none"), [p, p], CppReturnType(tk),
+    auto m = CppMethod(CppMethodName("none"), [p, p], CppReturnType(tk),
         CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.Yes));
+
+    shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
 }
 
 @name("Test of creating a class")
