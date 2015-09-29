@@ -46,10 +46,20 @@ void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V v
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
-    import std.experimental.testing : shouldEqual;
+    import std.experimental.testing : shouldEqual, UnitTestException;
+    import std.conv : text;
 
-    foreach (index, val, exp; lockstep(value, expected)) {
-        shouldEqual(val, exp, file, line);
+    size_t idx;
+
+    try {
+        foreach (index, val, exp; lockstep(value, expected)) {
+            idx = index;
+            shouldEqual(val, exp, file, line);
+        }
+    }
+    catch (UnitTestException ex) {
+        string[] lines = ["Line:" ~ idx.text, ex.toString()];
+        throw new UnitTestException(lines, file, line);
     }
 
     import std.stdio : writeln;
