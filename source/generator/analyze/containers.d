@@ -736,8 +736,6 @@ unittest {
 
 @name("Create an anonymous namespace struct")
 unittest {
-    import std.conv;
-
     auto n = CppNamespace(CppNsStack.init);
     shouldEqual(n.name.length, 0);
     shouldEqual(n.isAnonymous, true);
