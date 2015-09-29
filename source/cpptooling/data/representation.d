@@ -387,6 +387,20 @@ pure @safe nothrow struct CppClass {
         }
     }
 
+    void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
+        final switch (accessType) {
+        case AccessType.Public:
+            classes_pub ~= class_;
+            break;
+        case AccessType.Protected:
+            classes_prot ~= class_;
+            break;
+        case AccessType.Private:
+            classes_priv ~= class_;
+            break;
+        }
+    }
+
     auto inheritRange() const @nogc @safe pure nothrow {
         return arrayRange(inherits);
     }
@@ -409,6 +423,24 @@ pure @safe nothrow struct CppClass {
         return arrayRange(methods_priv);
     }
 
+    auto classRange() @nogc @safe pure nothrow {
+        import std.range : chain;
+
+        return chain(classes_pub, classes_prot, classes_priv);
+    }
+
+    auto classPublicRange() @nogc @safe pure nothrow {
+        return arrayRange(classes_pub);
+    }
+
+    auto classProtectedRange() @nogc @safe pure nothrow {
+        return arrayRange(classes_prot);
+    }
+
+    auto classPrivateRange() @nogc @safe pure nothrow {
+        return arrayRange(classes_priv);
+    }
+
     ///TODO make the function const.
     string toString() const @safe {
         import std.array : Appender, appender;
@@ -425,26 +457,29 @@ pure @safe nothrow struct CppClass {
         }
 
         static void appPubRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_pub.length > 0) {
+            if (th.methods_pub.length > 0 || th.classes_pub.length > 0) {
                 formattedWrite(app, "public:%s", newline);
                 (cast(Tx) th).methodPublicRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
+                (cast(Tx) th).classPublicRange.each!(a => app.put(a.toString()));
             }
         }
 
         static void appProtRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_prot.length > 0) {
+            if (th.methods_prot.length > 0 || th.classes_prot.length > 0) {
                 formattedWrite(app, "protected:%s", newline);
                 (cast(Tx) th).methodProtectedRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
+                (cast(Tx) th).classProtectedRange.each!(a => app.put(a.toString()));
             }
         }
 
         static void appPrivRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_priv.length > 0) {
+            if (th.methods_priv.length > 0 || th.classes_priv.length > 0) {
                 formattedWrite(app, "private:%s", newline);
                 (cast(Tx) th).methodPrivateRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
+                (cast(Tx) th).classPrivateRange.each!(a => app.put(a.toString()));
             }
         }
 
@@ -500,6 +535,10 @@ private:
     CppFunc[] methods_pub;
     CppFunc[] methods_prot;
     CppFunc[] methods_priv;
+
+    CppClass[] classes_pub;
+    CppClass[] classes_prot;
+    CppClass[] classes_priv;
 }
 
 pure @safe nothrow struct CppNamespace {
@@ -863,6 +902,28 @@ unittest {
 
     shouldEqualPretty(c.toString,
         "class Foo : public pub, protected prot, private priv { // isVirtual No
+}; //Class:Foo
+");
+}
+
+@name("should contain nested classes")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+
+    c.put(CppClass(CppClassName("Pub")), AccessType.Public);
+    c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
+    c.put(CppClass(CppClassName("Priv")), AccessType.Private);
+
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+public:
+class Pub { // isVirtual No
+}; //Class:Pub
+protected:
+class Prot { // isVirtual No
+}; //Class:Prot
+private:
+class Priv { // isVirtual No
+}; //Class:Priv
 }; //Class:Foo
 ");
 }
