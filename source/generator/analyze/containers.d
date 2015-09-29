@@ -83,6 +83,7 @@ enum AccessType {
 pure @safe nothrow struct CFunction {
     @disable this();
 
+    /// C function representation.
     this(const CFunctionName name, const CParam[] params_, const CReturnType return_type) {
         this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CReturnType) return_type);
@@ -106,10 +107,12 @@ pure @safe nothrow struct CFunction {
         this(name, CParam[].init, void_);
     }
 
+    /// A range over the parameters of the function.
     auto paramRange() const @nogc @safe pure nothrow {
         return arrayRange(params);
     }
 
+    /// The return type of the function.
     auto returnType() const pure @safe @property {
         return returnType_;
     }
