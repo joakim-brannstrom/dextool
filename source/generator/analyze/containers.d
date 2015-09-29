@@ -759,7 +759,7 @@ unittest {
 
     auto app = appender!string();
     foreach (d; c.methodRange) {
-        app.put(d.toString);
+        app.put(d.toString());
     }
 
     shouldEqual(app.data, "void voider()");
