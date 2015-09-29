@@ -936,3 +936,24 @@ namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth1
 ");
 }
+
+@name("Create anonymouse namespace")
+unittest {
+    auto n = CppNamespace.makeAnonymous();
+
+    shouldEqualPretty(n.toString, "namespace  { //
+} //NS:
+");
+}
+
+@name("Add a C-func to a namespace")
+unittest {
+    auto n = CppNamespace.makeAnonymous();
+    auto f = CFunction(CFunctionName("nothing"));
+    n.put(f);
+
+    shouldEqualPretty(n.toString, "namespace  { //
+void nothing();
+} //NS:
+");
+}
