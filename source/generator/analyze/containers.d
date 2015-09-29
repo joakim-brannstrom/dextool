@@ -111,7 +111,8 @@ pure @safe nothrow struct CFunction {
     }
 
     auto returnType() const pure @safe @property {
-        return this.returnType_;
+        return returnType_;
+    }
 
     /// Function name representation.
     auto name() @property const pure {
