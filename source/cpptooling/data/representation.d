@@ -16,13 +16,13 @@
 /// You should have received a copy of the GNU General Public License
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-module generator.analyze.containers;
+module cpptooling.data.representation;
 
 import std.typecons;
 import logger = std.experimental.logger;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
-import generator.analyze.wip : arrayRange;
+import cpptooling.utility.ranges : arrayRange;
 
 import std.experimental.testing : name;
 

@@ -6,23 +6,9 @@ int main(string[] args) {
     writeln(`Running unit tests from dirs ["generator", "translator", "test", "wipapp"]`);
     //dfmt off
     return args.runTests!(
-                          "generator.stub.classes.class_methods",
-                          "generator.stub.classes.simplecontext",
-                          "generator.stub.classes.access",
-                          "generator.stub.classes.functionx",
-                          "generator.stub.context",
-                          "generator.stub.stub",
-                          "generator.stub.mangling",
-                          "generator.stub.convert",
-                          "generator.stub.misc",
-                          "generator.stub.types",
-                          "generator.stub.manager",
-                          "generator.stub.containers",
-                          "generator.analyze.wip",
-                          "generator.analyze.containers",
-                          "generator.clangcontext",
-                          "generator.analyzer",
-                          "translator.Type",
+                          "cpptooling.data.representation",
+                          "cpptooling.utility.clang",
+                          "cpptooling.utility.ranges",
                           "test.helpers",
                           "wipapp.wip_main"
                           );

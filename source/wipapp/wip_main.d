@@ -27,17 +27,18 @@ import clang.Cursor;
 
 import dsrcgen.cpp;
 
-import wip = generator.analyze.wip;
+import cpptooling.utility.clang : visitAst;
+import cpptooling.data.representation : AccessType;
+
 import generator.clangcontext;
 import generator.analyzer;
-import generator.analyze.containers : AccessType;
 
 import generator.stub.misc;
 
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
 struct FunctionVisitor {
-    import generator.analyze.containers : CParam, CFunctionName, CReturnType,
+    import cpptooling.data.representation : CParam, CFunctionName, CReturnType,
         CFunction;
 
     static auto make(ref Cursor) {
@@ -66,7 +67,7 @@ struct FunctionVisitor {
  * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
-    import generator.analyze.containers : CppClass, CppAccess, CppParam,
+    import cpptooling.data.representation : CppClass, CppAccess, CppParam,
         CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
         CppReturnType, CppMethod, CppConstMethod;
     import std.typecons : NullableRef;
@@ -83,7 +84,7 @@ struct ClassDescendVisitor {
     }
 
     void visit(ref Cursor c) {
-        wip.visitAst!(typeof(this))(c, this);
+        visitAst!(typeof(this))(c, this);
     }
 
     void applyRoot(ref Cursor root) {
@@ -167,7 +168,7 @@ private:
  * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
-    import generator.analyze.containers : CppClassName, CppClassVirtual,
+    import cpptooling.data.representation : CppClassName, CppClassVirtual,
         CppClass, VirtualType;
     import std.typecons : NullableRef;
 
@@ -217,7 +218,7 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
 
 struct NamespaceDescendVisitor {
     import std.typecons : NullableRef;
-    import generator.analyze.containers : CppNamespace;
+    import cpptooling.data.representation : CppNamespace;
 
     @disable this();
 
@@ -230,7 +231,7 @@ struct NamespaceDescendVisitor {
     }
 
     void visit(ref Cursor c) {
-        wip.visitAst!(typeof(this))(c, this);
+        visitAst!(typeof(this))(c, this);
     }
 
     void applyRoot(ref Cursor root) {
@@ -271,7 +272,7 @@ private:
  */
 struct NamespaceVisitor {
     import std.typecons : NullableRef;
-    import generator.analyze.containers : CppNsStack, CppNs, CppNamespace;
+    import cpptooling.data.representation : CppNsStack, CppNs, CppNamespace;
 
     static auto make(ref Cursor c) {
         return NamespaceVisitor.make(c, CppNsStack.init);
@@ -300,7 +301,7 @@ struct NamespaceVisitor {
     }
 
     auto visit(ref Cursor c) {
-        wip.visitAst!(typeof(this))(c, this);
+        visitAst!(typeof(this))(c, this);
         return data;
     }
 
@@ -331,13 +332,13 @@ private:
 
 /// Root visitor of AST.
 struct ParseContext {
-    import generator.analyze.containers : CppRoot;
+    import cpptooling.data.representation : CppRoot;
 
     private VisitNodeDepth depth_;
     alias depth_ this;
 
     void visit(Cursor cursor) {
-        wip.visitAst!(typeof(this))(cursor, this);
+        visitAst!(typeof(this))(cursor, this);
     }
 
     void applyRoot(ref Cursor root) {
