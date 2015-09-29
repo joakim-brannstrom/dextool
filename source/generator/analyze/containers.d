@@ -112,6 +112,10 @@ pure @safe nothrow struct CFunction {
 
     auto returnType() const pure @safe @property {
         return this.returnType_;
+
+    /// Function name representation.
+    auto name() @property const pure {
+        return name_;
     }
 
     string toString() const @safe pure {
@@ -119,12 +123,11 @@ pure @safe nothrow struct CFunction {
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
-        import std.range : takeOne;
 
         auto ps = appender!string();
         auto pr = paramRange();
-        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
         if (!pr.empty) {
+            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
             pr.popFront;
             pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
         }
@@ -134,10 +137,6 @@ pure @safe nothrow struct CFunction {
             newline);
 
         return rval.data;
-    }
-
-    auto name() @property const {
-        return name_;
     }
 
     invariant() {
@@ -185,12 +184,11 @@ pure @safe nothrow struct CppTorMethod {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne;
 
         auto ps = appender!string();
         auto pr = paramRange();
-        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
         if (!pr.empty) {
+            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
             pr.popFront;
             pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
         }
@@ -269,8 +267,9 @@ pure @safe nothrow struct CppMethod {
         this(name, CppParam[].init, void_, access, const_, virtual);
     }
 
-    void put(CppParam p) {
-        params ~= p;
+    void put(const CppParam p) {
+        TypeKindVariable tk = TypeKindVariable(duplicate(p.type), p.name);
+        params ~= CppParam(tk);
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
@@ -281,12 +280,11 @@ pure @safe nothrow struct CppMethod {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
-        import std.range : takeOne;
 
         auto ps = appender!string();
         auto pr = paramRange();
-        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
         if (!pr.empty) {
+            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
             pr.popFront;
             pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
         }
@@ -352,7 +350,7 @@ private:
 
 // TODO consider make CppClass be able to hold nested classes.
 pure @safe nothrow struct CppClass {
-    import std.variant;
+    import std.variant : Algebraic, visit;
 
     @disable this();
 
@@ -385,12 +383,12 @@ pure @safe nothrow struct CppClass {
         }
     }
 
-    auto inheritRange() @nogc @safe pure nothrow {
+    auto inheritRange() const @nogc @safe pure nothrow {
         return arrayRange(inherits);
     }
 
     auto methodRange() @nogc @safe pure nothrow {
-        import std.range;
+        import std.range : chain;
 
         return chain(methods_pub, methods_prot, methods_priv);
     }
@@ -408,7 +406,7 @@ pure @safe nothrow struct CppClass {
     }
 
     ///TODO make the function const.
-    string toString() @safe {
+    string toString() const @safe {
         import std.array : Appender, appender;
         import std.conv : to;
         import std.algorithm : each;
@@ -420,6 +418,30 @@ pure @safe nothrow struct CppClass {
             return func.visit!((CppMethod a) => a.toString,
                                (CppTorMethod a) => a.toString);
             //dfmt on
+        }
+
+        static void appPubRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
+            if (th.methods_pub.length > 0) {
+                formattedWrite(app, "public:%s", newline);
+                (cast(Tx) th).methodPublicRange.each!(a => formattedWrite(app,
+                    "  %s;%s", funcToString(a), newline));
+            }
+        }
+
+        static void appProtRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
+            if (th.methods_prot.length > 0) {
+                formattedWrite(app, "protected:%s", newline);
+                (cast(Tx) th).methodProtectedRange.each!(a => formattedWrite(app,
+                    "  %s;%s", funcToString(a), newline));
+            }
+        }
+
+        static void appPrivRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
+            if (th.methods_priv.length > 0) {
+                formattedWrite(app, "private:%s", newline);
+                (cast(Tx) th).methodPrivateRange.each!(a => formattedWrite(app,
+                    "  %s;%s", funcToString(a), newline));
+            }
         }
 
         static string inheritRangeToString(T)(T range) @trusted {
@@ -443,21 +465,9 @@ pure @safe nothrow struct CppClass {
 
         formattedWrite(app, "class %s%s { // isVirtual %s%s", name.str,
             inheritRangeToString(inheritRange()), to!string(isVirtual), newline);
-        if (methods_pub.length > 0) {
-            formattedWrite(app, "public:%s", newline);
-            methodPublicRange.each!(a => formattedWrite(app, "  %s;%s", funcToString(a),
-                newline));
-        }
-        if (methods_prot.length > 0) {
-            formattedWrite(app, "protected:%s", newline);
-            methodProtectedRange.each!(a => formattedWrite(app, "  %s;%s",
-                funcToString(a), newline));
-        }
-        if (methods_priv.length > 0) {
-            formattedWrite(app, "private:%s", newline);
-            methodPrivateRange.each!(a => formattedWrite(app, "  %s;%s", funcToString(a),
-                newline));
-        }
+        appPubRange(this, app);
+        appProtRange(this, app);
+        appPrivRange(this, app);
         formattedWrite(app, "}; //Class:%s%s", name.str, newline);
 
         return app.data;
@@ -543,29 +553,42 @@ pure @safe nothrow struct CppNamespace {
         return arrayRange(namespaces);
     }
 
-    string toString() @safe {
-        import std.array : appender;
+    string toString() const @safe {
+        import std.array : Appender, appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
         import std.range : retro;
         import std.ascii : newline;
 
-        auto ns_app = appender!string();
-        auto ns_r = nsNestingRange().retro;
-        string ns_top_name;
-        if (!ns_r.empty) {
-            ns_top_name = ns_r.back.str;
-            ns_app.put(ns_r.front.str);
-            ns_r.popFront;
-            ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
+        static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
+            (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s", a.toString));
+            (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s", a.toString));
+            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s", a.toString));
         }
 
+        static void nsToStrings(T : const(Tx), Tx)(ref T th, out string ns_name, out string ns_concat) @trusted {
+            auto ns_app = appender!string();
+            ns_name = "";
+            ns_concat = "";
+
+            auto ns_r = (cast(Tx) th).nsNestingRange().retro;
+            if (!ns_r.empty) {
+                ns_name = ns_r.back.str;
+                ns_app.put(ns_r.front.str);
+                ns_r.popFront;
+                ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
+                ns_concat = ns_app.data;
+            }
+        }
+
+        string ns_name;
+        string ns_concat;
+        nsToStrings(this, ns_name, ns_concat);
+
         auto app = appender!string();
-        formattedWrite(app, "namespace %s { //%s%s", ns_top_name, ns_app.data, newline);
-        funcRange.each!(a => formattedWrite(app, "%s", a.toString));
-        classRange.each!(a => formattedWrite(app, "%s", a.toString));
-        namespaceRange.each!(a => formattedWrite(app, "%s", a.toString));
-        formattedWrite(app, "} //NS:%s%s", ns_top_name, newline);
+        formattedWrite(app, "namespace %s { //%s%s", ns_name, ns_concat, newline);
+        appRanges(this, app);
+        formattedWrite(app, "} //NS:%s%s", ns_name, newline);
 
         return app.data;
     }
@@ -609,19 +632,24 @@ pure @safe nothrow struct CppRoot {
         this.ns ~= ns;
     }
 
-    string toString() {
-        import std.algorithm : each;
-        import std.array : appender;
-        import std.ascii : newline;
-        import std.format : formattedWrite;
+    string toString() const @safe {
+        import std.array : Appender, appender;
+
+        static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
+            import std.algorithm : each;
+            import std.ascii : newline;
+            import std.format : formattedWrite;
+
+            (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
+            app.put(newline);
+            (cast(Tx) th).classRange.each!(a => app.put(a.toString));
+            app.put(newline);
+            (cast(Tx) th).namespaceRange.each!(a => app.put(a.toString));
+        }
 
         auto app = appender!string();
 
-        funcRange.each!(a => app.put(a.toString));
-        app.put(newline);
-        classRange.each!(a => app.put(a.toString));
-        app.put(newline);
-        namespaceRange.each!(a => app.put(a.toString));
+        appRanges(this, app);
 
         return app.data;
     }
