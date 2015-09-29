@@ -22,7 +22,7 @@ import std.typecons;
 import logger = std.experimental.logger;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
-import cpptooling.utility.ranges : arrayRange;
+import cpptooling.utility.range : arrayRange;
 
 import std.experimental.testing : name;
 

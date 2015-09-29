@@ -8,7 +8,7 @@ int main(string[] args) {
     return args.runTests!(
                           "cpptooling.data.representation",
                           "cpptooling.utility.clang",
-                          "cpptooling.utility.ranges",
+                          "cpptooling.utility.range",
                           "test.helpers",
                           "wipapp.wip_main"
                           );
