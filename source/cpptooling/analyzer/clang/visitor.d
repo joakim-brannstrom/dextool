@@ -84,6 +84,8 @@ struct ClassDescendVisitor {
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
+        import std.typecons : TypedefType;
+
         bool descend = true;
 
         switch (c.kind) with (CXCursorKind) {
@@ -100,9 +102,15 @@ struct ClassDescendVisitor {
             descend = false;
             break;
         case CXCursor_CXXAccessSpecifier:
-            this.accessType = CppAccess(toAccessType(c.access.accessSpecifier));
+            accessType = CppAccess(toAccessType(c.access.accessSpecifier));
             break;
         case CXCursor_CXXBaseSpecifier:
+            break;
+        case CXCursor_ClassDecl:
+            // Another visitor must analyze the nested class to allow us to
+            // construct a correct representation.
+            data.put(ClassVisitor.make(c).visit(c), cast(TypedefType!CppAccess) accessType);
+            descend = false;
             break;
         default:
             break;
