@@ -62,21 +62,21 @@ struct ClassDescendVisitor {
     import cpptooling.data.representation : CppClass, CppAccess, CppParam,
         CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
         CppReturnType, CppMethod, CppConstMethod;
-    import std.typecons : NullableRef;
 
     @disable this();
 
-    this(NullableRef!CppClass data) {
-        if (data.isNull) {
-            logger.fatal("CppClass parameter is null");
-            throw new Exception("CppClass parameter is null");
-        }
-        this.data = &data.get();
+    this(CppClass data) {
+        //if (data.isNull) {
+        //    logger.fatal("CppClass parameter is null");
+        //    throw new Exception("CppClass parameter is null");
+        //}
+        this.data = data;
         this.accessType = CppAccess(AccessType.Private);
     }
 
-    void visit(ref Cursor c) {
+    CppClass visit(ref Cursor c) {
         visitAst!(typeof(this))(c, this);
+        return data;
     }
 
     void applyRoot(ref Cursor root) {
@@ -149,7 +149,7 @@ private:
     }
 
 private:
-    CppClass* data;
+    CppClass data;
     CppAccess accessType;
 }
 
@@ -162,7 +162,6 @@ private:
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
         CppClass, VirtualType;
-    import std.typecons : NullableRef;
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
@@ -186,10 +185,8 @@ struct ClassVisitor {
             logger.error("Expected cursor to be a definition but it is:", to!string(c));
             return data;
         }
-        auto d = NullableRef!CppClass(&data);
-        ClassDescendVisitor(d).visit(c);
 
-        return data;
+        return ClassDescendVisitor(data).visit(c);
     }
 
 private:
