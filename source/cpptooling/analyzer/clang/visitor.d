@@ -30,7 +30,7 @@ import cpptooling.utility.clang : visitAst, logNode;
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
 struct FunctionVisitor {
-    import cpptooling.data.representation : CParam, CFunctionName, CReturnType,
+    import cpptooling.data.representation : CxParam, CFunctionName, CReturnType,
         CFunction;
 
     static auto make(ref Cursor) {
@@ -40,7 +40,7 @@ struct FunctionVisitor {
     auto visit(ref Cursor c) {
         import translator.Type : TypeKind, translateType;
 
-        auto params = paramDeclTo!CParam(c);
+        auto params = paramDeclTo(c);
         auto name = CFunctionName(c.spelling);
         auto return_type = CReturnType(translateType(c.func.resultType));
 
@@ -59,7 +59,7 @@ struct FunctionVisitor {
  * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
-    import cpptooling.data.representation : CppClass, CppAccess, CppParam,
+    import cpptooling.data.representation : CppClass, CppAccess, CxParam,
         CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
         CppReturnType, CppMethod, CppConstMethod;
 
@@ -120,7 +120,7 @@ struct ClassDescendVisitor {
 
 private:
     void applyConstructor(ref Cursor c, ref Cursor parent) {
-        auto params = paramDeclTo!CppParam(c);
+        auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
         auto tor = CppTorMethod(name, params, accessType, CppVirtualMethod(VirtualType.No));
         logger.info("ctor: ", tor.toString);
@@ -128,7 +128,7 @@ private:
     }
 
     void applyDestructor(ref Cursor c, ref Cursor parent) {
-        auto params = paramDeclTo!CppParam(c);
+        auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
         auto tor = CppTorMethod(name, params, accessType,
             CppVirtualMethod(c.func.isVirtual ? VirtualType.Yes : VirtualType.No));
@@ -139,7 +139,7 @@ private:
     void applyMethod(ref Cursor c, ref Cursor parent) {
         import translator.Type : TypeKind, translateType;
 
-        auto params = paramDeclTo!CppParam(c);
+        auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
         auto return_type = CppReturnType(translateType(c.func.resultType));
 
@@ -356,6 +356,10 @@ struct ParseContext {
             root.put(NamespaceVisitor.make(c).visit(c));
             descend = false;
             break;
+        case CXCursor_FunctionDecl:
+            root.put(FunctionVisitor.make(c).visit(c));
+            descend = false;
+            break;
 
         default:
             break;
@@ -386,17 +390,24 @@ private:
  * ---
  * It is translated to the array [("char", "x"), ("char", "y")].
  */
-T[] paramDeclTo(T)(Cursor cursor) {
+auto paramDeclTo(Cursor cursor) {
     import translator.Type : TypeKind, translateType;
-    import cpptooling.data.representation : TypeKindVariable, CppVariable;
+    import cpptooling.data.representation : TypeKindVariable, CppVariable,
+        makeCxParam, CxParam;
+    import std.traits;
 
-    T[] params;
+    CxParam[] params;
 
     foreach (param; cursor.func.parameters) {
         auto type = translateType(param.type);
-        params ~= T(TypeKindVariable(type, CppVariable(param.spelling)));
+        params ~= makeCxParam(TypeKindVariable(type, CppVariable(param.spelling)));
     }
 
-    logger.trace(params);
+    debug {
+        foreach (p; params) {
+            logger.trace(p.toString);
+        }
+    }
+
     return params;
 }

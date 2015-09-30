@@ -18,7 +18,9 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module cpptooling.data.representation;
 
+import std.array : Appender;
 import std.typecons;
+import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
@@ -42,7 +44,6 @@ alias CppNsNesting = Typedef!(string, string.init, "CppNsNesting");
 
 alias CppVariable = Typedef!(string, string.init, "CppVariable");
 alias TypeKindVariable = Tuple!(TypeKind, "type", CppVariable, "name");
-alias CppParam = Typedef!(TypeKindVariable, TypeKindVariable.init, "CppParam");
 alias CppReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
 
 // Types for classes
@@ -64,8 +65,10 @@ alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
 
 // Types for free functions
 alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
-alias CParam = Typedef!(TypeKindVariable, TypeKindVariable.init, "CParam");
 alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CReturnType");
+
+// Shared types between C and Cpp
+alias CxParam = Algebraic!(TypeKindVariable, TypeKind);
 
 enum VirtualType {
     No,
@@ -79,32 +82,57 @@ enum AccessType {
     Private
 }
 
+/// CParam created by analyzing a TypeKindVariable.
+/// A empty variable name means it is of the algebraic type TypeKind.
+CxParam makeCxParam(TypeKindVariable tk) {
+    if (tk.name.length == 0)
+        return CxParam(tk.type);
+    return CxParam(tk);
+}
+
+private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
+    import std.variant : visit;
+
+    (cast(Tx) p).visit!((TypeKindVariable tk) {
+        assert(tk.name.length > 0);
+        assert(tk.type.name.length > 0);
+        assert(tk.type.toString.length > 0);
+    }, (TypeKind t) { assert(t.name.length > 0); assert(t.toString.length > 0); });
+}
+
+private void toInternal(CxParam p, ref Appender!string app) @trusted {
+    import std.variant : visit;
+    import std.format : formattedWrite;
+
+    p.visit!((TypeKindVariable tk) {
+        formattedWrite(app, "%s %s", tk.type.toString, tk.name.str);
+    }, (TypeKind t) { app.put(t.toString); });
+}
+
 /// Information about free functions.
 pure @safe nothrow struct CFunction {
     @disable this();
 
     /// C function representation.
-    this(const CFunctionName name, const CParam[] params_, const CReturnType return_type) {
+    this(const CFunctionName name, const CxParam[] params_, const CReturnType return_type) {
         this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CReturnType) return_type);
 
         //TODO how do you replace this with a range?
-        CParam[] tmp;
         foreach (p; params_) {
-            tmp ~= CParam(TypeKindVariable(duplicate(p.type), p.name));
+            this.params ~= p;
         }
-        this.params = tmp;
     }
 
     /// Function with no parameters.
     this(const CFunctionName name, const CReturnType return_type) {
-        this(name, CParam[].init, return_type);
+        this(name, CxParam[].init, return_type);
     }
 
     /// Function with no parameters and returning void.
     this(const CFunctionName name) {
         CReturnType void_ = makeTypeKind("void", "void", false, false, false);
-        this(name, CParam[].init, void_);
+        this(name, CxParam[].init, void_);
     }
 
     /// A range over the parameters of the function.
@@ -122,8 +150,8 @@ pure @safe nothrow struct CFunction {
         return name_;
     }
 
-    string toString() const @safe pure {
-        import std.array : appender;
+    string toString() const @safe {
+        import std.array : Appender, appender;
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -131,9 +159,9 @@ pure @safe nothrow struct CFunction {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
+            toInternal(pr.front, ps);
             pr.popFront;
-            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
         }
 
         auto rval = appender!string();
@@ -149,16 +177,14 @@ pure @safe nothrow struct CFunction {
         assert(returnType_.toString.length > 0);
 
         foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
+            assertVisit(p);
         }
     }
 
 private:
     CFunctionName name_;
 
-    CParam[] params;
+    CxParam[] params;
     CReturnType returnType_;
 }
 
@@ -166,25 +192,23 @@ private:
 pure @safe nothrow struct CppTorMethod {
     @disable this();
 
-    this(const CppMethodName name, const CppParam[] params_, const CppAccess access,
+    this(const CppMethodName name, const CxParam[] params_, const CppAccess access,
         const CppVirtualMethod virtual) {
         this.name = name;
         this.accessType_ = access;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
-        CppParam[] tmp;
         foreach (p; params_) {
-            tmp ~= CppParam(TypeKindVariable(duplicate(p.type), p.name));
+            this.params ~= p;
         }
-        this.params = tmp;
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
         return arrayRange(params);
     }
 
-    string toString() const @safe pure {
+    string toString() const @safe {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -192,9 +216,9 @@ pure @safe nothrow struct CppTorMethod {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
+            toInternal(pr.front, ps);
             pr.popFront;
-            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
         }
 
         auto rval = appender!string();
@@ -224,9 +248,7 @@ pure @safe nothrow struct CppTorMethod {
         assert(name.length > 0);
 
         foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
+            assertVisit(p);
         }
     }
 
@@ -235,13 +257,13 @@ private:
     CppAccess accessType_;
 
     CppMethodName name;
-    CppParam[] params;
+    CxParam[] params;
 }
 
 pure @safe nothrow struct CppMethod {
     @disable this();
 
-    this(const CppMethodName name, const CppParam[] params_,
+    this(const CppMethodName name, const CxParam[] params_,
         const CppReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name = name;
@@ -251,36 +273,33 @@ pure @safe nothrow struct CppMethod {
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
-        CppParam[] tmp;
         foreach (p; params_) {
-            tmp ~= CppParam(TypeKindVariable(duplicate(p.type), p.name));
+            this.params ~= p;
         }
-        this.params = tmp;
     }
 
     /// Function with no parameters.
     this(const CppMethodName name, const CppReturnType return_type,
         const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
-        this(name, CppParam[].init, return_type, access, const_, virtual);
+        this(name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
         const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
         CppReturnType void_ = makeTypeKind("void", "void", false, false, false);
-        this(name, CppParam[].init, void_, access, const_, virtual);
+        this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
-    void put(const CppParam p) {
-        TypeKindVariable tk = TypeKindVariable(duplicate(p.type), p.name);
-        params ~= CppParam(tk);
+    void put(const CxParam p) {
+        params ~= p;
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
         return arrayRange(params);
     }
 
-    string toString() const @safe pure {
+    string toString() const @safe {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -288,9 +307,9 @@ pure @safe nothrow struct CppMethod {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            formattedWrite(ps, "%s %s", pr.front.type.toString, pr.front.name.str);
+            toInternal(pr.front, ps);
             pr.popFront;
-            pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
         }
 
         auto rval = appender!string();
@@ -336,9 +355,7 @@ pure @safe nothrow struct CppMethod {
         assert(returnType.toString.length > 0);
 
         foreach (p; params) {
-            assert(p.name.length > 0);
-            assert(p.type.name.length > 0);
-            assert(p.type.toString.length > 0);
+            assertVisit(p);
         }
     }
 
@@ -348,7 +365,7 @@ private:
     CppAccess accessType_;
 
     CppMethodName name;
-    CppParam[] params;
+    CxParam[] params;
     CppReturnType returnType;
 }
 
@@ -734,10 +751,10 @@ unittest {
     }
 
     { // return type and parameters.
-        auto p0 = CParam(TypeKindVariable(makeTypeKind("int", "int", false,
-            false, false), CppVariable("x")));
-        auto p1 = CParam(TypeKindVariable(makeTypeKind("char", "char", false,
-            false, false), CppVariable("y")));
+        auto p0 = makeCxParam(TypeKindVariable(makeTypeKind("int", "int",
+            false, false, false), CppVariable("x")));
+        auto p1 = makeCxParam(TypeKindVariable(makeTypeKind("char", "char",
+            false, false, false), CppVariable("y")));
         auto rtk = makeTypeKind("int", "int", false, false, false);
         auto f = CFunction(CFunctionName("nothing"), [p0, p1], CReturnType(rtk));
         shouldEqual(f.toString, "int nothing(int x, char y);\n");
@@ -758,7 +775,7 @@ unittest {
 @name("Test creating a CppMethod with multiple parameters")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
-    auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
+    auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto m = CppMethod(CppMethodName("none"), [p, p], CppReturnType(tk),
         CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.Yes));
@@ -811,8 +828,9 @@ unittest {
 unittest {
     auto ptk = makeTypeKind("char", "char*", false, false, true);
     auto rtk = makeTypeKind("int", "int", false, false, false);
-    auto f = CFunction(CFunctionName("nothing"), [CParam(TypeKindVariable(ptk,
-        CppVariable("x"))), CParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
+    auto f = CFunction(CFunctionName("nothing"),
+        [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
+        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
 
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
@@ -820,11 +838,11 @@ unittest {
 @name("Test of CppTorMethod")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
-    auto p = CppParam(TypeKindVariable(tk, CppVariable("x")));
+    auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto ctor = CppTorMethod(CppMethodName("ctor"), [p, p],
         CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
-    auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init,
+    auto dtor = CppTorMethod(CppMethodName("~dtor"), CxParam[].init,
         CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
 
     shouldEqual(ctor.toString, "ctor(char* x, char* x)");
@@ -843,7 +861,7 @@ unittest {
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
 
     {
-        auto m = CppTorMethod(CppMethodName("Foo"), CppParam[].init,
+        auto m = CppTorMethod(CppMethodName("Foo"), CxParam[].init,
             CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
         c.put(m);
     }
@@ -861,10 +879,10 @@ unittest {
             CppReturnType(makeTypeKind("char", "char*", false, false, true)),
             CppAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(VirtualType.No));
-        m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
-            false, false), CppVariable("x"))));
-        m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
-            false, false), CppVariable("y"))));
+        m.put(CxParam(TypeKindVariable(makeTypeKind("int", "int", false, false,
+            false), CppVariable("x"))));
+        m.put(CxParam(TypeKindVariable(makeTypeKind("int", "int", false, false,
+            false), CppVariable("y"))));
         c.put(m);
     }
 
