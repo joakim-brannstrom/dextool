@@ -19,7 +19,7 @@
 module cpptooling.data.representation;
 
 import std.array : Appender;
-import std.typecons;
+import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
@@ -68,7 +68,7 @@ alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
 alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CReturnType");
 
 // Shared types between C and Cpp
-alias CxParam = Algebraic!(TypeKindVariable, TypeKind);
+alias CxParam = Algebraic!(TypeKindVariable, TypeKind, Flag!"isVariadic");
 
 enum VirtualType {
     No,
@@ -80,6 +80,11 @@ enum AccessType {
     Public,
     Protected,
     Private
+}
+
+/// Make a variadic parameter.
+CxParam makeCxParam() {
+    return CxParam(Flag!"isVariadic".yes);
 }
 
 /// CParam created by analyzing a TypeKindVariable.
@@ -97,7 +102,8 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
         assert(tk.name.length > 0);
         assert(tk.type.name.length > 0);
         assert(tk.type.toString.length > 0);
-    }, (TypeKind t) { assert(t.name.length > 0); assert(t.toString.length > 0); });
+    }, (TypeKind t) { assert(t.name.length > 0); assert(t.toString.length > 0); },
+        (Flag!"isVariadic") {  });
 }
 
 private void toInternal(CxParam p, ref Appender!string app) @trusted {
@@ -106,11 +112,13 @@ private void toInternal(CxParam p, ref Appender!string app) @trusted {
 
     p.visit!((TypeKindVariable tk) {
         formattedWrite(app, "%s %s", tk.type.toString, tk.name.str);
-    }, (TypeKind t) { app.put(t.toString); });
+    }, (TypeKind t) { app.put(t.toString); }, (Flag!"isVariadic") => app.put("..."));
 }
 
 /// Information about free functions.
 pure @safe nothrow struct CFunction {
+    import std.typecons : TypedefType;
+
     @disable this();
 
     /// C function representation.
@@ -190,6 +198,8 @@ private:
 
 /// Constructor or destructor methods.
 pure @safe nothrow struct CppTorMethod {
+    import std.typecons : TypedefType;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params_, const CppAccess access,
@@ -261,6 +271,8 @@ private:
 }
 
 pure @safe nothrow struct CppMethod {
+    import std.typecons : TypedefType;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params_,
@@ -372,6 +384,7 @@ private:
 // TODO consider make CppClass be able to hold nested classes.
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
+    import std.typecons : TypedefType;
 
     @disable this();
 

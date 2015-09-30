@@ -403,6 +403,10 @@ auto paramDeclTo(Cursor cursor) {
         params ~= makeCxParam(TypeKindVariable(type, CppVariable(param.spelling)));
     }
 
+    if (cursor.func.isVariadic) {
+        params ~= makeCxParam();
+    }
+
     debug {
         foreach (p; params) {
             logger.trace(p.toString);
