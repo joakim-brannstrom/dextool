@@ -31,10 +31,14 @@ import docopt;
 import argvalue; // from docopt
 import dsrcgen.cpp;
 
-import generator.stub.context : StubController;
-import generator.stub.classes.simplecontext : ClassController;
-import generator.stub.classes.class_methods : MethodController;
-import generator.stub.types;
+import cpptooling.analyzer.clang.context;
+import cpptooling.analyzer.clang.visitor;
+import cpptooling.data.representation : AccessType;
+import cpptooling.utility.clang : visitAst, logNode;
+
+alias HdrFilename = Typedef!(string, string.init, "HeaderFilename");
+/// Prefix used for prepending generated code with a unique string to avoid name collisions.
+alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
 static string doc = "
 usage:
@@ -125,7 +129,7 @@ class SimpleLogger : logger.Logger {
  *  - Only stub virtual functions.
  *  - Stub all functions.
  */
-class StubVariant1 : StubController, ClassController, MethodController {
+class StubVariant1 {
     HdrFilename incl_file;
     FileScopeType file_scope;
     FuncScopeType func_scope;
@@ -163,10 +167,6 @@ class StubVariant1 : StubController, ClassController, MethodController {
         return HdrFilename((cast(string) incl_file).baseName);
     }
 
-    ClassController getClass() {
-        return this;
-    }
-
     bool useObjectPool() {
         return true;
     }
@@ -175,20 +175,12 @@ class StubVariant1 : StubController, ClassController, MethodController {
         return prefix;
     }
 
-    MethodController getMethod() {
-        return this;
-    }
-
     bool doVirtualMethod() {
         return func_scope == FuncScopeType.Virtual || func_scope == FuncScopeType.All;
     }
 
     bool doMethod() {
         return func_scope == FuncScopeType.All;
-    }
-
-    StubPrefix getMethodPrefix() {
-        return prefix;
     }
 }
 
@@ -214,8 +206,8 @@ ExitStatusType gen_stub(const string infile, const string outdir,
     const ref string[] cflags, FileScopeType file_scope, FuncScopeType func_scope) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
-    import generator.clangcontext;
-    import generator.stub.context;
+    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.visitor;
 
     auto hdr_ext = ".hpp";
     auto impl_ext = ".cpp";
@@ -241,31 +233,33 @@ ExitStatusType gen_stub(const string infile, const string outdir,
     if (file_ctx.hasParseErrors)
         return ExitStatusType.Errors;
 
-    auto ctx = StubContext(ctrl);
-    ctx.translate(file_ctx.cursor);
+    auto ctx = ParseContext();
+    ctx.visit(file_ctx.cursor);
 
-    auto outfile_hdr = try_open_file(hdr_out_filename, "w");
-    if (outfile_hdr.isEmpty) {
-        return ExitStatusType.Errors;
-    }
-    scope (exit)
-        outfile_hdr.close();
+    writeln("Content from root: ", ctx.root.toString);
 
-    auto outfile_impl = try_open_file(impl_out_filename, "w");
-    if (outfile_impl.isEmpty) {
-        return ExitStatusType.Errors;
-    }
-    scope (exit)
-        outfile_impl.close();
-
-    try {
-        outfile_hdr.write(ctx.output_header(stub_hdr_filename));
-        outfile_impl.write(ctx.output_impl(stub_hdr_filename));
-    }
-    catch (ErrnoException ex) {
-        logger.trace(text(ex));
-        return ExitStatusType.Errors;
-    }
+    //auto outfile_hdr = try_open_file(hdr_out_filename, "w");
+    //if (outfile_hdr.isEmpty) {
+    //    return ExitStatusType.Errors;
+    //}
+    //scope (exit)
+    //    outfile_hdr.close();
+    //
+    //auto outfile_impl = try_open_file(impl_out_filename, "w");
+    //if (outfile_impl.isEmpty) {
+    //    return ExitStatusType.Errors;
+    //}
+    //scope (exit)
+    //    outfile_impl.close();
+    //
+    //try {
+    //    outfile_hdr.write(ctx.output_header(stub_hdr_filename));
+    //    outfile_impl.write(ctx.output_impl(stub_hdr_filename));
+    //}
+    //catch (ErrnoException ex) {
+    //    logger.trace(text(ex));
+    //    return ExitStatusType.Errors;
+    //}
 
     return ExitStatusType.Ok;
 }
