@@ -32,7 +32,8 @@ buildType "unittest-cov" {
 
 configuration "release" {
     targetType "executable"
-    excludedSourceFiles "source/wip_main.d" "source/generator/analyze"
+    buildType "debugInfo"
+    excludedSourceFiles "source/wipapp/wip_main.d" "source/generator/*"
 }
 
 configuration "unittest" {
@@ -40,19 +41,5 @@ configuration "unittest" {
     targetType "executable"
     buildType "debugInfo"
     mainSourceFile "test/ut_main.d"
-}
-
-configuration "wip" {
-    targetName "wip"
-    targetType "executable"
-    buildType "debugInfo"
-    mainSourceFile "source/wipapp/wip_main.d"
-    excludedSourceFiles "source/application/*.d"
-}
-
-configuration "wip-unittest" {
-    targetName "wip-unittest"
-    targetType "executable"
-    buildType "debugInfo"
-    mainSourceFile "test/wip_ut_main.d"
+    excludedSourceFiles "source/wipapp/wip_main.d" "source/generator/*"
 }
