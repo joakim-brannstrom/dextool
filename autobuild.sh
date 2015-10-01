@@ -1,6 +1,6 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
 if [[ -e "$ROOT/test/run_tests.sh" ]]; then
     INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_tests.sh"
 fi
@@ -54,7 +54,7 @@ function check_status() {
 function state_init() {
     echo "Started watching path: "
     echo $INOTIFY_PATH | tr "[:blank:]" "\n"
-    export LFLAGS="-L/usr/lib/llvm-3.6/lib/"
+    export LFLAGS="-L/usr/lib/llvm-3.6/lib"
 }
 
 function state_wait() {
@@ -93,13 +93,12 @@ function state_release_build() {
 }
 
 function state_release_test() {
-    if [[ -d "$ROOT/test/run_tests.sh" ]]; then
+    if [[ -e "$ROOT/test/run_tests.sh" ]]; then
         pushd test
         ./run_tests.sh
         check_status "Release Tests"
         popd
     fi
-    return
 }
 
 function state_doc_build() {
