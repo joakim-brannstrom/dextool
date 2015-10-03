@@ -22,12 +22,11 @@ import std.array : Appender;
 import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
+import std.experimental.testing : name;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
-
-import std.experimental.testing : name;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;

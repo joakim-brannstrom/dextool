@@ -58,7 +58,7 @@ void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V v
         }
     }
     catch (UnitTestException ex) {
-        string[] lines = ["Line:" ~ idx.text, ex.toString()];
+        string[] lines = ["Chunk:" ~ idx.text, ex.toString()];
         throw new UnitTestException(lines, file, line);
     }
 

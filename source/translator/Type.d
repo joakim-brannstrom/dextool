@@ -122,7 +122,6 @@ body {
             case CXType_Typedef:
                 result = translateTypedef(type);
                 break;
-
             case CXType_ConstantArray:
                 result.name = translateConstantArray(type, false);
                 break;
@@ -132,7 +131,6 @@ body {
             case CXType_LValueReference:
                 result = translateReference(type);
                 break;
-
             default:
                 result = translateDefault(type);
             }
