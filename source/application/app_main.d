@@ -35,10 +35,11 @@ import cpptooling.analyzer.clang.context;
 import cpptooling.analyzer.clang.visitor;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
+import cpptooling.generator.stub.stub : StubGenerator, StubController;
 
-alias HdrFilename = Typedef!(string, string.init, "HeaderFilename");
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
+alias HdrFilename = StubGenerator.HdrFilename;
 
 static string doc = "
 usage:
@@ -129,7 +130,7 @@ class SimpleLogger : logger.Logger {
  *  - Only stub virtual functions.
  *  - Stub all functions.
  */
-class StubVariant1 {
+class StubVariant1 : StubController {
     HdrFilename incl_file;
     FileScopeType file_scope;
     FuncScopeType func_scope;
@@ -236,30 +237,33 @@ ExitStatusType gen_stub(const string infile, const string outdir,
     auto ctx = ParseContext();
     ctx.visit(file_ctx.cursor);
 
-    writeln("Content from root: ", ctx.root.toString);
+    logger.info("Representation from root node:" ~ ctx.root.toString);
 
-    //auto outfile_hdr = try_open_file(hdr_out_filename, "w");
-    //if (outfile_hdr.isEmpty) {
-    //    return ExitStatusType.Errors;
-    //}
-    //scope (exit)
-    //    outfile_hdr.close();
-    //
-    //auto outfile_impl = try_open_file(impl_out_filename, "w");
-    //if (outfile_impl.isEmpty) {
-    //    return ExitStatusType.Errors;
-    //}
-    //scope (exit)
-    //    outfile_impl.close();
-    //
-    //try {
-    //    outfile_hdr.write(ctx.output_header(stub_hdr_filename));
-    //    outfile_impl.write(ctx.output_impl(stub_hdr_filename));
-    //}
-    //catch (ErrnoException ex) {
-    //    logger.trace(text(ex));
-    //    return ExitStatusType.Errors;
-    //}
+    auto stubgen = StubGenerator(ctrl);
+    stubgen.translate(ctx.root);
+
+    auto outfile_hdr = try_open_file(hdr_out_filename, "w");
+    if (outfile_hdr.isEmpty) {
+        return ExitStatusType.Errors;
+    }
+    scope (exit)
+        outfile_hdr.close();
+
+    auto outfile_impl = try_open_file(impl_out_filename, "w");
+    if (outfile_impl.isEmpty) {
+        return ExitStatusType.Errors;
+    }
+    scope (exit)
+        outfile_impl.close();
+
+    try {
+        outfile_hdr.write(stubgen.outputHdr(stub_hdr_filename));
+        outfile_impl.write(stubgen.outputImpl(stub_hdr_filename));
+    }
+    catch (ErrnoException ex) {
+        logger.trace(text(ex));
+        return ExitStatusType.Errors;
+    }
 
     return ExitStatusType.Ok;
 }
