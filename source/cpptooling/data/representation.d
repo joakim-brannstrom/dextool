@@ -25,6 +25,7 @@ import logger = std.experimental.logger;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
 import cpptooling.utility.range : arrayRange;
+import cpptooling.utility.conv : str;
 
 import std.experimental.testing : name;
 
@@ -743,10 +744,6 @@ private:
     CppNamespace[] ns;
     CppClass[] classes;
     CFunction[] funcs;
-}
-
-string str(T)(const T value) @safe pure nothrow {
-    return cast(string) value;
 }
 
 @name("Test of c-function ctors")
