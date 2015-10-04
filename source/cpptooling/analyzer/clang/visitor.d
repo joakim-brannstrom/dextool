@@ -350,6 +350,9 @@ struct ParseContext {
             // visit node to find nested classes
             root.put(ClassVisitor.make(c).visit(c));
             break;
+        case CXCursor_CXXBaseSpecifier:
+            descend = false;
+            break;
         case CXCursor_Namespace:
             root.put(NamespaceVisitor.make(c).visit(c));
             descend = false;
