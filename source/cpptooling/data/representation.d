@@ -409,25 +409,21 @@ pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
 
+    alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
+
     mixin mixinUniqueId;
 
     @disable this();
 
-    this(const CppClassName name, const CppClassVirtual virtual, const CppClassInherit[] inherits) {
+    this(const CppClassName name, const CppClassInherit[] inherits) {
         this.name_ = name;
-        this.isVirtual_ = cast(TypedefType!CppClassVirtual) virtual;
         this.inherits_ = inherits.dup;
 
         this.id_ = makeUniqueId();
     }
 
-    this(const CppClassName name, const CppClassVirtual virtual) {
-        this(name, virtual, CppClassInherit[].init);
-    }
-
-    /// A plain class, no virtual.
     this(const CppClassName name) {
-        this(name, CppClassVirtual(VirtualType.No));
+        this(name, CppClassInherit[].init);
     }
 
     void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppTorMethod)) {
@@ -442,6 +438,8 @@ pure @safe nothrow struct CppClass {
             methods_priv ~= CppFunc(func);
             break;
         }
+
+        isVirtual_ = analyzeVirtuality(this);
     }
 
     void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
@@ -505,6 +503,15 @@ pure @safe nothrow struct CppClass {
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
+
+        static void updateVirt(T : const(Tx), Tx)(ref T th) @trusted {
+            if (StateType.Dirty == th.st) {
+                (cast(Tx) th).isVirtual_ = analyzeVirtuality(cast(Tx) th);
+                (cast(Tx) th).st = StateType.Clean;
+            }
+        }
+
+        updateVirt(this);
 
         static string funcToString(CppFunc func) @trusted {
             //dfmt off
@@ -595,12 +602,19 @@ pure @safe nothrow struct CppClass {
     }
 
 private:
+    // Dirty if the virtuality has to be recalculated.
+    enum StateType {
+        Dirty,
+        Clean
+    }
+
+    StateType st;
+
     CppClassName name_;
     CppClassInherit[] inherits_;
 
     VirtualType isVirtual_;
 
-    alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
     CppFunc[] methods_pub;
     CppFunc[] methods_prot;
     CppFunc[] methods_priv;
@@ -608,6 +622,46 @@ private:
     CppClass[] classes_pub;
     CppClass[] classes_prot;
     CppClass[] classes_priv;
+}
+
+// Clang have no function that says if a class is virtual/pure virtual.
+// So have to post process.
+//TODO move this func so it is a free function.
+private VirtualType analyzeVirtuality(CppClass th) @safe {
+    static auto getVirt(CppClass.CppFunc func) @trusted {
+        import std.variant : visit;
+
+        // Ignoring Tor's.
+        //dfmt off
+        return func.visit!((CppMethod a) => a.isVirtual(),
+                           (CppTorMethod a) => VirtualType.Pure);
+        //dfmt on
+    }
+
+    auto mr = th.methodRange();
+    auto v = VirtualType.No;
+    if (!mr.empty) {
+        v = getVirt(mr.front);
+        mr.popFront();
+    }
+    foreach (m; mr) {
+        auto mVirt = getVirt(m);
+
+        final switch (th.isVirtual_) {
+        case VirtualType.Pure:
+            v = mVirt;
+            break;
+        case VirtualType.Yes:
+            if (mVirt != VirtualType.Pure) {
+                v = mVirt;
+            }
+            break;
+        case VirtualType.No:
+            break;
+        }
+    }
+
+    return v;
 }
 
 pure @safe nothrow struct CppNamespace {
@@ -968,7 +1022,7 @@ unittest {
     inherit ~= CppClassInherit(CppClassName("priv"), CppClassNesting(""),
         CppAccess(AccessType.Private));
 
-    auto c = CppClass(CppClassName("Foo"), CppClassVirtual(VirtualType.No), inherit);
+    auto c = CppClass(CppClassName("Foo"), inherit);
 
     shouldEqualPretty(c.toString,
         "class Foo : public pub, protected prot, private priv { // isVirtual No
@@ -994,6 +1048,56 @@ class Prot { // isVirtual No
 private:
 class Priv { // isVirtual No
 }; //Class:Priv
+}; //Class:Foo
+");
+}
+
+@name("should be a virtual class")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+
+    {
+        auto m = CppTorMethod(CppMethodName("~Foo"), CxParam[].init,
+            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+        c.put(m);
+    }
+    {
+        auto m = CppMethod(CppMethodName("wun"),
+            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CppAccess(AccessType.Public), CppConstMethod(false),
+            CppVirtualMethod(VirtualType.Yes));
+        c.put(m);
+    }
+
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes
+public:
+  virtual ~Foo();
+  virtual int wun();
+}; //Class:Foo
+");
+}
+
+@name("should be a pure virtual class")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+
+    {
+        auto m = CppTorMethod(CppMethodName("~Foo"), CxParam[].init,
+            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+        c.put(m);
+    }
+    {
+        auto m = CppMethod(CppMethodName("wun"),
+            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CppAccess(AccessType.Public), CppConstMethod(false),
+            CppVirtualMethod(VirtualType.Pure));
+        c.put(m);
+    }
+
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure
+public:
+  virtual ~Foo();
+  virtual int wun() = 0;
 }; //Class:Foo
 ");
 }

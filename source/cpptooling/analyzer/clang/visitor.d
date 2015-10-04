@@ -175,16 +175,14 @@ struct ClassVisitor {
      */
     static auto make(ref Cursor c) {
         auto name = CppClassName(c.spelling);
-        auto isVirtual = CppClassVirtual(c.isVirtualBase ? VirtualType.Pure : VirtualType.No);
-
-        auto r = ClassVisitor(name, isVirtual);
+        auto r = ClassVisitor(name);
         return r;
     }
 
     @disable this();
 
-    private this(CppClassName name, CppClassVirtual virtual) {
-        this.data = CppClass(name, virtual);
+    private this(CppClassName name) {
+        this.data = CppClass(name);
     }
 
     auto visit(ref Cursor c) {
