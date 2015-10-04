@@ -42,17 +42,12 @@ struct StubGenerator {
 
     alias HdrFilename = Typedef!(string, string.init, "HdrFilename");
 
-    /**
-     * Params:
-     *  prefix = prefix to use for the name of the stub class.
-     */
     this(StubController ctrl) {
         this.ctrl = ctrl;
-        this.hdr = new CppModule;
-        this.impl = new CppModule;
     }
 
-    void translate(CppRoot) {
+    void translate(CppRoot root) {
+        tr = .translate(root, ctrl);
     }
 
     /** Generate the C++ header file of the stub.
@@ -68,7 +63,7 @@ struct StubGenerator {
         auto o = CppHModule(translate(filename.str, table));
         o.content.include(ctrl.getIncludeFile.str);
         o.content.sep(2);
-        o.content.append(this.hdr);
+        o.content.text(tr.toString());
 
         return o.render;
     }
@@ -79,14 +74,40 @@ struct StubGenerator {
         o.suppressIndent(1);
         o.include(filename.str);
         o.sep(2);
-        o.append(impl);
 
         return o.render;
     }
 
 private:
-    CppModule hdr;
-    CppModule impl;
-
     StubController ctrl;
+    CppRoot tr;
 }
+
+private:
+import cpptooling.data.representation : CppRoot, CppClass;
+
+/// Structurally transformed the input to a stub implementation.
+CppRoot translate(CppRoot input, StubController ctrl) {
+    CppRoot tr;
+
+    //foreach(c; input.classRange()) {
+    //    tr.put(translateClass(c, ctrl));
+    //}
+
+    return tr;
+}
+
+//CppClass translateClass(CppClass input, StubController ctrl) {
+//    import cpptooling.data.representation : CppClassInherit, VirtualType;
+//    import cpptooling.utility.conv : str;
+//
+//    if (input.isVirtual) {
+//        auto inherit = CppClassInherit(input.name, );
+//        auto name = CppClassName(ctrl.getClassPrefix().str ~ input.name.str);
+//
+//        auto c = CppClass(name, input.isVirtual, )
+//
+//    } else {
+//        return input;
+//    }
+//}

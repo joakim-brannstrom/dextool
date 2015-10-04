@@ -405,7 +405,6 @@ private:
     CppReturnType returnType;
 }
 
-// TODO consider make CppClass be able to hold nested classes.
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
@@ -415,9 +414,9 @@ pure @safe nothrow struct CppClass {
     @disable this();
 
     this(const CppClassName name, const CppClassVirtual virtual, const CppClassInherit[] inherits) {
-        this.name = name;
+        this.name_ = name;
         this.isVirtual_ = cast(TypedefType!CppClassVirtual) virtual;
-        this.inherits = inherits.dup;
+        this.inherits_ = inherits.dup;
 
         this.id_ = makeUniqueId();
     }
@@ -460,7 +459,7 @@ pure @safe nothrow struct CppClass {
     }
 
     auto inheritRange() const @nogc @safe pure nothrow {
-        return arrayRange(inherits);
+        return arrayRange(inherits_);
     }
 
     auto methodRange() @nogc @safe pure nothrow {
@@ -560,32 +559,44 @@ pure @safe nothrow struct CppClass {
 
         auto app = appender!string();
 
-        formattedWrite(app, "class %s%s { // isVirtual %s%s", name.str,
-            inheritRangeToString(inheritRange()), to!string(isVirtual), newline);
+        formattedWrite(app, "class %s%s { // isVirtual %s%s", name_.str,
+            inheritRangeToString(inheritRange()), to!string(virtualType()), newline);
         appPubRange(this, app);
         appProtRange(this, app);
         appPrivRange(this, app);
-        formattedWrite(app, "}; //Class:%s%s", name.str, newline);
+        formattedWrite(app, "}; //Class:%s%s", name_.str, newline);
 
         return app.data;
     }
 
     invariant() {
-        assert(name.length > 0);
-        foreach (i; inherits) {
+        assert(name_.length > 0);
+        foreach (i; inherits_) {
             assert(i.name.length > 0);
         }
     }
 
     @property const {
         auto isVirtual() {
+            return isVirtual_ != VirtualType.No;
+        }
+
+        auto virtualType() {
             return isVirtual_;
+        }
+
+        auto name() {
+            return name_;
+        }
+
+        auto inherits() {
+            return inherits_;
         }
     }
 
 private:
-    CppClassName name;
-    CppClassInherit[] inherits;
+    CppClassName name_;
+    CppClassInherit[] inherits_;
 
     VirtualType isVirtual_;
 
