@@ -89,9 +89,16 @@ private template mixinUniqueId() {
         return typeid(this).getHash(&this);
     }
 
-    size_t getId() {
+    size_t id() {
         return id_;
     }
+}
+
+string toStringNs(CppNsStack ns) {
+    import std.algorithm : map;
+    import std.array : join;
+
+    return ns.map!(a => cast(string) a).join("::");
 }
 
 /// Make a variadic parameter.
@@ -840,6 +847,19 @@ private:
     CppNamespace[] ns;
     CppClass[] classes;
     CFunction[] funcs;
+}
+
+/// Find where in the structure a class with the uniqe id reside.
+CppNsStack whereIsClass(CppRoot root, const size_t id) {
+    CppNsStack ns;
+
+    foreach (c; root.classRange()) {
+        if (c.id() == id) {
+            return ns;
+        }
+    }
+
+    return ns;
 }
 
 @name("Test of c-function ctors")
