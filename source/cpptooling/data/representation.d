@@ -82,6 +82,18 @@ enum AccessType {
     Private
 }
 
+private template mixinUniqueId() {
+    private size_t id_;
+
+    private size_t makeUniqueId() {
+        return typeid(this).getHash(&this);
+    }
+
+    size_t getId() {
+        return id_;
+    }
+}
+
 /// Make a variadic parameter.
 CxParam makeCxParam() {
     return CxParam(Flag!"isVariadic".yes);
@@ -119,6 +131,8 @@ private void toInternal(CxParam p, ref Appender!string app) @trusted {
 pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     /// C function representation.
@@ -130,6 +144,8 @@ pure @safe nothrow struct CFunction {
         foreach (p; params_) {
             this.params ~= p;
         }
+
+        this.id_ = makeUniqueId();
     }
 
     /// Function with no parameters.
@@ -200,6 +216,8 @@ private:
 pure @safe nothrow struct CppTorMethod {
     import std.typecons : TypedefType;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params_, const CppAccess access,
@@ -212,6 +230,8 @@ pure @safe nothrow struct CppTorMethod {
         foreach (p; params_) {
             this.params ~= p;
         }
+
+        this.id_ = makeUniqueId();
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
@@ -273,6 +293,8 @@ private:
 pure @safe nothrow struct CppMethod {
     import std.typecons : TypedefType;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params_,
@@ -288,6 +310,8 @@ pure @safe nothrow struct CppMethod {
         foreach (p; params_) {
             this.params ~= p;
         }
+
+        this.id_ = makeUniqueId();
     }
 
     /// Function with no parameters.
@@ -386,12 +410,16 @@ pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppClassName name, const CppClassVirtual virtual, const CppClassInherit[] inherits) {
         this.name = name;
         this.isVirtual_ = cast(TypedefType!CppClassVirtual) virtual;
         this.inherits = inherits.dup;
+
+        this.id_ = makeUniqueId();
     }
 
     this(const CppClassName name, const CppClassVirtual virtual) {
@@ -574,6 +602,8 @@ private:
 pure @safe nothrow struct CppNamespace {
     @disable this();
 
+    mixin mixinUniqueId;
+
     static auto makeAnonymous() {
         return CppNamespace(CppNsStack.init);
     }
@@ -589,6 +619,8 @@ pure @safe nothrow struct CppNamespace {
         }
         this.isAnonymous_ = stack.length == 0;
         this.stack = stack.dup;
+
+        this.id_ = makeUniqueId();
     }
 
     void put(CFunction f) {
