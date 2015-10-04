@@ -18,7 +18,12 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module cpptooling.generator.stub.stub;
 
+import std.typecons : Typedef;
+
 import logger = std.experimental.logger;
+
+/// Prefix used for prepending generated code with a unique string to avoid name collisions.
+alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
 interface StubController {
     /// Process AST node belonging to filename.
@@ -30,7 +35,14 @@ interface StubController {
     /// File to include in the generated header.
     StubGenerator.HdrFilename getIncludeFile();
 
-    //ClassController getClass();
+    ClassController getClass();
+}
+
+interface ClassController {
+    bool useObjectPool();
+
+    StubPrefix getClassPrefix();
+    //MethodController getMethod();
 }
 
 struct StubGenerator {

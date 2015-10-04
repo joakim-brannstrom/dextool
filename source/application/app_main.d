@@ -35,7 +35,8 @@ import cpptooling.analyzer.clang.context;
 import cpptooling.analyzer.clang.visitor;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
-import cpptooling.generator.stub.stub : StubGenerator, StubController;
+import cpptooling.generator.stub.stub : StubGenerator, StubController,
+    ClassController;
 
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
@@ -130,7 +131,9 @@ class SimpleLogger : logger.Logger {
  *  - Only stub virtual functions.
  *  - Stub all functions.
  */
-class StubVariant1 : StubController {
+class StubVariant1 : StubController, ClassController {
+    import cpptooling.generator.stub.stub : StubPrefix;
+
     HdrFilename incl_file;
     FileScopeType file_scope;
     FuncScopeType func_scope;
@@ -166,6 +169,10 @@ class StubVariant1 : StubController {
         import std.path : baseName;
 
         return HdrFilename((cast(string) incl_file).baseName);
+    }
+
+    ClassController getClass() {
+        return this;
     }
 
     bool useObjectPool() {
