@@ -477,6 +477,11 @@ pure @safe nothrow struct CppClass {
         }
     }
 
+    /// Add a comment string to the class.
+    void put(string comment) {
+        cmnt ~= comment;
+    }
+
     auto inheritRange() const @nogc @safe pure nothrow {
         return arrayRange(inherits_);
     }
@@ -515,6 +520,10 @@ pure @safe nothrow struct CppClass {
 
     auto classPrivateRange() @nogc @safe pure nothrow {
         return arrayRange(classes_priv);
+    }
+
+    auto commentRange() const @nogc @safe pure nothrow {
+        return arrayRange(cmnt);
     }
 
     ///TODO make the function const.
@@ -587,6 +596,8 @@ pure @safe nothrow struct CppClass {
 
         auto app = appender!string();
 
+        commentRange().each!(a => formattedWrite(app, "// %s%s", a, newline));
+
         formattedWrite(app, "class %s%s { // isVirtual %s%s", name_.str,
             inheritRangeToString(inheritRange()), to!string(virtualType()), newline);
         appPubRange(this, app);
@@ -643,6 +654,8 @@ private:
     CppClass[] classes_pub;
     CppClass[] classes_prot;
     CppClass[] classes_priv;
+
+    string[] cmnt;
 }
 
 // Clang have no function that says if a class is virtual/pure virtual.
