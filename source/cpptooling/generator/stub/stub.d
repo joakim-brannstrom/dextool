@@ -96,7 +96,7 @@ private:
 }
 
 private:
-import cpptooling.data.representation : CppRoot, CppClass;
+import cpptooling.data.representation : CppRoot, CppClass, CFunction;
 
 /// Structurally transformed the input to a stub implementation.
 CppRoot translate(CppRoot input, StubController ctrl) {
@@ -104,6 +104,10 @@ CppRoot translate(CppRoot input, StubController ctrl) {
 
     foreach (c; input.classRange()) {
         tr.put(translateClass(input, c, ctrl.getClass()));
+    }
+
+    foreach (f; input.funcRange()) {
+        tr.put(translateCFunc(input, f));
     }
 
     return tr;
@@ -126,4 +130,8 @@ CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
     } else {
         return input;
     }
+}
+
+CFunction translateCFunc(CppRoot root, CFunction func) {
+    return func;
 }
