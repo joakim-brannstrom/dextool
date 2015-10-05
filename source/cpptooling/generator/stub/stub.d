@@ -67,6 +67,13 @@ struct StubGenerator {
     /// Process structural data to a stub.
     auto process(CppRoot root) {
         auto tr = .translate(root, ctrl);
+
+        // Does it have any C functions?
+        if (!tr.funcRange().empty) {
+            CppClass c_if = makeCFuncInterface(tr.funcRange(), filename.str, ctrl.getClass());
+            tr.put(c_if);
+        }
+
         return PostProcess(tr, ctrl);
     }
 
@@ -153,4 +160,39 @@ CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
 
 CFunction translateCFunc(CppRoot root, CFunction func) {
     return func;
+}
+
+CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctrl) {
+    import cpptooling.data.representation;
+    import cpptooling.utility.conv : str;
+
+    import std.array : array;
+    import std.algorithm : until;
+    import std.uni : asCapitalized, isAlpha;
+    import std.conv : text;
+
+    // dfmt off
+    string c_name = filename.asCapitalized
+        .until!((a) => !isAlpha(a))
+        .text;
+    // dfmt on
+
+    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
+
+    foreach (f; r) {
+        if (f.isVariadic) {
+            c.put("skipping (variadic) " ~ f.name());
+            continue;
+        }
+
+        auto name = CppMethodName(f.name.str);
+        auto params = f.paramRange().array();
+        auto m = CppMethod(name, params, f.returnType(),
+            CppAccess(AccessType.Public), CppConstMethod(false),
+            CppVirtualMethod(VirtualType.Pure));
+
+        c.put(m);
+    }
+
+    return c;
 }
