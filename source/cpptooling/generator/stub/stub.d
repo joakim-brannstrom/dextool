@@ -102,24 +102,28 @@ import cpptooling.data.representation : CppRoot, CppClass;
 CppRoot translate(CppRoot input, StubController ctrl) {
     CppRoot tr;
 
-    //foreach(c; input.classRange()) {
-    //    tr.put(translateClass(c, ctrl));
-    //}
+    foreach (c; input.classRange()) {
+        tr.put(translateClass(input, c, ctrl.getClass()));
+    }
 
     return tr;
 }
 
-//CppClass translateClass(CppClass input, StubController ctrl) {
-//    import cpptooling.data.representation : CppClassInherit, VirtualType;
-//    import cpptooling.utility.conv : str;
-//
-//    if (input.isVirtual) {
-//        auto inherit = CppClassInherit(input.name, );
-//        auto name = CppClassName(ctrl.getClassPrefix().str ~ input.name.str);
-//
-//        auto c = CppClass(name, input.isVirtual, )
-//
-//    } else {
-//        return input;
-//    }
-//}
+CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
+    import cpptooling.data.representation : CppAccess, CppClassNesting,
+        CppClassInherit, CppClassName, CppClassVirtual, AccessType, VirtualType,
+        whereIsClass, toStringNs;
+    import cpptooling.utility.conv : str;
+
+    if (input.isVirtual) {
+        auto ns = CppClassNesting(whereIsClass(root, input.id()).toStringNs());
+        auto inherit = CppClassInherit(input.name, ns, CppAccess(AccessType.Public));
+        auto name = CppClassName(ctrl.getClassPrefix().str ~ input.name.str);
+
+        auto c = CppClass(name, [inherit]);
+
+        return c;
+    } else {
+        return input;
+    }
+}
