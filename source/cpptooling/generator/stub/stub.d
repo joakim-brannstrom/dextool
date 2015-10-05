@@ -102,6 +102,10 @@ private:
             return o.render;
         }
 
+        /** Generate the C++ header file of the stub.
+         * Params:
+         *  filename = intended output filename, used for ifdef guard.
+         */
         string outputImpl(HdrFilename filename) {
             ///TODO add user defined header.
             auto o = new CppModule;
@@ -125,6 +129,8 @@ private:
 import cpptooling.data.representation : CppRoot, CppClass, CFunction;
 
 /// Structurally transformed the input to a stub implementation.
+/// No helper structs are generated at this stage.
+/// This stage may filter out uninteresting parts, usually controlled by ctrl.
 CppRoot translate(CppRoot input, StubController ctrl) {
     CppRoot tr;
 
