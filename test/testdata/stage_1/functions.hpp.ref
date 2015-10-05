@@ -1,0 +1,26 @@
+#ifndef stub_functions_hpp
+#define stub_functions_hpp
+#include "functions.h"
+
+int foo(int a);
+
+void bar(int a, int b);
+
+void fooBar();
+
+// skipping int printf(char*, ...);
+
+int a(int out);
+
+class StubFunctions {
+public:
+    StubFunctions();
+    virtual ~StubFunctions();
+
+    int foo(int a) = 0;
+    void bar(int a, int b) = 0;
+    void fooBar() = 0;
+    int a(int out);
+};
+
+#endif // stub_functions_hpp
