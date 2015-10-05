@@ -44,7 +44,6 @@ alias CppNsNesting = Typedef!(string, string.init, "CppNsNesting");
 
 alias CppVariable = Typedef!(string, string.init, "CppVariable");
 alias TypeKindVariable = Tuple!(TypeKind, "type", CppVariable, "name");
-alias CppReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
 
 // Types for classes
 alias CppClassName = Typedef!(string, string.init, "CppClassName");
@@ -65,10 +64,11 @@ alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
 
 // Types for free functions
 alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
-alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CReturnType");
 
 // Shared types between C and Cpp
-alias CxParam = Algebraic!(TypeKindVariable, TypeKind, Flag!"isVariadic");
+alias VariadicType = Flag!"isVariadic";
+alias CxParam = Algebraic!(TypeKindVariable, TypeKind, VariadicType);
+alias CxReturnType = Typedef!(TypeKind, TypeKind.init, "CxReturnType");
 
 enum VirtualType {
     No,
@@ -103,7 +103,7 @@ string toStringNs(CppNsStack ns) {
 
 /// Make a variadic parameter.
 CxParam makeCxParam() {
-    return CxParam(Flag!"isVariadic".yes);
+    return CxParam(VariadicType.yes);
 }
 
 /// CParam created by analyzing a TypeKindVariable.
@@ -117,21 +117,28 @@ CxParam makeCxParam(TypeKindVariable tk) {
 private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     import std.variant : visit;
 
-    (cast(Tx) p).visit!((TypeKindVariable tk) {
-        assert(tk.name.length > 0);
-        assert(tk.type.name.length > 0);
-        assert(tk.type.toString.length > 0);
-    }, (TypeKind t) { assert(t.name.length > 0); assert(t.toString.length > 0); },
-        (Flag!"isVariadic") {  });
+    // dfmt off
+    (cast(Tx) p).visit!(
+        (TypeKindVariable tk) { assert(tk.name.length > 0);
+                                assert(tk.type.name.length > 0);
+                                assert(tk.type.toString.length > 0);},
+        (TypeKind t) {  assert(t.name.length > 0);
+                        assert(t.toString.length > 0); },
+        (VariadicType a) {});
+    // dfmt on
 }
 
 private void toInternal(CxParam p, ref Appender!string app) @trusted {
     import std.variant : visit;
     import std.format : formattedWrite;
 
-    p.visit!((TypeKindVariable tk) {
-        formattedWrite(app, "%s %s", tk.type.toString, tk.name.str);
-    }, (TypeKind t) { app.put(t.toString); }, (Flag!"isVariadic") => app.put("..."));
+    // dfmt off
+    p.visit!(
+        (TypeKindVariable tk) {formattedWrite(app, "%s %s", tk.type.toString, tk.name.str);},
+        (TypeKind t) { app.put(t.toString); },
+        (VariadicType a) { app.put("..."); }
+        );
+    // dfmt on
 }
 
 /// Information about free functions.
@@ -143,9 +150,11 @@ pure @safe nothrow struct CFunction {
     @disable this();
 
     /// C function representation.
-    this(const CFunctionName name, const CxParam[] params_, const CReturnType return_type) {
+    this(const CFunctionName name, const CxParam[] params_,
+        const CxReturnType return_type, const VariadicType is_variadic) {
         this.name_ = name;
-        this.returnType_ = duplicate(cast(const TypedefType!CReturnType) return_type);
+        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.isVariadic_ = is_variadic;
 
         //TODO how do you replace this with a range?
         foreach (p; params_) {
@@ -156,14 +165,14 @@ pure @safe nothrow struct CFunction {
     }
 
     /// Function with no parameters.
-    this(const CFunctionName name, const CReturnType return_type) {
-        this(name, CxParam[].init, return_type);
+    this(const CFunctionName name, const CxReturnType return_type) {
+        this(name, CxParam[].init, return_type, VariadicType.no);
     }
 
     /// Function with no parameters and returning void.
     this(const CFunctionName name) {
-        CReturnType void_ = makeTypeKind("void", "void", false, false, false);
-        this(name, CxParam[].init, void_);
+        CxReturnType void_ = makeTypeKind("void", "void", false, false, false);
+        this(name, CxParam[].init, void_, VariadicType.no);
     }
 
     /// A range over the parameters of the function.
@@ -179,6 +188,10 @@ pure @safe nothrow struct CFunction {
     /// Function name representation.
     auto name() @property const pure {
         return name_;
+    }
+
+    bool isVariadic() {
+        return VariadicType.yes == isVariadic_;
     }
 
     string toString() const @safe {
@@ -216,7 +229,8 @@ private:
     CFunctionName name_;
 
     CxParam[] params;
-    CReturnType returnType_;
+    CxReturnType returnType_;
+    VariadicType isVariadic_;
 }
 
 /// Constructor or destructor methods.
@@ -305,10 +319,10 @@ pure @safe nothrow struct CppMethod {
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params_,
-        const CppReturnType return_type, const CppAccess access,
+        const CxReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name = name;
-        this.returnType = duplicate(cast(const TypedefType!CppReturnType) return_type);
+        this.returnType = duplicate(cast(const TypedefType!CxReturnType) return_type);
         this.accessType_ = access;
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
@@ -322,7 +336,7 @@ pure @safe nothrow struct CppMethod {
     }
 
     /// Function with no parameters.
-    this(const CppMethodName name, const CppReturnType return_type,
+    this(const CppMethodName name, const CxReturnType return_type,
         const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
         this(name, CxParam[].init, return_type, access, const_, virtual);
     }
@@ -330,7 +344,7 @@ pure @safe nothrow struct CppMethod {
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
         const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
-        CppReturnType void_ = makeTypeKind("void", "void", false, false, false);
+        CxReturnType void_ = makeTypeKind("void", "void", false, false, false);
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -409,7 +423,7 @@ private:
 
     CppMethodName name;
     CxParam[] params;
-    CppReturnType returnType;
+    CxReturnType returnType;
 }
 
 pure @safe nothrow struct CppClass {
@@ -872,7 +886,7 @@ unittest {
 
     { // a return type.
         auto rtk = makeTypeKind("int", "int", false, false, false);
-        auto f = CFunction(CFunctionName("nothing"), CReturnType(rtk));
+        auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk));
         shouldEqual(f.toString, "int nothing();\n");
     }
 
@@ -882,7 +896,7 @@ unittest {
         auto p1 = makeCxParam(TypeKindVariable(makeTypeKind("char", "char",
             false, false, false), CppVariable("y")));
         auto rtk = makeTypeKind("int", "int", false, false, false);
-        auto f = CFunction(CFunctionName("nothing"), [p0, p1], CReturnType(rtk));
+        auto f = CFunction(CFunctionName("nothing"), [p0, p1], CxReturnType(rtk), VariadicType.no);
         shouldEqual(f.toString, "int nothing(int x, char y);\n");
     }
 }
@@ -903,7 +917,7 @@ unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
-    auto m = CppMethod(CppMethodName("none"), [p, p], CppReturnType(tk),
+    auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
         CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.Yes));
 
     shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
@@ -956,7 +970,7 @@ unittest {
     auto rtk = makeTypeKind("int", "int", false, false, false);
     auto f = CFunction(CFunctionName("nothing"),
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
-        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))], CReturnType(rtk));
+        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))], CxReturnType(rtk), VariadicType.no);
 
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
@@ -994,7 +1008,7 @@ unittest {
 
     {
         auto tk = makeTypeKind("int", "int", false, false, false);
-        auto m = CppMethod(CppMethodName("fun"), CppReturnType(tk),
+        auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk),
             CppAccess(AccessType.Protected), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
         c.put(m);
@@ -1002,7 +1016,7 @@ unittest {
 
     {
         auto m = CppMethod(CppMethodName("gun"),
-            CppReturnType(makeTypeKind("char", "char*", false, false, true)),
+            CxReturnType(makeTypeKind("char", "char*", false, false, true)),
             CppAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(VirtualType.No));
         m.put(CxParam(TypeKindVariable(makeTypeKind("int", "int", false, false,
@@ -1014,7 +1028,7 @@ unittest {
 
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CxReturnType(makeTypeKind("int", "int", false, false, true)),
             CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.No));
         c.put(m);
     }
@@ -1083,7 +1097,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CxReturnType(makeTypeKind("int", "int", false, false, true)),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Yes));
         c.put(m);
@@ -1108,7 +1122,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CppReturnType(makeTypeKind("int", "int", false, false, true)),
+            CxReturnType(makeTypeKind("int", "int", false, false, true)),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
         c.put(m);

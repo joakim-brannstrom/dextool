@@ -30,8 +30,8 @@ import cpptooling.utility.clang : visitAst, logNode;
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
 struct FunctionVisitor {
-    import cpptooling.data.representation : CxParam, CFunctionName, CReturnType,
-        CFunction;
+    import cpptooling.data.representation : CxParam, CFunctionName,
+        CxReturnType, CFunction, VariadicType;
 
     static auto make(ref Cursor) {
         return typeof(this)();
@@ -42,7 +42,7 @@ struct FunctionVisitor {
 
         auto params = paramDeclTo(c);
         auto name = CFunctionName(c.spelling);
-        auto return_type = CReturnType(translateType(c.func.resultType));
+        auto return_type = CxReturnType(translateType(c.func.resultType));
 
         auto func = CFunction(name, params, return_type);
         logger.info("function: ", func.toString);
@@ -61,7 +61,7 @@ struct FunctionVisitor {
 struct ClassDescendVisitor {
     import cpptooling.data.representation : CppClass, CppAccess, CxParam,
         CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
-        CppReturnType, CppMethod, CppConstMethod;
+        CxReturnType, CppMethod, CppConstMethod;
 
     @disable this();
 
@@ -141,7 +141,7 @@ private:
 
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
-        auto return_type = CppReturnType(translateType(c.func.resultType));
+        auto return_type = CxReturnType(translateType(c.func.resultType));
 
         auto is_virtual = CppVirtualMethod(VirtualType.No);
         if (c.func.isPureVirtual) {
