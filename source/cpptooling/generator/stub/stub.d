@@ -58,41 +58,53 @@ struct StubGenerator {
         this.ctrl = ctrl;
     }
 
-    void translate(CppRoot root) {
-        tr = .translate(root, ctrl);
-    }
-
-    /** Generate the C++ header file of the stub.
-     * Params:
-     *  filename = intended output filename, used for ifdef guard.
-     */
-    string outputHdr(HdrFilename filename) {
-        import std.string : translate;
-
-        dchar[dchar] table = ['.' : '_', '-' : '_'];
-
-        ///TODO add user defined header.
-        auto o = CppHModule(translate(filename.str, table));
-        o.content.include(ctrl.getIncludeFile.str);
-        o.content.sep(2);
-        o.content.text(tr.toString());
-
-        return o.render;
-    }
-
-    string outputImpl(HdrFilename filename) {
-        ///TODO add user defined header.
-        auto o = new CppModule;
-        o.suppressIndent(1);
-        o.include(filename.str);
-        o.sep(2);
-
-        return o.render;
+    /// Process structural data to a stub.
+    auto process(CppRoot root) {
+        auto tr = .translate(root, ctrl);
+        return PostProcess(tr, ctrl);
     }
 
 private:
+    struct PostProcess {
+        this(CppRoot tr, StubController ctrl) {
+            this.tr = tr;
+            this.ctrl = ctrl;
+        }
+
+        /** Generate the C++ header file of the stub.
+         * Params:
+         *  filename = intended output filename, used for ifdef guard.
+         */
+        string outputHdr(HdrFilename filename) {
+            import std.string : translate;
+
+            dchar[dchar] table = ['.' : '_', '-' : '_'];
+
+            ///TODO add user defined header.
+            auto o = CppHModule(translate(filename.str, table));
+            o.content.include(ctrl.getIncludeFile.str);
+            o.content.sep(2);
+            o.content.text(tr.toString());
+
+            return o.render;
+        }
+
+        string outputImpl(HdrFilename filename) {
+            ///TODO add user defined header.
+            auto o = new CppModule;
+            o.suppressIndent(1);
+            o.include(filename.str);
+            o.sep(2);
+
+            return o.render;
+        }
+
+    private:
+        CppRoot tr;
+        StubController ctrl;
+    }
+
     StubController ctrl;
-    CppRoot tr;
 }
 
 private:
