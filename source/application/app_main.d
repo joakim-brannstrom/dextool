@@ -246,7 +246,7 @@ ExitStatusType gen_stub(const string infile, const string outdir,
 
     logger.info("Representation from root node:" ~ ctx.root.toString);
 
-    auto stubgen = StubGenerator(ctrl).process(ctx.root);
+    auto stubgen = StubGenerator(HdrFilename(base_filename), ctrl).process(ctx.root);
 
     auto outfile_hdr = try_open_file(hdr_out_filename, "w");
     if (outfile_hdr.isEmpty) {

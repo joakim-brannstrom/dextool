@@ -52,9 +52,15 @@ struct StubGenerator {
     import cpptooling.utility.conv : str;
     import dsrcgen.cpp : CppModule, CppHModule;
 
-    alias HdrFilename = Typedef!(string, string.init, "HdrFilename");
+    alias HdrFilename = Typedef!(string, string.init, "HeaderFilename");
 
-    this(StubController ctrl) {
+    /** Generate the C++ header file of the stub.
+     * Params:
+     *  filename = filename of the input header file.
+     *  ctrl = Control generation behavior.
+     */
+    this(HdrFilename filename, StubController ctrl) {
+        this.filename = filename;
         this.ctrl = ctrl;
     }
 
@@ -105,6 +111,7 @@ private:
     }
 
     StubController ctrl;
+    HdrFilename filename;
 }
 
 private:
