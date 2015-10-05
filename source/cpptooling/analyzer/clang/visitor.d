@@ -43,8 +43,9 @@ struct FunctionVisitor {
         auto params = paramDeclTo(c);
         auto name = CFunctionName(c.spelling);
         auto return_type = CxReturnType(translateType(c.func.resultType));
+        auto is_variadic = c.func.isVariadic ? VariadicType.yes : VariadicType.no;
 
-        auto func = CFunction(name, params, return_type);
+        auto func = CFunction(name, params, return_type, is_variadic);
         logger.info("function: ", func.toString);
 
         return func;
