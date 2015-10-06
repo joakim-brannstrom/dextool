@@ -1,17 +1,24 @@
 #include "stub_functions.hpp"
 
 int foo(int a) {
+    return stub_inst->foo(a);
 }
 
 void bar(int a, int b) {
+    stub_inst->bar(a, b);
 }
 
 void fooBar() {
+    stub_inst->fooBar();
 }
 
-int printf(char *, ...) {
+int printf(char * x1, ...) {
+    return stub_inst->printf(x1, );
 }
 
 int a(int out) {
+    return stub_inst->a(out);
+}
+
 }
 

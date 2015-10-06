@@ -24,7 +24,7 @@ import logger = std.experimental.logger;
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
-interface StubController {
+@safe interface StubController {
     /// Process AST node belonging to filename.
     bool doFile(string filename);
 
@@ -37,7 +37,7 @@ interface StubController {
     ClassController getClass();
 }
 
-interface ClassController {
+@safe interface ClassController {
     bool useObjectPool();
 
     StubPrefix getClassPrefix();
@@ -72,6 +72,7 @@ struct StubGenerator {
         if (!tr.funcRange().empty) {
             CppClass c_if = makeCFuncInterface(tr.funcRange(), filename.str, ctrl.getClass());
             tr.put(c_if);
+            tr.put(makeCFuncManager(filename.str));
         }
 
         logger.trace("Post processed:\n" ~ tr.toString());
@@ -135,9 +136,16 @@ private:
 }
 
 private:
+@safe:
+
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, joinParams;
-import dsrcgen.cpp : CppModule;
+    CppDtor, CFunction;
+import dsrcgen.cpp : CppModule, E;
+
+enum ClassType {
+    Normal,
+    Manager
+}
 
 /// Structurally transformed the input to a stub implementation.
 /// No helper structs are generated at this stage.
@@ -157,9 +165,7 @@ CppRoot translate(CppRoot input, StubController ctrl) {
 }
 
 CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
-    import cpptooling.data.representation : CppAccess, CppClassNesting,
-        CppClassInherit, CppClassName, CppClassVirtual, AccessType, VirtualType,
-        whereIsClass, toStringNs;
+    import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     if (input.isVirtual) {
@@ -217,6 +223,40 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
     return c;
 }
 
+CppClass makeCFuncManager(in string filename) {
+    import cpptooling.data.representation;
+    import cpptooling.utility.conv : str;
+
+    import std.algorithm : until;
+    import std.uni : asCapitalized, isAlpha;
+    import std.conv : text;
+
+    // dfmt off
+    string c_if = filename.asCapitalized
+        .until!((a) => !isAlpha(a))
+        .text;
+    // dfmt on
+
+    string c_name = c_if ~ "_Manager";
+
+    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
+    c.setKind(ClassType.Manager);
+
+    c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
+    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
+        CppVirtualMethod(VirtualType.No)));
+
+    c.put("Manage the shared memory area of the instance that fulfill the interface.");
+    c.put("Connect inst to handle all stimuli.");
+    auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&",
+        c_if ~ "&", false, true, false), CppVariable("inst")));
+    auto rval = CxReturnType(makeTypeKind("void", "void", false, false, false));
+    c.put(CppMethod(CppMethodName("Connect"), [param], rval,
+        CppAccess(AccessType.Public), CppConstMethod(false), CppVirtualMethod(VirtualType.No)));
+
+    return c;
+}
+
 void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
@@ -229,6 +269,7 @@ void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
 }
 
 void generateCFuncHdr(CFunction f, CppModule hdr) {
+    import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     string params = joinParams(f.paramRange());
@@ -237,11 +278,18 @@ void generateCFuncHdr(CFunction f, CppModule hdr) {
 }
 
 void generateCFuncImpl(CFunction f, CppModule impl) {
+    import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     string params = joinParams(f.paramRange());
+    string names = joinParamNames(f.paramRange());
 
     with (impl.func_body(f.returnType().toString, f.name().str, params)) {
+        if (f.returnType().toString == "void") {
+            stmt(E("stub_inst->" ~ f.name().str)(E(names)));
+        } else {
+            return_(E("stub_inst->" ~ f.name().str)(E(names)));
+        }
     }
     impl.sep(2);
 }
@@ -249,6 +297,7 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 void generateClassHdr(CppClass in_c, CppModule hdr) {
     import std.algorithm : each;
     import std.variant : visit;
+    import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     static void genCtor(CppCtor m, CppModule hdr) {
@@ -261,9 +310,14 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
+        import cpptooling.data.representation : VirtualType;
+
         string params = m.paramRange().joinParams();
-        hdr.method(m.isVirtual(), m.returnType().toString, m.name().str, m.isConst(),
-            params)[$.end = " = 0;"];
+        auto o = hdr.method(m.isVirtual(), m.returnType().toString,
+            m.name().str, m.isConst(), params);
+        if (m.virtualType() == VirtualType.Pure) {
+            o[$.end = " = 0;"];
+        }
     }
 
     hdr.sep(2);
@@ -274,9 +328,11 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
     with (pub) {
         foreach (m; in_c.methodPublicRange()) {
             // dfmt off
+            () @trusted {
             m.visit!((CppMethod m) => genMethod(m, pub),
                      (CppCtor m) => genCtor(m, pub),
                      (CppDtor m) => genDtor(m, pub));
+            }();
             // dfmt on
         }
     }

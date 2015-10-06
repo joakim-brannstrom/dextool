@@ -110,8 +110,23 @@ private template mixinUniqueId() {
     }
 }
 
+/// User defined kind to differeniate structs of the same type.
+private template mixinKind() {
+    private int kind_;
+
+    void setKind(int kind) {
+        this.kind_ = kind;
+    }
+
+    @property const {
+        auto kind() {
+            return kind_;
+        }
+    }
+}
+
 /// Convert a namespace stack to a string separated by ::.
-string toStringNs(CppNsStack ns) {
+string toStringNs(CppNsStack ns) @safe {
     import std.algorithm : map;
     import std.array : join;
 
@@ -132,21 +147,57 @@ string toInternal(CxParam p) @trusted {
 }
 
 /// Join a range of CxParams to a string separated by ", ".
-string joinParams(T)(T r) if (isInputRange!T) {
+string joinParams(T)(T r) @safe if (isInputRange!T) {
     import std.algorithm : joiner, map;
     import std.conv : text;
 
-    return r.map!(a => toInternal(a)).joiner(", ").text();
+    int uid;
+
+    string getTypeName(T : const(Tx), Tx)(T p) @trusted {
+        import std.variant : visit;
+
+        // dfmt off
+        return (cast(Tx) p).visit!(
+            (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
+            (TypeKind t) { ++uid; return t.toString ~ " x" ~ text(uid); },
+            (VariadicType a) { return "..."; }
+            );
+        // dfmt on
+    }
+
+    return r.map!(a => getTypeName(a)).joiner(", ").text();
+}
+
+/// Join a range of CxParams by extracting the parameter names.
+string joinParamNames(T)(T r) @safe if (isInputRange!T) {
+    import std.algorithm : joiner, map;
+    import std.conv : text;
+
+    int uid;
+
+    string getName(T : const(Tx), Tx)(T p) @trusted {
+        import std.variant : visit;
+
+        // dfmt off
+        return (cast(Tx) p).visit!(
+            (TypeKindVariable tk) {return tk.name.str;},
+            (TypeKind t) { ++uid; return "x" ~ text(uid); },
+            (VariadicType a) { return ""; }
+            );
+        // dfmt on
+    }
+
+    return r.map!(a => getName(a)).joiner(", ").text();
 }
 
 /// Make a variadic parameter.
-CxParam makeCxParam() {
+CxParam makeCxParam() @trusted {
     return CxParam(VariadicType.yes);
 }
 
 /// CParam created by analyzing a TypeKindVariable.
 /// A empty variable name means it is of the algebraic type TypeKind.
-CxParam makeCxParam(TypeKindVariable tk) {
+CxParam makeCxParam(TypeKindVariable tk) @trusted {
     if (tk.name.length == 0)
         return CxParam(tk.type);
     return CxParam(tk);
@@ -529,6 +580,7 @@ pure @safe nothrow struct CppClass {
     alias CppFunc = Algebraic!(CppMethod, CppCtor, CppDtor);
 
     mixin mixinUniqueId;
+    mixin mixinKind;
 
     @disable this();
 
@@ -757,7 +809,6 @@ private:
 
 // Clang have no function that says if a class is virtual/pure virtual.
 // So have to post process.
-//TODO move this func so it is a free function.
 private VirtualType analyzeVirtuality(CppClass th) @safe {
     static auto getVirt(CppClass.CppFunc func) @trusted {
         import std.variant : visit;
@@ -974,7 +1025,7 @@ private:
 }
 
 /// Find where in the structure a class with the uniqe id reside.
-CppNsStack whereIsClass(CppRoot root, const size_t id) {
+@safe CppNsStack whereIsClass(CppRoot root, const size_t id) {
     CppNsStack ns;
 
     foreach (c; root.classRange()) {

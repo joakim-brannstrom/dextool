@@ -5,9 +5,10 @@
 int foo(int a);
 void bar(int a, int b);
 void fooBar();
-int printf(char *, ...);
+int printf(char * x1, ...);
 int a(int out);
 
+/// skipping (variadic) printf
 class Functions {
 public:
     Functions();
@@ -16,5 +17,14 @@ public:
     virtual void bar(int a, int b) = 0;
     virtual void fooBar() = 0;
     virtual int a(int out) = 0;
+};
+
+/// Manage the shared memory area of the instance that fulfill the interface.
+/// Connect inst to handle all stimuli.
+class Functions_Manager {
+public:
+    Functions_Manager();
+    ~Functions_Manager();
+    void Connect(Functions& inst);
 };
 #endif // stub_functions_hpp
