@@ -135,8 +135,8 @@ private:
 }
 
 private:
-import cpptooling.data.representation : CppRoot, CppClass, CFunction,
-    joinParams;
+import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
+    CppDtor, CFunction, joinParams;
 import dsrcgen.cpp : CppModule;
 
 /// Structurally transformed the input to a stub implementation.

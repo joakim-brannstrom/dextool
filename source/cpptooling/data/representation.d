@@ -247,19 +247,16 @@ private:
     VariadicType isVariadic_;
 }
 
-/// Constructor or destructor methods.
-pure @safe nothrow struct CppTorMethod {
+pure @safe nothrow struct CppCtor {
     import std.typecons : TypedefType;
 
     mixin mixinUniqueId;
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params_, const CppAccess access,
-        const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CxParam[] params_, const CppAccess access) {
         this.name_ = name;
         this.accessType_ = access;
-        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
         foreach (p; params_) {
@@ -287,6 +284,55 @@ pure @safe nothrow struct CppTorMethod {
         }
 
         auto rval = appender!string();
+        formattedWrite(rval, "%s(%s)", name_.str, ps.data);
+
+        return rval.data;
+    }
+
+    @property const {
+        auto accessType() {
+            return accessType_;
+        }
+
+        auto name() {
+            return name_;
+        }
+    }
+
+    invariant() {
+        assert(name_.length > 0);
+
+        foreach (p; params) {
+            assertVisit(p);
+        }
+    }
+
+private:
+    CppAccess accessType_;
+
+    CppMethodName name_;
+    CxParam[] params;
+}
+
+pure @safe nothrow struct CppDtor {
+    import std.typecons : TypedefType;
+
+    mixin mixinUniqueId;
+
+    @disable this();
+
+    this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
+        this.name_ = name;
+        this.accessType_ = access;
+        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        this.id_ = makeUniqueId();
+    }
+
+    string toString() const @safe {
+        import std.array : appender;
+
+        auto rval = appender!string();
         switch (isVirtual) {
         case VirtualType.Yes:
         case VirtualType.Pure:
@@ -294,7 +340,8 @@ pure @safe nothrow struct CppTorMethod {
             break;
         default:
         }
-        formattedWrite(rval, "%s(%s)", name_.str, ps.data);
+        rval.put(name_.str);
+        rval.put("()");
 
         return rval.data;
     }
@@ -315,10 +362,7 @@ pure @safe nothrow struct CppTorMethod {
 
     invariant() {
         assert(name_.length > 0);
-
-        foreach (p; params) {
-            assertVisit(p);
-        }
+        assert(isVirtual_ != VirtualType.Pure);
     }
 
 private:
@@ -326,7 +370,6 @@ private:
     CppAccess accessType_;
 
     CppMethodName name_;
-    CxParam[] params;
 }
 
 pure @safe nothrow struct CppMethod {
@@ -448,7 +491,7 @@ pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
 
-    alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
+    alias CppFunc = Algebraic!(CppMethod, CppCtor, CppDtor);
 
     mixin mixinUniqueId;
 
@@ -465,7 +508,7 @@ pure @safe nothrow struct CppClass {
         this(name, CppClassInherit[].init);
     }
 
-    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppTorMethod)) {
+    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor)) {
         final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
@@ -564,7 +607,8 @@ pure @safe nothrow struct CppClass {
         static string funcToString(CppFunc func) @trusted {
             //dfmt off
             return func.visit!((CppMethod a) => a.toString,
-                               (CppTorMethod a) => a.toString);
+                               (CppCtor a) => a.toString,
+                               (CppDtor a) => a.toString);
             //dfmt on
         }
 
@@ -683,10 +727,10 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
     static auto getVirt(CppClass.CppFunc func) @trusted {
         import std.variant : visit;
 
-        // Ignoring Tor's.
         //dfmt off
         return func.visit!((CppMethod a) => a.isVirtual(),
-                           (CppTorMethod a) => VirtualType.Pure);
+                           (CppCtor a) => VirtualType.Pure,
+                           (CppDtor a) {return a.isVirtual() == VirtualType.Yes ? VirtualType.Pure : VirtualType.No;});
         //dfmt on
     }
 
@@ -907,7 +951,7 @@ CppNsStack whereIsClass(CppRoot root, const size_t id) {
     return ns;
 }
 
-@name("Test of c-function ctors")
+@name("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"));
@@ -1006,24 +1050,22 @@ unittest {
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
 }
 
-@name("Test of CppTorMethod")
+@name("Test of Ctor's")
 unittest {
     auto tk = makeTypeKind("char", "char*", false, false, true);
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
-    auto ctor = CppTorMethod(CppMethodName("ctor"), [p, p],
-        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
-    auto dtor = CppTorMethod(CppMethodName("~dtor"), CxParam[].init,
-        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+    auto ctor = CppCtor(CppMethodName("ctor"), [p, p], CppAccess(AccessType.Public));
 
     shouldEqual(ctor.toString, "ctor(char* x, char* x)");
-    shouldEqual(dtor.toString, "virtual ~dtor()");
+}
 
-    // test assign
-    auto q = CppTorMethod(CppMethodName("ctor2"), [p, p],
-        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
-    q = ctor;
-    shouldEqual(ctor.toString, q.toString);
+@name("Test of Dtor's")
+unittest {
+    auto dtor = CppDtor(CppMethodName("~dtor"), CppAccess(AccessType.Public),
+        CppVirtualMethod(VirtualType.Yes));
+
+    shouldEqual(dtor.toString, "virtual ~dtor()");
 }
 
 @name("Test of toString for CppClass")
@@ -1032,8 +1074,7 @@ unittest {
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
 
     {
-        auto m = CppTorMethod(CppMethodName("Foo"), CxParam[].init,
-            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+        auto m = CppCtor(CppMethodName("Foo"), CxParam[].init, CppAccess(AccessType.Public));
         c.put(m);
     }
 
@@ -1122,8 +1163,8 @@ unittest {
     auto c = CppClass(CppClassName("Foo"));
 
     {
-        auto m = CppTorMethod(CppMethodName("~Foo"), CxParam[].init,
-            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+        auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
+            CppVirtualMethod(VirtualType.Yes));
         c.put(m);
     }
     {
@@ -1147,8 +1188,8 @@ unittest {
     auto c = CppClass(CppClassName("Foo"));
 
     {
-        auto m = CppTorMethod(CppMethodName("~Foo"), CxParam[].init,
-            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+        auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
+            CppVirtualMethod(VirtualType.Yes));
         c.put(m);
     }
     {

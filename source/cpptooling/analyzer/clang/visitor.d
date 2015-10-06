@@ -61,7 +61,7 @@ struct FunctionVisitor {
  */
 struct ClassDescendVisitor {
     import cpptooling.data.representation : CppClass, CppAccess, CxParam,
-        CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
+        CppMethodName, CppCtor, CppDtor, CppVirtualMethod, VirtualType,
         CxReturnType, CppMethod, CppConstMethod;
 
     @disable this();
@@ -123,15 +123,14 @@ private:
     void applyConstructor(ref Cursor c, ref Cursor parent) {
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
-        auto tor = CppTorMethod(name, params, accessType, CppVirtualMethod(VirtualType.No));
+        auto tor = CppCtor(name, params, accessType);
         logger.info("ctor: ", tor.toString);
         data.put(tor);
     }
 
     void applyDestructor(ref Cursor c, ref Cursor parent) {
-        auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
-        auto tor = CppTorMethod(name, params, accessType,
+        auto tor = CppDtor(name, accessType,
             CppVirtualMethod(c.func.isVirtual ? VirtualType.Yes : VirtualType.No));
         logger.info("dtor: ", tor.toString);
         data.put(tor);
