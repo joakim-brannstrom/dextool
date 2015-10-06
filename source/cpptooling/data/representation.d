@@ -366,7 +366,11 @@ pure @safe nothrow struct CppDtor {
     }
 
     @property const {
-        auto isVirtual() {
+        bool isVirtual() {
+            return isVirtual_ != VirtualType.No;
+        }
+
+        auto virtualType() {
             return isVirtual_;
         }
 
@@ -450,7 +454,7 @@ pure @safe nothrow struct CppMethod {
         }
 
         auto rval = appender!string();
-        switch (isVirtual) {
+        switch (virtualType()) {
         case VirtualType.Yes:
         case VirtualType.Pure:
             rval.put("virtual ");
@@ -462,7 +466,7 @@ pure @safe nothrow struct CppMethod {
         if (isConst) {
             rval.put(" const");
         }
-        switch (isVirtual) {
+        switch (virtualType()) {
         case VirtualType.Pure:
             rval.put(" = 0");
             break;
@@ -477,7 +481,11 @@ pure @safe nothrow struct CppMethod {
             return isConst_;
         }
 
-        auto isVirtual() {
+        bool isVirtual() {
+            return isVirtual_ != VirtualType.No;
+        }
+
+        auto virtualType() {
             return isVirtual_;
         }
 
@@ -697,7 +705,7 @@ pure @safe nothrow struct CppClass {
     }
 
     @property const {
-        auto isVirtual() {
+        bool isVirtual() {
             return isVirtual_ != VirtualType.No;
         }
 
@@ -747,9 +755,9 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
         import std.variant : visit;
 
         //dfmt off
-        return func.visit!((CppMethod a) => a.isVirtual(),
+        return func.visit!((CppMethod a) => a.virtualType(),
                            (CppCtor a) => VirtualType.Pure,
-                           (CppDtor a) {return a.isVirtual() == VirtualType.Yes ? VirtualType.Pure : VirtualType.No;});
+                           (CppDtor a) {return a.isVirtual() ? VirtualType.Pure : VirtualType.No;});
         //dfmt on
     }
 
