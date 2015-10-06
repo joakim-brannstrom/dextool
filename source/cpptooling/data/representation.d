@@ -224,6 +224,49 @@ private void appInternal(CxParam p, ref Appender!string app) @trusted {
     app.put(toInternal(p));
 }
 
+pure @safe nothrow struct CxGlobalVariable {
+    mixin mixinUniqueId;
+
+    @disable this();
+
+    this(TypeKindVariable tk) {
+        this.variable = tk;
+    }
+
+    this(TypeKind type, CppVariable name) {
+        this(TypeKindVariable(type, name));
+    }
+
+    string toString() const @safe {
+        import std.array : Appender, appender;
+        import std.format : formattedWrite;
+        import std.ascii : newline;
+
+        auto app = appender!string();
+        formattedWrite(app, "%s %s;%s", variable.type.toString, variable.name.str,
+            newline);
+
+        return app.data;
+    }
+
+    @property const {
+        auto type() {
+            return variable.type;
+        }
+
+        auto name() {
+            return variable.name;
+        }
+
+        auto typeName() {
+            return variable;
+        }
+    }
+
+private:
+    TypeKindVariable variable;
+}
+
 /// Information about free functions.
 pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
@@ -850,6 +893,7 @@ pure @safe nothrow struct CppNamespace {
     @disable this();
 
     mixin mixinUniqueId;
+    mixin mixinKind;
 
     static auto makeAnonymous() {
         return CppNamespace(CppNsStack.init);
@@ -882,6 +926,10 @@ pure @safe nothrow struct CppNamespace {
         namespaces ~= ns;
     }
 
+    void put(CxGlobalVariable g) {
+        globals ~= g;
+    }
+
     /** Traverse stack from top to bottom.
      * The implementation of the stack is such that new elements are appended
      * to the end. Therefor the range normal direction is from the end of the
@@ -905,6 +953,10 @@ pure @safe nothrow struct CppNamespace {
         return arrayRange(namespaces);
     }
 
+    auto globalRange() @nogc @safe pure nothrow {
+        return arrayRange(globals);
+    }
+
     string toString() const @safe {
         import std.array : Appender, appender;
         import std.algorithm : each;
@@ -913,9 +965,10 @@ pure @safe nothrow struct CppNamespace {
         import std.ascii : newline;
 
         static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s", a.toString));
-            (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s", a.toString));
-            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s", a.toString));
+            (cast(Tx) th).globalRange.each!(a => app.put(a.toString()));
+            (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
+            (cast(Tx) th).classRange.each!(a => app.put(a.toString));
+            (cast(Tx) th).namespaceRange.each!(a => app.put(a.toString));
         }
 
         static void nsToStrings(T : const(Tx), Tx)(ref T th, out string ns_name, out string ns_concat) @trusted {
@@ -969,6 +1022,7 @@ private:
     CppClass[] classes;
     CFunction[] funcs;
     CppNamespace[] namespaces;
+    CxGlobalVariable[] globals;
 }
 
 pure @safe nothrow struct CppRoot {
@@ -984,6 +1038,10 @@ pure @safe nothrow struct CppRoot {
         this.ns ~= ns;
     }
 
+    void put(CxGlobalVariable g) {
+        globals ~= g;
+    }
+
     string toString() const @safe {
         import std.array : Appender, appender;
 
@@ -992,15 +1050,25 @@ pure @safe nothrow struct CppRoot {
             import std.ascii : newline;
             import std.format : formattedWrite;
 
-            (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
-            app.put(newline);
-            (cast(Tx) th).classRange.each!(a => app.put(a.toString));
-            app.put(newline);
+            if (th.globals.length > 0) {
+                (cast(Tx) th).globalRange.each!(a => app.put(a.toString()));
+                app.put(newline);
+            }
+
+            if (th.funcs.length > 0) {
+                (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
+                app.put(newline);
+            }
+
+            if (th.classes.length > 0) {
+                (cast(Tx) th).classRange.each!(a => app.put(a.toString));
+                app.put(newline);
+            }
+
             (cast(Tx) th).namespaceRange.each!(a => app.put(a.toString));
         }
 
         auto app = appender!string();
-
         appRanges(this, app);
 
         return app.data;
@@ -1018,10 +1086,15 @@ pure @safe nothrow struct CppRoot {
         return arrayRange(funcs);
     }
 
+    auto globalRange() @nogc @safe pure nothrow {
+        return arrayRange(globals);
+    }
+
 private:
     CppNamespace[] ns;
     CppClass[] classes;
     CFunction[] funcs;
+    CxGlobalVariable[] globals;
 }
 
 /// Find where in the structure a class with the uniqe id reside.
@@ -1367,7 +1440,7 @@ namespace Depth3 { //Depth1::Depth2::Depth3
 ");
 }
 
-@name("Create anonymouse namespace")
+@name("Create anonymous namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
 
@@ -1404,12 +1477,35 @@ unittest {
     auto a = A(true);
     auto b = A(true);
 
-    import std.experimental.testing : writelnUt;
-
-    writelnUt(a.id());
-    writelnUt(a.makeUniqueId());
-
     shouldBeGreaterThan(a.makeUniqueId(), 0);
     shouldBeGreaterThan(a.id(), 0);
     shouldEqual(a.id(), b.id());
+}
+
+@name("should be a global definition")
+unittest {
+    auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
+        false, false, false), CppVariable("x")));
+    auto v1 = CxGlobalVariable(makeTypeKind("int", "int", false, false, false), CppVariable("y"));
+
+    shouldEqualPretty(v0.toString, "int x;\n");
+    shouldEqualPretty(v1.toString, "int y;\n");
+}
+
+@name("globals in root")
+unittest {
+    auto v = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
+        false, false, false), CppVariable("x")));
+    auto n = CppNamespace.makeAnonymous();
+    auto r = CppRoot();
+    n.put(v);
+    r.put(v);
+    r.put(n);
+
+    shouldEqualPretty(r.toString, "int x;
+
+namespace  { //
+int x;
+} //NS:
+");
 }
