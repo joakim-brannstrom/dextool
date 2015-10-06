@@ -21,6 +21,13 @@ module cpptooling.generator.stub.stub;
 import std.typecons : Typedef;
 import logger = std.experimental.logger;
 
+import std.experimental.testing : name;
+
+version (unittest) {
+    import test.helpers : shouldEqualPretty;
+    import std.experimental.testing : shouldEqual;
+}
+
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
@@ -161,7 +168,7 @@ string filenameToC(in string filename) {
 
     // dfmt off
     return filename.asCapitalized
-        .until!((a) => !isAlpha(a))
+        .until!((a) => !isAlpha(a) && a != '_')
         .text;
     // dfmt on
 }
@@ -428,4 +435,13 @@ void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
         }
         ns.stmt(stmt);
     }
+}
+
+@name("should stop on dot when generating C prefix")
+unittest {
+    string fname = "some_file.hpp";
+    shouldEqual(filenameToC(fname), "Some_file");
+
+    fname = "some_file_fun";
+    shouldEqual(filenameToC(fname), "Some_file_fun");
 }

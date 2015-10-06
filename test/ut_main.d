@@ -7,6 +7,7 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "cpptooling.data.representation",
+                          "cpptooling.generator.stub.stub",
                           "cpptooling.utility.clang",
                           "cpptooling.utility.range",
                           "translator.Type",
