@@ -257,7 +257,7 @@ pure @safe nothrow struct CppTorMethod {
 
     this(const CppMethodName name, const CxParam[] params_, const CppAccess access,
         const CppVirtualMethod virtual) {
-        this.name = name;
+        this.name_ = name;
         this.accessType_ = access;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
 
@@ -294,7 +294,7 @@ pure @safe nothrow struct CppTorMethod {
             break;
         default:
         }
-        formattedWrite(rval, "%s(%s)", name.str, ps.data);
+        formattedWrite(rval, "%s(%s)", name_.str, ps.data);
 
         return rval.data;
     }
@@ -307,10 +307,14 @@ pure @safe nothrow struct CppTorMethod {
         auto accessType() {
             return accessType_;
         }
+
+        auto name() {
+            return name_;
+        }
     }
 
     invariant() {
-        assert(name.length > 0);
+        assert(name_.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -321,7 +325,7 @@ private:
     VirtualType isVirtual_;
     CppAccess accessType_;
 
-    CppMethodName name;
+    CppMethodName name_;
     CxParam[] params;
 }
 
