@@ -50,7 +50,7 @@ function test_gen_code() {
     fi
 
     echo -e "${C_YELLOW}=== $inhdr  ===${C_NONE}"
-    tmp="../build/gen-test-double stub $pre_args -d $outdir $inhdr $cflags $post_args"
+    tmp="../build/dextool stub $pre_args -d $outdir $inhdr $cflags $post_args"
     echo "$tmp"
     eval "$tmp"
 }

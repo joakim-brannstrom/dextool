@@ -1,10 +1,14 @@
-# Features
+
+# Old todos
+Some are for the old architecture, kept as a reminder so features aren't lost.
+
+## Features
  - operators are translated to words. As it is now an operator would result in broken code.
  - Stub generation of C-functions.
  - Better control of nameing and prefixes. callback namespace, callback
    functions, data structure etc.
 
-# Before it is useful
+## Before it is useful
  - [DONE] Interface method that are const.
  - [DONE] const parameters in a method.
  - [DONE] Generated data in namespace to avoid name collisions.
@@ -18,13 +22,13 @@
  - ctor's arguments must be stored.
  - default ctor must always be implemented.
 
-# Quality of Life
+## Quality of Life
  - Date in the header when it was generated.
  - Support for header with copyright notice in generated.
  - A pure stub interface that have all callbacks inherited. Both one with
    implementation and one without.
 
-# Architecture
+## Architecture
  - [WIP] Break up stub in submodules. Should increase maintainability and reusability.
  - Change AST traversal to strictly follow the Visitor pattern. The apply
    function should NOT take a cursor but rather an interface with all node

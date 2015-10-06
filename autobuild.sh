@@ -54,7 +54,6 @@ function check_status() {
 function state_init() {
     echo "Started watching path: "
     echo $INOTIFY_PATH | tr "[:blank:]" "\n"
-    export LFLAGS="-L/usr/lib/llvm-3.6/lib"
 }
 
 function state_wait() {
@@ -65,7 +64,7 @@ function state_wait() {
 }
 
 function state_ut_run() {
-    dub run -c unittest -b unittest-cov
+    $ROOT/build.sh run -c unittest -b unittest-cov
     check_status "Compile and run UnitTest"
 }
 
@@ -88,7 +87,7 @@ function state_ut_cov() {
 }
 
 function state_release_build() {
-    dub build -c release
+    $ROOT/build.sh build -c release
     check_status "Compile Release"
 }
 
@@ -102,7 +101,7 @@ function state_release_test() {
 }
 
 function state_doc_build() {
-    dub build -b docs
+    $ROOT/build.sh build -b docs
     check_status "Generate Documentation"
     echo "firefox $ROOT/docs/"
     DOC_CNT=0
