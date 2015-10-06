@@ -405,8 +405,8 @@ pure @safe nothrow struct CppMethod {
     this(const CppMethodName name, const CxParam[] params_,
         const CxReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
-        this.name = name;
-        this.returnType = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.name_ = name;
+        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
         this.accessType_ = access;
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
@@ -461,7 +461,7 @@ pure @safe nothrow struct CppMethod {
             break;
         default:
         }
-        formattedWrite(rval, "%s %s(%s)", returnType.toString, name.str, ps.data);
+        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
 
         if (isConst) {
             rval.put(" const");
@@ -492,12 +492,20 @@ pure @safe nothrow struct CppMethod {
         auto accessType() {
             return accessType_;
         }
+
+        auto returnType() {
+            return returnType_;
+        }
+
+        auto name() {
+            return name_;
+        }
     }
 
     invariant() {
-        assert(name.length > 0);
-        assert(returnType.name.length > 0);
-        assert(returnType.toString.length > 0);
+        assert(name_.length > 0);
+        assert(returnType_.name.length > 0);
+        assert(returnType_.toString.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -509,9 +517,9 @@ private:
     VirtualType isVirtual_;
     CppAccess accessType_;
 
-    CppMethodName name;
+    CppMethodName name_;
     CxParam[] params;
-    CxReturnType returnType;
+    CxReturnType returnType_;
 }
 
 pure @safe nothrow struct CppClass {
