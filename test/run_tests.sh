@@ -73,6 +73,10 @@ function test_compare_code() {
     out_hdr="$outdir/stub_"$(basename ${inhdr})
     out_impl="$outdir/stub_"${inhdr_base%.hpp}".cpp"
 
+    # echo $out_hdr
+    # cat $out_hdr
+    # exit 1
+
     echo -e "Comparing result: ${expect_hdr}\t$PWD/${out_hdr}"
     diff -u "${expect_hdr}" "${out_hdr}"
     if [[ -e "${expect_impl}" ]]; then
@@ -92,15 +96,21 @@ for sourcef in testdata/stage_1/*.hpp; do
     out_impl="$outdir/stub_"${inhdr_base%.hpp}".cpp"
 
     case "$sourcef" in
-        *class_no_virtual*)
-            test_gen_code "$outdir" "$sourcef" "--func-scope=all" ;;
+        *functions*)
+            test_gen_code "$outdir" "$sourcef" --debug ;;
+        # *class_interface*)
+        #     test_gen_code "$outdir" "$sourcef" --debug ;;
+        # *class_no_virtual*)
+        #     test_gen_code "$outdir" "$sourcef" "--func-scope=all" ;;
         # **)
         #     test_gen_code "$outdir" "$sourcef" "--debug" ;;
         # **)
         #     test_gen_code "$outdir" "$sourcef" "--debug" "|& grep -i $grepper"
         # ;;
+        # *)
+        #     test_gen_code "$outdir" "$sourcef" ;;
         *)
-            test_gen_code "$outdir" "$sourcef" ;;
+            continue ;;
     esac
 
     case "$sourcef" in
@@ -108,21 +118,22 @@ for sourcef in testdata/stage_1/*.hpp; do
             test_compare_code "$outdir" "$sourcef" ;;
     esac
 
-    case "$sourcef" in
-        *class_interface*)
-            test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
-        *class_inherit*)
-            test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
-        *class_in_ns*)
-            test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
-        *)
-            test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
-    esac
+    # case "$sourcef" in
+    #     *class_interface*)
+    #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
+    #     *class_inherit*)
+    #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
+    #     *class_in_ns*)
+    #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
+    #     *)
+    #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
+    # esac
 
     set +e
     rm "$outdir"/*
     set -e
 done
+exit 0
 
 echo "Stage 2"
 test_gen_code "$outdir" "testdata/stage_2/case1/ifs1.hpp" "--file-scope=all"
