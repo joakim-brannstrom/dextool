@@ -110,6 +110,7 @@ private template mixinUniqueId() {
     }
 }
 
+/// Convert a namespace stack to a string separated by ::.
 string toStringNs(CppNsStack ns) {
     import std.algorithm : map;
     import std.array : join;
@@ -117,6 +118,7 @@ string toStringNs(CppNsStack ns) {
     return ns.map!(a => cast(string) a).join("::");
 }
 
+/// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
     import std.variant : visit;
 
@@ -129,6 +131,7 @@ string toInternal(CxParam p) @trusted {
     // dfmt on
 }
 
+/// Join a range of CxParams to a string separated by ", ".
 string joinParams(T)(T r) if (isInputRange!T) {
     import std.algorithm : joiner, map;
     import std.conv : text;
@@ -219,6 +222,7 @@ pure @safe nothrow struct CFunction {
         return name_;
     }
 
+    /// If the function is variadic, aka have a parameter with "...".
     bool isVariadic() {
         return VariadicType.yes == isVariadic_;
     }
@@ -756,7 +760,7 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
         mr.popFront();
     }
     foreach (m; mr) {
-        auto mVirt = getVirt(m);
+        const auto mVirt = getVirt(m);
 
         final switch (th.isVirtual_) {
         case VirtualType.Pure:
