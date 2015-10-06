@@ -286,7 +286,10 @@ void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
         generateCFuncHdr(a, hdr);
         generateCFuncImpl(a, impl);
     });
-    r.classRange().each!(a => generateClassHdr(a, hdr));
+    r.classRange().each!((a) {
+        generateClassHdr(a, hdr);
+        generateClassImpl(a, impl);
+    });
 }
 
 void generateCFuncHdr(CFunction f, CppModule hdr) {
@@ -356,6 +359,58 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
             }();
             // dfmt on
         }
+    }
+}
+
+void generateClassImpl(CppClass c, CppModule impl) {
+    final switch (cast(ClassType) c.kind()) {
+    case ClassType.Normal:
+        break;
+    case ClassType.Manager:
+        generateClassImplManager(c, impl);
+        break;
+    }
+}
+
+/// Expecting only three functions. c'tor, d'tor and Connect.
+void generateClassImplManager(CppClass c, CppModule impl) {
+    import std.variant : visit;
+    import cpptooling.data.representation;
+
+    static void genCtor(CppClass c, CppCtor m, CppModule impl) {
+        with (impl.ctor_body(m.name.str)) {
+            stmt(E("stub_inst") = E("0"));
+        }
+        impl.sep(2);
+    }
+
+    static void genDtor(CppClass c, CppDtor m, CppModule impl) {
+        with (impl.dtor_body(c.name.str)) {
+            stmt(E("stub_inst") = E("0"));
+        }
+        impl.sep(2);
+    }
+
+    static void genMethod(CppClass c, CppMethod m, CppModule impl) {
+        import std.range : takeOne;
+
+        string params = m.paramRange().joinParams();
+        auto b = impl.method_body(m.returnType().toString, c.name().str,
+            m.name().str, m.isConst(), params);
+        with (b) {
+            auto p = m.paramRange().joinParamNames();
+            stmt(E("stub_inst") = E("&" ~ p));
+        }
+        impl.sep(2);
+    }
+
+    impl.sep(2);
+
+    foreach (m; c.methodPublicRange()) {
+        () @trusted{
+            m.visit!((CppMethod m) => genMethod(c, m, impl),
+                (CppCtor m) => genCtor(c, m, impl), (CppDtor m) => genDtor(c, m, impl));
+        }();
     }
 }
 

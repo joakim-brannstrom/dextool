@@ -24,5 +24,15 @@ int a(int out) {
     return stub_inst->a(out);
 }
 
+Functions_Manager::Functions_Manager() {
+    stub_inst = 0;
+}
+
+Functions_Manager::~Functions_Manager() {
+    stub_inst = 0;
+}
+
+void Functions_Manager::Connect(Functions& inst) {
+    stub_inst = &inst;
 }
 
