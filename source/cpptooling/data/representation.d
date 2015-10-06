@@ -31,7 +31,7 @@ import cpptooling.utility.conv : str;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import std.experimental.testing : shouldEqual;
+    import std.experimental.testing : shouldEqual, shouldBeGreaterThan;
 }
 
 public:
@@ -83,11 +83,26 @@ enum AccessType {
     Private
 }
 
+/// Expects a toString function where it is mixed in.
+/// base value for hash is 0 to force deterministic hashes. Use the pointer for
+/// unique between objects.
 private template mixinUniqueId() {
     private size_t id_;
 
     private size_t makeUniqueId() {
-        return typeid(this).getHash(&this);
+        import std.digest.crc;
+
+        string str = this.toString();
+        size_t value = 0;
+
+        if (str is null)
+            return value;
+        ubyte[4] hash = crc32Of(str);
+        return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
+    }
+
+    private void setUniqeId() {
+        this.id_ = makeUniqueId();
     }
 
     size_t id() {
@@ -1300,4 +1315,30 @@ unittest {
 void nothing();
 } //NS:
 ");
+}
+
+@name("should be a hash value based on string representation")
+unittest {
+    struct A {
+        mixin mixinUniqueId;
+        this(bool fun) {
+            setUniqeId();
+        }
+
+        auto toString() {
+            return "foo";
+        }
+    }
+
+    auto a = A(true);
+    auto b = A(true);
+
+    import std.experimental.testing : writelnUt;
+
+    writelnUt(a.id());
+    writelnUt(a.makeUniqueId());
+
+    shouldBeGreaterThan(a.makeUniqueId(), 0);
+    shouldBeGreaterThan(a.id(), 0);
+    shouldEqual(a.id(), b.id());
 }
