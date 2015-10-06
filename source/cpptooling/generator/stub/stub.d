@@ -19,7 +19,6 @@
 module cpptooling.generator.stub.stub;
 
 import std.typecons : Typedef;
-
 import logger = std.experimental.logger;
 
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
@@ -66,6 +65,7 @@ struct StubGenerator {
 
     /// Process structural data to a stub.
     auto process(CppRoot root) {
+        logger.trace("Raw data:\n" ~ root.toString());
         auto tr = .translate(root, ctrl);
 
         // Does it have any C functions?
@@ -74,13 +74,20 @@ struct StubGenerator {
             tr.put(c_if);
         }
 
-        return PostProcess(tr, ctrl);
+        logger.trace("Post processed:\n" ~ tr.toString());
+
+        auto hdr = new CppModule;
+        auto impl = new CppModule;
+        generateStub(hdr, impl);
+
+        return PostProcess(hdr, impl, ctrl);
     }
 
 private:
     struct PostProcess {
-        this(CppRoot tr, StubController ctrl) {
-            this.tr = tr;
+        this(CppModule hdr, CppModule impl, StubController ctrl) {
+            this.hdr = hdr;
+            this.impl = impl;
             this.ctrl = ctrl;
         }
 
@@ -97,7 +104,7 @@ private:
             auto o = CppHModule(translate(filename.str, table));
             o.content.include(ctrl.getIncludeFile.str);
             o.content.sep(2);
-            o.content.text(tr.toString());
+            o.content.append(hdr);
 
             return o.render;
         }
@@ -112,12 +119,14 @@ private:
             o.suppressIndent(1);
             o.include(filename.str);
             o.sep(2);
+            o.append(impl);
 
             return o.render;
         }
 
     private:
-        CppRoot tr;
+        CppModule hdr;
+        CppModule impl;
         StubController ctrl;
     }
 
@@ -127,6 +136,7 @@ private:
 
 private:
 import cpptooling.data.representation : CppRoot, CppClass, CFunction;
+import dsrcgen.cpp : CppModule;
 
 /// Structurally transformed the input to a stub implementation.
 /// No helper structs are generated at this stage.
@@ -201,4 +211,7 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
     }
 
     return c;
+}
+
+void generateStub(CppModule hdr, CppModule impl) {
 }
