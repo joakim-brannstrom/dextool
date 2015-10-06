@@ -221,17 +221,29 @@ void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
-    r.funcRange().each!(a => generateCFuncHdr(a, hdr));
+    r.funcRange().each!((a) {
+        generateCFuncHdr(a, hdr);
+        generateCFuncImpl(a, impl);
+    });
     r.classRange().each!(a => generateClassHdr(a, hdr));
 }
 
 void generateCFuncHdr(CFunction f, CppModule hdr) {
-    import std.conv : text;
     import cpptooling.utility.conv : str;
 
     string params = joinParams(f.paramRange());
 
     hdr.func(f.returnType().toString, f.name().str, params);
+}
+
+void generateCFuncImpl(CFunction f, CppModule impl) {
+    import cpptooling.utility.conv : str;
+
+    string params = joinParams(f.paramRange());
+
+    with (impl.func_body(f.returnType().toString, f.name().str, params)) {
+    }
+    impl.sep(2);
 }
 
 void generateClassHdr(CppClass in_c, CppModule hdr) {
