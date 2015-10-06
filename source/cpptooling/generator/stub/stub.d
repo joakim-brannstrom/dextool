@@ -267,6 +267,7 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
     }
 
     hdr.sep(2);
+    in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
     auto c = hdr.class_(in_c.name().str);
     auto pub = c.public_();
 
