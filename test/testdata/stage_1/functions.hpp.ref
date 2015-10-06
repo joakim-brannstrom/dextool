@@ -7,6 +7,7 @@ void bar(int a, int b);
 void fooBar();
 int printf(char * x1, ...);
 int a(int out);
+void fun(d_func p, Something_Big b);
 
 class Functions {
 public:
@@ -17,6 +18,7 @@ public:
     virtual void fooBar() = 0;
     virtual int printf(char * x1) = 0;
     virtual int a(int out) = 0;
+    virtual void fun(d_func p, Something_Big b) = 0;
 };
 
 /// Manage the shared memory area of the instance that fulfill the interface.

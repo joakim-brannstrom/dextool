@@ -6,4 +6,11 @@ int foo (int a);
 void bar (int a, int b);
 void fooBar (void);
 int printf (char*, ...);
-int a (int out);
+
+extern int a (int out);
+
+typedef int (*d_func) (int, int);
+struct Something_Big {
+    int tiny;
+};
+extern void fun(d_func p, Something_Big b);

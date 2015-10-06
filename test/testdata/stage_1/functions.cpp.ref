@@ -24,6 +24,10 @@ int a(int out) {
     return stub_inst->a(out);
 }
 
+void fun(d_func p, Something_Big b) {
+    stub_inst->fun(p, b);
+}
+
 Functions_Manager::Functions_Manager() {
     stub_inst = 0;
 }
