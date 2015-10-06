@@ -118,7 +118,9 @@ for sourcef in testdata/stage_1/*.hpp; do
             test_compare_code "$outdir" "$sourcef" ;;
     esac
 
-    # case "$sourcef" in
+    case "$sourcef" in
+        *functions*)
+            test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
     #     *class_interface*)
     #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
     #     *class_inherit*)
@@ -127,7 +129,7 @@ for sourcef in testdata/stage_1/*.hpp; do
     #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
     #     *)
     #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
-    # esac
+    esac
 
     set +e
     rm "$outdir"/*
