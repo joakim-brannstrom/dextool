@@ -147,6 +147,19 @@ enum ClassType {
     Manager
 }
 
+/// Convert the filename to the C prefix for interface, global etc.
+string filenameToC(in string filename) {
+    import std.algorithm : until;
+    import std.uni : asCapitalized, isAlpha;
+    import std.conv : text;
+
+    // dfmt off
+    return filename.asCapitalized
+        .until!((a) => !isAlpha(a))
+        .text;
+    // dfmt on
+}
+
 /// Structurally transformed the input to a stub implementation.
 /// No helper structs are generated at this stage.
 /// This stage may filter out uninteresting parts, usually controlled by ctrl.
@@ -190,15 +203,8 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
     import cpptooling.utility.conv : str;
 
     import std.array : array;
-    import std.algorithm : until;
-    import std.uni : asCapitalized, isAlpha;
-    import std.conv : text;
 
-    // dfmt off
-    string c_name = filename.asCapitalized
-        .until!((a) => !isAlpha(a))
-        .text;
-    // dfmt on
+    string c_name = filenameToC(filename);
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
     c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
@@ -227,16 +233,7 @@ CppClass makeCFuncManager(in string filename) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    import std.algorithm : until;
-    import std.uni : asCapitalized, isAlpha;
-    import std.conv : text;
-
-    // dfmt off
-    string c_if = filename.asCapitalized
-        .until!((a) => !isAlpha(a))
-        .text;
-    // dfmt on
-
+    string c_if = filenameToC(filename);
     string c_name = c_if ~ "_Manager";
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
