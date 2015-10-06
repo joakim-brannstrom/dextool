@@ -70,7 +70,8 @@ struct StubGenerator {
 
         // Does it have any C functions?
         if (!tr.funcRange().empty) {
-            CppClass c_if = makeCFuncInterface(tr.funcRange(), filename.str, ctrl.getClass());
+            tr.put(makeCStubGlobal(filename.str));
+            auto c_if = makeCFuncInterface(tr.funcRange(), filename.str, ctrl.getClass());
             tr.put(c_if);
             tr.put(makeCFuncManager(filename.str));
         }
@@ -139,12 +140,17 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction;
+    CppDtor, CFunction, CppNamespace;
 import dsrcgen.cpp : CppModule, E;
 
 enum ClassType {
     Normal,
     Manager
+}
+
+enum NamespaceType {
+    Normal,
+    CStubGlobal
 }
 
 /// Convert the filename to the C prefix for interface, global etc.
@@ -254,9 +260,27 @@ CppClass makeCFuncManager(in string filename) {
     return c;
 }
 
+CppNamespace makeCStubGlobal(string filename) {
+    import cpptooling.data.representation : makeTypeKind, CppVariable,
+        CxGlobalVariable;
+
+    auto type = makeTypeKind(filenameToC(filename) ~ "*",
+        filenameToC(filename) ~ "*", false, false, true);
+    auto v = CxGlobalVariable(type, CppVariable("stub_inst"));
+    auto ns = CppNamespace.makeAnonymous();
+    ns.setKind(NamespaceType.CStubGlobal);
+    ns.put(v);
+
+    return ns;
+}
+
 void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
-    import std.algorithm : each;
+    import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
+
+    r.namespaceRange().filter!(a => a.kind() == NamespaceType.CStubGlobal).each!((a) {
+        generateCStubGlobal(a, impl);
+    });
 
     r.funcRange().each!((a) {
         generateCFuncHdr(a, hdr);
@@ -332,5 +356,22 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
             }();
             // dfmt on
         }
+    }
+}
+
+void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
+    import std.ascii : newline;
+    import cpptooling.utility.conv : str;
+
+    auto ns = impl.namespace("")[$.begin = "{" ~ newline];
+    ns.suppressIndent(1);
+    impl.sep(2);
+
+    foreach (g; in_ns.globalRange()) {
+        auto stmt = E(g.type().toString ~ " " ~ g.name().str);
+        if (g.type().isPointer) {
+            stmt = E("0");
+        }
+        ns.stmt(stmt);
     }
 }

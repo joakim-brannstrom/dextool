@@ -1,5 +1,9 @@
 #include "stub_functions.hpp"
 
+namespace {
+Functions* stub_inst = 0;
+} //NS:
+
 int foo(int a) {
     return stub_inst->foo(a);
 }
