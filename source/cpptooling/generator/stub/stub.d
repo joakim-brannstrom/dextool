@@ -218,13 +218,12 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
         CppVirtualMethod(VirtualType.Yes)));
 
     foreach (f; r) {
+        auto params = f.paramRange().array();
         if (f.isVariadic) {
-            c.put("skipping (variadic) " ~ f.name());
-            continue;
+            params = params[0 .. $ - 1];
         }
 
         auto name = CppMethodName(f.name.str);
-        auto params = f.paramRange().array();
         auto m = CppMethod(name, params, f.returnType(),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));

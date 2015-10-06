@@ -170,7 +170,7 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
 
 /// Join a range of CxParams by extracting the parameter names.
 string joinParamNames(T)(T r) @safe if (isInputRange!T) {
-    import std.algorithm : joiner, map;
+    import std.algorithm : joiner, map, filter, cache;
     import std.conv : text;
 
     int uid;
@@ -187,7 +187,8 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
         // dfmt on
     }
 
-    return r.map!(a => getName(a)).joiner(", ").text();
+    // using cache to avoid getName is called twice.
+    return r.map!(a => getName(a)).cache().filter!(a => a.length > 0).joiner(", ").text();
 }
 
 /// Make a variadic parameter.

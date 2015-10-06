@@ -17,7 +17,7 @@ void fooBar() {
 }
 
 int printf(char * x1, ...) {
-    return stub_inst->printf(x1, );
+    return stub_inst->printf(x1);
 }
 
 int a(int out) {
