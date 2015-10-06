@@ -5,7 +5,8 @@ authors "Joakim Brännström"
 license "GPL"
 
 dependency "unit-threaded" path="experimental/testing"
-dependency "docopt" version="~>0.6.1-b.3"
+// v0.6.1-b.4
+dependency "docopt" path="docopt"
 dependency "dsrcgen" path="dsrcgen"
 
 targetPath "build"

@@ -1,0 +1,11 @@
+{
+    "name": "naval_fate",
+    "description": "Naval Fate",
+    "copyright": "Copyright (c) 2014, Bob Tolbert",
+    "authors": ["Bob Tolbert"],
+    "license": "MIT",
+    "targetType": "executable",
+    "dependencies": {
+        "docopt": {"version": "~master", "path": "../../"}
+    }
+}

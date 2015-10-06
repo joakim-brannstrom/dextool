@@ -1,0 +1,11 @@
+{
+    "name": "arguments",
+    "description": "A traveling salesman problem example.",
+    "copyright": "Copyright © 2014, Bob Tolbert",
+    "authors": ["Bob Tolbert"],
+    "license": "MIT",
+    "targetType": "executable",
+    "dependencies": {
+        "docopt": {"version": "~master", "path": "../../"}
+    }
+}

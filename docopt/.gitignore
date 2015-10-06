@@ -1,0 +1,14 @@
+.dub
+*.exe
+*.obj
+*.o
+__test*
+libdocopt.a
+docopt.lib
+Debug
+Release
+*.suo
+test/test_docopt
+test/test_docopt.o
+README.html
+git*
