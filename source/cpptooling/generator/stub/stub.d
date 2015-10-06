@@ -195,6 +195,9 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
     // dfmt on
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
+    c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
+    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
+        CppVirtualMethod(VirtualType.Yes)));
 
     foreach (f; r) {
         if (f.isVariadic) {
@@ -216,8 +219,10 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
 
 void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
     import std.algorithm : each;
+    import cpptooling.utility.conv : str;
 
     r.funcRange().each!(a => generateCFuncHdr(a, hdr));
+    r.classRange().each!(a => generateClassHdr(a, hdr));
 }
 
 void generateCFuncHdr(CFunction f, CppModule hdr) {
@@ -227,4 +232,39 @@ void generateCFuncHdr(CFunction f, CppModule hdr) {
     string params = joinParams(f.paramRange());
 
     hdr.func(f.returnType().toString, f.name().str, params);
+}
+
+void generateClassHdr(CppClass in_c, CppModule hdr) {
+    import std.algorithm : each;
+    import std.variant : visit;
+    import cpptooling.utility.conv : str;
+
+    static void genCtor(CppCtor m, CppModule hdr) {
+        string params = m.paramRange().joinParams();
+        hdr.ctor(m.name().str, params);
+    }
+
+    static void genDtor(CppDtor m, CppModule hdr) {
+        hdr.dtor(m.isVirtual(), m.name().str);
+    }
+
+    static void genMethod(CppMethod m, CppModule hdr) {
+        string params = m.paramRange().joinParams();
+        hdr.method(m.isVirtual(), m.returnType().toString, m.name().str, m.isConst(),
+            params)[$.end = " = 0;"];
+    }
+
+    hdr.sep(2);
+    auto c = hdr.class_(in_c.name().str);
+    auto pub = c.public_();
+
+    with (pub) {
+        foreach (m; in_c.methodPublicRange()) {
+            // dfmt off
+            m.visit!((CppMethod m) => genMethod(m, pub),
+                     (CppCtor m) => genCtor(m, pub),
+                     (CppDtor m) => genDtor(m, pub));
+            // dfmt on
+        }
+    }
 }
