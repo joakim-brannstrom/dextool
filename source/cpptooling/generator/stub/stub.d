@@ -78,7 +78,7 @@ struct StubGenerator {
 
         auto hdr = new CppModule;
         auto impl = new CppModule;
-        generateStub(hdr, impl);
+        generateStub(tr, hdr, impl);
 
         return PostProcess(hdr, impl, ctrl);
     }
@@ -135,7 +135,8 @@ private:
 }
 
 private:
-import cpptooling.data.representation : CppRoot, CppClass, CFunction;
+import cpptooling.data.representation : CppRoot, CppClass, CFunction,
+    joinParams;
 import dsrcgen.cpp : CppModule;
 
 /// Structurally transformed the input to a stub implementation.
@@ -213,5 +214,17 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctr
     return c;
 }
 
-void generateStub(CppModule hdr, CppModule impl) {
+void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
+    import std.algorithm : each;
+
+    r.funcRange().each!(a => generateCFuncHdr(a, hdr));
+}
+
+void generateCFuncHdr(CFunction f, CppModule hdr) {
+    import std.conv : text;
+    import cpptooling.utility.conv : str;
+
+    string params = joinParams(f.paramRange());
+
+    hdr.func(f.returnType().toString, f.name().str, params);
 }

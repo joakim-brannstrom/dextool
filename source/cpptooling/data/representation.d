@@ -19,6 +19,7 @@
 module cpptooling.data.representation;
 
 import std.array : Appender;
+import std.range : isInputRange;
 import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
@@ -101,6 +102,25 @@ string toStringNs(CppNsStack ns) {
     return ns.map!(a => cast(string) a).join("::");
 }
 
+string toInternal(CxParam p) @trusted {
+    import std.variant : visit;
+
+    // dfmt off
+    return p.visit!(
+        (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
+        (TypeKind t) { return t.toString; },
+        (VariadicType a) { return "..."; }
+        );
+    // dfmt on
+}
+
+string joinParams(T)(T r) if (isInputRange!T) {
+    import std.algorithm : joiner, map;
+    import std.conv : text;
+
+    return r.map!(a => toInternal(a)).joiner(", ").text();
+}
+
 /// Make a variadic parameter.
 CxParam makeCxParam() {
     return CxParam(VariadicType.yes);
@@ -128,17 +148,11 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt on
 }
 
-private void toInternal(CxParam p, ref Appender!string app) @trusted {
+private void appInternal(CxParam p, ref Appender!string app) @trusted {
     import std.variant : visit;
     import std.format : formattedWrite;
 
-    // dfmt off
-    p.visit!(
-        (TypeKindVariable tk) {formattedWrite(app, "%s %s", tk.type.toString, tk.name.str);},
-        (TypeKind t) { app.put(t.toString); },
-        (VariadicType a) { app.put("..."); }
-        );
-    // dfmt on
+    app.put(toInternal(p));
 }
 
 /// Information about free functions.
@@ -203,9 +217,9 @@ pure @safe nothrow struct CFunction {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            toInternal(pr.front, ps);
+            appInternal(pr.front, ps);
             pr.popFront;
-            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
+            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
         }
 
         auto rval = appender!string();
@@ -267,9 +281,9 @@ pure @safe nothrow struct CppTorMethod {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            toInternal(pr.front, ps);
+            appInternal(pr.front, ps);
             pr.popFront;
-            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
+            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
         }
 
         auto rval = appender!string();
@@ -364,9 +378,9 @@ pure @safe nothrow struct CppMethod {
         auto ps = appender!string();
         auto pr = paramRange();
         if (!pr.empty) {
-            toInternal(pr.front, ps);
+            appInternal(pr.front, ps);
             pr.popFront;
-            pr.each!((a) { ps.put(", "); toInternal(a, ps); });
+            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
         }
 
         auto rval = appender!string();
