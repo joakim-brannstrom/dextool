@@ -62,15 +62,13 @@ mixin template CppModuleX() {
      */
     auto class_suite(string class_name, string headline) {
         auto tmp = format("%s::%s", class_name, headline);
-        auto e = new Suite!(typeof(this))(tmp);
-        append(e);
+        auto e = suite(tmp, true);
         return e;
     }
 
     auto class_suite(string rval, string class_name, string headline) {
         auto tmp = format("%s %s::%s", rval, class_name, headline);
-        auto e = new Suite!(typeof(this))(tmp);
-        append(e);
+        auto e = suite(tmp, true);
         return e;
     }
 
@@ -185,7 +183,7 @@ mixin template CppModuleX() {
     }
 
     auto method_body(string return_type, string class_name, string name, bool const_) {
-        auto e = suite(format("%s %s::%s()%s", return_type, class_name, name,
+        auto e = class_suite(return_type, class_name, format("%s()%s", name,
             const_ ? " const" : ""));
         return e;
     }
@@ -194,7 +192,7 @@ mixin template CppModuleX() {
         bool const_, auto ref T args) {
         string params = this.paramsToString(args);
 
-        auto e = suite(format("%s %s::%s(%s)%s", return_type, class_name, name,
+        auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
             params, const_ ? " const" : ""));
         return e;
     }
