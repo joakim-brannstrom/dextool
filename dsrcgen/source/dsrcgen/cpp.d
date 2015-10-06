@@ -8,6 +8,8 @@ import dsrcgen.base;
 
 public import dsrcgen.c;
 
+@safe:
+
 mixin template CppModuleX() {
     // Statements
     auto friend(string expr) {
@@ -140,8 +142,7 @@ mixin template CppModuleX() {
     auto class_(string name, string inherit) {
         if (inherit.length == 0) {
             return class_(name);
-        }
-        else {
+        } else {
             auto e = suite(format("class %s : %s", name, inherit))[$.end = "};"];
             return e;
         }

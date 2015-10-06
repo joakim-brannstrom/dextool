@@ -6,6 +6,8 @@ module dsrcgen.c;
 
 import dsrcgen.base;
 
+@safe:
+
 ///TODO: change to c-comment and make a separate for c++.
 /** Affected by attribute begin
  * begin ~ comment
@@ -98,8 +100,7 @@ mixin template CModuleX() {
 
         if (f.length > 1 && f[0] == '<') {
             incl = format("#include %s", f);
-        }
-        else {
+        } else {
             ///TODO ugly way. Does other string literals exist that could be used instead?
             incl = format("#include %s%s%s", '"', f, '"');
         }
@@ -244,7 +245,7 @@ class CModule : BaseModule {
     mixin CModuleX;
 }
 
-private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow @safe {
+private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow {
     import std.string : inPattern;
 
     bool in_pattern = false;
@@ -328,7 +329,7 @@ class Suite(T) : T {
     }
 }
 
-@safe pure struct E {
+pure struct E {
     import std.conv : to;
     import std.string : format;
 
@@ -377,8 +378,7 @@ class Suite(T) : T {
         static if (op == "+" || op == "-" || op == "*" || op == "++" || op == "--") {
             content = mixin("\"" ~ op ~ "\"~content");
             return this;
-        }
-        else {
+        } else {
             static assert(0, "Operator " ~ op ~ " not implemented");
         }
     }
@@ -387,16 +387,13 @@ class Suite(T) : T {
         static if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "&") {
             content = mixin("content~\" " ~ op ~ " \"~to!string(rhs)");
             return this;
-        }
-        else static if (op == "~" && is(T == E)) {
+        } else static if (op == "~" && is(T == E)) {
             content = content ~ " " ~ rhs.content;
             return this;
-        }
-        else static if (op == "~") {
+        } else static if (op == "~") {
             content = content ~ to!string(rhs);
             return this;
-        }
-        else {
+        } else {
             static assert(0, "Operator " ~ op ~ " not implemented");
         }
     }

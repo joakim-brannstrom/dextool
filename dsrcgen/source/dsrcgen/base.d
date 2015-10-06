@@ -4,6 +4,8 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.base;
 
+@safe:
+
 private struct KV {
     string k;
     string v;
@@ -23,8 +25,7 @@ package struct AttrSetter {
         @property auto opDispatch(T)(T v) {
             static if (name.length > 1 && name[$ - 1] == '_') {
                 return KV(name[0 .. $ - 1], v);
-            }
-            else {
+            } else {
                 return KV(name, v);
             }
         }
