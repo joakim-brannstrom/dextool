@@ -45,7 +45,6 @@ alias HdrFilename = StubGenerator.HdrFilename;
 static string doc = "
 usage:
   gen-test-double stub [options] FILE [--] [CFLAGS...]
-  gen-test-double mock [options] FILE
 
 arguments:
  FILE           C++ header to generate stubs from
