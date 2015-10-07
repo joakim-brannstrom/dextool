@@ -259,16 +259,17 @@ private void appInternal(CxParam p, ref Appender!string app) @trusted {
 
 pure @safe nothrow struct CxGlobalVariable {
     mixin mixinUniqueId;
-    //mixin mixingSourceLocation;
+    mixin mixingSourceLocation;
 
     @disable this();
 
-    this(TypeKindVariable tk) {
+    this(TypeKindVariable tk, CxLocation loc) {
         this.variable = tk;
+        this.loc_ = loc;
     }
 
-    this(TypeKind type, CppVariable name) {
-        this(TypeKindVariable(type, name));
+    this(TypeKind type, CppVariable name, CxLocation loc) {
+        this(TypeKindVariable(type, name), loc);
     }
 
     string toString() const @safe {
@@ -277,7 +278,8 @@ pure @safe nothrow struct CxGlobalVariable {
         import std.ascii : newline;
 
         auto app = appender!string();
-        formattedWrite(app, "%s %s;", variable.type.toString, variable.name.str);
+        formattedWrite(app, "%s %s; // %s", variable.type.toString, variable.name.str,
+            loc_);
 
         return app.data;
     }
@@ -1527,27 +1529,28 @@ unittest {
 @name("should be a global definition")
 unittest {
     auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
-        false, false, false), CppVariable("x")));
-    auto v1 = CxGlobalVariable(makeTypeKind("int", "int", false, false, false), CppVariable("y"));
+        false, false, false), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(makeTypeKind("int", "int", false, false, false),
+        CppVariable("y"), dummyLoc);
 
-    shouldEqualPretty(v0.toString, "int x;");
-    shouldEqualPretty(v1.toString, "int y;");
+    shouldEqualPretty(v0.toString, "int x; // File:a.h Line:123 Column:45");
+    shouldEqualPretty(v1.toString, "int y; // File:a.h Line:123 Column:45");
 }
 
 @name("globals in root")
 unittest {
     auto v = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
-        false, false, false), CppVariable("x")));
+        false, false, false), CppVariable("x")), dummyLoc);
     auto n = CppNamespace.makeAnonymous();
     auto r = CppRoot();
     n.put(v);
     r.put(v);
     r.put(n);
 
-    shouldEqualPretty(r.toString, "int x;
+    shouldEqualPretty(r.toString, "int x; // File:a.h Line:123 Column:45
 
 namespace  { //
-int x;
+int x; // File:a.h Line:123 Column:45
 } //NS:
 ");
 }

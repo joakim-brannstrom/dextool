@@ -147,8 +147,10 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace;
+    CppDtor, CFunction, CppNamespace, CxLocation;
 import dsrcgen.cpp : CppModule, E;
+
+enum dummyLoc = CxLocation("", -1, -1);
 
 enum ClassType {
     Normal,
@@ -272,7 +274,7 @@ CppNamespace makeCStubGlobal(string filename) {
 
     auto type = makeTypeKind(filenameToC(filename) ~ "*",
         filenameToC(filename) ~ "*", false, false, true);
-    auto v = CxGlobalVariable(type, CppVariable("stub_inst"));
+    auto v = CxGlobalVariable(type, CppVariable("stub_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(NamespaceType.CStubGlobal);
     ns.put(v);

@@ -41,6 +41,27 @@ auto toInternal(T)(SourceLocation c_loc) {
     return into;
 }
 
+struct VariableVisitor {
+    static auto make(ref Cursor) {
+        return typeof(this)();
+    }
+
+    auto visit(ref Cursor c) {
+        import cpptooling.data.representation : CxGlobalVariable, CppVariable,
+            CxLocation;
+        import translator.Type : TypeKind, translateType;
+
+        auto name = CppVariable(c.spelling);
+        auto type = translateType(c.type);
+        auto loc = toInternal!CxLocation(c.location());
+
+        auto var = CxGlobalVariable(type, name, loc);
+        logger.info("variable:", var.toString);
+
+        return var;
+    }
+}
+
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
 struct FunctionVisitor {
@@ -376,7 +397,10 @@ struct ParseContext {
             root.put(FunctionVisitor.make(c).visit(c));
             descend = false;
             break;
-
+        case CXCursor_VarDecl:
+            root.put(VariableVisitor.make(c).visit(c));
+            descend = false;
+            break;
         default:
             break;
         }
