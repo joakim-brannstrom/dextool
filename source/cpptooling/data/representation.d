@@ -244,8 +244,7 @@ pure @safe nothrow struct CxGlobalVariable {
         import std.ascii : newline;
 
         auto app = appender!string();
-        formattedWrite(app, "%s %s;%s", variable.type.toString, variable.name.str,
-            newline);
+        formattedWrite(app, "%s %s;", variable.type.toString, variable.name.str);
 
         return app.data;
     }
@@ -325,7 +324,6 @@ pure @safe nothrow struct CFunction {
     string toString() const @safe {
         import std.array : Appender, appender;
         import std.algorithm : each;
-        import std.ascii : newline;
         import std.format : formattedWrite;
 
         auto ps = appender!string();
@@ -337,8 +335,7 @@ pure @safe nothrow struct CFunction {
         }
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);%s", returnType.toString, name.str, ps.data,
-            newline);
+        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
 
         return rval.data;
     }
@@ -748,7 +745,8 @@ pure @safe nothrow struct CppClass {
                 formattedWrite(app, "public:%s", newline);
                 (cast(Tx) th).methodPublicRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classPublicRange.each!(a => app.put(a.toString()));
+                (cast(Tx) th).classPublicRange.each!(a => formattedWrite(app,
+                    "%s%s", a.toString(), newline));
             }
         }
 
@@ -757,7 +755,8 @@ pure @safe nothrow struct CppClass {
                 formattedWrite(app, "protected:%s", newline);
                 (cast(Tx) th).methodProtectedRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classProtectedRange.each!(a => app.put(a.toString()));
+                (cast(Tx) th).classProtectedRange.each!(a => formattedWrite(app,
+                    "%s%s", a.toString(), newline));
             }
         }
 
@@ -766,7 +765,8 @@ pure @safe nothrow struct CppClass {
                 formattedWrite(app, "private:%s", newline);
                 (cast(Tx) th).methodPrivateRange.each!(a => formattedWrite(app,
                     "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classPrivateRange.each!(a => app.put(a.toString()));
+                (cast(Tx) th).classPrivateRange.each!(a => formattedWrite(app,
+                    "%s%s", a.toString(), newline));
             }
         }
 
@@ -796,7 +796,7 @@ pure @safe nothrow struct CppClass {
         appPubRange(this, app);
         appProtRange(this, app);
         appPrivRange(this, app);
-        formattedWrite(app, "}; //Class:%s%s", name_.str, newline);
+        formattedWrite(app, "}; //Class:%s", name_.str);
 
         return app.data;
     }
@@ -966,10 +966,14 @@ pure @safe nothrow struct CppNamespace {
         import std.ascii : newline;
 
         static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            (cast(Tx) th).globalRange.each!(a => app.put(a.toString()));
-            (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
-            (cast(Tx) th).classRange.each!(a => app.put(a.toString));
-            (cast(Tx) th).namespaceRange.each!(a => app.put(a.toString));
+            (cast(Tx) th).globalRange.each!(a => formattedWrite(app, "%s%s",
+                a.toString(), newline));
+            (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s%s", a.toString(),
+                newline));
+            (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s%s", a.toString(),
+                newline));
+            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s%s",
+                a.toString(), newline));
         }
 
         static void nsToStrings(T : const(Tx), Tx)(ref T th, out string ns_name, out string ns_concat) @trusted {
@@ -994,7 +998,7 @@ pure @safe nothrow struct CppNamespace {
         auto app = appender!string();
         formattedWrite(app, "namespace %s { //%s%s", ns_name, ns_concat, newline);
         appRanges(this, app);
-        formattedWrite(app, "} //NS:%s%s", ns_name, newline);
+        formattedWrite(app, "} //NS:%s", ns_name);
 
         return app.data;
     }
@@ -1052,21 +1056,25 @@ pure @safe nothrow struct CppRoot {
             import std.format : formattedWrite;
 
             if (th.globals.length > 0) {
-                (cast(Tx) th).globalRange.each!(a => app.put(a.toString()));
+                (cast(Tx) th).globalRange.each!(a => formattedWrite(app, "%s%s",
+                    a.toString(), newline));
                 app.put(newline);
             }
 
             if (th.funcs.length > 0) {
-                (cast(Tx) th).funcRange.each!(a => app.put(a.toString));
+                (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s%s", a.toString,
+                    newline));
                 app.put(newline);
             }
 
             if (th.classes.length > 0) {
-                (cast(Tx) th).classRange.each!(a => app.put(a.toString));
+                (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s%s", a.toString,
+                    newline));
                 app.put(newline);
             }
 
-            (cast(Tx) th).namespaceRange.each!(a => app.put(a.toString));
+            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s%s", a.toString,
+                newline));
         }
 
         auto app = appender!string();
@@ -1116,13 +1124,13 @@ unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"));
         shouldEqual(f.returnType.name, "void");
-        shouldEqual(f.toString, "void nothing();\n");
+        shouldEqual(f.toString, "void nothing();");
     }
 
     { // a return type.
         auto rtk = makeTypeKind("int", "int", false, false, false);
         auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk));
-        shouldEqual(f.toString, "int nothing();\n");
+        shouldEqual(f.toString, "int nothing();");
     }
 
     { // return type and parameters.
@@ -1132,7 +1140,7 @@ unittest {
             false, false, false), CppVariable("y")));
         auto rtk = makeTypeKind("int", "int", false, false, false);
         auto f = CFunction(CFunctionName("nothing"), [p0, p1], CxReturnType(rtk), VariadicType.no);
-        shouldEqual(f.toString, "int nothing(int x, char y);\n");
+        shouldEqual(f.toString, "int nothing(int x, char y);");
     }
 }
 
@@ -1165,7 +1173,7 @@ unittest {
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
     shouldEqualPretty(c.toString,
-        "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo\n");
+        "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo");
 }
 
 @name("Create an anonymous namespace struct")
@@ -1207,7 +1215,7 @@ unittest {
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
         makeCxParam(TypeKindVariable(ptk, CppVariable("y")))], CxReturnType(rtk), VariadicType.no);
 
-    shouldEqualPretty(f.toString, "int nothing(char* x, char* y);\n");
+    shouldEqualPretty(f.toString, "int nothing(char* x, char* y);");
 }
 
 @name("Test of Ctor's")
@@ -1274,8 +1282,7 @@ protected:
   virtual int fun() = 0;
 private:
   char* gun(int x, int y);
-}; //Class:Foo
-");
+}; //Class:Foo");
 }
 
 @name("should contain the inherited classes")
@@ -1292,8 +1299,7 @@ unittest {
 
     shouldEqualPretty(c.toString,
         "class Foo : public pub, protected prot, private priv { // isVirtual No
-}; //Class:Foo
-");
+}; //Class:Foo");
 }
 
 @name("should contain nested classes")
@@ -1314,8 +1320,7 @@ class Prot { // isVirtual No
 private:
 class Priv { // isVirtual No
 }; //Class:Priv
-}; //Class:Foo
-");
+}; //Class:Foo");
 }
 
 @name("should be a virtual class")
@@ -1339,8 +1344,7 @@ unittest {
 public:
   virtual ~Foo();
   virtual int wun();
-}; //Class:Foo
-");
+}; //Class:Foo");
 }
 
 @name("should be a pure virtual class")
@@ -1364,8 +1368,7 @@ unittest {
 public:
   virtual ~Foo();
   virtual int wun() = 0;
-}; //Class:Foo
-");
+}; //Class:Foo");
 }
 
 @name("Test of toString for CppNamespace")
@@ -1381,8 +1384,7 @@ class Foo { // isVirtual No
 public:
   void voider();
 }; //Class:Foo
-} //NS:simple
-");
+} //NS:simple");
 }
 
 @name("Should show nesting of namespaces as valid C++ code")
@@ -1390,8 +1392,7 @@ unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
     shouldEqualPretty(n.toString, "namespace bar { //foo::bar
-} //NS:bar
-");
+} //NS:bar");
 }
 
 @name("Test of toString for CppRoot")
@@ -1437,8 +1438,7 @@ namespace Depth2 { //Depth1::Depth2
 namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth3
 } //NS:Depth2
-} //NS:Depth1
-");
+} //NS:Depth1");
 }
 
 @name("Create anonymous namespace")
@@ -1446,8 +1446,7 @@ unittest {
     auto n = CppNamespace.makeAnonymous();
 
     shouldEqualPretty(n.toString, "namespace  { //
-} //NS:
-");
+} //NS:");
 }
 
 @name("Add a C-func to a namespace")
@@ -1458,8 +1457,7 @@ unittest {
 
     shouldEqualPretty(n.toString, "namespace  { //
 void nothing();
-} //NS:
-");
+} //NS:");
 }
 
 @name("should be a hash value based on string representation")
@@ -1489,8 +1487,8 @@ unittest {
         false, false, false), CppVariable("x")));
     auto v1 = CxGlobalVariable(makeTypeKind("int", "int", false, false, false), CppVariable("y"));
 
-    shouldEqualPretty(v0.toString, "int x;\n");
-    shouldEqualPretty(v1.toString, "int y;\n");
+    shouldEqualPretty(v0.toString, "int x;");
+    shouldEqualPretty(v1.toString, "int y;");
 }
 
 @name("globals in root")
