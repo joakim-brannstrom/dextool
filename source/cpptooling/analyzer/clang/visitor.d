@@ -23,15 +23,29 @@ import logger = std.experimental.logger;
 
 import clang.c.index;
 import clang.Cursor;
+import clang.SourceLocation;
 
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
+
+auto toInternal(T)(SourceLocation c_loc) {
+    import std.conv : text;
+
+    T into;
+    auto l = c_loc.expansion();
+
+    into.file = l.file.name();
+    into.line = l.line;
+    into.column = l.column;
+
+    return into;
+}
 
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
 struct FunctionVisitor {
     import cpptooling.data.representation : CxParam, CFunctionName,
-        CxReturnType, CFunction, VariadicType;
+        CxReturnType, CFunction, VariadicType, CxLocation;
 
     static auto make(ref Cursor) {
         return typeof(this)();
@@ -44,8 +58,9 @@ struct FunctionVisitor {
         auto name = CFunctionName(c.spelling);
         auto return_type = CxReturnType(translateType(c.func.resultType));
         auto is_variadic = c.func.isVariadic ? VariadicType.yes : VariadicType.no;
+        auto loc = toInternal!CxLocation(c.location());
 
-        auto func = CFunction(name, params, return_type, is_variadic);
+        auto func = CFunction(name, params, return_type, is_variadic, loc);
         logger.info("function: ", func.toString);
 
         return func;

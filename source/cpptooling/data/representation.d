@@ -3,6 +3,11 @@
 /// License: GPL
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 ///
+/// The guiding principle for this module is: "Correct by construction"
+/// It is the reason why the c'tor are huge.
+/// After the data is created it should be "correct".
+/// As far as possible avoid runtime errors.
+///
 /// This program is free software; you can redistribute it and/or modify
 /// it under the terms of the GNU General Public License as published by
 /// the Free Software Foundation; either version 2 of the License, or
@@ -32,6 +37,8 @@ import cpptooling.utility.conv : str;
 version (unittest) {
     import test.helpers : shouldEqualPretty;
     import std.experimental.testing : shouldEqual, shouldBeGreaterThan;
+
+    enum dummyLoc = CxLocation("a.h", 123, 45);
 }
 
 public:
@@ -121,6 +128,31 @@ private template mixinKind() {
     @property const {
         auto kind() {
             return kind_;
+        }
+    }
+}
+
+///TODO change to a algebraic with two kinds, Location and None.
+pure @safe nothrow struct CxLocation {
+    string file;
+    uint line;
+    uint column;
+    uint offset;
+
+    auto toString() const {
+        import std.format : format;
+
+        return format("File:%s Line:%s Column:%s", file, line, column);
+    }
+}
+
+/// The source location.
+private template mixingSourceLocation() {
+    private CxLocation loc_;
+
+    @property const {
+        auto location() {
+            return loc_;
         }
     }
 }
@@ -227,6 +259,7 @@ private void appInternal(CxParam p, ref Appender!string app) @trusted {
 
 pure @safe nothrow struct CxGlobalVariable {
     mixin mixinUniqueId;
+    //mixin mixingSourceLocation;
 
     @disable this();
 
@@ -272,15 +305,17 @@ pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
 
     mixin mixinUniqueId;
+    mixin mixingSourceLocation;
 
     @disable this();
 
     /// C function representation.
     this(const CFunctionName name, const CxParam[] params_,
-        const CxReturnType return_type, const VariadicType is_variadic) {
+        const CxReturnType return_type, const VariadicType is_variadic, const CxLocation loc) {
         this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
         this.isVariadic_ = is_variadic;
+        this.loc_ = loc;
 
         //TODO how do you replace this with a range?
         foreach (p; params_) {
@@ -291,14 +326,14 @@ pure @safe nothrow struct CFunction {
     }
 
     /// Function with no parameters.
-    this(const CFunctionName name, const CxReturnType return_type) {
-        this(name, CxParam[].init, return_type, VariadicType.no);
+    this(const CFunctionName name, const CxReturnType return_type, const CxLocation loc) {
+        this(name, CxParam[].init, return_type, VariadicType.no, loc);
     }
 
     /// Function with no parameters and returning void.
-    this(const CFunctionName name) {
+    this(const CFunctionName name, const CxLocation loc) {
         CxReturnType void_ = makeTypeKind("void", "void", false, false, false);
-        this(name, CxParam[].init, void_, VariadicType.no);
+        this(name, CxParam[].init, void_, VariadicType.no, loc);
     }
 
     /// A range over the parameters of the function.
@@ -335,7 +370,8 @@ pure @safe nothrow struct CFunction {
         }
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
+        formattedWrite(rval, "%s %s(%s); // %s", returnType.toString, name.str, ps.data,
+            loc_);
 
         return rval.data;
     }
@@ -362,6 +398,7 @@ pure @safe nothrow struct CppCtor {
     import std.typecons : TypedefType;
 
     mixin mixinUniqueId;
+    //mixin mixingSourceLocation;
 
     @disable this();
 
@@ -429,6 +466,7 @@ pure @safe nothrow struct CppDtor {
     import std.typecons : TypedefType;
 
     mixin mixinUniqueId;
+    //mixin mixingSourceLocation;
 
     @disable this();
 
@@ -491,6 +529,7 @@ pure @safe nothrow struct CppMethod {
     import std.typecons : TypedefType;
 
     mixin mixinUniqueId;
+    //mixin mixingSourceLocation;
 
     @disable this();
 
@@ -622,6 +661,7 @@ pure @safe nothrow struct CppClass {
 
     mixin mixinUniqueId;
     mixin mixinKind;
+    //mixin mixingSourceLocation;
 
     @disable this();
 
@@ -895,6 +935,7 @@ pure @safe nothrow struct CppNamespace {
 
     mixin mixinUniqueId;
     mixin mixinKind;
+    //mixin mixingSourceLocation;
 
     static auto makeAnonymous() {
         return CppNamespace(CppNsStack.init);
@@ -1122,15 +1163,15 @@ private:
 @name("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
-        auto f = CFunction(CFunctionName("nothing"));
+        auto f = CFunction(CFunctionName("nothing"), dummyLoc);
         shouldEqual(f.returnType.name, "void");
-        shouldEqual(f.toString, "void nothing();");
+        shouldEqual(f.toString, "void nothing(); // File:a.h Line:123 Column:45");
     }
 
     { // a return type.
         auto rtk = makeTypeKind("int", "int", false, false, false);
-        auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk));
-        shouldEqual(f.toString, "int nothing();");
+        auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk), dummyLoc);
+        shouldEqual(f.toString, "int nothing(); // File:a.h Line:123 Column:45");
     }
 
     { // return type and parameters.
@@ -1139,8 +1180,9 @@ unittest {
         auto p1 = makeCxParam(TypeKindVariable(makeTypeKind("char", "char",
             false, false, false), CppVariable("y")));
         auto rtk = makeTypeKind("int", "int", false, false, false);
-        auto f = CFunction(CFunctionName("nothing"), [p0, p1], CxReturnType(rtk), VariadicType.no);
-        shouldEqual(f.toString, "int nothing(int x, char y);");
+        auto f = CFunction(CFunctionName("nothing"), [p0, p1],
+            CxReturnType(rtk), VariadicType.no, dummyLoc);
+        shouldEqual(f.toString, "int nothing(int x, char y); // File:a.h Line:123 Column:45");
     }
 }
 
@@ -1213,9 +1255,10 @@ unittest {
     auto rtk = makeTypeKind("int", "int", false, false, false);
     auto f = CFunction(CFunctionName("nothing"),
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
-        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))], CxReturnType(rtk), VariadicType.no);
+        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
+        CxReturnType(rtk), VariadicType.no, dummyLoc);
 
-    shouldEqualPretty(f.toString, "int nothing(char* x, char* y);");
+    shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // File:a.h Line:123 Column:45");
 }
 
 @name("Test of Ctor's")
@@ -1400,7 +1443,7 @@ unittest {
     CppRoot root;
 
     { // free function
-        auto f = CFunction(CFunctionName("nothing"));
+        auto f = CFunction(CFunctionName("nothing"), dummyLoc);
         root.put(f);
     }
 
@@ -1411,7 +1454,7 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    shouldEqualPretty(root.toString, "void nothing();
+    shouldEqualPretty(root.toString, "void nothing(); // File:a.h Line:123 Column:45
 
 class Foo { // isVirtual No
 public:
@@ -1452,11 +1495,11 @@ unittest {
 @name("Add a C-func to a namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
-    auto f = CFunction(CFunctionName("nothing"));
+    auto f = CFunction(CFunctionName("nothing"), dummyLoc);
     n.put(f);
 
     shouldEqualPretty(n.toString, "namespace  { //
-void nothing();
+void nothing(); // File:a.h Line:123 Column:45
 } //NS:");
 }
 
