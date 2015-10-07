@@ -288,25 +288,14 @@ void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
         generateCStubGlobal(a, impl);
     });
 
-    r.funcRange().each!((a) {
-        generateCFuncHdr(a, hdr);
-        generateCFuncImpl(a, impl);
-    });
+    r.funcRange().each!((a) { generateCFuncImpl(a, impl); });
     r.classRange().each!((a) {
         generateClassHdr(a, hdr);
         generateClassImpl(a, impl);
     });
 }
 
-void generateCFuncHdr(CFunction f, CppModule hdr) {
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
-
-    string params = joinParams(f.paramRange());
-
-    hdr.func(f.returnType().toString, f.name().str, params);
-}
-
+///TODO print the function prototype and location it was found at.
 void generateCFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
@@ -350,7 +339,6 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
         }
     }
 
-    hdr.sep(2);
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
     auto c = hdr.class_(in_c.name().str);
     auto pub = c.public_();
@@ -366,6 +354,7 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
             // dfmt on
         }
     }
+    hdr.sep(2);
 }
 
 void generateClassImpl(CppClass c, CppModule impl) {

@@ -2,13 +2,6 @@
 #define stub_functions_hpp
 #include "functions.hpp"
 
-int foo(int a);
-void bar(int a, int b);
-void fooBar();
-int printf(char * x1, ...);
-int a(int out);
-void fun(d_func p, Something_Big b);
-
 class Functions {
 public:
     Functions();
@@ -29,4 +22,5 @@ public:
     ~Functions_Manager();
     void Connect(Functions& inst);
 };
+
 #endif // stub_functions_hpp
