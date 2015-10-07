@@ -87,7 +87,7 @@ struct StubGenerator {
 
         auto hdr = new CppModule;
         auto impl = new CppModule;
-        generateStub(tr, hdr, impl);
+        generateStub(tr, filename.str, hdr, impl);
 
         return PostProcess(hdr, impl, ctrl);
     }
@@ -147,7 +147,7 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, CxLocation;
+    CppDtor, CFunction, CppNamespace, CxLocation, CxGlobalVariable;
 import dsrcgen.cpp : CppModule, E;
 
 enum dummyLoc = CxLocation("", -1, -1);
@@ -189,6 +189,10 @@ CppRoot translate(CppRoot input, StubController ctrl) {
         tr.put(translateCFunc(input, f));
     }
 
+    foreach (g; input.globalRange()) {
+        tr.put(translateCGlobal(input, g));
+    }
+
     return tr;
 }
 
@@ -211,6 +215,10 @@ CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
 
 CFunction translateCFunc(CppRoot root, CFunction func) {
     return func;
+}
+
+CxGlobalVariable translateCGlobal(CppRoot, CxGlobalVariable g) {
+    return g;
 }
 
 CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctrl) {
@@ -282,9 +290,15 @@ CppNamespace makeCStubGlobal(string filename) {
     return ns;
 }
 
-void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
+void generateStub(CppRoot r, in string filename, CppModule hdr, CppModule impl) {
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
+
+    auto globalR = r.globalRange();
+    if (!globalR.empty) {
+        auto ifdef_hdr = hdr.IFDEF("DEFINE_GLOBAL_" ~ filenameToC(filename));
+        globalR.each!((a) { generateCGlobalHdr(a, ifdef_hdr); });
+    }
 
     r.namespaceRange().filter!(a => a.kind() == NamespaceType.CStubGlobal).each!((a) {
         generateCStubGlobal(a, impl);
@@ -295,6 +309,12 @@ void generateStub(CppRoot r, CppModule hdr, CppModule impl) {
         generateClassHdr(a, hdr);
         generateClassImpl(a, impl);
     });
+}
+
+void generateCGlobalHdr(CxGlobalVariable g, CppModule hdr) {
+    import cpptooling.utility.conv : str;
+
+    hdr.stmt(E(g.type.toString) ~ E(g.name.str));
 }
 
 ///TODO print the function prototype and location it was found at.

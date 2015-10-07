@@ -98,6 +98,8 @@ for sourcef in testdata/stage_1/*.hpp; do
     case "$sourcef" in
         *functions*)
             test_gen_code "$outdir" "$sourcef" --debug ;;
+        *variables*)
+            test_gen_code "$outdir" "$sourcef" --debug ;;
         # *class_interface*)
         #     test_gen_code "$outdir" "$sourcef" --debug ;;
         # *class_no_virtual*)
@@ -121,6 +123,7 @@ for sourcef in testdata/stage_1/*.hpp; do
     case "$sourcef" in
         *functions*)
             test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
+        *variables*) ;;
     #     *class_interface*)
     #         test_compl_code "$outdir" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
     #     *class_inherit*)

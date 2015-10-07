@@ -398,7 +398,11 @@ struct ParseContext {
             descend = false;
             break;
         case CXCursor_VarDecl:
-            root.put(VariableVisitor.make(c).visit(c));
+            ///TODO ugly hack. Move this information to the representation.
+            /// but for now skipping all definitions
+            if (!c.isDefinition) {
+                root.put(VariableVisitor.make(c).visit(c));
+            }
             descend = false;
             break;
         default:
