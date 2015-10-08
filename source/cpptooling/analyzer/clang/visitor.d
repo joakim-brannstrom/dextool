@@ -400,7 +400,7 @@ struct ParseContext {
         case CXCursor_VarDecl:
             ///TODO ugly hack. Move this information to the representation.
             /// but for now skipping all definitions
-            if (!c.isDefinition) {
+            if (c.storageClass() == CX_StorageClass.CX_SC_Extern) {
                 root.put(VariableVisitor.make(c).visit(c));
             }
             descend = false;
