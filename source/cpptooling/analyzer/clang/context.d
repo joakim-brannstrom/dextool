@@ -21,7 +21,7 @@ module cpptooling.analyzer.clang.context;
 import logger = std.experimental.logger;
 
 /// Holds the context of the file.
-class ClangContext {
+struct ClangContext {
     import std.array : join;
 
     import clang.Compiler;
@@ -80,14 +80,14 @@ private:
 }
 
 /// No errors occured during translation.
-bool isValid(ClangContext context) {
+bool isValid(ref ClangContext context) {
     return context.translation_unit.isValid;
 }
 
 /** Query context for if diagnostic errors where detected during parsing.
  * Return: True if errors where found.
  */
-bool hasParseErrors(ClangContext context) {
+bool hasParseErrors(ref ClangContext context) {
     import clang.c.index : CXDiagnosticSeverity;
 
     if (!context.isValid)
@@ -117,7 +117,7 @@ bool hasParseErrors(ClangContext context) {
 }
 
 /// Log diagnostic error messages to std.logger.
-void logDiagnostic(ClangContext context) {
+void logDiagnostic(ref ClangContext context) {
     import clang.c.index : CXDiagnosticSeverity;
 
     if (!context.isValid)

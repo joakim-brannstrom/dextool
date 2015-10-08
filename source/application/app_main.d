@@ -235,8 +235,8 @@ ExitStatusType genCstub(const string infile, const string outdir,
     logger.infof("Generating stub from '%s'", infile);
     auto ctrl = new StubVariant1(prefix, HdrFilename(infile), file_scope, func_scope);
 
-    auto file_ctx = new ClangContext(infile, cflags);
-    file_ctx.logDiagnostic;
+    auto file_ctx = ClangContext(infile, cflags);
+    logDiagnostic(file_ctx);
     if (file_ctx.hasParseErrors)
         return ExitStatusType.Errors;
 
