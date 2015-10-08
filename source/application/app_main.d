@@ -44,10 +44,10 @@ alias HdrFilename = StubGenerator.HdrFilename;
 
 static string doc = "
 usage:
-  gen-test-double stub [options] FILE [--] [CFLAGS...]
+  dextool cstub [options] FILE [--] [CFLAGS...]
 
 arguments:
- FILE           C++ header to generate stubs from
+ FILE           C/C++ to analyze
  CFLAGS         Compiler flags.
 
 options:
@@ -209,7 +209,7 @@ auto try_open_file(string filename, string mode) @trusted nothrow {
     return rval;
 }
 
-ExitStatusType gen_stub(const string infile, const string outdir,
+ExitStatusType genCstub(const string infile, const string outdir,
     const ref string[] cflags, FileScopeType file_scope, FuncScopeType func_scope) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
@@ -289,7 +289,7 @@ void prepare_env(ref ArgValue[string] parsed) {
     }
 }
 
-ExitStatusType do_test_double(ref ArgValue[string] parsed) {
+ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
     import std.algorithm : among;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
@@ -309,11 +309,9 @@ ExitStatusType do_test_double(ref ArgValue[string] parsed) {
     if (func_scope == FileScopeType.Invalid) {
         logger.error("Usage error: --func-scope must be either of: [all, virtual]");
         writeln(doc);
-    } else if (parsed["stub"].isTrue) {
-        exit_status = gen_stub(parsed["FILE"].toString, parsed["-d"].toString,
+    } else if (parsed["cstub"].isTrue) {
+        exit_status = genCstub(parsed["FILE"].toString, parsed["-d"].toString,
             cflags, file_scope, func_scope);
-    } else if (parsed["mock"].isTrue) {
-        logger.error("Mock generation not implemented yet");
     } else {
         logger.error("Usage error");
         writeln(doc);
@@ -338,7 +336,7 @@ int rmain(string[] args) nothrow {
         logger.trace(join(args, " "));
         logger.trace(prettyPrintArgs(parsed));
 
-        exit_status = do_test_double(parsed);
+        exit_status = doTestDouble(parsed);
     }
     catch (Exception ex) {
         collectException(logger.trace(text(ex)));

@@ -1,9 +1,7 @@
 #!/bin/bash
 ROOT=$PWD
 INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
-if [[ -e "$ROOT/test/run_tests.sh" ]]; then
-    INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_tests.sh"
-fi
+INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_cstub_tests.sh"
 
 C_NONE='\e[m'
 C_RED='\e[1;31m'
@@ -92,12 +90,10 @@ function state_release_build() {
 }
 
 function state_release_test() {
-    if [[ -e "$ROOT/test/run_tests.sh" ]]; then
-        pushd test
-        ./run_tests.sh
-        check_status "Release Tests"
-        popd
-    fi
+    pushd test
+    ./run_cstub_tests.sh
+    check_status "Release Tests"
+    popd
 }
 
 function state_doc_build() {
