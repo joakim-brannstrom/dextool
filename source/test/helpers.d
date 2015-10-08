@@ -39,11 +39,9 @@ version (unittest) {
  *  expected = expected value.
  *  file = file check is in.
  *  line = line check is on.
- * dfmt off
  */
-void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V value,
-    E expected) if (!isAllSomeString!(V, E)) {
-    //dfmt on
+void shouldEqualPretty(V, E)(lazy V value, lazy E expected, string file = __FILE__,
+    size_t line = __LINE__) if (!isAllSomeString!(V, E)) {
     import std.algorithm : count;
     import std.range : lockstep;
     import std.experimental.testing : shouldEqual, UnitTestException;
@@ -62,10 +60,6 @@ void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(V v
         throw new UnitTestException(lines, file, line);
     }
 
-    import std.stdio : writeln;
-
-    writeln(file, " ", line);
-
     shouldEqual(count(value), count(expected), file, line);
 }
 
@@ -77,7 +71,8 @@ unittest {
     try {
         auto value = [0, 2, 1];
         auto expected = [0, 1, 2];
-        shouldEqualPretty!(typeof(value), typeof(expected), "file.d", 123)(value, expected);
+        shouldEqualPretty!(typeof(value), typeof(expected))(value, expected, "file.d",
+            123);
 
         assert(false, "Didn't throw exception");
     }
@@ -100,18 +95,17 @@ unittest {
  *  sep = separator to split value and expected on.
  *  file = file check is in.
  *  line = line check is on.
- *
- *  dfmt off
  */
-void shouldEqualPretty(V, E, Separator, string file = __FILE__, size_t line = __LINE__)(
-    V value, E expected, Separator sep) if (!isAllSomeString!(V, E)) {
-    //dfmt on
+void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
+    lazy Separator sep, string file = __FILE__, size_t line = __LINE__) if (
+        !isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 
     auto rValue = value.splitter(sep);
     auto rExpected = expected.splitter(sep);
 
-    shouldEqualPretty!(typeof(rValue), typeof(rExpected), file, line)(rValue, rExpected);
+    shouldEqualPretty!(typeof(rValue), typeof(rExpected))(rValue, rExpected, file,
+        line);
 }
 
 /**
@@ -124,18 +118,16 @@ void shouldEqualPretty(V, E, Separator, string file = __FILE__, size_t line = __
  *  expected = expected value.
  *  file = file check is in.
  *  line = line check is on.
- *
- * dfmt off
  */
-void shouldEqualPretty(V, E, string file = __FILE__, size_t line = __LINE__)(
-    V value, E expected, string sep = newline) if (isAllSomeString!(V, E)) {
-    // dfmt on
+void shouldEqualPretty(V, E)(lazy V value, lazy E expected, lazy string sep = newline,
+    string file = __FILE__, size_t line = __LINE__) if (isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 
     auto rValue = value.splitter(sep);
     auto rExpected = expected.splitter(sep);
 
-    shouldEqualPretty!(typeof(rValue), typeof(rExpected), file, line)(rValue, rExpected);
+    shouldEqualPretty!(typeof(rValue), typeof(rExpected))(rValue, rExpected, file,
+        line);
 }
 
 private:
