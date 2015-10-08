@@ -120,6 +120,16 @@ struct Cursor {
         return toD(clang_getCursorSpelling(cx));
     }
 
+    /**
+     * Returns the storage class for a function or variable declaration.
+     *
+     * If the passed in Cursor is not a function or variable declaration,
+     * CX_SC_Invalid is returned else the storage class.
+     */
+    @property CX_StorageClass storageClass() {
+        return clang_Cursor_getStorageClass(cx);
+    }
+
     /** Return the display name for the entity referenced by this cursor.
      *
      *  The display name contains extra information that helps identify the
@@ -627,8 +637,7 @@ struct EnumCursor {
 
         if (isUnderlyingTypeEnum) {
             t = typedefUnderlyingType.declaration.enum_.type;
-        }
-        else {
+        } else {
             t = Type(cursor, clang_getCursorType(cx));
         }
 
