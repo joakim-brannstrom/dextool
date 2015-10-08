@@ -209,16 +209,27 @@ auto try_open_file(string filename, string mode) @trusted nothrow {
     return rval;
 }
 
-ExitStatusType genCstub(const string infile, const string outdir,
-    const ref string[] cflags, FileScopeType file_scope, FuncScopeType func_scope) {
+ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
+    FileScopeType file_scope, FuncScopeType func_scope) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
 
+    static auto prependLangFlagIfMissing(string[] in_cflags) {
+        import std.algorithm : among;
+
+        if (!["-xc", "-xc++"].among(in_cflags)) {
+            return ["-xc"] ~ in_cflags;
+        }
+
+        return in_cflags.dup;
+    }
+
     auto hdr_ext = ".hpp";
     auto impl_ext = ".cpp";
     auto prefix = StubPrefix("Stub");
+    auto cflags = prependLangFlagIfMissing(in_cflags);
 
     auto base_filename = infile.baseName.stripExtension;
     HdrFilename hdr_filename = HdrFilename(base_filename ~ hdr_ext);

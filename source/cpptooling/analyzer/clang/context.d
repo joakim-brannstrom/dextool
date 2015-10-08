@@ -41,7 +41,7 @@ struct ClangContext {
         if (args !is null) {
             // skip logging of the internal includes (compiler_args) as to not confuse the user.
             user_args = args.idup;
-            logger.infof("Compiler flags: %s %s", base_args.join(" "), user_args.join(" "));
+            logger.info("Compiler flags: ", user_args.join(" "));
         }
 
         // the last argument determines if comments are parsed and therefor
@@ -68,10 +68,9 @@ private:
         import std.algorithm : map;
 
         auto compiler_args = compiler.extraIncludePaths.map!(e => "-I" ~ e).array();
-        return base_args ~ compiler_args ~ user_args;
+        return compiler_args ~ user_args;
     }
 
-    static const string[] base_args = ["-xc++"];
     string input_file;
     Index index;
     TranslationUnit translation_unit;
