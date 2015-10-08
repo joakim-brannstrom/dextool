@@ -9,7 +9,7 @@ int main(string[] args) {
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.visitor",
                           "cpptooling.data.representation",
-                          "cpptooling.generator.stub.stub",
+                          "cpptooling.generator.stub.cstub",
                           "cpptooling.utility.clang",
                           "cpptooling.utility.conv",
                           "cpptooling.utility.range",

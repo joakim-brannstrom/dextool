@@ -35,7 +35,7 @@ import cpptooling.analyzer.clang.context;
 import cpptooling.analyzer.clang.visitor;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
-import cpptooling.generator.stub.stub : StubGenerator, StubController,
+import cpptooling.generator.stub.cstub : StubGenerator, StubController,
     ClassController;
 
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
@@ -131,7 +131,7 @@ class SimpleLogger : logger.Logger {
  *  - Stub all functions.
  */
 class StubVariant1 : StubController, ClassController {
-    import cpptooling.generator.stub.stub : StubPrefix;
+    import cpptooling.generator.stub.cstub : StubPrefix;
 
     HdrFilename incl_file;
     FileScopeType file_scope;
