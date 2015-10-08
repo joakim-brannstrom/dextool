@@ -191,7 +191,7 @@ class StubVariant1 : StubController, ClassController {
     }
 }
 
-auto try_open_file(string filename, string mode) @trusted nothrow {
+auto tryOpenFile(string filename, string mode) @trusted nothrow {
     Unique!File rval;
     try {
         rval = Unique!File(new File(filename, mode));
@@ -256,14 +256,14 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
 
     auto stubgen = StubGenerator(HdrFilename(base_filename), ctrl).process(ctx.root);
 
-    auto outfile_hdr = try_open_file(hdr_out_filename, "w");
+    auto outfile_hdr = tryOpenFile(hdr_out_filename, "w");
     if (outfile_hdr.isEmpty) {
         return ExitStatusType.Errors;
     }
     scope (exit)
         outfile_hdr.close();
 
-    auto outfile_impl = try_open_file(impl_out_filename, "w");
+    auto outfile_impl = tryOpenFile(impl_out_filename, "w");
     if (outfile_impl.isEmpty) {
         return ExitStatusType.Errors;
     }
@@ -282,7 +282,7 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
     return ExitStatusType.Ok;
 }
 
-void prepare_env(ref ArgValue[string] parsed) {
+void prepareEnv(ref ArgValue[string] parsed) {
     import std.experimental.logger.core : sharedLog;
 
     try {
@@ -342,7 +342,7 @@ int rmain(string[] args) nothrow {
 
     try {
         auto parsed = docopt.docopt(doc, args[1 .. $], help, version_, optionsFirst);
-        prepare_env(parsed);
+        prepareEnv(parsed);
         logger.trace(to!string(args));
         logger.trace(join(args, " "));
         logger.trace(prettyPrintArgs(parsed));
