@@ -1,0 +1,8 @@
+[*.d]
+indent_style=space
+indent_size=4
+tab_width=4
+end_of_line=lf
+
+dfmt_brace_style=otbs
+dfmt_space_after_cast=true
