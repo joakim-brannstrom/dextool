@@ -26,18 +26,14 @@ for sourcef in testdata/cstub/stage_1/*.h; do
     out_impl="$OUTDIR/stub_"${inhdr_base%.h}".cpp"
 
     case "$sourcef" in
-        *functions*)
-            test_gen_code "$OUTDIR" "$sourcef" --debug ;;
-        *variables*)
-            test_gen_code "$OUTDIR" "$sourcef" --debug ;;
         # Test examples
-        # **)
+        # *somefile*)
         #     test_gen_code "$OUTDIR" "$sourcef" "--debug" ;;
-        # **)
+        # *somefile*)
         #     test_gen_code "$OUTDIR" "$sourcef" "--debug" "|& grep -i $grepper"
         # ;;
-        # *)
-        #     test_gen_code "$OUTDIR" "$sourcef" ;;
+        *)
+            test_gen_code "$OUTDIR" "$sourcef" "--debug" ;;
         *) ;;
     esac
 
@@ -47,12 +43,12 @@ for sourcef in testdata/cstub/stage_1/*.h; do
     esac
 
     case "$sourcef" in
-        *functions*)
-            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
-        *variables*) ;;
-        # Compare examples
-        # *)
-        #     test_compl_code "$OUTDIR" "-Itestdata/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
+        # *functions*)
+        #     test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
+        # *variables*) ;;
+        # Compile examples
+        *)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
     esac
 
     clean_test_env
