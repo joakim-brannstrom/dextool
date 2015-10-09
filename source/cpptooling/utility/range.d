@@ -17,6 +17,7 @@
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module cpptooling.utility.range;
+import std.range : isForwardRange;
 
 @nogc struct ArrayRange(T) {
     @property auto front() @safe pure nothrow {
@@ -45,6 +46,10 @@ module cpptooling.utility.range;
 
     @property auto save() @safe pure nothrow {
         return typeof(this)(payload);
+    }
+
+    @property auto opIndex(size_t i) {
+        return payload[i];
     }
 
 private:
