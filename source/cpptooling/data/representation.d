@@ -190,10 +190,9 @@ string toInternal(CxParam p) @trusted {
 string joinParams(T)(T r) @safe if (isInputRange!T) {
     import std.algorithm : joiner, map;
     import std.conv : text;
+    import std.range : enumerate;
 
-    int uid;
-
-    string getTypeName(T : const(Tx), Tx)(T p) @trusted {
+    static string getTypeName(T : const(Tx), Tx)(T p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
@@ -205,7 +204,7 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         // dfmt on
     }
 
-    return r.map!(a => getTypeName(a)).joiner(", ").text();
+    return r.enumerate.map!(a => getTypeName(a.value, a.index)).joiner(", ").text();
 }
 
 /// Join a range of CxParams by extracting the parameter names.
