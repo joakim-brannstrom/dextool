@@ -160,6 +160,10 @@ pure @safe nothrow struct CxLocation {
 private template mixingSourceLocation() {
     private CxLocation loc_;
 
+    private void setLocation(CxLocation loc) {
+        this.loc_ = loc;
+    }
+
     @property const {
         auto location() {
             return loc_;
@@ -274,7 +278,7 @@ pure @safe nothrow struct CxGlobalVariable {
 
     this(TypeKindVariable tk, CxLocation loc) {
         this.variable = tk;
-        this.loc_ = loc;
+        setLocation(loc);
         setUniqueId(variable.name.str);
     }
 
@@ -289,7 +293,7 @@ pure @safe nothrow struct CxGlobalVariable {
 
         auto app = appender!string();
         formattedWrite(app, "%s %s; // %s", variable.type.toString, variable.name.str,
-            loc_);
+            location());
 
         return app.data;
     }
@@ -327,13 +331,13 @@ pure @safe nothrow struct CFunction {
         this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
         this.isVariadic_ = is_variadic;
-        setLocation(loc);
 
         //TODO how do you replace this with a range?
         foreach (p; params_) {
             this.params ~= p;
         }
 
+        setLocation(loc);
         setUniqueId(internalToString);
     }
 
@@ -384,7 +388,7 @@ pure @safe nothrow struct CFunction {
 
         auto rval = appender!string();
         formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data,
-            loc_);
+            location());
         return rval.data;
     }
 
