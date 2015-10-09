@@ -274,6 +274,7 @@ pure @safe nothrow struct CxGlobalVariable {
     this(TypeKindVariable tk, CxLocation loc) {
         this.variable = tk;
         this.loc_ = loc;
+        this.id_ = makeUniqueId();
     }
 
     this(TypeKind type, CppVariable name, CxLocation loc) {
