@@ -94,22 +94,24 @@ enum AccessType {
 /// base value for hash is 0 to force deterministic hashes. Use the pointer for
 /// unique between objects.
 private template mixinUniqueId() {
+    //TODO add check to see that this do NOT already have id_.
+    //TODO make id_ a Algebraic type or Nullable to force it to be set before used.
+
     private size_t id_;
 
-    private size_t makeUniqueId() {
-        import std.digest.crc;
+    private void setUniqueId(string identifier) {
+        static size_t makeUniqueId(string identifier) {
+            import std.digest.crc;
 
-        string str = this.toString();
-        size_t value = 0;
+            size_t value = 0;
 
-        if (str is null)
-            return value;
-        ubyte[4] hash = crc32Of(str);
-        return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
-    }
+            if (identifier is null)
+                return value;
+            ubyte[4] hash = crc32Of(identifier);
+            return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
+        }
 
-    private void setUniqeId() {
-        this.id_ = makeUniqueId();
+        this.id_ = makeUniqueId(identifier);
     }
 
     size_t id() const @property {
@@ -273,7 +275,7 @@ pure @safe nothrow struct CxGlobalVariable {
     this(TypeKindVariable tk, CxLocation loc) {
         this.variable = tk;
         this.loc_ = loc;
-        this.id_ = makeUniqueId();
+        setUniqueId(variable.name.str);
     }
 
     this(TypeKind type, CppVariable name, CxLocation loc) {
@@ -325,14 +327,14 @@ pure @safe nothrow struct CFunction {
         this.name_ = name;
         this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
         this.isVariadic_ = is_variadic;
-        this.loc_ = loc;
+        setLocation(loc);
 
         //TODO how do you replace this with a range?
         foreach (p; params_) {
             this.params ~= p;
         }
 
-        this.id_ = makeUniqueId();
+        setUniqueId(internalToString);
     }
 
     /// Function with no parameters.
@@ -366,7 +368,8 @@ pure @safe nothrow struct CFunction {
         return VariadicType.yes == isVariadic_;
     }
 
-    string toString() const @safe {
+    // Separating file location from the rest
+    private string internalToString() const @safe {
         import std.array : Appender, appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -380,8 +383,17 @@ pure @safe nothrow struct CFunction {
         }
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s); // %s", returnType.toString, name.str, ps.data,
+        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data,
             loc_);
+        return rval.data;
+    }
+
+    string toString() const @safe {
+        import std.array : Appender, appender;
+        import std.format : formattedWrite;
+
+        auto rval = appender!string();
+        formattedWrite(rval, "%s // %s", internalToString(), location());
 
         return rval.data;
     }
@@ -407,7 +419,7 @@ private:
 pure @safe nothrow struct CppCtor {
     import std.typecons : TypedefType;
 
-    mixin mixinUniqueId;
+    //mixin mixinUniqueId;
     //mixin mixingSourceLocation;
 
     @disable this();
@@ -420,8 +432,6 @@ pure @safe nothrow struct CppCtor {
         foreach (p; params_) {
             this.params ~= p;
         }
-
-        this.id_ = makeUniqueId();
     }
 
     auto paramRange() const @nogc @safe pure nothrow {
@@ -475,7 +485,7 @@ private:
 pure @safe nothrow struct CppDtor {
     import std.typecons : TypedefType;
 
-    mixin mixinUniqueId;
+    //mixin mixinUniqueId;
     //mixin mixingSourceLocation;
 
     @disable this();
@@ -484,8 +494,6 @@ pure @safe nothrow struct CppDtor {
         this.name_ = name;
         this.accessType_ = access;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
-
-        this.id_ = makeUniqueId();
     }
 
     string toString() const @safe {
@@ -538,7 +546,7 @@ private:
 pure @safe nothrow struct CppMethod {
     import std.typecons : TypedefType;
 
-    mixin mixinUniqueId;
+    //mixin mixinUniqueId;
     //mixin mixingSourceLocation;
 
     @disable this();
@@ -556,8 +564,6 @@ pure @safe nothrow struct CppMethod {
         foreach (p; params_) {
             this.params ~= p;
         }
-
-        this.id_ = makeUniqueId();
     }
 
     /// Function with no parameters.
@@ -679,7 +685,8 @@ pure @safe nothrow struct CppClass {
         this.name_ = name;
         this.inherits_ = inherits.dup;
 
-        this.id_ = makeUniqueId();
+        ///TODO consider update so the identifier also depend on the namespace.
+        setUniqueId(this.name_.str);
     }
 
     this(const CppClassName name) {
@@ -943,7 +950,7 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
 pure @safe nothrow struct CppNamespace {
     @disable this();
 
-    mixin mixinUniqueId;
+    //mixin mixinUniqueId;
     mixin mixinKind;
     //mixin mixingSourceLocation;
 
@@ -962,8 +969,6 @@ pure @safe nothrow struct CppNamespace {
         }
         this.isAnonymous_ = stack.length == 0;
         this.stack = stack.dup;
-
-        this.id_ = makeUniqueId();
     }
 
     void put(CFunction f) {
@@ -1518,18 +1523,13 @@ unittest {
     struct A {
         mixin mixinUniqueId;
         this(bool fun) {
-            setUniqeId();
-        }
-
-        auto toString() {
-            return "foo";
+            setUniqueId("foo");
         }
     }
 
     auto a = A(true);
     auto b = A(true);
 
-    shouldBeGreaterThan(a.makeUniqueId(), 0);
     shouldBeGreaterThan(a.id(), 0);
     shouldEqual(a.id(), b.id());
 }
