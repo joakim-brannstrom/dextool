@@ -39,6 +39,7 @@ version (unittest) {
     import std.experimental.testing : shouldEqual, shouldBeGreaterThan;
 
     enum dummyLoc = CxLocation("a.h", 123, 45);
+    enum dummyLoc2 = CxLocation("a.h", 456, 12);
 }
 
 public:
@@ -124,7 +125,7 @@ private template mixinUniqueId() {
 
     bool opEquals(T : typeof(this))(auto ref const T rhs) {
         return id() == rhs.id();
-     }
+    }
 }
 
 /// User defined kind to differeniate structs of the same type.
@@ -169,6 +170,16 @@ private template mixingSourceLocation() {
             return loc_;
         }
     }
+}
+
+/// Return: sorted and deduplicated array of the range.
+auto dedup(T)(auto ref T r) if (isInputRange!T) {
+    import std.array : array;
+    import std.algorithm : sort, uniq, copy;
+
+    auto arr = r.array().sort().uniq().array();
+
+    return arr;
 }
 
 /// Convert a namespace stack to a string separated by ::.
@@ -1565,4 +1576,19 @@ namespace  { //
 int x; // File:a.h Line:123 Column:45
 } //NS:
 ");
+}
+
+@name("should be possible to sort the data structures")
+unittest {
+    auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
+        false, false, false), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", "int",
+        false, false, false), CppVariable("x")), dummyLoc2);
+    auto r = CppRoot();
+    r.put(v0);
+    r.put(v1);
+    r.put(v0);
+
+    auto s = r.globalRange().dedup();
+    shouldEqual(s.length, 1);
 }
