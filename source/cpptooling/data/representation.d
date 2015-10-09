@@ -112,9 +112,17 @@ private template mixinUniqueId() {
         this.id_ = makeUniqueId();
     }
 
-    size_t id() {
+    size_t id() const @property {
         return id_;
     }
+
+    int opCmp(T : typeof(this))(auto ref const T rhs) const {
+        return id() < rhs.id();
+    }
+
+    bool opEquals(T : typeof(this))(auto ref const T rhs) {
+        return id() == rhs.id();
+     }
 }
 
 /// User defined kind to differeniate structs of the same type.
