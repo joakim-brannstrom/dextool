@@ -179,41 +179,21 @@ string filenameToC(in string filename) {
 /// No helper structs are generated at this stage.
 /// This stage may filter out uninteresting parts, usually controlled by ctrl.
 CppRoot translate(CppRoot input, StubController ctrl) @trusted {
-    import cpptooling.utility.cache;
-    import std.algorithm : uniq, sort;
+    import cpptooling.data.representation : dedup;
 
     CppRoot tr;
 
-    ///TODO remove the cache and replace it with for example sorting->uniq.
-    Cache!size_t cache;
-
-    foreach (c; input.classRange()) {
-        if (cache.exist(c.id())) {
-            continue;
-        }
-        cache.put(c.id());
+    foreach (c; input.classRange().dedup) {
         tr.put(translateClass(input, c, ctrl.getClass()));
     }
-    cache.clear();
 
-    foreach (f; input.funcRange()) {
-        if (cache.exist(f.id())) {
-            continue;
-        }
-        cache.put(f.id());
+    foreach (f; input.funcRange().dedup) {
         tr.put(translateCFunc(input, f));
     }
-    cache.clear();
 
-    logger.trace("globals");
-    foreach (g; uniq(input.globalRange())) {
-        if (cache.exist(g.id())) {
-            continue;
-        }
-        cache.put(g.id());
+    foreach (g; input.globalRange().dedup) {
         tr.put(translateCGlobal(input, g));
     }
-    cache.clear();
 
     return tr;
 }
