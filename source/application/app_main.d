@@ -35,16 +35,14 @@ import cpptooling.analyzer.clang.context;
 import cpptooling.analyzer.clang.visitor;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
+
 import cpptooling.generator.stub.cstub : StubGenerator, StubController,
-    ClassController;
+    StubParameters, StubProducts;
 
-/// Prefix used for prepending generated code with a unique string to avoid name collisions.
-alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
-alias HdrFilename = StubGenerator.HdrFilename;
-
+///TODO change FILE to be variable
 static string doc = "
 usage:
-  dextool cstub [options] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--exclude=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -52,51 +50,26 @@ arguments:
 
 options:
  -h, --help         show this
- -d=<dest>          destination of generated files [default: .]
- --debug            turn on debug output for tracing of generator flow
- --file-scope=<l>   limit generation to input FILE or process everything [default: single]
-                    Allowed values are: all, single
- --func-scope=<l>   limit generation to kind of functions [default: virtual]
-                    Allowed values are: all, virtual
+ -o=<dest>          destination of generated files [default: .]
+ -d, --debug        turn on debug output for tracing of generator flow
+
+others:
+ --exclude=...      exclude files from generation, repeatable.
+
+example:
+
+Generate a C test double.
+  dextool ctestdouble --exclude=/foo.h --exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
+
+  Analyze and generate a test double for function prototypes and extern variables.
+  The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
+  During generation declarations found in foo.h or functions.h will be excluded.
+  The generated test double is written to the directory outdata.
 ";
 
 enum ExitStatusType {
     Ok,
     Errors
-}
-
-enum FileScopeType {
-    Invalid,
-    All,
-    Single
-}
-
-enum FuncScopeType {
-    Invalid,
-    All,
-    Virtual
-}
-
-auto stringToFileScopeType(string s) {
-    switch (s) with (FileScopeType) {
-    case "all":
-        return All;
-    case "single":
-        return Single;
-    default:
-        return Invalid;
-    }
-}
-
-auto stringToFuncScopeType(string s) {
-    switch (s) with (FuncScopeType) {
-    case "all":
-        return All;
-    case "virtual":
-        return Virtual;
-    default:
-        return Invalid;
-    }
 }
 
 class SimpleLogger : logger.Logger {
@@ -123,76 +96,93 @@ class SimpleLogger : logger.Logger {
     }
 }
 
-/** Stubbning of classes generating simple C++ code.
+/** Test double generation of C code.
  *
- * Possible to control:
- *  - Limit stubbning to a file.
- *  - Only stub virtual functions.
- *  - Stub all functions.
+ * TODO Describe the options.
  */
-class StubVariant1 : StubController, ClassController {
-    import cpptooling.generator.stub.cstub : StubPrefix;
+class CTestDoubleVariant : StubController, StubParameters, StubProducts {
+    import std.typecons : Tuple;
+    import cpptooling.generator.stub.cstub : StubPrefix, FileName;
 
-    HdrFilename incl_file;
-    FileScopeType file_scope;
-    FuncScopeType func_scope;
-    StubPrefix prefix;
+    alias FileData = Tuple!(FileName, "filename", string, "data");
 
-    this(StubPrefix prefix, HdrFilename incl_file, FileScopeType file_scope,
-        FuncScopeType func_scope) {
-        this.prefix = prefix;
-        this.incl_file = incl_file;
-        this.file_scope = file_scope;
-        this.func_scope = func_scope;
+    static const hdrExt = ".hpp";
+    static const implExt = ".cpp";
+
+    immutable StubPrefix prefix;
+    immutable FileName inputFile;
+    immutable FileName hdrOutputFile;
+    immutable FileName implIncludeFile;
+    immutable FileName implOutputFile;
+
+    FileData[] fileData;
+
+    ///TODO change from string to typed parameters.
+    this(string prefix, string input_file, string output_dir) {
+        this.prefix = StubPrefix(prefix);
+
+        import std.path : baseName, buildPath, stripExtension;
+
+        auto base_filename = input_file.baseName.stripExtension;
+
+        inputFile = FileName(input_file.baseName);
+        implIncludeFile = FileName((cast(string) prefix).toLower ~ "_" ~ base_filename ~ hdrExt);
+
+        hdrOutputFile = FileName(buildPath(output_dir, cast(string) implIncludeFile));
+        implOutputFile = FileName(buildPath(output_dir,
+            (cast(string) prefix).toLower ~ "_" ~ base_filename ~ implExt));
     }
 
-    /// Restrict stubbing to the file that is to be included.
-    bool doFile(string filename) {
-        final switch (file_scope) with (FileScopeType) {
-        case Invalid:
-            logger.trace("file scope is invalid");
-            return false;
-        case All:
-            return true;
-        case Single:
-            logger.trace(cast(string) incl_file, "|", filename);
-            return cast(string) incl_file == filename;
-        }
-    }
+    // -- StubController --
 
-    bool doClass() {
+    bool doFile(in string filename) @safe {
         return true;
     }
 
-    HdrFilename getIncludeFile() {
-        import std.path : baseName;
+    // -- StubParameters --
 
-        return HdrFilename((cast(string) incl_file).baseName);
+    FileName getInputFile() @safe pure {
+        return inputFile;
     }
 
-    ClassController getClass() {
-        return this;
+    FileName getImplementationIncludeFile() @safe pure {
+        return implIncludeFile;
     }
 
-    bool useObjectPool() {
-        return true;
+    FileName getOutputHdr() @safe pure {
+        return hdrOutputFile;
     }
 
-    StubPrefix getClassPrefix() {
+    FileName getOutputImpl() @safe pure {
+        return implOutputFile;
+    }
+
+    StubPrefix getFilePrefix() @safe pure {
         return prefix;
     }
 
-    bool doVirtualMethod() {
-        return func_scope == FuncScopeType.Virtual || func_scope == FuncScopeType.All;
+    StubPrefix getManagerPrefix() @safe pure {
+        return prefix;
     }
 
-    bool doMethod() {
-        return func_scope == FuncScopeType.All;
+    // -- StubProducts --
+
+    void putFile(FileName fname, CppHModule hdr_data) {
+        fileData ~= FileData(fname, hdr_data.render());
+    }
+
+    void putFile(FileName fname, CppModule impl_data) {
+        fileData ~= FileData(fname, impl_data.render());
     }
 }
 
+///TODO don't catch Exception, catch the specific.
 auto tryOpenFile(string filename, string mode) @trusted nothrow {
+    import std.exception;
+    import std.typecons : Unique;
+
     Unique!File rval;
+
     try {
         rval = Unique!File(new File(filename, mode));
     }
@@ -209,13 +199,50 @@ auto tryOpenFile(string filename, string mode) @trusted nothrow {
     return rval;
 }
 
-ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
-    FileScopeType file_scope, FuncScopeType func_scope) {
+///TODO don't catch Exception, catch the specific.
+auto tryWriting(string fname, string data) @trusted nothrow {
+    import std.exception;
+
+    static auto action(string fname, string data) {
+        auto f = tryOpenFile(fname, "w");
+
+        if (f.isEmpty) {
+            return ExitStatusType.Errors;
+        }
+        scope (exit)
+            f.close();
+
+        f.write(data);
+
+        return ExitStatusType.Ok;
+    }
+
+    auto status = ExitStatusType.Errors;
+
+    try {
+        status = action(fname, data);
+    }
+    catch (Exception ex) {
+    }
+
+    try {
+        if (status != ExitStatusType.Ok) {
+            logger.error("Failed to write to file ", fname);
+        }
+    }
+    catch (Exception ex) {
+    }
+
+    return status;
+}
+
+ExitStatusType genCstub(string infile, string outdir, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
 
+    ///TODO move to clang module.
     static auto prependLangFlagIfMissing(string[] in_cflags) {
         import std.algorithm : among;
 
@@ -226,17 +253,7 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
         return in_cflags.dup;
     }
 
-    auto hdr_ext = ".hpp";
-    auto impl_ext = ".cpp";
-    auto prefix = StubPrefix("Stub");
     auto cflags = prependLangFlagIfMissing(in_cflags);
-
-    auto base_filename = infile.baseName.stripExtension;
-    HdrFilename hdr_filename = HdrFilename(base_filename ~ hdr_ext);
-    HdrFilename stub_hdr_filename = HdrFilename((cast(string) prefix).toLower ~ "_" ~ hdr_filename);
-    string hdr_out_filename = buildPath(outdir, cast(string) stub_hdr_filename);
-    string impl_out_filename = buildPath(outdir,
-        (cast(string) prefix).toLower ~ "_" ~ base_filename ~ impl_ext);
 
     if (!file.exists(infile)) {
         logger.errorf("File '%s' do not exist", infile);
@@ -244,7 +261,7 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
     }
 
     logger.infof("Generating stub from '%s'", infile);
-    auto ctrl = new StubVariant1(prefix, HdrFilename(infile), file_scope, func_scope);
+    auto variant = new CTestDoubleVariant("Stub", infile, outdir);
 
     auto file_ctx = ClangContext(infile, cflags);
     logDiagnostic(file_ctx);
@@ -254,29 +271,14 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags,
     auto ctx = ParseContext();
     ctx.visit(file_ctx.cursor);
 
-    auto stubgen = StubGenerator(HdrFilename(base_filename), ctrl).process(ctx.root);
+    // process and put the data in variant.
+    StubGenerator(variant, variant, variant).process(ctx.root);
 
-    auto outfile_hdr = tryOpenFile(hdr_out_filename, "w");
-    if (outfile_hdr.isEmpty) {
-        return ExitStatusType.Errors;
-    }
-    scope (exit)
-        outfile_hdr.close();
-
-    auto outfile_impl = tryOpenFile(impl_out_filename, "w");
-    if (outfile_impl.isEmpty) {
-        return ExitStatusType.Errors;
-    }
-    scope (exit)
-        outfile_impl.close();
-
-    try {
-        outfile_hdr.write(stubgen.outputHdr(stub_hdr_filename));
-        outfile_impl.write(stubgen.outputImpl(stub_hdr_filename));
-    }
-    catch (ErrnoException ex) {
-        logger.trace(text(ex));
-        return ExitStatusType.Errors;
+    foreach (p; variant.fileData) {
+        auto status = tryWriting(cast(string) p.filename, p.data);
+        if (status != ExitStatusType.Ok) {
+            return ExitStatusType.Errors;
+        }
     }
 
     return ExitStatusType.Ok;
@@ -304,25 +306,14 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
     import std.algorithm : among;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
-    FileScopeType file_scope = stringToFileScopeType(parsed["--file-scope"].toString);
-    FuncScopeType func_scope = stringToFuncScopeType(parsed["--func-scope"].toString);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
         cflags = parsed["CFLAGS"].asList;
     }
 
-    if (file_scope == FileScopeType.Invalid) {
-        logger.error("Usage error: --file-scope must be either of: [all, single]");
-        writeln(doc);
-    }
-
-    if (func_scope == FileScopeType.Invalid) {
-        logger.error("Usage error: --func-scope must be either of: [all, virtual]");
-        writeln(doc);
-    } else if (parsed["cstub"].isTrue) {
-        exit_status = genCstub(parsed["FILE"].toString, parsed["-d"].toString,
-            cflags, file_scope, func_scope);
+    if (parsed["ctestdouble"].isTrue) {
+        exit_status = genCstub(parsed["FILE"].toString, parsed["-o"].toString, cflags);
     } else {
         logger.error("Usage error");
         writeln(doc);

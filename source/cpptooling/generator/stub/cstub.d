@@ -23,32 +23,70 @@ import logger = std.experimental.logger;
 
 import std.experimental.testing : name;
 
+import dsrcgen.cpp : CppModule, CppHModule;
+
 version (unittest) {
     import test.helpers : shouldEqualPretty;
     import std.experimental.testing : shouldEqual;
 }
 
-/// Prefix used for prepending generated code with a unique string to avoid name collisions.
+/** Prefix used for prepending generated code with a unique string to avoid
+ * name collisions.
+ * See specific functions for how it is used.
+ */
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
+alias FileName = Typedef!(string, string.init, "FileName");
+
+/// Control variouse aspectes of the analyze and generation like what nodes to
+/// process.
 @safe interface StubController {
-    /// Process AST node belonging to filename.
-    bool doFile(string filename);
-
-    /// Process AST node that is a class.
-    bool doClass();
-
-    /// File to include in the generated header.
-    StubGenerator.HdrFilename getIncludeFile();
-
-    ClassController getClass();
+    /// Query the controller with the filename of the AST node for a decision
+    /// if it shall be processed.
+    bool doFile(in string filename);
 }
 
-@safe interface ClassController {
-    bool useObjectPool();
+/// Parameters used during generation.
+/// Important aspact that they do NOT change, therefore it is pure.
+@safe pure interface StubParameters {
+    ///TODO remove this in the future. Use the filename from the root AST node or something.
+    /// This is only kept here as a temporary solution.
+    FileName getInputFile();
 
-    StubPrefix getClassPrefix();
-    //MethodController getMethod();
+    ///TODO remove. Should be a parameter passed by the user or based on whatever replaces getInputFile().
+    /// This is only kept here as a temporary solution.
+    FileName getImplementationIncludeFile();
+
+    ///TODO remove, a left over from the old design.
+    FileName getOutputHdr();
+
+    ///TODO remove, a left over from the old design.
+    FileName getOutputImpl();
+
+    /// Prefix to use for the generated files.
+    /// Affects bothh the filename and the preprocessor #include.
+    StubPrefix getFilePrefix();
+
+    /// Prefix for the Manager of the test double.
+    StubPrefix getManagerPrefix();
+}
+
+/// Data produced by the generator like files.
+interface StubProducts {
+    /** Data pushed from the stub generator to be written to files.
+     *
+     * The put value is the code generation tree. It allows the caller of
+     * StubGenerator to inject more data in the tree before writing. For
+     * example a custom header.
+     *
+     * Params:
+     *   fname = file the content is intended to be written to.
+     *   data = data to write to the file.
+     */
+    void putFile(FileName fname, CppHModule hdr_data);
+
+    /// ditto.
+    void putFile(FileName fname, CppModule impl_data);
 }
 
 struct StubGenerator {
@@ -56,18 +94,11 @@ struct StubGenerator {
 
     import cpptooling.data.representation : CppRoot;
     import cpptooling.utility.conv : str;
-    import dsrcgen.cpp : CppModule, CppHModule;
 
-    alias HdrFilename = Typedef!(string, string.init, "HeaderFilename");
-
-    /** Generate the C++ header file of the stub.
-     * Params:
-     *  filename = filename of the input header file.
-     *  ctrl = Control generation behavior.
-     */
-    this(HdrFilename filename, StubController ctrl) {
-        this.filename = filename;
+    this(StubController ctrl, StubParameters params, StubProducts products) {
         this.ctrl = ctrl;
+        this.params = params;
+        this.products = products;
     }
 
     /// Process structural data to a stub.
@@ -77,70 +108,58 @@ struct StubGenerator {
 
         // Does it have any C functions?
         if (!tr.funcRange().empty) {
-            tr.put(makeCStubGlobal(filename.str));
-            auto c_if = makeCFuncInterface(tr.funcRange(), filename.str, ctrl.getClass());
+            tr.put(makeCStubGlobal(params.getInputFile().str));
+            auto c_if = makeCFuncInterface(tr.funcRange(), params.getInputFile.str);
             tr.put(c_if);
-            tr.put(makeCFuncManager(filename.str));
+            tr.put(makeCFuncManager(params.getInputFile.str));
         }
 
         logger.trace("Post processed:\n" ~ tr.toString());
 
         auto hdr = new CppModule;
         auto impl = new CppModule;
-        generateStub(tr, filename.str, hdr, impl);
-
-        return PostProcess(hdr, impl, ctrl);
+        generateStub(tr, params.getInputFile().str, hdr, impl);
+        postProcess(hdr, impl, params, products);
     }
 
 private:
-    struct PostProcess {
-        this(CppModule hdr, CppModule impl, StubController ctrl) {
-            this.hdr = hdr;
-            this.impl = impl;
-            this.ctrl = ctrl;
-        }
-
+    static private void postProcess(CppModule hdr, CppModule impl,
+        StubParameters params, StubProducts prod) {
         /** Generate the C++ header file of the stub.
          * Params:
          *  filename = intended output filename, used for ifdef guard.
          */
-        string outputHdr(HdrFilename filename) {
+        static auto outputHdr(CppModule hdr, StubParameters params) {
             import std.string : translate;
 
             dchar[dchar] table = ['.' : '_', '-' : '_'];
 
-            ///TODO add user defined header.
-            auto o = CppHModule(translate(filename.str, table));
-            o.content.include(ctrl.getIncludeFile.str);
+            auto o = CppHModule(translate(params.getImplementationIncludeFile().str,
+                table));
+            o.content.include(params.getInputFile.str);
             o.content.sep(2);
             o.content.append(hdr);
 
-            return o.render;
+            return o;
         }
 
-        /** Generate the C++ header file of the stub.
-         * Params:
-         *  filename = intended output filename, used for ifdef guard.
-         */
-        string outputImpl(HdrFilename filename) {
-            ///TODO add user defined header.
+        static auto outputImpl(CppModule impl, StubParameters params) {
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.include(filename.str);
+            o.include(params.getImplementationIncludeFile.str);
             o.sep(2);
             o.append(impl);
 
-            return o.render;
+            return o;
         }
 
-    private:
-        CppModule hdr;
-        CppModule impl;
-        StubController ctrl;
+        prod.putFile(params.getOutputHdr, outputHdr(hdr, params));
+        prod.putFile(params.getOutputImpl, outputImpl(impl, params));
     }
 
     StubController ctrl;
-    HdrFilename filename;
+    StubParameters params;
+    StubProducts products;
 }
 
 private:
@@ -148,7 +167,7 @@ private:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, CxLocation, CxGlobalVariable;
-import dsrcgen.cpp : CppModule, E;
+import dsrcgen.cpp : E;
 
 enum dummyLoc = CxLocation("", -1, -1);
 
@@ -183,10 +202,6 @@ CppRoot translate(CppRoot input, StubController ctrl) @trusted {
 
     CppRoot tr;
 
-    foreach (c; input.classRange().dedup) {
-        tr.put(translateClass(input, c, ctrl.getClass()));
-    }
-
     foreach (f; input.funcRange().dedup) {
         tr.put(translateCFunc(input, f));
     }
@@ -198,23 +213,6 @@ CppRoot translate(CppRoot input, StubController ctrl) @trusted {
     return tr;
 }
 
-CppClass translateClass(CppRoot root, CppClass input, ClassController ctrl) {
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
-
-    if (input.isVirtual) {
-        auto ns = CppClassNesting(whereIsClass(root, input.id()).toStringNs());
-        auto inherit = CppClassInherit(input.name, ns, CppAccess(AccessType.Public));
-        auto name = CppClassName(ctrl.getClassPrefix().str ~ input.name.str);
-
-        auto c = CppClass(name, [inherit]);
-
-        return c;
-    } else {
-        return input;
-    }
-}
-
 CFunction translateCFunc(CppRoot root, CFunction func) {
     return func;
 }
@@ -223,7 +221,7 @@ CxGlobalVariable translateCGlobal(CppRoot, CxGlobalVariable g) {
     return g;
 }
 
-CppClass makeCFuncInterface(Tr)(Tr r, in string filename, in ClassController ctrl) {
+CppClass makeCFuncInterface(Tr)(Tr r, in string filename) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 

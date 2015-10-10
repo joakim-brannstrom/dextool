@@ -18,7 +18,7 @@ source ./func_tests.sh
 #  - Implement tests that uses the generated stubs.
 
 setup_test_env
-TOOL_BIN="$TOOL_BIN cstub"
+TOOL_BIN="$TOOL_BIN ctestdouble"
 
 echo "Stage 1"
 for sourcef in testdata/cstub/stage_1/*.h; do
