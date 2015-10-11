@@ -39,6 +39,11 @@ import cpptooling.utility.clang : visitAst, logNode;
 import cpptooling.generator.stub.cstub : StubGenerator, StubController,
     StubParameters, StubProducts;
 
+//TODO implement this features
+// --prefix=<p>       prefix used when generating test double [default: Test_]
+// --file-prefix=<p>  prefix used for generated files other than main [default: test_]
+// --scope-restrict   restrict the scope of the test double to the set difference of FILE\\exclude.
+
 ///TODO change FILE to be variable
 static string doc = "
 usage:
@@ -50,21 +55,31 @@ arguments:
 
 options:
  -h, --help         show this
- -o=<dest>          destination of generated files [default: .]
  -d, --debug        turn on debug output for tracing of generator flow
+ -o=<dest>          directory for generated files [default: ./]
+ --main=<n>         name of the main interface and filename [default: Test_Double]
 
 others:
  --exclude=...      exclude files from generation, repeatable.
 
 example:
 
-Generate a C test double.
-  dextool ctestdouble --exclude=/foo.h --exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
+Generate a simple C test double.
+  dextool ctestdouble functions.h
 
   Analyze and generate a test double for function prototypes and extern variables.
+  Both those found in functions.h and outside, aka via includes.
+
+  The test double is written to ./test_double.hpp/.cpp.
+  The name of the interface is Test_Double.
+
+Generate a C test double excluding data from specified files.
+  dextool ctestdouble --exclude=/foo.h --exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
+
   The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
   During generation declarations found in foo.h or functions.h will be excluded.
-  The generated test double is written to the directory outdata.
+
+  The file holding the test double is written to directory outdata.
 ";
 
 enum ExitStatusType {
@@ -102,7 +117,8 @@ class SimpleLogger : logger.Logger {
  */
 class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     import std.typecons : Tuple;
-    import cpptooling.generator.stub.cstub : StubPrefix, FileName;
+    import cpptooling.generator.stub.cstub : StubPrefix, FileName,
+        MainInterface, DirName;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
 
@@ -110,29 +126,47 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     static const implExt = ".cpp";
 
     immutable StubPrefix prefix;
-    immutable FileName inputFile;
-    immutable FileName hdrOutputFile;
-    immutable FileName implIncludeFile;
-    immutable FileName implOutputFile;
+    immutable StubPrefix file_prefix;
+
+    immutable FileName input_file;
+    immutable DirName output_dir;
+    immutable FileName main_file_hdr;
+    immutable FileName main_file_impl;
+
+    immutable MainInterface main_if;
+
     string[] exclude;
 
     FileData[] fileData;
 
-    ///TODO change from string to typed parameters.
-    this(string prefix, string input_file, string output_dir, in string[] exclude) {
-        this.prefix = StubPrefix(prefix);
+    static auto makeVariant(ref ArgValue[string] parsed) {
+        string[] excludes = parsed["--exclude"].asList;
+
+        //StubPrefix(parsed["--prefix"].toString),
+        //StubPrefix(parsed["--file-prefix"].toString)
+
+        auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
+            StubPrefix("Not used"), FileName(parsed["FILE"].toString),
+            MainInterface(parsed["--main"].toString), DirName(parsed["-o"].toString),
+            excludes);
+        return variant;
+    }
+
+    this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
+        MainInterface main_if, DirName output_dir, in string[] exclude) {
+        this.prefix = prefix;
+        this.file_prefix = file_prefix;
+        this.input_file = input_file;
+        this.main_if = main_if;
+        this.output_dir = output_dir;
         this.exclude = exclude.dup;
 
         import std.path : baseName, buildPath, stripExtension;
 
-        auto base_filename = input_file.baseName.stripExtension;
+        string base_filename = (cast(string) main_if).toLower;
 
-        inputFile = FileName(input_file.baseName);
-        implIncludeFile = FileName((cast(string) prefix).toLower ~ "_" ~ base_filename ~ hdrExt);
-
-        hdrOutputFile = FileName(buildPath(output_dir, cast(string) implIncludeFile));
-        implOutputFile = FileName(buildPath(output_dir,
-            (cast(string) prefix).toLower ~ "_" ~ base_filename ~ implExt));
+        this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
+        this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
     }
 
     // -- StubController --
@@ -145,28 +179,26 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     // -- StubParameters --
 
-    FileName getInputFile() @safe pure {
-        return inputFile;
-    }
+    @safe pure {
+        FileName getInputFile() {
+            return input_file;
+        }
 
-    FileName getImplementationIncludeFile() @safe pure {
-        return implIncludeFile;
-    }
+        DirName getOutputDirectory() {
+            return output_dir;
+        }
 
-    FileName getOutputHdr() @safe pure {
-        return hdrOutputFile;
-    }
+        StubParameters.MainFile getMainFile() {
+            return StubParameters.MainFile(main_file_hdr, main_file_impl);
+        }
 
-    FileName getOutputImpl() @safe pure {
-        return implOutputFile;
-    }
+        MainInterface getMainInterface() {
+            return main_if;
+        }
 
-    StubPrefix getFilePrefix() @safe pure {
-        return prefix;
-    }
-
-    StubPrefix getManagerPrefix() @safe pure {
-        return prefix;
+        StubPrefix getFilePrefix() {
+            return file_prefix;
+        }
     }
 
     // -- StubProducts --
@@ -240,9 +272,11 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
-ExitStatusType genCstub(string infile, string outdir, string[] excludes, string[] in_cflags) {
+/// TODO refactor, too many parameters. Refactor. Probably pass the variant as a parameter.
+ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
+    import std.file : exists;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
 
@@ -257,17 +291,14 @@ ExitStatusType genCstub(string infile, string outdir, string[] excludes, string[
         return in_cflags.dup;
     }
 
-    auto cflags = prependLangFlagIfMissing(in_cflags);
-
-    if (!file.exists(infile)) {
-        logger.errorf("File '%s' do not exist", infile);
+    if (!exists(cast(string) variant.getInputFile)) {
+        logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
         return ExitStatusType.Errors;
     }
 
-    logger.infof("Generating stub from '%s'", infile);
-    auto variant = new CTestDoubleVariant("Stub", infile, outdir, excludes);
+    auto cflags = prependLangFlagIfMissing(in_cflags);
 
-    auto file_ctx = ClangContext(infile, cflags);
+    auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
     logDiagnostic(file_ctx);
     if (file_ctx.hasParseErrors)
         return ExitStatusType.Errors;
@@ -316,11 +347,9 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
         cflags = parsed["CFLAGS"].asList;
     }
 
-    string[] excludes = parsed["--exclude"].asList;
-
     if (parsed["ctestdouble"].isTrue) {
-        exit_status = genCstub(parsed["FILE"].toString, parsed["-o"].toString, excludes,
-            cflags);
+        auto variant = CTestDoubleVariant.makeVariant(parsed);
+        exit_status = genCstub(variant, cflags);
     } else {
         logger.error("Usage error");
         writeln(doc);

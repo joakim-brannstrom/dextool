@@ -1,7 +1,7 @@
-#include "stub_functions.hpp"
+#include "test_double.hpp"
 
 namespace {
-Functions* stub_inst = 0;
+Test_Double* stub_inst = 0;
 } //NS:
 
 int foo(int a) {
@@ -28,15 +28,15 @@ void fun(d_func p, Something_Big b) {
     stub_inst->fun(p, b);
 }
 
-Functions_Manager::Functions_Manager() {
+Test_Double_Manager::Test_Double_Manager() {
     stub_inst = 0;
 }
 
-Functions_Manager::~Functions_Manager() {
+Test_Double_Manager::~Test_Double_Manager() {
     stub_inst = 0;
 }
 
-void Functions_Manager::Connect(Functions& inst) {
+void Test_Double_Manager::Connect(Test_Double& inst) {
     stub_inst = &inst;
 }
 

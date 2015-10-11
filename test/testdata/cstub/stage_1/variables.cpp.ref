@@ -1,2 +1,2 @@
-#include "stub_variables.hpp"
+#include "test_double.hpp"
 

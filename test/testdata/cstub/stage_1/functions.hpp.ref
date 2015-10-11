@@ -1,11 +1,9 @@
-#ifndef stub_functions_hpp
-#define stub_functions_hpp
+#ifndef test_double_hpp
+#define test_double_hpp
 #include "functions.h"
 
-class Functions {
+class Test_Double {
 public:
-    Functions();
-    virtual ~Functions();
     virtual int foo(int a) = 0;
     virtual void bar(int a, int b) = 0;
     virtual void fooBar() = 0;
@@ -16,11 +14,11 @@ public:
 
 /// Manage the shared memory area of the instance that fulfill the interface.
 /// Connect inst to handle all stimuli.
-class Functions_Manager {
+class Test_Double_Manager {
 public:
-    Functions_Manager();
-    ~Functions_Manager();
-    void Connect(Functions& inst);
+    Test_Double_Manager();
+    ~Test_Double_Manager();
+    void Connect(Test_Double& inst);
 };
 
-#endif // stub_functions_hpp
+#endif // test_double_hpp

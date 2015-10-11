@@ -1,0 +1,22 @@
+#include "stub.hpp"
+
+namespace {
+Stub* stub_inst = 0;
+} //NS:
+
+void foo() {
+    stub_inst->foo();
+}
+
+Stub_Manager::Stub_Manager() {
+    stub_inst = 0;
+}
+
+Stub_Manager::~Stub_Manager() {
+    stub_inst = 0;
+}
+
+void Stub_Manager::Connect(Stub& inst) {
+    stub_inst = &inst;
+}
+

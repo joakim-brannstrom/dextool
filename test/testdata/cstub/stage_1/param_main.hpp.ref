@@ -1,0 +1,19 @@
+#ifndef stub_hpp
+#define stub_hpp
+#include "param_main.h"
+
+class Stub {
+public:
+    virtual void foo() = 0;
+};
+
+/// Manage the shared memory area of the instance that fulfill the interface.
+/// Connect inst to handle all stimuli.
+class Stub_Manager {
+public:
+    Stub_Manager();
+    ~Stub_Manager();
+    void Connect(Stub& inst);
+};
+
+#endif // stub_hpp

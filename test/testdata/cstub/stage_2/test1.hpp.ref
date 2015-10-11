@@ -1,16 +1,14 @@
-#ifndef stub_test1_hpp
-#define stub_test1_hpp
+#ifndef test_double_hpp
+#define test_double_hpp
 #include "test1.h"
 
-#ifdef DEFINE_GLOBAL_Test
+#ifdef DEFINE_GLOBAL_Test_Double
 int var_b;
 int var_c;
 int var_d;
-#endif // DEFINE_GLOBAL_Test
-class Test {
+#endif // DEFINE_GLOBAL_Test_Double
+class Test_Double {
 public:
-    Test();
-    virtual ~Test();
     virtual void fun_b() = 0;
     virtual void fun_c() = 0;
     virtual void fun_d() = 0;
@@ -18,11 +16,11 @@ public:
 
 /// Manage the shared memory area of the instance that fulfill the interface.
 /// Connect inst to handle all stimuli.
-class Test_Manager {
+class Test_Double_Manager {
 public:
-    Test_Manager();
-    ~Test_Manager();
-    void Connect(Test& inst);
+    Test_Double_Manager();
+    ~Test_Double_Manager();
+    void Connect(Test_Double& inst);
 };
 
-#endif // stub_test1_hpp
+#endif // test_double_hpp

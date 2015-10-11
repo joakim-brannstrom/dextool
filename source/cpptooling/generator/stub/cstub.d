@@ -36,7 +36,11 @@ version (unittest) {
  */
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
+alias MainInterface = Typedef!(string, string.init, "MainInterface");
+
 alias FileName = Typedef!(string, string.init, "FileName");
+
+alias DirName = Typedef!(string, string.init, "DirectoryName");
 
 /// Control variouse aspectes of the analyze and generation like what nodes to
 /// process.
@@ -49,26 +53,26 @@ alias FileName = Typedef!(string, string.init, "FileName");
 /// Parameters used during generation.
 /// Important aspact that they do NOT change, therefore it is pure.
 @safe pure interface StubParameters {
-    ///TODO remove this in the future. Use the filename from the root AST node or something.
-    /// This is only kept here as a temporary solution.
+    import std.typecons : Tuple;
+
+    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl");
+
+    /// Source files used to generate the stub.
+    /// TODO currently only one file, change to a list of files.
     FileName getInputFile();
 
-    ///TODO remove. Should be a parameter passed by the user or based on whatever replaces getInputFile().
-    /// This is only kept here as a temporary solution.
-    FileName getImplementationIncludeFile();
+    /// Output directory to store files in.
+    DirName getOutputDirectory();
 
-    ///TODO remove, a left over from the old design.
-    FileName getOutputHdr();
+    /// Main file to write the interface and manager to.
+    MainFile getMainFile();
 
-    ///TODO remove, a left over from the old design.
-    FileName getOutputImpl();
+    /// Holds the interface for the test double, used in manager.
+    MainInterface getMainInterface();
 
     /// Prefix to use for the generated files.
-    /// Affects bothh the filename and the preprocessor #include.
+    /// Affects both the filename and the preprocessor #include.
     StubPrefix getFilePrefix();
-
-    /// Prefix for the Manager of the test double.
-    StubPrefix getManagerPrefix();
 }
 
 /// Data produced by the generator like files.
@@ -108,17 +112,17 @@ struct StubGenerator {
 
         // Does it have any C functions?
         if (!tr.funcRange().empty) {
-            tr.put(makeCStubGlobal(params.getInputFile().str));
-            auto c_if = makeCFuncInterface(tr.funcRange(), params.getInputFile.str);
+            tr.put(makeCStubGlobal(params.getMainInterface));
+            auto c_if = makeCFuncInterface(tr.funcRange(), params.getMainInterface);
             tr.put(c_if);
-            tr.put(makeCFuncManager(params.getInputFile.str));
+            tr.put(makeCFuncManager(params.getMainInterface));
         }
 
         logger.trace("Post processed:\n" ~ tr.toString());
 
         auto hdr = new CppModule;
         auto impl = new CppModule;
-        generateStub(tr, params.getInputFile().str, hdr, impl);
+        generateStub(tr, params, hdr, impl);
         postProcess(hdr, impl, params, products);
     }
 
@@ -127,15 +131,15 @@ private:
         StubParameters params, StubProducts prod) {
         /** Generate the C++ header file of the stub.
          * Params:
-         *  filename = intended output filename, used for ifdef guard.
+         *  filename = intended output filename, used for ifndef guard.
          */
         static auto outputHdr(CppModule hdr, StubParameters params) {
             import std.string : translate;
+            import std.path : baseName;
 
-            dchar[dchar] table = ['.' : '_', '-' : '_'];
+            dchar[dchar] table = ['.' : '_', '-' : '_', '/' : '_'];
 
-            auto o = CppHModule(translate(params.getImplementationIncludeFile().str,
-                table));
+            auto o = CppHModule(translate(params.getMainFile().hdr.str.baseName, table));
             o.content.include(params.getInputFile.str);
             o.content.sep(2);
             o.content.append(hdr);
@@ -144,17 +148,19 @@ private:
         }
 
         static auto outputImpl(CppModule impl, StubParameters params) {
+            import std.path : baseName;
+
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.include(params.getImplementationIncludeFile.str);
+            o.include(params.getMainFile.hdr.str.baseName);
             o.sep(2);
             o.append(impl);
 
             return o;
         }
 
-        prod.putFile(params.getOutputHdr, outputHdr(hdr, params));
-        prod.putFile(params.getOutputImpl, outputImpl(impl, params));
+        prod.putFile(params.getMainFile.hdr, outputHdr(hdr, params));
+        prod.putFile(params.getMainFile.impl, outputImpl(impl, params));
     }
 
     StubController ctrl;
@@ -169,7 +175,7 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, CxLocation, CxGlobalVariable;
 import dsrcgen.cpp : E;
 
-enum dummyLoc = CxLocation("", -1, -1);
+enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 enum ClassType {
     Normal,
@@ -179,19 +185,6 @@ enum ClassType {
 enum NamespaceType {
     Normal,
     CStubGlobal
-}
-
-/// Convert the filename to the C prefix for interface, global etc.
-string filenameToC(in string filename) {
-    import std.algorithm : until;
-    import std.uni : asCapitalized, isAlpha;
-    import std.conv : text;
-
-    // dfmt off
-    return filename.asCapitalized
-        .until!((a) => !isAlpha(a) && a != '_')
-        .text;
-    // dfmt on
 }
 
 /// Structurally transformed the input to a stub implementation.
@@ -243,18 +236,16 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl) {
     return r;
 }
 
-CppClass makeCFuncInterface(Tr)(Tr r, in string filename) {
+///TODO change filename from generic type string to FileName.
+CppClass makeCFuncInterface(Tr)(Tr r, in MainInterface main_if) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     import std.array : array;
 
-    string c_name = filenameToC(filename);
+    string c_name = cast(string) main_if;
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-    c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
-    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.Yes)));
 
     foreach (f; r) {
         auto params = f.paramRange().array();
@@ -273,11 +264,11 @@ CppClass makeCFuncInterface(Tr)(Tr r, in string filename) {
     return c;
 }
 
-CppClass makeCFuncManager(in string filename) {
+CppClass makeCFuncManager(MainInterface main_if) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    string c_if = filenameToC(filename);
+    string c_if = main_if.str;
     string c_name = c_if ~ "_Manager";
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
@@ -298,12 +289,12 @@ CppClass makeCFuncManager(in string filename) {
     return c;
 }
 
-CppNamespace makeCStubGlobal(string filename) {
+CppNamespace makeCStubGlobal(MainInterface main_if) {
     import cpptooling.data.representation : makeTypeKind, CppVariable,
         CxGlobalVariable;
 
-    auto type = makeTypeKind(filenameToC(filename) ~ "*",
-        filenameToC(filename) ~ "*", false, false, true);
+    auto type = makeTypeKind(cast(string) main_if ~ "*",
+        cast(string) main_if ~ "*", false, false, true);
     auto v = CxGlobalVariable(type, CppVariable("stub_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(NamespaceType.CStubGlobal);
@@ -312,13 +303,13 @@ CppNamespace makeCStubGlobal(string filename) {
     return ns;
 }
 
-void generateStub(CppRoot r, in string filename, CppModule hdr, CppModule impl) {
+void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule impl) {
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
 
     auto globalR = r.globalRange();
     if (!globalR.empty) {
-        auto ifdef_hdr = hdr.IFDEF("DEFINE_GLOBAL_" ~ filenameToC(filename));
+        auto ifdef_hdr = hdr.IFDEF("DEFINE_GLOBAL_" ~ params.getMainInterface.str);
         globalR.each!((a) { generateCGlobalHdr(a, ifdef_hdr); });
     }
 
@@ -468,13 +459,4 @@ void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
         }
         ns.stmt(stmt);
     }
-}
-
-@name("should stop on dot when generating C prefix")
-unittest {
-    string fname = "some_file.hpp";
-    shouldEqual(filenameToC(fname), "Some_file");
-
-    fname = "some_file_fun";
-    shouldEqual(filenameToC(fname), "Some_file_fun");
 }

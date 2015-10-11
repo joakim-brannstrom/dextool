@@ -21,28 +21,34 @@ setup_test_env
 TOOL_BIN="$TOOL_BIN ctestdouble"
 
 echo "Stage 1"
-for sourcef in testdata/cstub/stage_1/*.h; do
-    inhdr_base=$(basename ${sourcef})
-    out_impl="$OUTDIR/stub_"${inhdr_base%.h}".cpp"
+ROOT_DIR="testdata/cstub/stage_1"
+for IN_SRC in $ROOT_DIR/*.h; do
+    inhdr_base=$(basename ${IN_SRC})
+    out_hdr="$OUTDIR/test_double.hpp"
+    out_impl="$OUTDIR/test_double.cpp"
 
-    case "$sourcef" in
+    case "$IN_SRC" in
+        *param_main*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --main=Stub"
+            out_hdr="$OUTDIR/stub.hpp"
+            out_impl="$OUTDIR/stub.cpp"
+            ;;
         # Test examples
         # *somefile*)
-        #     test_gen_code "$OUTDIR" "$sourcef" "--debug" ;;
+        #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" ;;
         # *somefile*)
-        #     test_gen_code "$OUTDIR" "$sourcef" "--debug" "|& grep -i $grepper"
+        #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" "|& grep -i $grepper"
         # ;;
         *)
-            test_gen_code "$OUTDIR" "$sourcef" "--debug" ;;
-        *) ;;
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug" ;;
     esac
 
-    case "$sourcef" in
+    case "$IN_SRC" in
         *)
-            test_compare_code "$OUTDIR" "$sourcef" ;;
+            test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" ;;
     esac
 
-    case "$sourcef" in
+    case "$IN_SRC" in
         # *functions*)
         #     test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
         # *variables*) ;;
@@ -55,29 +61,29 @@ for sourcef in testdata/cstub/stage_1/*.h; do
 done
 
 echo "Stage 2"
-INCLUDES="-Itestdata/cstub/stage_2 -Itestdata/cstub/stage_2/include"
-
-for IN_SRC in testdata/cstub/stage_2/*.h; do
+INCLUDES="-Iinclude -Itestdata/cstub/stage_2 -Itestdata/cstub/stage_2/include"
+ROOT_DIR="testdata/cstub/stage_2"
+for IN_SRC in $ROOT_DIR/*.h; do
     inhdr_base=$(basename ${IN_SRC})
-    out_impl="$OUTDIR/stub_"${inhdr_base%.h}".cpp"
+    out_hdr="$OUTDIR/test_double.hpp"
+    out_impl="$OUTDIR/test_double.cpp"
 
     case "$IN_SRC" in
         *test1*)
-            test_gen_code "$OUTDIR" "$(readlink -f $IN_SRC)" "--debug --exclude=$(readlink -f $IN_SRC)" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --exclude=$inhdr_base" "" "$INCLUDES"
             ;;
         *test2*)
-            test_gen_code "$OUTDIR" "$(readlink -f $IN_SRC)" "--debug --exclude=$(readlink -f $IN_SRC) --exclude=testdata/cstub/stage_2/include/b.h" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --exclude=$inhdr_base --exclude=include/b.h" "" "$INCLUDES"
             ;;
         *) ;;
     esac
 
-    test_compare_code "$OUTDIR" "$IN_SRC"
+    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl"
+
     test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp
 
     clean_test_env
 done
-
-
 
 teardown_test_env
 

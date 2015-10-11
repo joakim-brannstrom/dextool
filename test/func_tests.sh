@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEFAULT_COMPILE_FLAGS="-std=c++03"
-TOOL_BIN="../build/dextool"
+TOOL_BIN="$(readlink -f ../build/dextool)"
 
 function check_status() {
     CHECK_STATUS_RVAL=$?
@@ -28,44 +28,37 @@ function test_compile_code() {
 }
 
 function test_gen_code() {
-    local outdir=$1
-    local inhdr=$2
-    local pre_args=$3
-    local post_args=$4
+    local outdir=$(readlink -f $1)
+    local root_dir=$2
+    local inhdr=$3
+    local pre_args=$4
+    local post_args=$5
 
-    if [[ -n "$5" ]]; then
-        local cflags="-- $5"
+    if [[ -n "$6" ]]; then
+        local cflags="-- $6"
     fi
+
+    pushd $root_dir
 
     echo -e "${C_YELLOW}=== $inhdr  ===${C_NONE}"
     local tmp="$TOOL_BIN $pre_args -o $outdir $inhdr $cflags $post_args"
     echo "$tmp"
     eval "$tmp"
+
+    popd
 }
 
 function test_compare_code() {
-    local outdir=$1
-    local inhdr=$2
+    local hdr_ref=$1
+    local out_hdr=$2
+    local impl_ref=$3
+    local out_impl=$4
 
-    local inhdr_base=$(basename ${inhdr})
-    local expect_hdr="$(dirname ${inhdr})/"${inhdr_base%.h}".hpp.ref"
-    local expect_impl="$(dirname ${inhdr})"/${inhdr_base%.h}".cpp.ref"
-
-    if [[ -n "$3" ]]; then
-        expect_hdr="$3"
-    fi
-    if [[ -n "$4" ]]; then
-        expect_impl="$4"
-    fi
-
-    local out_hdr="$outdir/stub_"$(basename ${inhdr%.h})".hpp"
-    local out_impl="$outdir/stub_"${inhdr_base%.h}".cpp"
-
-    echo -e "Comparing result: ${expect_hdr}\t$PWD/${out_hdr}"
-    diff -u "${expect_hdr}" "${out_hdr}"
-    if [[ -e "${expect_impl}" ]]; then
-        echo -e "Comparing result: ${expect_impl}\t$PWD/${out_impl}"
-        diff -u "${expect_impl}" "${out_impl}"
+    echo -e "Comparing result: ${hdr_ref}\t$PWD/${out_hdr}"
+    diff -u "${hdr_ref}" "${out_hdr}"
+    if [[ -e "${impl_ref}" ]]; then
+        echo -e "Comparing result: ${impl_ref}\t$PWD/${out_impl}"
+        diff -u "${impl_ref}" "${out_impl}"
     fi
 }
 

@@ -1,0 +1,26 @@
+#include "test_double.hpp"
+
+namespace {
+Test_Double* stub_inst = 0;
+} //NS:
+
+void fun_c() {
+    stub_inst->fun_c();
+}
+
+void fun_d() {
+    stub_inst->fun_d();
+}
+
+Test_Double_Manager::Test_Double_Manager() {
+    stub_inst = 0;
+}
+
+Test_Double_Manager::~Test_Double_Manager() {
+    stub_inst = 0;
+}
+
+void Test_Double_Manager::Connect(Test_Double& inst) {
+    stub_inst = &inst;
+}
+

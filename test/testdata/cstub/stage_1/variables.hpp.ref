@@ -1,8 +1,8 @@
-#ifndef stub_variables_hpp
-#define stub_variables_hpp
+#ifndef test_double_hpp
+#define test_double_hpp
 #include "variables.h"
 
-#ifdef DEFINE_GLOBAL_Variables
+#ifdef DEFINE_GLOBAL_Test_Double
 int b;
-#endif // DEFINE_GLOBAL_Variables
-#endif // stub_variables_hpp
+#endif // DEFINE_GLOBAL_Test_Double
+#endif // test_double_hpp
