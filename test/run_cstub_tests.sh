@@ -54,6 +54,31 @@ for sourcef in testdata/cstub/stage_1/*.h; do
     clean_test_env
 done
 
+echo "Stage 2"
+INCLUDES="-Itestdata/cstub/stage_2 -Itestdata/cstub/stage_2/include"
+
+for IN_SRC in testdata/cstub/stage_2/*.h; do
+    inhdr_base=$(basename ${IN_SRC})
+    out_impl="$OUTDIR/stub_"${inhdr_base%.h}".cpp"
+
+    case "$IN_SRC" in
+        *test1*)
+            test_gen_code "$OUTDIR" "$(readlink -f $IN_SRC)" "--debug --exclude=$(readlink -f $IN_SRC)" "" "$INCLUDES"
+            ;;
+        *test2*)
+            test_gen_code "$OUTDIR" "$(readlink -f $IN_SRC)" "--debug --exclude=$(readlink -f $IN_SRC) --exclude=testdata/cstub/stage_2/include/b.h" "" "$INCLUDES"
+            ;;
+        *) ;;
+    esac
+
+    test_compare_code "$OUTDIR" "$IN_SRC"
+    test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp
+
+    clean_test_env
+done
+
+
+
 teardown_test_env
 
 exit 0

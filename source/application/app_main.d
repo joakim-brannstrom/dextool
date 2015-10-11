@@ -114,12 +114,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable FileName hdrOutputFile;
     immutable FileName implIncludeFile;
     immutable FileName implOutputFile;
+    string[] exclude;
 
     FileData[] fileData;
 
     ///TODO change from string to typed parameters.
-    this(string prefix, string input_file, string output_dir) {
+    this(string prefix, string input_file, string output_dir, in string[] exclude) {
         this.prefix = StubPrefix(prefix);
+        this.exclude = exclude.dup;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -136,7 +138,9 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     // -- StubController --
 
     bool doFile(in string filename) @safe {
-        return true;
+        import std.algorithm : canFind;
+
+        return !exclude.canFind(filename);
     }
 
     // -- StubParameters --
@@ -236,7 +240,7 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
-ExitStatusType genCstub(string infile, string outdir, string[] in_cflags) {
+ExitStatusType genCstub(string infile, string outdir, string[] excludes, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
     import cpptooling.analyzer.clang.context;
@@ -261,7 +265,7 @@ ExitStatusType genCstub(string infile, string outdir, string[] in_cflags) {
     }
 
     logger.infof("Generating stub from '%s'", infile);
-    auto variant = new CTestDoubleVariant("Stub", infile, outdir);
+    auto variant = new CTestDoubleVariant("Stub", infile, outdir, excludes);
 
     auto file_ctx = ClangContext(infile, cflags);
     logDiagnostic(file_ctx);
@@ -312,8 +316,11 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
         cflags = parsed["CFLAGS"].asList;
     }
 
+    string[] excludes = parsed["--exclude"].asList;
+
     if (parsed["ctestdouble"].isTrue) {
-        exit_status = genCstub(parsed["FILE"].toString, parsed["-o"].toString, cflags);
+        exit_status = genCstub(parsed["FILE"].toString, parsed["-o"].toString, excludes,
+            cflags);
     } else {
         logger.error("Usage error");
         writeln(doc);

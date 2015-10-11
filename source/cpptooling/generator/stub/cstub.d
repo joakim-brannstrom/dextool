@@ -195,30 +195,52 @@ string filenameToC(in string filename) {
 }
 
 /// Structurally transformed the input to a stub implementation.
+/// This stage filter out uninteresting parts, like C++ or directives from ctrl.
 /// No helper structs are generated at this stage.
-/// This stage may filter out uninteresting parts, usually controlled by ctrl.
-CppRoot translate(CppRoot input, StubController ctrl) @trusted {
+CppRoot translate(CppRoot input, StubController ctrl) {
     import cpptooling.data.representation : dedup;
 
     CppRoot tr;
 
     foreach (f; input.funcRange().dedup) {
-        tr.put(translateCFunc(input, f));
+        auto r = translateCFunc(f, ctrl);
+        if (!r.isNull) {
+            tr.put(r.get);
+        }
     }
 
     foreach (g; input.globalRange().dedup) {
-        tr.put(translateCGlobal(input, g));
+        auto r = translateCGlobal(g, ctrl);
+        if (!r.isNull) {
+            tr.put(r.get);
+        }
     }
 
     return tr;
 }
 
-CFunction translateCFunc(CppRoot root, CFunction func) {
-    return func;
+auto translateCFunc(CFunction func, StubController ctrl) {
+    import cpptooling.utility.nullvoid;
+
+    NullableVoid!CFunction r;
+
+    if (ctrl.doFile(func.location.file)) {
+        r = func;
+    }
+
+    return r;
 }
 
-CxGlobalVariable translateCGlobal(CppRoot, CxGlobalVariable g) {
-    return g;
+auto translateCGlobal(CxGlobalVariable g, StubController ctrl) {
+    import cpptooling.utility.nullvoid;
+
+    NullableVoid!CxGlobalVariable r;
+
+    if (ctrl.doFile(g.location.file)) {
+        r = g;
+    }
+
+    return r;
 }
 
 CppClass makeCFuncInterface(Tr)(Tr r, in string filename) {

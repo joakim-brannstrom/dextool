@@ -1,0 +1,26 @@
+#ifndef stub_test2_hpp
+#define stub_test2_hpp
+#include "test2.h"
+
+#ifdef DEFINE_GLOBAL_Test
+int var_c;
+int var_d;
+#endif // DEFINE_GLOBAL_Test
+class Test {
+public:
+    Test();
+    virtual ~Test();
+    virtual void fun_c() = 0;
+    virtual void fun_d() = 0;
+};
+
+/// Manage the shared memory area of the instance that fulfill the interface.
+/// Connect inst to handle all stimuli.
+class Test_Manager {
+public:
+    Test_Manager();
+    ~Test_Manager();
+    void Connect(Test& inst);
+};
+
+#endif // stub_test2_hpp
