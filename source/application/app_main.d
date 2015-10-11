@@ -42,12 +42,12 @@ import cpptooling.generator.stub.cstub : StubGenerator, StubController,
 //TODO implement this features
 // --prefix=<p>       prefix used when generating test double [default: Test_]
 // --file-prefix=<p>  prefix used for generated files other than main [default: test_]
-// --scope-restrict   restrict the scope of the test double to the set difference of FILE\\exclude.
 
 ///TODO change FILE to be variable
 static string doc = "
 usage:
   dextool ctestdouble [options] [--exclude=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--restrict=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -61,6 +61,7 @@ options:
 
 others:
  --exclude=...      exclude files from generation, repeatable.
+ --restrict=...     restrict the scope of the test double to the set union of FILE and restrict.
 
 example:
 
@@ -136,29 +137,32 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable MainInterface main_if;
 
     string[] exclude;
+    string[] restrict;
 
     FileData[] fileData;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         string[] excludes = parsed["--exclude"].asList;
+        string[] restrict = parsed["--restrict"].asList;
 
         //StubPrefix(parsed["--prefix"].toString),
         //StubPrefix(parsed["--file-prefix"].toString)
 
         auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString), DirName(parsed["-o"].toString),
-            excludes);
+            MainInterface(parsed["--main"].toString),
+            DirName(parsed["-o"].toString), restrict, excludes);
         return variant;
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir, in string[] exclude) {
+        MainInterface main_if, DirName output_dir, in string[] restrict, in string[] exclude) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
         this.main_if = main_if;
         this.output_dir = output_dir;
+        this.restrict = restrict.dup;
         this.exclude = exclude.dup;
 
         import std.path : baseName, buildPath, stripExtension;
@@ -174,7 +178,15 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     bool doFile(in string filename) @safe {
         import std.algorithm : canFind;
 
-        return !exclude.canFind(filename);
+        bool r = true;
+
+        if (restrict.length > 0) {
+            r = restrict.canFind(filename);
+        } else {
+            r = !exclude.canFind(filename);
+        }
+
+        return r;
     }
 
     // -- StubParameters --

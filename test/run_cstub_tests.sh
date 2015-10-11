@@ -75,6 +75,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *test2*)
             test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --exclude=$inhdr_base --exclude=include/b.h" "" "$INCLUDES"
             ;;
+        *param_restrict*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --restrict=$inhdr_base --restrict=include/b.h" "" "$INCLUDES"
+            ;;
         *) ;;
     esac
 
