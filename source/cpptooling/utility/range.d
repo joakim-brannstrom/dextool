@@ -52,6 +52,10 @@ import std.range : isForwardRange;
         return payload[i];
     }
 
+    @property auto length() @safe pure nothrow {
+        return payload.length;
+    }
+
 private:
     T payload;
 }

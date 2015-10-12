@@ -140,8 +140,6 @@ private:
             dchar[dchar] table = ['.' : '_', '-' : '_', '/' : '_'];
 
             auto o = CppHModule(translate(params.getMainFile().hdr.str.baseName, table));
-            o.content.include(params.getInputFile.str);
-            o.content.sep(2);
             o.content.append(hdr);
 
             return o;
@@ -307,6 +305,8 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
 
+    generateCIncludes(params, hdr);
+
     auto globalR = r.globalRange();
     if (!globalR.empty) {
         auto ifdef_hdr = hdr.IFDEF("DEFINE_GLOBAL_" ~ params.getMainInterface.str);
@@ -317,7 +317,11 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
         generateCStubGlobal(a, impl);
     });
 
-    r.funcRange().each!((a) { generateCFuncImpl(a, impl); });
+    // The generated functions must be extern C declared.
+    auto extern_c = impl.suite("extern \"C\"");
+    extern_c.suppressIndent(1);
+    r.funcRange().each!((a) { generateCFuncImpl(a, extern_c); });
+
     r.classRange().each!((a) {
         generateClassHdr(a, hdr);
         generateClassImpl(a, impl);
@@ -335,7 +339,12 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    string params = joinParams(f.paramRange());
+    // assuming that a function declaration void a() in C is meant to be void a(void), not variadic.
+    string params;
+    auto p_range = f.paramRange();
+    if (p_range.length == 1 && !f.isVariadic || p_range.length > 1) {
+        params = joinParams(p_range);
+    }
     string names = joinParamNames(f.paramRange());
 
     with (impl.func_body(f.returnType().toString, f.name().str, params)) {
@@ -459,4 +468,11 @@ void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
         }
         ns.stmt(stmt);
     }
+}
+
+void generateCIncludes(StubParameters params, CppModule hdr) {
+    auto extern_c = hdr.suite("extern \"C\"");
+    extern_c.suppressIndent(1);
+    extern_c.include(cast(string) params.getInputFile);
+    hdr.sep(2);
 }

@@ -1,6 +1,8 @@
 #ifndef stub_hpp
 #define stub_hpp
+extern "C" {
 #include "param_main.h"
+}
 
 class Stub {
 public:

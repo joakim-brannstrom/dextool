@@ -1,6 +1,8 @@
 #ifndef test_double_hpp
 #define test_double_hpp
+extern "C" {
 #include "test1.h"
+}
 
 #ifdef DEFINE_GLOBAL_Test_Double
 int var_b;

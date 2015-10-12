@@ -4,6 +4,7 @@ namespace {
 Test_Double* stub_inst = 0;
 } //NS:
 
+extern "C" {
 int foo(int a) {
     return stub_inst->foo(a);
 }
@@ -26,6 +27,8 @@ int a(int out) {
 
 void fun(d_func p, Something_Big b) {
     stub_inst->fun(p, b);
+}
+
 }
 
 Test_Double_Manager::Test_Double_Manager() {

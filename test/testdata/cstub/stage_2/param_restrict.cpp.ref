@@ -5,12 +5,12 @@ Test_Double* stub_inst = 0;
 } //NS:
 
 extern "C" {
-void fun_c() {
-    stub_inst->fun_c();
+void fun_b() {
+    stub_inst->fun_b();
 }
 
-void fun_d() {
-    stub_inst->fun_d();
+void fun_a() {
+    stub_inst->fun_a();
 }
 
 }

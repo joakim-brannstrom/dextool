@@ -4,8 +4,11 @@ namespace {
 Stub* stub_inst = 0;
 } //NS:
 
+extern "C" {
 void foo() {
     stub_inst->foo();
+}
+
 }
 
 Stub_Manager::Stub_Manager() {
