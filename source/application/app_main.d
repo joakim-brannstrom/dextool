@@ -46,8 +46,8 @@ import cpptooling.generator.stub.cstub : StubGenerator, StubController,
 ///TODO change FILE to be variable
 static string doc = "
 usage:
-  dextool ctestdouble [options] [--exclude=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--restrict=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -59,11 +59,11 @@ options:
  -o=dest            directory for generated files [default: ./]
  --main=name        name of the main interface and filename [default: Test_Double]
  --strip-incl=r     A regexp used to strip the include paths.
- --include=...      user supplied includes used instead of those found.
 
 others:
  --exclude=...      exclude files from generation, repeatable.
  --restrict=...     restrict the scope of the test double to the set union of FILE and restrict.
+ --td-include=...   user supplied includes used instead of those found.
 
 REGEX
 
@@ -154,9 +154,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     FileData[] file_data;
 
     /// Includes intended for the test double. Filtered according to the user.
-    FileName[] td_includes;
+    private FileName[] td_includes;
     // Dirty flag so sorting is only done when needed.
-    private bool td_dirty_includes;
+    enum IncludeState {
+        Dirty,
+        Clean,
+        UserDefined
+    }
+    private IncludeState td_includes_st;
 
     Regex!char strip_incl;
 
@@ -178,6 +183,11 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainInterface(parsed["--main"].toString),
             DirName(parsed["-o"].toString), strip_incl, restrict, excludes);
+
+        if (!parsed["--td-include"].isEmpty) {
+            variant.forceIncludes(parsed["--td-include"].asList);
+        }
+
         return variant;
     }
 
@@ -199,6 +209,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
+    }
+
+    /// Force the includes to be those supplied by the user.
+    void forceIncludes(string[] incls) {
+        foreach (incl; incls) {
+            td_includes ~= FileName(incl);
+        }
+        td_includes_st = IncludeState.UserDefined;
     }
 
     /// User supplied files used as input.
@@ -248,14 +266,21 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             return rval;
         }
 
-        if (td_dirty_includes) {
-            td_dirty_includes = false;
+        final switch (td_includes_st) {
+        case IncludeState.Dirty:
             // dfmt off
             td_includes = dedup(td_includes)
                 .map!(a => stripIncl(a, strip_incl))
                 .filter!(a => a.length > 0)
                 .array();
             // dfmt on
+            td_includes_st = IncludeState.Clean;
+            break;
+
+        case IncludeState.Clean:
+            break;
+        case IncludeState.UserDefined:
+            break;
         }
 
         return td_includes;
@@ -288,8 +313,17 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     void putLocation(FileName fname) {
-        td_dirty_includes = true;
-        td_includes ~= fname;
+        final switch (td_includes_st) {
+        case IncludeState.Dirty:
+            td_includes ~= fname;
+            break;
+        case IncludeState.Clean:
+            td_includes ~= fname;
+            td_includes_st = IncludeState.Dirty;
+            break;
+        case IncludeState.UserDefined:
+            break;
+        }
     }
 }
 
