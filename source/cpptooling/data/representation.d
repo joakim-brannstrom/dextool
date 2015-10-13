@@ -175,7 +175,7 @@ private template mixingSourceLocation() {
 /// Return: sorted and deduplicated array of the range.
 auto dedup(T)(auto ref T r) if (isInputRange!T) {
     import std.array : array;
-    import std.algorithm : sort, uniq, copy;
+    import std.algorithm : sort, uniq;
 
     auto arr = r.array().sort().uniq().array();
 

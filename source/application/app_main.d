@@ -56,15 +56,24 @@ arguments:
 options:
  -h, --help         show this
  -d, --debug        turn on debug output for tracing of generator flow
- -o=<dest>          directory for generated files [default: ./]
- --main=<n>         name of the main interface and filename [default: Test_Double]
+ -o=dest            directory for generated files [default: ./]
+ --main=name        name of the main interface and filename [default: Test_Double]
+ --strip-incl=r     A regexp used to strip the include paths.
  --include=...      user supplied includes used instead of those found.
 
 others:
  --exclude=...      exclude files from generation, repeatable.
  --restrict=...     restrict the scope of the test double to the set union of FILE and restrict.
 
-example:
+REGEX
+
+Default regexp is: .*/(.*)
+
+The regexp syntax is found at http://dlang.org/phobos/std_regex.html
+The regex uses the named or unnamed groups. It allows for choosing what parts of the path to use.
+At least one matcher group must exist.
+
+EXAMPLES
 
 Generate a simple C test double.
   dextool ctestdouble functions.h
@@ -118,6 +127,7 @@ class SimpleLogger : logger.Logger {
  * TODO Describe the options.
  */
 class CTestDoubleVariant : StubController, StubParameters, StubProducts {
+    import std.regex : regex, Regex;
     import std.typecons : Tuple;
     import cpptooling.generator.stub.cstub : StubPrefix, FileName,
         MainInterface, DirName;
@@ -148,22 +158,32 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     // Dirty flag so sorting is only done when needed.
     private bool td_dirty_includes;
 
+    Regex!char strip_incl;
+
     static auto makeVariant(ref ArgValue[string] parsed) {
         string[] excludes = parsed["--exclude"].asList;
         string[] restrict = parsed["--restrict"].asList;
+        Regex!char strip_incl;
 
-        //StubPrefix(parsed["--prefix"].toString),
-        //StubPrefix(parsed["--file-prefix"].toString)
+        if (parsed["--strip-incl"].isTrue) {
+            string strip_incl_user = parsed["--strip-incl"].toString;
+            strip_incl = regex(strip_incl_user);
+            logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
+        } else {
+            logger.trace("Using default regexp for stripping include path, like basename");
+            strip_incl = regex(r".*/(.*)");
+        }
 
         auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainInterface(parsed["--main"].toString),
-            DirName(parsed["-o"].toString), restrict, excludes);
+            DirName(parsed["-o"].toString), strip_incl, restrict, excludes);
         return variant;
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir, in string[] restrict, in string[] exclude) {
+        MainInterface main_if, DirName output_dir, Regex!char strip_incl,
+        in string[] restrict, in string[] exclude) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
@@ -171,6 +191,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.output_dir = output_dir;
         this.restrict = restrict.dup;
         this.exclude = exclude.dup;
+        this.strip_incl = strip_incl;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -204,12 +225,37 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     // -- StubParameters --
 
     FileName[] getIncludes() {
+        import std.array : array;
+        import std.algorithm : map, filter;
         import cpptooling.data.representation : dedup;
+
+        // if no regexp or no match when using the regexp, using the include
+        // path as-is.
+        @property static auto stripIncl(FileName incl, Regex!char re) @trusted {
+            import std.algorithm : joiner;
+            import std.range : dropOne;
+            import std.regex : matchFirst;
+            import std.utf : byChar;
+
+            auto c = matchFirst(cast(string) incl, re);
+            auto rval = incl;
+            logger.tracef("for input '%s', --strip-incl match is: %s", cast(string) incl,
+                c);
+            if (!c.empty) {
+                rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
+            }
+
+            return rval;
+        }
 
         if (td_dirty_includes) {
             td_dirty_includes = false;
-
-            td_includes = dedup(td_includes);
+            // dfmt off
+            td_includes = dedup(td_includes)
+                .map!(a => stripIncl(a, strip_incl))
+                .filter!(a => a.length > 0)
+                .array();
+            // dfmt on
         }
 
         return td_includes;
