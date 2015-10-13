@@ -38,14 +38,10 @@ function test_gen_code() {
         local cflags="-- $6"
     fi
 
-    pushd $root_dir
-
     echo -e "${C_YELLOW}=== $inhdr  ===${C_NONE}"
-    local tmp="$TOOL_BIN $pre_args -o $outdir $inhdr $cflags $post_args"
+    local tmp="$TOOL_BIN $pre_args -o $outdir $root_dir/$inhdr $cflags $post_args"
     echo "$tmp"
     eval "$tmp"
-
-    popd
 }
 
 function test_compare_code() {

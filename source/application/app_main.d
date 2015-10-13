@@ -61,17 +61,23 @@ options:
  --strip-incl=r     A regexp used to strip the include paths.
 
 others:
- --exclude=...      exclude files from generation, repeatable.
- --restrict=...     restrict the scope of the test double to the set union of FILE and restrict.
+ --exclude=...      exclude files from generation matching the regex.
+ --restrict=...     regex. restrict the scope of the test double to the set union of FILE and restrict.
  --td-include=...   user supplied includes used instead of those found.
 
 REGEX
 
-Default regexp is: .*/(.*)
+The regex syntax is found at http://dlang.org/phobos/std_regex.html
 
-The regexp syntax is found at http://dlang.org/phobos/std_regex.html
-The regex uses the named or unnamed groups. It allows for choosing what parts of the path to use.
-At least one matcher group must exist.
+Information about --strip-incl.
+  Default regexp is: .*/(.*)
+
+  To allow the user to selectively extract parts of the include path dextool
+  applies the regex and then concatenates all the matcher groups found.  It is
+  turned into the replacement include path.
+
+  Important to remember then is that this approach requires that at least one
+  matcher group exists.
 
 EXAMPLES
 
@@ -147,8 +153,9 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     immutable MainInterface main_if;
 
-    string[] exclude;
-    string[] restrict;
+    Regex!char[] exclude;
+    Regex!char[] restrict;
+    Regex!char strip_incl;
 
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
@@ -161,13 +168,15 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Clean,
         UserDefined
     }
+
     private IncludeState td_includes_st;
 
-    Regex!char strip_incl;
-
     static auto makeVariant(ref ArgValue[string] parsed) {
-        string[] excludes = parsed["--exclude"].asList;
-        string[] restrict = parsed["--restrict"].asList;
+        import std.array : array;
+        import std.algorithm : map;
+
+        Regex!char[] exclude = parsed["--exclude"].asList.map!(a => regex(a)).array();
+        Regex!char[] restrict = parsed["--restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
 
         if (parsed["--strip-incl"].isTrue) {
@@ -181,27 +190,26 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString),
-            DirName(parsed["-o"].toString), strip_incl, restrict, excludes);
+            MainInterface(parsed["--main"].toString), DirName(parsed["-o"].toString));
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
         }
 
+        variant.strip_incl = strip_incl;
+        variant.exclude = exclude;
+        variant.restrict = restrict;
+
         return variant;
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir, Regex!char strip_incl,
-        in string[] restrict, in string[] exclude) {
+        MainInterface main_if, DirName output_dir) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
         this.main_if = main_if;
         this.output_dir = output_dir;
-        this.restrict = restrict.dup;
-        this.exclude = exclude.dup;
-        this.strip_incl = strip_incl;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -228,13 +236,16 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     bool doFile(in string filename) @safe {
         import std.algorithm : canFind;
+        import std.regex : matchFirst;
 
         bool r = true;
 
+        // docopt blocks during parsing so both restrict and exclude cannot be
+        // set at the same time.
         if (restrict.length > 0) {
-            r = restrict.canFind(filename);
-        } else {
-            r = !exclude.canFind(filename);
+            r = canFind!(a => matchFirst(filename, a))(restrict);
+        } else if (exclude.length > 0) {
+            r = !canFind!(a => matchFirst(filename, a))(exclude);
         }
 
         return r;
@@ -244,7 +255,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     FileName[] getIncludes() {
         import std.array : array;
-        import std.algorithm : map, filter;
+        import std.algorithm : cache, map, filter;
         import cpptooling.data.representation : dedup;
 
         // if no regexp or no match when using the regexp, using the include
@@ -271,6 +282,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             // dfmt off
             td_includes = dedup(td_includes)
                 .map!(a => stripIncl(a, strip_incl))
+                .cache()
                 .filter!(a => a.length > 0)
                 .array();
             // dfmt on
