@@ -34,8 +34,7 @@ struct ClangContext {
      *  input_file_ = filename of code to parse
      *  args = extra arguments to pass to libclang
      */
-    this(string input_file_, const string[] args = null) {
-        input_file = input_file_;
+    this(string input_file, const string[] args = null) {
         index = Index(false, false);
 
         if (args !is null) {
@@ -71,7 +70,6 @@ private:
         return compiler_args ~ user_args;
     }
 
-    string input_file;
     Index index;
     TranslationUnit translation_unit;
     Compiler compiler;
@@ -119,10 +117,8 @@ bool hasParseErrors(ref ClangContext context) {
 void logDiagnostic(ref ClangContext context) {
     import clang.c.index : CXDiagnosticSeverity;
 
-    if (!context.isValid)
-        return;
-
     auto dia = context.translation_unit.diagnostics;
+
     if (dia.length == 0)
         return;
 

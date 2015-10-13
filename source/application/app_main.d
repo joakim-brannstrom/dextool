@@ -54,11 +54,11 @@ arguments:
  CFLAGS         Compiler flags.
 
 options:
- -h, --help         show this
+ -h, --help         show this help
  -d, --debug        turn on debug output for tracing of generator flow
- -o=dest            directory for generated files [default: ./]
+ --out=dir          directory for generated files [default: ./]
  --main=name        name of the main interface and filename [default: Test_Double]
- --strip-incl=r     A regexp used to strip the include paths.
+ --strip-incl=r     A regexp used to strip the include paths
 
 others:
  --file-exclude=...  exclude files from generation matching the regex.
@@ -191,7 +191,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString), DirName(parsed["-o"].toString));
+            MainInterface(parsed["--main"].toString), DirName(parsed["--out"].toString));
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -400,7 +400,7 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
-/// TODO refactor, too many parameters. Refactor. Probably pass the variant as a parameter.
+/// TODO refactor, doing too many things.
 ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;

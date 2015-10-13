@@ -29,17 +29,16 @@ function test_compile_code() {
 
 function test_gen_code() {
     local outdir=$(readlink -f $1)
-    local root_dir=$2
-    local inhdr=$3
-    local pre_args=$4
-    local post_args=$5
+    local inhdr=$2
+    local pre_args=$3
+    local post_args=$4
 
-    if [[ -n "$6" ]]; then
-        local cflags="-- $6"
+    if [[ -n "$5" ]]; then
+        local cflags="-- $5"
     fi
 
     echo -e "${C_YELLOW}=== $inhdr  ===${C_NONE}"
-    local tmp="$TOOL_BIN $pre_args -o $outdir $root_dir/$inhdr $cflags $post_args"
+    local tmp="$TOOL_BIN $pre_args --out $outdir $inhdr $cflags $post_args"
     echo "$tmp"
     eval "$tmp"
 }
