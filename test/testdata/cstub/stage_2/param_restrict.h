@@ -1,4 +1,4 @@
-/** Should exclude both test2.h and b.h from the generated stub. */
+/** Should only be signatures from this file and b.h in the generated stub. */
 
 #include "b.h"
 #include "c.h"

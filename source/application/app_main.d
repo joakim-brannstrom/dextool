@@ -58,6 +58,7 @@ options:
  -d, --debug        turn on debug output for tracing of generator flow
  -o=<dest>          directory for generated files [default: ./]
  --main=<n>         name of the main interface and filename [default: Test_Double]
+ --include=...      user supplied includes used instead of those found.
 
 others:
  --exclude=...      exclude files from generation, repeatable.
@@ -139,7 +140,13 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     string[] exclude;
     string[] restrict;
 
-    FileData[] fileData;
+    /// Data produced by the generatore intented to be written to specified file.
+    FileData[] file_data;
+
+    /// Includes intended for the test double. Filtered according to the user.
+    FileName[] td_includes;
+    // Dirty flag so sorting is only done when needed.
+    private bool td_dirty_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         string[] excludes = parsed["--exclude"].asList;
@@ -173,6 +180,11 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
     }
 
+    /// User supplied files used as input.
+    FileName getInputFile() {
+        return input_file;
+    }
+
     // -- StubController --
 
     bool doFile(in string filename) @safe {
@@ -191,36 +203,47 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     // -- StubParameters --
 
-    @safe pure {
-        FileName getInputFile() {
-            return input_file;
+    FileName[] getIncludes() {
+        import cpptooling.data.representation : dedup;
+
+        if (td_dirty_includes) {
+            td_dirty_includes = false;
+
+            td_includes = dedup(td_includes);
         }
 
-        DirName getOutputDirectory() {
-            return output_dir;
-        }
+        return td_includes;
+    }
 
-        StubParameters.MainFile getMainFile() {
-            return StubParameters.MainFile(main_file_hdr, main_file_impl);
-        }
+    DirName getOutputDirectory() {
+        return output_dir;
+    }
 
-        MainInterface getMainInterface() {
-            return main_if;
-        }
+    StubParameters.MainFile getMainFile() {
+        return StubParameters.MainFile(main_file_hdr, main_file_impl);
+    }
 
-        StubPrefix getFilePrefix() {
-            return file_prefix;
-        }
+    MainInterface getMainInterface() {
+        return main_if;
+    }
+
+    StubPrefix getFilePrefix() {
+        return file_prefix;
     }
 
     // -- StubProducts --
 
     void putFile(FileName fname, CppHModule hdr_data) {
-        fileData ~= FileData(fname, hdr_data.render());
+        file_data ~= FileData(fname, hdr_data.render());
     }
 
     void putFile(FileName fname, CppModule impl_data) {
-        fileData ~= FileData(fname, impl_data.render());
+        file_data ~= FileData(fname, impl_data.render());
+    }
+
+    void putLocation(FileName fname) {
+        td_dirty_includes = true;
+        td_includes ~= fname;
     }
 }
 
@@ -321,7 +344,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     // process and put the data in variant.
     StubGenerator(variant, variant, variant).process(ctx.root);
 
-    foreach (p; variant.fileData) {
+    foreach (p; variant.file_data) {
         auto status = tryWriting(cast(string) p.filename, p.data);
         if (status != ExitStatusType.Ok) {
             return ExitStatusType.Errors;

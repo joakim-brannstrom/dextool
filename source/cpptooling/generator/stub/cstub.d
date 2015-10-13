@@ -48,6 +48,9 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename);
+
+    /// A list of includes for the test double header.
+    FileName[] getIncludes();
 }
 
 /// Parameters used during generation.
@@ -58,8 +61,7 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
     alias MainFile = Tuple!(FileName, "hdr", FileName, "impl");
 
     /// Source files used to generate the stub.
-    /// TODO currently only one file, change to a list of files.
-    FileName getInputFile();
+    FileName[] getIncludes();
 
     /// Output directory to store files in.
     DirName getOutputDirectory();
@@ -76,7 +78,7 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
 }
 
 /// Data produced by the generator like files.
-interface StubProducts {
+@safe interface StubProducts {
     /** Data pushed from the stub generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
@@ -91,6 +93,15 @@ interface StubProducts {
 
     /// ditto.
     void putFile(FileName fname, CppModule impl_data);
+
+    /** During the translation phase the location of symbols that aren't
+     * filtered out are pushed to the variant.
+     *
+     * It is intended that the variant control the #include directive strategy.
+     * Just the files that was input?
+     * Deduplicated list of files where the symbols was found?
+     */
+    void putLocation(FileName loc);
 }
 
 struct StubGenerator {
@@ -108,7 +119,7 @@ struct StubGenerator {
     /// Process structural data to a stub.
     auto process(CppRoot root) {
         logger.trace("Raw data:\n" ~ root.toString());
-        auto tr = .translate(root, ctrl);
+        auto tr = .translate(root, ctrl, products);
 
         // Does it have any C functions?
         if (!tr.funcRange().empty) {
@@ -188,20 +199,20 @@ enum NamespaceType {
 /// Structurally transformed the input to a stub implementation.
 /// This stage filter out uninteresting parts, like C++ or directives from ctrl.
 /// No helper structs are generated at this stage.
-CppRoot translate(CppRoot input, StubController ctrl) {
+CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
     import cpptooling.data.representation : dedup;
 
     CppRoot tr;
 
     foreach (f; input.funcRange().dedup) {
-        auto r = translateCFunc(f, ctrl);
+        auto r = translateCFunc(f, ctrl, prod);
         if (!r.isNull) {
             tr.put(r.get);
         }
     }
 
     foreach (g; input.globalRange().dedup) {
-        auto r = translateCGlobal(g, ctrl);
+        auto r = translateCGlobal(g, ctrl, prod);
         if (!r.isNull) {
             tr.put(r.get);
         }
@@ -210,25 +221,27 @@ CppRoot translate(CppRoot input, StubController ctrl) {
     return tr;
 }
 
-auto translateCFunc(CFunction func, StubController ctrl) {
+auto translateCFunc(CFunction func, StubController ctrl, StubProducts prod) {
     import cpptooling.utility.nullvoid;
 
     NullableVoid!CFunction r;
 
     if (ctrl.doFile(func.location.file)) {
         r = func;
+        prod.putLocation(FileName(func.location.file));
     }
 
     return r;
 }
 
-auto translateCGlobal(CxGlobalVariable g, StubController ctrl) {
+auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod) {
     import cpptooling.utility.nullvoid;
 
     NullableVoid!CxGlobalVariable r;
 
     if (ctrl.doFile(g.location.file)) {
         r = g;
+        prod.putLocation(FileName(g.location.file));
     }
 
     return r;
@@ -473,6 +486,10 @@ void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
 void generateCIncludes(StubParameters params, CppModule hdr) {
     auto extern_c = hdr.suite("extern \"C\"");
     extern_c.suppressIndent(1);
-    extern_c.include(cast(string) params.getInputFile);
+
+    foreach (incl; params.getIncludes) {
+        extern_c.include(cast(string) incl);
+    }
+
     hdr.sep(2);
 }
