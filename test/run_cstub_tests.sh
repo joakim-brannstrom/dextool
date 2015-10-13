@@ -70,13 +70,13 @@ for IN_SRC in $ROOT_DIR/*.h; do
 
     case "$IN_SRC" in
         *test1*)
-            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --exclude=.*/$inhdr_base" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --file-exclude=.*/$inhdr_base" "" "$INCLUDES"
             ;;
         *test2*)
-            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --exclude=.*/$inhdr_base --exclude=.*/include/b.h" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --file-exclude=.*/$inhdr_base --file-exclude=.*/include/b.h" "" "$INCLUDES"
             ;;
         *param_restrict*)
-            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --restrict=.*/$inhdr_base --restrict=.*/include/b.h" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --file-restrict=.*/$inhdr_base --file-restrict=.*/include/b.h" "" "$INCLUDES"
             ;;
         *param_include*)
             test_gen_code "$OUTDIR" "$ROOT_DIR" "$inhdr_base" "--debug --td-include=b.h --td-include=stdio.h" "" "$INCLUDES"

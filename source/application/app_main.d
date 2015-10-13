@@ -46,8 +46,8 @@ import cpptooling.generator.stub.cstub : StubGenerator, StubController,
 ///TODO change FILE to be variable
 static string doc = "
 usage:
-  dextool ctestdouble [options] [--exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -61,9 +61,10 @@ options:
  --strip-incl=r     A regexp used to strip the include paths.
 
 others:
- --exclude=...      exclude files from generation matching the regex.
- --restrict=...     regex. restrict the scope of the test double to the set union of FILE and restrict.
- --td-include=...   user supplied includes used instead of those found.
+ --file-exclude=...  exclude files from generation matching the regex.
+ --file-restrict=... regex. restrict the scope of the test double to the set
+                     union of FILE and restrict.
+ --td-include=...    user supplied includes used instead of those found.
 
 REGEX
 
@@ -91,7 +92,7 @@ Generate a simple C test double.
   The name of the interface is Test_Double.
 
 Generate a C test double excluding data from specified files.
-  dextool ctestdouble --exclude=/foo.h --exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
+  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
 
   The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
   During generation declarations found in foo.h or functions.h will be excluded.
@@ -175,8 +176,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         import std.array : array;
         import std.algorithm : map;
 
-        Regex!char[] exclude = parsed["--exclude"].asList.map!(a => regex(a)).array();
-        Regex!char[] restrict = parsed["--restrict"].asList.map!(a => regex(a)).array();
+        Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
+        Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
 
         if (parsed["--strip-incl"].isTrue) {
