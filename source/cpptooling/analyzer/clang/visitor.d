@@ -55,7 +55,7 @@ struct VariableVisitor {
         auto type = translateType(c.type);
         auto loc = toInternal!CxLocation(c.location());
 
-        auto var = CxGlobalVariable(type, name, loc);
+        auto var = CxGlobalVariable(type.unwrap, name, loc);
         logger.info("variable:", var.toString);
 
         return var;
@@ -77,7 +77,7 @@ struct FunctionVisitor {
 
         auto params = paramDeclTo(c);
         auto name = CFunctionName(c.spelling);
-        auto return_type = CxReturnType(translateType(c.func.resultType));
+        auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
         auto is_variadic = c.func.isVariadic ? VariadicType.yes : VariadicType.no;
         auto loc = toInternal!CxLocation(c.location());
 
@@ -177,7 +177,7 @@ private:
 
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
-        auto return_type = CxReturnType(translateType(c.func.resultType));
+        auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
 
         auto is_virtual = CppVirtualMethod(VirtualType.No);
         if (c.func.isPureVirtual) {
@@ -444,7 +444,7 @@ auto paramDeclTo(Cursor cursor) {
 
     foreach (param; cursor.func.parameters) {
         auto type = translateType(param.type);
-        params ~= makeCxParam(TypeKindVariable(type, CppVariable(param.spelling)));
+        params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable(param.spelling)));
     }
 
     if (cursor.func.isVariadic) {

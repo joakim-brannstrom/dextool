@@ -33,6 +33,18 @@ import clang.Type : Type;
 
 public:
 
+private void logType(ref Type type) {
+    // dfmt off
+    debug {
+    logger.trace(format("%s|%s|%s|%s",
+                        type.kind,
+                        type.declaration,
+                        type.isValid,
+                        type.typeKindSpelling));
+    }
+    // dfmt on
+}
+
 /** Type information for a cursor.
  *
  * name is without any storage classes or operators. Example int.
@@ -55,7 +67,24 @@ pure @safe nothrow struct TypeKind {
 
 private:
     string full_name;
-    Type t;
+}
+
+private nothrow struct WrapTypeKind {
+    this(Type type) {
+        this.type = type;
+        this.typeKind.full_name = type.spelling;
+
+        this.typeKind.isConst = type.isConst;
+        this.typeKind.isRef = type.declaration.isReference;
+        this.typeKind.isPointer = (type.kind == CXTypeKind.CXType_Pointer);
+    }
+
+    TypeKind unwrap() @safe nothrow @property {
+        return this.typeKind;
+    }
+
+    Type type;
+    TypeKind typeKind;
 }
 
 ///TODO change thhe bools to using the Flag from typecons
@@ -89,7 +118,7 @@ immutable(TypeKind) iduplicate(T)(T t_in) pure @safe nothrow if (!isMutable!T) {
  *   type = a clang cursor to the type node
  * Returns: Struct of metadata about the type.
  */
-TypeKind translateType(Type type)
+WrapTypeKind translateType(Type type)
 in {
     assert(type.isValid);
 }
@@ -97,15 +126,21 @@ body {
     import clang.Cursor : cursor_abilities = abilities;
     import clang.Type : type_abilities = abilities;
 
-    TypeKind result = type.toProperty;
-    result.t = type;
-    result.full_name = type.spelling;
+    auto result = WrapTypeKind(type);
 
-    auto tmp_c = type.declaration;
-    auto tmp_t = tmp_c.typedefUnderlyingType;
-    logger.trace(format("%s %s %s %s c:%s t:%s", type.spelling,
-        to!string(type.kind), tmp_c.spelling, type_abilities(tmp_t),
-        cursor_abilities(tmp_c), type_abilities(type)));
+    debug {
+        auto tmp_c = type.declaration;
+        auto tmp_t = tmp_c.typedefUnderlyingType;
+        // dfmt off
+        logger.trace(format("%s %s %s %s c:%s t:%s",
+                            type.spelling,
+                            to!string(type.kind),
+                            tmp_c.spelling,
+                            type_abilities(tmp_t),
+                            cursor_abilities(tmp_c),
+                            type_abilities(type)));
+        // dfmt on
+    }
 
     with (CXTypeKind) {
         if (type.kind == CXType_BlockPointer || type.isFunctionPointerType)
@@ -113,7 +148,7 @@ body {
         //    result = translateFunctionPointerType(type);
 
         if (type.isWideCharType)
-            result.name = "wchar";
+            result.typeKind.name = "wchar";
         else {
             switch (type.kind) {
             case CXType_Pointer:
@@ -123,10 +158,10 @@ body {
                 result = translateTypedef(type);
                 break;
             case CXType_ConstantArray:
-                result.name = translateConstantArray(type, false);
+                result.typeKind.name = translateConstantArray(type, false);
                 break;
             case CXType_Unexposed:
-                result.name = translateUnexposed(type, false);
+                result.typeKind.name = translateUnexposed(type, false);
                 break;
             case CXType_LValueReference:
                 result = translateReference(type);
@@ -136,63 +171,39 @@ body {
             }
         }
     }
-    logger.tracef("name:%s full:%s c:%s r:%s p:%s", result.name,
-        result.toString, result.isConst, result.isRef, result.isPointer);
+
+    // dfmt off
+    debug {
+        logger.tracef("name:%s full:%s c:%s r:%s p:%s",
+                      result.typeKind.name,
+                      result.typeKind.toString,
+                      result.typeKind.isConst,
+                      result.typeKind.isRef,
+                      result.typeKind.isPointer);
+    }
+    // dfmt on
 
     return result;
 }
 
 private:
 
-/** Extract properties from a Cursor for a Type like const, pointer, reference.
- * Params:
- *  cursor = A cursor that have a type property.
- */
-TypeKind toProperty(Cursor cursor) {
-    return cursor.type.toProperty;
-}
+WrapTypeKind translateDefault(Type type) {
+    logType(type);
 
-/** Extract properties from a Type like const, pointer, reference.
- * Params:
- *  type = A cursor that have a type property.
- */
-TypeKind toProperty(Type type) {
-    TypeKind result;
-
-    if (type.isConst) {
-        result.isConst = true;
-    }
-
-    if (type.declaration.isReference) {
-        result.isRef = true;
-    }
-
-    if (type.kind == CXTypeKind.CXType_Pointer) {
-        result.isPointer = true;
-    }
+    auto result = WrapTypeKind(type);
+    result.typeKind.name = translateCursorType(type.kind);
 
     return result;
 }
 
-TypeKind translateDefault(Type type) {
-    logger.trace(format("%s|%s|%s|%s", type.kind, type.declaration,
-        type.isValid, type.typeKindSpelling));
-
-    TypeKind result = type.toProperty;
-    result.t = type;
-    result.full_name = type.spelling;
-    result.name = translateCursorType(type.kind);
-
-    return result;
-}
-
-TypeKind translateTypedef(Type type)
+WrapTypeKind translateTypedef(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_Typedef);
 }
 body {
-    logger.trace(format("%s|%s|%s|%s", type.kind, type.declaration,
-        type.isValid, type.typeKindSpelling));
+    logType(type);
+
     static bool valueTypeIsConst(Type type) {
         auto pointee = type.pointeeType;
 
@@ -202,20 +213,16 @@ body {
         return pointee.isConst;
     }
 
-    TypeKind result;
-
-    result = type.toProperty;
+    auto result = WrapTypeKind(type);
 
     if (valueTypeIsConst(type)) {
-        result.isConst = true;
+        result.typeKind.isConst = true;
     }
 
-    result.name = type.declaration.spelling;
-    if (result.name.length == 0) {
-        result.name = type.spelling;
+    result.typeKind.name = type.declaration.spelling;
+    if (result.typeKind.name.length == 0) {
+        result.typeKind.name = type.spelling;
     }
-    result.t = type;
-    result.full_name = type.spelling;
 
     return result;
 }
@@ -228,7 +235,7 @@ body {
     auto declaration = type.declaration;
 
     if (declaration.isValid)
-        return translateType(declaration.type).name;
+        return translateType(declaration.type).typeKind.name;
 
     else
         return translateCursorType(type.kind);
@@ -240,12 +247,12 @@ in {
 }
 body {
     auto array = type.array;
-    auto elementType = translateType(array.elementType).name;
+    auto elementType = translateType(array.elementType).typeKind.name;
 
     return elementType ~ '[' ~ to!string(array.size) ~ ']';
 }
 
-TypeKind translatePointer(Type type)
+WrapTypeKind translatePointer(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_Pointer);
 }
@@ -260,25 +267,23 @@ body {
         return pointee.isConst;
     }
 
-    TypeKind result = type.toProperty;
-    result.isPointer = true;
+    auto result = WrapTypeKind(type);
+    result.typeKind.isPointer = true;
 
     if (valueTypeIsConst(type)) {
-        result.isConst = true;
+        result.typeKind.isConst = true;
     }
 
     auto tmp = translateType(type.pointeeType);
-    result.name = tmp.t.declaration.spelling;
-    if (result.name.length == 0) {
-        result.name = tmp.name;
+    result.typeKind.name = tmp.type.declaration.spelling;
+    if (result.typeKind.name.length == 0) {
+        result.typeKind.name = tmp.typeKind.name;
     }
-    result.t = type;
-    result.full_name = type.spelling;
 
     return result;
 }
 
-TypeKind translateReference(Type type)
+WrapTypeKind translateReference(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_LValueReference);
 }
@@ -293,20 +298,18 @@ body {
         return pointee.isConst;
     }
 
-    TypeKind result = type.toProperty;
-    result.isRef = true;
+    auto result = WrapTypeKind(type);
+    result.typeKind.isRef = true;
 
     if (valueTypeIsConst(type)) {
-        result.isConst = true;
+        result.typeKind.isConst = true;
     }
 
     auto tmp = translateType(type.pointeeType);
-    result.name = tmp.t.declaration.spelling;
-    if (result.name.length == 0) {
-        result.name = tmp.name;
+    result.typeKind.name = tmp.type.declaration.spelling;
+    if (result.typeKind.name.length == 0) {
+        result.typeKind.name = tmp.typeKind.name;
     }
-    result.t = type;
-    result.full_name = type.spelling;
 
     return result;
 }
