@@ -438,13 +438,24 @@ auto paramDeclTo(Cursor cursor) {
     import translator.Type : TypeKind, translateType;
     import cpptooling.data.representation : TypeKindVariable, CppVariable,
         makeCxParam, CxParam;
-    import std.traits;
 
     CxParam[] params;
 
-    foreach (param; cursor.func.parameters) {
-        auto type = translateType(param.type);
-        params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable(param.spelling)));
+    if (cursor.type.isTypedef) {
+        // handles the following case.
+        // typedef unsigned char (func_type) (const unsigned int baz);
+        // extern func_ptr hest;
+        // Must grab the underlying type and parse the arguments.
+        cursor = cursor.type.declaration;
+        foreach (arg; cursor.type.func.arguments) {
+            auto type = translateType(arg);
+            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable("")));
+        }
+    } else {
+        foreach (param; cursor.func.parameters) {
+            auto type = translateType(param.type);
+            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable(param.spelling)));
+        }
     }
 
     if (cursor.func.isVariadic) {

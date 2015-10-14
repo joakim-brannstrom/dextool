@@ -1,0 +1,31 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "function_pointers.h"
+}
+
+#ifdef DEFINE_GLOBAL_Test_Double
+void (*)(void) a;
+int (*)(void) b;
+void (*)(int) c;
+int (*)(int, int) d;
+int (*)(int, int) e;
+int (*)(int, int, ...) f;
+func_ptr hest;
+#endif // DEFINE_GLOBAL_Test_Double
+class Test_Double {
+public:
+    virtual unsigned char tiger(const unsigned int x1) = 0;
+    virtual unsigned char cyber(const unsigned int x1) = 0;
+};
+
+/// Manage the shared memory area of the instance that fulfill the interface.
+/// Connect inst to handle all stimuli.
+class Test_Double_Manager {
+public:
+    Test_Double_Manager();
+    ~Test_Double_Manager();
+    void Connect(Test_Double& inst);
+};
+
+#endif // test_double_hpp
