@@ -1,0 +1,6 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+}
+
+#endif // test_double_hpp

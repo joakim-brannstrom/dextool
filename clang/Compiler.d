@@ -1,8 +1,14 @@
 /**
  * Copyright: Copyright (c) 2015 Jacob Carlborg. All rights reserved.
  * Authors: Jacob Carlborg
- * Version: Initial created: Jan 31, 2015
+ * Version: 1.1
  * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
+ *
+ * History:
+ *  1.0 Initial created: Jan 31, 2015 $(BR)
+ *      Jacob Carlborg
+ *  1.1 updated to clang 3.6 with additional internal header $(BR)
+ *      Joakim Brännström
  */
 module clang.Compiler;
 
@@ -31,8 +37,19 @@ struct Compiler {
             string content;
         }
 
-        enum internalHeaders = [staticMap!(toInternalHeader, "float.h", "stdarg.h",
-                "stddef.h")];
+        // dfmt off
+        enum internalHeaders = [
+            staticMap!(toInternalHeader,
+                       "float.h",
+                       "limits.h",
+                       "stdalign.h",
+                       "stdarg.h",
+                       "stdbool.h",
+                       "stddef.h",
+                       "stdint.h",
+                       "__stddef_max_align_t.h")
+        ];
+        // dfmt on
     }
 
     string[] extraIncludePaths() {

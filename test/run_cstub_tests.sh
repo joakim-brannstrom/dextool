@@ -33,6 +33,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
             out_hdr="$OUTDIR/stub.hpp"
             out_impl="$OUTDIR/stub.cpp"
             ;;
+        *test_include_stdlib*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug" "" "-nostdinc"
+            ;;
         # Test examples
         # *somefile*)
         #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" ;;

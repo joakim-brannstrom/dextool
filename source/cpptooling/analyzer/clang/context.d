@@ -22,8 +22,6 @@ import logger = std.experimental.logger;
 
 /// Holds the context of the file.
 struct ClangContext {
-    import std.array : join;
-
     import clang.Compiler;
     import clang.Cursor;
     import clang.Index;
@@ -33,20 +31,29 @@ struct ClangContext {
      * Params:
      *  input_file_ = filename of code to parse
      *  args = extra arguments to pass to libclang
+     *  internal_hdr = use internal headers
      */
-    this(string input_file, const string[] args = null) {
+    this(string input_file, const string[] args = null, bool internal_hdr = true) {
+        import std.array : join;
+
+        string[] user_args;
         index = Index(false, false);
 
-        if (args !is null) {
-            // skip logging of the internal includes (compiler_args) as to not confuse the user.
-            user_args = args.idup;
-            logger.info("Compiler flags: ", user_args.join(" "));
+        if (internal_hdr) {
+            user_args = compilerArgs();
         }
+
+        if (args !is null) {
+            user_args = args.dup ~ user_args;
+        }
+
+        logger.info("Compiler flags: ", args.join(" "));
+        logger.trace("Internal compiler flags: ", user_args);
 
         // the last argument determines if comments are parsed and therefor
         // accessible in the AST. Default is not.
-        translation_unit = TranslationUnit.parse(index, input_file,
-            compilerArgs, compiler.extraHeaders);
+        translation_unit = TranslationUnit.parse(index, input_file, user_args,
+            compiler.extraHeaders);
     }
 
     ~this() {
@@ -67,13 +74,12 @@ private:
         import std.algorithm : map;
 
         auto compiler_args = compiler.extraIncludePaths.map!(e => "-I" ~ e).array();
-        return compiler_args ~ user_args;
+        return compiler_args;
     }
 
     Index index;
-    TranslationUnit translation_unit;
     Compiler compiler;
-    immutable string[] user_args;
+    TranslationUnit translation_unit;
 }
 
 /// No errors occured during translation.
