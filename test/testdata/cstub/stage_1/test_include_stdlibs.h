@@ -1,3 +1,5 @@
+// Uses the internal system headers.
+
 #include <float.h>
 #include <limits.h>
 #include <stdalign.h>
