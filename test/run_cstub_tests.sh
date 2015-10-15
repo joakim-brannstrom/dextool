@@ -74,7 +74,7 @@ for IN_SRC in $ROOT_DIR/*.h; do
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base" "" "$INCLUDES"
             ;;
         *param_exclude_many_files*)
-            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base --file-exclude=.*/include/b.h" "" "$INCLUDES"
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base --file-exclude='.*/include/b\.[h,c]'" "" "$INCLUDES"
             ;;
         *param_restrict*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-restrict=.*/$inhdr_base --file-restrict=.*/include/b.h" "" "$INCLUDES"
