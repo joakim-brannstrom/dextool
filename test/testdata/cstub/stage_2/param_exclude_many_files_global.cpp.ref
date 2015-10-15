@@ -1,0 +1,11 @@
+#include "test_double.hpp"
+
+#ifndef Test_Assign_var_c
+#define Test_Assign_var_c
+#endif // Test_Assign_var_c
+#ifndef Test_Assign_var_d
+#define Test_Assign_var_d
+#endif // Test_Assign_var_d
+
+int var_c Test_Assign_var_c;
+int var_d Test_Assign_var_d;

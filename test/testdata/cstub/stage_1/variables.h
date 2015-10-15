@@ -1,3 +1,6 @@
+#ifndef VARIABLES_H
+#define VARIABLES_H
+
 int a;
 extern int b;
 
@@ -5,3 +8,4 @@ extern int b;
 extern int b;
 
 extern const int c;
+#endif // VARIABLES_H

@@ -6,11 +6,6 @@ extern "C" {
 #include "d.h"
 }
 
-#ifdef DEFINE_GLOBAL_Test_Double
-int var_b;
-int var_c;
-int var_d;
-#endif // DEFINE_GLOBAL_Test_Double
 class Test_Double {
 public:
     virtual void fun_b() = 0;

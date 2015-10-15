@@ -4,8 +4,4 @@ extern "C" {
 #include "variables.h"
 }
 
-#ifdef DEFINE_GLOBAL_Test_Double
-int b;
-const int c;
-#endif // DEFINE_GLOBAL_Test_Double
 #endif // test_double_hpp

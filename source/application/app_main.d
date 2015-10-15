@@ -39,7 +39,6 @@ import cpptooling.utility.clang : visitAst, logNode;
 import cpptooling.generator.stub.cstub : StubGenerator, StubController,
     StubParameters, StubProducts;
 
-// --prefix=<p>       prefix used when generating test double [default: Test_]
 // --file-prefix=<p>  prefix used for generated files other than main [default: test_]
 
 static string doc = "
@@ -56,6 +55,7 @@ options:
  -d, --debug        turn on debug output for tracing of generator flow
  --out=dir          directory for generated files [default: ./]
  --main=name        name of the main interface and filename [default: Test_Double]
+ --prefix=p         prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
 
 others:
@@ -78,6 +78,10 @@ Information about --strip-incl.
   Important to remember then is that this approach requires that at least one
   matcher group exists.
 
+Information about --file-exclude and --file-restrict.
+  Counts as a match if the regex matches any part of the file name for where
+  the AST node is.
+
 EXAMPLES
 
 Generate a simple C test double.
@@ -90,7 +94,7 @@ Generate a simple C test double.
   The name of the interface is Test_Double.
 
 Generate a C test double excluding data from specified files.
-  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.h --out=outdata/ functions.h -- -DBAR -I/some/path
+  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.[h,c] --out=outdata/ functions.h -- -DBAR -I/some/path
 
   The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
   During generation declarations found in foo.h or functions.h will be excluded.
@@ -149,6 +153,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable DirName output_dir;
     immutable FileName main_file_hdr;
     immutable FileName main_file_impl;
+    immutable FileName main_file_globals;
 
     immutable MainInterface main_if;
 
@@ -187,7 +192,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             strip_incl = regex(r".*/(.*)");
         }
 
-        auto variant = new CTestDoubleVariant(StubPrefix("Not used"),
+        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainInterface(parsed["--main"].toString), DirName(parsed["--out"].toString));
 
@@ -216,6 +221,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
+        this.main_file_globals = FileName(buildPath(cast(string) output_dir,
+            base_filename ~ "_global" ~ implExt));
     }
 
     /// Force the includes to be those supplied by the user.
@@ -302,7 +309,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     StubParameters.MainFile getMainFile() {
-        return StubParameters.MainFile(main_file_hdr, main_file_impl);
+        return StubParameters.MainFile(main_file_hdr, main_file_impl, main_file_globals);
     }
 
     MainInterface getMainInterface() {
@@ -311,6 +318,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     StubPrefix getFilePrefix() {
         return file_prefix;
+    }
+
+    StubPrefix getArtifactPrefix() {
+        return prefix;
     }
 
     // -- StubProducts --
@@ -527,7 +538,7 @@ int rmain(string[] args) nothrow {
     ExitStatusType exit_status = ExitStatusType.Errors;
     bool help = true;
     bool optionsFirst = false;
-    auto version_ = "gen-test-double v0.1";
+    auto version_ = "dextool v0.1";
 
     try {
         auto parsed = docopt.docopt(doc, args[1 .. $], help, version_, optionsFirst);

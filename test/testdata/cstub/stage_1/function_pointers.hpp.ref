@@ -4,15 +4,6 @@ extern "C" {
 #include "function_pointers.h"
 }
 
-#ifdef DEFINE_GLOBAL_Test_Double
-void (*)(void) a;
-int (*)(void) b;
-void (*)(int) c;
-int (*)(int, int) d;
-int (*)(int, int) e;
-int (*)(int, int, ...) f;
-func_ptr hest;
-#endif // DEFINE_GLOBAL_Test_Double
 class Test_Double {
 public:
     virtual unsigned char tiger(const unsigned int x0) = 0;

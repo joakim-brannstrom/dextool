@@ -1,4 +1,0 @@
-#include "test_double.hpp"
-
-extern "C" {
-}

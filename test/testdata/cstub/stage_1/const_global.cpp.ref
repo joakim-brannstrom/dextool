@@ -1,0 +1,35 @@
+#include "test_double.hpp"
+
+#ifndef Test_Assign_a
+#define Test_Assign_a
+#endif // Test_Assign_a
+#ifndef Test_Assign_b
+#define Test_Assign_b
+#endif // Test_Assign_b
+#ifndef Test_Assign_c
+#define Test_Assign_c
+#endif // Test_Assign_c
+#ifndef Test_Assign_d
+#define Test_Assign_d
+#endif // Test_Assign_d
+#ifndef Test_Assign_e
+#define Test_Assign_e
+#endif // Test_Assign_e
+#ifndef Test_Assign_f
+#define Test_Assign_f
+#endif // Test_Assign_f
+#ifndef Test_Assign_g
+#define Test_Assign_g
+#endif // Test_Assign_g
+#ifndef Test_Assign_bar
+#define Test_Assign_bar
+#endif // Test_Assign_bar
+
+const int a Test_Assign_a;
+const int * b Test_Assign_b;
+int *const c Test_Assign_c;
+const int *const d Test_Assign_d;
+const int *const * e Test_Assign_e;
+const int *const *const f Test_Assign_f;
+int *const *const g Test_Assign_g;
+const Foo bar Test_Assign_bar;

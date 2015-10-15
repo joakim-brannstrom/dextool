@@ -4,14 +4,4 @@ extern "C" {
 #include "const.h"
 }
 
-#ifdef DEFINE_GLOBAL_Test_Double
-const int a;
-const int * b;
-int *const c;
-const int *const d;
-const int *const * e;
-const int *const *const f;
-int *const *const g;
-const Foo bar;
-#endif // DEFINE_GLOBAL_Test_Double
 #endif // test_double_hpp

@@ -58,7 +58,7 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
 @safe pure interface StubParameters {
     import std.typecons : Tuple;
 
-    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl");
+    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals");
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();
@@ -75,6 +75,9 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
     /// Prefix to use for the generated files.
     /// Affects both the filename and the preprocessor #include.
     StubPrefix getFilePrefix();
+
+    /// Prefix used for test artifacts.
+    StubPrefix getArtifactPrefix();
 }
 
 /// Data produced by the generator like files.
@@ -133,13 +136,14 @@ struct StubGenerator {
 
         auto hdr = new CppModule;
         auto impl = new CppModule;
-        generateStub(tr, params, hdr, impl);
-        postProcess(hdr, impl, params, products);
+        auto globals = new CppModule;
+        generateStub(tr, params, hdr, impl, globals);
+        postProcess(hdr, impl, globals, params, products);
     }
 
 private:
     static private void postProcess(CppModule hdr, CppModule impl,
-        StubParameters params, StubProducts prod) {
+        CppModule globals, StubParameters params, StubProducts prod) {
         /** Generate the C++ header file of the stub.
          * Params:
          *  filename = intended output filename, used for ifndef guard.
@@ -148,7 +152,12 @@ private:
             import std.string : translate;
             import std.path : baseName;
 
-            dchar[dchar] table = ['.' : '_', '-' : '_', '/' : '_'];
+            // dfmt off
+            dchar[dchar] table = [
+                '.' : '_',
+                '-' : '_',
+                '/' : '_'];
+            // dfmt on
 
             auto o = CppHModule(translate(params.getMainFile().hdr.str.baseName, table));
             o.content.append(hdr);
@@ -156,20 +165,21 @@ private:
             return o;
         }
 
-        static auto outputImpl(CppModule impl, StubParameters params) {
+        static auto output(CppModule code, StubParameters params) {
             import std.path : baseName;
 
             auto o = new CppModule;
             o.suppressIndent(1);
             o.include(params.getMainFile.hdr.str.baseName);
             o.sep(2);
-            o.append(impl);
+            o.append(code);
 
             return o;
         }
 
         prod.putFile(params.getMainFile.hdr, outputHdr(hdr, params));
-        prod.putFile(params.getMainFile.impl, outputImpl(impl, params));
+        prod.putFile(params.getMainFile.impl, output(impl, params));
+        prod.putFile(params.getMainFile.globals, output(globals, params));
     }
 
     StubController ctrl;
@@ -314,7 +324,8 @@ CppNamespace makeCStubGlobal(MainInterface main_if) {
     return ns;
 }
 
-void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule impl) {
+void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule impl,
+    CppModule globals) {
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
 
@@ -322,8 +333,15 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
 
     auto globalR = r.globalRange();
     if (!globalR.empty) {
-        auto ifdef_hdr = hdr.IFDEF("DEFINE_GLOBAL_" ~ params.getMainInterface.str);
-        globalR.each!((a) { generateCGlobalHdr(a, ifdef_hdr); });
+        globalR.each!((a) {
+            generateCGlobalDefine(a, params.getArtifactPrefix.str, globals);
+        });
+        globals.sep(2);
+
+        globalR = r.globalRange();
+        globalR.each!((a) {
+            generateCGlobalDefinition(a, params.getArtifactPrefix.str, globals);
+        });
     }
 
     r.namespaceRange().filter!(a => a.kind() == NamespaceType.CStubGlobal).each!((a) {
@@ -341,10 +359,20 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
     });
 }
 
-void generateCGlobalHdr(CxGlobalVariable g, CppModule hdr) {
+void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
     import cpptooling.utility.conv : str;
 
-    hdr.stmt(E(g.type.toString) ~ E(g.name.str));
+    auto d_name = prefix ~ "Assign_" ~ g.name.str;
+    with (code.IFNDEF(d_name)) {
+        define(E(d_name));
+    }
+}
+
+void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code) {
+    import cpptooling.utility.conv : str;
+
+    auto d_name = prefix ~ "Assign_" ~ g.name.str;
+    code.stmt(E(g.type.toString) ~ E(g.name.str) ~ E(d_name));
 }
 
 ///TODO print the function prototype and location it was found at.

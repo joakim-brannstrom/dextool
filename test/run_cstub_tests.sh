@@ -26,6 +26,7 @@ for IN_SRC in $ROOT_DIR/*.h; do
     inhdr_base=$(basename ${IN_SRC})
     out_hdr="$OUTDIR/test_double.hpp"
     out_impl="$OUTDIR/test_double.cpp"
+    out_glob="$OUTDIR/test_double_global.cpp"
 
     case "$IN_SRC" in
         *param_main*)
@@ -44,18 +45,21 @@ for IN_SRC in $ROOT_DIR/*.h; do
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug" ;;
     esac
 
-    case "$IN_SRC" in
-        *)
-            test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" ;;
-    esac
+    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
 
     case "$IN_SRC" in
-        # *functions*)
-        #     test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic" ;;
-        # *variables*) ;;
-        # Compile examples
+        *function_pointers.h*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
+            ;;
+        *param_main*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
+            ;;
+        *variables*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
+            ;;
         *)
-            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror" ;;
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -Wpedantic -fpermissive"
+            ;;
     esac
 
     clean_test_env
@@ -68,6 +72,7 @@ for IN_SRC in $ROOT_DIR/*.h; do
     inhdr_base=$(basename ${IN_SRC})
     out_hdr="$OUTDIR/test_double.hpp"
     out_impl="$OUTDIR/test_double.cpp"
+    out_glob="$OUTDIR/test_double_global.cpp"
 
     case "$IN_SRC" in
         *param_exclude_one_file*)
@@ -85,9 +90,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *) ;;
     esac
 
-    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl"
+    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
 
-    test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp
+    test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp "-DTEST_INCLUDE"
 
     clean_test_env
 done

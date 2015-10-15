@@ -1,0 +1,31 @@
+#include "test_double.hpp"
+
+#ifndef Test_Assign_a
+#define Test_Assign_a
+#endif // Test_Assign_a
+#ifndef Test_Assign_b
+#define Test_Assign_b
+#endif // Test_Assign_b
+#ifndef Test_Assign_c
+#define Test_Assign_c
+#endif // Test_Assign_c
+#ifndef Test_Assign_d
+#define Test_Assign_d
+#endif // Test_Assign_d
+#ifndef Test_Assign_e
+#define Test_Assign_e
+#endif // Test_Assign_e
+#ifndef Test_Assign_f
+#define Test_Assign_f
+#endif // Test_Assign_f
+#ifndef Test_Assign_hest
+#define Test_Assign_hest
+#endif // Test_Assign_hest
+
+void (*)(void) a Test_Assign_a;
+int (*)(void) b Test_Assign_b;
+void (*)(int) c Test_Assign_c;
+int (*)(int, int) d Test_Assign_d;
+int (*)(int, int) e Test_Assign_e;
+int (*)(int, int, ...) f Test_Assign_f;
+func_ptr hest Test_Assign_hest;

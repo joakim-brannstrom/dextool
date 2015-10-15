@@ -17,8 +17,8 @@ extern int (*f)(int a, int b, ...);
 /* subtle difference between a function prototype that is reused via a typedef
  * and a function pointer.
  *
- * Expecting Func_Type to result in a function definition and affect the interface.
- * Expecting Func_Ptr_Type to be defined as a variable.
+ * Expecting func_type to result in a function definition and affect the interface.
+ * Expecting func_ptr to be defined as a variable.
  */
 typedef unsigned char (func_type)(const unsigned int baz);
 typedef unsigned char (*func_ptr)(const unsigned baz);

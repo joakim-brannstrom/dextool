@@ -45,15 +45,22 @@ function test_gen_code() {
 
 function test_compare_code() {
     local hdr_ref=$1
-    local out_hdr=$2
+    local hdr_out=$2
     local impl_ref=$3
-    local out_impl=$4
+    local impl_out=$4
+    local glob_ref=$5
+    local glob_out=$6
 
-    echo -e "Comparing result: ${hdr_ref}\t$PWD/${out_hdr}"
-    diff -u "${hdr_ref}" "${out_hdr}"
+    echo -e "Comparing result: ${hdr_ref}\t$PWD/${hdr_out}"
+    diff -u "${hdr_ref}" "${hdr_out}"
     if [[ -e "${impl_ref}" ]]; then
-        echo -e "Comparing result: ${impl_ref}\t$PWD/${out_impl}"
-        diff -u "${impl_ref}" "${out_impl}"
+        echo -e "Comparing result: ${impl_ref}\t$PWD/${impl_out}"
+        diff -u "${impl_ref}" "${impl_out}"
+    fi
+
+    if [[ -e "${glob_ref}" ]]; then
+        echo -e "Comparing result: ${glob_ref}\t$PWD/${glob_out}"
+        diff -u "${glob_ref}" "${glob_out}"
     fi
 }
 
