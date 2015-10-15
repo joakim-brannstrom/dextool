@@ -342,9 +342,21 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
 }
 
 void generateCGlobalHdr(CxGlobalVariable g, CppModule hdr) {
+    import std.array : array;
+    import std.algorithm : splitter, joiner, filter;
+    import std.utf : byChar;
     import cpptooling.utility.conv : str;
 
-    hdr.stmt(E(g.type.toString) ~ E(g.name.str));
+    ///TODO investigate if there is a better way to remove const.
+    // dfmt off
+    auto txt = g.type.toString()
+        .splitter(' ')
+        .filter!(a => !(a.length == 0 || a == "const"))
+        .joiner(" ")
+        .byChar.array();
+    // dfmt on
+
+    hdr.stmt(E(txt) ~ E(g.name.str));
 }
 
 ///TODO print the function prototype and location it was found at.
