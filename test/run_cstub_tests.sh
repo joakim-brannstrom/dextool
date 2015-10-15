@@ -38,8 +38,6 @@ for IN_SRC in $ROOT_DIR/*.h; do
             ;;
         # Test examples
         # *somefile*)
-        #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" ;;
-        # *somefile*)
         #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" "|& grep -i $grepper"
         # ;;
         *)
@@ -72,10 +70,10 @@ for IN_SRC in $ROOT_DIR/*.h; do
     out_impl="$OUTDIR/test_double.cpp"
 
     case "$IN_SRC" in
-        *test1*)
+        *param_exclude_one_file*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base" "" "$INCLUDES"
             ;;
-        *test2*)
+        *param_exclude_many_files*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base --file-exclude=.*/include/b.h" "" "$INCLUDES"
             ;;
         *param_restrict*)
