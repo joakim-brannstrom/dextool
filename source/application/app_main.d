@@ -39,11 +39,9 @@ import cpptooling.utility.clang : visitAst, logNode;
 import cpptooling.generator.stub.cstub : StubGenerator, StubController,
     StubParameters, StubProducts;
 
-//TODO implement this features
 // --prefix=<p>       prefix used when generating test double [default: Test_]
 // --file-prefix=<p>  prefix used for generated files other than main [default: test_]
 
-///TODO change FILE to be variable
 static string doc = "
 usage:
   dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
@@ -92,7 +90,7 @@ Generate a simple C test double.
   The name of the interface is Test_Double.
 
 Generate a C test double excluding data from specified files.
-  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.h -o outdata/ functions.h -- -DBAR -I/some/path
+  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.h --out=outdata/ functions.h -- -DBAR -I/some/path
 
   The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
   During generation declarations found in foo.h or functions.h will be excluded.
@@ -185,7 +183,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             strip_incl = regex(strip_incl_user);
             logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
         } else {
-            logger.trace("Using default regexp for stripping include path, like basename");
+            logger.trace("Using default regexp for stripping include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 

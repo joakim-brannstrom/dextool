@@ -1,3 +1,14 @@
+# TODO
+Feature requests, todos etc that aren't covered by code comments.
+
+## Quality of Life
+ - separate file for the variables.
+ - generate a gmock for the C interface.
+ - interface in a separate file.
+ - allow control to set the function definitions as weak GCC attribute.
+
+## Architecture
+ - Allow merge of analyze phase of many files.
 
 # Old todos
 Some are for the old architecture, kept as a reminder so features aren't lost.

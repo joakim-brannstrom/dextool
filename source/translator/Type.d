@@ -143,8 +143,8 @@ body {
     }
 
     with (CXTypeKind) {
-        if (type.kind == CXType_BlockPointer || type.isFunctionPointerType)
-            logger.error("Implement missing translation of function pointer");
+        //if (type.kind == CXType_BlockPointer || type.isFunctionPointerType)
+        //    logger.error("Implement missing translation of function pointer");
         //    result = translateFunctionPointerType(type);
 
         if (type.isWideCharType)
