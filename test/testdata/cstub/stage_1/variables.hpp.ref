@@ -6,6 +6,6 @@ extern "C" {
 
 #ifdef DEFINE_GLOBAL_Test_Double
 int b;
-int c;
+const int c;
 #endif // DEFINE_GLOBAL_Test_Double
 #endif // test_double_hpp
