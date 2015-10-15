@@ -484,9 +484,45 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
     return exit_status;
 }
 
-int rmain(string[] args) nothrow {
-    import std.array : join;
+/** Correctly log all type of messages via logger.
+ *
+ * docopt uses std.json internally for pretty printing which results in errors
+ * for regex containing things like "\.".
+ */
+void printArgs(ref ArgValue[string] parsed) nothrow {
+    import std.algorithm : map, joiner;
+    import std.ascii : newline;
+    import std.format : format;
+    import std.stdio : writeln;
+    import std.string : leftJustifier;
 
+    bool err = true;
+
+    try {
+        // dfmt off
+        writeln("args:",
+                newline,
+                parsed.byKeyValue()
+                    .map!(a => format("%s:%s", leftJustifier(a.key, 20), a.value.toString))
+                    .joiner(newline)
+               );
+        // dfmt on
+        err = false;
+    }
+    catch (Exception ex) {
+        ///TODO change to the specific exceptions.
+    }
+
+    if (err) {
+        try {
+            logger.error("Unable to log parsed program arguments");
+        }
+        catch (Exception ex) {
+        }
+    }
+}
+
+int rmain(string[] args) nothrow {
     string errmsg, tracemsg;
     ExitStatusType exit_status = ExitStatusType.Errors;
     bool help = true;
@@ -496,9 +532,7 @@ int rmain(string[] args) nothrow {
     try {
         auto parsed = docopt.docopt(doc, args[1 .. $], help, version_, optionsFirst);
         prepareEnv(parsed);
-        logger.trace(to!string(args));
-        logger.trace(join(args, " "));
-        logger.trace(prettyPrintArgs(parsed));
+        printArgs(parsed);
 
         exit_status = doTestDouble(parsed);
     }
