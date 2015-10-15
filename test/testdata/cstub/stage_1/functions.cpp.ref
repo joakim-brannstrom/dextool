@@ -5,27 +5,59 @@ Test_Double* stub_inst = 0;
 } //NS:
 
 extern "C" {
-int foo(int a) {
-    return stub_inst->foo(a);
+void func_void() {
+    stub_inst->func_void();
 }
 
-void bar(int a, int b) {
-    stub_inst->bar(a, b);
+int func_return() {
+    return stub_inst->func_return();
 }
 
-void fooBar() {
-    stub_inst->fooBar();
+int func_one_named(int a) {
+    return stub_inst->func_one_named(a);
 }
 
-int printff(char * x1, ...) {
-    return stub_inst->printff(x1);
+void func_two_named(int a, int b) {
+    stub_inst->func_two_named(a, b);
 }
 
-int a(int out) {
-    return stub_inst->a(out);
+void func_three_named(int a, int b, int c) {
+    stub_inst->func_three_named(a, b, c);
 }
 
-void fun(d_func p, Something_Big b) {
+const int c_func_return() {
+    return stub_inst->c_func_return();
+}
+
+const int c_func_one_named(const int a) {
+    return stub_inst->c_func_one_named(a);
+}
+
+void c_func_two_named(const int a, const int b) {
+    stub_inst->c_func_two_named(a, b);
+}
+
+void c_func_three_named(const int a, const int b, const int c) {
+    stub_inst->c_func_three_named(a, b, c);
+}
+
+void func_variadic() {
+    stub_inst->func_variadic();
+}
+
+int func_variadic_one_unnamed(char * x0, ...) {
+    return stub_inst->func_variadic_one_unnamed(x0);
+}
+
+int func_extern(int out) {
+    return stub_inst->func_extern(out);
+}
+
+void unnamed_params(int x0, int x1) {
+    stub_inst->unnamed_params(x0, x1);
+}
+
+void fun(func_ptr p, Something_Big b) {
     stub_inst->fun(p, b);
 }
 

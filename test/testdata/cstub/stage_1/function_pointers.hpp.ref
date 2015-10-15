@@ -15,8 +15,8 @@ func_ptr hest;
 #endif // DEFINE_GLOBAL_Test_Double
 class Test_Double {
 public:
-    virtual unsigned char tiger(const unsigned int x1) = 0;
-    virtual unsigned char cyber(const unsigned int x1) = 0;
+    virtual unsigned char tiger(const unsigned int x0) = 0;
+    virtual unsigned char cyber(const unsigned int x0) = 0;
 };
 
 /// Manage the shared memory area of the instance that fulfill the interface.

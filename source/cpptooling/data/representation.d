@@ -215,7 +215,7 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         // dfmt off
         return (cast(Tx) p).visit!(
             (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
-            (TypeKind t) { ++uid; return t.toString ~ " x" ~ text(uid); },
+            (TypeKind t) { return t.toString ~ " x" ~ text(uid); },
             (VariadicType a) { return "..."; }
             );
         // dfmt on
@@ -226,25 +226,24 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
 
 /// Join a range of CxParams by extracting the parameter names.
 string joinParamNames(T)(T r) @safe if (isInputRange!T) {
-    import std.algorithm : joiner, map, filter, cache;
+    import std.algorithm : joiner, map, filter;
     import std.conv : text;
+    import std.range : enumerate;
 
-    int uid;
-
-    string getName(T : const(Tx), Tx)(T p) @trusted {
+    static string getName(T : const(Tx), Tx)(T p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
         return (cast(Tx) p).visit!(
             (TypeKindVariable tk) {return tk.name.str;},
-            (TypeKind t) { ++uid; return "x" ~ text(uid); },
+            (TypeKind t) { return "x" ~ text(uid); },
             (VariadicType a) { return ""; }
             );
         // dfmt on
     }
 
     // using cache to avoid getName is called twice.
-    return r.map!(a => getName(a)).cache().filter!(a => a.length > 0).joiner(", ").text();
+    return r.enumerate.map!(a => getName(a.value, a.index)).filter!(a => a.length > 0).joiner(", ").text();
 }
 
 /// Make a variadic parameter.
