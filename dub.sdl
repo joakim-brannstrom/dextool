@@ -33,11 +33,21 @@ buildType "unittest-cov" {
 configuration "release" {
     targetType "executable"
     buildType "debugInfo"
+    excludedSourceFiles "source/test/*.d"
+}
+
+configuration "devtool_release" {
+    targetName "devtool"
+    targetType "executable"
+    buildType "debugInfo"
+    excludedSourceFiles "source/application/*.d"
+    mainSourceFile "source/test/tok_main.d"
 }
 
 configuration "unittest" {
     targetName "unittest"
     targetType "executable"
     buildType "debugInfo"
+    excludedSourceFiles "source/test/tok_main.d"
     mainSourceFile "test/ut_main.d"
 }

@@ -119,8 +119,6 @@ RefCounted!TokenGroup tokenize(TranslationUnit tu, SourceRange range) {
     TokenGroup.CXTokenArray tokens;
     auto tg = RefCounted!TokenGroup(tu);
 
-    trace("TU tokenize: ", tu, "|", tg.tu);
-
     clang_tokenize(tu, range, &tokens.tokens, &tokens.length);
     tg.cxtokens = tokens;
 

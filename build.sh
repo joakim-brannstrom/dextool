@@ -16,6 +16,7 @@ fi
 
 if [[ $# -eq 0 ]]; then
     dub build -c release
+    dub build -c devtool_release
 else
     dub $@
 fi
