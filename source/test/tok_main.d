@@ -154,23 +154,24 @@ struct ShowAst {
 
     bool apply(ref Cursor c, ref Cursor parent) {
         logNode(c, depth);
-        printTokens(c);
+        printTokens(c, depth);
 
         return true;
     }
 
-    void printTokens(ref Cursor c) {
-        import clang.Token;
+    static void printTokens(ref Cursor c, int depth) {
         import std.conv : text;
+        import std.range : repeat;
+
+        import clang.Token;
 
         auto toks = c.tokens();
 
-        //TODO figure out whhy foreach didn't work.
-        for (size_t i; i < toks.length; ++i) {
-            auto t = toks[i];
+        foreach (ref t; toks.tokens) {
             auto loc = t.location();
-            writef(" %s [kind: %s, line=%d, col=%d off=%d\n", t.spelling,
-                text(t.kind), loc.line, loc.column, loc.offset);
+            logger.tracef("|%s%s [kind: %s, line=%d, col=%d off=%d",
+                repeat(' ', depth), t.spelling, text(t.kind), loc.line, loc.column,
+                loc.offset);
         }
     }
 }
