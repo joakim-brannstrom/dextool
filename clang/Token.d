@@ -7,7 +7,6 @@ module clang.Token;
 import std.conv;
 import std.string;
 import std.typecons;
-import std.experimental.logger;
 
 import clang.c.index;
 import clang.c.cxstring;
@@ -53,10 +52,10 @@ struct Token {
     CType cx;
     alias cx this;
 
-    private RefCounted!TokenGroup group;
+    private TokenGroup* group;
 
-    this(RefCounted!TokenGroup group, ref CXToken token) {
-        this.group = group;
+    this(ref TokenGroup group, ref CXToken token) {
+        this.group = &group;
         this.cx = token;
     }
 
@@ -89,7 +88,6 @@ struct Token {
     /// The Cursor this Token corresponds to.
     @property Cursor cursor() {
         Cursor c = Cursor.empty(group.tu);
-
         clang_annotateTokens(group.tu, &cx, 1, &c.cx);
 
         return c;
@@ -103,17 +101,11 @@ struct Token {
 /** Tokenize the source code described by the given range into raw
  * lexical tokens.
  *
- *  TU = the translation unit whose text is being tokenized.
+ * All of the tokens produced by tokenization will fall within range,
  *
- *  Range = the source range in which text should be tokenized. All of the
- * tokens produced by tokenization will fall within this source range,
- *
- *  Tokens = this pointer will be set to point to the array of tokens
- * that occur within the given source range. The returned pointer must be
- * freed with clang_disposeTokens() before the translation unit is destroyed.
- *
- *  NumTokens = will be set to the number of tokens in the \c* Tokens
- * array.
+ * Params:
+ *  tu = the translation unit whose text is being tokenized.
+ *  range = the source range in which text should be tokenized.
  */
 RefCounted!TokenGroup tokenize(TranslationUnit tu, SourceRange range) {
     TokenGroup.CXTokenArray tokens;
@@ -124,7 +116,7 @@ RefCounted!TokenGroup tokenize(TranslationUnit tu, SourceRange range) {
 
     foreach (i; 0 .. tokens.length) {
         auto t = Token(tg, tokens.tokens[i]);
-        tg.tokens ~= t;
+        tg.tokens_ ~= t;
     }
 
     return tg;
@@ -147,36 +139,40 @@ private:
 struct TokenGroup {
     alias Delegate = int delegate(ref Token);
 
-    private TranslationUnit tu;
-    private CXTokenArray cxtokens;
-    private Token[] tokens;
-
     struct CXTokenArray {
         CXToken* tokens;
         uint length;
     }
+
+    private TranslationUnit tu;
+    private CXTokenArray cxtokens;
+    private Token[] tokens_;
 
     this(TranslationUnit tu) {
         this.tu = tu;
     }
 
     ~this() {
+        // this pointer will be set to point to the array of tokens that occur
+        // within the given source range. The returned pointer must be freed
+        // with clang_disposeTokens() before the translation unit is destroyed.
+
         if (cxtokens.length > 0) {
             clang_disposeTokens(tu.cx, cxtokens.tokens, cxtokens.length);
             cxtokens.length = 0;
-            tokens.length = 0;
+            tokens_.length = 0;
         }
     }
 
     auto opIndex(T)(T idx) {
-        return tokens[idx];
+        return tokens_[idx];
     }
 
     auto opIndex(T...)(T ks) {
         Token[] rval;
 
         foreach (k; ks) {
-            rval ~= tokens[k];
+            rval ~= tokens_[k];
         }
 
         return rval;
@@ -187,15 +183,11 @@ struct TokenGroup {
     }
 
     @property auto length() {
-        return tokens.length;
+        return tokens_.length;
     }
 
-    auto opApply(Delegate dg) {
-        foreach (tok; tokens) {
-            if (auto result = dg(tok))
-                return result;
-        }
-
-        return 0;
+    /// Return: range of the tokens..
+    auto tokens() {
+        return tokens_[];
     }
 }
