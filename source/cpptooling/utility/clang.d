@@ -71,15 +71,12 @@ void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v) if (
 void logNode(int line = __LINE__, string file = __FILE__,
     string funcName = __FUNCTION__, string prettyFuncName = __PRETTY_FUNCTION__,
     string moduleName = __MODULE__)(ref Cursor c, int level) {
+    import std.range : repeat;
     import logger = std.experimental.logger;
-
-    auto indent_str = new char[level * 2];
-    foreach (ref ch; indent_str)
-        ch = ' ';
 
     logger.logf!(line, file, funcName, prettyFuncName, moduleName)(
         logger.LogLevel.trace, "%s|%s [d=%s %s %s line=%d, col=%d %s]",
-        indent_str, c.spelling, c.displayName, c.kind, c.type,
+        repeat(' ', level), c.spelling, c.displayName, c.kind, c.type,
         c.location.spelling.line, c.location.spelling.column, c.abilities);
 }
 
