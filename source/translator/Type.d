@@ -54,6 +54,7 @@ pure @safe nothrow struct TypeKind {
     bool isConst;
     bool isRef;
     bool isPointer;
+    bool isFuncPtr;
 
     /** The full type with storage classes and operators.
      * Example
@@ -88,13 +89,15 @@ private nothrow struct WrapTypeKind {
 }
 
 ///TODO change thhe bools to using the Flag from typecons
-TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef, bool isPointer) pure @safe nothrow {
+TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef,
+    bool isPointer, bool isFuncPtr = false) pure @safe nothrow {
     TypeKind t;
     t.name = name;
     t.full_name = fullName;
     t.isConst = isConst;
     t.isRef = isRef;
     t.isPointer = isPointer;
+    t.isFuncPtr = isFuncPtr;
 
     return t;
 }
@@ -102,14 +105,14 @@ TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef, bo
 /// Return a duplicate.
 /// Side effect is that the the cursor is thrown away.
 TypeKind duplicate(T)(T t_in) pure @safe nothrow {
-    TypeKind t = makeTypeKind(t_in.name, t_in.full_name, t_in.isConst, t_in.isRef,
-        t_in.isPointer);
+    TypeKind t = makeTypeKind(t_in.name, t_in.full_name, t_in.isConst,
+        t_in.isRef, t_in.isPointer, t_in.isFuncPtr);
     return t;
 }
 
 immutable(TypeKind) iduplicate(T)(T t_in) pure @safe nothrow if (!isMutable!T) {
     immutable(TypeKind) t = makeTypeKind(t_in.name, t_in.full_name,
-        t_in.isConst, t_in.isRef, t_in.isPointer);
+        t_in.isConst, t_in.isRef, t_in.isPointer, t_in.isFuncPtr);
     return t;
 }
 
@@ -143,13 +146,11 @@ body {
     }
 
     with (CXTypeKind) {
-        //if (type.kind == CXType_BlockPointer || type.isFunctionPointerType)
-        //    logger.error("Implement missing translation of function pointer");
-        //    result = translateFunctionPointerType(type);
-
-        if (type.isWideCharType)
+        if (type.isWideCharType) {
             result.typeKind.name = "wchar";
-        else {
+        } else if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
+            result = translateFunctionPointerType(type);
+        } else {
             switch (type.kind) {
             case CXType_Pointer:
                 result = translatePointer(type);
@@ -314,25 +315,77 @@ body {
     return result;
 }
 
-//string translateFunctionPointerType (Type type)
-//    in
-//{
-//    assert(type.kind == CXTypeKind.CXType_BlockPointer || type.isFunctionPointerType);
-//}
-//body
-//{
-//    auto func = type.pointeeType.func;
-//
-//    Parameter[] params;
-//    params.reserve(func.arguments.length);
-//
-//    foreach (type ; func.arguments)
-//        params ~= Parameter(translateType(type));
-//
-//    auto resultType = translateType(func.resultType);
-//
-//    return translateFunction(resultType, "function", params, func.isVariadic, new String);
-//}
+WrapTypeKind translateFunctionPointerType(Type type)
+in {
+    assert(type.kind == CXTypeKind.CXType_BlockPointer || type.isFunctionPointerType);
+}
+body {
+    import std.range : enumerate;
+    import std.array : appender;
+    import clang.Token;
+
+    //TODO investigate if it can be done simpler.
+    //TODO spacing is funky
+    static struct ConvToken {
+        private string identifier;
+        string spacing = "";
+        string tok;
+
+        this(string identifier) {
+            this.identifier = identifier;
+        }
+
+        void convToken(long idx, Token t) {
+            import clang.c.index : CXTokenKind;
+            import std.algorithm : among;
+
+            tok = t.spelling;
+
+            switch (t.kind) with (CXTokenKind) {
+            case CXToken_Keyword:
+                if (idx == 0 && tok.among("extern")) {
+                    tok = null;
+                } else {
+                    spacing = " ";
+                }
+                break;
+
+            case CXToken_Punctuation:
+                if (tok.among(";")) {
+                    tok = null;
+                }
+                spacing = "";
+                break;
+
+            case CXToken_Identifier:
+                spacing = " ";
+                if (tok == identifier) {
+                    tok = "%s";
+                }
+                break;
+            default:
+            }
+        }
+    }
+
+    logger.trace("translateFunctionPointer");
+
+    auto t = WrapTypeKind(type);
+    auto func = type.pointeeType.func;
+    auto toks = func.cursor.tokens;
+
+    auto app = appender!string();
+    auto c = ConvToken(type.cursor.spelling);
+    foreach (index, value; toks.tokens.enumerate) {
+        c.convToken(index, value);
+        app.put(c.tok);
+        app.put(c.spacing);
+    }
+    t.typeKind.full_name = app.data;
+    t.typeKind.isFuncPtr = true;
+
+    return t;
+}
 
 string translateCursorType(CXTypeKind kind) {
     with (CXTypeKind) switch (kind) {

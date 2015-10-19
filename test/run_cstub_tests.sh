@@ -48,17 +48,20 @@ for IN_SRC in $ROOT_DIR/*.h; do
     test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
 
     case "$IN_SRC" in
-        *function_pointers.h*)
-            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
-            ;;
         *param_main*)
             test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
             ;;
         *variables*)
             test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
             ;;
+        *const*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -DTEST_CONST -Wpedantic -Werror"
+            ;;
+        *function_pointers*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -DTEST_FUNC_PTR -Wpedantic -Werror"
+            ;;
         *)
-            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -Wpedantic -fpermissive"
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -Wpedantic -Werror"
             ;;
     esac
 

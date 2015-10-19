@@ -1,11 +1,11 @@
 #include "test_double.hpp"
 
-#ifndef Test_Assign_b
-#define Test_Assign_b
-#endif // Test_Assign_b
-#ifndef Test_Assign_c
-#define Test_Assign_c
-#endif // Test_Assign_c
+#ifndef TEST_INIT_b
+#define TEST_INIT_b b
+#endif // TEST_INIT_b
+#ifndef TEST_INIT_c
+#define TEST_INIT_c c
+#endif // TEST_INIT_c
 
-int b Test_Assign_b;
-const int c Test_Assign_c;
+int TEST_INIT_b;
+const int TEST_INIT_c;

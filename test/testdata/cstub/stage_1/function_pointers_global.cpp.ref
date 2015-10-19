@@ -1,31 +1,35 @@
 #include "test_double.hpp"
 
-#ifndef Test_Assign_a
-#define Test_Assign_a
-#endif // Test_Assign_a
-#ifndef Test_Assign_b
-#define Test_Assign_b
-#endif // Test_Assign_b
-#ifndef Test_Assign_c
-#define Test_Assign_c
-#endif // Test_Assign_c
-#ifndef Test_Assign_d
-#define Test_Assign_d
-#endif // Test_Assign_d
-#ifndef Test_Assign_e
-#define Test_Assign_e
-#endif // Test_Assign_e
-#ifndef Test_Assign_f
-#define Test_Assign_f
-#endif // Test_Assign_f
-#ifndef Test_Assign_hest
-#define Test_Assign_hest
-#endif // Test_Assign_hest
+#ifndef TEST_INIT_e_a
+#define TEST_INIT_e_a
+#endif // TEST_INIT_e_a
+#ifndef TEST_INIT_e_b
+#define TEST_INIT_e_b
+#endif // TEST_INIT_e_b
+#ifndef TEST_INIT_e_c
+#define TEST_INIT_e_c
+#endif // TEST_INIT_e_c
+#ifndef TEST_INIT_e_d
+#define TEST_INIT_e_d
+#endif // TEST_INIT_e_d
+#ifndef TEST_INIT_e_e
+#define TEST_INIT_e_e
+#endif // TEST_INIT_e_e
+#ifndef TEST_INIT_e_f
+#define TEST_INIT_e_f
+#endif // TEST_INIT_e_f
+#ifndef TEST_INIT_e_g
+#define TEST_INIT_e_g
+#endif // TEST_INIT_e_g
+#ifndef TEST_INIT_hest
+#define TEST_INIT_hest hest
+#endif // TEST_INIT_hest
 
-void (*)(void) a Test_Assign_a;
-int (*)(void) b Test_Assign_b;
-void (*)(int) c Test_Assign_c;
-int (*)(int, int) d Test_Assign_d;
-int (*)(int, int) e Test_Assign_e;
-int (*)(int, int, ...) f Test_Assign_f;
-func_ptr hest Test_Assign_hest;
+void (*e_a )(void ) TEST_INIT_e_a;
+int (*e_b )(void ) TEST_INIT_e_b;
+void (*e_c )(int ) TEST_INIT_e_c;
+void (*const e_d )(void ) TEST_INIT_e_d;
+int (*e_e )(int ,int ) TEST_INIT_e_e;
+int (*e_f )(int pa ,int pb ) TEST_INIT_e_f;
+int (*e_g )(int pa ,int pb ,...) TEST_INIT_e_g;
+func_ptr TEST_INIT_hest;

@@ -360,19 +360,34 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
 }
 
 void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
+    import std.string : toUpper;
     import cpptooling.utility.conv : str;
 
-    auto d_name = prefix ~ "Assign_" ~ g.name.str;
+    auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+
     with (code.IFNDEF(d_name)) {
-        define(E(d_name));
+        if (g.type.isFuncPtr) {
+            define(E(d_name));
+        } else {
+            define(E(d_name) ~ E(g.name.str));
+        }
     }
 }
 
 void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code) {
+    import std.format : format;
+    import std.string : toUpper;
     import cpptooling.utility.conv : str;
 
-    auto d_name = prefix ~ "Assign_" ~ g.name.str;
-    code.stmt(E(g.type.toString) ~ E(g.name.str) ~ E(d_name));
+    auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+
+    string txt;
+    if (g.type.isFuncPtr) {
+        txt = E(format(g.type.toString, g.name.str)) ~ E(d_name);
+    } else {
+        txt = E(g.type.toString) ~ E(d_name);
+    }
+    code.stmt(txt);
 }
 
 ///TODO print the function prototype and location it was found at.
