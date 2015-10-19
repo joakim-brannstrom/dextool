@@ -85,7 +85,7 @@ function state_ut_cov() {
 }
 
 function state_release_build() {
-    $ROOT/build.sh build -c release
+    $ROOT/build.sh build -c debug
     check_status "Compile Release"
 }
 

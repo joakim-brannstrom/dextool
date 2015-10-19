@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEFAULT_COMPILE_FLAGS="-std=c++03"
-TOOL_BIN="$(readlink -f ../build/dextool)"
+TOOL_BIN="$(readlink -f ../build/dextool-debug)"
 
 function check_status() {
     CHECK_STATUS_RVAL=$?

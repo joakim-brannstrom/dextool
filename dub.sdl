@@ -21,19 +21,26 @@ dflags "-dip25"
 lflags "--enable-new-dtags" "-rpath=." "$LFLAGS"
 libs ":libclang.so.1"
 
-buildRequirements {
-    "requireBoundsCheck"
-    "requireContracts"
-}
-
 buildType "unittest-cov" {
     buildOptions "unittests" "debugMode" "debugInfo" "coverage"
 }
 
 configuration "release" {
     targetType "executable"
+    buildType "release"
+    excludedSourceFiles "source/test/*.d"
+}
+
+configuration "debug" {
+    targetName "dextool-debug"
+    targetType "executable"
     buildType "debugInfo"
     excludedSourceFiles "source/test/*.d"
+
+    buildRequirements {
+        "requireBoundsCheck"
+        "requireContracts"
+    }
 }
 
 configuration "devtool_release" {
@@ -47,7 +54,11 @@ configuration "devtool_release" {
 configuration "unittest" {
     targetName "unittest"
     targetType "executable"
-    buildType "debugInfo"
     excludedSourceFiles "source/test/tok_main.d"
     mainSourceFile "test/ut_main.d"
+
+    buildRequirements {
+        "requireBoundsCheck"
+        "requireContracts"
+    }
 }

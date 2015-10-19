@@ -15,7 +15,8 @@ if [[ -z "$LFLAGS" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-    dub build -c release
+    dub build -c release -b release
+    dub build -c debug
     dub build -c devtool_release
 else
     dub $@
