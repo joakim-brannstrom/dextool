@@ -56,7 +56,7 @@ string abilities(ref FuncType t) {
 struct Type {
     mixin CX;
 
-    private Cursor cursor;
+    Cursor cursor;
 
     this(Type type) {
         cursor = type.cursor;
@@ -156,8 +156,7 @@ struct Type {
             if (isTypedef) {
                 auto c = canonicalType;
                 return c.kind == CXType_Pointer && c.pointeeType.kind == CXType_ObjCSel;
-            }
-            else
+            } else
                 return false;
     }
 
