@@ -1,3 +1,5 @@
+#ifndef FUNCTIONS_H
+#define FUNCTIONS_H
 // Expecting definitions for all function declarations.
 // A class with pure virtual member functions for each C function.
 
@@ -26,8 +28,9 @@ extern int func_extern(int out);
 void unnamed_params(int, int);
 
 // expect usage of the typedef and NOT the underlying types
-typedef int (*func_ptr)(int, int);
+typedef int (*func_ptr2)(int, int);
 typedef struct Something_Big {
     int tiny;
 } Something_Big;
-extern void fun(func_ptr p, Something_Big b);
+extern void fun(func_ptr2 p, Something_Big b);
+#endif // FUNCTIONS_H

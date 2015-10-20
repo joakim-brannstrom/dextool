@@ -27,6 +27,7 @@ for IN_SRC in $ROOT_DIR/*.h; do
     out_hdr="$OUTDIR/test_double.hpp"
     out_impl="$OUTDIR/test_double.cpp"
     out_glob="$OUTDIR/test_double_global.cpp"
+    out_gmock="$OUTDIR/test_double_gmock.hpp"
 
     case "$IN_SRC" in
         *param_main*)
@@ -37,6 +38,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *test_include_stdlib*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug" "" "-nostdinc"
             ;;
+        *param_gmock*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --gmock" "" "-nostdinc"
+            ;;
         # Test examples
         # *somefile*)
         #     test_gen_code "$OUTDIR" "$IN_SRC" "--debug" "|& grep -i $grepper"
@@ -45,9 +49,12 @@ for IN_SRC in $ROOT_DIR/*.h; do
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug" ;;
     esac
 
-    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
+    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob" "${IN_SRC%.h}_gmock.hpp.ref" "$out_gmock"
 
     case "$IN_SRC" in
+        *param_gmock*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -DTEST_FUNC_PTR -Wpedantic -Werror"
+            ;;
         *param_main*)
             test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-Wpedantic -Werror"
             ;;

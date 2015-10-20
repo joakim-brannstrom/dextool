@@ -1,11 +1,14 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
+#include "function_pointers.h"
 #include "functions.h"
 }
 
 class Test_Double {
 public:
+    virtual unsigned char tiger(const unsigned int x0) = 0;
+    virtual unsigned char cyber(const unsigned int x0) = 0;
     virtual void func_void() = 0;
     virtual int func_return() = 0;
     virtual int func_one_named(int a) = 0;

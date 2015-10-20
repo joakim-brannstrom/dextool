@@ -43,8 +43,8 @@ import cpptooling.generator.stub.cstub : StubGenerator, StubController,
 
 static string doc = "
 usage:
-  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--gmock] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--gmock] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -137,7 +137,7 @@ class SimpleLogger : logger.Logger {
  */
 class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     import std.regex : regex, Regex;
-    import std.typecons : Tuple;
+    import std.typecons : Tuple, Flag;
     import cpptooling.generator.stub.cstub : StubPrefix, FileName,
         MainInterface, DirName;
 
@@ -154,8 +154,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable FileName main_file_hdr;
     immutable FileName main_file_impl;
     immutable FileName main_file_globals;
+    immutable FileName gmock_file;
 
     immutable MainInterface main_if;
+    immutable Flag!"Gmock" gmock;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -182,6 +184,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
+        Flag!"Gmock" gmock = parsed["--gmock"].isTrue ? Flag!"Gmock".yes : Flag!"Gmock".no;
 
         if (parsed["--strip-incl"].isTrue) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -194,7 +197,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString), DirName(parsed["--out"].toString));
+            MainInterface(parsed["--main"].toString), DirName(parsed["--out"].toString),
+            gmock);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -208,12 +212,13 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir) {
+        MainInterface main_if, DirName output_dir, Flag!"Gmock" gmock) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
         this.main_if = main_if;
         this.output_dir = output_dir;
+        this.gmock = gmock;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -223,6 +228,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
         this.main_file_globals = FileName(buildPath(cast(string) output_dir,
             base_filename ~ "_global" ~ implExt));
+        this.gmock_file = FileName(buildPath(cast(string) output_dir,
+            base_filename ~ "_gmock" ~ hdrExt));
     }
 
     /// Force the includes to be those supplied by the user.
@@ -240,7 +247,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     // -- StubController --
 
-    bool doFile(in string filename) @safe {
+    bool doFile(in string filename) {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
@@ -255,6 +262,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         }
 
         return r;
+    }
+
+    bool doGoogleMock() {
+        return gmock;
     }
 
     // -- StubParameters --
@@ -309,7 +320,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     StubParameters.MainFile getMainFile() {
-        return StubParameters.MainFile(main_file_hdr, main_file_impl, main_file_globals);
+        return StubParameters.MainFile(main_file_hdr, main_file_impl,
+            main_file_globals, gmock_file);
     }
 
     MainInterface getMainInterface() {

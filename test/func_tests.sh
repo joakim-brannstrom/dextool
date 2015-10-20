@@ -50,9 +50,14 @@ function test_compare_code() {
     local impl_out=$4
     local glob_ref=$5
     local glob_out=$6
+    local gmock_ref=$7
+    local gmock_out=$8
 
-    echo -e "Comparing result: ${hdr_ref}\t$PWD/${hdr_out}"
-    diff -u "${hdr_ref}" "${hdr_out}"
+    if [[ -e "${hdr_ref}" ]]; then
+        echo -e "Comparing result: ${hdr_ref}\t$PWD/${hdr_out}"
+        diff -u "${hdr_ref}" "${hdr_out}"
+    fi
+
     if [[ -e "${impl_ref}" ]]; then
         echo -e "Comparing result: ${impl_ref}\t$PWD/${impl_out}"
         diff -u "${impl_ref}" "${impl_out}"
@@ -61,6 +66,11 @@ function test_compare_code() {
     if [[ -e "${glob_ref}" ]]; then
         echo -e "Comparing result: ${glob_ref}\t$PWD/${glob_out}"
         diff -u "${glob_ref}" "${glob_out}"
+    fi
+
+    if [[ -e "${gmock_ref}" ]]; then
+        echo -e "Comparing result: ${gmock_ref}\t$PWD/${gmock_out}"
+        diff -u "${gmock_ref}" "${gmock_out}"
     fi
 }
 

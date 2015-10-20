@@ -51,6 +51,9 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
 
     /// A list of includes for the test double header.
     FileName[] getIncludes();
+
+    /// Controls generation of google mock.
+    bool doGoogleMock();
 }
 
 /// Parameters used during generation.
@@ -58,7 +61,8 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
 @safe pure interface StubParameters {
     import std.typecons : Tuple;
 
-    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals");
+    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl", FileName,
+        "globals", FileName, "gmock");
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();
@@ -120,6 +124,7 @@ struct StubGenerator {
     }
 
     /// Process structural data to a stub.
+    /// TODO refactor the control flow. Especially the gmock part.
     auto process(CppRoot root) {
         logger.trace("Raw data:\n" ~ root.toString());
         auto tr = .translate(root, ctrl, products);
@@ -129,6 +134,12 @@ struct StubGenerator {
             tr.put(makeCStubGlobal(params.getMainInterface));
             auto c_if = makeCFuncInterface(tr.funcRange(), params.getMainInterface);
             tr.put(c_if);
+            if (ctrl.doGoogleMock) {
+                // could reuse.. don't.
+                auto mock = c_if;
+                mock.setKind(ClassType.Gmock);
+                tr.put(mock);
+            }
             tr.put(makeCFuncManager(params.getMainInterface));
         }
 
@@ -137,18 +148,20 @@ struct StubGenerator {
         auto hdr = new CppModule;
         auto impl = new CppModule;
         auto globals = new CppModule;
-        generateStub(tr, params, hdr, impl, globals);
-        postProcess(hdr, impl, globals, params, products);
+        auto gmock = new CppModule;
+        generateStub(tr, params, hdr, impl, globals, gmock);
+        postProcess(hdr, impl, globals, gmock, ctrl, params, products);
     }
 
 private:
     static private void postProcess(CppModule hdr, CppModule impl,
-        CppModule globals, StubParameters params, StubProducts prod) {
+        CppModule globals, CppModule gmock, StubController ctrl,
+        StubParameters params, StubProducts prod) {
         /** Generate the C++ header file of the stub.
          * Params:
          *  filename = intended output filename, used for ifndef guard.
          */
-        static auto outputHdr(CppModule hdr, StubParameters params) {
+        static auto outputHdr(CppModule hdr, FileName fname) {
             import std.string : translate;
             import std.path : baseName;
 
@@ -159,27 +172,32 @@ private:
                 '/' : '_'];
             // dfmt on
 
-            auto o = CppHModule(translate(params.getMainFile().hdr.str.baseName, table));
+            auto o = CppHModule(translate(fname.str.baseName, table));
             o.content.append(hdr);
 
             return o;
         }
 
-        static auto output(CppModule code, StubParameters params) {
+        static auto output(CppModule code, FileName incl_fname) {
             import std.path : baseName;
 
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.include(params.getMainFile.hdr.str.baseName);
+            o.include(incl_fname.str.baseName);
             o.sep(2);
             o.append(code);
 
             return o;
         }
 
-        prod.putFile(params.getMainFile.hdr, outputHdr(hdr, params));
-        prod.putFile(params.getMainFile.impl, output(impl, params));
-        prod.putFile(params.getMainFile.globals, output(globals, params));
+        prod.putFile(params.getMainFile.hdr, outputHdr(hdr, params.getMainFile.hdr));
+        prod.putFile(params.getMainFile.impl, output(impl, params.getMainFile.hdr));
+        prod.putFile(params.getMainFile.globals, output(globals, params.getMainFile.hdr));
+
+        //TODO refactor. should never reach this stage.
+        if (ctrl.doGoogleMock) {
+            prod.putFile(params.getMainFile.gmock, outputHdr(gmock, params.getMainFile.gmock));
+        }
     }
 
     StubController ctrl;
@@ -198,7 +216,8 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 enum ClassType {
     Normal,
-    Manager
+    Manager,
+    Gmock
 }
 
 enum NamespaceType {
@@ -325,7 +344,7 @@ CppNamespace makeCStubGlobal(MainInterface main_if) {
 }
 
 void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule impl,
-    CppModule globals) {
+    CppModule globals, CppModule gmock) {
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
 
@@ -354,7 +373,7 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
     r.funcRange().each!((a) { generateCFuncImpl(a, extern_c); });
 
     r.classRange().each!((a) {
-        generateClassHdr(a, hdr);
+        generateClassHdr(a, hdr, gmock, params);
         generateClassImpl(a, impl);
     });
 }
@@ -413,7 +432,18 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
     impl.sep(2);
 }
 
-void generateClassHdr(CppClass in_c, CppModule hdr) {
+void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
+    final switch (cast(ClassType) c.kind()) {
+    case ClassType.Normal:
+    case ClassType.Manager:
+        generateClassHdrNormal(c, hdr);
+        break;
+    case ClassType.Gmock:
+        generateClassHdrGmock(c, gmock, params);
+    }
+}
+
+void generateClassHdrNormal(CppClass in_c, CppModule hdr) {
     import std.algorithm : each;
     import std.variant : visit;
     import cpptooling.data.representation;
@@ -457,12 +487,74 @@ void generateClassHdr(CppClass in_c, CppModule hdr) {
     hdr.sep(2);
 }
 
+/// Assuming that in_c is pure virtual. Therefor the logic is simpler.
+/// TODO add support for const functions.
+void generateClassHdrGmock(CppClass in_c, CppModule hdr, StubParameters params)
+in {
+    import cpptooling.data.representation : VirtualType;
+
+    assert(in_c.virtualType == VirtualType.Pure);
+}
+body {
+    import std.algorithm : each;
+    import std.conv : text;
+    import std.format : format;
+    import std.path : baseName;
+    import std.variant : visit;
+
+    import cpptooling.data.representation;
+    import cpptooling.utility.conv : str;
+
+    static void genCtor(CppCtor m, CppModule hdr) {
+    }
+
+    static void genDtor(CppDtor m, CppModule hdr) {
+    }
+
+    static void genMethod(CppMethod m, CppModule hdr) {
+        import cpptooling.data.representation : VirtualType;
+
+        logger.error(m.paramRange().length > 10,
+            "Too many parameters in function to generate a correct google mock. Nr:",
+            m.paramRange().length);
+
+        string params = m.paramRange().joinParams();
+        string name = m.name().str;
+        string gmock_method = "MOCK_METHOD" ~ m.paramRange().length.text;
+        string stmt = format("%s(%s, %s(%s))", gmock_method, name,
+            m.returnType().toString, params);
+
+        hdr.stmt(stmt);
+    }
+
+    hdr.include(params.getMainFile.hdr.str.baseName);
+    hdr.sep(2);
+
+    auto c = hdr.class_(in_c.name().str ~ "_Mock", "public " ~ in_c.name().str);
+    auto pub = c.public_();
+
+    with (pub) {
+        foreach (m; in_c.methodPublicRange()) {
+            // dfmt off
+            () @trusted {
+            m.visit!((CppMethod m) => genMethod(m, pub),
+                     (CppCtor m) => genCtor(m, pub),
+                     (CppDtor m) => genDtor(m, pub));
+            }();
+            // dfmt on
+        }
+    }
+    hdr.sep(2);
+}
+
 void generateClassImpl(CppClass c, CppModule impl) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
         break;
     case ClassType.Manager:
         generateClassImplManager(c, impl);
+        break;
+    case ClassType.Gmock:
         break;
     }
 }

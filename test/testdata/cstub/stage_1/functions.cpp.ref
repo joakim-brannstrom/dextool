@@ -57,7 +57,7 @@ void unnamed_params(int x0, int x1) {
     stub_inst->unnamed_params(x0, x1);
 }
 
-void fun(func_ptr p, Something_Big b) {
+void fun(func_ptr2 p, Something_Big b) {
     stub_inst->fun(p, b);
 }
 

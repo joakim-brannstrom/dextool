@@ -1,0 +1,25 @@
+#ifndef test_double_gmock_hpp
+#define test_double_gmock_hpp
+#include "test_double.hpp"
+
+class Test_Double_Mock : public Test_Double {
+public:
+    MOCK_METHOD1(tiger, unsigned char(const unsigned int x0));
+    MOCK_METHOD1(cyber, unsigned char(const unsigned int x0));
+    MOCK_METHOD0(func_void, void());
+    MOCK_METHOD0(func_return, int());
+    MOCK_METHOD1(func_one_named, int(int a));
+    MOCK_METHOD2(func_two_named, void(int a, int b));
+    MOCK_METHOD3(func_three_named, void(int a, int b, int c));
+    MOCK_METHOD0(c_func_return, const int());
+    MOCK_METHOD1(c_func_one_named, const int(const int a));
+    MOCK_METHOD2(c_func_two_named, void(const int a, const int b));
+    MOCK_METHOD3(c_func_three_named, void(const int a, const int b, const int c));
+    MOCK_METHOD0(func_variadic, void());
+    MOCK_METHOD1(func_variadic_one_unnamed, int(char * x0));
+    MOCK_METHOD1(func_extern, int(int out));
+    MOCK_METHOD2(unnamed_params, void(int x0, int x1));
+    MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
+};
+
+#endif // test_double_gmock_hpp
