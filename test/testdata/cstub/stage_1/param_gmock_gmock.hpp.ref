@@ -1,6 +1,7 @@
 #ifndef test_double_gmock_hpp
 #define test_double_gmock_hpp
 #include "test_double.hpp"
+#include "gmock/gmock.h"
 
 class Test_Double_Mock : public Test_Double {
 public:

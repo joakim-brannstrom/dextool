@@ -225,9 +225,13 @@ enum NamespaceType {
     CStubGlobal
 }
 
-/// Structurally transformed the input to a stub implementation.
-/// This stage filter out uninteresting parts, like C++ or directives from ctrl.
-/// No helper structs are generated at this stage.
+/** Structurally transformed the input to a stub implementation.
+ *
+ * This stage:
+ *  - removes C++ code.
+ *  - removes according to directives via ctrl.
+ *  - produces file locations for declarations of variables and functions.
+ */
 CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
     import cpptooling.data.representation : dedup;
 
@@ -528,6 +532,7 @@ body {
     }
 
     hdr.include(params.getMainFile.hdr.str.baseName);
+    hdr.include("gmock/gmock.h");
     hdr.sep(2);
 
     auto c = hdr.class_(in_c.name().str ~ "_Mock", "public " ~ in_c.name().str);
