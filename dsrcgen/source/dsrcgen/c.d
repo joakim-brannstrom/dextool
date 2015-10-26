@@ -248,19 +248,31 @@ class CModule : BaseModule {
 private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow {
     import std.string : inPattern;
 
-    bool in_pattern = false;
-    try {
-        in_pattern = inPattern(s[$ - 1], ";:,{");
-    }
-    catch (Exception e) {
-    }
+    //TODO too much null checking, refactor.
 
-    if (!in_pattern && s[0] != '#') {
+    if (s is null) {
         string end = ";";
         if ("end" in attrs) {
             end = attrs["end"];
         }
         s ~= end;
+    } else {
+        bool in_pattern = false;
+        if (s !is null) {
+            try {
+                in_pattern = inPattern(s[$ - 1], ";:,{");
+            }
+            catch (Exception e) {
+            }
+        }
+
+        if (!in_pattern && s[0] != '#') {
+            string end = ";";
+            if ("end" in attrs) {
+                end = attrs["end"];
+            }
+            s ~= end;
+        }
     }
 
     return s;
