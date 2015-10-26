@@ -262,6 +262,8 @@ auto translateCFunc(CFunction func, StubController ctrl, StubProducts prod) {
     if (ctrl.doFile(func.location.file)) {
         r = func;
         prod.putLocation(FileName(func.location.file));
+    } else {
+        logger.info("Ignoring function: ", func.toString);
     }
 
     return r;
@@ -275,6 +277,8 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
     if (ctrl.doFile(g.location.file)) {
         r = g;
         prod.putLocation(FileName(g.location.file));
+    } else {
+        logger.info("Ignoring global variable: ", g.toString);
     }
 
     return r;
