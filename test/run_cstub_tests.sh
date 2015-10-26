@@ -67,6 +67,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *function_pointers*)
             test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -DTEST_FUNC_PTR -Wpedantic -Werror"
             ;;
+        *array*)
+            test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -DTEST_ARRAY -Wpedantic -Werror"
+            ;;
         *)
             test_compile_code "$OUTDIR" "-Itestdata/cstub/stage_1" "$out_impl" main1.cpp "-DTEST_INCLUDE -Wpedantic -Werror"
             ;;

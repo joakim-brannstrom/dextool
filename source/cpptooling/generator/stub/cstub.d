@@ -324,9 +324,9 @@ CppClass makeCFuncManager(MainInterface main_if) {
 
     c.put("Manage the shared memory area of the instance that fulfill the interface.");
     c.put("Connect inst to handle all stimuli.");
-    auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&",
-        c_if ~ "&", false, true, false), CppVariable("inst")));
-    auto rval = CxReturnType(makeTypeKind("void", "void", false, false, false));
+    auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
+        true, false), CppVariable("inst")));
+    auto rval = CxReturnType(makeTypeKind("void", false, false, false));
     c.put(CppMethod(CppMethodName("Connect"), [param], rval,
         CppAccess(AccessType.Public), CppConstMethod(false), CppVirtualMethod(VirtualType.No)));
 
@@ -337,8 +337,7 @@ CppNamespace makeCStubGlobal(MainInterface main_if) {
     import cpptooling.data.representation : makeTypeKind, CppVariable,
         CxGlobalVariable;
 
-    auto type = makeTypeKind(cast(string) main_if ~ "*",
-        cast(string) main_if ~ "*", false, false, true);
+    auto type = makeTypeKind(cast(string) main_if ~ "*", false, false, true);
     auto v = CxGlobalVariable(type, CppVariable("stub_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(NamespaceType.CStubGlobal);
@@ -385,15 +384,24 @@ void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule imp
 void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
+    import translator.Type : TypeKind;
 
     auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+    auto ifndef = code.IFNDEF(d_name);
 
-    with (code.IFNDEF(d_name)) {
-        if (g.type.isFuncPtr) {
-            define(E(d_name));
-        } else {
-            define(E(d_name) ~ E(g.name.str));
-        }
+    final switch (g.type.info.kind) with (TypeKind.Info) {
+    case Kind.simple:
+        ifndef.define(E(d_name) ~ E(g.name.str));
+        break;
+    case Kind.array:
+        ifndef.define(E(d_name) ~ E(g.name.str ~ g.type.info.indexes));
+        break;
+    case Kind.funcPtr:
+        ifndef.define(E(d_name));
+        break;
+    case Kind.null_:
+        logger.error("Type of global definition is null. Identifier ", g.name.str);
+        break;
     }
 }
 
@@ -401,15 +409,26 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     import std.format : format;
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
+    import translator.Type : TypeKind;
 
     auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
 
     string txt;
-    if (g.type.isFuncPtr) {
-        txt = E(format(g.type.toString, g.name.str)) ~ E(d_name);
-    } else {
+    final switch (g.type.info.kind) with (TypeKind.Info) {
+    case Kind.simple:
         txt = E(g.type.toString) ~ E(d_name);
+        break;
+    case Kind.array:
+        txt = E(g.type.info.elementType) ~ E(d_name);
+        break;
+    case Kind.funcPtr:
+        txt = E(format(g.type.info.fmt, g.name.str)) ~ E(d_name);
+        break;
+    case Kind.null_:
+        logger.error("Type of global definition is null. Identifier ", g.name.str);
+        break;
     }
+
     code.stmt(txt);
 }
 

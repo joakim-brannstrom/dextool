@@ -17,6 +17,11 @@
 #define TEST_INIT_hest hest = 0
 #endif
 
+#ifdef TEST_ARRAY
+#define TEST_INIT_extern_incmpl extern_incmpl[1]
+#define TEST_INIT_extern_const_incmpl extern_const_incmpl[] = {0, 0}
+#endif
+
 #include "test_double_global.cpp"
 #endif
 
