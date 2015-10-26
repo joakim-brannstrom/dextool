@@ -205,6 +205,9 @@ body {
             case CXType_ConstantArray:
                 result = translateConstantArray(type);
                 break;
+            case CXType_IncompleteArray:
+                result = translateIncompleteArray(type);
+                break;
             case CXType_Unexposed:
                 result.typeKind.txt = translateUnexposed(type, false);
                 break;
@@ -321,6 +324,47 @@ body {
     return result;
 }
 
+WrapTypeKind translateIncompleteArray(Type type)
+in {
+    assert(type.kind == CXTypeKind.CXType_IncompleteArray);
+}
+body {
+    import std.format : format;
+
+    static TypeKind.ArrayInfo arrayInfo(Type t)
+    in {
+        assert(t.kind == CXTypeKind.CXType_IncompleteArray);
+    }
+    body {
+        TypeKind.ArrayInfo info;
+        auto array = t.array;
+        auto elementType = array.elementType;
+
+        // peek at next element type to determine if base case is reached.
+        switch (elementType.kind) {
+        case CXTypeKind.CXType_IncompleteArray:
+            info = arrayInfo(elementType);
+            info.indexes = format("[]%s", info.indexes);
+            break;
+
+        default:
+            info.indexes = format("[]%s", info.indexes);
+            auto translatedElement = translateType(elementType);
+            info.elementType = translatedElement.typeKind.toString;
+            break;
+        }
+
+        return info;
+    }
+
+    logger.trace("translateIncompleteArray");
+    auto result = WrapTypeKind(type);
+    auto info = arrayInfo(type);
+    info.fmt = "%s %s%s";
+    result.typeKind.txt = format(info.fmt, info.elementType, "%s", info.indexes);
+    result.typeKind.info = info;
+
+    return result;
 }
 
 WrapTypeKind translatePointer(Type type)
