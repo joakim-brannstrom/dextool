@@ -47,14 +47,58 @@ private void logType(ref Type type) {
 
 /** Type information for a cursor.
  *
- * name is without any storage classes or operators. Example int.
+ * txt is type, qualifiers and storage class. For example const int *.
  */
-pure @safe nothrow struct TypeKind {
-    string name;
+pure @safe nothrow @nogc struct TypeKind {
+    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+
+    /** The type 'int x[2][3]'
+     * elementType = int
+     * indexes = [2][3]
+     * fmt = %s %s%s
+     */
+    static struct ArrayInfo {
+        string elementType;
+        string indexes;
+        string fmt;
+    }
+
+    /** The type 'extern int (*e_g)(int pa)'
+     * fmt = int (*%s)(int pa)
+     *
+     * TODO improve formatting with more separation, f.e return, ptr and args.
+     */
+    static struct FuncPtrInfo {
+        string fmt;
+    }
+
+    /** Textual representation of simple types.
+     *
+     * The type const int x would be:
+     *
+     * TODO add the following:
+     * fmt = const int %s
+     */
+    static struct SimpleInfo {
+        string fmt;
+    }
+
+    /// Formatting information needed to reproduce the type and identifier.
+    static union InternalInfo {
+        typeof(null) null_;
+        SimpleInfo simple;
+        ArrayInfo array;
+        FuncPtrInfo funcPtr;
+    }
+
+    alias Info = TaggedAlgebraic!InternalInfo;
+    Info info;
+
     bool isConst;
     bool isRef;
     bool isPointer;
     bool isFuncPtr;
+    bool isArray;
 
     /** The full type with storage classes and operators.
      * Example
@@ -62,22 +106,24 @@ pure @safe nothrow struct TypeKind {
      * const int&
      * ---
      */
-    @property string toString() const pure @safe nothrow {
-        return full_name;
+    string toString() @property const {
+        return txt;
     }
 
 private:
-    string full_name;
+    string txt;
 }
 
 private nothrow struct WrapTypeKind {
     this(Type type) {
         this.type = type;
-        this.typeKind.full_name = type.spelling;
+        this.typeKind.txt = type.spelling;
+        this.typeKind.info = TypeKind.SimpleInfo(this.typeKind.txt ~ " %s");
 
         this.typeKind.isConst = type.isConst;
         this.typeKind.isRef = type.declaration.isReference;
         this.typeKind.isPointer = (type.kind == CXTypeKind.CXType_Pointer);
+        this.typeKind.isArray = type.isArray;
     }
 
     TypeKind unwrap() @safe nothrow @property {
@@ -89,30 +135,28 @@ private nothrow struct WrapTypeKind {
 }
 
 ///TODO change thhe bools to using the Flag from typecons
-TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef,
-    bool isPointer, bool isFuncPtr = false) pure @safe nothrow {
+TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
+    bool isFuncPtr = false, bool isArray = false) pure @safe nothrow {
     TypeKind t;
-    t.name = name;
-    t.full_name = fullName;
+    t.info = TypeKind.SimpleInfo(txt ~ " %s");
+    t.txt = txt;
     t.isConst = isConst;
     t.isRef = isRef;
     t.isPointer = isPointer;
     t.isFuncPtr = isFuncPtr;
+    t.isArray = isArray;
 
     return t;
 }
 
 /// Return a duplicate.
 /// Side effect is that the the cursor is thrown away.
+/// TODO investigate how this can be done withh opAssign and postblit.
 TypeKind duplicate(T)(T t_in) pure @safe nothrow {
-    TypeKind t = makeTypeKind(t_in.name, t_in.full_name, t_in.isConst,
-        t_in.isRef, t_in.isPointer, t_in.isFuncPtr);
-    return t;
-}
+    TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
+        t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
+    t.info = t_in.info;
 
-immutable(TypeKind) iduplicate(T)(T t_in) pure @safe nothrow if (!isMutable!T) {
-    immutable(TypeKind) t = makeTypeKind(t_in.name, t_in.full_name,
-        t_in.isConst, t_in.isRef, t_in.isPointer, t_in.isFuncPtr);
     return t;
 }
 
@@ -147,7 +191,7 @@ body {
 
     with (CXTypeKind) {
         if (type.isWideCharType) {
-            result.typeKind.name = "wchar";
+            result.typeKind.txt = "wchar";
         } else if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
             result = translateFunctionPointerType(type);
         } else {
@@ -159,10 +203,10 @@ body {
                 result = translateTypedef(type);
                 break;
             case CXType_ConstantArray:
-                result.typeKind.name = translateConstantArray(type, false);
+                result = translateConstantArray(type);
                 break;
             case CXType_Unexposed:
-                result.typeKind.name = translateUnexposed(type, false);
+                result.typeKind.txt = translateUnexposed(type, false);
                 break;
             case CXType_LValueReference:
                 result = translateReference(type);
@@ -175,8 +219,7 @@ body {
 
     // dfmt off
     debug {
-        logger.tracef("name:%s full:%s c:%s r:%s p:%s",
-                      result.typeKind.name,
+        logger.tracef("full:%s c:%s r:%s p:%s",
                       result.typeKind.toString,
                       result.typeKind.isConst,
                       result.typeKind.isRef,
@@ -193,7 +236,6 @@ WrapTypeKind translateDefault(Type type) {
     logType(type);
 
     auto result = WrapTypeKind(type);
-    result.typeKind.name = translateCursorType(type.kind);
 
     return result;
 }
@@ -220,11 +262,6 @@ body {
         result.typeKind.isConst = true;
     }
 
-    result.typeKind.name = type.declaration.spelling;
-    if (result.typeKind.name.length == 0) {
-        result.typeKind.name = type.spelling;
-    }
-
     return result;
 }
 
@@ -236,21 +273,54 @@ body {
     auto declaration = type.declaration;
 
     if (declaration.isValid)
-        return translateType(declaration.type).typeKind.name;
-
+        return translateType(declaration.type).typeKind.txt;
     else
         return translateCursorType(type.kind);
 }
 
-string translateConstantArray(Type type, bool rewriteIdToObject)
+WrapTypeKind translateConstantArray(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_ConstantArray);
 }
 body {
-    auto array = type.array;
-    auto elementType = translateType(array.elementType).typeKind.name;
+    import std.format : format;
 
-    return elementType ~ '[' ~ to!string(array.size) ~ ']';
+    static TypeKind.ArrayInfo arrayInfo(Type t)
+    in {
+        assert(t.kind == CXTypeKind.CXType_ConstantArray);
+    }
+    body {
+        TypeKind.ArrayInfo info;
+        auto array = t.array;
+        auto elementType = array.elementType;
+
+        // peek at next element type to determine if base case is reached.
+        switch (elementType.kind) {
+        case CXTypeKind.CXType_ConstantArray:
+            info = arrayInfo(elementType);
+            info.indexes = format("[%d]%s", array.size, info.indexes);
+            break;
+
+        default:
+            info.indexes = format("[%d]%s", array.size, info.indexes);
+            auto translatedElement = translateType(elementType);
+            info.elementType = translatedElement.typeKind.toString;
+            break;
+        }
+
+        return info;
+    }
+
+    logger.trace("translateConstantArray");
+    auto result = WrapTypeKind(type);
+    auto info = arrayInfo(type);
+    info.fmt = "%s %s%s";
+    result.typeKind.txt = format(info.fmt, info.elementType, "%s", info.indexes);
+    result.typeKind.info = info;
+
+    return result;
+}
+
 }
 
 WrapTypeKind translatePointer(Type type)
@@ -273,12 +343,6 @@ body {
 
     if (valueTypeIsConst(type)) {
         result.typeKind.isConst = true;
-    }
-
-    auto tmp = translateType(type.pointeeType);
-    result.typeKind.name = tmp.type.declaration.spelling;
-    if (result.typeKind.name.length == 0) {
-        result.typeKind.name = tmp.typeKind.name;
     }
 
     return result;
@@ -304,12 +368,6 @@ body {
 
     if (valueTypeIsConst(type)) {
         result.typeKind.isConst = true;
-    }
-
-    auto tmp = translateType(type.pointeeType);
-    result.typeKind.name = tmp.type.declaration.spelling;
-    if (result.typeKind.name.length == 0) {
-        result.typeKind.name = tmp.typeKind.name;
     }
 
     return result;
@@ -381,7 +439,7 @@ body {
         app.put(c.tok);
         app.put(c.spacing);
     }
-    t.typeKind.full_name = app.data;
+    t.typeKind.info = TypeKind.FuncPtrInfo(app.data);
     t.typeKind.isFuncPtr = true;
 
     return t;
