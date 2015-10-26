@@ -1,10 +1,10 @@
 /// Written in the D programming language.
 /// Date: 2015, Joakim Brännström
 /// License: GPL
-/// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+/// Author: Joakim Brännström (joakim.brannstrom@gmx.com).
 ///
-/// Copyright: Copyright (c) 2012 Jacob Carlborg. All rights reserved.
 /// Version: Initial created: Jan 30, 2012
+/// Copyright (c) 2012 Jacob Carlborg. All rights reserved.
 ///
 /// This program is free software; you can redistribute it and/or modify
 /// it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module translator.Type;
 
-//import std.array;
 import std.conv : to;
 import std.string : format;
 import std.traits;
