@@ -256,9 +256,15 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         // docopt blocks during parsing so both restrict and exclude cannot be
         // set at the same time.
         if (restrict.length > 0) {
-            r = canFind!(a => matchFirst(filename, a))(restrict);
+            r = canFind!((a) {
+                auto m = matchFirst(filename, a);
+                return !m.empty && m.pre.length == 0 && m.post.length == 0;
+            })(restrict);
         } else if (exclude.length > 0) {
-            r = !canFind!(a => matchFirst(filename, a))(exclude);
+            r = !canFind!((a) {
+                auto m = matchFirst(filename, a);
+                return !m.empty && m.pre.length == 0 && m.post.length == 0;
+            })(exclude);
         }
 
         return r;

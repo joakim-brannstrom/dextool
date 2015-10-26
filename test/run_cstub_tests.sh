@@ -94,6 +94,10 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *param_exclude_many_files*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base --file-exclude='.*/include/b\.[h,c]'" "" "$INCLUDES"
             ;;
+        *param_exclude_match_all*)
+            # the regex must fully match
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/param_exclude_match_all. --file-exclude='.*/include/b\.c'" "" "$INCLUDES"
+            ;;
         *param_restrict*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-restrict=.*/$inhdr_base --file-restrict=.*/include/b.h" "" "$INCLUDES"
             ;;
