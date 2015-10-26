@@ -173,13 +173,22 @@ private template mixingSourceLocation() {
 }
 
 /// Return: sorted and deduplicated array of the range.
-auto dedup(T)(auto ref T r) if (isInputRange!T) {
+///TODO can it be implemented more efficient?
+auto dedup(T)(auto ref T r) @safe if (isInputRange!T) {
     import std.array : array;
-    import std.algorithm : sort, uniq;
+    import std.algorithm : makeIndex, uniq, map;
 
-    auto arr = r.array().sort().uniq().array();
+    auto arr = r.array();
+    auto index = new size_t[r.length];
+    makeIndex(r, index);
 
-    return arr;
+    // dfmt off
+    auto rval = index.uniq!((a,b) => arr[a] == arr[b])
+        .map!(a => arr[a])
+        .array();
+    // dfmt on
+
+    return rval;
 }
 
 /// Convert a namespace stack to a string separated by ::.
