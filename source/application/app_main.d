@@ -57,6 +57,8 @@ options:
  --main=name        name of the main interface and filename [default: Test_Double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
+ --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    Generate a pre include header file if it doesn't exist and use it
 
 others:
  --file-exclude=...  exclude files from generation matching the regex.
@@ -155,9 +157,13 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable FileName main_file_impl;
     immutable FileName main_file_globals;
     immutable FileName gmock_file;
+    immutable FileName pre_incl_file;
+    immutable FileName post_incl_file;
 
     immutable MainInterface main_if;
     immutable Flag!"Gmock" gmock;
+    immutable Flag!"PreInclude" pre_incl;
+    immutable Flag!"PostInclude" post_incl;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -185,6 +191,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
         Flag!"Gmock" gmock = parsed["--gmock"].isTrue ? Flag!"Gmock".yes : Flag!"Gmock".no;
+        Flag!"PreInclude" pre_incl = parsed["--gen-pre-incl"].isTrue ? Flag!"PreInclude".yes
+            : Flag!"PreInclude".no;
+        Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue ? Flag!"PostInclude".yes
+            : Flag!"PostInclude".no;
 
         if (parsed["--strip-incl"].isTrue) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -197,8 +207,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString), DirName(parsed["--out"].toString),
-            gmock);
+            MainInterface(parsed["--main"].toString),
+            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -212,13 +222,16 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir, Flag!"Gmock" gmock) {
+        MainInterface main_if, DirName output_dir, Flag!"Gmock" gmock,
+        Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
         this.main_if = main_if;
         this.output_dir = output_dir;
         this.gmock = gmock;
+        this.pre_incl = pre_incl;
+        this.post_incl = post_incl;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -230,6 +243,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             base_filename ~ "_global" ~ implExt));
         this.gmock_file = FileName(buildPath(cast(string) output_dir,
             base_filename ~ "_gmock" ~ hdrExt));
+        this.pre_incl_file = FileName(buildPath(cast(string) output_dir,
+            base_filename ~ "_pre_includes" ~ hdrExt));
+        this.post_incl_file = FileName(buildPath(cast(string) output_dir,
+            base_filename ~ "_post_includes" ~ hdrExt));
     }
 
     /// Force the includes to be those supplied by the user.
@@ -272,6 +289,26 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     bool doGoogleMock() {
         return gmock;
+    }
+
+    bool doPreIncludes() {
+        import std.path : exists;
+
+        return pre_incl && !exists(cast(string) pre_incl_file);
+    }
+
+    bool doIncludeOfPreIncludes() {
+        return pre_incl;
+    }
+
+    bool doPostIncludes() {
+        import std.path : exists;
+
+        return post_incl && !exists(cast(string) post_incl_file);
+    }
+
+    bool doIncludeOfPostIncludes() {
+        return post_incl;
     }
 
     // -- StubParameters --
@@ -325,9 +362,9 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return output_dir;
     }
 
-    StubParameters.MainFile getMainFile() {
-        return StubParameters.MainFile(main_file_hdr, main_file_impl,
-            main_file_globals, gmock_file);
+    StubParameters.Files getFiles() {
+        return StubParameters.Files(main_file_hdr, main_file_impl,
+            main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
     MainInterface getMainInterface() {

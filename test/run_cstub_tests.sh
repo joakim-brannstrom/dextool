@@ -88,6 +88,12 @@ for IN_SRC in $ROOT_DIR/*.h; do
     out_glob="$OUTDIR/test_double_global.cpp"
 
     case "$IN_SRC" in
+        *param_gen_pre_post_include*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --gen-pre-incl --gen-post-incl" "" "$INCLUDES"
+            ;;
+        *no_overwrite*)
+            continue
+            ;;
         *param_exclude_one_file*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --file-exclude=.*/$inhdr_base" "" "$INCLUDES"
             ;;
@@ -107,13 +113,31 @@ for IN_SRC in $ROOT_DIR/*.h; do
         *) ;;
     esac
 
-    test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
+    case "$IN_SRC" in
+        *param_gen_pre_post_include*)
+            test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "$ROOT_DIR/param_gen_pre_includes.hpp.ref" "$OUTDIR/test_double_pre_includes.hpp" "$ROOT_DIR/param_gen_post_includes.hpp.ref" "$OUTDIR/test_double_post_includes.hpp"
+            ;;
+        *)
+            test_compare_code "${IN_SRC%.h}.hpp.ref" "$out_hdr" "${IN_SRC%.h}.cpp.ref" "$out_impl" "${IN_SRC%.h}_global.cpp.ref" "$out_glob"
+            ;;
+    esac
 
     test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp "-DTEST_INCLUDE"
 
     clean_test_env
 done
 
-teardown_test_env
+echo "No overwrite of pre/post includes"
+INCLUDES="-Itestdata/cstub/stage_2 -Itestdata/cstub/stage_2/include"
+ROOT_DIR="testdata/cstub/stage_2"
+inhdr_base="no_overwrite.h"
 
+cp $ROOT_DIR/no_overwrite_pre_includes.hpp $OUTDIR/test_double_pre_includes.hpp
+cp $ROOT_DIR/no_overwrite_post_includes.hpp $OUTDIR/test_double_post_includes.hpp
+test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --gen-pre-incl --gen-post-incl" "" "$INCLUDES -DPRE_INCLUDES"
+test_compare_code "$ROOT_DIR/no_overwrite_pre_includes.hpp" "$OUTDIR/test_double_pre_includes.hpp" "$ROOT_DIR/no_overwrite_post_includes.hpp" "$OUTDIR/test_double_post_includes.hpp"
+test_compile_code "$OUTDIR" "$INCLUDES" "$out_impl" main1.cpp "-DTEST_INCLUDE"
+clean_test_env
+
+teardown_test_env
 exit 0

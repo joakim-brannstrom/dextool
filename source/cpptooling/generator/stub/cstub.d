@@ -49,11 +49,27 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
     /// if it shall be processed.
     bool doFile(in string filename);
 
-    /// A list of includes for the test double header.
+    /** A list of includes for the test double header.
+     *
+     * Part of the controller because they are dynamic, may change depending on
+     * for example calls to doFile.
+     */
     FileName[] getIncludes();
 
     /// Controls generation of google mock.
     bool doGoogleMock();
+
+    /// Generate a pre_include header file from internal template?
+    bool doPreIncludes();
+
+    /// Generate a #include of the pre include header
+    bool doIncludeOfPreIncludes();
+
+    /// Generate a post_include header file from internal template?
+    bool doPostIncludes();
+
+    /// Generate a #include of the post include header
+    bool doIncludeOfPostIncludes();
 }
 
 /// Parameters used during generation.
@@ -61,8 +77,8 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
 @safe pure interface StubParameters {
     import std.typecons : Tuple;
 
-    alias MainFile = Tuple!(FileName, "hdr", FileName, "impl", FileName,
-        "globals", FileName, "gmock");
+    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName,
+        "globals", FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();
@@ -71,7 +87,7 @@ alias DirName = Typedef!(string, string.init, "DirectoryName");
     DirName getOutputDirectory();
 
     /// Main file to write the interface and manager to.
-    MainFile getMainFile();
+    Files getFiles();
 
     /// Holds the interface for the test double, used in manager.
     MainInterface getMainInterface();
@@ -149,7 +165,7 @@ struct StubGenerator {
         auto impl = new CppModule;
         auto globals = new CppModule;
         auto gmock = new CppModule;
-        generateStub(tr, params, hdr, impl, globals, gmock);
+        generateStub(tr, ctrl, params, hdr, impl, globals, gmock);
         postProcess(hdr, impl, globals, gmock, ctrl, params, products);
     }
 
@@ -157,11 +173,8 @@ private:
     static private void postProcess(CppModule hdr, CppModule impl,
         CppModule globals, CppModule gmock, StubController ctrl,
         StubParameters params, StubProducts prod) {
-        /** Generate the C++ header file of the stub.
-         * Params:
-         *  filename = intended output filename, used for ifndef guard.
-         */
-        static auto outputHdr(CppModule hdr, FileName fname) {
+
+        static string makeIncludeGuard(FileName fname) {
             import std.string : translate;
             import std.path : baseName;
 
@@ -172,7 +185,15 @@ private:
                 '/' : '_'];
             // dfmt on
 
-            auto o = CppHModule(translate(fname.str.baseName, table));
+            return translate(fname.str.baseName, table);
+        }
+
+        /** Generate the C++ header file of the stub.
+         * Params:
+         *  filename = intended output filename, used for ifndef guard.
+         */
+        static auto outputHdr(CppModule hdr, FileName fname) {
+            auto o = CppHModule(makeIncludeGuard(fname));
             o.content.append(hdr);
 
             return o;
@@ -190,13 +211,38 @@ private:
             return o;
         }
 
-        prod.putFile(params.getMainFile.hdr, outputHdr(hdr, params.getMainFile.hdr));
-        prod.putFile(params.getMainFile.impl, output(impl, params.getMainFile.hdr));
-        prod.putFile(params.getMainFile.globals, output(globals, params.getMainFile.hdr));
+        static auto outputPreIncludes(FileName fname) {
+            auto o = CppHModule(makeIncludeGuard(fname));
+            auto c = new CppModule;
+            c.stmt("#undef __cplusplus")[$.end = ""];
+            o.content.append(c);
+
+            return o;
+        }
+
+        static auto outputPostIncludes(FileName fname) {
+            auto o = CppHModule(makeIncludeGuard(fname));
+            auto c = new CppModule;
+            c.define("__cplusplus");
+            o.content.append(c);
+
+            return o;
+        }
+
+        prod.putFile(params.getFiles.hdr, outputHdr(hdr, params.getFiles.hdr));
+        prod.putFile(params.getFiles.impl, output(impl, params.getFiles.hdr));
+        prod.putFile(params.getFiles.globals, output(globals, params.getFiles.hdr));
+
+        if (ctrl.doPreIncludes) {
+            prod.putFile(params.getFiles.pre_incl, outputPreIncludes(params.getFiles.pre_incl));
+        }
+        if (ctrl.doPostIncludes) {
+            prod.putFile(params.getFiles.post_incl, outputPostIncludes(params.getFiles.post_incl));
+        }
 
         //TODO refactor. should never reach this stage.
         if (ctrl.doGoogleMock) {
-            prod.putFile(params.getMainFile.gmock, outputHdr(gmock, params.getMainFile.gmock));
+            prod.putFile(params.getFiles.gmock, outputHdr(gmock, params.getFiles.gmock));
         }
     }
 
@@ -350,12 +396,12 @@ CppNamespace makeCStubGlobal(MainInterface main_if) {
     return ns;
 }
 
-void generateStub(CppRoot r, StubParameters params, CppModule hdr, CppModule impl,
-    CppModule globals, CppModule gmock) {
+void generateStub(CppRoot r, StubController ctrl, StubParameters params,
+    CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
     import std.algorithm : each, filter;
     import cpptooling.utility.conv : str;
 
-    generateCIncludes(params, hdr);
+    generateCIncludes(ctrl, params, hdr);
 
     auto globalR = r.globalRange();
     if (!globalR.empty) {
@@ -554,7 +600,7 @@ body {
         hdr.stmt(stmt);
     }
 
-    hdr.include(params.getMainFile.hdr.str.baseName);
+    hdr.include(params.getFiles.hdr.str.baseName);
     hdr.include("gmock/gmock.h");
     hdr.sep(2);
 
@@ -646,12 +692,23 @@ void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
     }
 }
 
-void generateCIncludes(StubParameters params, CppModule hdr) {
+void generateCIncludes(StubController ctrl, StubParameters params, CppModule hdr) {
+    import std.path : baseName;
+    import cpptooling.utility.conv : str;
+
+    if (ctrl.doIncludeOfPreIncludes) {
+        hdr.include(params.getFiles.pre_incl.str.baseName);
+    }
+
     auto extern_c = hdr.suite("extern \"C\"");
     extern_c.suppressIndent(1);
 
     foreach (incl; params.getIncludes) {
         extern_c.include(cast(string) incl);
+    }
+
+    if (ctrl.doIncludeOfPostIncludes) {
+        hdr.include(params.getFiles.post_incl.str.baseName);
     }
 
     hdr.sep(2);
