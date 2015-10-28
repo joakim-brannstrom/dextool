@@ -81,8 +81,7 @@ Information about --strip-incl.
   matcher group exists.
 
 Information about --file-exclude and --file-restrict.
-  Counts as a match if the regex matches any part of the file name for where
-  the AST node is.
+  The regex must fully match the filename the AST node is located in.
 
 EXAMPLES
 
