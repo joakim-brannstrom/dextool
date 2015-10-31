@@ -1,0 +1,9 @@
+*.orig
+*~
+*.[oa]
+*.dub
+*.so
+results.json
+dub.selections.json
+build/
+docs/
