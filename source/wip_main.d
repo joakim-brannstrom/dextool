@@ -26,7 +26,7 @@ import clang.c.index;
 import clang.Cursor;
 
 import dsrcgen.cpp;
-import wip = generator.analyze.wip;
+import wip = generator.analyze.containers;
 import generator.clangcontext;
 import generator.analyzer : visitAst, IdStack, logNode, VisitNodeModule;
 
