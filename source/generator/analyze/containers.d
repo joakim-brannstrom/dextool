@@ -317,6 +317,7 @@ private:
     CppReturnType returnType;
 }
 
+// TODO consider make CppClass be able to hold nested classes.
 pure @safe nothrow struct CppClass {
     import std.variant;
 
@@ -421,8 +422,8 @@ pure @safe nothrow struct CppNamespace {
     }
 
     /// A namespace without any nesting.
-    static auto make(string name) {
-        return CppNamespace([CppNs(name)]);
+    static auto make(CppNs name) {
+        return CppNamespace([name]);
     }
 
     this(const CppNsStack stack) {
@@ -724,7 +725,7 @@ private:
 
 //@name("Test of toString for CppNamespace")
 unittest {
-    auto ns = CppNamespace.make("simple");
+    auto ns = CppNamespace.make(CppNs("simple"));
 
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public)));
@@ -754,7 +755,7 @@ unittest {
     c.put(m);
     root.put(c);
 
-    root.put(CppNamespace.make("simple"));
+    root.put(CppNamespace.make(CppNs("simple")));
 
     assert(root.toString == "void nothing();
 
@@ -771,9 +772,9 @@ namespace simple {
 
 @name("CppNamespace.toString should return nested namespace")
 unittest {
-    auto depth1 = CppNamespace.make("Depth1");
-    auto depth2 = CppNamespace.make("Depth2");
-    auto depth3 = CppNamespace.make("Depth3");
+    auto depth1 = CppNamespace.make(CppNs("Depth1"));
+    auto depth2 = CppNamespace.make(CppNs("Depth2"));
+    auto depth3 = CppNamespace.make(CppNs("Depth3"));
 
     depth2.put(depth3);
     depth1.put(depth2);
