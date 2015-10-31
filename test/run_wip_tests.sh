@@ -27,5 +27,8 @@ function check_status() {
 
 build/wip test/testdata/stage_1/class_empty.hpp
 build/wip test/testdata/stage_1/class_const.hpp
+build/wip test/testdata/stage_1/class_funcs.hpp
+build/wip test/testdata/stage_1/class_impl.hpp
+build/wip test/testdata/stage_1/class_in_ns.hpp
 
 exit 0

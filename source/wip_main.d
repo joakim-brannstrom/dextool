@@ -38,6 +38,8 @@ import generator.stub.misc;
  * C'tors, d'tors, member methods etc.
  * Cleanly separates the functionality for initializing the container for a
  * class and the analyze logic.
+ *
+ * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
     import generator.analyze.containers;
@@ -47,7 +49,8 @@ struct ClassDescendVisitor {
 
     this(NullableRef!CppClass data) {
         if (data.isNull) {
-            logger.error("Parameter is null");
+            logger.fatal("CppClass parameter is null");
+            throw new Exception("CppClass parameter is null");
         }
         this.data = &data.get();
         this.accessType = CppMethodAccess(AccessType.Private);
@@ -62,15 +65,21 @@ struct ClassDescendVisitor {
 
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_Constructor:
-            auto params = paramDeclToTypeKindVariable(c);
-            auto name = CppMethodName(c.spelling);
-            logger.infof("ctor params: %s", params);
-
+            applyConstructor(c, parent);
+            descend = false;
             break;
         case CXCursor_Destructor:
+            applyDestructor(c, parent);
+            descend = false;
+            break;
+        case CXCursor_CXXMethod:
+            applyMethod(c, parent);
+            descend = false;
             break;
         case CXCursor_CXXAccessSpecifier:
             this.accessType = CppMethodAccess(toAccessType(c.access.accessSpecifier));
+            break;
+        case CXCursor_CXXBaseSpecifier:
             break;
         default:
             break;
@@ -79,11 +88,50 @@ struct ClassDescendVisitor {
     }
 
 private:
+    void applyConstructor(ref Cursor c, ref Cursor parent) {
+        auto params = paramDeclTo!CppParam(c);
+        auto name = CppMethodName(c.spelling);
+        auto tor = CppTorMethod(name, params, accessType, CppVirtualMethod(VirtualType.No));
+        logger.info("ctor: ", tor.toString);
+        data.put(tor);
+    }
+
+    void applyDestructor(ref Cursor c, ref Cursor parent) {
+        auto params = paramDeclTo!CppParam(c);
+        auto name = CppMethodName(c.spelling);
+        auto tor = CppTorMethod(name, params, accessType,
+            CppVirtualMethod(c.func.isVirtual ? VirtualType.Yes : VirtualType.No));
+        logger.info("dtor: ", tor.toString);
+        data.put(tor);
+    }
+
+    void applyMethod(ref Cursor c, ref Cursor parent) {
+        import translator.Type : TypeKind, translateType;
+
+        auto params = paramDeclTo!CppParam(c);
+        auto name = CppMethodName(c.spelling);
+        auto return_type = CppReturnType(translateType(c.func.resultType));
+
+        auto is_virtual = CppVirtualMethod(VirtualType.No);
+        if (c.func.isPureVirtual) {
+            is_virtual = CppVirtualMethod(VirtualType.Pure);
+        } else if (c.func.isVirtual) {
+            is_virtual = CppVirtualMethod(VirtualType.Yes);
+        }
+
+        auto method = CppMethod(name, params, return_type, accessType,
+            CppConstMethod(c.func.isConst), is_virtual);
+        logger.info("method: ", method.toString);
+        data.put(method);
+    }
+
+private:
     CppClass* data;
     CppMethodAccess accessType;
 }
 
 /** Extract information about a class.
+ *
  * The constructor is disabled to force the class to be in a consistent state.
  * static make to create ClassVisitor objects to avoid the unnecessary storage
  * of a Cursor but still derive parameters from the Cursor.
@@ -94,7 +142,7 @@ struct ClassVisitor {
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
-    static ClassVisitor make(ref Cursor c) {
+    static auto make(ref Cursor c) {
         auto name = CppClassName(c.spelling);
         auto isVirtual = CppVirtualClass(c.isVirtualBase ? VirtualType.Pure : VirtualType.No);
 
@@ -110,6 +158,7 @@ struct ClassVisitor {
 
     auto visit(ref Cursor c) {
         if (!c.isDefinition) {
+            logger.error("Expected cursor to be a definition but it is:", to!string(c));
             return data;
         }
         auto d = NullableRef!CppClass(&data);
