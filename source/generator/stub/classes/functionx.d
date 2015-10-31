@@ -40,9 +40,7 @@ import tested;
 
 version (unittest) {
     shared static this() {
-        import std.exception;
-
-        enforce(
+        assert(
             runUnitTests!(generator.stub.classes.functionx)(new ConsoleTestResultWriter),
             "Unit tests failed.");
     }
@@ -197,8 +195,7 @@ void doImpl(bool is_const, const StubPrefix prefix, const TypeKindVariable[] par
                     E(data.str).e(getter.str)("").e(callback.str ~ "->" ~ callback_method.str)(
                     params.toStringOfName));
             }
-        }
-        else {
+        } else {
             string star;
             if (findAmong(return_type.str, ['&']).length != 0) {
                 star = "*";

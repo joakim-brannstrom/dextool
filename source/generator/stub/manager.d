@@ -38,9 +38,7 @@ interface StubPool {
 
 version (unittest) {
     shared static this() {
-        import std.exception;
-
-        enforce(runUnitTests!(generator.stub.manager)(new ConsoleTestResultWriter),
+        assert(runUnitTests!(generator.stub.manager)(new ConsoleTestResultWriter),
             "Unit tests failed.");
     }
 }
