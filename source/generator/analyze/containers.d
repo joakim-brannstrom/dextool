@@ -356,6 +356,10 @@ pure @safe nothrow struct CppClass {
         }
     }
 
+    auto inheritRange() @nogc @safe pure nothrow {
+        return arrayRange(inherits);
+    }
+
     auto methodRange() @nogc @safe pure nothrow {
         import std.range;
 
@@ -382,32 +386,52 @@ pure @safe nothrow struct CppClass {
         import std.ascii : newline;
         import std.format : formattedWrite;
 
-        static string funcToString(ref CppFunc func) @trusted {
+        static string funcToString(CppFunc func) @trusted {
             //dfmt off
             return func.visit!((CppMethod a) => a.toString,
                                (CppTorMethod a) => a.toString);
             //dfmt on
         }
 
-        auto r = appender!string();
+        static string inheritRangeToString(T)(T range) @trusted {
+            import std.range : enumerate;
+            import std.string : toLower;
 
-        formattedWrite(r, "class %s { // isVirtual %s%s", name.str,
-            to!string(isVirtual), newline);
+            auto app = appender!string();
+            // dfmt off
+            range.enumerate(0)
+                .each!(a => formattedWrite(app, "%s%s %s%s",
+                       a.index == 0 ? " : " : ", ",
+                       to!string(cast (TypedefType!(typeof(a.value.access))) a.value.access).toLower,
+                       a.value.nesting.str,
+                       a.value.name.str));
+            // dfmt on
+
+            return app.data;
+        }
+
+        auto app = appender!string();
+
+        formattedWrite(app, "class %s%s { // isVirtual %s%s", name.str,
+            inheritRangeToString(inheritRange()), to!string(isVirtual), newline);
         if (methods_pub.length > 0) {
-            formattedWrite(r, "public:%s", newline);
-            methods_pub.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
+            formattedWrite(app, "public:%s", newline);
+            methodPublicRange.each!(a => formattedWrite(app, "  %s;%s", funcToString(a),
+                newline));
         }
         if (methods_prot.length > 0) {
-            formattedWrite(r, "protected:%s", newline);
-            methods_prot.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
+            formattedWrite(app, "protected:%s", newline);
+            methodProtectedRange.each!(a => formattedWrite(app, "  %s;%s",
+                funcToString(a), newline));
         }
         if (methods_priv.length > 0) {
-            formattedWrite(r, "private:%s", newline);
-            methods_priv.each!(a => formattedWrite(r, "  %s;%s", funcToString(a), newline));
+            formattedWrite(app, "private:%s", newline);
+            methodPrivateRange.each!(a => formattedWrite(app, "  %s;%s", funcToString(a),
+                newline));
         }
-        formattedWrite(r, "}; //Class:%s%s", name.str, newline);
+        formattedWrite(app, "}; //Class:%s%s", name.str, newline);
 
-        return r.data;
+        return app.data;
     }
 
     invariant() {
@@ -703,6 +727,25 @@ protected:
 private:
   char* gun(int x, int y);
 }; //Class:Foo
+",
+        c.toString);
+}
+
+//@name("Result should contain the inherited classes")
+unittest {
+    CppClassInherit[] inherit;
+    inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
+        CppAccess(AccessType.Public));
+    inherit ~= CppClassInherit(CppClassName("prot"), CppClassNesting(""),
+        CppAccess(AccessType.Protected));
+    inherit ~= CppClassInherit(CppClassName("priv"), CppClassNesting(""),
+        CppAccess(AccessType.Private));
+
+    auto c = CppClass(CppClassName("Foo"), CppClassVirtual(VirtualType.No), inherit);
+
+    assert(
+        c.toString == "class Foo : public pub, protected prot, private priv { // isVirtual No
+} //Class:Foo
 ",
         c.toString);
 }
