@@ -2,7 +2,7 @@
 
 CMD="rdmd $PWD/unit-threaded-experimental/source/unit_threaded/gen_ut_main.d"
 
-BASE="generator translator"
+BASE="generator translator test"
 
 pushd source
 $CMD -f ../test/ut_main.d $BASE application
