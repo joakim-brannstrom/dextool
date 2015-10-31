@@ -19,26 +19,27 @@
 module app;
 
 import std.conv;
-import std.typecons : Nullable;
+import std.typecons : Nullable, Flag;
 import logger = std.experimental.logger;
 
 import clang.c.index;
 import clang.Cursor;
 
 import dsrcgen.cpp;
-import containers = generator.analyze.containers;
+
 import wip = generator.analyze.wip;
 import generator.clangcontext;
-import generator.analyzer : visitAst, IdStack, logNode, VisitNodeModule,
-    VisitNodeDepth;
+import generator.analyzer;
+import generator.analyze.containers : AccessType;
+
+import generator.stub.misc;
 
 /** The constructor is disabled to force the class to be in a consistent state.
  * static make to create ClassVisitor objects to avoid the unnecessary storage
  * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
-    import generator.analyze.containers : CppClass, CppClassName, VirtualType,
-        CppVirtualClass;
+    import generator.analyze.containers;
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
@@ -53,7 +54,8 @@ struct ClassVisitor {
     @disable this();
 
     private this(CppClassName name, CppVirtualClass virtual) {
-        data = CppClass(name, virtual);
+        this.data = CppClass(name, virtual);
+        this.accessType = CppMethodAccess(AccessType.Private);
     }
 
     auto visit(ref Cursor c) {
@@ -65,17 +67,20 @@ struct ClassVisitor {
         return data;
     }
 
-    bool apply(ref Cursor child, ref Cursor parent) {
+    bool apply(ref Cursor c, ref Cursor parent) {
         bool descend = true;
 
-        switch (child.kind) with (CXCursorKind) {
-        case CXCursor_ClassDecl:
-            break;
+        switch (c.kind) with (CXCursorKind) {
         case CXCursor_Constructor:
+            auto cls = CppClass(CppClassName(c.spelling));
+            auto params = paramDeclToTypeKindVariable(c);
+
             break;
         case CXCursor_Destructor:
             break;
         case CXCursor_CXXAccessSpecifier:
+            this.accessType = CppMethodAccess(
+                CppMethodAccess(toAccessType(c.access.accessSpecifier)));
             break;
         default:
             break;
@@ -85,9 +90,25 @@ struct ClassVisitor {
 
 private:
     CppClass data;
+    CppMethodAccess accessType;
+}
+
+AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
+    final switch (accessSpec) with (CX_CXXAccessSpecifier) {
+    case CX_CXXInvalidAccessSpecifier:
+        return AccessType.Public;
+    case CX_CXXPublic:
+        return AccessType.Public;
+    case CX_CXXProtected:
+        return AccessType.Protected;
+    case CX_CXXPrivate:
+        return AccessType.Private;
+    }
 }
 
 struct EntryContext {
+    import generator.analyze.containers;
+
     private VisitNodeDepth depth_;
     alias depth_ this;
 
@@ -100,7 +121,7 @@ struct EntryContext {
         logNode(c, depth);
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
-            descend = false;
+            root.put(ClassVisitor.make(c).visit(c));
             break;
 
         default:
@@ -110,10 +131,12 @@ struct EntryContext {
         return descend;
     }
 
-    containers.CppRoot root;
+    CppRoot root;
 }
 
 int main(string[] args) {
+    import std.stdio;
+
     logger.globalLogLevel(logger.LogLevel.all);
     logger.info("WIP mode");
     if (args.length < 2) {
@@ -131,6 +154,7 @@ int main(string[] args) {
 
     EntryContext foo;
     foo.visit(file_ctx.cursor);
+    writeln("Content from root: ", foo.root.toString);
 
     return 0;
 }
