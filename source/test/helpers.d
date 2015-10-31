@@ -19,17 +19,36 @@
 module test.helpers;
 import unit_threaded;
 
+import std.ascii : newline;
+import std.traits : isSomeString;
+
+import unit_threaded : name;
+
+version (unittest) {
+    import unit_threaded : shouldEqual;
+}
+
 /**
- * Verify that two values are the same.
+ * Verify in lockstep that the two values are the same.
  * Useful when the values can be treated as ranges.
+ * The lockstep comparison then results in a more comprehensible failure
+ * message.
+ *
  * Throws: UnitTestException on failure
+ * Params:
+ *  value = actual value.
+ *  expected = expected value.
+ *  file = file check is in.
+ *  line = line check is on.
+ * dfmt off
  */
 void shouldEqualPretty(V, E)(V value, E expected, in string file = __FILE__, in ulong line = __LINE__) {
+    //dfmt on
     import std.algorithm : count;
-    import std.range : zip;
+    import std.range : lockstep;
     import unit_threaded : shouldEqual;
 
-    foreach (val, exp; zip(value, expected)) {
+    foreach (index, val, exp; lockstep(value, expected)) {
         shouldEqual(val, exp, file, line);
     }
 
@@ -37,17 +56,31 @@ void shouldEqualPretty(V, E)(V value, E expected, in string file = __FILE__, in 
 }
 
 /**
- * Verify that two strings are the same.
- * Performs a tests per line to better isolate when a difference is found.
- * Throws: UnitTestException on failure
+ * Split with sep and verify in lockstep that the two values are the same.
+ *
+ * Throws: UnitTestException on failure.
+ * Params:
+ *  value = actual value.
+ *  expected = expected value.
+ *  sep = separator to split value and expected on.
+ *  file = file check is in.
+ *  line = line check is on.
+ *
+ *  dfmt off
  */
-void shouldEqualPretty(string value, string expected, in string file = __FILE__,
-    in ulong line = __LINE__) {
+void shouldEqualPretty(V, E, Separator sep)(V value, E expected,
+    in string file = __FILE__, in ulong line = __LINE__) {
+    //dfmt on
+    import std.algorithm : count;
+    import std.range : lockstep;
+    import unit_threaded : shouldEqual;
     import std.algorithm : splitter;
-    import std.ascii : newline;
 
-    auto rValue = value.splitter(newline);
-    auto rExpected = expected.splitter(newline);
+    auto rValue = value.splitter(sep);
+    auto rExpected = expected.splitter(sep);
 
     shouldEqualPretty(rValue, rExpected, file, line);
 }
+
+private:
+enum isAllSomeString(T0, T1, T2) = isSomeString!T0 && isSomeString!T1 && isSomeString!T2;
