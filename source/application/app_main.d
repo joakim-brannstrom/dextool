@@ -471,17 +471,6 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
 
-    ///TODO move to clang module.
-    static auto prependLangFlagIfMissing(string[] in_cflags) {
-        import std.algorithm : among;
-
-        if (!["-xc", "-xc++"].among(in_cflags)) {
-            return ["-xc"] ~ in_cflags;
-        }
-
-        return in_cflags.dup;
-    }
-
     if (!exists(cast(string) variant.getInputFile)) {
         logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
         return ExitStatusType.Errors;
@@ -508,6 +497,27 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     }
 
     return ExitStatusType.Ok;
+}
+
+///TODO move to clang module.
+auto prependLangFlagIfMissing(string[] in_cflags) {
+    import std.algorithm : findAmong;
+    import std.experimental.testing : writelnUt;
+
+    auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
+
+    if (v is null) {
+        return ["-xc"] ~ in_cflags;
+    }
+
+    return in_cflags.dup;
+}
+
+unittest {
+    import test.helpers : shouldEqualPretty;
+
+    auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
+    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags));
 }
 
 void prepareEnv(ref ArgValue[string] parsed) {

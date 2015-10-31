@@ -1,0 +1,21 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "class_func.h"
+}
+
+class Test_Double {
+public:
+    virtual void fun() = 0;
+};
+
+/// Manage the shared memory area of the instance that fulfill the interface.
+/// Connect inst to handle all stimuli.
+class Test_Double_Manager {
+public:
+    Test_Double_Manager();
+    ~Test_Double_Manager();
+    void Connect(Test_Double& inst);
+};
+
+#endif // test_double_hpp

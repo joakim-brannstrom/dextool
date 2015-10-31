@@ -22,7 +22,7 @@ TOOL_BIN="$TOOL_BIN ctestdouble"
 
 echo "Stage 1"
 ROOT_DIR="testdata/cstub/stage_1"
-for IN_SRC in $ROOT_DIR/*.h; do
+for IN_SRC in $ROOT_DIR/*.{h,hpp}; do
     inhdr_base=$(basename ${IN_SRC})
     out_hdr="$OUTDIR/test_double.hpp"
     out_impl="$OUTDIR/test_double.cpp"
@@ -30,6 +30,9 @@ for IN_SRC in $ROOT_DIR/*.h; do
     out_gmock="$OUTDIR/test_double_gmock.hpp"
 
     case "$IN_SRC" in
+        *class_func*)
+            test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug" "" "-xc++ -DAND_A_DEFINE"
+            ;;
         *param_main*)
             test_gen_code "$OUTDIR" "$ROOT_DIR/$inhdr_base" "--debug --main=Stub"
             out_hdr="$OUTDIR/stub.hpp"
