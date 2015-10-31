@@ -216,6 +216,86 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
     }
 }
 
+struct NamespaceDescendVisitor {
+    @disable this();
+
+    this(NullableRef!CppNamespace data) {
+        if (data.isNull) {
+            logger.fatal("CppNamespace parameter is null");
+            throw new Exception("CppNamespace parameter is null");
+        }
+        this.data = &data.get();
+    }
+
+    void visit(ref Cursor c) {
+        wip.visitAst!(typeof(this))(c, this);
+    }
+
+    bool apply(ref Cursor c, ref Cursor parent) {
+        bool descend = true;
+        logNode(c, 0);
+
+        switch (c.kind) with (CXCursorKind) {
+        case CXCursor_Namespace:
+            //data.put(NamespaceVisitor.make(c, stack).visit(c));
+            //descend = false;
+            break;
+        case CXCursor_ClassDecl:
+            // visit node to find nested classes
+            data.put(ClassVisitor.make(c).visit(c));
+            break;
+        case CXCursor_FunctionDecl:
+            data.put(FunctionVisitor.make(c).visit(c));
+            descend = false;
+            break;
+        default:
+            break;
+        }
+
+        return descend;
+    }
+
+private:
+    CppNamespace* data;
+}
+
+struct NamespaceVisitor {
+    import generator.analyze.containers : CppNsStack, CppNs, CppNamespace;
+
+    static auto make(ref Cursor c) {
+        CppNsStack stack = [CppNs(c.spelling)];
+
+        return typeof(this).make(c, stack);
+    }
+
+    static auto make(ref Cursor c, const CppNsStack stack_) {
+        if (c.kind != CXCursorKind.CXCursor_Namespace) {
+            logger.error("Expected cursor to be of type Namespace. It is: ", to!string(c));
+        }
+        auto stack = stack_.dup;
+        stack ~= CppNs(c.spelling);
+
+        return NamespaceVisitor(stack);
+    }
+
+    @disable this();
+
+    private this(CppNsStack stack) {
+        this.data = typeof(data)(stack);
+        this.stack = stack;
+    }
+
+    auto visit(ref Cursor c) {
+        auto d = NullableRef!CppNamespace(&data);
+        NamespaceDescendVisitor(d).visit(c);
+        return data;
+    }
+
+private:
+    CppNamespace data;
+    CppNsStack stack;
+}
+
 /// Context for AST visit.
 struct ParseContext {
     import generator.analyze.containers : CppRoot;
@@ -232,7 +312,12 @@ struct ParseContext {
         logNode(c, depth);
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
+            // visit node to find nested classes
             root.put(ClassVisitor.make(c).visit(c));
+            break;
+        case CXCursor_Namespace:
+            root.put(NamespaceVisitor.make(c).visit(c));
+            descend = false;
             break;
 
         default:
