@@ -206,6 +206,9 @@ private:
     CFunction[] funcs;
 }
 
+
+string str(T)(T value) @property @safe pure nothrow if (is(T : T!TL, TL : string)) {
+    return cast(string) value;
 }
 
 //@name("Test of creating a function")
