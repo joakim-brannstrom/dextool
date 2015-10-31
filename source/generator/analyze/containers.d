@@ -18,12 +18,13 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.analyze.containers;
 
+import std.array : appender;
+
 import std.typecons;
 
+import translator.Type : TypeKind, makeTypeKind, duplicate;
 
-
-
-private:
+public:
 
 /// Name of a C++ namespace.
 alias CppNs = Typedef!(string, string.init, "CppNs");
@@ -51,8 +52,6 @@ alias CppVirtualMethod = Typedef!(VirtualType, VirtualType.No, "CppVirtualMethod
 alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
 alias CParam = Typedef!(TypeKindVariable, TypeKindVariable.init, "CppParam");
 alias CReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
-
-public:
 
 enum VirtualType {
     No,
@@ -88,8 +87,8 @@ pure @safe nothrow struct CFunction {
 
     invariant() {
         assert(name.length > 0);
-        assert(returnType.name.length > 0);
-        assert(returnType.toString.length > 0);
+        assert(returnType_.name.length > 0);
+        assert(returnType_.toString.length > 0);
 
         foreach (p; params) {
             assert(p.name.length > 0);
@@ -98,9 +97,15 @@ pure @safe nothrow struct CFunction {
         }
     }
 
-    CFunctionName name;
+    @property auto returnType() const {
+        return this.returnType_;
+    }
+
+    immutable CFunctionName name;
+
+private:
     CParam[] params;
-    CReturnType returnType;
+    CReturnType returnType_;
 }
 
 pure @safe nothrow struct CppMethod {
