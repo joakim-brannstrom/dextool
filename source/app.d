@@ -21,16 +21,6 @@ import std.stdio;
 
 import app_main : rmain;
 
-version (unittest) {
-    import tested;
-
-    shared static this() {
-        import core.runtime;
-
-        Runtime.moduleUnitTester = () => true;
-    }
-}
-
 int main(string[] args) {
     version (unittest) {
         writeln(`This application does nothing. Run with "dub build -bunittest"`);
