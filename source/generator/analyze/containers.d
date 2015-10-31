@@ -20,16 +20,9 @@ module generator.analyze.containers;
 
 import std.typecons;
 
-import tested;
 
 import translator.Type : TypeKind, makeTypeKind, copy;
 
-version (unittest) {
-    shared static this() {
-        assert(runUnitTests!(generator.analyze.containers)(new ConsoleTestResultWriter),
-            "Unit tests failed.");
-    }
-}
 
 private:
 
@@ -201,14 +194,14 @@ private:
     CppNsStack stack;
 }
 
-@name("Test of creating a function")
+//@name("Test of creating a function")
 unittest {
     auto f = CFunction(CFunctionName("nothing"));
     assert(f.name == "nothing");
     assert(f.returnType.name == "void");
 }
 
-@name("Test of creating simples CppMethod")
+//@name("Test of creating simples CppMethod")
 unittest {
     auto m = CppMethod(CppMethodName("voider"));
     assert(m.isConst == false);
@@ -218,7 +211,7 @@ unittest {
     assert(m.returnType.name == "void");
 }
 
-@name("Test of creating a class")
+//@name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"));
@@ -226,7 +219,7 @@ unittest {
     assert(c.methods.length == 1);
 }
 
-@name("Create an anonymous namespace struct")
+//@name("Create an anonymous namespace struct")
 unittest {
     import std.conv;
 
@@ -235,7 +228,7 @@ unittest {
     assert(n.isAnonymous == true, text(n.isAnonymous));
 }
 
-@name("Create a namespace struct two deep")
+//@name("Create a namespace struct two deep")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
