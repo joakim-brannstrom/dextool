@@ -85,6 +85,26 @@ pure @safe nothrow struct CFunction {
         this(name, CParam[].init, void_);
     }
 
+    auto paramRange() {
+        static struct Result {
+            @property empty() {
+                return params.length == 0;
+            }
+
+            @property ref CParam front() {
+                return params[0];
+            }
+
+            void popFront() {
+                params = params[1 .. $];
+            }
+
+            CParam[] params;
+        }
+
+        return Result(params);
+    }
+
     invariant() {
         assert(name.length > 0);
         assert(returnType_.name.length > 0);
@@ -138,6 +158,30 @@ pure @safe nothrow struct CppMethod {
         this(name, CppParam[].init, void_, const_, virtual);
     }
 
+    auto paramRange() {
+        static struct Result {
+            this(CppParam[] p) {
+                params = p;
+            }
+
+            @property bool empty() {
+                return params.length == 0;
+            }
+
+            @property ref CppParam front() {
+                return params[0];
+            }
+
+            void popFront() {
+                params = params[1 .. $];
+            }
+
+            CppParam[] params;
+        }
+
+        return Result(params);
+    }
+
     invariant() {
         assert(name.length > 0);
         assert(returnType.name.length > 0);
@@ -168,6 +212,30 @@ pure @safe nothrow struct CppClass {
 
     void put(CppMethod method) {
         methods ~= method;
+    }
+
+    auto methodRange() {
+        static struct Result {
+            this(CppMethod[] m) {
+                methods = m;
+            }
+
+            @property bool empty() const {
+                return methods.length == 0;
+            }
+
+            @property ref CppMethod front() {
+                return methods[0];
+            }
+
+            void popFront() {
+                methods = methods[1 .. $];
+            }
+
+            CppMethod[] methods;
+        }
+
+        return Result(methods);
     }
 
     invariant() {
