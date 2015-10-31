@@ -311,6 +311,24 @@ private:
     CFunction[] funcs;
 }
 
+pure @safe nothrow struct Root {
+    void put(CFunction f) {
+        funcs ~= f;
+    }
+
+    void put(CppClass s) {
+        classes ~= s;
+    }
+
+    void put(CppNamespace ns) {
+        this.ns ~= ns;
+    }
+
+private:
+    CppNamespace[] ns;
+    CppClass[] classes;
+    CFunction[] funcs;
+}
 
 string str(T)(T value) @property @safe pure nothrow if (is(T : T!TL, TL : string)) {
     return cast(string) value;
