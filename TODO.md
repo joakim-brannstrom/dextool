@@ -2,10 +2,10 @@
 Feature requests, todos etc that aren't covered by code comments.
 
 ## Quality of Life
- - separate file for the variables.
- - generate a gmock for the C interface.
  - interface in a separate file.
  - allow control to set the function definitions as weak GCC attribute.
+ - [DONE] separate file for the variables.
+ - [DONE] generate a gmock for the C interface.
 
 ## Extra
  - Date in the header when it was generated.
