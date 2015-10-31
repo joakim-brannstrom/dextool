@@ -19,7 +19,7 @@ excludedSourceFiles "source/wipapp/*.d"
 dflags "-dip25"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
-lflags "-rpath" "." "$LFLAGS"
+lflags "--enable-new-dtags" "-rpath=." "$LFLAGS"
 libs ":libclang.so.1"
 
 buildRequirements {
