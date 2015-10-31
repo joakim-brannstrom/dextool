@@ -7,7 +7,7 @@
     "dependencies": {
         "tested": {"version": "~>0.9.4"},
         "dsrcgen": {"path": "dsrcgen"},
-        "docopt": "~>0.6.1-b.2"
+        "docopt": "~>0.6.1-b.3"
     },
 
     "targetPath": "build",
