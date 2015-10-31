@@ -20,7 +20,16 @@ module app;
 
 import std.stdio;
 
+import tested;
 import wip = analyze.wip;
+
+version (unittest) {
+    shared static this() {
+        import core.runtime;
+
+        Runtime.moduleUnitTester = () => true;
+    }
+}
 
 void main() {
     writeln("WIP mode");
