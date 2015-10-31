@@ -14,7 +14,6 @@ mainSourceFile "source/application/app.d"
 sourcePaths "source" "clang"
 importPaths "source" "clang"
 stringImportPaths "clang/resources"
-excludedSourceFiles "source/wipapp/*.d"
 
 dflags "-dip25"
 
@@ -34,7 +33,6 @@ buildType "unittest-cov" {
 configuration "release" {
     targetType "executable"
     buildType "debugInfo"
-    excludedSourceFiles "source/wipapp/wip_main.d" "source/generator/*"
 }
 
 configuration "unittest" {
@@ -42,5 +40,4 @@ configuration "unittest" {
     targetType "executable"
     buildType "debugInfo"
     mainSourceFile "test/ut_main.d"
-    excludedSourceFiles "source/wipapp/wip_main.d" "source/generator/*"
 }
