@@ -1,0 +1,248 @@
+#include "stub_class_nested.hpp"
+
+namespace StubInternalOuterClass {
+StubCallbackOuterClass::IStubDtor* StubStubDtor::GetCallback() {
+    return callback;
+}
+
+void StubStubDtor::SetCallback(StubCallbackOuterClass::IStubDtor* value) {
+    callback = value;
+}
+
+unsigned StubStubDtor::GetCallCounter() const {
+    return call_counter;
+}
+
+void StubStubDtor::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(StubStubDtor* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(StubStubDtor);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_StubDtor);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalOuterClass::StubStubDtor& StubStubData::StubDtor() {
+    return stub_StubDtor;
+}
+
+::StubOuterClass** stubstubouterclassmanager_pool = 0;
+unsigned stubstubouterclassmanager_size = 0;
+unsigned stubstubouterclassmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubouterclassmanager_pool == 0) {
+        stubstubouterclassmanager_pool = new ::StubOuterClass*[2];
+        stubstubouterclassmanager_size = 2;
+        stubstubouterclassmanager_next = 0;
+    }
+    else {
+        ::StubOuterClass** old = stubstubouterclassmanager_pool;
+        unsigned old_size = stubstubouterclassmanager_size;
+        stubstubouterclassmanager_size = stubstubouterclassmanager_size * 2;
+        stubstubouterclassmanager_pool = new ::StubOuterClass*[stubstubouterclassmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubouterclassmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubOuterClass* instance) {
+    if (stubstubouterclassmanager_pool == 0 || stubstubouterclassmanager_next == stubstubouterclassmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubouterclassmanager_pool[stubstubouterclassmanager_next] = instance;
+    stubstubouterclassmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubOuterClass* instance) {
+    for (unsigned i = 0; i < stubstubouterclassmanager_size; ++i) {
+        if (stubstubouterclassmanager_pool[i] == instance) {
+            stubstubouterclassmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalOuterClass
+
+StubStubOuterClassManager::StubStubOuterClassManager() {
+}
+
+StubStubOuterClassManager::~StubStubOuterClassManager() {
+    for (unsigned i = 0; i < ::StubInternalOuterClass::stubstubouterclassmanager_size; ++i) {
+        if (::StubInternalOuterClass::stubstubouterclassmanager_pool[i] != 0) {
+            delete ::StubInternalOuterClass::stubstubouterclassmanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalOuterClass::stubstubouterclassmanager_pool;
+    ::StubInternalOuterClass::stubstubouterclassmanager_pool = 0;
+    ::StubInternalOuterClass::stubstubouterclassmanager_size = 0;
+    ::StubInternalOuterClass::stubstubouterclassmanager_next = 0;
+}
+
+::StubOuterClass* StubStubOuterClassManager::GetInstance() {
+    if (::StubInternalOuterClass::stubstubouterclassmanager_size > 0) {
+        return ::StubInternalOuterClass::stubstubouterclassmanager_pool[0];
+    }
+    return reinterpret_cast< ::StubOuterClass*>(0);
+}
+
+::StubOuterClass* StubStubOuterClassManager::GetInstance(unsigned nth) {
+    if (::StubInternalOuterClass::stubstubouterclassmanager_size > nth) {
+        return ::StubInternalOuterClass::stubstubouterclassmanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubOuterClass*>(0);
+}
+
+StubOuterClass::StubOuterClass() {
+    ::StubInternalOuterClass::StubStubManagerRegister(this);
+}
+
+StubOuterClass::~StubOuterClass() {
+    ::StubInternalOuterClass::StubStubManagerUnRegister(this);
+    Stub_data.StubDtor().call_counter++;
+
+    if (Stub_data.StubDtor().callback != 0) {
+        Stub_data.StubDtor().callback->StubDtor();
+    }
+}
+
+StubInternalOuterClass::StubStubData& StubOuterClass::GetStub() {
+    return Stub_data;
+}
+
+namespace StubInternalInnerClass {
+StubCallbackInnerClass::IStubDtor* StubStubDtor::GetCallback() {
+    return callback;
+}
+
+void StubStubDtor::SetCallback(StubCallbackInnerClass::IStubDtor* value) {
+    callback = value;
+}
+
+unsigned StubStubDtor::GetCallCounter() const {
+    return call_counter;
+}
+
+void StubStubDtor::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(StubStubDtor* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(StubStubDtor);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_StubDtor);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalInnerClass::StubStubDtor& StubStubData::StubDtor() {
+    return stub_StubDtor;
+}
+
+::StubInnerClass** stubstubinnerclassmanager_pool = 0;
+unsigned stubstubinnerclassmanager_size = 0;
+unsigned stubstubinnerclassmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubinnerclassmanager_pool == 0) {
+        stubstubinnerclassmanager_pool = new ::StubInnerClass*[2];
+        stubstubinnerclassmanager_size = 2;
+        stubstubinnerclassmanager_next = 0;
+    }
+    else {
+        ::StubInnerClass** old = stubstubinnerclassmanager_pool;
+        unsigned old_size = stubstubinnerclassmanager_size;
+        stubstubinnerclassmanager_size = stubstubinnerclassmanager_size * 2;
+        stubstubinnerclassmanager_pool = new ::StubInnerClass*[stubstubinnerclassmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubinnerclassmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubInnerClass* instance) {
+    if (stubstubinnerclassmanager_pool == 0 || stubstubinnerclassmanager_next == stubstubinnerclassmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubinnerclassmanager_pool[stubstubinnerclassmanager_next] = instance;
+    stubstubinnerclassmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubInnerClass* instance) {
+    for (unsigned i = 0; i < stubstubinnerclassmanager_size; ++i) {
+        if (stubstubinnerclassmanager_pool[i] == instance) {
+            stubstubinnerclassmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalInnerClass
+
+StubStubInnerClassManager::StubStubInnerClassManager() {
+}
+
+StubStubInnerClassManager::~StubStubInnerClassManager() {
+    for (unsigned i = 0; i < ::StubInternalInnerClass::stubstubinnerclassmanager_size; ++i) {
+        if (::StubInternalInnerClass::stubstubinnerclassmanager_pool[i] != 0) {
+            delete ::StubInternalInnerClass::stubstubinnerclassmanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalInnerClass::stubstubinnerclassmanager_pool;
+    ::StubInternalInnerClass::stubstubinnerclassmanager_pool = 0;
+    ::StubInternalInnerClass::stubstubinnerclassmanager_size = 0;
+    ::StubInternalInnerClass::stubstubinnerclassmanager_next = 0;
+}
+
+::StubInnerClass* StubStubInnerClassManager::GetInstance() {
+    if (::StubInternalInnerClass::stubstubinnerclassmanager_size > 0) {
+        return ::StubInternalInnerClass::stubstubinnerclassmanager_pool[0];
+    }
+    return reinterpret_cast< ::StubInnerClass*>(0);
+}
+
+::StubInnerClass* StubStubInnerClassManager::GetInstance(unsigned nth) {
+    if (::StubInternalInnerClass::stubstubinnerclassmanager_size > nth) {
+        return ::StubInternalInnerClass::stubstubinnerclassmanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubInnerClass*>(0);
+}
+
+StubInnerClass::StubInnerClass() {
+    ::StubInternalInnerClass::StubStubManagerRegister(this);
+}
+
+StubInnerClass::~StubInnerClass() {
+    ::StubInternalInnerClass::StubStubManagerUnRegister(this);
+    Stub_data.StubDtor().call_counter++;
+
+    if (Stub_data.StubDtor().callback != 0) {
+        Stub_data.StubDtor().callback->StubDtor();
+    }
+}
+
+StubInternalInnerClass::StubStubData& StubInnerClass::GetStub() {
+    return Stub_data;
+}
+

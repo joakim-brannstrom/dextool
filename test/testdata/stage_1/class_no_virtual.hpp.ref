@@ -1,0 +1,263 @@
+#ifndef stub_class_no_virtual_hpp
+#define stub_class_no_virtual_hpp
+#include "class_no_virtual.hpp"
+
+class StubSimple;
+
+namespace StubCallbackSimple {
+struct Ifunc1 { virtual void func1() = 0; };
+struct Ifunc2 { virtual int func2() = 0; };
+struct Ifunc6_some_pointer { virtual char * func6_some_pointer(some_pointer w) = 0; };
+struct Ifunc7_intRef_charPtr { virtual float func7_intRef_charPtr(int & y, char * yy) = 0; };
+struct Ifunc3_int_constint { virtual const double func3_int_constint(int x, const int xx) = 0; };
+struct Ifunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr { virtual const void *const func4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr(MadeUp z, const MadeUp zz, const MadeUp & zzz, const MadeUp **const zzzz) = 0; };
+struct IopAssign_constSimpleRef { virtual void opAssign_constSimpleRef(const Simple & other) = 0; };
+struct Iprot { virtual void prot() = 0; };
+struct Ipriv { virtual void priv() = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackSimple
+
+namespace StubInternalSimple {
+class Stubfunc1 {
+public:
+    StubCallbackSimple::Ifunc1* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc1* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc1* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubfunc1* value);
+
+class Stubfunc2 {
+public:
+    StubCallbackSimple::Ifunc2* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc2* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    int& SetReturn();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc2* callback;
+    unsigned call_counter;
+    int stub_return;
+};
+void StubInit(Stubfunc2* value);
+
+class Stubfunc6_some_pointer {
+public:
+    StubCallbackSimple::Ifunc6_some_pointer* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc6_some_pointer* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    some_pointer GetParam_w();
+    char *& SetReturn();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc6_some_pointer* callback;
+    unsigned call_counter;
+    some_pointer Param_w;
+    char * stub_return;
+};
+void StubInit(Stubfunc6_some_pointer* value);
+
+class Stubfunc7_intRef_charPtr {
+public:
+    StubCallbackSimple::Ifunc7_intRef_charPtr* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc7_intRef_charPtr* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    int* GetParam_y();
+    char* GetParam_yy();
+    float& SetReturn();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc7_intRef_charPtr* callback;
+    unsigned call_counter;
+    int* Param_y;
+    char* Param_yy;
+    float stub_return;
+};
+void StubInit(Stubfunc7_intRef_charPtr* value);
+
+class Stubfunc3_int_constint {
+public:
+    StubCallbackSimple::Ifunc3_int_constint* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc3_int_constint* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    int GetParam_x();
+    int GetParam_xx();
+    double& SetReturn();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc3_int_constint* callback;
+    unsigned call_counter;
+    int Param_x;
+    int Param_xx;
+    double stub_return;
+};
+void StubInit(Stubfunc3_int_constint* value);
+
+class Stubfunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr {
+public:
+    StubCallbackSimple::Ifunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    MadeUp GetParam_z();
+    MadeUp GetParam_zz();
+    MadeUp* GetParam_zzz();
+    MadeUp** GetParam_zzzz();
+    void *& SetReturn();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr* callback;
+    unsigned call_counter;
+    MadeUp Param_z;
+    MadeUp Param_zz;
+    MadeUp* Param_zzz;
+    MadeUp** Param_zzzz;
+    void * stub_return;
+};
+void StubInit(Stubfunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr* value);
+
+class StubopAssign_constSimpleRef {
+public:
+    StubCallbackSimple::IopAssign_constSimpleRef* GetCallback();
+    void SetCallback(StubCallbackSimple::IopAssign_constSimpleRef* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    Simple* GetParam_other();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::IopAssign_constSimpleRef* callback;
+    unsigned call_counter;
+    Simple* Param_other;
+};
+void StubInit(StubopAssign_constSimpleRef* value);
+
+class Stubprot {
+public:
+    StubCallbackSimple::Iprot* GetCallback();
+    void SetCallback(StubCallbackSimple::Iprot* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Iprot* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubprot* value);
+
+class Stubpriv {
+public:
+    StubCallbackSimple::Ipriv* GetCallback();
+    void SetCallback(StubCallbackSimple::Ipriv* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ipriv* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubpriv* value);
+
+class StubStubDtor {
+public:
+    StubCallbackSimple::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackSimple::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalSimple::Stubfunc1& func1();
+    StubInternalSimple::Stubfunc2& func2();
+    StubInternalSimple::Stubfunc6_some_pointer& func6_some_pointer();
+    StubInternalSimple::Stubfunc7_intRef_charPtr& func7_intRef_charPtr();
+    StubInternalSimple::Stubfunc3_int_constint& func3_int_constint();
+    StubInternalSimple::Stubfunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr& func4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr();
+    StubInternalSimple::StubopAssign_constSimpleRef& opAssign_constSimpleRef();
+    StubInternalSimple::Stubprot& prot();
+    StubInternalSimple::Stubpriv& priv();
+    StubInternalSimple::StubStubDtor& StubDtor();
+
+private:
+    StubInternalSimple::Stubfunc1 stub_func1;
+    StubInternalSimple::Stubfunc2 stub_func2;
+    StubInternalSimple::Stubfunc6_some_pointer stub_func6_some_pointer;
+    StubInternalSimple::Stubfunc7_intRef_charPtr stub_func7_intRef_charPtr;
+    StubInternalSimple::Stubfunc3_int_constint stub_func3_int_constint;
+    StubInternalSimple::Stubfunc4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr stub_func4_MadeUp_constMadeUp_constMadeUpRef_constMadeUpPtrPtr;
+    StubInternalSimple::StubopAssign_constSimpleRef stub_opAssign_constSimpleRef;
+    StubInternalSimple::Stubprot stub_prot;
+    StubInternalSimple::Stubpriv stub_priv;
+    StubInternalSimple::StubStubDtor stub_StubDtor;
+};
+
+void StubStubManagerRegister(::StubSimple* instance);
+void StubStubManagerUnRegister(::StubSimple* instance);
+} //NS:StubInternalSimple
+
+class StubStubSimpleManager {
+public:
+    StubStubSimpleManager();
+    ~StubStubSimpleManager();
+
+    /// Get the first instance created.
+    /// @return Pointer to instance or null if none is created.
+    ::StubSimple* GetInstance();
+
+    /// Get the Nth instance created.
+    /// @return Pointer to instance or null if none was found.
+    ::StubSimple* GetInstance(unsigned nth);
+};
+
+class StubSimple : public Simple {
+public:
+    void func1();
+    int func2();
+    char * func6(some_pointer w);
+    float func7(int & y, char * yy);
+    const double func3(int x, const int xx);
+    const void *const func4(MadeUp z, const MadeUp zz, const MadeUp & zzz, const MadeUp **const zzzz);
+    void operator=(const Simple & other);
+protected:
+    void prot();
+private:
+    void priv();
+public:
+    StubSimple();
+    StubSimple(char foo);
+    ~StubSimple();
+
+public:
+    StubInternalSimple::StubStubData& GetStub();
+
+private:
+    mutable StubInternalSimple::StubStubData Stub_data;
+};
+
+#endif // stub_class_no_virtual_hpp

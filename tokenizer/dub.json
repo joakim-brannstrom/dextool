@@ -1,0 +1,28 @@
+{
+    "name": "tokenizer",
+    "description": "Print all tokens",
+    "copyright": "Copyright © 2014, Joakim Brännström",
+    "authors": ["Joakim Brännström"],
+    "license": "MIT",
+    "dependencies": {
+        "tested": {"version": ">=0.9.4"},
+        "docopt": {"version": ">=0.6.1-b.1"},
+        "logger": {"version": ">=0.3.3"}
+    },
+
+    "targetPath": "build",
+    "mainSourceFile": "source/app.d",
+	"sourcePaths": ["source", "clang"],
+	"importPaths": ["source", "clang"],
+
+	"lflags-posix": ["-lclang", "-rpath", ".", "-L."],
+    "targetType": "executable",
+    "buildRequirements": ["requireBoundsCheck", "requireContracts"],
+
+    "configurations": [
+    {
+        "name": "release",
+        "targetName": "tokenize",
+    },
+    ]
+}

@@ -1,0 +1,86 @@
+#ifndef stub_class_const_hpp
+#define stub_class_const_hpp
+#include "class_const.hpp"
+
+class StubSimple;
+
+namespace StubCallbackSimple {
+struct Ifunc1 { virtual void func1() = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackSimple
+
+namespace StubInternalSimple {
+class Stubfunc1 {
+public:
+    StubCallbackSimple::Ifunc1* GetCallback();
+    void SetCallback(StubCallbackSimple::Ifunc1* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::Ifunc1* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubfunc1* value);
+
+class StubStubDtor {
+public:
+    StubCallbackSimple::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackSimple::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalSimple::Stubfunc1& func1();
+    StubInternalSimple::StubStubDtor& StubDtor();
+
+private:
+    StubInternalSimple::Stubfunc1 stub_func1;
+    StubInternalSimple::StubStubDtor stub_StubDtor;
+};
+
+void StubStubManagerRegister(::StubSimple* instance);
+void StubStubManagerUnRegister(::StubSimple* instance);
+} //NS:StubInternalSimple
+
+class StubStubSimpleManager {
+public:
+    StubStubSimpleManager();
+    ~StubStubSimpleManager();
+
+    /// Get the first instance created.
+    /// @return Pointer to instance or null if none is created.
+    ::StubSimple* GetInstance();
+
+    /// Get the Nth instance created.
+    /// @return Pointer to instance or null if none was found.
+    ::StubSimple* GetInstance(unsigned nth);
+};
+
+class StubSimple : public Simple {
+public:
+    virtual void func1() const;
+public:
+    StubSimple();
+    virtual ~StubSimple();
+
+public:
+    StubInternalSimple::StubStubData& GetStub();
+
+private:
+    mutable StubInternalSimple::StubStubData Stub_data;
+};
+
+#endif // stub_class_const_hpp

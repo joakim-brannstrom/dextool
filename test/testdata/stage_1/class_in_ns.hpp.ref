@@ -1,0 +1,97 @@
+#ifndef stub_class_in_ns_hpp
+#define stub_class_in_ns_hpp
+#include "class_in_ns.hpp"
+
+namespace foo {
+namespace bar {
+class StubSmurf;
+
+namespace StubCallbackSmurf {
+struct IopAssign_constSmurfRef { virtual foo::bar::Smurf & opAssign_constSmurfRef(const foo::bar::Smurf & other) = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackSmurf
+
+namespace StubInternalSmurf {
+class StubopAssign_constSmurfRef {
+public:
+    StubCallbackSmurf::IopAssign_constSmurfRef* GetCallback();
+    void SetCallback(StubCallbackSmurf::IopAssign_constSmurfRef* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    Smurf* GetParam_other();
+    foo::bar::Smurf *& SetReturn();
+private:
+    friend class ::foo::bar::StubSmurf;
+
+    StubCallbackSmurf::IopAssign_constSmurfRef* callback;
+    unsigned call_counter;
+    Smurf* Param_other;
+    foo::bar::Smurf * stub_return;
+};
+void StubInit(StubopAssign_constSmurfRef* value);
+
+class StubStubDtor {
+public:
+    StubCallbackSmurf::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackSmurf::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::foo::bar::StubSmurf;
+
+    StubCallbackSmurf::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalSmurf::StubopAssign_constSmurfRef& opAssign_constSmurfRef();
+    StubInternalSmurf::StubStubDtor& StubDtor();
+
+private:
+    StubInternalSmurf::StubopAssign_constSmurfRef stub_opAssign_constSmurfRef;
+    StubInternalSmurf::StubStubDtor stub_StubDtor;
+};
+
+void StubStubManagerRegister(foo::bar::StubSmurf* instance);
+void StubStubManagerUnRegister(foo::bar::StubSmurf* instance);
+} //NS:StubInternalSmurf
+
+class StubStubSmurfManager {
+public:
+    StubStubSmurfManager();
+    ~StubStubSmurfManager();
+
+    /// Get the first instance created.
+    /// @return Pointer to instance or null if none is created.
+    foo::bar::StubSmurf* GetInstance();
+
+    /// Get the Nth instance created.
+    /// @return Pointer to instance or null if none was found.
+    foo::bar::StubSmurf* GetInstance(unsigned nth);
+};
+
+class StubSmurf : public foo::bar::Smurf {
+public:
+    virtual foo::bar::Smurf & operator=(const foo::bar::Smurf & other);
+public:
+    StubSmurf();
+    StubSmurf(const foo::bar::Smurf & other);
+    virtual ~StubSmurf();
+
+public:
+    StubInternalSmurf::StubStubData& GetStub();
+
+private:
+    mutable StubInternalSmurf::StubStubData Stub_data;
+};
+
+} //NS:bar
+
+} //NS:foo
+
+#endif // stub_class_in_ns_hpp

@@ -1,0 +1,68 @@
+#ifndef stub_class_funcs_hpp
+#define stub_class_funcs_hpp
+#include "class_funcs.hpp"
+
+class StubSimple;
+
+namespace StubCallbackSimple {
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackSimple
+
+namespace StubInternalSimple {
+class StubStubDtor {
+public:
+    StubCallbackSimple::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackSimple::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubSimple;
+
+    StubCallbackSimple::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalSimple::StubStubDtor& StubDtor();
+
+private:
+    StubInternalSimple::StubStubDtor stub_StubDtor;
+};
+
+void StubStubManagerRegister(::StubSimple* instance);
+void StubStubManagerUnRegister(::StubSimple* instance);
+} //NS:StubInternalSimple
+
+class StubStubSimpleManager {
+public:
+    StubStubSimpleManager();
+    ~StubStubSimpleManager();
+
+    /// Get the first instance created.
+    /// @return Pointer to instance or null if none is created.
+    ::StubSimple* GetInstance();
+
+    /// Get the Nth instance created.
+    /// @return Pointer to instance or null if none was found.
+    ::StubSimple* GetInstance(unsigned nth);
+};
+
+class StubSimple : public Simple {
+public:
+    StubSimple();
+    StubSimple(char foo);
+    ~StubSimple();
+
+public:
+    StubInternalSimple::StubStubData& GetStub();
+
+private:
+    mutable StubInternalSimple::StubStubData Stub_data;
+};
+
+#endif // stub_class_funcs_hpp

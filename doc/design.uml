@@ -1,0 +1,17 @@
+@startuml
+[main]
+[ClangContext]
+[StubContext]
+[ClassContext]
+[MethodContext]
+
+main --> ClangContext
+main --> StubContext
+
+ClangContext - Cursor : provide
+
+StubContext ..> Cursor : use
+StubContext --> ClassContext
+
+ClassContext --> MethodContext
+@enduml

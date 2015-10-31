@@ -1,0 +1,17 @@
+{
+    "name": "dsrcgen_test",
+    "description": "The semantic code generation framework for Dlang",
+    "copyright": "Copyright © 2014, Joakim Brännström",
+    "authors": ["Joakim Brännström"],
+    "license": "BSL-1.0",
+
+    "dependencies": {
+        "tested": {"version": ">=0.9.4"},
+        "dsrcgen": {"version": "~master", "path": ".."}
+    },
+
+    "targetPath": "build",
+    "targetType": "executable",
+    "buildType": "unittest",
+    "mainSourceFile": "main.d"
+}

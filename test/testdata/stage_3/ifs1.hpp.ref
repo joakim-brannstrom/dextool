@@ -1,0 +1,268 @@
+#ifndef stub_ifs1_hpp
+#define stub_ifs1_hpp
+#include "ifs1.hpp"
+
+class StubIfs2;
+
+namespace StubCallbackIfs2 {
+struct Iifs2_func1_int_char { virtual int ifs2_func1_int_char(int x0, char x1) = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackIfs2
+
+namespace StubInternalIfs2 {
+class Stubifs2_func1_int_char {
+public:
+    StubCallbackIfs2::Iifs2_func1_int_char* GetCallback();
+    void SetCallback(StubCallbackIfs2::Iifs2_func1_int_char* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    int GetParam_x0();
+    char GetParam_x1();
+    int& SetReturn();
+private:
+    friend class ::StubIfs2;
+
+    StubCallbackIfs2::Iifs2_func1_int_char* callback;
+    unsigned call_counter;
+    int Param_x0;
+    char Param_x1;
+    int stub_return;
+};
+void StubInit(Stubifs2_func1_int_char* value);
+
+class StubStubDtor {
+public:
+    StubCallbackIfs2::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackIfs2::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubIfs2;
+
+    StubCallbackIfs2::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalIfs2::Stubifs2_func1_int_char& ifs2_func1_int_char();
+    StubInternalIfs2::StubStubDtor& StubDtor();
+
+private:
+    StubInternalIfs2::Stubifs2_func1_int_char stub_ifs2_func1_int_char;
+    StubInternalIfs2::StubStubDtor stub_StubDtor;
+};
+} //NS:StubInternalIfs2
+
+class StubIfs2 : public Ifs2 {
+public:
+    virtual int ifs2_func1(int x0, char x1);
+public:
+    StubIfs2();
+    virtual ~StubIfs2();
+
+public:
+    StubInternalIfs2::StubStubData& GetStub();
+
+private:
+    mutable StubInternalIfs2::StubStubData Stub_data;
+};
+
+class StubIfs3;
+
+namespace StubCallbackIfs3 {
+struct Idostuff { virtual void dostuff() = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackIfs3
+
+namespace StubInternalIfs3 {
+class Stubdostuff {
+public:
+    StubCallbackIfs3::Idostuff* GetCallback();
+    void SetCallback(StubCallbackIfs3::Idostuff* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubIfs3;
+
+    StubCallbackIfs3::Idostuff* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubdostuff* value);
+
+class StubStubDtor {
+public:
+    StubCallbackIfs3::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackIfs3::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubIfs3;
+
+    StubCallbackIfs3::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalIfs3::Stubdostuff& dostuff();
+    StubInternalIfs3::StubStubDtor& StubDtor();
+
+private:
+    StubInternalIfs3::Stubdostuff stub_dostuff;
+    StubInternalIfs3::StubStubDtor stub_StubDtor;
+};
+} //NS:StubInternalIfs3
+
+class StubIfs3 : public Ifs3 {
+public:
+    virtual void dostuff();
+public:
+    StubIfs3();
+    virtual ~StubIfs3();
+
+public:
+    StubInternalIfs3::StubStubData& GetStub();
+
+private:
+    mutable StubInternalIfs3::StubStubData Stub_data;
+};
+
+class StubIfs1;
+
+namespace StubCallbackIfs1 {
+struct Iifs2_func1_int_char { virtual int ifs2_func1_int_char(int x0, char x1) = 0; };
+struct Irun { virtual void run() = 0; };
+struct Iget_ifc2 { virtual Ifs2 & get_ifc2() = 0; };
+struct Iget_ifc3 { virtual Ifs3 & get_ifc3() = 0; };
+struct IStubDtor { virtual void StubDtor() = 0; };
+} //NS:StubCallbackIfs1
+
+namespace StubInternalIfs1 {
+class Stubifs2_func1_int_char {
+public:
+    StubCallbackIfs1::Iifs2_func1_int_char* GetCallback();
+    void SetCallback(StubCallbackIfs1::Iifs2_func1_int_char* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    int GetParam_x0();
+    char GetParam_x1();
+    int& SetReturn();
+private:
+    friend class ::StubIfs1;
+
+    StubCallbackIfs1::Iifs2_func1_int_char* callback;
+    unsigned call_counter;
+    int Param_x0;
+    char Param_x1;
+    int stub_return;
+};
+void StubInit(Stubifs2_func1_int_char* value);
+
+class Stubrun {
+public:
+    StubCallbackIfs1::Irun* GetCallback();
+    void SetCallback(StubCallbackIfs1::Irun* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubIfs1;
+
+    StubCallbackIfs1::Irun* callback;
+    unsigned call_counter;
+};
+void StubInit(Stubrun* value);
+
+class Stubget_ifc2 {
+public:
+    StubCallbackIfs1::Iget_ifc2* GetCallback();
+    void SetCallback(StubCallbackIfs1::Iget_ifc2* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    Ifs2 *& SetReturn();
+private:
+    friend class ::StubIfs1;
+
+    StubCallbackIfs1::Iget_ifc2* callback;
+    unsigned call_counter;
+    Ifs2 * stub_return;
+};
+void StubInit(Stubget_ifc2* value);
+
+class Stubget_ifc3 {
+public:
+    StubCallbackIfs1::Iget_ifc3* GetCallback();
+    void SetCallback(StubCallbackIfs1::Iget_ifc3* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+    Ifs3 *& SetReturn();
+private:
+    friend class ::StubIfs1;
+
+    StubCallbackIfs1::Iget_ifc3* callback;
+    unsigned call_counter;
+    Ifs3 * stub_return;
+};
+void StubInit(Stubget_ifc3* value);
+
+class StubStubDtor {
+public:
+    StubCallbackIfs1::IStubDtor* GetCallback();
+    void SetCallback(StubCallbackIfs1::IStubDtor* value);
+    unsigned GetCallCounter() const;
+    void ResetCallCounter();
+private:
+    friend class ::StubIfs1;
+
+    StubCallbackIfs1::IStubDtor* callback;
+    unsigned call_counter;
+};
+void StubInit(StubStubDtor* value);
+
+class StubStubData {
+public:
+    StubStubData();
+    ~StubStubData();
+
+    StubInternalIfs1::Stubifs2_func1_int_char& ifs2_func1_int_char();
+    StubInternalIfs1::Stubrun& run();
+    StubInternalIfs1::Stubget_ifc2& get_ifc2();
+    StubInternalIfs1::Stubget_ifc3& get_ifc3();
+    StubInternalIfs1::StubStubDtor& StubDtor();
+
+private:
+    StubInternalIfs1::Stubifs2_func1_int_char stub_ifs2_func1_int_char;
+    StubInternalIfs1::Stubrun stub_run;
+    StubInternalIfs1::Stubget_ifc2 stub_get_ifc2;
+    StubInternalIfs1::Stubget_ifc3 stub_get_ifc3;
+    StubInternalIfs1::StubStubDtor stub_StubDtor;
+};
+} //NS:StubInternalIfs1
+
+class StubIfs1 : public Ifs1 {
+public:
+    virtual int ifs2_func1(int x0, char x1);
+public:
+    virtual void run();
+    virtual Ifs2 & get_ifc2();
+    virtual Ifs3 & get_ifc3();
+public:
+    StubIfs1();
+    virtual ~StubIfs1();
+
+public:
+    StubInternalIfs1::StubStubData& GetStub();
+
+private:
+    mutable StubInternalIfs1::StubStubData Stub_data;
+};
+
+#endif // stub_ifs1_hpp

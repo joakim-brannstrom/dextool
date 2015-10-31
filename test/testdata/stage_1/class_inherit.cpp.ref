@@ -1,0 +1,975 @@
+#include "stub_class_inherit.hpp"
+
+namespace StubInternalFoo {
+StubCallbackFoo::Ifunc2* Stubfunc2::GetCallback() {
+    return callback;
+}
+
+void Stubfunc2::SetCallback(StubCallbackFoo::Ifunc2* value) {
+    callback = value;
+}
+
+unsigned Stubfunc2::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc2::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc2* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc2);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackFoo::Ifunc3* Stubfunc3::GetCallback() {
+    return callback;
+}
+
+void Stubfunc3::SetCallback(StubCallbackFoo::Ifunc3* value) {
+    callback = value;
+}
+
+unsigned Stubfunc3::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc3::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc3* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc3);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_func2);
+    StubInit(&stub_func3);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalFoo::Stubfunc2& StubStubData::func2() {
+    return stub_func2;
+}
+
+StubInternalFoo::Stubfunc3& StubStubData::func3() {
+    return stub_func3;
+}
+
+::StubFoo** stubstubfoomanager_pool = 0;
+unsigned stubstubfoomanager_size = 0;
+unsigned stubstubfoomanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubfoomanager_pool == 0) {
+        stubstubfoomanager_pool = new ::StubFoo*[2];
+        stubstubfoomanager_size = 2;
+        stubstubfoomanager_next = 0;
+    }
+    else {
+        ::StubFoo** old = stubstubfoomanager_pool;
+        unsigned old_size = stubstubfoomanager_size;
+        stubstubfoomanager_size = stubstubfoomanager_size * 2;
+        stubstubfoomanager_pool = new ::StubFoo*[stubstubfoomanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubfoomanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubFoo* instance) {
+    if (stubstubfoomanager_pool == 0 || stubstubfoomanager_next == stubstubfoomanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubfoomanager_pool[stubstubfoomanager_next] = instance;
+    stubstubfoomanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubFoo* instance) {
+    for (unsigned i = 0; i < stubstubfoomanager_size; ++i) {
+        if (stubstubfoomanager_pool[i] == instance) {
+            stubstubfoomanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalFoo
+
+StubStubFooManager::StubStubFooManager() {
+}
+
+StubStubFooManager::~StubStubFooManager() {
+    for (unsigned i = 0; i < ::StubInternalFoo::stubstubfoomanager_size; ++i) {
+        if (::StubInternalFoo::stubstubfoomanager_pool[i] != 0) {
+            delete ::StubInternalFoo::stubstubfoomanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalFoo::stubstubfoomanager_pool;
+    ::StubInternalFoo::stubstubfoomanager_pool = 0;
+    ::StubInternalFoo::stubstubfoomanager_size = 0;
+    ::StubInternalFoo::stubstubfoomanager_next = 0;
+}
+
+::StubFoo* StubStubFooManager::GetInstance() {
+    if (::StubInternalFoo::stubstubfoomanager_size > 0) {
+        return ::StubInternalFoo::stubstubfoomanager_pool[0];
+    }
+    return reinterpret_cast< ::StubFoo*>(0);
+}
+
+::StubFoo* StubStubFooManager::GetInstance(unsigned nth) {
+    if (::StubInternalFoo::stubstubfoomanager_size > nth) {
+        return ::StubInternalFoo::stubstubfoomanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubFoo*>(0);
+}
+
+void StubFoo::func2() {
+    Stub_data.func2().call_counter++;
+
+    if (Stub_data.func2().callback != 0) {
+        Stub_data.func2().callback->func2();
+    }
+}
+
+void StubFoo::func3() {
+    Stub_data.func3().call_counter++;
+
+    if (Stub_data.func3().callback != 0) {
+        Stub_data.func3().callback->func3();
+    }
+}
+
+StubInternalFoo::StubStubData& StubFoo::GetStub() {
+    return Stub_data;
+}
+
+namespace BarSpace {
+namespace StubInternalBar {
+StubCallbackBar::Ifunc5* Stubfunc5::GetCallback() {
+    return callback;
+}
+
+void Stubfunc5::SetCallback(StubCallbackBar::Ifunc5* value) {
+    callback = value;
+}
+
+unsigned Stubfunc5::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc5::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc5* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc5);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_func5);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalBar::Stubfunc5& StubStubData::func5() {
+    return stub_func5;
+}
+
+BarSpace::StubBar** stubstubbarmanager_pool = 0;
+unsigned stubstubbarmanager_size = 0;
+unsigned stubstubbarmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubbarmanager_pool == 0) {
+        stubstubbarmanager_pool = new BarSpace::StubBar*[2];
+        stubstubbarmanager_size = 2;
+        stubstubbarmanager_next = 0;
+    }
+    else {
+        BarSpace::StubBar** old = stubstubbarmanager_pool;
+        unsigned old_size = stubstubbarmanager_size;
+        stubstubbarmanager_size = stubstubbarmanager_size * 2;
+        stubstubbarmanager_pool = new BarSpace::StubBar*[stubstubbarmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubbarmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(BarSpace::StubBar* instance) {
+    if (stubstubbarmanager_pool == 0 || stubstubbarmanager_next == stubstubbarmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubbarmanager_pool[stubstubbarmanager_next] = instance;
+    stubstubbarmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(BarSpace::StubBar* instance) {
+    for (unsigned i = 0; i < stubstubbarmanager_size; ++i) {
+        if (stubstubbarmanager_pool[i] == instance) {
+            stubstubbarmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalBar
+
+StubStubBarManager::StubStubBarManager() {
+}
+
+StubStubBarManager::~StubStubBarManager() {
+    for (unsigned i = 0; i < BarSpace::StubInternalBar::stubstubbarmanager_size; ++i) {
+        if (BarSpace::StubInternalBar::stubstubbarmanager_pool[i] != 0) {
+            delete BarSpace::StubInternalBar::stubstubbarmanager_pool[i];
+        }
+    }
+    delete [] BarSpace::StubInternalBar::stubstubbarmanager_pool;
+    BarSpace::StubInternalBar::stubstubbarmanager_pool = 0;
+    BarSpace::StubInternalBar::stubstubbarmanager_size = 0;
+    BarSpace::StubInternalBar::stubstubbarmanager_next = 0;
+}
+
+BarSpace::StubBar* StubStubBarManager::GetInstance() {
+    if (BarSpace::StubInternalBar::stubstubbarmanager_size > 0) {
+        return BarSpace::StubInternalBar::stubstubbarmanager_pool[0];
+    }
+    return reinterpret_cast< BarSpace::StubBar*>(0);
+}
+
+BarSpace::StubBar* StubStubBarManager::GetInstance(unsigned nth) {
+    if (BarSpace::StubInternalBar::stubstubbarmanager_size > nth) {
+        return BarSpace::StubInternalBar::stubstubbarmanager_pool[nth];
+    }
+    return reinterpret_cast< BarSpace::StubBar*>(0);
+}
+
+void StubBar::func5() {
+    Stub_data.func5().call_counter++;
+
+    if (Stub_data.func5().callback != 0) {
+        Stub_data.func5().callback->func5();
+    }
+}
+
+StubInternalBar::StubStubData& StubBar::GetStub() {
+    return Stub_data;
+}
+
+} //NS:BarSpace
+
+namespace StubInternalWarp {
+StubCallbackWarp::Ifunc2* Stubfunc2::GetCallback() {
+    return callback;
+}
+
+void Stubfunc2::SetCallback(StubCallbackWarp::Ifunc2* value) {
+    callback = value;
+}
+
+unsigned Stubfunc2::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc2::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc2* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc2);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackWarp::Ifunc3* Stubfunc3::GetCallback() {
+    return callback;
+}
+
+void Stubfunc3::SetCallback(StubCallbackWarp::Ifunc3* value) {
+    callback = value;
+}
+
+unsigned Stubfunc3::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc3::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc3* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc3);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackWarp::Ifunc4* Stubfunc4::GetCallback() {
+    return callback;
+}
+
+void Stubfunc4::SetCallback(StubCallbackWarp::Ifunc4* value) {
+    callback = value;
+}
+
+unsigned Stubfunc4::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc4::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc4* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc4);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_func2);
+    StubInit(&stub_func3);
+    StubInit(&stub_func4);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalWarp::Stubfunc2& StubStubData::func2() {
+    return stub_func2;
+}
+
+StubInternalWarp::Stubfunc3& StubStubData::func3() {
+    return stub_func3;
+}
+
+StubInternalWarp::Stubfunc4& StubStubData::func4() {
+    return stub_func4;
+}
+
+::StubWarp** stubstubwarpmanager_pool = 0;
+unsigned stubstubwarpmanager_size = 0;
+unsigned stubstubwarpmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubwarpmanager_pool == 0) {
+        stubstubwarpmanager_pool = new ::StubWarp*[2];
+        stubstubwarpmanager_size = 2;
+        stubstubwarpmanager_next = 0;
+    }
+    else {
+        ::StubWarp** old = stubstubwarpmanager_pool;
+        unsigned old_size = stubstubwarpmanager_size;
+        stubstubwarpmanager_size = stubstubwarpmanager_size * 2;
+        stubstubwarpmanager_pool = new ::StubWarp*[stubstubwarpmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubwarpmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubWarp* instance) {
+    if (stubstubwarpmanager_pool == 0 || stubstubwarpmanager_next == stubstubwarpmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubwarpmanager_pool[stubstubwarpmanager_next] = instance;
+    stubstubwarpmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubWarp* instance) {
+    for (unsigned i = 0; i < stubstubwarpmanager_size; ++i) {
+        if (stubstubwarpmanager_pool[i] == instance) {
+            stubstubwarpmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalWarp
+
+StubStubWarpManager::StubStubWarpManager() {
+}
+
+StubStubWarpManager::~StubStubWarpManager() {
+    for (unsigned i = 0; i < ::StubInternalWarp::stubstubwarpmanager_size; ++i) {
+        if (::StubInternalWarp::stubstubwarpmanager_pool[i] != 0) {
+            delete ::StubInternalWarp::stubstubwarpmanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalWarp::stubstubwarpmanager_pool;
+    ::StubInternalWarp::stubstubwarpmanager_pool = 0;
+    ::StubInternalWarp::stubstubwarpmanager_size = 0;
+    ::StubInternalWarp::stubstubwarpmanager_next = 0;
+}
+
+::StubWarp* StubStubWarpManager::GetInstance() {
+    if (::StubInternalWarp::stubstubwarpmanager_size > 0) {
+        return ::StubInternalWarp::stubstubwarpmanager_pool[0];
+    }
+    return reinterpret_cast< ::StubWarp*>(0);
+}
+
+::StubWarp* StubStubWarpManager::GetInstance(unsigned nth) {
+    if (::StubInternalWarp::stubstubwarpmanager_size > nth) {
+        return ::StubInternalWarp::stubstubwarpmanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubWarp*>(0);
+}
+
+void StubWarp::func2() {
+    Stub_data.func2().call_counter++;
+
+    if (Stub_data.func2().callback != 0) {
+        Stub_data.func2().callback->func2();
+    }
+}
+
+void StubWarp::func3() {
+    Stub_data.func3().call_counter++;
+
+    if (Stub_data.func3().callback != 0) {
+        Stub_data.func3().callback->func3();
+    }
+}
+
+void StubWarp::func4() {
+    Stub_data.func4().call_counter++;
+
+    if (Stub_data.func4().callback != 0) {
+        Stub_data.func4().callback->func4();
+    }
+}
+
+StubInternalWarp::StubStubData& StubWarp::GetStub() {
+    return Stub_data;
+}
+
+namespace StubInternalSmurf {
+StubCallbackSmurf::Ifunc2* Stubfunc2::GetCallback() {
+    return callback;
+}
+
+void Stubfunc2::SetCallback(StubCallbackSmurf::Ifunc2* value) {
+    callback = value;
+}
+
+unsigned Stubfunc2::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc2::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc2* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc2);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackSmurf::Ifunc3* Stubfunc3::GetCallback() {
+    return callback;
+}
+
+void Stubfunc3::SetCallback(StubCallbackSmurf::Ifunc3* value) {
+    callback = value;
+}
+
+unsigned Stubfunc3::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc3::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc3* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc3);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackSmurf::Ifunc5* Stubfunc5::GetCallback() {
+    return callback;
+}
+
+void Stubfunc5::SetCallback(StubCallbackSmurf::Ifunc5* value) {
+    callback = value;
+}
+
+unsigned Stubfunc5::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc5::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc5* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc5);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackSmurf::Ifunc4* Stubfunc4::GetCallback() {
+    return callback;
+}
+
+void Stubfunc4::SetCallback(StubCallbackSmurf::Ifunc4* value) {
+    callback = value;
+}
+
+unsigned Stubfunc4::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc4::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc4* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc4);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackSmurf::IStubDtor* StubStubDtor::GetCallback() {
+    return callback;
+}
+
+void StubStubDtor::SetCallback(StubCallbackSmurf::IStubDtor* value) {
+    callback = value;
+}
+
+unsigned StubStubDtor::GetCallCounter() const {
+    return call_counter;
+}
+
+void StubStubDtor::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(StubStubDtor* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(StubStubDtor);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_func2);
+    StubInit(&stub_func3);
+    StubInit(&stub_func5);
+    StubInit(&stub_func4);
+    StubInit(&stub_StubDtor);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalSmurf::Stubfunc2& StubStubData::func2() {
+    return stub_func2;
+}
+
+StubInternalSmurf::Stubfunc3& StubStubData::func3() {
+    return stub_func3;
+}
+
+StubInternalSmurf::Stubfunc5& StubStubData::func5() {
+    return stub_func5;
+}
+
+StubInternalSmurf::Stubfunc4& StubStubData::func4() {
+    return stub_func4;
+}
+
+StubInternalSmurf::StubStubDtor& StubStubData::StubDtor() {
+    return stub_StubDtor;
+}
+
+::StubSmurf** stubstubsmurfmanager_pool = 0;
+unsigned stubstubsmurfmanager_size = 0;
+unsigned stubstubsmurfmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubsmurfmanager_pool == 0) {
+        stubstubsmurfmanager_pool = new ::StubSmurf*[2];
+        stubstubsmurfmanager_size = 2;
+        stubstubsmurfmanager_next = 0;
+    }
+    else {
+        ::StubSmurf** old = stubstubsmurfmanager_pool;
+        unsigned old_size = stubstubsmurfmanager_size;
+        stubstubsmurfmanager_size = stubstubsmurfmanager_size * 2;
+        stubstubsmurfmanager_pool = new ::StubSmurf*[stubstubsmurfmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubsmurfmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubSmurf* instance) {
+    if (stubstubsmurfmanager_pool == 0 || stubstubsmurfmanager_next == stubstubsmurfmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubsmurfmanager_pool[stubstubsmurfmanager_next] = instance;
+    stubstubsmurfmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubSmurf* instance) {
+    for (unsigned i = 0; i < stubstubsmurfmanager_size; ++i) {
+        if (stubstubsmurfmanager_pool[i] == instance) {
+            stubstubsmurfmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalSmurf
+
+StubStubSmurfManager::StubStubSmurfManager() {
+}
+
+StubStubSmurfManager::~StubStubSmurfManager() {
+    for (unsigned i = 0; i < ::StubInternalSmurf::stubstubsmurfmanager_size; ++i) {
+        if (::StubInternalSmurf::stubstubsmurfmanager_pool[i] != 0) {
+            delete ::StubInternalSmurf::stubstubsmurfmanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalSmurf::stubstubsmurfmanager_pool;
+    ::StubInternalSmurf::stubstubsmurfmanager_pool = 0;
+    ::StubInternalSmurf::stubstubsmurfmanager_size = 0;
+    ::StubInternalSmurf::stubstubsmurfmanager_next = 0;
+}
+
+::StubSmurf* StubStubSmurfManager::GetInstance() {
+    if (::StubInternalSmurf::stubstubsmurfmanager_size > 0) {
+        return ::StubInternalSmurf::stubstubsmurfmanager_pool[0];
+    }
+    return reinterpret_cast< ::StubSmurf*>(0);
+}
+
+::StubSmurf* StubStubSmurfManager::GetInstance(unsigned nth) {
+    if (::StubInternalSmurf::stubstubsmurfmanager_size > nth) {
+        return ::StubInternalSmurf::stubstubsmurfmanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubSmurf*>(0);
+}
+
+void StubSmurf::func2() {
+    Stub_data.func2().call_counter++;
+
+    if (Stub_data.func2().callback != 0) {
+        Stub_data.func2().callback->func2();
+    }
+}
+
+void StubSmurf::func3() {
+    Stub_data.func3().call_counter++;
+
+    if (Stub_data.func3().callback != 0) {
+        Stub_data.func3().callback->func3();
+    }
+}
+
+void StubSmurf::func5() {
+    Stub_data.func5().call_counter++;
+
+    if (Stub_data.func5().callback != 0) {
+        Stub_data.func5().callback->func5();
+    }
+}
+
+void StubSmurf::func4() {
+    Stub_data.func4().call_counter++;
+
+    if (Stub_data.func4().callback != 0) {
+        Stub_data.func4().callback->func4();
+    }
+}
+
+StubSmurf::StubSmurf() {
+    ::StubInternalSmurf::StubStubManagerRegister(this);
+}
+
+StubSmurf::~StubSmurf() {
+    ::StubInternalSmurf::StubStubManagerUnRegister(this);
+    Stub_data.StubDtor().call_counter++;
+
+    if (Stub_data.StubDtor().callback != 0) {
+        Stub_data.StubDtor().callback->StubDtor();
+    }
+}
+
+StubInternalSmurf::StubStubData& StubSmurf::GetStub() {
+    return Stub_data;
+}
+
+namespace StubInternalDaddySmurf {
+StubCallbackDaddySmurf::Ifunc2* Stubfunc2::GetCallback() {
+    return callback;
+}
+
+void Stubfunc2::SetCallback(StubCallbackDaddySmurf::Ifunc2* value) {
+    callback = value;
+}
+
+unsigned Stubfunc2::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc2::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc2* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc2);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackDaddySmurf::Ifunc3* Stubfunc3::GetCallback() {
+    return callback;
+}
+
+void Stubfunc3::SetCallback(StubCallbackDaddySmurf::Ifunc3* value) {
+    callback = value;
+}
+
+unsigned Stubfunc3::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc3::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc3* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc3);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackDaddySmurf::Ifunc4* Stubfunc4::GetCallback() {
+    return callback;
+}
+
+void Stubfunc4::SetCallback(StubCallbackDaddySmurf::Ifunc4* value) {
+    callback = value;
+}
+
+unsigned Stubfunc4::GetCallCounter() const {
+    return call_counter;
+}
+
+void Stubfunc4::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(Stubfunc4* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(Stubfunc4);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubCallbackDaddySmurf::IStubDtor* StubStubDtor::GetCallback() {
+    return callback;
+}
+
+void StubStubDtor::SetCallback(StubCallbackDaddySmurf::IStubDtor* value) {
+    callback = value;
+}
+
+unsigned StubStubDtor::GetCallCounter() const {
+    return call_counter;
+}
+
+void StubStubDtor::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(StubStubDtor* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(StubStubDtor);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_func2);
+    StubInit(&stub_func3);
+    StubInit(&stub_func4);
+    StubInit(&stub_StubDtor);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalDaddySmurf::Stubfunc2& StubStubData::func2() {
+    return stub_func2;
+}
+
+StubInternalDaddySmurf::Stubfunc3& StubStubData::func3() {
+    return stub_func3;
+}
+
+StubInternalDaddySmurf::Stubfunc4& StubStubData::func4() {
+    return stub_func4;
+}
+
+StubInternalDaddySmurf::StubStubDtor& StubStubData::StubDtor() {
+    return stub_StubDtor;
+}
+
+::StubDaddySmurf** stubstubdaddysmurfmanager_pool = 0;
+unsigned stubstubdaddysmurfmanager_size = 0;
+unsigned stubstubdaddysmurfmanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubdaddysmurfmanager_pool == 0) {
+        stubstubdaddysmurfmanager_pool = new ::StubDaddySmurf*[2];
+        stubstubdaddysmurfmanager_size = 2;
+        stubstubdaddysmurfmanager_next = 0;
+    }
+    else {
+        ::StubDaddySmurf** old = stubstubdaddysmurfmanager_pool;
+        unsigned old_size = stubstubdaddysmurfmanager_size;
+        stubstubdaddysmurfmanager_size = stubstubdaddysmurfmanager_size * 2;
+        stubstubdaddysmurfmanager_pool = new ::StubDaddySmurf*[stubstubdaddysmurfmanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubdaddysmurfmanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubDaddySmurf* instance) {
+    if (stubstubdaddysmurfmanager_pool == 0 || stubstubdaddysmurfmanager_next == stubstubdaddysmurfmanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubdaddysmurfmanager_pool[stubstubdaddysmurfmanager_next] = instance;
+    stubstubdaddysmurfmanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubDaddySmurf* instance) {
+    for (unsigned i = 0; i < stubstubdaddysmurfmanager_size; ++i) {
+        if (stubstubdaddysmurfmanager_pool[i] == instance) {
+            stubstubdaddysmurfmanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalDaddySmurf
+
+StubStubDaddySmurfManager::StubStubDaddySmurfManager() {
+}
+
+StubStubDaddySmurfManager::~StubStubDaddySmurfManager() {
+    for (unsigned i = 0; i < ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_size; ++i) {
+        if (::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool[i] != 0) {
+            delete ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool;
+    ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool = 0;
+    ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_size = 0;
+    ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_next = 0;
+}
+
+::StubDaddySmurf* StubStubDaddySmurfManager::GetInstance() {
+    if (::StubInternalDaddySmurf::stubstubdaddysmurfmanager_size > 0) {
+        return ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool[0];
+    }
+    return reinterpret_cast< ::StubDaddySmurf*>(0);
+}
+
+::StubDaddySmurf* StubStubDaddySmurfManager::GetInstance(unsigned nth) {
+    if (::StubInternalDaddySmurf::stubstubdaddysmurfmanager_size > nth) {
+        return ::StubInternalDaddySmurf::stubstubdaddysmurfmanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubDaddySmurf*>(0);
+}
+
+void StubDaddySmurf::func2() {
+    Stub_data.func2().call_counter++;
+
+    if (Stub_data.func2().callback != 0) {
+        Stub_data.func2().callback->func2();
+    }
+}
+
+void StubDaddySmurf::func3() {
+    Stub_data.func3().call_counter++;
+
+    if (Stub_data.func3().callback != 0) {
+        Stub_data.func3().callback->func3();
+    }
+}
+
+void StubDaddySmurf::func4() {
+    Stub_data.func4().call_counter++;
+
+    if (Stub_data.func4().callback != 0) {
+        Stub_data.func4().callback->func4();
+    }
+}
+
+StubDaddySmurf::StubDaddySmurf() {
+    ::StubInternalDaddySmurf::StubStubManagerRegister(this);
+}
+
+StubDaddySmurf::~StubDaddySmurf() {
+    ::StubInternalDaddySmurf::StubStubManagerUnRegister(this);
+    Stub_data.StubDtor().call_counter++;
+
+    if (Stub_data.StubDtor().callback != 0) {
+        Stub_data.StubDtor().callback->StubDtor();
+    }
+}
+
+StubInternalDaddySmurf::StubStubData& StubDaddySmurf::GetStub() {
+    return Stub_data;
+}
+

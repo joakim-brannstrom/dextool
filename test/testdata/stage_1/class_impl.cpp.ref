@@ -1,0 +1,133 @@
+#include "stub_class_impl.hpp"
+
+namespace StubInternalSimple {
+StubCallbackSimple::IStubDtor* StubStubDtor::GetCallback() {
+    return callback;
+}
+
+void StubStubDtor::SetCallback(StubCallbackSimple::IStubDtor* value) {
+    callback = value;
+}
+
+unsigned StubStubDtor::GetCallCounter() const {
+    return call_counter;
+}
+
+void StubStubDtor::ResetCallCounter() {
+    call_counter = 0;
+}
+
+void StubInit(StubStubDtor* value) {
+    char* d = reinterpret_cast<char*>(value);
+    char* end = d + sizeof(StubStubDtor);
+    for (; d != end; ++d) {
+        *d = 0;
+    }
+}
+
+StubStubData::StubStubData() {
+    StubInit(&stub_StubDtor);
+}
+
+StubStubData::~StubStubData() {
+}
+
+StubInternalSimple::StubStubDtor& StubStubData::StubDtor() {
+    return stub_StubDtor;
+}
+
+::StubSimple** stubstubsimplemanager_pool = 0;
+unsigned stubstubsimplemanager_size = 0;
+unsigned stubstubsimplemanager_next = 0;
+
+void StubStubManagerGrowPool() {
+    if (stubstubsimplemanager_pool == 0) {
+        stubstubsimplemanager_pool = new ::StubSimple*[2];
+        stubstubsimplemanager_size = 2;
+        stubstubsimplemanager_next = 0;
+    }
+    else {
+        ::StubSimple** old = stubstubsimplemanager_pool;
+        unsigned old_size = stubstubsimplemanager_size;
+        stubstubsimplemanager_size = stubstubsimplemanager_size * 2;
+        stubstubsimplemanager_pool = new ::StubSimple*[stubstubsimplemanager_size];
+        for (unsigned i = 0; i < old_size; ++i) {
+            stubstubsimplemanager_pool[i] = old[i];
+        }
+        delete [] old;
+    }
+}
+
+void StubStubManagerRegister(::StubSimple* instance) {
+    if (stubstubsimplemanager_pool == 0 || stubstubsimplemanager_next == stubstubsimplemanager_size) {
+        StubStubManagerGrowPool();
+    }
+    stubstubsimplemanager_pool[stubstubsimplemanager_next] = instance;
+    stubstubsimplemanager_next += 1;
+}
+
+void StubStubManagerUnRegister(::StubSimple* instance) {
+    for (unsigned i = 0; i < stubstubsimplemanager_size; ++i) {
+        if (stubstubsimplemanager_pool[i] == instance) {
+            stubstubsimplemanager_pool[i] = 0;
+            break;
+        }
+    }
+}
+
+} //NS:StubInternalSimple
+
+StubStubSimpleManager::StubStubSimpleManager() {
+}
+
+StubStubSimpleManager::~StubStubSimpleManager() {
+    for (unsigned i = 0; i < ::StubInternalSimple::stubstubsimplemanager_size; ++i) {
+        if (::StubInternalSimple::stubstubsimplemanager_pool[i] != 0) {
+            delete ::StubInternalSimple::stubstubsimplemanager_pool[i];
+        }
+    }
+    delete [] ::StubInternalSimple::stubstubsimplemanager_pool;
+    ::StubInternalSimple::stubstubsimplemanager_pool = 0;
+    ::StubInternalSimple::stubstubsimplemanager_size = 0;
+    ::StubInternalSimple::stubstubsimplemanager_next = 0;
+}
+
+::StubSimple* StubStubSimpleManager::GetInstance() {
+    if (::StubInternalSimple::stubstubsimplemanager_size > 0) {
+        return ::StubInternalSimple::stubstubsimplemanager_pool[0];
+    }
+    return reinterpret_cast< ::StubSimple*>(0);
+}
+
+::StubSimple* StubStubSimpleManager::GetInstance(unsigned nth) {
+    if (::StubInternalSimple::stubstubsimplemanager_size > nth) {
+        return ::StubInternalSimple::stubstubsimplemanager_pool[nth];
+    }
+    return reinterpret_cast< ::StubSimple*>(0);
+}
+
+StubSimple::StubSimple() {
+    ::StubInternalSimple::StubStubManagerRegister(this);
+}
+
+StubSimple::StubSimple(char x) {
+    ::StubInternalSimple::StubStubManagerRegister(this);
+}
+
+StubSimple::StubSimple(int y) {
+    ::StubInternalSimple::StubStubManagerRegister(this);
+}
+
+StubSimple::~StubSimple() {
+    ::StubInternalSimple::StubStubManagerUnRegister(this);
+    Stub_data.StubDtor().call_counter++;
+
+    if (Stub_data.StubDtor().callback != 0) {
+        Stub_data.StubDtor().callback->StubDtor();
+    }
+}
+
+StubInternalSimple::StubStubData& StubSimple::GetStub() {
+    return Stub_data;
+}
+

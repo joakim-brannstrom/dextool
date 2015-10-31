@@ -1,0 +1,14 @@
+{
+    "name": "dsrcgen",
+    "description": "The semantic code generation framework for Dlang",
+    "copyright": "Copyright © 2014, Joakim Brännström",
+    "authors": ["Joakim Brännström"],
+    "license": "BSL-1.0",
+
+    "dependencies": {
+        "tested": {"version": ">=0.9.4"}
+    },
+
+    "targetType": "library",
+    "targetPath": "build"
+}

@@ -1,0 +1,8 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"logger": "0.3.1",
+		"tested": "0.9.4",
+		"docopt": "0.6.1-b.2"
+	}
+}
