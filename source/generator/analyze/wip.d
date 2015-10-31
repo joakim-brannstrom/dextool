@@ -18,17 +18,19 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module analyze.wip;
 
-import generator.stub.types;
+import std.typecons;
 
 import tested;
 
-shared static this() {
-    import std.exception;
+import translator.Type : TypeKind;
 
-    enforce(runUnitTests!(generator.analyze.wip)(new ConsoleTestResultWriter), "Unit tests failed.");
-}
+alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
+alias CppClassName = Typedef!(string, string.init, "CppClassName");
+alias CppVariable = Typedef!(string, string.init, "CppVariable");
 
-struct Method {
+alias TypeKindVariable = Tuple!(TypeKind, "type", CppVariable, "name");
+
+pure @safe nothrow struct CppMethod {
     CppMethodName name;
     TypeKindVariable[] params;
     TypeKindVariable return_type;
@@ -41,6 +43,9 @@ struct Method {
     }
 }
 
-struct MethodContainer {
-    Method[] methods;
+pure @safe nothrow struct CppMethodContainer {
+    CppMethod[] methods;
+}
+
+pure @safe nothrow struct CppClass {
 }
