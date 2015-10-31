@@ -59,8 +59,7 @@ function state_wait() {
 }
 
 function state_ut_run() {
-    # dub run -c unittest -b unittest
-    dub run -c wip
+    dub run -c unittest -b unittest
     check_status "Compile and run UnitTest"
 }
 

@@ -22,11 +22,14 @@
     "buildRequirements": ["requireBoundsCheck", "requireContracts"],
 
     "configurations": [
-        {"name": "release"},
+        {"name": "release",
+            "excludedSourceFiles" : ["source/wip_main.d", "source/generator/analyze"]
+        },
         {"name": "wip",
+            "targetName": "wip",
+            "buildType": "debugInfo",
             "mainSourceFile": "source/wip_main.d",
-            "excludedSourceFiles" : ["source/app.d"],
-            "targetName": "wip"
+            "excludedSourceFiles" : ["source/app.d", "source/app_main.d"]
         },
         {"name": "unittest",
             "targetName": "unittest",
