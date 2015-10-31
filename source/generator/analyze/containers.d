@@ -182,6 +182,23 @@ pure @safe nothrow struct CppMethod {
         return Result(params);
     }
 
+    string toString() {
+        import std.array : appender;
+        import std.algorithm : each;
+        import std.format : formattedWrite;
+        import std.range : takeOne;
+
+        auto ps = appender!string();
+        auto pr = paramRange();
+        pr.takeOne.each!(a => formattedWrite(ps, "%s %s", a.type.toString, a.name.str));
+        pr.each!(a => formattedWrite(ps, ", %s %s", a.type.toString, a.name.str));
+
+        auto rval = appender!string();
+        formattedWrite(rval, "%s %s(%s)", returnType.toString, name.str, ps.data);
+
+        return rval.data;
+    }
+
     invariant() {
         assert(name.length > 0);
         assert(returnType.name.length > 0);
@@ -236,6 +253,23 @@ pure @safe nothrow struct CppClass {
         }
 
         return Result(methods);
+    }
+
+    string toString() {
+        import std.array : appender;
+        import std.conv : to;
+        import std.algorithm : each;
+        import std.ascii : newline;
+        import std.format : formattedWrite;
+
+        auto r = appender!string();
+
+        formattedWrite(r, "class %s (isVirtual %s) {%s", name.str, to!string(isVirtual),
+            newline);
+        methodRange.each!(a => formattedWrite(r, "  %s%s", a.toString, newline));
+        formattedWrite(r, "}%s", newline);
+
+        return r.data;
     }
 
     invariant() {
@@ -305,6 +339,7 @@ unittest {
     auto m = CppMethod(CppMethodName("voider"));
     c.put(m);
     assert(c.methods.length == 1);
+    assert(c.toString == "class Foo (isVirtual No) {\n  void voider()\n}\n", c.toString);
 }
 
 //@name("Create an anonymous namespace struct")
@@ -322,4 +357,20 @@ unittest {
     auto n = CppNamespace(stack);
     assert(n.name == "bar", cast(string) n.name);
     assert(n.isAnonymous == false);
+}
+
+//@name("Test of iterating over parameters in a class")
+unittest {
+    import std.array : appender;
+
+    auto c = CppClass(CppClassName("Foo"));
+    auto m = CppMethod(CppMethodName("voider"));
+    c.put(m);
+
+    auto app = appender!string();
+    foreach (d; c.methodRange) {
+        app.put(d.toString);
+    }
+
+    assert(app.data == "void voider()", app.data);
 }
