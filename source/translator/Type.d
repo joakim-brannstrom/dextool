@@ -30,6 +30,8 @@ import clang.c.index : CXTypeKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
+public:
+
 /** Type information for a cursor.
  *
  * name is without any storage classes or operators. Example int.
@@ -53,6 +55,29 @@ pure @safe nothrow struct TypeKind {
 private:
     string full_name;
     Type t;
+}
+
+TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef, bool isPointer) pure @safe nothrow {
+    TypeKind t;
+    t.name = name;
+    t.full_name = fullName;
+    t.isConst = isConst;
+    t.isRef = isRef;
+    t.isPointer = isPointer;
+
+    return t;
+}
+
+/// Return a copy t_in but throws away the Type.
+TypeKind copy(const TypeKind t_in) pure @safe nothrow {
+    TypeKind t;
+    t.name = t_in.name;
+    t.full_name = t_in.full_name;
+    t.isConst = t_in.isConst;
+    t.isRef = t_in.isRef;
+    t.isPointer = t_in.isPointer;
+
+    return t;
 }
 
 /** Translate a cursors type to a struct representation.
