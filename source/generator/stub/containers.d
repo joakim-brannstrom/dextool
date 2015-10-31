@@ -20,15 +20,18 @@ module generator.stub.containers;
 
 import std.algorithm : each;
 import std.ascii : newline;
+import std.conv : to;
 import std.string : format;
 import std.typecons : Tuple;
 
 import logger = std.experimental.logger;
 
-import dsrcgen.cpp;
+import dsrcgen.cpp : CppModule, E;
 
 import generator.stub.convert : toString;
-import generator.stub.mangling;
+import generator.stub.mangling : NameMangling, mangleToStubDataClass,
+    mangleToStubClassName, mangleToStubDataClassInternalVariable,
+    mangleToStubStructType, mangleToStubStructMember;
 import generator.stub.types;
 
 import tested;

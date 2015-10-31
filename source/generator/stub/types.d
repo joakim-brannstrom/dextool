@@ -22,7 +22,7 @@ import std.typecons : Typedef, Tuple;
 
 import clang.c.index : CX_CXXAccessSpecifier;
 
-import dsrcgen.cpp;
+import dsrcgen.cpp : CppModule;
 
 import translator.Type : TypeKind;
 
