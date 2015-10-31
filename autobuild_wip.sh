@@ -1,6 +1,6 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.json $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/test/run_tests.sh"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.json $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/test/run_tests.sh $ROOT/test/run_wip_tests.sh"
 
 C_NONE='\e[m'
 C_RED='\e[1;31m'
@@ -64,12 +64,14 @@ function state_ut_run() {
 }
 
 function state_release_build() {
-    dub build -c release
-    check_status "Compile Release"
+    return 0
+    # dub build -c release
+    # check_status "Compile Release"
 }
 
 function state_release_test() {
-    return 0
+    test/run_wip_tests.sh
+    check_status "Test release"
 }
 
 function state_doc_build() {

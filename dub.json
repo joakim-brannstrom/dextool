@@ -15,7 +15,7 @@
     "sourcePaths": ["source", "clang"],
     "importPaths": ["source", "clang"],
     "stringImportPaths": ["clang/resources"],
-    "excludedSourceFiles" : ["source/wip_main.d"],
+    "excludedSourceFiles" : ["source/wip_main.d", "source/analyze"],
 
     "lflags-posix": ["-lclang", "-rpath", ".", "-L."],
     "targetType": "executable",
