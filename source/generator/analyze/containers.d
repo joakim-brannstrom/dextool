@@ -41,6 +41,9 @@ alias CppReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
 
 // Types for classes
 alias CppClassName = Typedef!(string, string.init, "CppClassName");
+
+///TODO should be Optional type, either it has a nesting or it is "global".
+/// Don't check the length and use that as an insidential "no nesting".
 alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
 
 alias CppClassVirtual = Typedef!(VirtualType, VirtualType.No, "CppClassVirtual");
@@ -139,7 +142,7 @@ pure @safe nothrow struct CFunction {
         return rval.data;
     }
 
-    immutable CFunctionName name; /// Function name.
+    immutable CFunctionName name;
 
 private:
     CParam[] params;

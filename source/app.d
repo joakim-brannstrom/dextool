@@ -25,8 +25,7 @@ int main(string[] args) {
     version (unittest) {
         writeln(`This application does nothing. Run with "dub build -bunittest"`);
         return 0;
-    }
-    else {
+    } else {
         return rmain(args);
     }
 }
