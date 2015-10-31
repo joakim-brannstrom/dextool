@@ -150,6 +150,7 @@ pure @safe nothrow struct CppMethod {
         }
     }
 
+private:
     immutable bool isConst;
     immutable VirtualType isVirtual;
     CppMethodName name;
@@ -174,6 +175,8 @@ pure @safe nothrow struct CppClass {
     }
 
     immutable VirtualType isVirtual;
+
+private:
     CppClassName name;
     CppMethod[] methods;
 }
