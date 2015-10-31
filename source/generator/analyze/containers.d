@@ -42,7 +42,10 @@ alias CppReturnType = Typedef!(TypeKind, TypeKind.init, "CppReturnType");
 // Types for classes
 alias CppClassName = Typedef!(string, string.init, "CppClassName");
 alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
-alias CppVirtualClass = Typedef!(VirtualType, VirtualType.No, "CppVirtualClass");
+
+alias CppClassVirtual = Typedef!(VirtualType, VirtualType.No, "CppClassVirtual");
+alias CppClassInherit = Tuple!(CppClassName, "name", CppClassNesting,
+    "nesting", CppAccess, "access");
 
 // Types for methods
 alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
@@ -324,9 +327,19 @@ pure @safe nothrow struct CppClass {
 
     @disable this();
 
-    this(const CppClassName name, const CppVirtualClass virtual = VirtualType.No) {
+    this(const CppClassName name, const CppClassVirtual virtual, const CppClassInherit[] inherits) {
         this.name = name;
-        this.isVirtual = cast(TypedefType!CppVirtualClass) virtual;
+        this.isVirtual = cast(TypedefType!CppClassVirtual) virtual;
+        this.inherits = inherits.dup;
+    }
+
+    this(const CppClassName name, const CppClassVirtual virtual) {
+        this(name, virtual, CppClassInherit[].init);
+    }
+
+    /// A plain class, no virtual.
+    this(const CppClassName name) {
+        this(name, CppClassVirtual(VirtualType.No));
     }
 
     void put(T)(T func) @trusted nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
@@ -405,6 +418,7 @@ pure @safe nothrow struct CppClass {
 
 private:
     CppClassName name;
+    CppClassInherit[] inherits;
 
     alias CppFunc = Algebraic!(CppMethod, CppTorMethod);
     CppFunc[] methods_pub;

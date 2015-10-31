@@ -30,5 +30,6 @@ build/wip test/testdata/stage_1/class_const.hpp
 build/wip test/testdata/stage_1/class_funcs.hpp
 build/wip test/testdata/stage_1/class_impl.hpp
 build/wip test/testdata/stage_1/class_in_ns.hpp
+build/wip test/testdata/stage_1/class_inherit.hpp
 
 exit 0

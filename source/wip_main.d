@@ -167,7 +167,7 @@ private:
  * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
-    import generator.analyze.containers : CppClassName, CppVirtualClass,
+    import generator.analyze.containers : CppClassName, CppClassVirtual,
         CppClass, VirtualType;
     import std.typecons : NullableRef;
 
@@ -175,7 +175,7 @@ struct ClassVisitor {
      */
     static auto make(ref Cursor c) {
         auto name = CppClassName(c.spelling);
-        auto isVirtual = CppVirtualClass(c.isVirtualBase ? VirtualType.Pure : VirtualType.No);
+        auto isVirtual = CppClassVirtual(c.isVirtualBase ? VirtualType.Pure : VirtualType.No);
 
         auto r = ClassVisitor(name, isVirtual);
         return r;
@@ -183,7 +183,7 @@ struct ClassVisitor {
 
     @disable this();
 
-    private this(CppClassName name, CppVirtualClass virtual) {
+    private this(CppClassName name, CppClassVirtual virtual) {
         this.data = CppClass(name, virtual);
     }
 
