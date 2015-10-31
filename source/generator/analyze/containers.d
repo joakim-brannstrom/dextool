@@ -21,7 +21,6 @@ module generator.analyze.containers;
 import std.typecons;
 
 
-import translator.Type : TypeKind, makeTypeKind, copy;
 
 
 private:
@@ -66,12 +65,12 @@ pure @safe nothrow struct CFunction {
 
     this(const CFunctionName name, const CParam[] params_, const CReturnType return_type) {
         this.name = name;
-        this.returnType = copy(cast(const TypedefType!CReturnType) return_type);
+        this.returnType_ = duplicate(cast(const TypedefType!CReturnType) return_type);
 
         //TODO how do you replace this with a range?
         CParam[] tmp;
         foreach (p; params_) {
-            tmp ~= CParam(TypeKindVariable(copy(p.type), p.name));
+            tmp ~= CParam(TypeKindVariable(duplicate(p.type), p.name));
         }
         this.params = tmp;
     }
@@ -110,14 +109,14 @@ pure @safe nothrow struct CppMethod {
     this(const CppMethodName name, const CppParam[] params_,
         const CppReturnType return_type, const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name = name;
-        this.returnType = copy(cast(const TypedefType!CppReturnType) return_type);
+        this.returnType = duplicate(cast(const TypedefType!CppReturnType) return_type);
         this.isConst = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
 
         //TODO how do you replace this with a range?
         CppParam[] tmp;
         foreach (p; params_) {
-            tmp ~= CppParam(TypeKindVariable(copy(p.type), p.name));
+            tmp ~= CppParam(TypeKindVariable(duplicate(p.type), p.name));
         }
         this.params = tmp;
     }

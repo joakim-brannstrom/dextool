@@ -24,6 +24,7 @@ module translator.Type;
 //import std.array;
 import std.conv : to;
 import std.string : format;
+import std.traits;
 import logger = std.experimental.logger;
 
 import clang.c.index : CXTypeKind;
@@ -68,15 +69,17 @@ TypeKind makeTypeKind(string name, string fullName, bool isConst, bool isRef, bo
     return t;
 }
 
-/// Return a copy t_in but throws away the Type.
-TypeKind copy(const TypeKind t_in) pure @safe nothrow {
-    TypeKind t;
-    t.name = t_in.name;
-    t.full_name = t_in.full_name;
-    t.isConst = t_in.isConst;
-    t.isRef = t_in.isRef;
-    t.isPointer = t_in.isPointer;
+/// Return a duplicate.
+/// Side effect is that the the cursor is thrown away.
+TypeKind duplicate(T)(T t_in) pure @safe nothrow {
+    TypeKind t = makeTypeKind(t_in.name, t_in.full_name, t_in.isConst, t_in.isRef,
+        t_in.isPointer);
+    return t;
+}
 
+immutable(TypeKind) iduplicate(T)(T t_in) pure @safe nothrow if (!isMutable!T) {
+    immutable(TypeKind) t = makeTypeKind(t_in.name, t_in.full_name,
+        t_in.isConst, t_in.isRef, t_in.isPointer);
     return t;
 }
 
