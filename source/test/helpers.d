@@ -42,7 +42,7 @@ version (unittest) {
  *  line = line check is on.
  * dfmt off
  */
-void shouldEqualPretty(V, E)(V value, E expected, in string file = __FILE__, in ulong line = __LINE__) {
+void shouldEqualPretty(V, E, string file = __FILE__, ulong line = __LINE__)(V value, E expected) {
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
@@ -53,6 +53,25 @@ void shouldEqualPretty(V, E)(V value, E expected, in string file = __FILE__, in 
     }
 
     shouldEqual(count(value), count(expected), file, line);
+}
+
+@name("shouldEqualPretty should throw the first value that is different")
+unittest {
+    import unit_threaded : UnitTestException;
+
+    string msg;
+    try {
+        auto value = [0, 2, 1];
+        auto expected = [0, 1, 2];
+        shouldEqualPretty!(typeof(value), typeof(expected), "file.d", 123)(value, expected);
+
+        assert(false, "Didn't throw exception");
+    }
+    catch (UnitTestException ex) {
+        msg = ex.toString;
+    }
+    //shouldEqualPretty(msg, "foo");
+    shouldEqual(msg, "foo");
 }
 
 /**
@@ -68,8 +87,9 @@ void shouldEqualPretty(V, E)(V value, E expected, in string file = __FILE__, in 
  *
  *  dfmt off
  */
-void shouldEqualPretty(V, E, Separator sep)(V value, E expected,
-    in string file = __FILE__, in ulong line = __LINE__) {
+void shouldEqualPretty(V, E, Separator, string file = __FILE__, ulong line= __LINE__)(V value, E expected, Separator sep)
+    if (!isAllSomeString!(V, E))
+{
     //dfmt on
     import std.algorithm : count;
     import std.range : lockstep;
@@ -79,8 +99,33 @@ void shouldEqualPretty(V, E, Separator sep)(V value, E expected,
     auto rValue = value.splitter(sep);
     auto rExpected = expected.splitter(sep);
 
-    shouldEqualPretty(rValue, rExpected, file, line);
+    shouldEqualPretty!(typeof(rValue), typeof(rExpected), file, line)(rValue, rExpected);
+}
+
+/**
+ * Verify that two strings are the same.
+ * Performs tests per line to better isolate when a difference is found.
+ *
+ * Throws: UnitTestException on failure
+ * Params:
+ *  value = actual value.
+ *  expected = expected value.
+ *  file = file check is in.
+ *  line = line check is on.
+ *
+ * dfmt off
+ */
+void shouldEqualPretty(V, E, string file = __FILE__, ulong line = __LINE__)(V value, E expected, string sep = newline)
+    if (isAllSomeString!(V, E))
+{
+    // dfmt on
+    import std.algorithm : splitter;
+
+    auto rValue = value.splitter(sep);
+    auto rExpected = expected.splitter(sep);
+
+    shouldEqualPretty!(typeof(rValue), typeof(rExpected), file, line)(rValue, rExpected);
 }
 
 private:
-enum isAllSomeString(T0, T1, T2) = isSomeString!T0 && isSomeString!T1 && isSomeString!T2;
+enum isAllSomeString(T0, T1) = isSomeString!T0 && isSomeString!T1;
