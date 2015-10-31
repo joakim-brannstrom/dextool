@@ -24,8 +24,6 @@ import dsrcgen.cpp;
 
 import generator.stub.types;
 
-public:
-
 /** Translate an access specifier to code suitable for a c++ header.
  * It is on purpuse that node is initialized to hdr. If the access specifier is
  * invalid then no harm is done by returning it.

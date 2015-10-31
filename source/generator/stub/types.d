@@ -18,8 +18,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.stub.types;
 
-private:
-
 import std.typecons;
 
 import clang.c.index;
@@ -27,8 +25,6 @@ import clang.c.index;
 import dsrcgen.cpp;
 
 import translator.Type : TypeKind;
-
-public:
 
 /// Prefix used for prepending generated code with a unique string to avoid name collisions.
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
@@ -43,7 +39,6 @@ alias CppNsStack = CppNs[];
 
 alias HdrFilename = Typedef!(string, string.init, "HeaderFilename");
 
-package:
 //TODO use the following typedefs in CppHdrImpl to avoid confusing hdr and impl.
 alias CppModuleHdr = Typedef!(CppModule, CppModule.init, "CppHeader");
 alias CppModuleImpl = Typedef!(CppModule, CppModule.init, "CppImplementation");

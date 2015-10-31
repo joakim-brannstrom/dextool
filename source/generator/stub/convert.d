@@ -18,8 +18,6 @@
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 module generator.stub.convert;
 
-private:
-
 import std.array : join;
 import logger = std.experimental.logger;
 
@@ -28,8 +26,6 @@ import clang.Cursor;
 import translator.Type : TypeKind, translateType;
 
 import generator.stub.types;
-
-package:
 
 /// Convert a vector of TypeName to string pairs.
 auto toStrings(const TypeName[] vars) pure @safe nothrow {

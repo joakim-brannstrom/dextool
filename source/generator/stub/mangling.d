@@ -32,8 +32,6 @@ import translator.Type;
 
 import generator.stub.types;
 
-public:
-
 ///TODO future name changes.
 /// Variable -> Identifier
 
@@ -78,8 +76,7 @@ private auto mangleToVariable(const CppMethodName method) pure nothrow @safe {
 
         if (!callback_method.isNull)
             rval = callback_method;
-    }
-    else {
+    } else {
         rval = method.str;
     }
 
@@ -243,8 +240,7 @@ auto mangleToStubDataGetter(const CppMethodName method, const TypeKindVariable[]
     auto tmp = mangleToVariable(method);
     if (!tmp.isNull) {
         getter = tmp.get;
-    }
-    else {
+    } else {
         try {
             //TODO catch the specific exception thrown by logger instead of the
             /// "everything and kitchen sink" Exception.
