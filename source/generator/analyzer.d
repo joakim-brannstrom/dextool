@@ -83,7 +83,28 @@ void logNode(int line = __LINE__, string file = __FILE__,
         c.location.spelling.line, c.location.spelling.column, c.abilities);
 }
 
-/// T is module type.
+/// Keep track of the depth in the AST.
+struct VisitNodeDepth {
+public:
+    /// Increment the AST depth.
+    void incr() {
+        level++;
+    }
+
+    /// Pop the stack if depth matches depth of top element of stack.
+    void decr() {
+        level--;
+    }
+
+    /// Return: AST depth when traversing.
+    @property auto depth() {
+        return level;
+    }
+
+private:
+    int level;
+}
+
 /** Stack useful when visiting the AST.
  * Could be used to know what node to attach code in.
  * Params:
