@@ -66,7 +66,7 @@ struct FunctionVisitor {
  * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
-    import generator.analyze.containers : CppClass, CppMethodAccess, CppParam,
+    import generator.analyze.containers : CppClass, CppAccess, CppParam,
         CppMethodName, CppTorMethod, CppVirtualMethod, VirtualType,
         CppReturnType, CppMethod, CppConstMethod;
     import std.typecons : NullableRef;
@@ -79,7 +79,7 @@ struct ClassDescendVisitor {
             throw new Exception("CppClass parameter is null");
         }
         this.data = &data.get();
-        this.accessType = CppMethodAccess(AccessType.Private);
+        this.accessType = CppAccess(AccessType.Private);
     }
 
     void visit(ref Cursor c) {
@@ -107,7 +107,7 @@ struct ClassDescendVisitor {
             descend = false;
             break;
         case CXCursor_CXXAccessSpecifier:
-            this.accessType = CppMethodAccess(toAccessType(c.access.accessSpecifier));
+            this.accessType = CppAccess(toAccessType(c.access.accessSpecifier));
             break;
         case CXCursor_CXXBaseSpecifier:
             break;
@@ -157,7 +157,7 @@ private:
 
 private:
     CppClass* data;
-    CppMethodAccess accessType;
+    CppAccess accessType;
 }
 
 /** Extract information about a class.

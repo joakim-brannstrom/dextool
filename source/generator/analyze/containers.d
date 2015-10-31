@@ -48,7 +48,7 @@ alias CppVirtualClass = Typedef!(VirtualType, VirtualType.No, "CppVirtualClass")
 alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
 alias CppConstMethod = Typedef!(bool, bool.init, "CppConstMethod");
 alias CppVirtualMethod = Typedef!(VirtualType, VirtualType.No, "CppVirtualMethod");
-alias CppMethodAccess = Typedef!(AccessType, AccessType.Private, "CppMethodAccess");
+alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
 
 // Types for free functions
 alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
@@ -147,8 +147,8 @@ private:
 pure @safe nothrow struct CppTorMethod {
     @disable this();
 
-    this(const CppMethodName name, const CppParam[] params_,
-        const CppMethodAccess access, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CppParam[] params_, const CppAccess access,
+        const CppVirtualMethod virtual) {
         this.name = name;
         this.accessType = access;
         this.isVirtual = cast(TypedefType!CppVirtualMethod) virtual;
@@ -207,7 +207,7 @@ pure @safe nothrow struct CppTorMethod {
     }
 
     immutable VirtualType isVirtual;
-    immutable CppMethodAccess accessType;
+    immutable CppAccess accessType;
 
 private:
     CppMethodName name;
@@ -218,7 +218,7 @@ pure @safe nothrow struct CppMethod {
     @disable this();
 
     this(const CppMethodName name, const CppParam[] params_,
-        const CppReturnType return_type, const CppMethodAccess access,
+        const CppReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name = name;
         this.returnType = duplicate(cast(const TypedefType!CppReturnType) return_type);
@@ -236,12 +236,12 @@ pure @safe nothrow struct CppMethod {
 
     /// Function with no parameters.
     this(const CppMethodName name, const CppReturnType return_type,
-        const CppMethodAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+        const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
         this(name, CppParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
-    this(const CppMethodName name, const CppMethodAccess access,
+    this(const CppMethodName name, const CppAccess access,
         const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
         CppReturnType void_ = makeTypeKind("void", "void", false, false, false);
         this(name, CppParam[].init, void_, access, const_, virtual);
@@ -310,7 +310,7 @@ pure @safe nothrow struct CppMethod {
 
     immutable bool isConst;
     immutable VirtualType isVirtual;
-    immutable CppMethodAccess accessType;
+    immutable CppAccess accessType;
 
 private:
     CppMethodName name;
@@ -330,7 +330,7 @@ pure @safe nothrow struct CppClass {
     }
 
     void put(T)(T func) @trusted nothrow if (is(T == CppMethod) || is(T == CppTorMethod)) {
-        final switch (cast(TypedefType!CppMethodAccess) func.accessType) {
+        final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
             break;
@@ -564,7 +564,7 @@ unittest {
 
 //@name("Test of creating simples CppMethod")
 unittest {
-    auto m = CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public));
+    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     assert(m.isConst == false);
     assert(m.isVirtual == VirtualType.No);
     assert(m.name == "voider");
@@ -576,7 +576,7 @@ unittest {
 //@name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public));
+    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     assert(c.methods_pub.length == 1);
     assert(
@@ -606,7 +606,7 @@ unittest {
     import std.array : appender;
 
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public));
+    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
 
     auto app = appender!string();
@@ -633,9 +633,9 @@ unittest {
     auto p = [CppParam(TypeKindVariable(tk, CppVariable("x")))];
 
     auto ctor = CppTorMethod(CppMethodName("ctor"), p,
-        CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
     auto dtor = CppTorMethod(CppMethodName("~dtor"), CppParam[].init,
-        CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
+        CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.Yes));
 
     assert(ctor.toString == "ctor(char* x)", ctor.toString);
     assert(dtor.toString == "virtual ~dtor()", dtor.toString);
@@ -644,18 +644,18 @@ unittest {
 //@name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    c.put(CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public)));
+    c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
 
     {
         auto m = CppTorMethod(CppMethodName("Foo"), CppParam[].init,
-            CppMethodAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
+            CppAccess(AccessType.Public), CppVirtualMethod(VirtualType.No));
         c.put(m);
     }
 
     {
         auto tk = makeTypeKind("int", "int", false, false, false);
         auto m = CppMethod(CppMethodName("fun"), CppReturnType(tk),
-            CppMethodAccess(AccessType.Protected), CppConstMethod(false),
+            CppAccess(AccessType.Protected), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
         c.put(m);
     }
@@ -663,7 +663,7 @@ unittest {
     {
         auto m = CppMethod(CppMethodName("gun"),
             CppReturnType(makeTypeKind("char", "char*", false, false, true)),
-            CppMethodAccess(AccessType.Private), CppConstMethod(false),
+            CppAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(VirtualType.No));
         m.put(CppParam(TypeKindVariable(makeTypeKind("int", "int", false,
             false, false), CppVariable("x"))));
@@ -675,8 +675,7 @@ unittest {
     {
         auto m = CppMethod(CppMethodName("wun"),
             CppReturnType(makeTypeKind("int", "int", false, false, true)),
-            CppMethodAccess(AccessType.Public), CppConstMethod(true),
-            CppVirtualMethod(VirtualType.No));
+            CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.No));
         c.put(m);
     }
 
@@ -699,7 +698,7 @@ unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
     auto c = CppClass(CppClassName("Foo"));
-    c.put(CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public)));
+    c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
     ns.put(c);
 
     assert(ns.toString == "namespace simple { //simple
@@ -731,7 +730,7 @@ unittest {
     }
 
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppMethodAccess(AccessType.Public));
+    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     root.put(c);
 
