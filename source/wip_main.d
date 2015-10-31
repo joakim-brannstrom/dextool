@@ -40,16 +40,13 @@ struct ClassVisitor {
     import generator.analyze.containers : CppClass, CppClassName, VirtualType,
         CppVirtualClass;
 
-    /** By making ClassVisitor via this static function it is guaranteed that
-     * the same Cursor that the name and virtuality is derived from is the same
-     * that is used to visit the AST.
+    /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
     static ClassVisitor make(ref Cursor c) {
         auto name = CppClassName(c.spelling);
         auto isVirtual = CppVirtualClass(c.isVirtualBase ? VirtualType.Pure : VirtualType.No);
 
         auto r = ClassVisitor(name, isVirtual);
-        r.visit(c);
         return r;
     }
 
@@ -59,11 +56,13 @@ struct ClassVisitor {
         data = CppClass(name, virtual);
     }
 
-    void visit(ref Cursor c) {
+    auto visit(ref Cursor c) {
         if (!c.isDefinition) {
-            return;
+            return data;
         }
         wip.visitAst!(typeof(this))(c, this);
+
+        return data;
     }
 
     bool apply(ref Cursor child, ref Cursor parent) {
@@ -84,6 +83,7 @@ struct ClassVisitor {
         return descend;
     }
 
+private:
     CppClass data;
 }
 
@@ -114,6 +114,7 @@ struct EntryContext {
 }
 
 int main(string[] args) {
+    logger.globalLogLevel(logger.LogLevel.all);
     logger.info("WIP mode");
     if (args.length < 2) {
         logger.info("Unittesting");

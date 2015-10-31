@@ -24,6 +24,8 @@ import std.typecons;
 
 import translator.Type : TypeKind, makeTypeKind, duplicate;
 
+import logger = std.experimental.logger;
+
 public:
 
 /// Name of a C++ namespace.
@@ -85,24 +87,10 @@ pure @safe nothrow struct CFunction {
         this(name, CParam[].init, void_);
     }
 
-    auto paramRange() {
-        static struct Result {
-            @property empty() {
-                return params.length == 0;
-            }
+    auto paramRange() @nogc @safe pure nothrow {
+        import std.array;
 
-            @property ref CParam front() {
-                return params[0];
-            }
-
-            void popFront() {
-                params = params[1 .. $];
-            }
-
-            CParam[] params;
-        }
-
-        return Result(params);
+        return params[];
     }
 
     invariant() {
@@ -158,31 +146,13 @@ pure @safe nothrow struct CppMethod {
         this(name, CppParam[].init, void_, const_, virtual);
     }
 
-    auto paramRange() {
-        static struct Result {
-            this(CppParam[] p) {
-                params = p;
-            }
+    auto paramRange() @nogc @safe pure nothrow {
+        import std.array;
 
-            @property bool empty() {
-                return params.length == 0;
-            }
-
-            @property ref CppParam front() {
-                return params[0];
-            }
-
-            void popFront() {
-                params = params[1 .. $];
-            }
-
-            CppParam[] params;
-        }
-
-        return Result(params);
+        return params[];
     }
 
-    string toString() {
+    string toString() @safe pure {
         import std.array : appender;
         import std.algorithm : each;
         import std.format : formattedWrite;
@@ -231,31 +201,13 @@ pure @safe nothrow struct CppClass {
         methods ~= method;
     }
 
-    auto methodRange() {
-        static struct Result {
-            this(CppMethod[] m) {
-                methods = m;
-            }
+    auto methodRange() @safe pure {
+        import std.array;
 
-            @property bool empty() const {
-                return methods.length == 0;
-            }
-
-            @property ref CppMethod front() {
-                return methods[0];
-            }
-
-            void popFront() {
-                methods = methods[1 .. $];
-            }
-
-            CppMethod[] methods;
-        }
-
-        return Result(methods);
+        return methods[];
     }
 
-    string toString() {
+    string toString() @safe pure {
         import std.array : appender;
         import std.conv : to;
         import std.algorithm : each;
@@ -286,6 +238,15 @@ private:
 pure @safe nothrow struct CppNamespace {
     @disable this();
 
+    static auto makeAnonymous() {
+        return CppNamespace(CppNsStack.init);
+    }
+
+    /// A namespace without any nesting.
+    static auto makeSimple(string name) {
+        return CppNamespace([CppNs(name)]);
+    }
+
     this(const CppNsStack stack) {
         if (stack.length > 0) {
             this.name = stack[$ - 1];
@@ -300,6 +261,78 @@ pure @safe nothrow struct CppNamespace {
 
     void put(CppClass s) {
         classes ~= s;
+    }
+
+    /** The implementation of the stack is such that new elements are appended
+     * to the end. Therefor the range normal direction is from the end of the
+     * array to the beginning.
+     */
+    auto nsNestingRange() @nogc @safe pure nothrow {
+        static @nogc struct Result {
+            CppNsStack stack;
+            @property auto front() @safe pure nothrow {
+                assert(!empty, "Can't get front of an empty range");
+                return stack[$ - 1];
+            }
+
+            @property auto back() @safe pure nothrow {
+                assert(!empty, "Can't get back of an empty range");
+                return stack[0];
+            }
+
+            @property void popFront() @safe pure nothrow {
+                assert(!empty, "Can't pop front of an empty range");
+                stack = stack[0 .. $ - 1];
+            }
+
+            @property void popBack() @safe pure nothrow {
+                assert(!empty, "Can't pop back of an empty range");
+                stack = stack[1 .. $];
+            }
+
+            @property bool empty() @safe pure nothrow const {
+                return stack.length == 0;
+            }
+
+            @property auto save() @safe pure nothrow {
+                return Result(stack);
+            }
+        }
+
+        return Result(stack);
+    }
+
+    auto classRange() @nogc @safe pure nothrow {
+        import std.array;
+
+        return classes[];
+    }
+
+    auto funcRange() @nogc @safe pure nothrow {
+        import std.array;
+
+        return funcs[];
+    }
+
+    string toString() @safe pure {
+        import std.array : appender;
+        import std.algorithm : each;
+        import std.format : formattedWrite;
+        import std.range : takeOne, retro, dropOne;
+        import std.ascii : newline;
+
+        auto ns_app = appender!string();
+        auto ns_r = nsNestingRange().retro;
+        ns_r.takeOne.each!(a => ns_app.put(a.str));
+        ns_r.popFront;
+        ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
+
+        auto app = appender!string();
+        formattedWrite(app, "namespace %s {%s", ns_app.data, newline);
+
+        formattedWrite(app, "}%s", newline);
+
+        return app.data;
     }
 
     immutable bool isAnonymous;
@@ -322,6 +355,36 @@ pure @safe nothrow struct Root {
 
     void put(CppNamespace ns) {
         this.ns ~= ns;
+    }
+
+    string toString() {
+        import std.algorithm : each;
+        import std.array : appender;
+        import std.format : formattedWrite;
+
+        auto app = appender!string();
+
+        namespaceRange.each!(a => app.put(a.toString));
+
+        return app.data;
+    }
+
+    auto namespaceRange() @nogc @safe pure nothrow {
+        import std.array;
+
+        return ns[];
+    }
+
+    auto classRange() @nogc @safe pure nothrow {
+        import std.array;
+
+        return classes[];
+    }
+
+    auto funcRange() @nogc @safe pure nothrow {
+        import std.array;
+
+        return funcs[];
     }
 
 private:
@@ -391,4 +454,18 @@ unittest {
     }
 
     assert(app.data == "void voider()", app.data);
+}
+
+//@name("Test of printing root")
+unittest {
+    Root root;
+
+    auto c = CppClass(CppClassName("Foo"));
+    auto m = CppMethod(CppMethodName("voider"));
+    c.put(m);
+    root.put(c);
+
+    root.put(CppNamespace.makeSimple("simple"));
+
+    assert(root.toString == "", root.toString);
 }
