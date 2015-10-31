@@ -16,7 +16,7 @@
 /// You should have received a copy of the GNU General Public License
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-module app;
+module wipapp.wip_main;
 
 import std.conv;
 import std.typecons : Nullable, Flag;
@@ -367,27 +367,30 @@ struct ParseContext {
     CppRoot root;
 }
 
-int main(string[] args) {
-    import std.stdio : writeln;
+version (unittest) {
+} else {
+    int main(string[] args) {
+        import std.stdio : writeln;
 
-    logger.globalLogLevel(logger.LogLevel.all);
-    logger.info("WIP mode");
-    if (args.length < 2) {
-        logger.info("Unittesting");
+        logger.globalLogLevel(logger.LogLevel.all);
+        logger.info("WIP mode");
+        if (args.length < 2) {
+            logger.info("Unittesting");
+            return 0;
+        }
+
+        auto infile = to!string(args[1]);
+        auto file_ctx = new ClangContext(infile);
+        file_ctx.logDiagnostic;
+        if (file_ctx.hasParseErrors)
+            return 1;
+
+        logger.infof("Testing '%s'", infile);
+
+        ParseContext foo;
+        foo.visit(file_ctx.cursor);
+        writeln("Content from root: ", foo.root.toString);
+
         return 0;
     }
-
-    auto infile = to!string(args[1]);
-    auto file_ctx = new ClangContext(infile);
-    file_ctx.logDiagnostic;
-    if (file_ctx.hasParseErrors)
-        return 1;
-
-    logger.infof("Testing '%s'", infile);
-
-    ParseContext foo;
-    foo.visit(file_ctx.cursor);
-    writeln("Content from root: ", foo.root.toString);
-
-    return 0;
 }

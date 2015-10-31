@@ -16,7 +16,7 @@
 /// You should have received a copy of the GNU General Public License
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-module app_main;
+module application.app_main;
 
 import std.conv;
 import std.exception;
@@ -276,8 +276,7 @@ void prepare_env(ref ArgValue[string] parsed) {
     try {
         if (parsed["--debug"].isTrue) {
             logger.globalLogLevel(logger.LogLevel.all);
-        }
-        else {
+        } else {
             logger.globalLogLevel(logger.LogLevel.info);
             auto simple_logger = new SimpleLogger();
             logger.sharedLog(simple_logger);
@@ -309,16 +308,12 @@ ExitStatusType do_test_double(ref ArgValue[string] parsed) {
     if (func_scope == FileScopeType.Invalid) {
         logger.error("Usage error: --func-scope must be either of: [all, virtual]");
         writeln(doc);
-    }
-
-    else if (parsed["stub"].isTrue) {
+    } else if (parsed["stub"].isTrue) {
         exit_status = gen_stub(parsed["FILE"].toString, parsed["-d"].toString,
             cflags, file_scope, func_scope);
-    }
-    else if (parsed["mock"].isTrue) {
+    } else if (parsed["mock"].isTrue) {
         logger.error("Mock generation not implemented yet");
-    }
-    else {
+    } else {
         logger.error("Usage error");
         writeln(doc);
     }

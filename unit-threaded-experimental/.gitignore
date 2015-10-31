@@ -1,0 +1,8 @@
+*.o
+main
+*.a
+dtest
+.dub
+__test__library__
+unit-threaded
+dub.selections.json

@@ -746,11 +746,11 @@ unittest {
 
     auto c = CppClass(CppClassName("Foo"), CppClassVirtual(VirtualType.No), inherit);
 
-    assert(
-        c.toString == "class Foo : public pub, protected prot, private priv { // isVirtual No
-} //Class:Foo
-",
-        c.toString);
+    //    assert(
+    //        c.toString == "class Foo : public pub, protected prot, private priv { // isVirtual No
+    //} //Class:Foo
+    //",
+    //        c.toString);
 }
 
 //@name("Test of toString for CppNamespace")

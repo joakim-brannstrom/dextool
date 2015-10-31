@@ -1,6 +1,6 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/unit-threaded-experimental"
 if [[ -e "$ROOT/test/run_wip_tests.sh" ]]; then
     INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_wip_tests.sh"
 fi
@@ -65,7 +65,7 @@ function state_wait() {
 }
 
 function state_ut_run() {
-    dub run -c wip -b unittest-cov
+    dub run -c wip-unittest -b unittest-cov
     check_status "Compile and run UnitTest"
 }
 
