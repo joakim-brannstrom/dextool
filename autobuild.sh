@@ -63,6 +63,7 @@ function state_wait() {
 
 function state_ut_run() {
     $ROOT/build.sh run -c unittest -b unittest-cov
+    # $ROOT/build.sh run -c unittest -b unittest-cov -- -d -s
     check_status "Compile and run UnitTest"
 }
 
