@@ -4,7 +4,7 @@ import unit_threaded;
 
 int main(string[] args) {
     writeln("\nAutomatically generated file ../test/wip_ut_main.d");
-    writeln(`Running unit tests from dirs ["generator", "translator", "wipapp"]`);
+    writeln(`Running unit tests from dirs ["generator", "translator", "test", "wipapp"]`);
     //dfmt off
     return args.runTests!(
                           "generator.stub.classes.class_methods",
@@ -17,13 +17,14 @@ int main(string[] args) {
                           "generator.stub.convert",
                           "generator.stub.misc",
                           "generator.stub.types",
-                          "generator.stub.containers",
                           "generator.stub.manager",
+                          "generator.stub.containers",
                           "generator.analyze.wip",
                           "generator.analyze.containers",
                           "generator.clangcontext",
                           "generator.analyzer",
                           "translator.Type",
+                          "test.helpers",
                           "wipapp.wip_main"
                           );
     //dfmt on
