@@ -189,13 +189,23 @@ pure @safe nothrow struct CppNamespace {
         this.stack = stack.dup;
     }
 
-    CppNs name;
-    CppClass[] classes;
-    CFunction[] funcs;
+    void put(CFunction f) {
+        funcs ~= f;
+    }
+
+    void put(CppClass s) {
+        classes ~= s;
+    }
+
     immutable bool isAnonymous;
+    immutable CppNs name;
 
 private:
     CppNsStack stack;
+    CppClass[] classes;
+    CFunction[] funcs;
+}
+
 }
 
 //@name("Test of creating a function")
