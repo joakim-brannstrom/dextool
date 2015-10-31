@@ -19,14 +19,8 @@
 module app;
 
 import std.stdio;
-import tested;
-import wip = generator.analyze.wip;
 
-shared static this() {
-    import core.runtime;
-
-    Runtime.moduleUnitTester = () => true;
-}
+import wip = analyze.wip;
 
 void main() {
     writeln("WIP mode");
