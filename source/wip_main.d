@@ -34,6 +34,35 @@ import generator.analyze.containers : AccessType;
 
 import generator.stub.misc;
 
+/// Seems more complicated than it need to be but the goal is to keep the
+/// API the same.
+struct FunctionVisitor {
+    import generator.analyze.containers : CParam, CFunctionName, CReturnType,
+        CFunction;
+
+    static auto make(ref Cursor) {
+        return typeof(this)(true);
+    }
+
+    @disable this();
+
+    private this(bool dummy) {
+    }
+
+    auto visit(ref Cursor c) {
+        import translator.Type : TypeKind, translateType;
+
+        auto params = paramDeclTo!CParam(c);
+        auto name = CFunctionName(c.spelling);
+        auto return_type = CReturnType(translateType(c.func.resultType));
+
+        auto func = CFunction(name, params, return_type);
+        logger.info("function: ", func.toString);
+
+        return func;
+    }
+}
+
 /** Descend a class cursor to extract interior information.
  * C'tors, d'tors, member methods etc.
  * Cleanly separates the functionality for initializing the container for a
