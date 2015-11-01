@@ -1,0 +1,8 @@
+{
+	"name": "myscript",
+	"targetType": "executable",
+	"mainSourceFile": "myscript.d",
+	"dependencies": {
+		"scriptlike": "~>0.9.4"
+	}
+}
