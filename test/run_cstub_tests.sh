@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-C_NONE='\e[m'
-C_RED='\e[1;31m'
-C_YELLOW='\e[1;33m'
-C_GREEN='\e[1;32m'
+TOOL_BIN=$(readlink -f ../build)"/dextool-debug"
+if [[ $# -eq 1 ]]; then
+    TOOL_BIN=$1
+fi
+TOOL_BIN="$TOOL_BIN ctestdouble"
 
 source ./func_tests.sh
 
@@ -18,7 +19,6 @@ source ./func_tests.sh
 #  - Implement tests that uses the generated stubs.
 
 setup_test_env
-TOOL_BIN="$TOOL_BIN ctestdouble"
 
 echo "Stage 1"
 ROOT_DIR="testdata/cstub/stage_1"

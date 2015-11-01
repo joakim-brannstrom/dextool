@@ -16,6 +16,19 @@ test ! -d build && mkdir build
 
 trap "cleanup" INT
 
+RELEASE_TYPE="debug"
+if [[ $# -eq 1 ]]; then
+    RELEASE_TYPE=$1
+    shift 1
+fi
+
+case "$RELEASE_TYPE" in
+    *profile*)
+        TOOL_BIN=$(readlink -f ./build)"/dextool-profile" ;;
+    *)
+        TOOL_BIN=$(readlink -f ./build)"/dextool-debug" ;;
+esac
+
 # init
 # wait
 # ut_run
@@ -35,6 +48,8 @@ DOC_CNT=9 # force a rebuild on first pass. then reset to 0.
 DOC_MAX_CNT=9
 
 function cleanup() {
+    cd $ROOT
+    find test -maxdepth 1 -iname "trace.*" -delete
     find . -iname "*.lst" -delete
     exit 0
 }
@@ -86,13 +101,18 @@ function state_ut_cov() {
 }
 
 function state_release_build() {
-    $ROOT/build.sh build -c debug
-    check_status "Compile Release"
+    case "$RELEASE_TYPE" in
+        *profile*)
+            $ROOT/build.sh build -c $RELEASE_TYPE -b profile ;;
+        *)
+            $ROOT/build.sh build -c $RELEASE_TYPE ;;
+    esac
+    check_status "Compile Release - $RELEASE_TYPE"
 }
 
 function state_release_test() {
     pushd test
-    ./run_cstub_tests.sh
+    ./run_cstub_tests.sh "$TOOL_BIN"
     check_status "Release Tests"
     popd
 }

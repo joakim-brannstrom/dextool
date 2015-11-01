@@ -25,9 +25,20 @@ buildType "unittest-cov" {
     buildOptions "unittests" "debugMode" "debugInfo" "coverage"
 }
 
+buildType "release-profile" {
+    buildOptions "profile" "releaseMode" "inline" "optimize"
+}
+
 configuration "release" {
     targetType "executable"
     buildType "release"
+    excludedSourceFiles "source/test/*.d"
+}
+
+configuration "profile" {
+    targetName "dextool-profile"
+    targetType "executable"
+    buildType "release-profile"
     excludedSourceFiles "source/test/*.d"
 }
 

@@ -1,7 +1,11 @@
 #!/bin/bash
 
+C_NONE='\e[m'
+C_RED='\e[1;31m'
+C_YELLOW='\e[1;33m'
+C_GREEN='\e[1;32m'
+
 DEFAULT_COMPILE_FLAGS="-std=c++03"
-TOOL_BIN="$(readlink -f ../build/dextool-debug)"
 
 function check_status() {
     CHECK_STATUS_RVAL=$?
@@ -10,6 +14,19 @@ function check_status() {
         echo -e "${C_GREEN}=== $MSG OK ===${C_NONE}"
     else
         echo -e "${C_RED}=== $MSG ERROR ===${C_NONE}"
+    fi
+}
+
+function show_profile_log() {
+    if [[ -e trace.log ]]; then
+        local PROFLOG="trace.demangle.log"
+        set +e
+        ddemangle trace.log > $PROFLOG
+        set -e
+        read -p "Profile at $PROFLOG, Press enter to continue, s to stop: "
+        if [[ "$REPLY" -eq "s" ]]; then
+            exit 0
+        fi
     fi
 }
 

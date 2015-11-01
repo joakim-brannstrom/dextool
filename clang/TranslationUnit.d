@@ -8,7 +8,6 @@
 module clang.TranslationUnit;
 
 import std.string;
-import std.typecons;
 
 import clang.c.index;
 import clang.Cursor;
@@ -19,9 +18,11 @@ import clang.Util;
 import clang.Visitor;
 
 struct TranslationUnit {
+    import std.typecons : Nullable;
+
     mixin CX;
 
-    static RefCounted!TranslationUnit parse(Index index, string sourceFilename,
+    static TranslationUnit parse(Index index, string sourceFilename,
         string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
         uint options = CXTranslationUnit_Flags.CXTranslationUnit_None) {
 
@@ -30,7 +31,7 @@ struct TranslationUnit {
             toCArray!(CXUnsavedFile)(unsavedFiles), cast(uint) unsavedFiles.length,
             options);
 
-        auto r = RefCounted!TranslationUnit();
+        auto r = TranslationUnit();
         r = TranslationUnit(p);
 
         return r;
