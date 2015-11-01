@@ -1103,12 +1103,6 @@ pure @safe nothrow struct CppNamespace {
         }
     }
 
-    invariant() {
-        foreach (s; stack) {
-            assert(s.length > 0);
-        }
-    }
-
 private:
     bool isAnonymous_;
     CppNs name_;
