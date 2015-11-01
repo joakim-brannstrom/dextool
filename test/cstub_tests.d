@@ -184,6 +184,101 @@ void stage1() {
 
 void stage2() {
     writeln("Stage 2");
+
+    auto root = Path("testdata/cstub/stage_2");
+    auto files = dirEntries(root, "*.{h,hpp}", SpanMode.shallow);
+
+    foreach (f; files) {
+        auto input_ext = Path(f);
+        auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
+        auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
+        auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
+        auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
+
+        print(Color.yellow, "[ Run ] ", input_ext);
+        auto params = ["--debug"];
+        auto incls = ["-I" ~ (root ~ "include").toString];
+        switch (input_ext.baseName.toString) {
+        case "no_overwrite.h":
+            copy(root ~ "no_overwrite_pre_includes.hpp",
+                Path(OUTDIR) ~ "test_double_pre_includes.hpp");
+            copy(root ~ "no_overwrite_post_includes.hpp",
+                Path(OUTDIR) ~ "test_double_post_includes.hpp");
+            runDextool(input_ext, params ~ ["--gen-pre-incl",
+                "--gen-post-incl"], incls ~ ["-DPRE_INCLUDES"]);
+            break;
+        case "no_overwrite_post_includes.hpp":
+        case "no_overwrite_pre_includes.hpp":
+            continue;
+
+        case "param_exclude_many_files.h":
+            runDextool(input_ext,
+                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString,
+                `--file-exclude='.*/include/b\.[h,c]'`], incls);
+            break;
+        case "param_exclude_match_all.h":
+            runDextool(input_ext,
+                params ~ ["--file-exclude=.*/param_exclude_match_all.",
+                `--file-exclude='.*/include/b\.c'`], incls);
+            break;
+        case "param_exclude_one_file.h":
+            runDextool(input_ext,
+                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], incls);
+            break;
+        case "param_gen_pre_post_include.h":
+            runDextool(input_ext, params ~ ["--gen-pre-incl", "--gen-post-incl"], incls);
+            break;
+        case "param_include.h":
+            runDextool(input_ext, params ~ ["--td-include=b.h", "--td-include=stdio.h"],
+                incls);
+            break;
+        case "param_restrict.h":
+            runDextool(input_ext,
+                params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
+                "--file-restrict=.*/include/b.h"], incls);
+            break;
+
+        default:
+            runDextool(input_ext, params, incls);
+        }
+
+        print(Color.yellow, "Comparing");
+        auto input = input_ext.stripExtension;
+        switch (input_ext.baseName.toString) {
+        case "no_overwrite.h":
+            compareResult(GR(input.up ~ "no_overwrite_pre_includes.hpp",
+                Path(OUTDIR) ~ "test_double_pre_includes.hpp"),
+                GR(input.up ~ "no_overwrite_post_includes.hpp",
+                Path(OUTDIR) ~ "test_double_post_includes.hpp"));
+            break;
+        case "param_gen_pre_post_include.h":
+            compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
+                GR(input ~ Ext(".cpp.ref"), out_impl),
+                GR(input.up ~ "param_gen_pre_includes.hpp.ref",
+                Path(OUTDIR) ~ "test_double_pre_includes.hpp"),
+                GR(input.up ~ "param_gen_post_includes.hpp.ref",
+                Path(OUTDIR) ~ "test_double_post_includes.hpp"));
+            break;
+
+        default:
+            compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
+                GR(input ~ Ext(".cpp.ref"), out_impl),
+                GR(Path(input.toString ~ "_global.cpp.ref"), out_global),
+                GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
+        }
+
+        print(Color.yellow, "Compiling");
+        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
+        auto mainf = Path("main1.cpp");
+        incls ~= "-I" ~ input_ext.dirName.toString;
+        switch (input_ext.baseName.toString) {
+        default:
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
+        }
+
+        print(Color.green, "[  OK ] ", input_ext);
+        cleanTestEnv();
+    }
 }
 
 int main(string[] args) {
