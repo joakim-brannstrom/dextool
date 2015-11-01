@@ -1,11 +1,6 @@
 #!/bin/bash
 set -e
 
-C_NONE='\e[m'
-C_RED='\e[1;31m'
-C_YELLOW='\e[1;33m'
-C_GREEN='\e[1;32m'
-
 TOOL_BIN=$(readlink -f ../build)"/dextool-debug"
 if [[ $# -eq 1 ]]; then
     TOOL_BIN=$1

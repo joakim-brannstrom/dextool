@@ -1,5 +1,10 @@
 #!/bin/bash
 
+C_NONE='\e[m'
+C_RED='\e[1;31m'
+C_YELLOW='\e[1;33m'
+C_GREEN='\e[1;32m'
+
 DEFAULT_COMPILE_FLAGS="-std=c++03"
 
 function check_status() {
