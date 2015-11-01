@@ -1,7 +1,7 @@
 #!/bin/bash
 ROOT=$PWD
 INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
-INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/run_cstub_tests.sh"
+INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/cstub_tests.d"
 
 C_NONE='\e[m'
 C_RED='\e[1;31m'
@@ -112,7 +112,7 @@ function state_release_build() {
 
 function state_release_test() {
     pushd test
-    ./run_cstub_tests.sh "$TOOL_BIN"
+    ./cstub_tests.sh "$TOOL_BIN"
     check_status "Release Tests"
     popd
 }
