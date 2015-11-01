@@ -8,7 +8,6 @@
 module clang.TranslationUnit;
 
 import std.string;
-import std.typecons;
 
 import clang.c.index;
 import clang.Cursor;
@@ -19,6 +18,8 @@ import clang.Util;
 import clang.Visitor;
 
 struct TranslationUnit {
+    import std.typecons : Nullable;
+
     mixin CX;
 
     static TranslationUnit parse(Index index, string sourceFilename,
