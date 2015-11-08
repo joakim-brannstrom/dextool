@@ -9,7 +9,8 @@ module clang.TranslationUnit;
 
 import std.string;
 
-import clang.c.index;
+import deimos.clang.index;
+
 import clang.Cursor;
 import clang.Diagnostic;
 import clang.File;

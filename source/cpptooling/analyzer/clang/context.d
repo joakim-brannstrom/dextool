@@ -91,7 +91,7 @@ bool isValid(ref ClangContext context) {
  * Return: True if errors where found.
  */
 bool hasParseErrors(ref ClangContext context) {
-    import clang.c.index : CXDiagnosticSeverity;
+    import deimos.clang.index : CXDiagnosticSeverity;
 
     if (!context.isValid)
         return true;
@@ -121,7 +121,7 @@ bool hasParseErrors(ref ClangContext context) {
 
 /// Log diagnostic error messages to std.logger.
 void logDiagnostic(ref ClangContext context) {
-    import clang.c.index : CXDiagnosticSeverity;
+    import deimos.clang.index : CXDiagnosticSeverity;
 
     auto dia = context.translation_unit.diagnostics;
 

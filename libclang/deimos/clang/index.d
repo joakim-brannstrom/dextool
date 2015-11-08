@@ -13,15 +13,13 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module clang.c.index;
+module deimos.clang.index;
 
 import core.stdc.config;
 import core.stdc.time;
 
-public import clang.c.cxerrorcode;
-public import clang.c.cxstring;
-
-/* reason for empty lines is to match line numbers with original c header */
+public import deimos.clang.cxerrorcode;
+public import deimos.clang.cxstring;
 
 /**
  * \brief The version constants for the libclang API.
@@ -52,6 +50,7 @@ enum CINDEX_VERSION_STRING = CINDEX_VERSION_STRINGIZE(CINDEX_VERSION_MAJOR, CIND
 
 extern (C):
 
+/* empty to match line numbers withh original c header */
 
 /** \defgroup CINDEX libclang: C Interface to Clang
  *
@@ -78,6 +77,7 @@ extern (C):
  */
 alias CXIndex = void*;
 
+///
 struct CXTranslationUnitImpl;
 
 /**

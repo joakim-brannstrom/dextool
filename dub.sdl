@@ -11,8 +11,8 @@ dependency "dsrcgen" path="dsrcgen"
 
 targetPath "build"
 mainSourceFile "source/application/app.d"
-sourcePaths "source" "clang"
-importPaths "source" "clang"
+sourcePaths "source" "clang" "libclang/deimos/clang"
+importPaths "source" "clang" "libclang"
 stringImportPaths "clang/resources"
 
 dflags "-dip25"

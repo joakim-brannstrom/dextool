@@ -16,7 +16,8 @@ import std.conv;
 import std.string;
 import std.typecons;
 
-import clang.c.index;
+import deimos.clang.index;
+
 import clang.File;
 import clang.SourceLocation;
 import clang.SourceRange;

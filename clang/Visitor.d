@@ -6,7 +6,8 @@
  */
 module clang.Visitor;
 
-import clang.c.index;
+import deimos.clang.index;
+
 import clang.Cursor;
 import clang.TranslationUnit;
 

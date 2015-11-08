@@ -8,8 +8,8 @@ import std.conv;
 import std.string;
 import std.typecons;
 
-import clang.c.index;
-import clang.c.cxstring;
+import deimos.clang.index;
+
 import clang.Cursor;
 import clang.SourceLocation;
 import clang.SourceRange;

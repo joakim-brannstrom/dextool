@@ -7,7 +7,7 @@
 
 module clang.Diagnostic;
 
-import clang.c.index;
+import deimos.clang.index;
 import clang.Util;
 
 struct Diagnostic {

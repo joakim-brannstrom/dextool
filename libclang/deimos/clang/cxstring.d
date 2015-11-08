@@ -11,7 +11,7 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module clang.c.cxstring;
+module deimos.clang.cxstring;
 
 extern (C):
 
