@@ -113,3 +113,17 @@ void compileResult(Path input, Path main, string[] flags, string[] incls) {
     run(args.data);
     run(binout.toString);
 }
+
+void demangleProfileLog(Path out_fname) {
+    .scriptlikeEcho = true;
+    scope (exit)
+        .scriptlikeEcho = false;
+
+    Args args;
+    args ~= "ddemangle";
+    args ~= "trace.log";
+    args ~= ">";
+    args ~= out_fname.toString;
+
+    run(args.data);
+}
