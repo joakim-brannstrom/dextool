@@ -12,7 +12,8 @@ import std.conv;
 import std.string;
 import std.experimental.logger;
 
-import clang.c.index;
+import deimos.clang.index;
+
 import clang.SourceLocation;
 import clang.Util;
 

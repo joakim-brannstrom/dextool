@@ -26,7 +26,7 @@ import std.string : format;
 import std.traits;
 import logger = std.experimental.logger;
 
-import clang.c.index : CXTypeKind;
+import deimos.clang.index : CXTypeKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
@@ -437,7 +437,7 @@ body {
         }
 
         void convToken(long idx, Token t) {
-            import clang.c.index : CXTokenKind;
+            import deimos.clang.index : CXTokenKind;
             import std.algorithm : among;
 
             tok = t.spelling;

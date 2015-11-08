@@ -11,7 +11,7 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module clang.c.cxerrorcode;
+module deimos.clang.cxerrorcode;
 
 extern (C):
 

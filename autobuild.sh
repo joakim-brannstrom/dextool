@@ -1,6 +1,6 @@
 #!/bin/bash
 ROOT=$PWD
-INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
+INOTIFY_PATH="$ROOT/source $ROOT/clang $ROOT/libclang $ROOT/dub.sdl $ROOT/dsrcgen/source $ROOT/test/testdata $ROOT/experimental"
 INOTIFY_PATH="$INOTIFY_PATH $ROOT/test/cstub_tests.d"
 
 C_NONE='\e[m'

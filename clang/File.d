@@ -15,7 +15,8 @@ module clang.File;
 
 import core.stdc.time;
 
-import clang.c.index;
+import deimos.clang.index;
+
 import clang.Util;
 
 /// The File class represents a particular source file that is part of a translation unit.

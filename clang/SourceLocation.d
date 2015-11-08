@@ -14,8 +14,8 @@ module clang.SourceLocation;
 
 import std.typecons;
 
-import clang.c.index;
-import clang.c.cxstring;
+import deimos.clang.index;
+
 import clang.File;
 import clang.TranslationUnit;
 import clang.Util;

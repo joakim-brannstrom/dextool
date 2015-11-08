@@ -12,7 +12,7 @@
  */
 module clang.Compiler;
 
-import clang.c.index;
+import deimos.clang.index;
 
 struct Compiler {
     import std.algorithm : any, map;
