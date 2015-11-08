@@ -80,7 +80,13 @@ void runDextool(Path input, string[] pre_args, string[] flags) {
         args ~= flags;
     }
 
+    import std.datetime;
+
+    StopWatch sw;
+    sw.start;
     run(args.data);
+    sw.stop;
+    print(Color.yellow, "time in ms: " ~ sw.peek().msecs.text);
 }
 
 void compareResult(T...)(T args) {
