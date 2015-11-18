@@ -8,7 +8,7 @@ int main(string[] args) {
     return args.runTests!(
                           "cpptooling.analyzer.type",
                           "cpptooling.analyzer.clang.context",
-                          "cpptooling.analyzer.clang.Type",
+                          "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.visitor",
                           "cpptooling.data.representation",
                           "cpptooling.generator.stub.cstub",
