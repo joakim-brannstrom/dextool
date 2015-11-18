@@ -19,7 +19,7 @@
 /// You should have received a copy of the GNU General Public License
 /// along with this program; if not, write to the Free Software
 /// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-module translator.Type;
+module cpptooling.analyzer.clang.Type;
 
 import std.conv : to;
 import std.string : format;
@@ -30,7 +30,7 @@ import deimos.clang.index : CXTypeKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
-public:
+public import cpptooling.analyzer.type;
 
 private void logType(ref Type type) {
     // dfmt off
@@ -42,75 +42,6 @@ private void logType(ref Type type) {
                         type.typeKindSpelling));
     }
     // dfmt on
-}
-
-/** Type information for a cursor.
- *
- * txt is type, qualifiers and storage class. For example const int *.
- */
-pure @safe nothrow @nogc struct TypeKind {
-    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
-
-    /** The type 'int x[2][3]'
-     * elementType = int
-     * indexes = [2][3]
-     * fmt = %s %s%s
-     */
-    static struct ArrayInfo {
-        string elementType;
-        string indexes;
-        string fmt;
-    }
-
-    /** The type 'extern int (*e_g)(int pa)'
-     * fmt = int (*%s)(int pa)
-     *
-     * TODO improve formatting with more separation, f.e return, ptr and args.
-     */
-    static struct FuncPtrInfo {
-        string fmt;
-    }
-
-    /** Textual representation of simple types.
-     *
-     * The type const int x would be:
-     *
-     * TODO add the following:
-     * fmt = const int %s
-     */
-    static struct SimpleInfo {
-        string fmt;
-    }
-
-    /// Formatting information needed to reproduce the type and identifier.
-    static union InternalInfo {
-        typeof(null) null_;
-        SimpleInfo simple;
-        ArrayInfo array;
-        FuncPtrInfo funcPtr;
-    }
-
-    alias Info = TaggedAlgebraic!InternalInfo;
-    Info info;
-
-    bool isConst;
-    bool isRef;
-    bool isPointer;
-    bool isFuncPtr;
-    bool isArray;
-
-    /** The full type with storage classes and operators.
-     * Example
-     * ---
-     * const int&
-     * ---
-     */
-    string toString() @property const {
-        return txt;
-    }
-
-private:
-    string txt;
 }
 
 private nothrow struct WrapTypeKind {
@@ -131,32 +62,6 @@ private nothrow struct WrapTypeKind {
 
     Type type;
     TypeKind typeKind;
-}
-
-///TODO change thhe bools to using the Flag from typecons
-TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
-    bool isFuncPtr = false, bool isArray = false) pure @safe nothrow {
-    TypeKind t;
-    t.info = TypeKind.SimpleInfo(txt ~ " %s");
-    t.txt = txt;
-    t.isConst = isConst;
-    t.isRef = isRef;
-    t.isPointer = isPointer;
-    t.isFuncPtr = isFuncPtr;
-    t.isArray = isArray;
-
-    return t;
-}
-
-/// Return a duplicate.
-/// Side effect is that the the cursor is thrown away.
-/// TODO investigate how this can be done withh opAssign and postblit.
-TypeKind duplicate(T)(T t_in) pure @safe nothrow {
-    TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
-        t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
-    t.info = t_in.info;
-
-    return t;
 }
 
 /** Translate a cursors type to a struct representation.

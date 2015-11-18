@@ -434,7 +434,7 @@ void generateStub(CppRoot r, StubController ctrl, StubParameters params,
 void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import translator.Type : TypeKind;
+    import cpptooling.analyzer.type : TypeKind;
 
     auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
     auto ifndef = code.IFNDEF(d_name);
@@ -459,7 +459,7 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     import std.format : format;
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import translator.Type : TypeKind;
+    import cpptooling.analyzer.type : TypeKind;
 
     auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
 
