@@ -22,6 +22,9 @@ module application.ctestdouble;
 
 import logger = std.experimental.logger;
 
+import application.types;
+import application.utility;
+
 import cpptooling.generator.stub.cstub : StubGenerator, StubController,
     StubParameters, StubProducts;
 
@@ -297,4 +300,40 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             break;
         }
     }
+}
+
+/// TODO refactor, doing too many things.
+ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
+    import std.exception;
+    import std.path : baseName, buildPath, stripExtension;
+    import std.file : exists;
+    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.visitor;
+
+    if (!exists(cast(string) variant.getInputFile)) {
+        logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
+        return ExitStatusType.Errors;
+    }
+
+    auto cflags = prependLangFlagIfMissing(in_cflags);
+
+    auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
+    logDiagnostic(file_ctx);
+    if (file_ctx.hasParseErrors)
+        return ExitStatusType.Errors;
+
+    auto ctx = ParseContext();
+    ctx.visit(file_ctx.cursor);
+
+    // process and put the data in variant.
+    StubGenerator(variant, variant, variant).process(ctx.root);
+
+    foreach (p; variant.file_data) {
+        auto status = tryWriting(cast(string) p.filename, p.data);
+        if (status != ExitStatusType.Ok) {
+            return ExitStatusType.Errors;
+        }
+    }
+
+    return ExitStatusType.Ok;
 }

@@ -27,6 +27,7 @@ import argvalue; // from docopt
 import dsrcgen.cpp;
 
 import application.ctestdouble;
+import application.types;
 
 import cpptooling.analyzer.clang.context;
 import cpptooling.analyzer.clang.visitor;
@@ -95,11 +96,6 @@ Generate a C test double excluding data from specified files.
   The file holding the test double is written to directory outdata.
 ";
 
-enum ExitStatusType {
-    Ok,
-    Errors
-}
-
 class SimpleLogger : logger.Logger {
     import std.conv;
 
@@ -126,124 +122,8 @@ class SimpleLogger : logger.Logger {
     }
 }
 
-///TODO don't catch Exception, catch the specific.
-auto tryOpenFile(string filename, string mode) @trusted nothrow {
-    import std.exception;
-    import std.typecons : Unique;
-
-    Unique!File rval;
-
-    try {
-        rval = Unique!File(new File(filename, mode));
-    }
-    catch (Exception ex) {
-    }
-    if (rval.isEmpty) {
-        try {
-            logger.errorf("Unable to read/write file '%s'", filename);
-        }
-        catch (Exception ex) {
-        }
-    }
-
-    return rval;
-}
-
-///TODO don't catch Exception, catch the specific.
-auto tryWriting(string fname, string data) @trusted nothrow {
-    import std.exception;
-
-    static auto action(string fname, string data) {
-        auto f = tryOpenFile(fname, "w");
-
-        if (f.isEmpty) {
-            return ExitStatusType.Errors;
-        }
-        scope (exit)
-            f.close();
-
-        f.write(data);
-
-        return ExitStatusType.Ok;
-    }
-
-    auto status = ExitStatusType.Errors;
-
-    try {
-        status = action(fname, data);
-    }
-    catch (Exception ex) {
-    }
-
-    try {
-        if (status != ExitStatusType.Ok) {
-            logger.error("Failed to write to file ", fname);
-        }
-    }
-    catch (Exception ex) {
-    }
-
-    return status;
-}
-
-/// TODO refactor, doing too many things.
-ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
-    import std.exception;
-    import std.path : baseName, buildPath, stripExtension;
-    import std.file : exists;
-    import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.visitor;
-
-    if (!exists(cast(string) variant.getInputFile)) {
-        logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
-        return ExitStatusType.Errors;
-    }
-
-    auto cflags = prependLangFlagIfMissing(in_cflags);
-
-    auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
-    logDiagnostic(file_ctx);
-    if (file_ctx.hasParseErrors)
-        return ExitStatusType.Errors;
-
-    auto ctx = ParseContext();
-    ctx.visit(file_ctx.cursor);
-
-    // process and put the data in variant.
-    StubGenerator(variant, variant, variant).process(ctx.root);
-
-    foreach (p; variant.file_data) {
-        auto status = tryWriting(cast(string) p.filename, p.data);
-        if (status != ExitStatusType.Ok) {
-            return ExitStatusType.Errors;
-        }
-    }
-
-    return ExitStatusType.Ok;
-}
-
-///TODO move to clang module.
-auto prependLangFlagIfMissing(string[] in_cflags) {
-    import std.algorithm : findAmong;
-    import std.experimental.testing : writelnUt;
-
-    auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
-
-    if (v is null) {
-        return ["-xc"] ~ in_cflags;
-    }
-
-    return in_cflags.dup;
-}
-
-unittest {
-    import test.helpers : shouldEqualPretty;
-
-    auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
-    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags));
-}
-
 void prepareEnv(ref ArgValue[string] parsed) {
+    import std.exception;
     import std.experimental.logger.core : sharedLog;
 
     try {
@@ -322,6 +202,7 @@ void printArgs(ref ArgValue[string] parsed) nothrow {
 
 int rmain(string[] args) nothrow {
     import std.conv;
+    import std.exception;
 
     string errmsg, tracemsg;
     ExitStatusType exit_status = ExitStatusType.Errors;
