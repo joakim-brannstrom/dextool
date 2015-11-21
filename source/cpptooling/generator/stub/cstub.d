@@ -25,22 +25,12 @@ import std.experimental.testing : name;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
+import application.types;
+
 version (unittest) {
     import test.helpers : shouldEqualPretty;
     import std.experimental.testing : shouldEqual;
 }
-
-/** Prefix used for prepending generated code with a unique string to avoid
- * name collisions.
- * See specific functions for how it is used.
- */
-alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
-
-alias MainInterface = Typedef!(string, string.init, "MainInterface");
-
-alias FileName = Typedef!(string, string.init, "FileName");
-
-alias DirName = Typedef!(string, string.init, "DirectoryName");
 
 /// Control variouse aspectes of the analyze and generation like what nodes to
 /// process.

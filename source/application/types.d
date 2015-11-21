@@ -20,7 +20,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 module application.types;
 
+import std.typecons : Typedef;
+
 enum ExitStatusType {
     Ok,
     Errors
 }
+
+/** Prefix used for prepending generated code with a unique string to avoid
+ * name collisions.
+ * See specific functions for how it is used.
+ */
+alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
+
+alias MainInterface = Typedef!(string, string.init, "MainInterface");
+
+alias DirName = Typedef!(string, string.init, "DirectoryName");
+
+alias FileName = Typedef!(string, string.init, "FileName");

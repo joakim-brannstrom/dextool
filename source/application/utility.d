@@ -20,8 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 module application.utility;
 
-import std.typecons : Unique;
+import std.regex : Regex;
 import std.stdio : File;
+import std.typecons : Unique;
 import logger = std.experimental.logger;
 
 import application.types;
@@ -105,4 +106,40 @@ unittest {
 
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
     cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags));
+}
+
+/// if no regexp or no match when using the regexp, using the include
+/// path as-is.
+auto stripIncl(FileName incl, Regex!char re) @trusted {
+    import std.array : array;
+    import std.algorithm : joiner;
+    import std.range : dropOne;
+    import std.regex : matchFirst;
+    import std.utf : byChar;
+
+    auto c = matchFirst(cast(string) incl, re);
+    auto rval = incl;
+    logger.tracef("for input '%s', --strip-incl match is: %s", cast(string) incl, c);
+    if (!c.empty) {
+        rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
+    }
+
+    return rval;
+}
+
+auto stripIncl(ref FileName[] incls, Regex!char re) {
+    import std.array : array;
+    import std.algorithm : cache, map, filter;
+    import cpptooling.data.representation : dedup;
+
+    // dfmt off
+    auto r = dedup(incls)
+        .map!(a => stripIncl(a, re))
+        .cache()
+        .filter!(a => a.length > 0)
+        .array();
+    // dfmt on
+
+    return r;
+
 }

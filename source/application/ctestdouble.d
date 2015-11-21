@@ -212,38 +212,12 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     // -- StubParameters --
 
     FileName[] getIncludes() {
-        import std.array : array;
-        import std.algorithm : cache, map, filter;
-        import cpptooling.data.representation : dedup;
-
-        // if no regexp or no match when using the regexp, using the include
-        // path as-is.
-        @property static auto stripIncl(FileName incl, Regex!char re) @trusted {
-            import std.algorithm : joiner;
-            import std.range : dropOne;
-            import std.regex : matchFirst;
-            import std.utf : byChar;
-
-            auto c = matchFirst(cast(string) incl, re);
-            auto rval = incl;
-            logger.tracef("for input '%s', --strip-incl match is: %s", cast(string) incl,
-                c);
-            if (!c.empty) {
-                rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
-            }
-
-            return rval;
-        }
+        import application.utility : stripIncl;
 
         final switch (td_includes_st) {
         case IncludeState.Dirty:
-            // dfmt off
-            td_includes = dedup(td_includes)
-                .map!(a => stripIncl(a, strip_incl))
-                .cache()
-                .filter!(a => a.length > 0)
-                .array();
-            // dfmt on
+            //TODO optimize use of stripIncl, it is slow
+            td_includes = stripIncl(td_includes, strip_incl);
             td_includes_st = IncludeState.Clean;
             break;
 
