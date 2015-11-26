@@ -121,6 +121,9 @@ function state_release_test() {
     pushd test
     ./cstub_tests.sh "$TOOL_BIN"
     check_status "Release C Tests"
+
+    ./cpp_tests.sh "$TOOL_BIN"
+    check_status "Release C++ Tests"
     popd
 }
 
