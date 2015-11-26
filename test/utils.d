@@ -92,7 +92,6 @@ void runDextool(Path input, string[] pre_args, string[] flags) {
 
     Args args;
     args ~= .DEXTOOL;
-    args ~= "ctestdouble";
     args ~= pre_args;
     args ~= "--out=" ~ .OUTDIR;
     args ~= input.toString;
