@@ -30,7 +30,7 @@ import std.variant : Algebraic;
 import logger = std.experimental.logger;
 import std.experimental.testing : name;
 
-import translator.Type : TypeKind, makeTypeKind, duplicate;
+import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
@@ -307,7 +307,7 @@ pure @safe nothrow struct CxGlobalVariable {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
         import std.ascii : newline;
-        import translator.Type : TypeKind;
+        import cpptooling.analyzer.type : TypeKind;
 
         auto app = appender!string();
         final switch (variable.type.info.kind) with (TypeKind.Info) {

@@ -50,7 +50,7 @@ struct VariableVisitor {
     auto visit(ref Cursor c) {
         import cpptooling.data.representation : CxGlobalVariable, CppVariable,
             CxLocation;
-        import translator.Type : TypeKind, translateType;
+        import cpptooling.analyzer.clang.type : TypeKind, translateType;
 
         auto name = CppVariable(c.spelling);
         auto type = translateType(c.type);
@@ -74,7 +74,7 @@ struct FunctionVisitor {
     }
 
     auto visit(ref Cursor c) {
-        import translator.Type : TypeKind, translateType;
+        import cpptooling.analyzer.clang.type : TypeKind, translateType;
 
         auto params = paramDeclTo(c);
         auto name = CFunctionName(c.spelling);
@@ -174,7 +174,7 @@ private:
     }
 
     void applyMethod(ref Cursor c, ref Cursor parent) {
-        import translator.Type : TypeKind, translateType;
+        import cpptooling.analyzer.clang.type : TypeKind, translateType;
 
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
@@ -436,7 +436,7 @@ private:
  * It is translated to the array [("char", "x"), ("char", "y")].
  */
 auto paramDeclTo(Cursor cursor) {
-    import translator.Type : TypeKind, translateType;
+    import cpptooling.analyzer.clang.type : TypeKind, translateType;
     import cpptooling.data.representation : TypeKindVariable, CppVariable,
         makeCxParam, CxParam;
 

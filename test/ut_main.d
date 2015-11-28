@@ -6,7 +6,9 @@ int main(string[] args) {
     writeln(`Running unit tests from dirs ["translator", "test", "cpptooling"]`);
     //dfmt off
     return args.runTests!(
+                          "cpptooling.analyzer.type",
                           "cpptooling.analyzer.clang.context",
+                          "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.visitor",
                           "cpptooling.data.representation",
                           "cpptooling.generator.stub.cstub",
@@ -14,7 +16,6 @@ int main(string[] args) {
                           "cpptooling.utility.conv",
                           "cpptooling.utility.range",
                           "cpptooling.utility.stack",
-                          "translator.Type",
                           "test.helpers",
                           "application.app_main",
                           "application.app"
