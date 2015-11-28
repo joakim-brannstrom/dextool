@@ -373,12 +373,14 @@ CppClass makeCFuncManager(MainInterface main_if) {
     return c;
 }
 
+/// make an anonymous namespace containing a ptr to an instance of a test
+/// double that implement the interface needed.
 CppNamespace makeCStubGlobal(MainInterface main_if) {
     import cpptooling.data.representation : makeTypeKind, CppVariable,
         CxGlobalVariable;
 
     auto type = makeTypeKind(cast(string) main_if ~ "*", false, false, true);
-    auto v = CxGlobalVariable(type, CppVariable("stub_inst"), dummyLoc);
+    auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(NamespaceType.CStubGlobal);
     ns.put(v);
@@ -472,12 +474,14 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     code.stmt(txt);
 }
 
-///TODO print the function prototype and location it was found at.
+/// Generates a C implementation calling the test double via the matching
+/// interface.
 void generateCFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    // assuming that a function declaration void a() in C is meant to be void a(void), not variadic.
+    // assuming that a function declaration void a() in C is meant to be void
+    // a(void), not variadic.
     string params;
     auto p_range = f.paramRange();
     if (p_range.length == 1 && !f.isVariadic || p_range.length > 1) {
@@ -487,9 +491,9 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 
     with (impl.func_body(f.returnType().toString, f.name().str, params)) {
         if (f.returnType().toString == "void") {
-            stmt(E("stub_inst->" ~ f.name().str)(E(names)));
+            stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
         } else {
-            return_(E("stub_inst->" ~ f.name().str)(E(names)));
+            return_(E("test_double_inst->" ~ f.name().str)(E(names)));
         }
     }
     impl.sep(2);
@@ -630,14 +634,14 @@ void generateClassImplManager(CppClass c, CppModule impl) {
 
     static void genCtor(CppClass c, CppCtor m, CppModule impl) {
         with (impl.ctor_body(m.name.str)) {
-            stmt(E("stub_inst") = E("0"));
+            stmt(E("test_double_inst") = E("0"));
         }
         impl.sep(2);
     }
 
     static void genDtor(CppClass c, CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name.str)) {
-            stmt(E("stub_inst") = E("0"));
+            stmt(E("test_double_inst") = E("0"));
         }
         impl.sep(2);
     }
@@ -650,7 +654,7 @@ void generateClassImplManager(CppClass c, CppModule impl) {
             m.name().str, m.isConst(), params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
-            stmt(E("stub_inst") = E("&" ~ p));
+            stmt(E("test_double_inst") = E("&" ~ p));
         }
         impl.sep(2);
     }

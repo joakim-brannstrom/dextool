@@ -1,25 +1,25 @@
 #include "stub.hpp"
 
 namespace {
-Stub* stub_inst = 0;
+Stub* test_double_inst = 0;
 } //NS:
 
 extern "C" {
 void foo() {
-    stub_inst->foo();
+    test_double_inst->foo();
 }
 
 }
 
 Stub_Manager::Stub_Manager() {
-    stub_inst = 0;
+    test_double_inst = 0;
 }
 
 Stub_Manager::~Stub_Manager() {
-    stub_inst = 0;
+    test_double_inst = 0;
 }
 
 void Stub_Manager::Connect(Stub& inst) {
-    stub_inst = &inst;
+    test_double_inst = &inst;
 }
 
