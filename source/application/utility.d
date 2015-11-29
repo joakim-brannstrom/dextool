@@ -77,8 +77,12 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     }
 
     try {
-        if (status != ExitStatusType.Ok) {
+        final switch (status) with (ExitStatusType) {
+        case Ok:
+            break;
+        case Errors:
             logger.error("Failed to write to file ", fname);
+            break;
         }
     }
     catch (Exception ex) {
