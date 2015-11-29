@@ -76,7 +76,7 @@ version (unittest) {
     /// Output directory to store files in.
     DirName getOutputDirectory();
 
-    /// Main file to write the interface and Adaptor to.
+    /// Files to write generated test double data to.
     Files getFiles();
 
     /// Holds the interface for the test double, used in Adaptor.
@@ -129,8 +129,21 @@ struct StubGenerator {
         this.products = products;
     }
 
-    /// Process structural data to a stub.
-    /// TODO refactor the control flow. Especially the gmock part.
+    /** Process structural data to a test double.
+     *
+     * translate -> intermediate -> code generation.
+     *
+     * translate filters the structural data.
+     * Controller is involved to allow filtering of identifiers in files.
+     *
+     * Intermediate analyzes what is left after filtering.
+     * On demand extra data is created.
+     *
+     * Code generation is a straight up translation.
+     * Logical decisions should have been handled in earlier stages.
+     *
+     * TODO refactor the control flow. Especially the gmock part.
+     */
     auto process(CppRoot root) {
         logger.trace("Raw data:\n" ~ root.toString());
         auto tr = .translate(root, ctrl, products);
@@ -579,9 +592,9 @@ body {
     static void genMethod(CppMethod m, CppModule hdr) {
         import cpptooling.data.representation : VirtualType;
 
-        logger.error(m.paramRange().length > 10,
-            "Too many parameters in function to generate a correct google mock. Nr:",
-            m.paramRange().length);
+        logger.errorf(m.paramRange().length > 10,
+            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
+            m.name, m.paramRange().length);
 
         string params = m.paramRange().joinParams();
         string name = m.name().str;
