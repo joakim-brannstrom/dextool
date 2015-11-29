@@ -57,8 +57,16 @@ void compare(Path gold, Path result) {
 
     writef("Comparing gold:'%s'\t output:'%s'\n", gold, result);
 
-    auto goldf = File(gold.toString);
-    auto resultf = File(result.toString);
+    File goldf;
+    File resultf;
+
+    try {
+        goldf = File(gold.toString);
+        resultf = File(result.toString);
+    }
+    catch (ErrnoException ex) {
+        throw new ErrorLevelException(-1, ex.msg);
+    }
 
     bool diff_detected = false;
     foreach (idx, g, r; lockstep(goldf.byLine(), resultf.byLine())) {
