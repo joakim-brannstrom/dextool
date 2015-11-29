@@ -76,10 +76,10 @@ version (unittest) {
     /// Output directory to store files in.
     DirName getOutputDirectory();
 
-    /// Main file to write the interface and manager to.
+    /// Main file to write the interface and Adaptor to.
     Files getFiles();
 
-    /// Holds the interface for the test double, used in manager.
+    /// Holds the interface for the test double, used in Adaptor.
     MainInterface getMainInterface();
 
     /// Prefix to use for the generated files.
@@ -146,7 +146,7 @@ struct StubGenerator {
                 mock.setKind(ClassType.Gmock);
                 tr.put(mock);
             }
-            tr.put(makeCFuncManager(params.getMainInterface));
+            tr.put(makeTestDoubleAdapter(params.getMainInterface));
         }
 
         logger.trace("Post processed:\n" ~ tr.toString());
@@ -252,7 +252,7 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 enum ClassType {
     Normal,
-    Manager,
+    Adaptor,
     Gmock
 }
 
@@ -348,27 +348,25 @@ CppClass makeCFuncInterface(Tr)(Tr r, in MainInterface main_if) {
     return c;
 }
 
-CppClass makeCFuncManager(MainInterface main_if) {
+CppClass makeTestDoubleAdapter(MainInterface main_if) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     string c_if = main_if.str;
-    string c_name = c_if ~ "_Manager";
+    string c_name = "Adaptor";
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-    c.setKind(ClassType.Manager);
+    c.setKind(ClassType.Adaptor);
 
-    c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
-    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.No)));
-
-    c.put("Manage the shared memory area of the instance that fulfill the interface.");
-    c.put("Connect inst to handle all stimuli.");
     auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
         true, false), CppVariable("inst")));
-    auto rval = CxReturnType(makeTypeKind("void", false, false, false));
-    c.put(CppMethod(CppMethodName("Connect"), [param], rval,
-        CppAccess(AccessType.Public), CppConstMethod(false), CppVirtualMethod(VirtualType.No)));
+
+    c.put("Adaptor connecting the C implementation with interface.");
+    c.put("The lifetime of the connection is the same as the instance of the adaptor.");
+
+    c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
+    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
+        CppVirtualMethod(VirtualType.No)));
 
     return c;
 }
@@ -502,7 +500,7 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
-    case ClassType.Manager:
+    case ClassType.Adaptor:
         generateClassHdrNormal(c, hdr);
         break;
     case ClassType.Gmock:
@@ -619,8 +617,8 @@ void generateClassImpl(CppClass c, CppModule impl) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
         break;
-    case ClassType.Manager:
-        generateClassImplManager(c, impl);
+    case ClassType.Adaptor:
+        generateClassImplAdaptor(c, impl);
         break;
     case ClassType.Gmock:
         break;
@@ -628,20 +626,35 @@ void generateClassImpl(CppClass c, CppModule impl) {
 }
 
 /// Expecting only three functions. c'tor, d'tor and Connect.
-void generateClassImplManager(CppClass c, CppModule impl) {
+void generateClassImplAdaptor(CppClass c, CppModule impl) {
     import std.variant : visit;
     import cpptooling.data.representation;
+    import cpptooling.utility.conv : str;
 
+    // C'tor is expected to have one parameter.
     static void genCtor(CppClass c, CppCtor m, CppModule impl) {
-        with (impl.ctor_body(m.name.str)) {
-            stmt(E("test_double_inst") = E("0"));
+        // dfmt off
+        TypeKindVariable p0 = () @trusted {
+            return m.paramRange().front.visit!(
+                (TypeKindVariable tkv) => tkv,
+                (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),
+                (VariadicType vt) {
+                    logger.error("Variadic c'tor not supported:", m.toString);
+                    return TypeKindVariable(makeTypeKind("not supported", false,
+                        false, false), CppVariable("not supported"));
+                })();
+        }();
+        // dfmt on
+
+        with (impl.ctor_body(m.name.str, E(p0.type.toString) ~ E(p0.name.str))) {
+            stmt(E("test_double_inst") = E("&" ~ p0.name.str));
         }
         impl.sep(2);
     }
 
     static void genDtor(CppClass c, CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name.str)) {
-            stmt(E("test_double_inst") = E("0"));
+            stmt("test_double_inst = 0");
         }
         impl.sep(2);
     }

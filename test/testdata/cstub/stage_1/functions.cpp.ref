@@ -63,15 +63,11 @@ void fun(func_ptr2 p, Something_Big b) {
 
 }
 
-Test_Double_Manager::Test_Double_Manager() {
-    test_double_inst = 0;
-}
-
-Test_Double_Manager::~Test_Double_Manager() {
-    test_double_inst = 0;
-}
-
-void Test_Double_Manager::Connect(Test_Double& inst) {
+Adaptor::Adaptor(Test_Double& inst) {
     test_double_inst = &inst;
+}
+
+Adaptor::~Adaptor() {
+    test_double_inst = 0;
 }
 

@@ -11,15 +11,11 @@ void foo() {
 
 }
 
-Stub_Manager::Stub_Manager() {
-    test_double_inst = 0;
-}
-
-Stub_Manager::~Stub_Manager() {
-    test_double_inst = 0;
-}
-
-void Stub_Manager::Connect(Stub& inst) {
+Adaptor::Adaptor(Stub& inst) {
     test_double_inst = &inst;
+}
+
+Adaptor::~Adaptor() {
+    test_double_inst = 0;
 }
 

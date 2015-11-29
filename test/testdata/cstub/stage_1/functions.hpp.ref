@@ -24,11 +24,10 @@ public:
 
 /// Manage the shared memory area of the instance that fulfill the interface.
 /// Connect inst to handle all stimuli.
-class Test_Double_Manager {
+class Adaptor {
 public:
-    Test_Double_Manager();
-    ~Test_Double_Manager();
-    void Connect(Test_Double& inst);
+    Adaptor(Test_Double& inst);
+    ~Adaptor();
 };
 
 #endif // test_double_hpp

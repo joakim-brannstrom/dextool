@@ -11,11 +11,10 @@ public:
 
 /// Manage the shared memory area of the instance that fulfill the interface.
 /// Connect inst to handle all stimuli.
-class Stub_Manager {
+class Adaptor {
 public:
-    Stub_Manager();
-    ~Stub_Manager();
-    void Connect(Stub& inst);
+    Adaptor(Stub& inst);
+    ~Adaptor();
 };
 
 #endif // stub_hpp
