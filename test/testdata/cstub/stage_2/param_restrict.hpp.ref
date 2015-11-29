@@ -5,7 +5,8 @@ extern "C" {
 #include "param_restrict.h"
 }
 
-class Test_Double {
+namespace TestDouble {
+class I_TestDouble {
 public:
     virtual void fun_b() = 0;
     virtual void fun_a() = 0;
@@ -15,8 +16,10 @@ public:
 /// Connect inst to handle all stimuli.
 class Adaptor {
 public:
-    Adaptor(Test_Double& inst);
+    Adaptor(I_TestDouble& inst);
     ~Adaptor();
 };
+
+} //NS:TestDouble
 
 #endif // test_double_hpp

@@ -4,7 +4,8 @@ extern "C" {
 #include "functions.h"
 }
 
-class Test_Double {
+namespace TestDouble {
+class I_TestDouble {
 public:
     virtual void func_void() = 0;
     virtual int func_return() = 0;
@@ -22,12 +23,14 @@ public:
     virtual void fun(func_ptr2 p, Something_Big b) = 0;
 };
 
-/// Manage the shared memory area of the instance that fulfill the interface.
-/// Connect inst to handle all stimuli.
+///
+///
 class Adaptor {
 public:
-    Adaptor(Test_Double& inst);
+    Adaptor(I_TestDouble& inst);
     ~Adaptor();
 };
+
+} //NS:TestDouble
 
 #endif // test_double_hpp

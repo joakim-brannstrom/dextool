@@ -1,17 +1,13 @@
 #include "stub.hpp"
 
 namespace {
-Stub* test_double_inst = 0;
+Stub::I_Stub* test_double_inst = 0;
 } //NS:
 
-extern "C" {
-void foo() {
-    test_double_inst->foo();
-}
+namespace Stub {
 
-}
 
-Adaptor::Adaptor(Stub& inst) {
+Adaptor::Adaptor(I_Stub& inst) {
     test_double_inst = &inst;
 }
 
@@ -19,3 +15,11 @@ Adaptor::~Adaptor() {
     test_double_inst = 0;
 }
 
+} //NS:Stub
+
+extern "C" {
+void foo() {
+    test_double_inst->foo();
+}
+
+}

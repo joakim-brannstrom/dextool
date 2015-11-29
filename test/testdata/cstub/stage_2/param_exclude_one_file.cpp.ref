@@ -1,8 +1,21 @@
 #include "test_double.hpp"
 
 namespace {
-Test_Double* test_double_inst = 0;
+TestDouble::I_TestDouble* test_double_inst = 0;
 } //NS:
+
+namespace TestDouble {
+
+
+Adaptor::Adaptor(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adaptor::~Adaptor() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
 
 extern "C" {
 void fun_b() {
@@ -17,13 +30,5 @@ void fun_d() {
     test_double_inst->fun_d();
 }
 
-}
-
-Adaptor::Adaptor(Test_Double& inst) {
-    test_double_inst = &inst;
-}
-
-Adaptor::~Adaptor() {
-    test_double_inst = 0;
 }
 

@@ -33,12 +33,10 @@ import cpptooling.generator.stub.cstub : StubGenerator, StubController,
  * TODO Describe the options.
  */
 class CTestDoubleVariant : StubController, StubParameters, StubProducts {
-    import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Tuple, Flag;
     import argvalue; // from docopt
-    import cpptooling.generator.stub.cstub : StubPrefix, FileName,
-        MainInterface, DirName;
+    import cpptooling.generator.stub.cstub : StubPrefix, FileName, DirName;
     import dsrcgen.cpp;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
@@ -58,6 +56,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable FileName pre_incl_file;
     immutable FileName post_incl_file;
 
+    immutable MainName main_name;
+    immutable MainNs main_ns;
     immutable MainInterface main_if;
     immutable Flag!"Gmock" gmock;
     immutable Flag!"PreInclude" pre_incl;
@@ -99,13 +99,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             strip_incl = regex(strip_incl_user);
             logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
         } else {
-            logger.trace("Using default regexp for stripping include path (basename)");
+            logger.trace("Using default regexp to strip include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainInterface(parsed["--main"].toString),
+            MainFileName(parsed["--main-fname"].toString),
+            MainName(parsed["--main"].toString),
             DirName(parsed["--out"].toString), gmock, pre_incl, post_incl);
 
         if (!parsed["--td-include"].isEmpty) {
@@ -120,12 +121,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     }
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainInterface main_if, DirName output_dir, Flag!"Gmock" gmock,
-        Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl) {
+        MainFileName main_fname, MainName main_name, DirName output_dir,
+        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
-        this.main_if = main_if;
+        this.main_name = main_name;
+        this.main_ns = MainNs(cast(string) main_name);
+        this.main_if = MainInterface("I_" ~ cast(string) main_name);
         this.output_dir = output_dir;
         this.gmock = gmock;
         this.pre_incl = pre_incl;
@@ -133,7 +136,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         import std.path : baseName, buildPath, stripExtension;
 
-        string base_filename = (cast(string) main_if).toLower;
+        string base_filename = cast(string) main_fname;
 
         this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
@@ -237,6 +240,14 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     StubParameters.Files getFiles() {
         return StubParameters.Files(main_file_hdr, main_file_impl,
             main_file_globals, gmock_file, pre_incl_file, post_incl_file);
+    }
+
+    MainName getMainName() {
+        return main_name;
+    }
+
+    MainNs getMainNs() {
+        return main_ns;
     }
 
     MainInterface getMainInterface() {

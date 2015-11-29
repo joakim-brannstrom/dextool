@@ -4,18 +4,21 @@ extern "C" {
 #include "function_pointers.h"
 }
 
-class Test_Double {
+namespace TestDouble {
+class I_TestDouble {
 public:
     virtual unsigned char tiger(const unsigned int x0) = 0;
     virtual unsigned char cyber(const unsigned int x0) = 0;
 };
 
-/// Manage the shared memory area of the instance that fulfill the interface.
-/// Connect inst to handle all stimuli.
+///
+///
 class Adaptor {
 public:
-    Adaptor(Test_Double& inst);
+    Adaptor(I_TestDouble& inst);
     ~Adaptor();
 };
+
+} //NS:TestDouble
 
 #endif // test_double_hpp

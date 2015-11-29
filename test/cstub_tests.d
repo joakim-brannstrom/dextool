@@ -28,7 +28,7 @@ void stage1() {
             runDextool(input_ext, params, ["-xc++", "-DAND_A_DEFINE"]);
             break;
         case "param_main.h":
-            runDextool(input_ext, params ~ ["--main=Stub"], []);
+            runDextool(input_ext, params ~ ["--main=Stub", "--main-fname=stub"], []);
             out_hdr = out_hdr.up ~ "stub.hpp";
             out_impl = out_impl.up ~ "stub.cpp";
             break;

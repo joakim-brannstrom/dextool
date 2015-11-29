@@ -47,7 +47,8 @@ options:
  -h, --help         show this help
  -d, --debug        turn on debug output for tracing of generator flow
  --out=dir          directory for generated files [default: ./]
- --main=name        name of the main interface and filename [default: Test_Double]
+ --main=name        used as part of interface, namespace etc [default: TestDouble]
+ --main-fname=n     used as part of filename for generated files [default: test_double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
