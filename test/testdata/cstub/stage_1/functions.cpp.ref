@@ -1,77 +1,77 @@
 #include "test_double.hpp"
 
 namespace {
-Test_Double* stub_inst = 0;
+TestDouble::I_TestDouble* test_double_inst = 0;
 } //NS:
+
+namespace TestDouble {
+
+
+Adaptor::Adaptor(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adaptor::~Adaptor() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
 
 extern "C" {
 void func_void() {
-    stub_inst->func_void();
+    test_double_inst->func_void();
 }
 
 int func_return() {
-    return stub_inst->func_return();
+    return test_double_inst->func_return();
 }
 
 int func_one_named(int a) {
-    return stub_inst->func_one_named(a);
+    return test_double_inst->func_one_named(a);
 }
 
 void func_two_named(int a, int b) {
-    stub_inst->func_two_named(a, b);
+    test_double_inst->func_two_named(a, b);
 }
 
 void func_three_named(int a, int b, int c) {
-    stub_inst->func_three_named(a, b, c);
+    test_double_inst->func_three_named(a, b, c);
 }
 
 const int c_func_return() {
-    return stub_inst->c_func_return();
+    return test_double_inst->c_func_return();
 }
 
 const int c_func_one_named(const int a) {
-    return stub_inst->c_func_one_named(a);
+    return test_double_inst->c_func_one_named(a);
 }
 
 void c_func_two_named(const int a, const int b) {
-    stub_inst->c_func_two_named(a, b);
+    test_double_inst->c_func_two_named(a, b);
 }
 
 void c_func_three_named(const int a, const int b, const int c) {
-    stub_inst->c_func_three_named(a, b, c);
+    test_double_inst->c_func_three_named(a, b, c);
 }
 
 void func_variadic() {
-    stub_inst->func_variadic();
+    test_double_inst->func_variadic();
 }
 
 int func_variadic_one_unnamed(char * x0, ...) {
-    return stub_inst->func_variadic_one_unnamed(x0);
+    return test_double_inst->func_variadic_one_unnamed(x0);
 }
 
 int func_extern(int out) {
-    return stub_inst->func_extern(out);
+    return test_double_inst->func_extern(out);
 }
 
 void unnamed_params(int x0, int x1) {
-    stub_inst->unnamed_params(x0, x1);
+    test_double_inst->unnamed_params(x0, x1);
 }
 
 void fun(func_ptr2 p, Something_Big b) {
-    stub_inst->fun(p, b);
+    test_double_inst->fun(p, b);
 }
 
 }
-
-Test_Double_Manager::Test_Double_Manager() {
-    stub_inst = 0;
-}
-
-Test_Double_Manager::~Test_Double_Manager() {
-    stub_inst = 0;
-}
-
-void Test_Double_Manager::Connect(Test_Double& inst) {
-    stub_inst = &inst;
-}
-

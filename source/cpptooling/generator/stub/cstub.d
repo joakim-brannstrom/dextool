@@ -76,10 +76,16 @@ version (unittest) {
     /// Output directory to store files in.
     DirName getOutputDirectory();
 
-    /// Main file to write the interface and manager to.
+    /// Files to write generated test double data to.
     Files getFiles();
 
-    /// Holds the interface for the test double, used in manager.
+    /// Name affecting interface, namespace and output file.
+    MainName getMainName();
+
+    /// Holds the interface for the test double, used in Adaptor.
+    MainNs getMainNs();
+
+    /// Holds the interface for the test double, used in Adaptor.
     MainInterface getMainInterface();
 
     /// Prefix to use for the generated files.
@@ -129,24 +135,45 @@ struct StubGenerator {
         this.products = products;
     }
 
-    /// Process structural data to a stub.
-    /// TODO refactor the control flow. Especially the gmock part.
+    /** Process structural data to a test double.
+     *
+     * translate -> intermediate -> code generation.
+     *
+     * translate filters the structural data.
+     * Controller is involved to allow filtering of identifiers in files.
+     *
+     * Intermediate analyzes what is left after filtering.
+     * On demand extra data is created.
+     *
+     * Code generation is a straight up translation.
+     * Logical decisions should have been handled in earlier stages.
+     *
+     * TODO refactor the control flow. Especially the gmock part.
+     */
     auto process(CppRoot root) {
+        import cpptooling.data.representation : CppNamespace, CppNs;
+
         logger.trace("Raw data:\n" ~ root.toString());
         auto tr = .translate(root, ctrl, products);
 
         // Does it have any C functions?
         if (!tr.funcRange().empty) {
-            tr.put(makeCStubGlobal(params.getMainInterface));
+            tr.put(makeCStubGlobal(params.getMainNs, params.getMainInterface));
+
+            auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
+            ns.setKind(NamespaceType.TestDouble);
+
             auto c_if = makeCFuncInterface(tr.funcRange(), params.getMainInterface);
-            tr.put(c_if);
+
+            ns.put(c_if);
             if (ctrl.doGoogleMock) {
                 // could reuse.. don't.
                 auto mock = c_if;
                 mock.setKind(ClassType.Gmock);
-                tr.put(mock);
+                ns.put(mock);
             }
-            tr.put(makeCFuncManager(params.getMainInterface));
+            ns.put(makeTestDoubleAdapter(params.getMainInterface));
+            tr.put(ns);
         }
 
         logger.trace("Post processed:\n" ~ tr.toString());
@@ -155,7 +182,7 @@ struct StubGenerator {
         auto impl = new CppModule;
         auto globals = new CppModule;
         auto gmock = new CppModule;
-        generateStub(tr, ctrl, params, hdr, impl, globals, gmock);
+        generate(tr, ctrl, params, hdr, impl, globals, gmock);
         postProcess(hdr, impl, globals, gmock, ctrl, params, products);
     }
 
@@ -252,13 +279,14 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 enum ClassType {
     Normal,
-    Manager,
+    Adaptor,
     Gmock
 }
 
 enum NamespaceType {
     Normal,
-    CStubGlobal
+    CStubGlobal,
+    TestDouble
 }
 
 /** Structurally transformed the input to a stub implementation.
@@ -348,37 +376,39 @@ CppClass makeCFuncInterface(Tr)(Tr r, in MainInterface main_if) {
     return c;
 }
 
-CppClass makeCFuncManager(MainInterface main_if) {
+CppClass makeTestDoubleAdapter(MainInterface main_if) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
     string c_if = main_if.str;
-    string c_name = c_if ~ "_Manager";
+    string c_name = "Adaptor";
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-    c.setKind(ClassType.Manager);
+    c.setKind(ClassType.Adaptor);
 
-    c.put(CppCtor(CppMethodName(c_name), CxParam[].init, CppAccess(AccessType.Public)));
-    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.No)));
-
-    c.put("Manage the shared memory area of the instance that fulfill the interface.");
-    c.put("Connect inst to handle all stimuli.");
     auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
         true, false), CppVariable("inst")));
-    auto rval = CxReturnType(makeTypeKind("void", false, false, false));
-    c.put(CppMethod(CppMethodName("Connect"), [param], rval,
-        CppAccess(AccessType.Public), CppConstMethod(false), CppVirtualMethod(VirtualType.No)));
+
+    c.put("Adaptor connecting the C implementation with interface.");
+    c.put("The lifetime of the connection is the same as the instance of the adaptor.");
+
+    c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
+    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
+        CppVirtualMethod(VirtualType.No)));
 
     return c;
 }
 
-CppNamespace makeCStubGlobal(MainInterface main_if) {
+/// make an anonymous namespace containing a ptr to an instance of a test
+/// double that implement the interface needed.
+CppNamespace makeCStubGlobal(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data.representation : makeTypeKind, CppVariable,
         CxGlobalVariable;
+    import cpptooling.utility.conv : str;
 
-    auto type = makeTypeKind(cast(string) main_if ~ "*", false, false, true);
-    auto v = CxGlobalVariable(type, CppVariable("stub_inst"), dummyLoc);
+    auto type = makeTypeKind(main_ns.str ~ "::" ~ main_if.str ~ "*", false, false,
+        true);
+    auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(NamespaceType.CStubGlobal);
     ns.put(v);
@@ -386,9 +416,9 @@ CppNamespace makeCStubGlobal(MainInterface main_if) {
     return ns;
 }
 
-void generateStub(CppRoot r, StubController ctrl, StubParameters params,
-    CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
-    import std.algorithm : each, filter;
+void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule hdr,
+    CppModule impl, CppModule globals, CppModule gmock) {
+    import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
     generateCIncludes(ctrl, params, hdr);
@@ -406,19 +436,27 @@ void generateStub(CppRoot r, StubController ctrl, StubParameters params,
         });
     }
 
-    r.namespaceRange().filter!(a => a.kind() == NamespaceType.CStubGlobal).each!((a) {
-        generateCStubGlobal(a, impl);
-    });
+    static void eachNs(CppNamespace ns, StubParameters params, CppModule hdr,
+        CppModule impl, CppModule gmock) {
+        final switch (cast(NamespaceType) ns.kind) {
+        case NamespaceType.Normal:
+            break;
+        case NamespaceType.CStubGlobal:
+            generateTestDoubleSingleton(ns, impl);
+            break;
+        case NamespaceType.TestDouble:
+            generateNsTestDoubleHdr(ns, params, hdr, gmock);
+            generateNsTestDoubleImpl(ns, params, impl);
+            break;
+        }
+    }
+
+    r.namespaceRange().each!(a => eachNs(a, params, hdr, impl, gmock));
 
     // The generated functions must be extern C declared.
     auto extern_c = impl.suite("extern \"C\"");
     extern_c.suppressIndent(1);
     r.funcRange().each!((a) { generateCFuncImpl(a, extern_c); });
-
-    r.classRange().each!((a) {
-        generateClassHdr(a, hdr, gmock, params);
-        generateClassImpl(a, impl);
-    });
 }
 
 void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
@@ -472,12 +510,14 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     code.stmt(txt);
 }
 
-///TODO print the function prototype and location it was found at.
+/// Generates a C implementation calling the test double via the matching
+/// interface.
 void generateCFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    // assuming that a function declaration void a() in C is meant to be void a(void), not variadic.
+    // assuming that a function declaration void a() in C is meant to be void
+    // a(void), not variadic.
     string params;
     auto p_range = f.paramRange();
     if (p_range.length == 1 && !f.isVariadic || p_range.length > 1) {
@@ -487,9 +527,9 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 
     with (impl.func_body(f.returnType().toString, f.name().str, params)) {
         if (f.returnType().toString == "void") {
-            stmt(E("stub_inst->" ~ f.name().str)(E(names)));
+            stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
         } else {
-            return_(E("stub_inst->" ~ f.name().str)(E(names)));
+            return_(E("test_double_inst->" ~ f.name().str)(E(names)));
         }
     }
     impl.sep(2);
@@ -498,7 +538,7 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
-    case ClassType.Manager:
+    case ClassType.Adaptor:
         generateClassHdrNormal(c, hdr);
         break;
     case ClassType.Gmock:
@@ -568,18 +608,15 @@ body {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    static void genCtor(CppCtor m, CppModule hdr) {
-    }
-
-    static void genDtor(CppDtor m, CppModule hdr) {
+    static void ignore() {
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
         import cpptooling.data.representation : VirtualType;
 
-        logger.error(m.paramRange().length > 10,
-            "Too many parameters in function to generate a correct google mock. Nr:",
-            m.paramRange().length);
+        logger.errorf(m.paramRange().length > 10,
+            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
+            m.name, m.paramRange().length);
 
         string params = m.paramRange().joinParams();
         string name = m.name().str;
@@ -594,7 +631,9 @@ body {
     hdr.include("gmock/gmock.h");
     hdr.sep(2);
 
-    auto c = hdr.class_(in_c.name().str ~ "_Mock", "public " ~ in_c.name().str);
+    auto ns = hdr.namespace(params.getMainNs().str);
+    ns.suppressIndent(1);
+    auto c = ns.class_("Mock" ~ in_c.name().str, "public " ~ in_c.name().str);
     auto pub = c.public_();
 
     with (pub) {
@@ -602,8 +641,8 @@ body {
             // dfmt off
             () @trusted {
             m.visit!((CppMethod m) => genMethod(m, pub),
-                     (CppCtor m) => genCtor(m, pub),
-                     (CppDtor m) => genDtor(m, pub));
+                     (CppCtor m) => ignore(),
+                     (CppDtor m) => ignore());
             }();
             // dfmt on
         }
@@ -615,8 +654,8 @@ void generateClassImpl(CppClass c, CppModule impl) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
         break;
-    case ClassType.Manager:
-        generateClassImplManager(c, impl);
+    case ClassType.Adaptor:
+        generateClassImplAdaptor(c, impl);
         break;
     case ClassType.Gmock:
         break;
@@ -624,20 +663,35 @@ void generateClassImpl(CppClass c, CppModule impl) {
 }
 
 /// Expecting only three functions. c'tor, d'tor and Connect.
-void generateClassImplManager(CppClass c, CppModule impl) {
+void generateClassImplAdaptor(CppClass c, CppModule impl) {
     import std.variant : visit;
     import cpptooling.data.representation;
+    import cpptooling.utility.conv : str;
 
+    // C'tor is expected to have one parameter.
     static void genCtor(CppClass c, CppCtor m, CppModule impl) {
-        with (impl.ctor_body(m.name.str)) {
-            stmt(E("stub_inst") = E("0"));
+        // dfmt off
+        TypeKindVariable p0 = () @trusted {
+            return m.paramRange().front.visit!(
+                (TypeKindVariable tkv) => tkv,
+                (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),
+                (VariadicType vt) {
+                    logger.error("Variadic c'tor not supported:", m.toString);
+                    return TypeKindVariable(makeTypeKind("not supported", false,
+                        false, false), CppVariable("not supported"));
+                })();
+        }();
+        // dfmt on
+
+        with (impl.ctor_body(m.name.str, E(p0.type.toString) ~ E(p0.name.str))) {
+            stmt(E("test_double_inst") = E("&" ~ p0.name.str));
         }
         impl.sep(2);
     }
 
     static void genDtor(CppClass c, CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name.str)) {
-            stmt(E("stub_inst") = E("0"));
+            stmt("test_double_inst = 0");
         }
         impl.sep(2);
     }
@@ -650,7 +704,7 @@ void generateClassImplManager(CppClass c, CppModule impl) {
             m.name().str, m.isConst(), params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
-            stmt(E("stub_inst") = E("&" ~ p));
+            stmt(E("test_double_inst") = E("&" ~ p));
         }
         impl.sep(2);
     }
@@ -665,7 +719,7 @@ void generateClassImplManager(CppClass c, CppModule impl) {
     }
 }
 
-void generateCStubGlobal(CppNamespace in_ns, CppModule impl) {
+void generateTestDoubleSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
     import cpptooling.utility.conv : str;
 
@@ -702,4 +756,27 @@ void generateCIncludes(StubController ctrl, StubParameters params, CppModule hdr
     }
 
     hdr.sep(2);
+}
+
+void generateNsTestDoubleHdr(CppNamespace ns, StubParameters params, CppModule hdr,
+    CppModule gmock) {
+    import std.algorithm : each;
+    import cpptooling.utility.conv : str;
+
+    auto cpp_ns = hdr.namespace(ns.name.str);
+    cpp_ns.suppressIndent(1);
+    hdr.sep(2);
+
+    ns.classRange().each!((a) { generateClassHdr(a, cpp_ns, gmock, params); });
+}
+
+void generateNsTestDoubleImpl(CppNamespace ns, StubParameters params, CppModule impl) {
+    import std.algorithm : each;
+    import cpptooling.utility.conv : str;
+
+    auto cpp_ns = impl.namespace(ns.name.str);
+    cpp_ns.suppressIndent(1);
+    impl.sep(2);
+
+    ns.classRange().each!((a) { generateClassImpl(a, cpp_ns); });
 }

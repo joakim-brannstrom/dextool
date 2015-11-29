@@ -53,14 +53,36 @@ void teardownTestEnv() {
 }
 
 void compare(Path gold, Path result) {
-    Args args;
-    args ~= "diff";
-    args ~= "-u";
-    args ~= gold;
-    args ~= result;
+    import std.stdio : File;
 
-    writef("Comparing result: %s\t%s\n", gold, result);
-    run(args.data);
+    writef("Comparing gold:'%s'\t output:'%s'\n", gold, result);
+
+    File goldf;
+    File resultf;
+
+    try {
+        goldf = File(gold.toString);
+        resultf = File(result.toString);
+    }
+    catch (ErrnoException ex) {
+        throw new ErrorLevelException(-1, ex.msg);
+    }
+
+    bool diff_detected = false;
+    foreach (idx, g, r; lockstep(goldf.byLine(), resultf.byLine())) {
+        if (g.length > 2 && r.length > 2 && g[0 .. 2] == "//" && r[0 .. 2] == "//") {
+            continue;
+        } else if (g != r) {
+            // +1 of index because editors start counting lines from 1
+            writef("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
+            diff_detected = true;
+        }
+    }
+
+    if (diff_detected) {
+        throw new ErrorLevelException(-1,
+            "Error, not expected result when comparing golden with output");
+    }
 }
 
 void runDextool(Path input, string[] pre_args, string[] flags) {

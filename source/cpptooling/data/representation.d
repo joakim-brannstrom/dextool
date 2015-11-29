@@ -3,6 +3,8 @@
 /// License: GPL
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 ///
+/// Representation of the structure of C/C++ code in D.
+///
 /// The guiding principle for this module is: "Correct by construction"
 /// It is the reason why the c'tor are huge.
 /// After the data is created it should be "correct".

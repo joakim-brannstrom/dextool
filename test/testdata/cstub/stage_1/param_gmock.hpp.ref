@@ -5,7 +5,8 @@ extern "C" {
 #include "functions.h"
 }
 
-class Test_Double {
+namespace TestDouble {
+class I_TestDouble {
 public:
     virtual unsigned char tiger(const unsigned int x0) = 0;
     virtual unsigned char cyber(const unsigned int x0) = 0;
@@ -25,13 +26,14 @@ public:
     virtual void fun(func_ptr2 p, Something_Big b) = 0;
 };
 
-/// Manage the shared memory area of the instance that fulfill the interface.
-/// Connect inst to handle all stimuli.
-class Test_Double_Manager {
+///
+///
+class Adaptor {
 public:
-    Test_Double_Manager();
-    ~Test_Double_Manager();
-    void Connect(Test_Double& inst);
+    Adaptor(I_TestDouble& inst);
+    ~Adaptor();
 };
+
+} //NS:TestDouble
 
 #endif // test_double_hpp

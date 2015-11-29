@@ -1,29 +1,29 @@
 #include "test_double.hpp"
 
 namespace {
-Test_Double* stub_inst = 0;
+TestDouble::I_TestDouble* test_double_inst = 0;
 } //NS:
+
+namespace TestDouble {
+
+
+Adaptor::Adaptor(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adaptor::~Adaptor() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
 
 extern "C" {
 void fun_b() {
-    stub_inst->fun_b();
+    test_double_inst->fun_b();
 }
 
 void fun_a() {
-    stub_inst->fun_a();
+    test_double_inst->fun_a();
 }
 
 }
-
-Test_Double_Manager::Test_Double_Manager() {
-    stub_inst = 0;
-}
-
-Test_Double_Manager::~Test_Double_Manager() {
-    stub_inst = 0;
-}
-
-void Test_Double_Manager::Connect(Test_Double& inst) {
-    stub_inst = &inst;
-}
-

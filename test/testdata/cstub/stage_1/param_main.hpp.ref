@@ -4,18 +4,20 @@ extern "C" {
 #include "param_main.h"
 }
 
-class Stub {
+namespace Stub {
+class I_Stub {
 public:
     virtual void foo() = 0;
 };
 
-/// Manage the shared memory area of the instance that fulfill the interface.
-/// Connect inst to handle all stimuli.
-class Stub_Manager {
+///
+///
+class Adaptor {
 public:
-    Stub_Manager();
-    ~Stub_Manager();
-    void Connect(Stub& inst);
+    Adaptor(I_Stub& inst);
+    ~Adaptor();
 };
+
+} //NS:Stub
 
 #endif // stub_hpp

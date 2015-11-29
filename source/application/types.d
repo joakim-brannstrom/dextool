@@ -33,6 +33,9 @@ enum ExitStatusType {
  */
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
+alias MainFileName = Typedef!(string, string.init, "MainFileName");
+alias MainName = Typedef!(string, string.init, "MainName");
+alias MainNs = Typedef!(string, string.init, "MainNs");
 alias MainInterface = Typedef!(string, string.init, "MainInterface");
 
 alias DirName = Typedef!(string, string.init, "DirectoryName");
