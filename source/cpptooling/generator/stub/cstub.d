@@ -3,6 +3,9 @@
 /// License: GPL
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 ///
+/// Generate a C test double implementation from data about the structural
+/// representation.
+///
 /// This program is free software; you can redistribute it and/or modify
 /// it under the terms of the GNU General Public License as published by
 /// the Free Software Foundation; either version 2 of the License, or
@@ -82,14 +85,22 @@ version (unittest) {
     /// Name affecting interface, namespace and output file.
     MainName getMainName();
 
-    /// Holds the interface for the test double, used in Adaptor.
+    /** Namespace for the generated test double.
+     *
+     * Contains the adapter, C++ interface, gmock etc.
+     */
     MainNs getMainNs();
 
-    /// Holds the interface for the test double, used in Adaptor.
+    /** Name of the interface of the test double.
+     *
+     * Used in Adapter.
+     */
     MainInterface getMainInterface();
 
-    /// Prefix to use for the generated files.
-    /// Affects both the filename and the preprocessor #include.
+    /** Prefix to use for the generated files.
+     *
+     * Affects both the filename and the preprocessor #include.
+     */
     StubPrefix getFilePrefix();
 
     /// Prefix used for test artifacts.
@@ -279,7 +290,7 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 enum ClassType {
     Normal,
-    Adaptor,
+    Adapter,
     Gmock
 }
 
@@ -381,16 +392,16 @@ CppClass makeTestDoubleAdapter(MainInterface main_if) {
     import cpptooling.utility.conv : str;
 
     string c_if = main_if.str;
-    string c_name = "Adaptor";
+    string c_name = "Adapter";
 
     auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-    c.setKind(ClassType.Adaptor);
+    c.setKind(ClassType.Adapter);
 
     auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
         true, false), CppVariable("inst")));
 
-    c.put("Adaptor connecting the C implementation with interface.");
-    c.put("The lifetime of the connection is the same as the instance of the adaptor.");
+    c.put("Adapter connecting the C implementation with interface.");
+    c.put("The lifetime of the connection is the same as the instance of the adapter.");
 
     c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
     c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
@@ -538,7 +549,7 @@ void generateCFuncImpl(CFunction f, CppModule impl) {
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
-    case ClassType.Adaptor:
+    case ClassType.Adapter:
         generateClassHdrNormal(c, hdr);
         break;
     case ClassType.Gmock:
@@ -654,8 +665,8 @@ void generateClassImpl(CppClass c, CppModule impl) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
         break;
-    case ClassType.Adaptor:
-        generateClassImplAdaptor(c, impl);
+    case ClassType.Adapter:
+        generateClassImplAdapter(c, impl);
         break;
     case ClassType.Gmock:
         break;
@@ -663,7 +674,7 @@ void generateClassImpl(CppClass c, CppModule impl) {
 }
 
 /// Expecting only three functions. c'tor, d'tor and Connect.
-void generateClassImplAdaptor(CppClass c, CppModule impl) {
+void generateClassImplAdapter(CppClass c, CppModule impl) {
     import std.variant : visit;
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
