@@ -433,6 +433,7 @@ void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters
         break;
     case ClassType.Gmock:
         generateClassHdrGmock(c, gmock, params);
+        break;
     }
 }
 
