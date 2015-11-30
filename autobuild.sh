@@ -42,7 +42,7 @@ esac
 STATE="init"
 
 # return value from check_status. 0 is good, anything else is bad.
-CHECK_STATUS_RVAL=1
+CHECK_STATUS_RVAL=0
 # Incremented each loop. When it reaches MAX_CNT it will build with documentation and reset counter.
 DOC_CNT=9 # force a rebuild on first pass. then reset to 0.
 DOC_MAX_CNT=9
@@ -55,8 +55,15 @@ function cleanup() {
 }
 
 function check_status() {
-    CHECK_STATUS_RVAL=$?
-    MSG=$1
+    local CURR_STATUS=$?
+    local MSG=$1
+
+    if [[ $CHECK_STATUS_RVAL -ne 0 ]]; then
+        echo -e "${C_RED} Error status not reset${C_NONE}"
+        return
+    fi
+
+    CHECK_STATUS_RVAL=$CURR_STATUS
     if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
         echo -e "${C_GREEN}=== $MSG OK ===${C_NONE}"
     else
@@ -113,7 +120,7 @@ function state_release_build() {
 function state_release_test() {
     pushd test
     ./cstub_tests.sh "$TOOL_BIN"
-    check_status "Release Tests"
+    check_status "Release C Tests"
     popd
 }
 
@@ -144,6 +151,8 @@ function play_sound() {
 function watch_tests() {
 while :
 do
+    CHECK_STATUS_RVAL=0
+
     echo "State $STATE"
     case "$STATE" in
         "init")
