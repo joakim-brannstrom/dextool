@@ -25,10 +25,10 @@ public:
 
 ///
 ///
-class Adaptor {
+class Adapter {
 public:
-    Adaptor(I_TestDouble& inst);
-    ~Adaptor();
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
 };
 
 } //NS:TestDouble

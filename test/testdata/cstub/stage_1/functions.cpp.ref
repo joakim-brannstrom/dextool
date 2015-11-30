@@ -7,11 +7,11 @@ TestDouble::I_TestDouble* test_double_inst = 0;
 namespace TestDouble {
 
 
-Adaptor::Adaptor(I_TestDouble& inst) {
+Adapter::Adapter(I_TestDouble& inst) {
     test_double_inst = &inst;
 }
 
-Adaptor::~Adaptor() {
+Adapter::~Adapter() {
     test_double_inst = 0;
 }
 

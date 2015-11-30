@@ -29,7 +29,7 @@ struct ClangContext {
 
     /** Initialize context from file
      * Params:
-     *  input_file_ = filename of code to parse
+     *  input_file = filename of code to parse
      *  args = extra arguments to pass to libclang
      *  internal_hdr = use internal headers
      */

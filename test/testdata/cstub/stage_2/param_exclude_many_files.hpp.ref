@@ -12,12 +12,12 @@ public:
     virtual void fun_d() = 0;
 };
 
-/// Manage the shared memory area of the instance that fulfill the interface.
-/// Connect inst to handle all stimuli.
-class Adaptor {
+///
+///
+class Adapter {
 public:
-    Adaptor(I_TestDouble& inst);
-    ~Adaptor();
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
 };
 
 } //NS:TestDouble

@@ -12,10 +12,10 @@ public:
 
 ///
 ///
-class Adaptor {
+class Adapter {
 public:
-    Adaptor(I_Stub& inst);
-    ~Adaptor();
+    Adapter(I_Stub& inst);
+    ~Adapter();
 };
 
 } //NS:Stub
