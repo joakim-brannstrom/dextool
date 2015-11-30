@@ -58,7 +58,7 @@ configuration "devtool_release" {
     targetName "devtool"
     targetType "executable"
     buildType "debugInfo"
-    excludedSourceFiles "source/application/*.d"
+    excludedSourceFiles "source/application/app*.d"
     mainSourceFile "source/test/tok_main.d"
 }
 
