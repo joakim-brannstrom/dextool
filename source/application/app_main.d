@@ -36,8 +36,8 @@ import cpptooling.utility.clang : visitAst, logNode;
 
 static string doc = "
 usage:
-  dextool ctestdouble [options] [--gmock] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--gmock] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -51,8 +51,9 @@ options:
  --main-fname=n     used as part of filename for generated files [default: test_double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
+ --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it
 
 others:
  --file-exclude=...  exclude files from generation matching the regex.
@@ -74,8 +75,13 @@ Information about --strip-incl.
   Important to remember then is that this approach requires that at least one
   matcher group exists.
 
-Information about --file-exclude and --file-restrict.
+Information about --file-exclude.
   The regex must fully match the filename the AST node is located in.
+  If it matches all data from the file is excluded from the generated code.
+
+Information about --file-restrict.
+  The regex must fully match the filename the AST node is located in.
+  Only symbols from files matching the restrict affect the generated test double.
 
 EXAMPLES
 
