@@ -94,7 +94,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue ? Flag!"PostInclude".yes
             : Flag!"PostInclude".no;
 
-        if (parsed["--strip-incl"].isTrue) {
+        if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
             strip_incl = regex(strip_incl_user);
             logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
