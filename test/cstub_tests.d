@@ -22,7 +22,7 @@ void stage1() {
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
         print(Color.yellow, "[ Run ] ", input_ext);
-        auto params = ["--debug"];
+        auto params = ["ctestdouble", "--debug"];
         switch (input_ext.baseName.toString) {
         case "class_func.hpp":
             runDextool(input_ext, params, ["-xc++", "-DAND_A_DEFINE"]);
@@ -101,7 +101,7 @@ void stage2() {
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
         print(Color.yellow, "[ Run ] ", input_ext);
-        auto params = ["--debug"];
+        auto params = ["ctestdouble", "--debug"];
         auto incls = ["-I" ~ (root ~ "include").toString];
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":

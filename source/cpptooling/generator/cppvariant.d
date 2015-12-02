@@ -1,0 +1,477 @@
+// Written in the D programming language.
+/**
+Date: 2015, Joakim Brännström
+License: GPL
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+Variant of C++ test double.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+*/
+module cpptooling.generator.cppvariant;
+
+import std.typecons : Typedef;
+import logger = std.experimental.logger;
+
+import std.experimental.testing : name;
+
+import dsrcgen.cpp : CppModule, CppHModule;
+
+import application.types;
+import cpptooling.utility.nullvoid;
+
+version (unittest) {
+    import test.helpers : shouldEqualPretty;
+    import std.experimental.testing : shouldEqual;
+}
+
+/// Control variouse aspectes of the analyze and generation like what nodes to
+/// process.
+@safe interface Controller {
+    /// Query the controller with the filename of the AST node for a decision
+    /// if it shall be processed.
+    bool doFile(in string filename);
+
+    /** A list of includes for the test double header.
+     *
+     * Part of the controller because they are dynamic, may change depending on
+     * for example calls to doFile.
+     */
+    FileName[] getIncludes();
+
+    /// Controls generation of google mock.
+    bool doGoogleMock();
+
+    /// Generate a pre_include header file from internal template?
+    bool doPreIncludes();
+
+    /// Generate a #include of the pre include header
+    bool doIncludeOfPreIncludes();
+
+    /// Generate a post_include header file from internal template?
+    bool doPostIncludes();
+
+    /// Generate a #include of the post include header
+    bool doIncludeOfPostIncludes();
+}
+
+/// Parameters used during generation.
+/// Important aspact that they do NOT change, therefore it is pure.
+@safe pure interface Parameters {
+    import std.typecons : Tuple;
+
+    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName,
+        "globals", FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
+
+    /// Source files used to generate the stub.
+    FileName[] getIncludes();
+
+    /// Output directory to store files in.
+    DirName getOutputDirectory();
+
+    /// Files to write generated test double data to.
+    Files getFiles();
+
+    /// Name affecting interface, namespace and output file.
+    MainName getMainName();
+
+    /** Namespace for the generated test double.
+     *
+     * Contains the adapter, C++ interface, gmock etc.
+     */
+    MainNs getMainNs();
+
+    /** Name of the interface of the test double.
+     *
+     * Used in Adapter.
+     */
+    MainInterface getMainInterface();
+
+    /** Prefix to use for the generated files.
+     *
+     * Affects both the filename and the preprocessor #include.
+     */
+    StubPrefix getFilePrefix();
+
+    /// Prefix used for test artifacts.
+    StubPrefix getArtifactPrefix();
+}
+
+/// Data produced by the generator like files.
+@safe interface Products {
+    /** Data pushed from the stub generator to be written to files.
+     *
+     * The put value is the code generation tree. It allows the caller of
+     * StubGenerator to inject more data in the tree before writing. For
+     * example a custom header.
+     *
+     * Params:
+     *   fname = file the content is intended to be written to.
+     *   data = data to write to the file.
+     */
+    void putFile(FileName fname, CppHModule hdr_data);
+
+    /// ditto.
+    void putFile(FileName fname, CppModule impl_data);
+
+    /** During the translation phase the location of symbols that aren't
+     * filtered out are pushed to the variant.
+     *
+     * It is intended that the variant control the #include directive strategy.
+     * Just the files that was input?
+     * Deduplicated list of files where the symbols was found?
+     */
+    void putLocation(FileName loc);
+}
+
+struct Generator {
+    import std.typecons : Typedef;
+
+    import cpptooling.data.representation : CppRoot;
+    import cpptooling.utility.conv : str;
+
+    static struct Modules {
+        CppModule hdr;
+        CppModule impl;
+        CppModule gmock;
+    }
+
+    this(Controller ctrl, Parameters params, Products products) {
+        this.ctrl = ctrl;
+        this.params = params;
+        this.products = products;
+    }
+
+    /** Process structural data to a test double.
+     *
+     * translate -> intermediate -> code generation.
+     *
+     * translate filters the structural data.
+     * Controller is involved to allow filtering of identifiers in files.
+     *
+     * Intermediate analyzes what is left after filtering.
+     * On demand extra data is created.
+     *
+     * Code generation is a straight up translation.
+     * Logical decisions should have been handled in earlier stages.
+     */
+    auto process(CppRoot root) {
+        import cpptooling.data.representation : CppNamespace, CppNs;
+
+        logger.trace("Raw:\n" ~ root.toString());
+
+        auto fl = rawFilter(root, ctrl, products);
+        logger.trace("Filtered:\n" ~ fl.toString());
+
+        auto tr = translate(fl, ctrl, params);
+
+        logger.trace("Translated to implementation:\n" ~ tr.toString());
+
+        auto modules = makeCppModules();
+        generate(tr, ctrl, params, modules);
+        postProcess(ctrl, params, products, modules);
+    }
+
+private:
+    Controller ctrl;
+    Parameters params;
+    Products products;
+
+    auto makeCppModules() {
+        import std.range : only;
+        import std.algorithm : each;
+
+        Modules m;
+        //TODO how to do this with meta-programming and instrospection fo Modules?
+        m.hdr = new CppModule;
+        m.impl = new CppModule;
+        m.gmock = new CppModule;
+        return m;
+    }
+
+    static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
+        import cpptooling.generator.includes : convToIncludeGuard,
+            generatetPreInclude, generatePostInclude;
+
+        //TODO copied code from cstub. consider separating from this module to
+        // allow reuse.
+        static auto outputHdr(CppModule hdr, FileName fname) {
+            auto o = CppHModule(convToIncludeGuard(fname));
+            o.content.append(hdr);
+
+            return o;
+        }
+
+        static auto output(CppModule code, FileName incl_fname) {
+            import std.path : baseName;
+
+            auto o = new CppModule;
+            o.suppressIndent(1);
+            o.include(incl_fname.str.baseName);
+            o.sep(2);
+            o.append(code);
+
+            return o;
+        }
+
+        prods.putFile(params.getFiles.hdr, outputHdr(modules.hdr, params.getFiles.hdr));
+        prods.putFile(params.getFiles.impl, output(modules.impl, params.getFiles.hdr));
+
+        if (ctrl.doPreIncludes) {
+            prods.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
+        }
+        if (ctrl.doPostIncludes) {
+            prods.putFile(params.getFiles.post_incl, generatePostInclude(params.getFiles.post_incl));
+        }
+
+        if (ctrl.doGoogleMock) {
+            import cpptooling.generator.gmock : generateGmockHdr;
+
+            prods.putFile(params.getFiles.gmock,
+                generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, modules.gmock));
+        }
+    }
+}
+
+private:
+@safe:
+
+import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
+    CppDtor, CFunction, CppNamespace, CxLocation;
+import dsrcgen.cpp : E;
+
+enum dummyLoc = CxLocation("<test double>", 0, 0);
+
+enum ClassType {
+    Normal,
+    Adapter,
+    Gmock
+}
+
+enum NamespaceType {
+    Normal,
+    TestDoubleSingleton,
+    TestDouble
+}
+
+/** Structurally transformed the input to a stub implementation.
+ *
+ * Ignoring C functions and globals by ignoring the root ranges funcRange and
+ * globalRange.
+ *
+ * Params:
+ *  ctrl: removes according to directives via ctrl
+ */
+CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
+    import std.algorithm : each, filter;
+
+    CppRoot tr;
+
+    // Assuming that namespaces can are never duplicated at this stage.
+    //dfmt off
+    input.namespaceRange
+        .filter!(a => !a.isAnonymous)
+        .each!(a => tr.put(rawFilter(a, ctrl, prod)));
+    // dfmt on
+
+    return tr;
+}
+
+/// Recursive filtering of namespaces to remove everything except free functions.
+CppNamespace rawFilter(CppNamespace input, Controller ctrl, Products prod)
+in {
+    assert(!input.isAnonymous);
+    assert(input.name.length > 0);
+}
+body {
+    import std.algorithm : filter, map, each;
+    import application.types : FileName;
+    import cpptooling.data.representation : dedup;
+    import cpptooling.generator.func : filterFunc = rawFilter;
+
+    auto ns = CppNamespace.make(input.name);
+
+    // dfmt off
+    input.funcRange
+        .dedup
+        .filter!(a => ctrl.doFile(a.location.file))
+        .each!((a) {prod.putLocation(FileName(a.location.file)); ns.put(a);});
+
+    input.namespaceRange
+        .filter!(a => !a.isAnonymous)
+        .map!(a => rawFilter(a, ctrl, prod))
+        .each!(a => ns.put(a));
+    //dfmt on
+
+    return ns;
+}
+
+CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
+    import std.algorithm;
+
+    CppRoot r;
+
+    // dfmt off
+    root.namespaceRange
+        .map!(a => translateNs(a, ctrl, params))
+        .filter!(a => !a.isNull)
+        .each!(a => r.put(a.get));
+    // dfmt on
+
+    return r;
+}
+
+/** Translate namspaces and the content to test double implementations.
+ *
+ * Currently only cares about free functions.
+ */
+NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Parameters params) {
+    import std.algorithm;
+    import std.typecons : TypedefType;
+    import cpptooling.data.representation : CppNs;
+    import cpptooling.generator.adapter : makeAdapter, makeSingleton;
+    import cpptooling.generator.func : makeFuncInterface;
+
+    auto ns = CppNamespace.make(input.name);
+
+    if (!input.funcRange.empty) {
+        input.funcRange.each!(a => ns.put(a));
+
+        ns.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
+
+        auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
+        td_ns.setKind(NamespaceType.TestDouble);
+
+        auto i_free_func = makeFuncInterface(input.funcRange, params.getMainInterface);
+        td_ns.put(i_free_func);
+        td_ns.put(makeAdapter!(MainInterface, ClassType)(params.getMainInterface));
+
+        if (ctrl.doGoogleMock) {
+            // could reuse.. don't.
+            auto mock = i_free_func;
+            mock.setKind(ClassType.Gmock);
+            td_ns.put(mock);
+        }
+
+        ns.put(td_ns);
+    }
+
+    //dfmt off
+    input.namespaceRange()
+        .map!(a => translateNs(a, ctrl, params))
+        .filter!(a => !a.isNull)
+        .each!(a => ns.put(a.get));
+    // dfmt on
+
+    NullableVoid!CppNamespace rval;
+    if (!ns.namespaceRange.empty) {
+        rval = ns;
+    }
+
+    return rval;
+}
+
+void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules) {
+    import cpptooling.generator.func : generateFuncImpl;
+    import cpptooling.generator.includes : genCppIncl = generate;
+    import std.algorithm : each;
+    import cpptooling.utility.conv : str;
+
+    genCppIncl(ctrl, params, modules.hdr);
+
+    // recursive to handle nested namespaces.
+    static void eachNs(CppNamespace ns, Parameters params, Generator.Modules modules) {
+        final switch (cast(NamespaceType) ns.kind) with (NamespaceType) {
+        case Normal:
+            break;
+        case TestDoubleSingleton:
+            import cpptooling.generator.adapter : generateSingleton;
+
+            generateSingleton(ns, modules.impl);
+            break;
+        case TestDouble:
+            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock);
+            generateNsTestDoubleImpl(ns, params, modules.impl);
+            break;
+        }
+
+        auto inner = modules;
+        if (!ns.namespaceRange.empty || !ns.funcRange.empty) {
+            //TODO how to do this with meta-programming?
+            inner.hdr = modules.hdr.namespace(ns.name.str);
+            inner.hdr.suppressIndent(1);
+            inner.impl = modules.impl.namespace(ns.name.str);
+            inner.impl.suppressIndent(1);
+            inner.gmock = modules.gmock.namespace(ns.name.str);
+            inner.gmock.suppressIndent(1);
+        }
+
+        ns.funcRange.each!(a => generateFuncImpl(a, inner.impl));
+        ns.namespaceRange.each!(a => eachNs(a, params, inner));
+    }
+
+    r.namespaceRange().each!(a => eachNs(a, params, modules));
+}
+
+void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters params) {
+    import cpptooling.generator.classes : generateHdr;
+    import cpptooling.generator.gmock : generateGmock;
+
+    final switch (cast(ClassType) c.kind()) {
+    case ClassType.Normal:
+    case ClassType.Adapter:
+        generateHdr(c, hdr);
+        break;
+    case ClassType.Gmock:
+        generateGmock!Parameters(c, gmock, params);
+        break;
+    }
+}
+
+void generateClassImpl(CppClass c, CppModule impl) {
+    import cpptooling.generator.adapter : generateImplAdapter = generateImpl;
+
+    final switch (cast(ClassType) c.kind()) {
+    case ClassType.Normal:
+        break;
+    case ClassType.Adapter:
+        generateImplAdapter(c, impl);
+        break;
+    case ClassType.Gmock:
+        break;
+    }
+}
+
+void generateNsTestDoubleHdr(CppNamespace ns, Parameters params, CppModule hdr, CppModule gmock) {
+    import std.algorithm : each;
+    import cpptooling.utility.conv : str;
+
+    auto cpp_ns = hdr.namespace(ns.name.str);
+    cpp_ns.suppressIndent(1);
+    hdr.sep(2);
+
+    ns.classRange().each!((a) { generateClassHdr(a, cpp_ns, gmock, params); });
+}
+
+void generateNsTestDoubleImpl(CppNamespace ns, Parameters params, CppModule impl) {
+    import std.algorithm : each;
+    import cpptooling.utility.conv : str;
+
+    auto cpp_ns = impl.namespace(ns.name.str);
+    cpp_ns.suppressIndent(1);
+    impl.sep(2);
+
+    ns.classRange().each!((a) { generateClassImpl(a, cpp_ns); });
+}

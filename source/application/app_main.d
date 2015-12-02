@@ -26,7 +26,6 @@ import docopt;
 import argvalue; // from docopt
 import dsrcgen.cpp;
 
-import application.ctestdouble;
 import application.types;
 
 import cpptooling.analyzer.clang.context;
@@ -38,6 +37,8 @@ static string doc = "
 usage:
   dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
   dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool cpptestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool cpptestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
 
 arguments:
  FILE           C/C++ to analyze
@@ -159,8 +160,15 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
     }
 
     if (parsed["ctestdouble"].isTrue) {
+        import application.ctestdouble;
+
         auto variant = CTestDoubleVariant.makeVariant(parsed);
         exit_status = genCstub(variant, cflags);
+    } else if (parsed["cpptestdouble"].isTrue) {
+        import application.cpptestdouble;
+
+        auto variant = CppTestDoubleVariant.makeVariant(parsed);
+        exit_status = genCpp(variant, cflags);
     } else {
         logger.error("Usage error");
         writeln(doc);

@@ -26,7 +26,7 @@ void profileGTest() {
     auto input_ext = root ~ Path("gtest/gtest-all.cc");
 
     print(Color.yellow, "[ Run ] ", input_ext);
-    auto params = ["--gen-pre-incl", "--gen-post-incl"];
+    auto params = ["ctestdouble", "--gen-pre-incl", "--gen-post-incl"];
     auto flags = ["-xc++", "-I" ~ root.toString];
     runDextool(input_ext, params, flags);
 

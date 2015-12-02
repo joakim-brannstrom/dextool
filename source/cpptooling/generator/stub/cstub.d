@@ -201,27 +201,15 @@ private:
     static private void postProcess(CppModule hdr, CppModule impl,
         CppModule globals, CppModule gmock, StubController ctrl,
         StubParameters params, StubProducts prod) {
-
-        static string makeIncludeGuard(FileName fname) {
-            import std.string : translate;
-            import std.path : baseName;
-
-            // dfmt off
-            dchar[dchar] table = [
-                '.' : '_',
-                '-' : '_',
-                '/' : '_'];
-            // dfmt on
-
-            return translate(fname.str.baseName, table);
-        }
+        import cpptooling.generator.includes : convToIncludeGuard,
+            generatetPreInclude, generatePostInclude;
 
         /** Generate the C++ header file of the stub.
          * Params:
          *  filename = intended output filename, used for ifndef guard.
          */
         static auto outputHdr(CppModule hdr, FileName fname) {
-            auto o = CppHModule(makeIncludeGuard(fname));
+            auto o = CppHModule(convToIncludeGuard(fname));
             o.content.append(hdr);
 
             return o;
@@ -239,38 +227,23 @@ private:
             return o;
         }
 
-        static auto outputPreIncludes(FileName fname) {
-            auto o = CppHModule(makeIncludeGuard(fname));
-            auto c = new CppModule;
-            c.stmt("#undef __cplusplus")[$.end = ""];
-            o.content.append(c);
-
-            return o;
-        }
-
-        static auto outputPostIncludes(FileName fname) {
-            auto o = CppHModule(makeIncludeGuard(fname));
-            auto c = new CppModule;
-            c.define("__cplusplus");
-            o.content.append(c);
-
-            return o;
-        }
-
         prod.putFile(params.getFiles.hdr, outputHdr(hdr, params.getFiles.hdr));
         prod.putFile(params.getFiles.impl, output(impl, params.getFiles.hdr));
         prod.putFile(params.getFiles.globals, output(globals, params.getFiles.hdr));
 
         if (ctrl.doPreIncludes) {
-            prod.putFile(params.getFiles.pre_incl, outputPreIncludes(params.getFiles.pre_incl));
+            prod.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
         }
         if (ctrl.doPostIncludes) {
-            prod.putFile(params.getFiles.post_incl, outputPostIncludes(params.getFiles.post_incl));
+            prod.putFile(params.getFiles.post_incl, generatePostInclude(params.getFiles.post_incl));
         }
 
         //TODO refactor. should never reach this stage.
         if (ctrl.doGoogleMock) {
-            prod.putFile(params.getFiles.gmock, outputHdr(gmock, params.getFiles.gmock));
+            import cpptooling.generator.gmock : generateGmockHdr;
+
+            prod.putFile(params.getFiles.gmock,
+                generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, gmock));
         }
     }
 
@@ -296,7 +269,7 @@ enum ClassType {
 
 enum NamespaceType {
     Normal,
-    CStubGlobal,
+    TestDoubleSingleton,
     TestDouble
 }
 
@@ -305,7 +278,6 @@ enum NamespaceType {
  * This stage:
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
- *  - produces file locations for declarations of variables and functions.
  */
 CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
     import cpptooling.data.representation : dedup;
@@ -329,20 +301,13 @@ CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
     return tr;
 }
 
-auto translateCFunc(CFunction func, StubController ctrl, StubProducts prod) {
-    import cpptooling.utility.nullvoid;
+static import cpptooling.generator.func;
 
-    NullableVoid!CFunction r;
+alias translateCFunc = cpptooling.generator.func.rawFilter!(StubController, StubProducts);
 
-    if (ctrl.doFile(func.location.file)) {
-        r = func;
-        prod.putLocation(FileName(func.location.file));
-    } else {
-        logger.info("Ignoring function: ", func.toString);
-    }
+alias generateCFuncImpl = cpptooling.generator.func.generateFuncImpl;
 
-    return r;
-}
+alias makeCFuncInterface = cpptooling.generator.func.makeFuncInterface;
 
 auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod) {
     import cpptooling.utility.nullvoid;
@@ -359,73 +324,12 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
     return r;
 }
 
-///TODO change filename from generic type string to FileName.
-CppClass makeCFuncInterface(Tr)(Tr r, in MainInterface main_if) {
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
+static import cpptooling.generator.adapter;
 
-    import std.array : array;
+alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(MainInterface,
+    ClassType);
 
-    string c_name = cast(string) main_if;
-
-    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-
-    foreach (f; r) {
-        auto params = f.paramRange().array();
-        if (f.isVariadic) {
-            params = params[0 .. $ - 1];
-        }
-
-        auto name = CppMethodName(f.name.str);
-        auto m = CppMethod(name, params, f.returnType(),
-            CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(VirtualType.Pure));
-
-        c.put(m);
-    }
-
-    return c;
-}
-
-CppClass makeTestDoubleAdapter(MainInterface main_if) {
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
-
-    string c_if = main_if.str;
-    string c_name = "Adapter";
-
-    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
-    c.setKind(ClassType.Adapter);
-
-    auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
-        true, false), CppVariable("inst")));
-
-    c.put("Adapter connecting the C implementation with interface.");
-    c.put("The lifetime of the connection is the same as the instance of the adapter.");
-
-    c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
-    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.No)));
-
-    return c;
-}
-
-/// make an anonymous namespace containing a ptr to an instance of a test
-/// double that implement the interface needed.
-CppNamespace makeCStubGlobal(MainNs main_ns, MainInterface main_if) {
-    import cpptooling.data.representation : makeTypeKind, CppVariable,
-        CxGlobalVariable;
-    import cpptooling.utility.conv : str;
-
-    auto type = makeTypeKind(main_ns.str ~ "::" ~ main_if.str ~ "*", false, false,
-        true);
-    auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
-    auto ns = CppNamespace.makeAnonymous();
-    ns.setKind(NamespaceType.CStubGlobal);
-    ns.put(v);
-
-    return ns;
-}
+alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType;
 
 void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule hdr,
     CppModule impl, CppModule globals, CppModule gmock) {
@@ -437,7 +341,7 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
     auto globalR = r.globalRange();
     if (!globalR.empty) {
         globalR.each!((a) {
-            generateCGlobalDefine(a, params.getArtifactPrefix.str, globals);
+            generateCGlobalPreProcessorDefine(a, params.getArtifactPrefix.str, globals);
         });
         globals.sep(2);
 
@@ -452,7 +356,7 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
         final switch (cast(NamespaceType) ns.kind) {
         case NamespaceType.Normal:
             break;
-        case NamespaceType.CStubGlobal:
+        case NamespaceType.TestDoubleSingleton:
             generateTestDoubleSingleton(ns, impl);
             break;
         case NamespaceType.TestDouble:
@@ -470,7 +374,7 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
     r.funcRange().each!((a) { generateCFuncImpl(a, extern_c); });
 }
 
-void generateCGlobalDefine(CxGlobalVariable g, string prefix, CppModule code) {
+void generateCGlobalPreProcessorDefine(CxGlobalVariable g, string prefix, CppModule code) {
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
     import cpptooling.analyzer.type : TypeKind;
@@ -521,31 +425,6 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     code.stmt(txt);
 }
 
-/// Generates a C implementation calling the test double via the matching
-/// interface.
-void generateCFuncImpl(CFunction f, CppModule impl) {
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
-
-    // assuming that a function declaration void a() in C is meant to be void
-    // a(void), not variadic.
-    string params;
-    auto p_range = f.paramRange();
-    if (p_range.length == 1 && !f.isVariadic || p_range.length > 1) {
-        params = joinParams(p_range);
-    }
-    string names = joinParamNames(f.paramRange());
-
-    with (impl.func_body(f.returnType().toString, f.name().str, params)) {
-        if (f.returnType().toString == "void") {
-            stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
-        } else {
-            return_(E("test_double_inst->" ~ f.name().str)(E(names)));
-        }
-    }
-    impl.sep(2);
-}
-
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
@@ -554,112 +433,17 @@ void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters
         break;
     case ClassType.Gmock:
         generateClassHdrGmock(c, gmock, params);
+        break;
     }
 }
 
-void generateClassHdrNormal(CppClass in_c, CppModule hdr) {
-    import std.algorithm : each;
-    import std.variant : visit;
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
+import cpptooling.generator.classes : generateClassHdrNormal = generateHdr;
 
-    static void genCtor(CppCtor m, CppModule hdr) {
-        string params = m.paramRange().joinParams();
-        hdr.ctor(m.name().str, params);
-    }
+static import cpptooling.generator.gmock;
 
-    static void genDtor(CppDtor m, CppModule hdr) {
-        hdr.dtor(m.isVirtual(), m.name().str);
-    }
+alias generateClassHdrGmock = cpptooling.generator.gmock.generateGmock!StubParameters;
 
-    static void genMethod(CppMethod m, CppModule hdr) {
-        import cpptooling.data.representation : VirtualType;
-
-        string params = m.paramRange().joinParams();
-        auto o = hdr.method(m.isVirtual(), m.returnType().toString,
-            m.name().str, m.isConst(), params);
-        if (m.virtualType() == VirtualType.Pure) {
-            o[$.end = " = 0;"];
-        }
-    }
-
-    in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
-    auto c = hdr.class_(in_c.name().str);
-    auto pub = c.public_();
-
-    with (pub) {
-        foreach (m; in_c.methodPublicRange()) {
-            // dfmt off
-            () @trusted {
-            m.visit!((CppMethod m) => genMethod(m, pub),
-                     (CppCtor m) => genCtor(m, pub),
-                     (CppDtor m) => genDtor(m, pub));
-            }();
-            // dfmt on
-        }
-    }
-    hdr.sep(2);
-}
-
-/// Assuming that in_c is pure virtual. Therefor the logic is simpler.
-/// TODO add support for const functions.
-void generateClassHdrGmock(CppClass in_c, CppModule hdr, StubParameters params)
-in {
-    import cpptooling.data.representation : VirtualType;
-
-    assert(in_c.virtualType == VirtualType.Pure);
-}
-body {
-    import std.algorithm : each;
-    import std.conv : text;
-    import std.format : format;
-    import std.path : baseName;
-    import std.variant : visit;
-
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
-
-    static void ignore() {
-    }
-
-    static void genMethod(CppMethod m, CppModule hdr) {
-        import cpptooling.data.representation : VirtualType;
-
-        logger.errorf(m.paramRange().length > 10,
-            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
-            m.name, m.paramRange().length);
-
-        string params = m.paramRange().joinParams();
-        string name = m.name().str;
-        string gmock_method = "MOCK_METHOD" ~ m.paramRange().length.text;
-        string stmt = format("%s(%s, %s(%s))", gmock_method, name,
-            m.returnType().toString, params);
-
-        hdr.stmt(stmt);
-    }
-
-    hdr.include(params.getFiles.hdr.str.baseName);
-    hdr.include("gmock/gmock.h");
-    hdr.sep(2);
-
-    auto ns = hdr.namespace(params.getMainNs().str);
-    ns.suppressIndent(1);
-    auto c = ns.class_("Mock" ~ in_c.name().str, "public " ~ in_c.name().str);
-    auto pub = c.public_();
-
-    with (pub) {
-        foreach (m; in_c.methodPublicRange()) {
-            // dfmt off
-            () @trusted {
-            m.visit!((CppMethod m) => genMethod(m, pub),
-                     (CppCtor m) => ignore(),
-                     (CppDtor m) => ignore());
-            }();
-            // dfmt on
-        }
-    }
-    hdr.sep(2);
-}
+import cpptooling.generator.adapter : generateClassImplAdapter = generateImpl;
 
 void generateClassImpl(CppClass c, CppModule impl) {
     final switch (cast(ClassType) c.kind()) {
@@ -673,101 +457,12 @@ void generateClassImpl(CppClass c, CppModule impl) {
     }
 }
 
-/// Expecting only three functions. c'tor, d'tor and Connect.
-void generateClassImplAdapter(CppClass c, CppModule impl) {
-    import std.variant : visit;
-    import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
+import cpptooling.generator.adapter : generateTestDoubleSingleton = generateSingleton;
 
-    // C'tor is expected to have one parameter.
-    static void genCtor(CppClass c, CppCtor m, CppModule impl) {
-        // dfmt off
-        TypeKindVariable p0 = () @trusted {
-            return m.paramRange().front.visit!(
-                (TypeKindVariable tkv) => tkv,
-                (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),
-                (VariadicType vt) {
-                    logger.error("Variadic c'tor not supported:", m.toString);
-                    return TypeKindVariable(makeTypeKind("not supported", false,
-                        false, false), CppVariable("not supported"));
-                })();
-        }();
-        // dfmt on
+static import cpptooling.generator.includes;
 
-        with (impl.ctor_body(m.name.str, E(p0.type.toString) ~ E(p0.name.str))) {
-            stmt(E("test_double_inst") = E("&" ~ p0.name.str));
-        }
-        impl.sep(2);
-    }
-
-    static void genDtor(CppClass c, CppDtor m, CppModule impl) {
-        with (impl.dtor_body(c.name.str)) {
-            stmt("test_double_inst = 0");
-        }
-        impl.sep(2);
-    }
-
-    static void genMethod(CppClass c, CppMethod m, CppModule impl) {
-        import std.range : takeOne;
-
-        string params = m.paramRange().joinParams();
-        auto b = impl.method_body(m.returnType().toString, c.name().str,
-            m.name().str, m.isConst(), params);
-        with (b) {
-            auto p = m.paramRange().joinParamNames();
-            stmt(E("test_double_inst") = E("&" ~ p));
-        }
-        impl.sep(2);
-    }
-
-    impl.sep(2);
-
-    foreach (m; c.methodPublicRange()) {
-        () @trusted{
-            m.visit!((CppMethod m) => genMethod(c, m, impl),
-                (CppCtor m) => genCtor(c, m, impl), (CppDtor m) => genDtor(c, m, impl));
-        }();
-    }
-}
-
-void generateTestDoubleSingleton(CppNamespace in_ns, CppModule impl) {
-    import std.ascii : newline;
-    import cpptooling.utility.conv : str;
-
-    auto ns = impl.namespace("")[$.begin = "{" ~ newline];
-    ns.suppressIndent(1);
-    impl.sep(2);
-
-    foreach (g; in_ns.globalRange()) {
-        auto stmt = E(g.type().toString ~ " " ~ g.name().str);
-        if (g.type().isPointer) {
-            stmt = E("0");
-        }
-        ns.stmt(stmt);
-    }
-}
-
-void generateCIncludes(StubController ctrl, StubParameters params, CppModule hdr) {
-    import std.path : baseName;
-    import cpptooling.utility.conv : str;
-
-    if (ctrl.doIncludeOfPreIncludes) {
-        hdr.include(params.getFiles.pre_incl.str.baseName);
-    }
-
-    auto extern_c = hdr.suite("extern \"C\"");
-    extern_c.suppressIndent(1);
-
-    foreach (incl; params.getIncludes) {
-        extern_c.include(cast(string) incl);
-    }
-
-    if (ctrl.doIncludeOfPostIncludes) {
-        hdr.include(params.getFiles.post_incl.str.baseName);
-    }
-
-    hdr.sep(2);
-}
+alias generateCIncludes = cpptooling.generator.includes.generateC!(StubController,
+    StubParameters);
 
 void generateNsTestDoubleHdr(CppNamespace ns, StubParameters params, CppModule hdr,
     CppModule gmock) {
