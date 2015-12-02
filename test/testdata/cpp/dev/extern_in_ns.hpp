@@ -10,3 +10,15 @@ extern "C" {
 }
 
 } // NS: ns
+
+namespace level0 {
+
+namespace level1 {
+
+void fun_level1();
+
+} // NS: level1
+
+} // NS: level0
+
+void free_func();

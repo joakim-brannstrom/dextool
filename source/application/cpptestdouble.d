@@ -4,6 +4,8 @@ Date: 2015, Joakim Brännström
 License: GPL
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
+Generation of C++ test doubles.
+
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
@@ -18,25 +20,25 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
-module application.ctestdouble;
+module application.cpptestdouble;
 
 import logger = std.experimental.logger;
 
 import application.types;
 import application.utility;
 
-import cpptooling.generator.stub.cstub : StubGenerator, StubController,
-    StubParameters, StubProducts;
+import cpptooling.generator.cppvariant : Controller, Parameters, Products;
 
-/** Test double generation of C code.
+/** Test double generation of C++ code.
  *
  * TODO Describe the options.
  */
-class CTestDoubleVariant : StubController, StubParameters, StubProducts {
+class CppTestDoubleVariant : Controller, Parameters, Products {
+    import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Tuple, Flag;
     import argvalue; // from docopt
-    import application.types : StubPrefix, FileName, DirName;
+    import application.types : StubPrefix, FileName, MainInterface, DirName;
     import dsrcgen.cpp;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
@@ -99,11 +101,11 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             strip_incl = regex(strip_incl_user);
             logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
         } else {
-            logger.trace("Using default regexp to strip include path (basename)");
+            logger.trace("Using default regexp for stripping include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 
-        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
+        auto variant = new CppTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainFileName(parsed["--main-fname"].toString),
             MainName(parsed["--main"].toString),
@@ -163,7 +165,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return input_file;
     }
 
-    // -- StubController --
+    // -- Controller --
 
     bool doFile(in string filename) {
         import std.algorithm : canFind;
@@ -212,7 +214,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return post_incl;
     }
 
-    // -- StubParameters --
+    // -- Parameters --
 
     FileName[] getIncludes() {
         import application.utility : stripIncl;
@@ -237,8 +239,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return output_dir;
     }
 
-    StubParameters.Files getFiles() {
-        return StubParameters.Files(main_file_hdr, main_file_impl,
+    Parameters.Files getFiles() {
+        return Parameters.Files(main_file_hdr, main_file_impl,
             main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
@@ -262,7 +264,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return prefix;
     }
 
-    // -- StubProducts --
+    // -- Products --
 
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
@@ -288,12 +290,13 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 }
 
 /// TODO refactor, doing too many things.
-ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
+ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
     import std.file : exists;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
+    import cpptooling.generator.cppvariant : Generator;
 
     if (!exists(cast(string) variant.getInputFile)) {
         logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
@@ -311,7 +314,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     ctx.visit(file_ctx.cursor);
 
     // process and put the data in variant.
-    StubGenerator(variant, variant, variant).process(ctx.root);
+    Generator(variant, variant, variant).process(ctx.root);
 
     foreach (p; variant.file_data) {
         auto status = tryWriting(cast(string) p.filename, p.data);

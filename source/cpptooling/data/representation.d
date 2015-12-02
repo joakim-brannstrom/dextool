@@ -1103,6 +1103,7 @@ pure @safe nothrow struct CppNamespace {
         auto name() {
             return name_;
         }
+
     }
 
 private:

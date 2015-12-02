@@ -35,7 +35,7 @@ void devTest() {
 
         print(Color.green, "[  OK ] ", input_ext);
 
-        pause("press enter to continue...");
+        //pause("press enter to continue...");
         cleanTestEnv();
     }
 }
