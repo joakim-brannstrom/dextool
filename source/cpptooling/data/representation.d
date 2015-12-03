@@ -421,8 +421,7 @@ pure @safe nothrow struct CFunction {
         }
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data,
-            location());
+        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
         return rval.data;
     }
 
@@ -1118,6 +1117,12 @@ private:
 }
 
 pure @safe nothrow struct CppRoot {
+    mixin mixingSourceLocation;
+
+    this(in CxLocation loc) {
+        setLocation(loc);
+    }
+
     void put(CFunction f) {
         funcs ~= f;
     }
@@ -1136,6 +1141,8 @@ pure @safe nothrow struct CppRoot {
 
     string toString() const @safe {
         import std.array : Appender, appender;
+        import std.format : formattedWrite;
+        import std.ascii : newline;
 
         static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
             import std.algorithm : each;
@@ -1165,6 +1172,7 @@ pure @safe nothrow struct CppRoot {
         }
 
         auto app = appender!string();
+        formattedWrite(app, "// %s%s", location().toString, newline);
         appRanges(this, app);
 
         return app.data;
@@ -1498,7 +1506,8 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    shouldEqualPretty(root.toString, "void nothing(); // File:a.h Line:123 Column:45
+    shouldEqualPretty(root.toString, "// File: Line:0 Column:0
+void nothing(); // File:a.h Line:123 Column:45
 
 class Foo { // isVirtual No
 public:
@@ -1584,11 +1593,20 @@ unittest {
     r.put(v);
     r.put(n);
 
-    shouldEqualPretty(r.toString, "int x; // File:a.h Line:123 Column:45
+    shouldEqualPretty(r.toString, "// File: Line:0 Column:0
+int x; // File:a.h Line:123 Column:45
 
 namespace  { //
 int x; // File:a.h Line:123 Column:45
 } //NS:
+");
+}
+
+@name("Root with location")
+unittest {
+    auto r = CppRoot(dummyLoc);
+
+    shouldEqualPretty(r.toString, "// File:a.h Line:123 Column:45
 ");
 }
 
