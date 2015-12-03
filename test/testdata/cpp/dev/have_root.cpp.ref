@@ -1,0 +1,44 @@
+#include "test_double.hpp"
+
+namespace a_ns {
+namespace {
+TestDouble::I_TestDouble* test_double_inst = 0;
+} //NS:
+
+void a_ns_func() {
+    test_double_inst->a_ns_func();
+}
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adapter::~Adapter() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
+
+} //NS:a_ns
+namespace ns {
+namespace {
+TestDouble::I_TestDouble* test_double_inst = 0;
+} //NS:
+
+void have_root() {
+    test_double_inst->have_root();
+}
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adapter::~Adapter() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
+
+} //NS:ns

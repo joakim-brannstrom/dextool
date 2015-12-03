@@ -1,0 +1,45 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "extern_in_ns.hpp"
+
+namespace ns {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void fun_cpp_linkage() = 0;
+    virtual void fun_c_linkage() = 0;
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:ns
+namespace level0 {
+namespace level1 {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void fun_level1() = 0;
+};
+
+/// Adapter connecting an interface with an implementation.
+/// The lifetime of the connection is the same as the instance of the adapter.
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:level1
+} //NS:level0
+#endif // test_double_hpp
+

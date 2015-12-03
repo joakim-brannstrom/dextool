@@ -375,8 +375,15 @@ struct ParseContext {
         visitAst!(typeof(this))(cursor, this);
     }
 
-    void applyRoot(ref Cursor root) {
-        logNode(root, depth);
+    void applyRoot(ref Cursor c) {
+        import cpptooling.data.representation : CxLocation;
+
+        logNode(c, depth);
+
+        // retrieving the location from a root is via spelling.
+        auto loc = CxLocation();
+        loc.file = c.spelling;
+        root = CppRoot(loc);
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {

@@ -67,21 +67,60 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     Regex!char[] exclude;
     Regex!char[] restrict;
-    Regex!char strip_incl;
 
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
 
     /// Includes intended for the test double. Filtered according to the user.
-    private FileName[] td_includes;
-    // Dirty flag so sorting is only done when needed.
-    enum IncludeState {
-        Dirty,
-        Clean,
-        UserDefined
+    struct TdIncludes {
+        enum State {
+            Normal,
+            HaveRoot,
+            UserDefined
+        }
+
+        FileName[] incls;
+        State st;
+        Regex!char strip_incl;
+        private FileName[] unstripped_incls;
+
+        void forceIncludes(string[] in_incls) {
+            st = State.UserDefined;
+            foreach (incl; in_incls) {
+                incls ~= FileName(incl);
+            }
+        }
+
+        void doStrip() @safe {
+            import application.utility : stripIncl;
+
+            incls ~= stripIncl(unstripped_incls, strip_incl);
+        }
+
+        void put(FileName fname, LocationType type) @safe {
+            final switch (st) with (State) {
+            case Normal:
+                if (type == LocationType.Root) {
+                    unstripped_incls = [fname];
+                    st = HaveRoot;
+                } else {
+                    unstripped_incls ~= fname;
+                }
+                break;
+            case HaveRoot:
+                // only accepting roots
+                if (type == LocationType.Root) {
+                    unstripped_incls ~= fname;
+                }
+                break;
+            case UserDefined:
+                // ignoring new includes
+                break;
+            }
+        }
     }
 
-    private IncludeState td_includes_st;
+    private TdIncludes td_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         import std.array : array;
@@ -115,7 +154,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             variant.forceIncludes(parsed["--td-include"].asList);
         }
 
-        variant.strip_incl = strip_incl;
+        variant.td_includes.strip_incl = strip_incl;
         variant.exclude = exclude;
         variant.restrict = restrict;
 
@@ -154,10 +193,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     /// Force the includes to be those supplied by the user.
     void forceIncludes(string[] incls) {
-        foreach (incl; incls) {
-            td_includes ~= FileName(incl);
-        }
-        td_includes_st = IncludeState.UserDefined;
+        td_includes.forceIncludes(incls);
     }
 
     /// User supplied files used as input.
@@ -217,22 +253,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     // -- Parameters --
 
     FileName[] getIncludes() {
-        import application.utility : stripIncl;
-
-        final switch (td_includes_st) {
-        case IncludeState.Dirty:
-            //TODO optimize use of stripIncl, it is slow
-            td_includes = stripIncl(td_includes, strip_incl);
-            td_includes_st = IncludeState.Clean;
-            break;
-
-        case IncludeState.Clean:
-            break;
-        case IncludeState.UserDefined:
-            break;
-        }
-
-        return td_includes;
+        td_includes.doStrip();
+        return td_includes.incls;
     }
 
     DirName getOutputDirectory() {
@@ -274,18 +296,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         file_data ~= FileData(fname, impl_data.render());
     }
 
-    void putLocation(FileName fname) {
-        final switch (td_includes_st) {
-        case IncludeState.Dirty:
-            td_includes ~= fname;
-            break;
-        case IncludeState.Clean:
-            td_includes ~= fname;
-            td_includes_st = IncludeState.Dirty;
-            break;
-        case IncludeState.UserDefined:
-            break;
-        }
+    void putLocation(FileName fname, LocationType type) {
+        td_includes.put(fname, type);
     }
 }
 

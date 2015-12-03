@@ -53,7 +53,7 @@ void stage1() {
         print(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto incls = ["-I" ~ input_ext.dirName.toString];
-        auto mainf = Path("main1.cpp");
+        auto mainf = Path("testdata/cstub/main1.cpp");
         switch (input_ext.baseName.toString) {
         case "param_gmock.h":
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"],
@@ -174,7 +174,7 @@ void stage2() {
 
         print(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
-        auto mainf = Path("main1.cpp");
+        auto mainf = Path("testdata/cstub/main1.cpp");
         incls ~= "-I" ~ input_ext.dirName.toString;
         switch (input_ext.baseName.toString) {
         default:
