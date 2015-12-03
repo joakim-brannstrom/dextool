@@ -1,0 +1,51 @@
+#include "test_double.hpp"
+
+namespace ns {
+namespace {
+TestDouble::I_TestDouble* test_double_inst = 0;
+} //NS:
+
+void fun_cpp_linkage() {
+    test_double_inst->fun_cpp_linkage();
+}
+
+void fun_c_linkage() {
+    test_double_inst->fun_c_linkage();
+}
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adapter::~Adapter() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
+
+} //NS:ns
+namespace level0 {
+namespace level1 {
+namespace {
+TestDouble::I_TestDouble* test_double_inst = 0;
+} //NS:
+
+void fun_level1() {
+    test_double_inst->fun_level1();
+}
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble& inst) {
+    test_double_inst = &inst;
+}
+
+Adapter::~Adapter() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
+
+} //NS:level1
+} //NS:level0
+

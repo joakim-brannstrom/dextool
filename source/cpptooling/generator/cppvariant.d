@@ -347,9 +347,8 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
     auto ns = CppNamespace.make(input.name);
 
     if (!input.funcRange.empty) {
-        input.funcRange.each!(a => ns.put(a));
-
         ns.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
+        input.funcRange.each!(a => ns.put(a));
 
         auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
         td_ns.setKind(NamespaceType.TestDouble);
@@ -383,7 +382,18 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
     return rval;
 }
 
-void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules) {
+/** Translate the structure to code.
+ *
+ * order is important, affects code layout:
+ *  - anonymouse for test double instance.
+ *  - implementations using double.
+ *  - adapter.
+ */
+void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules)
+in {
+    assert(r.funcRange.empty);
+}
+body {
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : genCppIncl = generate;
     import std.algorithm : each;
@@ -392,14 +402,17 @@ void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules m
     genCppIncl(ctrl, params, modules.hdr);
 
     // recursive to handle nested namespaces.
-    static void eachNs(CppNamespace ns, Parameters params, Generator.Modules modules) {
+    // the singleton ns must be the first code generate or the impl can't
+    // use the instance.
+    static void eachNs(CppNamespace ns, Parameters params,
+        Generator.Modules modules, CppModule impl_singleton) {
         final switch (cast(NamespaceType) ns.kind) with (NamespaceType) {
         case Normal:
             break;
         case TestDoubleSingleton:
             import cpptooling.generator.adapter : generateSingleton;
 
-            generateSingleton(ns, modules.impl);
+            generateSingleton(ns, impl_singleton);
             break;
         case TestDouble:
             generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock);
@@ -408,7 +421,9 @@ void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules m
         }
 
         auto inner = modules;
+        CppModule inner_impl_singleton;
         if (!ns.namespaceRange.empty || !ns.funcRange.empty) {
+
             //TODO how to do this with meta-programming?
             inner.hdr = modules.hdr.namespace(ns.name.str);
             inner.hdr.suppressIndent(1);
@@ -416,13 +431,17 @@ void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules m
             inner.impl.suppressIndent(1);
             inner.gmock = modules.gmock.namespace(ns.name.str);
             inner.gmock.suppressIndent(1);
+
+            inner_impl_singleton = inner.impl.base;
+            inner_impl_singleton.suppressIndent(1);
         }
 
         ns.funcRange.each!(a => generateFuncImpl(a, inner.impl));
-        ns.namespaceRange.each!(a => eachNs(a, params, inner));
+        ns.namespaceRange.each!(a => eachNs(a, params, inner, inner_impl_singleton));
     }
 
-    r.namespaceRange().each!(a => eachNs(a, params, modules));
+    // no singleton in global namespace thus null
+    r.namespaceRange().each!(a => eachNs(a, params, modules, null));
 }
 
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters params) {

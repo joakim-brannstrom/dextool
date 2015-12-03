@@ -17,25 +17,32 @@ void devTest() {
         auto input_ext = Path(f);
         auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
         auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
-        auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
         print(Color.yellow, "[ Run ] ", input_ext);
         auto params = ["cpptestdouble", "--gmock", "--debug"];
-        auto flags = ["-xc++", "-I" ~ (root ~ "extra").toString];
+        auto incls = ["-I" ~ (root ~ "extra").toString];
+        auto dex_flags = ["-xc++"] ~ incls;
         switch (input_ext.baseName.toString) {
 
         default:
-            runDextool(input_ext, params, flags);
+            runDextool(input_ext, params, dex_flags);
         }
 
         print(Color.yellow, "Comparing");
+        auto input = input_ext.stripExtension;
+        compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
+            GR(input ~ Ext(".cpp.ref"), out_impl),
+            GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         print(Color.yellow, "Compiling");
+        auto flags = ["-std=c++03", "-Wpedantic", "-Werror", "-I" ~ (root ~ "extra").toString];
+        auto mainf = Path("testdata/cpp/main_dev.cpp");
+        incls ~= "-I" ~ input_ext.dirName.toString;
+        compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
 
         print(Color.green, "[  OK ] ", input_ext);
 
-        //pause("press enter to continue...");
         cleanTestEnv();
     }
 }
