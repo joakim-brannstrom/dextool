@@ -133,7 +133,7 @@ version (unittest) {
      * Just the files that was input?
      * Deduplicated list of files where the symbols was found?
      */
-    void putLocation(FileName loc);
+    void putLocation(FileName loc, LocationType type);
 }
 
 struct Generator {
@@ -277,7 +277,11 @@ enum NamespaceType {
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : each, filter;
 
-    CppRoot tr;
+    auto tr = CppRoot(input.location);
+
+    if (ctrl.doFile(input.location.file)) {
+        prod.putLocation(FileName(input.location.file), LocationType.Root);
+    }
 
     // Assuming that namespaces can are never duplicated at this stage.
     //dfmt off
@@ -307,7 +311,7 @@ body {
     input.funcRange
         .dedup
         .filter!(a => ctrl.doFile(a.location.file))
-        .each!((a) {prod.putLocation(FileName(a.location.file)); ns.put(a);});
+        .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
 
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
@@ -321,7 +325,7 @@ body {
 CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
     import std.algorithm;
 
-    CppRoot r;
+    auto r = CppRoot(root.location);
 
     // dfmt off
     root.namespaceRange

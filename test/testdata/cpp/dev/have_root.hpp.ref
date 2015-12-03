@@ -1,32 +1,12 @@
 #ifndef test_double_hpp
 #define test_double_hpp
-#include "extern_in_ns.hpp"
+#include "have_root.hpp"
 
-namespace ns {
+namespace a_ns {
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual void fun_cpp_linkage() = 0;
-    virtual void fun_c_linkage() = 0;
-};
-
-///
-///
-class Adapter {
-public:
-    Adapter(I_TestDouble& inst);
-    ~Adapter();
-};
-
-} //NS:TestDouble
-
-} //NS:ns
-namespace level0 {
-namespace level1 {
-namespace TestDouble {
-class I_TestDouble {
-public:
-    virtual void fun_level1() = 0;
+    virtual void a_ns_func() = 0;
 };
 
 /// Adapter connecting an interface with an implementation.
@@ -39,7 +19,23 @@ public:
 
 } //NS:TestDouble
 
-} //NS:level1
-} //NS:level0
-#endif // test_double_hpp
+} //NS:a_ns
+namespace ns {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void have_root() = 0;
+};
 
+/// Adapter connecting an interface with an implementation.
+/// The lifetime of the connection is the same as the instance of the adapter.
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:ns
+#endif // test_double_hpp

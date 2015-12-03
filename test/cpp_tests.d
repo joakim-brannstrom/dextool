@@ -24,7 +24,10 @@ void devTest() {
         auto incls = ["-I" ~ (root ~ "extra").toString];
         auto dex_flags = ["-xc++"] ~ incls;
         switch (input_ext.baseName.toString) {
-
+        case "exclude_self.hpp":
+            runDextool(input_ext,
+                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], dex_flags);
+            break;
         default:
             runDextool(input_ext, params, dex_flags);
         }

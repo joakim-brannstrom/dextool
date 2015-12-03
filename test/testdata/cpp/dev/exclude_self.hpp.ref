@@ -1,0 +1,23 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "a_ns_with_func.hpp"
+
+namespace a_ns {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void a_ns_func() = 0;
+};
+
+/// Adapter connecting an interface with an implementation.
+/// The lifetime of the connection is the same as the instance of the adapter.
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:a_ns
+#endif // test_double_hpp
