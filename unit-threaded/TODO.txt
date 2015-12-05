@@ -1,0 +1,2 @@
+. Mocking support
+. staticEquals?

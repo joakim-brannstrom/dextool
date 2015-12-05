@@ -30,15 +30,16 @@ import std.range : isInputRange;
 import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
-import std.experimental.testing : name;
 
 import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
+import unit_threaded : Name;
+
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import std.experimental.testing : shouldEqual, shouldBeGreaterThan;
+    import unit_threaded : shouldEqual, shouldBeGreaterThan;
 
     enum dummyLoc = CxLocation("a.h", 123, 45);
     enum dummyLoc2 = CxLocation("a.h", 456, 12);
@@ -1214,7 +1215,7 @@ private:
     return ns;
 }
 
-@name("Test of c-function")
+@Name("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
@@ -1240,7 +1241,7 @@ unittest {
     }
 }
 
-@name("Test of creating simples CppMethod")
+@Name("Test of creating simples CppMethod")
 unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     shouldEqual(m.isConst, false);
@@ -1251,7 +1252,7 @@ unittest {
     shouldEqual(m.accessType, AccessType.Public);
 }
 
-@name("Test creating a CppMethod with multiple parameters")
+@Name("Test creating a CppMethod with multiple parameters")
 unittest {
     auto tk = makeTypeKind("char*", false, false, true);
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
@@ -1262,7 +1263,7 @@ unittest {
     shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
 }
 
-@name("Test of creating a class")
+@Name("Test of creating a class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
@@ -1272,14 +1273,14 @@ unittest {
         "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo");
 }
 
-@name("Create an anonymous namespace struct")
+@Name("Create an anonymous namespace struct")
 unittest {
     auto n = CppNamespace(CppNsStack.init);
     shouldEqual(n.name.length, 0);
     shouldEqual(n.isAnonymous, true);
 }
 
-@name("Create a namespace struct two deep")
+@Name("Create a namespace struct two deep")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
@@ -1287,7 +1288,7 @@ unittest {
     shouldEqual(n.isAnonymous, false);
 }
 
-@name("Test of iterating over parameters in a class")
+@Name("Test of iterating over parameters in a class")
 unittest {
     import std.array : appender;
 
@@ -1303,7 +1304,7 @@ unittest {
     shouldEqual(app.data, "void voider()");
 }
 
-@name("Test of toString for a free function")
+@Name("Test of toString for a free function")
 unittest {
     auto ptk = makeTypeKind("char*", false, false, true);
     auto rtk = makeTypeKind("int", false, false, false);
@@ -1315,7 +1316,7 @@ unittest {
     shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // File:a.h Line:123 Column:45");
 }
 
-@name("Test of Ctor's")
+@Name("Test of Ctor's")
 unittest {
     auto tk = makeTypeKind("char*", false, false, true);
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
@@ -1325,7 +1326,7 @@ unittest {
     shouldEqual(ctor.toString, "ctor(char* x, char* x)");
 }
 
-@name("Test of Dtor's")
+@Name("Test of Dtor's")
 unittest {
     auto dtor = CppDtor(CppMethodName("~dtor"), CppAccess(AccessType.Public),
         CppVirtualMethod(VirtualType.Yes));
@@ -1333,7 +1334,7 @@ unittest {
     shouldEqual(dtor.toString, "virtual ~dtor()");
 }
 
-@name("Test of toString for CppClass")
+@Name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
@@ -1380,7 +1381,7 @@ private:
 }; //Class:Foo");
 }
 
-@name("should contain the inherited classes")
+@Name("should contain the inherited classes")
 unittest {
     CppClassInherit[] inherit;
     inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
@@ -1397,7 +1398,7 @@ unittest {
 }; //Class:Foo");
 }
 
-@name("should contain nested classes")
+@Name("should contain nested classes")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1418,7 +1419,7 @@ class Priv { // isVirtual No
 }; //Class:Foo");
 }
 
-@name("should be a virtual class")
+@Name("should be a virtual class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1442,7 +1443,7 @@ public:
 }; //Class:Foo");
 }
 
-@name("should be a pure virtual class")
+@Name("should be a pure virtual class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1466,7 +1467,7 @@ public:
 }; //Class:Foo");
 }
 
-@name("Test of toString for CppNamespace")
+@Name("Test of toString for CppNamespace")
 unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
@@ -1482,7 +1483,7 @@ public:
 } //NS:simple");
 }
 
-@name("Should show nesting of namespaces as valid C++ code")
+@Name("Should show nesting of namespaces as valid C++ code")
 unittest {
     auto stack = [CppNs("foo"), CppNs("bar")];
     auto n = CppNamespace(stack);
@@ -1490,7 +1491,7 @@ unittest {
 } //NS:bar");
 }
 
-@name("Test of toString for CppRoot")
+@Name("Test of toString for CppRoot")
 unittest {
     CppRoot root;
 
@@ -1519,7 +1520,7 @@ namespace simple { //simple
 ");
 }
 
-@name("CppNamespace.toString should return nested namespace")
+@Name("CppNamespace.toString should return nested namespace")
 unittest {
     auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
     auto depth1 = CppNamespace(stack[0 .. 1]);
@@ -1537,7 +1538,7 @@ namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth1");
 }
 
-@name("Create anonymous namespace")
+@Name("Create anonymous namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
 
@@ -1545,7 +1546,7 @@ unittest {
 } //NS:");
 }
 
-@name("Add a C-func to a namespace")
+@Name("Add a C-func to a namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
     auto f = CFunction(CFunctionName("nothing"), dummyLoc);
@@ -1556,7 +1557,7 @@ void nothing(); // File:a.h Line:123 Column:45
 } //NS:");
 }
 
-@name("should be a hash value based on string representation")
+@Name("should be a hash value based on string representation")
 unittest {
     struct A {
         mixin mixinUniqueId;
@@ -1572,7 +1573,7 @@ unittest {
     shouldEqual(a.id(), b.id());
 }
 
-@name("should be a global definition")
+@Name("should be a global definition")
 unittest {
     auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
         false, false), CppVariable("x")), dummyLoc);
@@ -1583,7 +1584,7 @@ unittest {
     shouldEqualPretty(v1.toString, "int y; // File:a.h Line:123 Column:45");
 }
 
-@name("globals in root")
+@Name("globals in root")
 unittest {
     auto v = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
         false, false), CppVariable("x")), dummyLoc);
@@ -1602,7 +1603,7 @@ int x; // File:a.h Line:123 Column:45
 ");
 }
 
-@name("Root with location")
+@Name("Root with location")
 unittest {
     auto r = CppRoot(dummyLoc);
 
@@ -1610,7 +1611,7 @@ unittest {
 ");
 }
 
-@name("should be possible to sort the data structures")
+@Name("should be possible to sort the data structures")
 unittest {
     auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
         false, false), CppVariable("x")), dummyLoc);

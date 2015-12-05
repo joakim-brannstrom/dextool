@@ -4,7 +4,7 @@
  * failed.
  */
 
-module std.experimental.testing.should;
+module unit_threaded.should;
 
 import std.exception;
 import std.conv;
@@ -12,7 +12,7 @@ import std.algorithm;
 import std.traits;
 import std.range;
 
-public import std.experimental.testing.attrs;
+public import unit_threaded.attrs;
 
 @safe:
 
@@ -49,7 +49,7 @@ private:
  */
 void shouldBeTrue(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__)
 {
-    shouldEqual(condition, true);
+    shouldEqual(condition, true, file, line);
 }
 
 ///
@@ -64,7 +64,7 @@ unittest
  */
 void shouldBeFalse(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__)
 {
-    shouldEqual(condition, false);
+    shouldEqual(condition, false, file, line);
 }
 
 ///
@@ -93,9 +93,9 @@ unittest {
     shouldEqual(true, true);
     shouldEqual(false, false);
     shouldEqual(1, 1) ;
-    shouldEqual("foo", "foo");
+    shouldEqual("foo", "foo") ;
     shouldEqual(1.0, 1.0) ;
-    shouldEqual([2, 3], [2, 3]);
+    shouldEqual([2, 3], [2, 3]) ;
 
     shouldEqual(iota(3), [0, 1, 2]);
     shouldEqual([[0, 1], [0, 1, 2]], [[0, 1], [0, 1, 2]]);
@@ -103,21 +103,6 @@ unittest {
     shouldEqual([iota(2), iota(3)], [[0, 1], [0, 1, 2]]);
 
     shouldEqual(3.0, 3.00001); //approximately equal
-}
-
-unittest {
-    //compare interfaces
-    interface IService {
-        //toString needed for printing out values
-        string toString() @safe pure nothrow const;
-    }
-
-    class Service: IService {
-        override string toString() @safe pure nothrow const { return ""; }
-    }
-    IService x = new Service;
-    IService y = new Service;
-    shouldEqual(x, y);
 }
 
 /**
@@ -165,52 +150,55 @@ unittest {
     void assertExceptionMsg(E)(lazy E expr, string expected,
                                in size_t line = __LINE__)
     {
+        import std.string: stripLeft;
         //updating the tests below as line numbers change is tedious.]
         //instead, replace the number there with the actual line number
         expected = expected.replace(":123", ":" ~ line.to!string);
-        immutable msg = getExceptionMsg(expr);
-        assert(msg == expected,
-               "\nExpected Exception:\n" ~ expected ~ "\nGot Exception:\n" ~ msg);
+        auto msg = getExceptionMsg(expr);
+        auto expLines = expected.split("\n").map!stripLeft;
+        auto msgLines = msg.split("\n").map!stripLeft;
+        assert(zip(msgLines, expLines).all!(a => a[0].endsWith(a[1])),
+               text("\nExpected Exception:\n", expected, "\nGot Exception:\n", msg));
     }
 
     assertExceptionMsg(3.shouldEqual(5),
-                       "    std/experimental/testing/should.d:123 - Expected: 5\n"
-                       "    std/experimental/testing/should.d:123 -      Got: 3");
+                       "    source/unit_threaded/should.d:123 - Expected: 5\n"
+                       "    source/unit_threaded/should.d:123 -      Got: 3");
 
     assertExceptionMsg("foo".shouldEqual("bar"),
-                       "    std/experimental/testing/should.d:123 - Expected: \"bar\"\n"
-                       "    std/experimental/testing/should.d:123 -      Got: \"foo\"");
+                       "    source/unit_threaded/should.d:123 - Expected: \"bar\"\n"
+                       "    source/unit_threaded/should.d:123 -      Got: \"foo\"");
 
     assertExceptionMsg([1, 2, 4].shouldEqual([1, 2, 3]),
-                       "    std/experimental/testing/should.d:123 - Expected: [1, 2, 3]\n"
-                       "    std/experimental/testing/should.d:123 -      Got: [1, 2, 4]");
+                       "    source/unit_threaded/should.d:123 - Expected: [1, 2, 3]\n"
+                       "    source/unit_threaded/should.d:123 -      Got: [1, 2, 4]");
 
     assertExceptionMsg([[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]].shouldEqual([[0], [1], [2]]),
-                       "    std/experimental/testing/should.d:123 - Expected: [[0], [1], [2]]\n"
-                       "    std/experimental/testing/should.d:123 -      Got: [[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]]");
+                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n"
+                       "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]]");
 
     assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3]].shouldEqual([[0], [1], [2]]),
-                       "    std/experimental/testing/should.d:123 - Expected: [[0], [1], [2]]\n"
-                       "    std/experimental/testing/should.d:123 -      Got: [[0, 1, 2, 3, 4, 5], [1], [2], [3]]");
+                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n"
+                       "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4, 5], [1], [2], [3]]");
 
 
     assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3], [4], [5]].shouldEqual([[0]]),
-                       "    std/experimental/testing/should.d:123 - Expected: [[0]]\n"
+                       "    source/unit_threaded/should.d:123 - Expected: [[0]]\n"
 
-                       "    std/experimental/testing/should.d:123 -      Got: [\n"
-                       "    std/experimental/testing/should.d:123 -               [0, 1, 2, 3, 4, 5],\n"
-                       "    std/experimental/testing/should.d:123 -               [1],\n"
-                       "    std/experimental/testing/should.d:123 -               [2],\n"
-                       "    std/experimental/testing/should.d:123 -               [3],\n"
-                       "    std/experimental/testing/should.d:123 -               [4],\n"
-                       "    std/experimental/testing/should.d:123 -               [5],\n"
-                       "    std/experimental/testing/should.d:123 -           ]");
+                       "    source/unit_threaded/should.d:123 -      Got: [\n"
+                       "    source/unit_threaded/should.d:123 -               [0, 1, 2, 3, 4, 5],\n"
+                       "    source/unit_threaded/should.d:123 -               [1],\n"
+                       "    source/unit_threaded/should.d:123 -               [2],\n"
+                       "    source/unit_threaded/should.d:123 -               [3],\n"
+                       "    source/unit_threaded/should.d:123 -               [4],\n"
+                       "    source/unit_threaded/should.d:123 -               [5],\n"
+                       "    source/unit_threaded/should.d:123 -           ]");
 
     assertExceptionMsg(1.shouldNotEqual(1),
-                       "    std/experimental/testing/should.d:123 - Value:\n"
-                       "    std/experimental/testing/should.d:123 - 1\n"
-                       "    std/experimental/testing/should.d:123 - is not expected to be equal to:\n"
-                       "    std/experimental/testing/should.d:123 - 1");
+                       "    source/unit_threaded/should.d:123 - Value:\n"
+                       "    source/unit_threaded/should.d:123 - 1\n"
+                       "    source/unit_threaded/should.d:123 - is not expected to be equal to:\n"
+                       "    source/unit_threaded/should.d:123 - 1");
 }
 
 unittest

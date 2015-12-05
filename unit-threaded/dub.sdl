@@ -6,4 +6,3 @@ copyright "Copyright © 2013, Atila Neves"
 license "BSD 3-clause"
 
 targetType "library"
-excludedSourceFiles "source/std/experimental/testing/gen_ut_main.d"
