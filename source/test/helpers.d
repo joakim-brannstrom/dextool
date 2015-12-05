@@ -21,10 +21,10 @@ module test.helpers;
 import std.ascii : newline;
 import std.traits : isSomeString;
 
-import std.experimental.testing : name;
+import unit_threaded : Name;
 
 version (unittest) {
-    import std.experimental.testing : shouldEqual;
+    import unit_threaded : shouldEqual;
 }
 
 /**
@@ -44,7 +44,7 @@ void shouldEqualPretty(V, E)(lazy V value, lazy E expected, string file = __FILE
     size_t line = __LINE__) if (!isAllSomeString!(V, E)) {
     import std.algorithm : count;
     import std.range : lockstep;
-    import std.experimental.testing : shouldEqual, UnitTestException;
+    import unit_threaded : shouldEqual, UnitTestException;
     import std.conv : text;
 
     size_t idx;
@@ -63,9 +63,9 @@ void shouldEqualPretty(V, E)(lazy V value, lazy E expected, string file = __FILE
     shouldEqual(count(value), count(expected), file, line);
 }
 
-@name("shouldEqualPretty should throw the first value that is different")
+@Name("shouldEqualPretty should throw the first value that is different")
 unittest {
-    import std.experimental.testing : UnitTestException;
+    import unit_threaded : UnitTestException;
 
     string msg;
     try {

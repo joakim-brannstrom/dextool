@@ -24,7 +24,7 @@ module cpptooling.generator.stub.cstub;
 import std.typecons : Typedef;
 import logger = std.experimental.logger;
 
-import std.experimental.testing : name;
+import unit_threaded : Name;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
@@ -32,7 +32,7 @@ import application.types;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
-    import std.experimental.testing : shouldEqual;
+    import unit_threaded : shouldEqual;
 }
 
 /// Control variouse aspectes of the analyze and generation like what nodes to

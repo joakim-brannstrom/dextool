@@ -94,7 +94,6 @@ auto tryWriting(string fname, string data) @trusted nothrow {
 ///TODO move to clang module.
 auto prependLangFlagIfMissing(string[] in_cflags) {
     import std.algorithm : findAmong;
-    import std.experimental.testing : writelnUt;
 
     auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
 
