@@ -35,17 +35,18 @@ import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
-import unit_threaded : Name;
-
 version (unittest) {
     import test.helpers : shouldEqualPretty;
+    import unit_threaded : Name;
     import unit_threaded : shouldEqual, shouldBeGreaterThan;
 
     enum dummyLoc = CxLocation("a.h", 123, 45);
     enum dummyLoc2 = CxLocation("a.h", 456, 12);
+} else {
+    struct Name {
+        string name_;
+    }
 }
-
-public:
 
 /// Name of a C++ namespace.
 alias CppNs = Typedef!(string, string.init, "CppNs");
