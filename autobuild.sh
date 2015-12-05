@@ -51,6 +51,8 @@ function cleanup() {
     cd $ROOT
     find test -maxdepth 1 -iname "trace.*" -delete
     find . -iname "*.lst" -delete
+    rm binary_size.txt
+
     exit 0
 }
 
@@ -125,10 +127,17 @@ function state_release_test() {
     ./cpp_tests.sh "$TOOL_BIN"
     check_status "Release C++ Tests"
     popd
+
+    size build/dextool-debug >> $ROOT/binary_size.txt
+}
+
+function state_binary_size() {
+    echo -e "${C_YELLOW}=== Binary size ===${C_NONE}"
+    tail -n 6 $ROOT/binary_size.txt
 }
 
 function state_doc_build() {
-    $ROOT/build.sh build -b docs
+    $ROOT/build.sh build -c debug -b docs
     check_status "Generate Documentation"
     echo "firefox $ROOT/docs/"
     DOC_CNT=0
@@ -198,7 +207,7 @@ do
             fi
             ;;
         "test_passed")
-            STATE="wait"
+            STATE="binary_size"
             if [[ $DOC_CNT -ge $DOC_MAX_CNT ]]; then
                 STATE="doc_build"
             else
@@ -207,6 +216,10 @@ do
             fi
             # breaking the pattern of doing something in the FSM but OK hack when it is only one line
             DOC_CNT=$(($DOC_CNT + 1))
+            ;;
+        "binary_size")
+            STATE="wait"
+            state_binary_size
             ;;
         "doc_build")
             state_doc_build

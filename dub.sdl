@@ -4,8 +4,6 @@ copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "GPL"
 
-// v0.5.5+ 3c2a33f3c7baa3516026561a131c651910b08e6a
-dependency "unit-threaded" path="unit-threaded"
 // v0.6.1-b.4
 dependency "docopt" path="docopt"
 dependency "dsrcgen" path="dsrcgen"
@@ -59,11 +57,14 @@ configuration "devtool_release" {
     targetName "devtool"
     targetType "executable"
     buildType "debugInfo"
-    excludedSourceFiles "source/application/app*.d"
+    excludedSourceFiles "source/application/app*.d" "source/test/helpers.d"
     mainSourceFile "source/test/tok_main.d"
 }
 
 configuration "unittest" {
+    // v0.5.5+ 3c2a33f3c7baa3516026561a131c651910b08e6a
+    dependency "unit-threaded" path="unit-threaded"
+
     targetName "unittest"
     targetType "executable"
     excludedSourceFiles "source/test/tok_main.d"

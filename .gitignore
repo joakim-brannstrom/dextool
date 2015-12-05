@@ -10,3 +10,4 @@ build/
 docs/
 test/outdata/
 test/trace.*
+binary_size.txt
