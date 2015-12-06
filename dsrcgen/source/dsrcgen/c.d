@@ -343,75 +343,67 @@ class Suite(T) : T {
 
 pure struct E {
     import std.conv : to;
-    import std.string : format;
 
     private string content;
 
-    this(string content) {
+    this(string content) nothrow pure {
         this.content = content;
     }
 
-    this(T)(T content) {
+    this(T)(T content) nothrow pure {
         this.content = to!string(content);
     }
 
-    this(E lhs, string rhs) {
+    this(E lhs, string rhs) nothrow pure {
         this.content = lhs.content ~ "." ~ rhs;
     }
 
-    auto e(string lhs) {
-        this.content ~= "." ~ lhs;
-        return this;
+    auto e(string lhs) nothrow pure const {
+        return E(content ~ "." ~ lhs);
     }
 
-    auto e(E lhs) {
-        this.content ~= "." ~ lhs.content;
-        return this;
+    auto e(E lhs) nothrow pure const {
+        return E(content ~ "." ~ lhs.content);
     }
 
-    auto opCall(T)(T value) {
-        content = format("%s(%s)", content, to!string(value));
-        return this;
+    auto opCall(T)(T value) pure const {
+        return E(content ~ "(" ~ to!string(value) ~ ")");
     }
 
     // implicit
-    @property string toString() pure const {
+    @property string toString() pure const nothrow {
         return content;
     }
 
     alias toString this;
 
     // explicit
-    T opCast(T : string)() pure const {
+    T opCast(T : string)() pure const nothrow {
         return content;
     }
 
-    auto opUnary(string op)() {
+    auto opUnary(string op)() pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "++" || op == "--") {
-            content = mixin("\"" ~ op ~ "\"~content");
-            return this;
+            return E(mixin("\"" ~ op ~ "\"~content"));
         } else {
             static assert(0, "Operator " ~ op ~ " not implemented");
         }
     }
 
-    auto opBinary(string op, T)(in T rhs) pure nothrow {
+    auto opBinary(string op, T)(in T rhs) pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "&") {
-            content = mixin("content~\" " ~ op ~ " \"~to!string(rhs)");
-            return this;
+            return E(mixin("content~\" " ~ op ~ " \"~to!string(rhs)"));
         } else static if (op == "~" && is(T == E)) {
-            content = content ~ " " ~ rhs.content;
-            return this;
+            return E(content ~ " " ~ rhs.content);
         } else static if (op == "~") {
-            content = content ~ to!string(rhs);
-            return this;
+            return E(content = content ~ to!string(rhs));
         } else {
             static assert(0, "Operator " ~ op ~ " not implemented");
         }
     }
 
-    auto opAssign(T)(T rhs) {
-        this.content = content ~ " = " ~ to!string(rhs);
+    auto opAssign(T)(T rhs) pure nothrow {
+        this.content ~= " = " ~ to!string(rhs);
         return this;
     }
 }
@@ -859,4 +851,16 @@ L1 1.2.1 {
 
     auto rval = x.render();
     assert(rval == expect, rval);
+}
+
+unittest {
+    auto expect = "    a = p;
+";
+
+    auto m = new CModule;
+    auto e = E("a");
+    e = E("p");
+    m.stmt(e);
+
+    assert(expect == m.render, m.render);
 }

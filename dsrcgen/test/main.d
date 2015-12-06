@@ -5,6 +5,3 @@
 import dsrcgen.base;
 import dsrcgen.c;
 import dsrcgen.cpp;
-
-void main(string[] args) {
-}
