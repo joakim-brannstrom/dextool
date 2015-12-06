@@ -38,7 +38,7 @@ import cpptooling.utility.conv : str;
 version (unittest) {
     import test.helpers : shouldEqualPretty;
     import unit_threaded : Name;
-    import unit_threaded : shouldEqual, shouldBeGreaterThan;
+    import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
 
     enum dummyLoc = CxLocation("a.h", 123, 45);
     enum dummyLoc2 = CxLocation("a.h", 456, 12);
@@ -352,6 +352,96 @@ private:
     TypeKindVariable variable;
 }
 
+struct CppMethodGeneric {
+    template Parameters() {
+        void put(const CxParam p) {
+            params ~= p;
+        }
+
+        auto paramRange() const @nogc @safe pure nothrow {
+            return arrayRange(params);
+        }
+
+        /** Put the local paramRange into the OutputRange AppT.
+         *
+         * Because it is part of the mixin it assumes the user want to
+         * represent the paramRange.
+         */
+        void paramPutTypeId(AppT)(AppT app) const @safe {
+            import std.algorithm : each;
+
+            auto pr = paramRange();
+            if (!pr.empty) {
+                appInternal(pr.front, app);
+                pr.popFront;
+                pr.each!((a) { app.put(", "); appInternal(a, app); });
+            }
+        }
+
+        private CxParam[] params;
+    }
+
+    /** Common properties for C++ methods.
+     *
+     * Defines the needed variables.
+     * Expecting them to be set in c'tors.
+     */
+    template Properties() {
+        @property const {
+            auto isConst() {
+                return isConst_;
+            }
+
+            bool isVirtual() {
+                return isVirtual_ != VirtualType.No;
+            }
+
+            auto virtualType() {
+                return isVirtual_;
+            }
+
+            auto accessType() {
+                return accessType_;
+            }
+
+            auto returnType() {
+                return returnType_;
+            }
+
+            auto name() {
+                return name_;
+            }
+        }
+
+        private bool isConst_;
+        private VirtualType isVirtual_;
+        private CppAccess accessType_;
+        private CppMethodName name_;
+    }
+
+    /// Helper for converting virtual type to string
+    template StringHelperVirtual() {
+        void helperVirtualPre(AppT)(AppT app) const @safe {
+            switch (virtualType()) {
+            case VirtualType.Yes:
+            case VirtualType.Pure:
+                app.put("virtual ");
+                break;
+            default:
+            }
+        }
+
+        void helperVirtualPost(AppT)(AppT app) const @safe {
+            switch (virtualType()) {
+            case VirtualType.Pure:
+                app.put(" = 0");
+                break;
+            default:
+            }
+        }
+    }
+}
+
 /// Information about free functions.
 pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
@@ -472,9 +562,7 @@ pure @safe nothrow struct CppCtor {
         }
     }
 
-    auto paramRange() const @nogc @safe pure nothrow {
-        return arrayRange(params);
-    }
+    mixin CppMethodGeneric.Parameters;
 
     string toString() const @safe {
         import std.array : appender;
@@ -482,12 +570,7 @@ pure @safe nothrow struct CppCtor {
         import std.format : formattedWrite;
 
         auto ps = appender!string();
-        auto pr = paramRange();
-        if (!pr.empty) {
-            appInternal(pr.front, ps);
-            pr.popFront;
-            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
-        }
+        paramPutTypeId(ps);
 
         auto rval = appender!string();
         formattedWrite(rval, "%s(%s)", name_.str, ps.data);
@@ -517,7 +600,6 @@ private:
     CppAccess accessType_;
 
     CppMethodName name_;
-    CxParam[] params;
 }
 
 pure @safe nothrow struct CppDtor {
@@ -534,17 +616,14 @@ pure @safe nothrow struct CppDtor {
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
     }
 
+    mixin CppMethodGeneric.StringHelperVirtual;
+
     string toString() const @safe {
         import std.array : appender;
 
         auto rval = appender!string();
-        switch (isVirtual) {
-        case VirtualType.Yes:
-        case VirtualType.Pure:
-            rval.put("virtual ");
-            break;
-        default:
-        }
+        helperVirtualPre(rval);
+
         rval.put(name_.str);
         rval.put("()");
 
@@ -617,13 +696,9 @@ pure @safe nothrow struct CppMethod {
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
-    void put(const CxParam p) {
-        params ~= p;
-    }
-
-    auto paramRange() const @nogc @safe pure nothrow {
-        return arrayRange(params);
-    }
+    mixin CppMethodGeneric.Parameters;
+    mixin CppMethodGeneric.StringHelperVirtual;
+    mixin CppMethodGeneric.Properties;
 
     string toString() const @safe {
         import std.array : appender;
@@ -631,59 +706,103 @@ pure @safe nothrow struct CppMethod {
         import std.format : formattedWrite;
 
         auto ps = appender!string();
-        auto pr = paramRange();
-        if (!pr.empty) {
-            appInternal(pr.front, ps);
-            pr.popFront;
-            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
-        }
+        paramPutTypeId(ps);
 
         auto rval = appender!string();
-        switch (virtualType()) {
-        case VirtualType.Yes:
-        case VirtualType.Pure:
-            rval.put("virtual ");
-            break;
-        default:
-        }
+        helperVirtualPre(rval);
         formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
 
         if (isConst) {
             rval.put(" const");
         }
-        switch (virtualType()) {
-        case VirtualType.Pure:
-            rval.put(" = 0");
-            break;
-        default:
+
+        helperVirtualPost(rval);
+
+        return rval.data;
+    }
+
+    invariant() {
+        assert(name_.length > 0);
+        assert(returnType_.toString.length > 0);
+
+        foreach (p; params) {
+            assertVisit(p);
         }
+    }
+
+private:
+    CxReturnType returnType_;
+}
+
+pure @safe nothrow struct CppMethodOp {
+    import std.typecons : TypedefType;
+
+    @disable this();
+
+    this(const CppMethodName name, const CxParam[] params_,
+        const CxReturnType return_type, const CppAccess access,
+        const CppConstMethod const_, const CppVirtualMethod virtual) {
+        this.name_ = name;
+        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.accessType_ = access;
+        this.isConst_ = cast(TypedefType!CppConstMethod) const_;
+        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        //TODO how do you replace this with a range?
+        foreach (p; params_) {
+            this.params ~= p;
+        }
+    }
+
+    /// Operator with no parameters.
+    this(const CppMethodName name, const CxReturnType return_type,
+        const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+        this(name, CxParam[].init, return_type, access, const_, virtual);
+    }
+
+    /// Operator with no parameters and returning void.
+    this(const CppMethodName name, const CppAccess access,
+        const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
+        CxReturnType void_ = makeTypeKind("void", false, false, false);
+        this(name, CxParam[].init, void_, access, const_, virtual);
+    }
+
+    mixin CppMethodGeneric.Parameters;
+    mixin CppMethodGeneric.StringHelperVirtual;
+    mixin CppMethodGeneric.Properties;
+
+    string toString() const @safe {
+        import std.array : appender;
+        import std.algorithm : each;
+        import std.format : formattedWrite;
+
+        auto ps = appender!string();
+        paramPutTypeId(ps);
+
+        auto rval = appender!string();
+        helperVirtualPre(rval);
+        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
+
+        if (isConst) {
+            rval.put(" const");
+        }
+
+        helperVirtualPost(rval);
+
+        // distinguish an operator from a normal method
+        rval.put(" /* operator */");
 
         return rval.data;
     }
 
     @property const {
-        auto isConst() {
-            return isConst_;
+        /// The operator type, aka in C++ the part after "operator"
+        auto op()
+        in {
+            assert(name_.length > 8);
         }
-
-        bool isVirtual() {
-            return isVirtual_ != VirtualType.No;
-        }
-
-        auto virtualType() {
-            return isVirtual_;
-        }
-
-        auto accessType() {
-            return accessType_;
-        }
-
-        auto returnType() {
-            return returnType_;
-        }
-
-        auto name() {
-            return name_;
+        body {
+            return CppMethodName((cast(string) name_)[8 .. $]);
         }
     }
 
@@ -697,12 +816,6 @@ pure @safe nothrow struct CppMethod {
     }
 
 private:
-    bool isConst_;
-    VirtualType isVirtual_;
-    CppAccess accessType_;
-
-    CppMethodName name_;
-    CxParam[] params;
     CxReturnType returnType_;
 }
 
@@ -710,7 +823,7 @@ pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
 
-    alias CppFunc = Algebraic!(CppMethod, CppCtor, CppDtor);
+    alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
     mixin mixinUniqueId;
     mixin mixinKind;
@@ -730,7 +843,8 @@ pure @safe nothrow struct CppClass {
         this(name, CppClassInherit[].init);
     }
 
-    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor)) {
+    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
+            || is(T == CppDtor) || is(T == CppMethodOp)) {
         final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
             methods_pub ~= CppFunc(func);
@@ -829,6 +943,7 @@ pure @safe nothrow struct CppClass {
         static string funcToString(CppFunc func) @trusted {
             //dfmt off
             return func.visit!((CppMethod a) => a.toString,
+                               (CppMethodOp a) => a.toString,
                                (CppCtor a) => a.toString,
                                (CppDtor a) => a.toString);
             //dfmt on
@@ -953,6 +1068,7 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
 
         //dfmt off
         return func.visit!((CppMethod a) => a.virtualType(),
+                           (CppMethodOp a) => a.virtualType(),
                            (CppCtor a) => VirtualType.Pure,
                            (CppDtor a) {return a.isVirtual() ? VirtualType.Pure : VirtualType.No;});
         //dfmt on
@@ -1264,14 +1380,42 @@ unittest {
     shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
 }
 
-@Name("Test of creating a class")
+@Name("should represent the operator as a string")
+unittest {
+    auto m = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
+
+    shouldEqual(m.toString, "void operator=() /* operator */");
+}
+
+@Name("should separate the operator keyword from the actual operator")
+unittest {
+    auto m = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
+
+    shouldEqual(m.op, "=");
+}
+
+@Name("should represent a class with one public method")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
-    shouldEqualPretty(c.toString,
-        "class Foo { // isVirtual No\npublic:\n  void voider();\n}; //Class:Foo");
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+public:
+  void voider();
+}; //Class:Foo");
+}
+
+@Name("should represent a class with one public oeprator overload")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+    auto op = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
+    c.put(op);
+
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+public:
+  void operator=() /* operator */;
+}; //Class:Foo");
 }
 
 @Name("Create an anonymous namespace struct")

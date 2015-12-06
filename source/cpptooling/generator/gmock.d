@@ -48,6 +48,10 @@ body {
     static void ignore() {
     }
 
+    static void genOp(CppMethodOp op, CppModule hdr) {
+        logger.info("Found operator ", op.name);
+    }
+
     static void genMethod(CppMethod m, CppModule hdr) {
         import cpptooling.data.representation : VirtualType;
 
@@ -69,16 +73,15 @@ body {
     auto c = ns.class_("Mock" ~ in_c.name().str, "public " ~ in_c.name().str);
     auto pub = c.public_();
 
-    with (pub) {
-        foreach (m; in_c.methodPublicRange()) {
-            // dfmt off
-            () @trusted {
-            m.visit!((CppMethod m) => genMethod(m, pub),
-                     (CppCtor m) => ignore(),
-                     (CppDtor m) => ignore());
-            }();
-            // dfmt on
-        }
+    foreach (m; in_c.methodRange()) {
+        // dfmt off
+        () @trusted {
+        m.visit!((CppMethod m) => genMethod(m, pub),
+                 (CppMethodOp m) => genOp(m, pub),
+                 (CppCtor m) => ignore(),
+                 (CppDtor m) => ignore());
+        }();
+        // dfmt on
     }
     hdr.sep(2);
 }
