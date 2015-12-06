@@ -269,6 +269,7 @@ enum NamespaceType {
  */
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : each, filter;
+    import cpptooling.data.representation : VirtualType;
 
     auto tr = CppRoot(input.location);
 
@@ -277,10 +278,14 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     }
 
     // Assuming that namespaces can are never duplicated at this stage.
-    //dfmt off
+    // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
         .each!(a => tr.put(rawFilter(a, ctrl, prod)));
+
+    input.classRange
+        .filter!(a => a.virtualType == VirtualType.Pure)
+        .each!(a => tr.put(a));
     // dfmt on
 
     return tr;
@@ -306,10 +311,12 @@ body {
         .filter!(a => ctrl.doFile(a.location.file))
         .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
 
-    input.namespaceRange
-        .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, ctrl, prod))
-        .each!(a => ns.put(a));
+    if (ctrl.doGoogleMock) {
+        input.namespaceRange
+            .filter!(a => !a.isAnonymous)
+            .map!(a => rawFilter(a, ctrl, prod))
+            .each!(a => ns.put(a));
+    }
     //dfmt on
 
     return ns;
@@ -317,6 +324,7 @@ body {
 
 CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
     import std.algorithm;
+    import cpptooling.data.representation : VirtualType;
 
     auto r = CppRoot(root.location);
 
@@ -325,6 +333,10 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
         .map!(a => translateNs(a, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => r.put(a.get));
+
+    root.classRange
+        .filter!(a => a.virtualType == VirtualType.Pure)
+        .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
     return r;
@@ -391,9 +403,10 @@ in {
     assert(r.funcRange.empty);
 }
 body {
+    import std.algorithm : each, filter;
     import cpptooling.generator.func : generateFuncImpl;
+    import cpptooling.generator.gmock : generateGmock;
     import cpptooling.generator.includes : genCppIncl = generate;
-    import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
     genCppIncl(ctrl, params, modules.hdr);
@@ -439,6 +452,12 @@ body {
 
     // no singleton in global namespace thus null
     r.namespaceRange().each!(a => eachNs(a, params, modules, null));
+
+    // dfmt off
+    r.classRange
+        .filter!(a => cast(ClassType) a.kind == ClassType.Gmock)
+        .each!(a => generateGmock!Parameters(a, modules.gmock, params));
+    // dfmt on
 }
 
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters params) {

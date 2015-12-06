@@ -45,11 +45,68 @@ body {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
+    static string gmockMethod(T)(T m) {
+        // defensive code, I don't think this can happen
+        logger.errorf(m.paramRange().length > 10,
+            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
+            m.name, m.paramRange().length);
+
+        auto len = m.paramRange().length.text;
+        switch (m.isConst) {
+        case true:
+            return "MOCK_CONST_METHOD" ~ len;
+        default:
+            return "MOCK_METHOD" ~ len;
+        }
+    }
+
     static void ignore() {
     }
 
-    static void genOp(CppMethodOp op, CppModule hdr) {
-        logger.info("Found operator ", op.name);
+    static void genOp(CppMethodOp m, CppModule hdr) {
+        import cpptooling.data.representation : VirtualType;
+
+        static string translateOp(string op) {
+            switch (op) {
+            case "=":
+                return "opAssign";
+            case "==":
+                return "opEquals";
+            default:
+                logger.errorf(
+                    "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
+                    op);
+                return "operator not supported";
+            }
+        }
+
+        static void genMockMethod(CppMethodOp m, CppModule hdr) {
+            string params = m.paramRange().joinParams();
+            string gmock_name = translateOp(m.op().str);
+            string gmock_method = gmockMethod(m);
+            string stmt = format("%s(%s, %s(%s))", gmock_method, gmock_name,
+                m.returnType().toString, params);
+            hdr.stmt(stmt);
+        }
+
+        static void genCallMock(CppMethodOp m, CppModule hdr) {
+            import dsrcgen.cpp : E;
+
+            string gmock_name = translateOp(m.op().str);
+
+            CppModule code = hdr.method_inline(true, m.returnType.toString,
+                m.name.str, m.isConst, m.paramRange().joinParams());
+            auto call = E(gmock_name)(m.paramRange().joinParamNames);
+
+            if (m.returnType().toString == "void") {
+                code.stmt(call);
+            } else {
+                code.return_(call);
+            }
+        }
+
+        genMockMethod(m, hdr);
+        genCallMock(m, hdr);
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
@@ -61,7 +118,7 @@ body {
 
         string params = m.paramRange().joinParams();
         string name = m.name().str;
-        string gmock_method = "MOCK_METHOD" ~ m.paramRange().length.text;
+        string gmock_method = gmockMethod(m);
         string stmt = format("%s(%s, %s(%s))", gmock_method, name,
             m.returnType().toString, params);
 
