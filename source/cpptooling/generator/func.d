@@ -85,7 +85,7 @@ CppClass makeFuncInterface(Tr)(Tr r, in MainInterface main_if) {
 
     string c_name = cast(string) main_if;
 
-    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
+    auto c = CppClass(CppClassName(c_name));
 
     foreach (f; r) {
         auto params = f.paramRange().array();

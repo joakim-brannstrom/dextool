@@ -36,7 +36,7 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     string c_if = cast(string) if_name;
     string c_name = "Adapter";
 
-    auto c = CppClass(CppClassName(c_name), CppClassInherit[].init);
+    auto c = CppClass(CppClassName(c_name));
     c.setKind(KindT.Adapter);
 
     auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,

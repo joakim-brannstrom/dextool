@@ -827,20 +827,25 @@ pure @safe nothrow struct CppClass {
 
     mixin mixinUniqueId;
     mixin mixinKind;
-    //mixin mixingSourceLocation;
+    mixin mixingSourceLocation;
 
     @disable this();
 
-    this(const CppClassName name, const CppClassInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc, const CppClassInherit[] inherits) {
         this.name_ = name;
         this.inherits_ = inherits.dup;
+        setLocation(loc);
 
         ///TODO consider update so the identifier also depend on the namespace.
         setUniqueId(this.name_.str);
     }
 
+    this(const CppClassName name, const CxLocation loc) {
+        this(name, loc, CppClassInherit[].init);
+    }
+
     this(const CppClassName name) {
-        this(name, CppClassInherit[].init);
+        this(name, CxLocation("noloc", 0, 0), CppClassInherit[].init);
     }
 
     void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
@@ -1000,8 +1005,9 @@ pure @safe nothrow struct CppClass {
 
         commentRange().each!(a => formattedWrite(app, "// %s%s", a, newline));
 
-        formattedWrite(app, "class %s%s { // isVirtual %s%s", name_.str,
-            inheritRangeToString(inheritRange()), to!string(virtualType()), newline);
+        formattedWrite(app, "class %s%s { // isVirtual %s %s%s", name_.str,
+            inheritRangeToString(inheritRange()), to!string(virtualType()),
+            location.toString, newline);
         appPubRange(this, app);
         appProtRange(this, app);
         appPrivRange(this, app);
@@ -1400,7 +1406,7 @@ unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo");
@@ -1412,7 +1418,7 @@ unittest {
     auto op = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
     c.put(op);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
   void operator=() /* operator */;
 }; //Class:Foo");
@@ -1514,7 +1520,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
   void voider();
   Foo();
@@ -1536,10 +1542,11 @@ unittest {
     inherit ~= CppClassInherit(CppClassName("priv"), CppClassNesting(""),
         CppAccess(AccessType.Private));
 
-    auto c = CppClass(CppClassName("Foo"), inherit);
+    auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
 
-    shouldEqualPretty(c.toString,
-        "class Foo : public pub, protected prot, private priv { // isVirtual No
+    shouldEqualPretty(
+        c.toString,
+        "class Foo : public pub, protected prot, private priv { // isVirtual No File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1551,15 +1558,15 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
-class Pub { // isVirtual No
+class Pub { // isVirtual No File:noloc Line:0 Column:0
 }; //Class:Pub
 protected:
-class Prot { // isVirtual No
+class Prot { // isVirtual No File:noloc Line:0 Column:0
 }; //Class:Prot
 private:
-class Priv { // isVirtual No
+class Priv { // isVirtual No File:noloc Line:0 Column:0
 }; //Class:Priv
 }; //Class:Foo");
 }
@@ -1581,7 +1588,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes File:noloc Line:0 Column:0
 public:
   virtual ~Foo();
   virtual int wun();
@@ -1605,7 +1612,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure File:noloc Line:0 Column:0
 public:
   virtual ~Foo();
   virtual int wun() = 0;
@@ -1621,7 +1628,7 @@ unittest {
     ns.put(c);
 
     shouldEqualPretty(ns.toString, "namespace simple { //simple
-class Foo { // isVirtual No
+class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo
@@ -1655,7 +1662,7 @@ unittest {
     shouldEqualPretty(root.toString, "// File: Line:0 Column:0
 void nothing(); // File:a.h Line:123 Column:45
 
-class Foo { // isVirtual No
+class Foo { // isVirtual No File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo
