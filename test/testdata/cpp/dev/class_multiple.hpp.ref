@@ -1,0 +1,15 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "class_multiple.hpp"
+
+namespace ns {
+namespace ns2 {
+namespace TestDouble {
+} //NS:TestDouble
+
+} //NS:ns2
+namespace TestDouble {
+} //NS:TestDouble
+
+} //NS:ns
+#endif // test_double_hpp

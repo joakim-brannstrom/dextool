@@ -1,0 +1,38 @@
+#ifndef test_double_gmock_hpp
+#define test_double_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace TestDouble {
+class MockGlobal1 : public Global1 {
+public:
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockGlobal2 : public Global2 {
+public:
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+namespace ns {
+namespace ns2 {
+namespace TestDouble {
+class MockInsideNs2 : public InsideNs2 {
+public:
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+} //NS:ns2
+namespace TestDouble {
+class MockInsideNs1 : public InsideNs1 {
+public:
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+} //NS:ns
+#endif // test_double_gmock_hpp

@@ -223,20 +223,21 @@ private:
  */
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
-        CppClass, VirtualType;
+        CppClass, CxLocation, VirtualType;
 
     /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
      */
     static auto make(ref Cursor c) {
+        auto loc = toInternal!CxLocation(c.location());
         auto name = CppClassName(c.spelling);
-        auto r = ClassVisitor(name);
+        auto r = ClassVisitor(name, loc);
         return r;
     }
 
     @disable this();
 
-    private this(CppClassName name) {
-        this.data = CppClass(name);
+    private this(CppClassName name, CxLocation loc) {
+        this.data = CppClass(name, loc);
     }
 
     auto visit(ref Cursor c) {
