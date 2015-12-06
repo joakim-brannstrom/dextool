@@ -1,0 +1,5 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "class_const.hpp"
+
+#endif // test_double_hpp

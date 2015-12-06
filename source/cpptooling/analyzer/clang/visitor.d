@@ -104,10 +104,6 @@ struct ClassDescendVisitor {
     @disable this();
 
     this(CppClass data) {
-        //if (data.isNull) {
-        //    logger.fatal("CppClass parameter is null");
-        //    throw new Exception("CppClass parameter is null");
-        //}
         this.data = data;
         this.accessType = CppAccess(AccessType.Private);
     }
@@ -175,6 +171,20 @@ private:
 
     void applyMethod(ref Cursor c, ref Cursor parent) {
         import cpptooling.analyzer.clang.type : TypeKind, translateType;
+        import cpptooling.data.representation : CppMethodOp;
+
+        static bool helperIsOperator(CppMethodName name_) {
+            import std.algorithm : among;
+
+            if (name_.length <= 8) {
+                return false;
+            } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+",
+                    "-", "*")) {
+                return true;
+            }
+
+            return false;
+        }
 
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
@@ -187,10 +197,17 @@ private:
             is_virtual = CppVirtualMethod(VirtualType.Yes);
         }
 
-        auto method = CppMethod(name, params, return_type, accessType,
-            CppConstMethod(c.func.isConst), is_virtual);
-        logger.info("method: ", method.toString);
-        data.put(method);
+        if (helperIsOperator(name)) {
+            auto op = CppMethodOp(name, params, return_type, accessType,
+                CppConstMethod(c.func.isConst), is_virtual);
+            logger.info("operator: ", op.toString);
+            data.put(op);
+        } else {
+            auto method = CppMethod(name, params, return_type, accessType,
+                CppConstMethod(c.func.isConst), is_virtual);
+            logger.info("method: ", method.toString);
+            data.put(method);
+        }
     }
 
 private:

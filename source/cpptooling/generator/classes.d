@@ -53,6 +53,10 @@ void generateHdr(CppClass in_c, CppModule hdr) {
         }
     }
 
+    //TODO not implemented
+    static void genOp(CppMethodOp m, CppModule hdr) {
+    }
+
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
     auto c = hdr.class_(in_c.name().str);
     auto pub = c.public_();
@@ -62,6 +66,7 @@ void generateHdr(CppClass in_c, CppModule hdr) {
             // dfmt off
             () @trusted {
             m.visit!((CppMethod m) => genMethod(m, pub),
+                     (CppMethodOp m) => genOp(m, pub),
                      (CppCtor m) => genCtor(m, pub),
                      (CppDtor m) => genDtor(m, pub));
             }();

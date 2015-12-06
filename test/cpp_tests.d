@@ -42,7 +42,10 @@ void devTest() {
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror", "-I" ~ (root ~ "extra").toString];
         auto mainf = Path("testdata/cpp/main_dev.cpp");
         incls ~= "-I" ~ input_ext.dirName.toString;
-        compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
+        switch (input_ext.baseName.toString) {
+        default:
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
+        }
 
         print(Color.green, "[  OK ] ", input_ext);
 

@@ -51,7 +51,7 @@ auto rawFilter(ControllerT, ProductsT)(CFunction func, ControllerT ctrl, Product
 /// Generates a C implementation calling the test double via the matching
 /// interface.
 void generateFuncImpl(CFunction f, CppModule impl) {
-    import cpptooling.data.representation;
+    import cpptooling.data.representation : joinParams, joinParamNames;
     import cpptooling.utility.conv : str;
     import dsrcgen.c : E;
 

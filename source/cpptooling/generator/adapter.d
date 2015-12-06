@@ -101,6 +101,10 @@ void generateImpl(CppClass c, CppModule impl) {
         impl.sep(2);
     }
 
+    //TODO not implemented generator for operators
+    static void genOp(CppClass c, CppMethodOp m, CppModule impl) {
+    }
+
     static void genDtor(CppClass c, CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name.str)) {
             stmt("test_double_inst = 0");
@@ -122,10 +126,14 @@ void generateImpl(CppClass c, CppModule impl) {
     }
 
     foreach (m; c.methodPublicRange()) {
+        // dfmt off
         () @trusted{
             m.visit!((CppMethod m) => genMethod(c, m, impl),
-                (CppCtor m) => genCtor(c, m, impl), (CppDtor m) => genDtor(c, m, impl));
+                    (CppMethodOp m) => genOp(c, m, impl),
+                    (CppCtor m) => genCtor(c, m, impl),
+                    (CppDtor m) => genDtor(c, m, impl));
         }();
+        // dfmt on
     }
 }
 
