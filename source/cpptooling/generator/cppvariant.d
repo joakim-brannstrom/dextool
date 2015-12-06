@@ -283,9 +283,11 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
         .filter!(a => !a.isAnonymous)
         .each!(a => tr.put(rawFilter(a, ctrl, prod)));
 
-    input.classRange
-        .filter!(a => a.virtualType == VirtualType.Pure)
-        .each!(a => tr.put(a));
+    if (ctrl.doGoogleMock) {
+        input.classRange
+            .filter!(a => a.virtualType == VirtualType.Pure)
+            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); tr.put(a);});
+    }
     // dfmt on
 
     return tr;
@@ -300,7 +302,7 @@ in {
 body {
     import std.algorithm : filter, map, each;
     import application.types : FileName;
-    import cpptooling.data.representation : dedup;
+    import cpptooling.data.representation : dedup, VirtualType;
     import cpptooling.generator.func : filterFunc = rawFilter;
 
     auto ns = CppNamespace.make(input.name);
@@ -311,11 +313,15 @@ body {
         .filter!(a => ctrl.doFile(a.location.file))
         .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
 
+    input.namespaceRange
+        .filter!(a => !a.isAnonymous)
+        .map!(a => rawFilter(a, ctrl, prod))
+        .each!(a => ns.put(a));
+
     if (ctrl.doGoogleMock) {
-        input.namespaceRange
-            .filter!(a => !a.isAnonymous)
-            .map!(a => rawFilter(a, ctrl, prod))
-            .each!(a => ns.put(a));
+        input.classRange
+            .filter!(a => a.virtualType == VirtualType.Pure)
+            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
     }
     //dfmt on
 
@@ -349,11 +355,23 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
 NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Parameters params) {
     import std.algorithm;
     import std.typecons : TypedefType;
-    import cpptooling.data.representation : CppNs;
+    import cpptooling.data.representation : CppNs, VirtualType;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
 
     auto ns = CppNamespace.make(input.name);
+
+    static auto makeGmock(CppClass c) {
+        c.setKind(ClassType.Gmock);
+        return c;
+    }
+
+    static auto makeGmockInNs(CppClass c, Parameters params) {
+        auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
+        ns.setKind(NamespaceType.TestDouble);
+        ns.put(makeGmock(c));
+        return ns;
+    }
 
     if (!input.funcRange.empty) {
         ns.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
@@ -367,10 +385,7 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
         td_ns.put(makeAdapter!(MainInterface, ClassType)(params.getMainInterface));
 
         if (ctrl.doGoogleMock) {
-            // could reuse.. don't.
-            auto mock = i_free_func;
-            mock.setKind(ClassType.Gmock);
-            td_ns.put(mock);
+            td_ns.put(makeGmock(i_free_func));
         }
 
         ns.put(td_ns);
@@ -381,10 +396,14 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
         .map!(a => translateNs(a, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
+
+    input.classRange
+        .filter!(a => a.virtualType == VirtualType.Pure)
+        .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
     NullableVoid!CppNamespace rval;
-    if (!ns.namespaceRange.empty) {
+    if (!ns.namespaceRange.empty || !ns.classRange.empty) {
         rval = ns;
     }
 
@@ -411,13 +430,33 @@ body {
 
     genCppIncl(ctrl, params, modules.hdr);
 
+    static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
+        // dfmt off
+        r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)
+            .each!(a => generateGmock!Parameters(a, gmock, params));
+        // dfmt on
+    }
+
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
     static void eachNs(CppNamespace ns, Parameters params,
         Generator.Modules modules, CppModule impl_singleton) {
+
+        auto inner = modules;
+        CppModule inner_impl_singleton;
+
         final switch (cast(NamespaceType) ns.kind) with (NamespaceType) {
         case Normal:
+            //TODO how to do this with meta-programming?
+            inner.hdr = modules.hdr.namespace(ns.name.str);
+            inner.hdr.suppressIndent(1);
+            inner.impl = modules.impl.namespace(ns.name.str);
+            inner.impl.suppressIndent(1);
+            inner.gmock = modules.gmock.namespace(ns.name.str);
+            inner.gmock.suppressIndent(1);
+            inner_impl_singleton = inner.impl.base;
+            inner_impl_singleton.suppressIndent(1);
             break;
         case TestDoubleSingleton:
             import cpptooling.generator.adapter : generateSingleton;
@@ -430,34 +469,13 @@ body {
             break;
         }
 
-        auto inner = modules;
-        CppModule inner_impl_singleton;
-        if (!ns.namespaceRange.empty || !ns.funcRange.empty) {
-
-            //TODO how to do this with meta-programming?
-            inner.hdr = modules.hdr.namespace(ns.name.str);
-            inner.hdr.suppressIndent(1);
-            inner.impl = modules.impl.namespace(ns.name.str);
-            inner.impl.suppressIndent(1);
-            inner.gmock = modules.gmock.namespace(ns.name.str);
-            inner.gmock.suppressIndent(1);
-
-            inner_impl_singleton = inner.impl.base;
-            inner_impl_singleton.suppressIndent(1);
-        }
-
         ns.funcRange.each!(a => generateFuncImpl(a, inner.impl));
         ns.namespaceRange.each!(a => eachNs(a, params, inner, inner_impl_singleton));
     }
 
+    gmockGlobal(r.classRange, modules.gmock, params);
     // no singleton in global namespace thus null
     r.namespaceRange().each!(a => eachNs(a, params, modules, null));
-
-    // dfmt off
-    r.classRange
-        .filter!(a => cast(ClassType) a.kind == ClassType.Gmock)
-        .each!(a => generateGmock!Parameters(a, modules.gmock, params));
-    // dfmt on
 }
 
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters params) {

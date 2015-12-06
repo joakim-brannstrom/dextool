@@ -9,8 +9,8 @@ public:
     virtual void a_ns_func() = 0;
 };
 
-/// Adapter connecting an interface with an implementation.
-/// The lifetime of the connection is the same as the instance of the adapter.
+///
+///
 class Adapter {
 public:
     Adapter(I_TestDouble& inst);
@@ -27,8 +27,8 @@ public:
     virtual void have_root() = 0;
 };
 
-/// Adapter connecting an interface with an implementation.
-/// The lifetime of the connection is the same as the instance of the adapter.
+///
+///
 class Adapter {
 public:
     Adapter(I_TestDouble& inst);
