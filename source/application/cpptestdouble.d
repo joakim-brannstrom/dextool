@@ -203,7 +203,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Controller --
 
-    bool doFile(in string filename) {
+    bool doFile(in string filename, in string info) {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
@@ -216,11 +216,17 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(restrict);
+            debug {
+                logger.tracef(!r, "--file-restrict skipping %s", info);
+            }
         } else if (exclude.length > 0) {
             r = !canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(exclude);
+            debug {
+                logger.tracef(!r, "--file-exclude skipping %s", info);
+            }
         }
 
         return r;

@@ -61,17 +61,15 @@ void generateHdr(CppClass in_c, CppModule hdr) {
     auto c = hdr.class_(in_c.name().str);
     auto pub = c.public_();
 
-    with (pub) {
-        foreach (m; in_c.methodPublicRange()) {
-            // dfmt off
-            () @trusted {
-            m.visit!((CppMethod m) => genMethod(m, pub),
-                     (CppMethodOp m) => genOp(m, pub),
-                     (CppCtor m) => genCtor(m, pub),
-                     (CppDtor m) => genDtor(m, pub));
-            }();
-            // dfmt on
-        }
+    foreach (m; in_c.methodPublicRange()) {
+        // dfmt off
+        () @trusted {
+        m.visit!((CppMethod m) => genMethod(m, pub),
+                 (CppMethodOp m) => genOp(m, pub),
+                 (CppCtor m) => genCtor(m, pub),
+                 (CppDtor m) => genDtor(m, pub));
+        }();
+        // dfmt on
     }
     hdr.sep(2);
 }

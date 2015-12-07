@@ -32,9 +32,10 @@ import cpptooling.data.representation : CppClass;
 /// TODO add support for const functions.
 void generateGmock(ParamT)(CppClass in_c, CppModule hdr, ParamT params)
 in {
+    import std.algorithm : among;
     import cpptooling.data.representation : VirtualType;
 
-    assert(in_c.virtualType == VirtualType.Pure);
+    assert(in_c.virtualType.among(VirtualType.Pure, VirtualType.Yes));
 }
 body {
     import std.algorithm : each;
@@ -155,4 +156,36 @@ auto generateGmockHdr(FileT)(FileT if_file, FileT incl_guard, CppModule gmock) {
     o.content.append(gmock);
 
     return o;
+}
+
+auto makeGmock(ClassT)(CppClass c) {
+    import std.variant : visit;
+    import cpptooling.data.representation;
+
+    // Make all protected and private public to allow testing, for good and
+    // bad
+    static auto conv(T)(T m_) if (is(T == CppMethod) || is(T == CppMethodOp)) {
+        import std.array : array;
+
+        auto params = m_.paramRange.array();
+        auto m = CppMethod(m_.name, params, m_.returnType,
+            CppAccess(AccessType.Public), CppConstMethod(m_.isConst),
+            CppVirtualMethod(VirtualType.Pure));
+        return m;
+    }
+
+    auto rclass = CppClass(c.name, c.location, c.inherits);
+    rclass.setKind(ClassT.Gmock);
+    //dfmt off
+    foreach (m_in; c.methodRange) {
+        () @trusted{
+            m_in.visit!((CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
+                        (CppMethodOp m) => m.isVirtual ? rclass.put(conv(m)) : false,
+                        (CppCtor m) {},
+                        (CppDtor m) => m.isVirtual ? rclass.put(m) : false);
+        }();
+    }
+    //dfmt on
+
+    return rclass;
 }

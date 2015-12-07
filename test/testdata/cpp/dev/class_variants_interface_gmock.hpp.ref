@@ -1,0 +1,65 @@
+#ifndef test_double_gmock_hpp
+#define test_double_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace no_inherit {
+namespace TestDouble {
+class MockJustACtorSoVirtual : public JustACtorSoVirtual {
+public:
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockVirtualWithDtor : public VirtualWithDtor {
+public:
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockCtorNotAffectingVirtualClassificationAsYes : public CtorNotAffectingVirtualClassificationAsYes {
+public:
+    MOCK_METHOD0(foo, void());
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockCtorNotAffectingVirtualClassificationAsPure : public CtorNotAffectingVirtualClassificationAsPure {
+public:
+    MOCK_METHOD0(foo, void());
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockCommonPatternForPureInterface1 : public CommonPatternForPureInterface1 {
+public:
+    MOCK_METHOD0(expect_func_to_be_mocked, void());
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockCommonPatternForPureInterface2 : public CommonPatternForPureInterface2 {
+public:
+    MOCK_METHOD0(expect_func_to_be_mocked, void());
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockAllProtPrivMadePublic : public AllProtPrivMadePublic {
+public:
+    MOCK_METHOD0(a_protected, void());
+    MOCK_METHOD0(a_private, void());
+};
+} //NS:TestDouble
+
+} //NS:no_inherit
+namespace inherit {
+namespace TestDouble {
+class MockDerivedVirtual : public DerivedVirtual {
+public:
+    MOCK_METHOD0(derived_func, void());
+};
+} //NS:TestDouble
+
+} //NS:inherit
+#endif // test_double_gmock_hpp
