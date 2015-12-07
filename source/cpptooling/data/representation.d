@@ -862,7 +862,8 @@ pure @safe nothrow struct CppClass {
             break;
         }
 
-        isVirtual_ = analyzeVirtuality(this);
+        this.st = StateType.Dirty;
+        updateVirt(this);
     }
 
     void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
@@ -935,15 +936,6 @@ pure @safe nothrow struct CppClass {
         import std.algorithm : each;
         import std.ascii : newline;
         import std.format : formattedWrite;
-
-        static void updateVirt(T : const(Tx), Tx)(ref T th) @trusted {
-            if (StateType.Dirty == th.st) {
-                (cast(Tx) th).isVirtual_ = analyzeVirtuality(cast(Tx) th);
-                (cast(Tx) th).st = StateType.Clean;
-            }
-        }
-
-        updateVirt(this);
 
         static string funcToString(CppFunc func) @trusted {
             //dfmt off
@@ -1042,18 +1034,27 @@ pure @safe nothrow struct CppClass {
     }
 
 private:
+    static void updateVirt(T : const(Tx), Tx)(ref T th) @trusted {
+        if (StateType.Dirty == th.st) {
+            (cast(Tx) th).isVirtual_ = analyzeVirtuality(cast(Tx) th);
+            (cast(Tx) th).st = StateType.Clean;
+        }
+    }
+
     // Dirty if the virtuality has to be recalculated.
     enum StateType {
         Dirty,
         Clean
     }
 
+    //TODO remove state etc in the future if the current strategy works
+    //regarding only reanalyze on put.
     StateType st;
 
     CppClassName name_;
     CppClassInherit[] inherits_;
 
-    VirtualType isVirtual_;
+    VirtualType isVirtual_ = VirtualType.Pure;
 
     CppFunc[] methods_pub;
     CppFunc[] methods_prot;
@@ -1069,38 +1070,71 @@ private:
 // Clang have no function that says if a class is virtual/pure virtual.
 // So have to post process.
 private VirtualType analyzeVirtuality(CppClass th) @safe {
+    import std.conv : to;
+
+    struct Rval {
+        enum Type {
+            Normal,
+            Ctor,
+            Dtor
+        }
+
+        VirtualType value;
+        Type t;
+    }
+
     static auto getVirt(CppClass.CppFunc func) @trusted {
         import std.variant : visit;
 
         //dfmt off
-        return func.visit!((CppMethod a) => a.virtualType(),
-                           (CppMethodOp a) => a.virtualType(),
-                           (CppCtor a) => VirtualType.Pure,
-                           (CppDtor a) {return a.isVirtual() ? VirtualType.Pure : VirtualType.No;});
+        return func.visit!((CppMethod a) => Rval(a.virtualType(), Rval.Type.Normal),
+                           (CppMethodOp a) => Rval(a.virtualType(), Rval.Type.Normal),
+                           (CppCtor a) => Rval(VirtualType.No, Rval.Type.Ctor),
+                           (CppDtor a) => Rval(a.virtualType(), Rval.Type.Dtor));
         //dfmt on
     }
 
-    auto mr = th.methodRange();
-    auto v = VirtualType.No;
-    if (!mr.empty) {
-        v = getVirt(mr.front);
-        mr.popFront();
-    }
-    foreach (m; mr) {
-        const auto mVirt = getVirt(m);
+    auto v = VirtualType.Pure;
+    //TODO optimize the ranges so we don't traverse unnecessary
 
-        final switch (th.isVirtual_) {
+    // initialization with a value that affects virtualization classification
+    // ctor and dtor do not.
+    foreach (m; th.methodRange) {
+        auto mVirt = getVirt(m);
+
+        if (mVirt.t == Rval.Type.Normal) {
+            v = mVirt.value;
+            break;
+        }
+    }
+    // initialized with a value from a method.
+    foreach (m; th.methodRange) {
+        auto mVirt = getVirt(m);
+
+        final switch (mVirt.value) {
         case VirtualType.Pure:
-            v = mVirt;
             break;
         case VirtualType.Yes:
-            if (mVirt != VirtualType.Pure) {
-                v = mVirt;
+            if (mVirt.t == Rval.Type.Normal) {
+                v = VirtualType.Yes;
             }
             break;
         case VirtualType.No:
+            // a non-virtual destructor lowers purity
+            if (v == VirtualType.Pure && mVirt.t == Rval.Type.Dtor) {
+                v = VirtualType.No;
+            }
             break;
         }
+
+        debug {
+            logger.trace(cast(string) th.name, ":", m.type, ":",
+                to!string(mVirt), ":", to!string(v));
+        }
+    }
+
+    debug {
+        logger.trace(cast(string) th.name, ":sum:", to!string(v));
     }
 
     return v;
@@ -1546,7 +1580,7 @@ unittest {
 
     shouldEqualPretty(
         c.toString,
-        "class Foo : public pub, protected prot, private priv { // isVirtual No File:a.h Line:123 Column:45
+        "class Foo : public pub, protected prot, private priv { // isVirtual Pure File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1558,15 +1592,15 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure File:noloc Line:0 Column:0
 public:
-class Pub { // isVirtual No File:noloc Line:0 Column:0
+class Pub { // isVirtual Pure File:noloc Line:0 Column:0
 }; //Class:Pub
 protected:
-class Prot { // isVirtual No File:noloc Line:0 Column:0
+class Prot { // isVirtual Pure File:noloc Line:0 Column:0
 }; //Class:Prot
 private:
-class Priv { // isVirtual No File:noloc Line:0 Column:0
+class Priv { // isVirtual Pure File:noloc Line:0 Column:0
 }; //Class:Priv
 }; //Class:Foo");
 }
@@ -1575,6 +1609,10 @@ class Priv { // isVirtual No File:noloc Line:0 Column:0
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
+    {
+        auto m = CppCtor(CppMethodName("Foo"), CxParam[].init, CppAccess(AccessType.Public));
+        c.put(m);
+    }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
             CppVirtualMethod(VirtualType.Yes));
@@ -1590,6 +1628,7 @@ unittest {
 
     shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes File:noloc Line:0 Column:0
 public:
+  Foo();
   virtual ~Foo();
   virtual int wun();
 }; //Class:Foo");
@@ -1599,6 +1638,10 @@ public:
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
+    {
+        auto m = CppCtor(CppMethodName("Foo"), CxParam[].init, CppAccess(AccessType.Public));
+        c.put(m);
+    }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
             CppVirtualMethod(VirtualType.Yes));
@@ -1614,6 +1657,7 @@ unittest {
 
     shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure File:noloc Line:0 Column:0
 public:
+  Foo();
   virtual ~Foo();
   virtual int wun() = 0;
 }; //Class:Foo");
