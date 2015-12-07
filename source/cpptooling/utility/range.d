@@ -19,7 +19,7 @@
 module cpptooling.utility.range;
 import std.range : isForwardRange;
 
-@nogc struct ArrayRange(T) {
+@nogc struct ArrayRange(T) if (isArray!T) {
     @property auto front() @safe pure nothrow {
         assert(!empty, "Can't get front of an empty range of " ~ T.stringof);
         return payload[0];
@@ -60,8 +60,10 @@ private:
     T payload;
 }
 
-auto arrayRange(T)(T[] s) {
-    return ArrayRange!(T[])(s);
+auto arrayRange(T)(T s) if (isArray!T) {
+    return ArrayRange!(T)(s);
 }
 
-private enum isArray(T) = is(T : T[]);
+//TODO replacing the is expression with "true" seems to be the same.
+//investigate the effect
+private enum isArray(T : Tx[], Tx) = is(T : Tx[]);
