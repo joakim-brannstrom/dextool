@@ -6,4 +6,8 @@ namespace ns {
 
 void exclude_self();
 
+class Foo {
+public:
+};
+
 } // NS: ns

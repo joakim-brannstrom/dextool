@@ -35,7 +35,7 @@ import cpptooling.utility.nullvoid;
 @safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
-    bool doFile(in string filename);
+    bool doFile(in string filename, in string info);
 
     /** A list of includes for the test double header.
      *
@@ -272,7 +272,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
 
     auto tr = CppRoot(input.location);
 
-    if (ctrl.doFile(input.location.file)) {
+    if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
         prod.putLocation(FileName(input.location.file), LocationType.Root);
     }
 
@@ -285,6 +285,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     if (ctrl.doGoogleMock) {
         input.classRange
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+            .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
             .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); tr.put(a);});
     }
     // dfmt on
@@ -309,7 +310,7 @@ body {
     // dfmt off
     input.funcRange
         .dedup
-        .filter!(a => ctrl.doFile(a.location.file))
+        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
         .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
 
     input.namespaceRange
@@ -320,6 +321,7 @@ body {
     if (ctrl.doGoogleMock) {
         input.classRange
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+            .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
             .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
     }
     //dfmt on
