@@ -169,7 +169,6 @@ struct Generator {
         logger.trace("Filtered:\n" ~ fl.toString());
 
         auto tr = translate(fl, ctrl, params);
-
         logger.trace("Translated to implementation:\n" ~ tr.toString());
 
         auto modules = makeCppModules();
@@ -336,7 +335,7 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
 
     // dfmt off
     root.namespaceRange
-        .map!(a => translateNs(a, ctrl, params))
+        .map!(a => translate(a, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => r.put(a.get));
 
@@ -352,26 +351,24 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
  *
  * Currently only cares about free functions.
  */
-NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Parameters params) {
+NullableVoid!CppNamespace translate(CppNamespace input, Controller ctrl, Parameters params) {
     import std.algorithm;
     import std.typecons : TypedefType;
-    import cpptooling.data.representation : CppNs, VirtualType;
+    import cpptooling.data.representation;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
-
-    auto ns = CppNamespace.make(input.name);
-
-    static auto makeGmock(CppClass c) {
-        c.setKind(ClassType.Gmock);
-        return c;
-    }
+    import cpptooling.generator.gmock : makeGmock;
 
     static auto makeGmockInNs(CppClass c, Parameters params) {
+        import cpptooling.data.representation;
+
         auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
         ns.setKind(NamespaceType.TestDouble);
-        ns.put(makeGmock(c));
+        ns.put(makeGmock!ClassType(c));
         return ns;
     }
+
+    auto ns = CppNamespace.make(input.name);
 
     if (!input.funcRange.empty) {
         ns.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
@@ -385,7 +382,7 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
         td_ns.put(makeAdapter!(MainInterface, ClassType)(params.getMainInterface));
 
         if (ctrl.doGoogleMock) {
-            td_ns.put(makeGmock(i_free_func));
+            td_ns.put(makeGmock!ClassType(i_free_func));
         }
 
         ns.put(td_ns);
@@ -393,12 +390,11 @@ NullableVoid!CppNamespace translateNs(CppNamespace input, Controller ctrl, Param
 
     //dfmt off
     input.namespaceRange()
-        .map!(a => translateNs(a, ctrl, params))
+        .map!(a => translate(a, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
 
     input.classRange
-        .filter!(a => a.virtualType == VirtualType.Pure)
         .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
