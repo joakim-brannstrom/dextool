@@ -267,7 +267,7 @@ enum NamespaceType {
  *  ctrl: removes according to directives via ctrl
  */
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
-    import std.algorithm : each, filter;
+    import std.algorithm : among, each, filter;
     import cpptooling.data.representation : VirtualType;
 
     auto tr = CppRoot(input.location);
@@ -284,7 +284,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
 
     if (ctrl.doGoogleMock) {
         input.classRange
-            .filter!(a => a.virtualType == VirtualType.Pure)
+            .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
             .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); tr.put(a);});
     }
     // dfmt on
@@ -299,7 +299,7 @@ in {
     assert(input.name.length > 0);
 }
 body {
-    import std.algorithm : filter, map, each;
+    import std.algorithm : among, each, filter, map;
     import application.types : FileName;
     import cpptooling.data.representation : dedup, VirtualType;
     import cpptooling.generator.func : filterFunc = rawFilter;
@@ -319,7 +319,7 @@ body {
 
     if (ctrl.doGoogleMock) {
         input.classRange
-            .filter!(a => a.virtualType == VirtualType.Pure)
+            .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
             .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
     }
     //dfmt on
