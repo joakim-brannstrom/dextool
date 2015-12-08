@@ -95,7 +95,7 @@ void generateImpl(CppClass c, CppModule impl) {
         }();
         // dfmt on
 
-        with (impl.ctor_body(m.name.str, E(p0.type.toString) ~ E(p0.name.str))) {
+        with (impl.ctor_body(m.name.str, E(p0.type.toString(p0.name.str)))) {
             stmt(E("test_double_inst") = E("&" ~ p0.name.str));
         }
         impl.sep(2);
@@ -116,7 +116,7 @@ void generateImpl(CppClass c, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
-        auto b = impl.method_body(m.returnType().toString, c.name().str,
+        auto b = impl.method_body(m.returnType().txt, c.name().str,
             m.name().str, m.isConst(), params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
@@ -140,6 +140,7 @@ void generateImpl(CppClass c, CppModule impl) {
 /// A singleton to allow the adapter to setup "a" connection.
 void generateSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
+    import cpptooling.analyzer.type;
     import cpptooling.utility.conv : str;
     import dsrcgen.cpp : E;
 
@@ -148,7 +149,7 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
     impl.sep(2);
 
     foreach (g; in_ns.globalRange()) {
-        auto stmt = E(g.type().toString ~ " " ~ g.name().str);
+        auto stmt = E(g.type().toString(g.name().str));
         if (g.type().isPointer) {
             stmt = E("0");
         }

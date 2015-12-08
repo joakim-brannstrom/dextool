@@ -86,7 +86,7 @@ body {
             string gmock_name = translateOp(m.op().str);
             string gmock_method = gmockMethod(m);
             string stmt = format("%s(%s, %s(%s))", gmock_method, gmock_name,
-                m.returnType().toString, params);
+                m.returnType().txt, params);
             hdr.stmt(stmt);
         }
 
@@ -95,11 +95,11 @@ body {
 
             string gmock_name = translateOp(m.op().str);
 
-            CppModule code = hdr.method_inline(true, m.returnType.toString,
+            CppModule code = hdr.method_inline(true, m.returnType.txt,
                 m.name.str, m.isConst, m.paramRange().joinParams());
             auto call = E(gmock_name)(m.paramRange().joinParamNames);
 
-            if (m.returnType().toString == "void") {
+            if (m.returnType().txt == "void") {
                 code.stmt(call);
             } else {
                 code.return_(call);
@@ -120,8 +120,8 @@ body {
         string params = m.paramRange().joinParams();
         string name = m.name().str;
         string gmock_method = gmockMethod(m);
-        string stmt = format("%s(%s, %s(%s))", gmock_method, name,
-            m.returnType().toString, params);
+        string stmt = format("%s(%s, %s(%s))", gmock_method, name, m.returnType().txt,
+            params);
 
         hdr.stmt(stmt);
     }

@@ -31,7 +31,7 @@ import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate;
+import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate, toString;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
@@ -209,8 +209,8 @@ string toInternal(CxParam p) @trusted {
 
     // dfmt off
     return p.visit!(
-        (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
-        (TypeKind t) { return t.toString; },
+        (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
+        (TypeKind t) { return t.txt; },
         (VariadicType a) { return "..."; }
         );
     // dfmt on
@@ -226,12 +226,13 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         import std.variant : visit;
 
         // dfmt off
-        return (cast(Tx) p).visit!(
-            (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
-            (TypeKind t) { return t.toString ~ " x" ~ text(uid); },
+        auto x = (cast(Tx) p).visit!(
+            (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
+            (TypeKind t) { return t.toString("x" ~ text(uid)); },
             (VariadicType a) { return "..."; }
             );
         // dfmt on
+        return x;
     }
 
     return r.enumerate.map!(a => getTypeName(a.value, a.index)).joiner(", ").text();
@@ -278,9 +279,9 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt off
     (cast(Tx) p).visit!(
         (TypeKindVariable tk) { assert(tk.name.length > 0);
-                                assert(tk.type.toString.length > 0);},
-        (TypeKind t) { assert(t.toString.length > 0); },
-        (VariadicType a) {});
+                                assert(tk.type.txt.length > 0);},
+        (TypeKind t)          { assert(t.txt.length > 0); },
+        (VariadicType a)      {});
     // dfmt on
 }
 
@@ -519,7 +520,7 @@ pure @safe nothrow struct CFunction {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -713,7 +714,7 @@ pure @safe nothrow struct CppMethod {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -798,7 +799,7 @@ pure @safe nothrow struct CppMethodOp {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -1366,7 +1367,7 @@ private:
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
-        shouldEqual(f.returnType.toString, "void");
+        shouldEqual(f.returnType.txt, "void");
         shouldEqual(f.toString, "void nothing(); // File:a.h Line:123 Column:45");
     }
 
@@ -1395,7 +1396,7 @@ unittest {
     shouldEqual(m.isVirtual, VirtualType.No);
     shouldEqual(m.name, "voider");
     shouldEqual(m.params.length, 0);
-    shouldEqual(m.returnType.toString, "void");
+    shouldEqual(m.returnType.txt, "void");
     shouldEqual(m.accessType, AccessType.Public);
 }
 
