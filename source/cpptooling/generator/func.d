@@ -64,8 +64,8 @@ void generateFuncImpl(CFunction f, CppModule impl) {
     }
     string names = joinParamNames(f.paramRange());
 
-    with (impl.func_body(f.returnType().toString, f.name().str, params)) {
-        if (f.returnType().toString == "void") {
+    with (impl.func_body(f.returnType().txt, f.name().str, params)) {
+        if (f.returnType().txt == "void") {
             stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
         } else {
             return_(E("test_double_inst->" ~ f.name().str)(E(names)));

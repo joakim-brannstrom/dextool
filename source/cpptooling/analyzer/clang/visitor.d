@@ -463,7 +463,7 @@ private:
 auto paramDeclTo(Cursor cursor) {
     import cpptooling.analyzer.clang.type : TypeKind, translateType;
     import cpptooling.data.representation : TypeKindVariable, CppVariable,
-        makeCxParam, CxParam;
+        makeCxParam, CxParam, VariadicType;
 
     CxParam[] params;
 
@@ -489,8 +489,16 @@ auto paramDeclTo(Cursor cursor) {
     }
 
     debug {
+        import std.variant : visit;
+
         foreach (p; params) {
-            logger.trace(p.toString);
+            // dfmt off
+            () @trusted {
+                p.visit!((TypeKindVariable p) => logger.trace(p.type.txt, ":", cast(string) p.name),
+                         (TypeKind p) => logger.trace(p.txt),
+                         (VariadicType p) => logger.trace("..."));
+            }();
+            // dfmt on
         }
     }
 

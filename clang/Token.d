@@ -114,7 +114,7 @@ RefCounted!TokenGroup tokenize(TranslationUnit tu, SourceRange range) {
     clang_tokenize(tu, range, &tokens.tokens, &tokens.length);
     tg.cxtokens = tokens;
 
-    foreach (i; 0 .. tokens.length) {
+    foreach (i; 0 .. tokens.length - 1) {
         auto t = Token(tg, tokens.tokens[i]);
         tg.tokens_ ~= t;
     }

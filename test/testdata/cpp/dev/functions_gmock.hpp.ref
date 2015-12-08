@@ -3,11 +3,10 @@
 #include "test_double.hpp"
 #include "gmock/gmock.h"
 
+namespace ns {
 namespace TestDouble {
 class MockI_TestDouble : public I_TestDouble {
 public:
-    MOCK_METHOD1(tiger, unsigned char(const unsigned int x0));
-    MOCK_METHOD1(cyber, unsigned char(const unsigned int x0));
     MOCK_METHOD0(func_void, void());
     MOCK_METHOD0(func_return, int());
     MOCK_METHOD1(func_one_named, int(int a));
@@ -23,7 +22,13 @@ public:
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));
     MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
     MOCK_METHOD2(func_ptr_arg, void(int (*a )(int ,int ), int b));
+    MOCK_METHOD1(func_ref, void(int & a));
+    MOCK_METHOD0(func_return_ref, int &());
+    MOCK_METHOD2(func_ref_many, void(int & a, char & b));
+    MOCK_METHOD1(func_array, void(int a[10]));
+    MOCK_METHOD1(func_ref_ptr, void(int *& a));
 };
 } //NS:TestDouble
 
+} //NS:ns
 #endif // test_double_gmock_hpp

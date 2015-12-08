@@ -81,20 +81,16 @@ pure @safe nothrow @nogc struct TypeKind {
     bool isFuncPtr;
     bool isArray;
 
+    auto txt() const {
+        return txt_;
+    }
+
     /** The full type with storage classes and operators.
      * Example
      * ---
      * const int&
      * ---
      */
-    string toString() @property const {
-        return txt_;
-    }
-
-    auto txt() const {
-        return txt_;
-    }
-
     auto txt(string s) {
         if (txt_ is null)
             txt_ = s;
@@ -119,13 +115,41 @@ TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
     return t;
 }
 
-/// Return a duplicate.
-/// Side effect is that the cursor is thrown away.
-/// TODO investigate how this can be done with opAssign and postblit.
+/** Return a duplicate.
+ * Side effect is that the cursor is thrown away.
+ * TODO investigate how this can be done with opAssign and postblit.
+ */
 TypeKind duplicate(T)(T t_in) pure @safe nothrow {
     TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
         t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
     t.info = t_in.info;
 
     return t;
+}
+
+/// Combine type information with a identifier to produce a declaration.
+auto toString(TypeKind t, string id) {
+    import std.format : format;
+
+    string txt;
+
+    final switch (t.info.kind) with (TypeKind.Info) {
+    case Kind.simple:
+        txt = format(t.info.fmt, id);
+        break;
+    case Kind.array:
+        txt = format(t.info.fmt, t.info.elementType, id, t.info.indexes);
+        break;
+    case Kind.funcPtr:
+        txt = format(t.info.fmt, id);
+        break;
+    case Kind.null_:
+        debug {
+            logger.error("Type is null. Identifier ", id);
+        }
+        txt = id;
+        break;
+    }
+
+    return txt;
 }

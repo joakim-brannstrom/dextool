@@ -31,7 +31,7 @@ import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate;
+import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate, toString;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
@@ -209,8 +209,8 @@ string toInternal(CxParam p) @trusted {
 
     // dfmt off
     return p.visit!(
-        (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
-        (TypeKind t) { return t.toString; },
+        (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
+        (TypeKind t) { return t.txt; },
         (VariadicType a) { return "..."; }
         );
     // dfmt on
@@ -226,12 +226,13 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         import std.variant : visit;
 
         // dfmt off
-        return (cast(Tx) p).visit!(
-            (TypeKindVariable tk) {return tk.type.toString ~ " " ~ tk.name.str;},
-            (TypeKind t) { return t.toString ~ " x" ~ text(uid); },
+        auto x = (cast(Tx) p).visit!(
+            (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
+            (TypeKind t) { return t.toString("x" ~ text(uid)); },
             (VariadicType a) { return "..."; }
             );
         // dfmt on
+        return x;
     }
 
     return r.enumerate.map!(a => getTypeName(a.value, a.index)).joiner(", ").text();
@@ -278,17 +279,10 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt off
     (cast(Tx) p).visit!(
         (TypeKindVariable tk) { assert(tk.name.length > 0);
-                                assert(tk.type.toString.length > 0);},
-        (TypeKind t) { assert(t.toString.length > 0); },
-        (VariadicType a) {});
+                                assert(tk.type.txt.length > 0);},
+        (TypeKind t)          { assert(t.txt.length > 0); },
+        (VariadicType a)      {});
     // dfmt on
-}
-
-private void appInternal(CxParam p, ref Appender!string app) @trusted {
-    import std.variant : visit;
-    import std.format : formattedWrite;
-
-    app.put(toInternal(p));
 }
 
 pure @safe nothrow struct CxGlobalVariable {
@@ -360,22 +354,6 @@ struct CppMethodGeneric {
 
         auto paramRange() const @nogc @safe pure nothrow {
             return arrayRange(params);
-        }
-
-        /** Put the local paramRange into the OutputRange AppT.
-         *
-         * Because it is part of the mixin it assumes the user want to
-         * represent the paramRange.
-         */
-        void paramPutTypeId(AppT)(AppT app) const @safe {
-            import std.algorithm : each;
-
-            auto pr = paramRange();
-            if (!pr.empty) {
-                appInternal(pr.front, app);
-                pr.popFront;
-                pr.each!((a) { app.put(", "); appInternal(a, app); });
-            }
         }
 
         private CxParam[] params;
@@ -501,19 +479,10 @@ pure @safe nothrow struct CFunction {
     // Separating file location from the rest
     private string internalToString() const @safe {
         import std.array : Appender, appender;
-        import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        auto pr = paramRange();
-        if (!pr.empty) {
-            appInternal(pr.front, ps);
-            pr.popFront;
-            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
-        }
-
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
+        formattedWrite(rval, "%s %s(%s);", returnType.txt, name.str, paramRange.joinParams);
         return rval.data;
     }
 
@@ -529,7 +498,7 @@ pure @safe nothrow struct CFunction {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -569,11 +538,8 @@ pure @safe nothrow struct CppCtor {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
-        formattedWrite(rval, "%s(%s)", name_.str, ps.data);
+        formattedWrite(rval, "%s(%s)", name_.str, paramRange.joinParams);
 
         return rval.data;
     }
@@ -705,12 +671,9 @@ pure @safe nothrow struct CppMethod {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
         helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
+        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
 
         if (isConst) {
             rval.put(" const");
@@ -723,7 +686,7 @@ pure @safe nothrow struct CppMethod {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -776,12 +739,9 @@ pure @safe nothrow struct CppMethodOp {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
         helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
+        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
 
         if (isConst) {
             rval.put(" const");
@@ -808,7 +768,7 @@ pure @safe nothrow struct CppMethodOp {
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.toString.length > 0);
+        assert(returnType_.txt.length > 0);
 
         foreach (p; params) {
             assertVisit(p);
@@ -1376,7 +1336,7 @@ private:
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
-        shouldEqual(f.returnType.toString, "void");
+        shouldEqual(f.returnType.txt, "void");
         shouldEqual(f.toString, "void nothing(); // File:a.h Line:123 Column:45");
     }
 
@@ -1405,7 +1365,7 @@ unittest {
     shouldEqual(m.isVirtual, VirtualType.No);
     shouldEqual(m.name, "voider");
     shouldEqual(m.params.length, 0);
-    shouldEqual(m.returnType.toString, "void");
+    shouldEqual(m.returnType.txt, "void");
     shouldEqual(m.accessType, AccessType.Public);
 }
 

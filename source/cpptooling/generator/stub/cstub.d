@@ -395,20 +395,20 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
     import std.format : format;
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import cpptooling.analyzer.type : TypeKind;
+    import cpptooling.analyzer.type : TypeKind, toString;
 
     auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
 
     string txt;
     final switch (g.type.info.kind) with (TypeKind.Info) {
     case Kind.simple:
-        txt = E(g.type.toString) ~ E(d_name);
+        txt = E(g.type.txt) ~ E(d_name);
         break;
     case Kind.array:
         txt = E(g.type.info.elementType) ~ E(d_name);
         break;
     case Kind.funcPtr:
-        txt = E(format(g.type.info.fmt, g.name.str)) ~ E(d_name);
+        txt = E(g.type.toString(g.name.str)) ~ E(d_name);
         break;
     case Kind.null_:
         logger.error("Type of global definition is null. Identifier ", g.name.str);

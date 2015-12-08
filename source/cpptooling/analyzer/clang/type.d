@@ -127,7 +127,7 @@ body {
     // dfmt off
     debug {
         logger.tracef("full:%s c:%s r:%s p:%s",
-                      result.typeKind.toString,
+                      result.typeKind.txt,
                       result.typeKind.isConst,
                       result.typeKind.isRef,
                       result.typeKind.isPointer);
@@ -211,7 +211,8 @@ body {
         default:
             info.indexes = format("[%d]%s", array.size, info.indexes);
             auto translatedElement = translateType(elementType);
-            info.elementType = translatedElement.typeKind.toString;
+            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+            info.elementType = translatedElement.typeKind.txt;
             break;
         }
 
@@ -254,7 +255,8 @@ body {
         default:
             info.indexes = format("[]%s", info.indexes);
             auto translatedElement = translateType(elementType);
-            info.elementType = translatedElement.typeKind.toString;
+            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+            info.elementType = translatedElement.typeKind.txt;
             break;
         }
 
