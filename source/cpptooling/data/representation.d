@@ -285,16 +285,6 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt on
 }
 
-private void appInternal(RangeT)(RangeT r, ref Appender!string app) @trusted {
-    import std.algorithm : each;
-
-    if (!r.empty) {
-        app.put(toInternal(r.front));
-        r.popFront;
-        r.each!((a) { app.put(", "); app.put(toInternal(a)); });
-    }
-}
-
 pure @safe nothrow struct CxGlobalVariable {
     mixin mixinUniqueId;
     mixin mixingSourceLocation;
@@ -364,15 +354,6 @@ struct CppMethodGeneric {
 
         auto paramRange() const @nogc @safe pure nothrow {
             return arrayRange(params);
-        }
-
-        /** Put the local paramRange into the OutputRange AppT.
-         *
-         * Because it is part of the mixin it assumes the user want to
-         * represent the paramRange.
-         */
-        void paramPutTypeId(AppT)(AppT app) const @safe {
-            appInternal(paramRange, app);
         }
 
         private CxParam[] params;
@@ -500,11 +481,8 @@ pure @safe nothrow struct CFunction {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        appInternal(paramRange, ps);
-
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
+        formattedWrite(rval, "%s %s(%s);", returnType.txt, name.str, paramRange.joinParams);
         return rval.data;
     }
 
@@ -560,11 +538,8 @@ pure @safe nothrow struct CppCtor {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
-        formattedWrite(rval, "%s(%s)", name_.str, ps.data);
+        formattedWrite(rval, "%s(%s)", name_.str, paramRange.joinParams);
 
         return rval.data;
     }
@@ -696,12 +671,9 @@ pure @safe nothrow struct CppMethod {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
         helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
+        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
 
         if (isConst) {
             rval.put(" const");
@@ -767,12 +739,9 @@ pure @safe nothrow struct CppMethodOp {
         import std.algorithm : each;
         import std.format : formattedWrite;
 
-        auto ps = appender!string();
-        paramPutTypeId(ps);
-
         auto rval = appender!string();
         helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.toString, name_.str, ps.data);
+        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
 
         if (isConst) {
             rval.put(" const");
