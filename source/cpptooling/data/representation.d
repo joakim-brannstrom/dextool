@@ -284,11 +284,14 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt on
 }
 
-private void appInternal(CxParam p, ref Appender!string app) @trusted {
-    import std.variant : visit;
-    import std.format : formattedWrite;
+private void appInternal(RangeT)(RangeT r, ref Appender!string app) @trusted {
+    import std.algorithm : each;
 
-    app.put(toInternal(p));
+    if (!r.empty) {
+        app.put(toInternal(r.front));
+        r.popFront;
+        r.each!((a) { app.put(", "); app.put(toInternal(a)); });
+    }
 }
 
 pure @safe nothrow struct CxGlobalVariable {
@@ -368,14 +371,7 @@ struct CppMethodGeneric {
          * represent the paramRange.
          */
         void paramPutTypeId(AppT)(AppT app) const @safe {
-            import std.algorithm : each;
-
-            auto pr = paramRange();
-            if (!pr.empty) {
-                appInternal(pr.front, app);
-                pr.popFront;
-                pr.each!((a) { app.put(", "); appInternal(a, app); });
-            }
+            appInternal(paramRange, app);
         }
 
         private CxParam[] params;
@@ -501,16 +497,10 @@ pure @safe nothrow struct CFunction {
     // Separating file location from the rest
     private string internalToString() const @safe {
         import std.array : Appender, appender;
-        import std.algorithm : each;
         import std.format : formattedWrite;
 
         auto ps = appender!string();
-        auto pr = paramRange();
-        if (!pr.empty) {
-            appInternal(pr.front, ps);
-            pr.popFront;
-            pr.each!((a) { ps.put(", "); appInternal(a, ps); });
-        }
+        appInternal(paramRange, ps);
 
         auto rval = appender!string();
         formattedWrite(rval, "%s %s(%s);", returnType.toString, name.str, ps.data);
