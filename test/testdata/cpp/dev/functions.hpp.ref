@@ -1,0 +1,42 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "functions.hpp"
+
+namespace ns {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void func_void() = 0;
+    virtual int func_return() = 0;
+    virtual int func_one_named(int a) = 0;
+    virtual void func_two_named(int a, int b) = 0;
+    virtual void func_three_named(int a, int b, int c) = 0;
+    virtual const int c_func_return() = 0;
+    virtual const int c_func_one_named(const int a) = 0;
+    virtual void c_func_two_named(const int a, const int b) = 0;
+    virtual void c_func_three_named(const int a, const int b, const int c) = 0;
+    virtual void func_variadic() = 0;
+    virtual int func_variadic_one_unnamed(char * x0) = 0;
+    virtual int func_extern(int out) = 0;
+    virtual void unnamed_params(int x0, int x1) = 0;
+    virtual void fun(func_ptr2 p, Something_Big b) = 0;
+    virtual void func_ptr_arg(int (*a )(int ,int ), int b) = 0;
+    virtual void func_ref(int & a) = 0;
+    virtual int & func_return_ref() = 0;
+    virtual void func_ref_many(int & a, char & b) = 0;
+    virtual void func_array(int a[10]) = 0;
+    virtual void func_ref_ptr(int *& a) = 0;
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:ns
+#endif // test_double_hpp

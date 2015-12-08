@@ -138,7 +138,7 @@ auto toString(TypeKind t, string id) {
         txt = format(t.info.fmt, id);
         break;
     case Kind.array:
-        txt = format(t.info.fmt, id, t.info.elementType, t.info.indexes);
+        txt = format(t.info.fmt, t.info.elementType, id, t.info.indexes);
         break;
     case Kind.funcPtr:
         txt = format(t.info.fmt, id);
