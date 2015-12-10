@@ -363,10 +363,9 @@ struct NamespaceVisitor {
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
-        logNode(c, 0);
-
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_Namespace:
+            logNode(c, 0);
             data.put(NamespaceVisitor.make(c, stack).visit(c));
             break;
         default:
