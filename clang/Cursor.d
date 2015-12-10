@@ -39,8 +39,8 @@ import clang.Visitor;
  * s = isStatement
  * t = isTranslationUnit
  * u = isUnexposed
- * v = isValid
- * V = isVirtualBase
+ * v = isVirtualBase
+ * V = isValid
  */
 string abilities(Cursor c) {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
