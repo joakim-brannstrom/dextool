@@ -138,7 +138,10 @@ int tokenize(string filename) {
 struct ShowAst {
     import cpptooling.utility.clang : visitAst, logNode;
     import cpptooling.utility.stack : VisitNodeDepth;
+    import cpptooling.analyzer.clang.type : logType;
     import clang.Cursor;
+    import clang.Type;
+    import deimos.clang.index;
 
     private VisitNodeDepth depth_;
     alias depth_ this;
@@ -152,10 +155,59 @@ struct ShowAst {
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
-        logNode(c, depth);
-        printTokens(c, depth);
+        apply(c);
 
         return true;
+    }
+
+    void apply(Cursor c) {
+        logNode(c, depth);
+        incr();
+
+        if (c.isValid) {
+            printTokens(c, depth);
+            apply(c.type);
+
+            if (c.isReference) {
+                logger.info("is referenced");
+                auto r = c.referenced;
+                apply(r);
+                apply(r.type);
+            }
+        }
+
+        decr();
+    }
+
+    void apply(Type t) {
+        import std.algorithm : among;
+
+        logType(t);
+
+        with (CXTypeKind) {
+            if (t.kind.among(CXType_Pointer, CXType_LValueReference, CXType_BlockPointer)) {
+                logger.info("is pointer");
+                apply(t.pointeeType);
+            }
+        }
+
+        if (!t.isExposed) {
+            logger.info("is not exposed");
+            auto c = t.declaration;
+            if (c.isValid) {
+                apply(c);
+            } else {
+                c = t.cursor.canonical();
+                t = t.canonicalType;
+                if (c.isValid) {
+                    logger.infof("canonical '%s'", c.spelling);
+                    logNode(c, depth + 1);
+                    logType(t);
+                    t = c.type;
+                    logType(t);
+                }
+            }
+        }
     }
 
     static void printTokens(ref Cursor c, int depth) {
