@@ -5,12 +5,6 @@
 
 namespace no_inherit {
 namespace TestDouble {
-class MockJustACtorSoVirtual : public JustACtorSoVirtual {
-public:
-};
-} //NS:TestDouble
-
-namespace TestDouble {
 class MockVirtualWithDtor : public VirtualWithDtor {
 public:
 };

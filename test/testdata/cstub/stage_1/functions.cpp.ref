@@ -56,7 +56,7 @@ void func_variadic() {
     test_double_inst->func_variadic();
 }
 
-int func_variadic_one_unnamed(char * x0, ...) {
+int func_variadic_one_unnamed(char *x0, ...) {
     return test_double_inst->func_variadic_one_unnamed(x0);
 }
 

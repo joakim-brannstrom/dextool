@@ -18,7 +18,7 @@ public:
     MOCK_METHOD2(c_func_two_named, void(const int a, const int b));
     MOCK_METHOD3(c_func_three_named, void(const int a, const int b, const int c));
     MOCK_METHOD0(func_variadic, void());
-    MOCK_METHOD1(func_variadic_one_unnamed, int(char * x0));
+    MOCK_METHOD1(func_variadic_one_unnamed, int(char *x0));
     MOCK_METHOD1(func_extern, int(int out));
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));
     MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));

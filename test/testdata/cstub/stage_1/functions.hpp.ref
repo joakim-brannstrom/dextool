@@ -17,7 +17,7 @@ public:
     virtual void c_func_two_named(const int a, const int b) = 0;
     virtual void c_func_three_named(const int a, const int b, const int c) = 0;
     virtual void func_variadic() = 0;
-    virtual int func_variadic_one_unnamed(char * x0) = 0;
+    virtual int func_variadic_one_unnamed(char *x0) = 0;
     virtual int func_extern(int out) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
     virtual void fun(func_ptr2 p, Something_Big b) = 0;

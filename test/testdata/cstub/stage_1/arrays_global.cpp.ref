@@ -20,4 +20,4 @@ int TEST_INIT_extern_a;
 int TEST_INIT_extern_b;
 int TEST_INIT_extern_c;
 char TEST_INIT_extern_incmpl;
-const char *const TEST_INIT_extern_const_incmpl;
+const char *const  TEST_INIT_extern_const_incmpl;
