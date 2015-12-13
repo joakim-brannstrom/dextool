@@ -39,6 +39,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Tuple, Flag;
     import argvalue; // from docopt
     import application.types : StubPrefix, FileName, MainInterface, DirName;
+    import application.utility;
     import dsrcgen.cpp;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
@@ -71,55 +72,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
 
-    /// Includes intended for the test double. Filtered according to the user.
-    struct TdIncludes {
-        enum State {
-            Normal,
-            HaveRoot,
-            UserDefined
-        }
-
-        FileName[] incls;
-        State st;
-        Regex!char strip_incl;
-        private FileName[] unstripped_incls;
-
-        void forceIncludes(string[] in_incls) {
-            st = State.UserDefined;
-            foreach (incl; in_incls) {
-                incls ~= FileName(incl);
-            }
-        }
-
-        void doStrip() @safe {
-            import application.utility : stripIncl;
-
-            incls ~= stripIncl(unstripped_incls, strip_incl);
-        }
-
-        void put(FileName fname, LocationType type) @safe {
-            final switch (st) with (State) {
-            case Normal:
-                if (type == LocationType.Root) {
-                    unstripped_incls = [fname];
-                    st = HaveRoot;
-                } else {
-                    unstripped_incls ~= fname;
-                }
-                break;
-            case HaveRoot:
-                // only accepting roots
-                if (type == LocationType.Root) {
-                    unstripped_incls ~= fname;
-                }
-                break;
-            case UserDefined:
-                // ignoring new includes
-                break;
-            }
-        }
-    }
-
     private TdIncludes td_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
@@ -148,13 +100,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainFileName(parsed["--main-fname"].toString),
             MainName(parsed["--main"].toString),
-            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl);
+            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl, strip_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
         }
 
-        variant.td_includes.strip_incl = strip_incl;
         variant.exclude = exclude;
         variant.restrict = restrict;
 
@@ -163,7 +114,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
         MainFileName main_fname, MainName main_name, DirName output_dir,
-        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl) {
+        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
+        Flag!"PostInclude" post_incl, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
@@ -174,6 +126,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         this.gmock = gmock;
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
+        this.td_includes = TdIncludes(strip_incl);
 
         import std.path : baseName, buildPath, stripExtension;
 
