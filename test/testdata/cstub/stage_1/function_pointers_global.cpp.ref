@@ -25,11 +25,11 @@
 #define TEST_INIT_hest hest
 #endif // TEST_INIT_hest
 
-void (*e_a )(void ) TEST_INIT_e_a;
-int (*e_b )(void ) TEST_INIT_e_b;
-void (*e_c )(int ) TEST_INIT_e_c;
-void (*const e_d )(void ) TEST_INIT_e_d;
-int (*e_e )(int ,int ) TEST_INIT_e_e;
-int (*e_f )(int pa ,int pb ) TEST_INIT_e_f;
-int (*e_g )(int pa ,int pb ,...) TEST_INIT_e_g;
+void (*e_a)() TEST_INIT_e_a;
+int (*e_b)() TEST_INIT_e_b;
+void (*e_c)(int x0) TEST_INIT_e_c;
+void (*const e_d)() TEST_INIT_e_d;
+int (*e_e)(int x0, int x1) TEST_INIT_e_e;
+int (*e_f)(int pa, int pb) TEST_INIT_e_f;
+int (*e_g)(int pa, int pb, ...) TEST_INIT_e_g;
 func_ptr TEST_INIT_hest;
