@@ -1,6 +1,7 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
+#include "test_include_stdlibs.h"
 }
 
 #endif // test_double_hpp

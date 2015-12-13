@@ -33,7 +33,7 @@ import application.types;
 @safe interface StubController {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
-    bool doFile(in string filename);
+    bool doFile(in string filename, in string info);
 
     /** A list of includes for the test double header.
      *
@@ -124,7 +124,7 @@ import application.types;
      * Just the files that was input?
      * Deduplicated list of files where the symbols was found?
      */
-    void putLocation(FileName loc);
+    void putLocation(FileName loc, LocationType type);
 }
 
 struct StubGenerator {
@@ -277,6 +277,10 @@ CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
 
     CppRoot tr;
 
+    if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
+        prod.putLocation(FileName(input.location.file), LocationType.Root);
+    }
+
     foreach (f; input.funcRange().dedup) {
         auto r = translateCFunc(f, ctrl, prod);
         if (!r.isNull) {
@@ -307,9 +311,9 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
 
     NullableVoid!CxGlobalVariable r;
 
-    if (ctrl.doFile(g.location.file)) {
+    if (ctrl.doFile(g.location.file, cast(string) g.name ~ " " ~ g.location.toString)) {
         r = g;
-        prod.putLocation(FileName(g.location.file));
+        prod.putLocation(FileName(g.location.file), LocationType.Leaf);
     } else {
         logger.info("Ignoring global variable: ", g.toString);
     }

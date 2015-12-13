@@ -2,11 +2,11 @@ union Foo {
     int a;
 };
 
-union Bar {
+typedef union Bar {
     int x;
 } b;
 
-union Foo c;
+typedef union Foo c;
 
 union A {
     union B {

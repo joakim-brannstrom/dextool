@@ -270,27 +270,28 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : among, each, filter;
     import cpptooling.data.representation : VirtualType;
 
-    auto tr = CppRoot(input.location);
+    auto raw = CppRoot(input.location);
 
     if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
         prod.putLocation(FileName(input.location.file), LocationType.Root);
     }
 
-    // Assuming that namespaces can are never duplicated at this stage.
+    // Assuming that namespaces are never duplicated at this stage.
+    // The assumtion comes from the structore of the AST.
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
-        .each!(a => tr.put(rawFilter(a, ctrl, prod)));
+        .each!(a => raw.put(rawFilter(a, ctrl, prod)));
 
     if (ctrl.doGoogleMock) {
         input.classRange
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); tr.put(a);});
+            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); raw.put(a);});
     }
     // dfmt on
 
-    return tr;
+    return raw;
 }
 
 /// Recursive filtering of namespaces to remove everything except free functions.
