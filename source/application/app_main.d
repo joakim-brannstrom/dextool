@@ -223,7 +223,7 @@ int rmain(string[] args) nothrow {
     ExitStatusType exit_status = ExitStatusType.Errors;
     bool help = true;
     bool optionsFirst = false;
-    auto version_ = "dextool v0.1";
+    auto version_ = "dextool v0.4.1";
 
     try {
         auto parsed = docopt.docopt(doc, args[1 .. $], help, version_, optionsFirst);
