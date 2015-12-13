@@ -176,6 +176,8 @@ struct TdIncludes {
     Regex!char strip_incl;
     private FileName[] unstripped_incls;
 
+    @disable this();
+
     this(Regex!char strip_incl) {
         this.strip_incl = strip_incl;
     }
