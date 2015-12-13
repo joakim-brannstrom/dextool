@@ -149,13 +149,13 @@ struct Generator {
 
     /** Process structural data to a test double.
      *
-     * translate -> intermediate -> code generation.
+     * raw -> filter -> translate -> code gen.
      *
-     * translate filters the structural data.
+     * filters the structural data.
      * Controller is involved to allow filtering of identifiers in files.
      *
-     * Intermediate analyzes what is left after filtering.
-     * On demand extra data is created.
+     * translate prepares the data for code generator.
+     * On demand extra data is created. An example of on demand is --gmock.
      *
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.

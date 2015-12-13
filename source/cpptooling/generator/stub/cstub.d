@@ -147,17 +147,18 @@ struct StubGenerator {
      * Controller is involved to allow filtering of identifiers in files.
      *
      * Intermediate analyzes what is left after filtering.
-     * On demand extra data is created.
+     * On demand extra data is created. An example of on demand is --gmock.
      *
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      *
      * TODO refactor the control flow. Especially the gmock part.
+     * TODO rename translate to rawFilter. See cppvariant.
      */
     auto process(CppRoot root) {
         import cpptooling.data.representation : CppNamespace, CppNs;
 
-        logger.trace("Raw data:\n" ~ root.toString());
+        logger.trace("Raw:\n" ~ root.toString());
         auto tr = .translate(root, ctrl, products);
 
         // Does it have any C functions?
