@@ -123,7 +123,7 @@ void stage2() {
             break;
         case "param_exclude_match_all.h":
             runDextool(input_ext,
-                params ~ ["--file-exclude=.*/param_exclude_match_all.",
+                params ~ ["--file-exclude=.*/param_exclude_match_all.*",
                 `--file-exclude='.*/include/b\.c'`], incls);
             break;
         case "param_exclude_one_file.h":

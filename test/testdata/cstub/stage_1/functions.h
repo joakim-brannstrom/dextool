@@ -35,5 +35,5 @@ typedef struct Something_Big {
 extern void fun(func_ptr2 p, Something_Big b);
 
 // expect a correct call signature for a function ptr
-void func_ptr_arg(int (*a)(int, int) , int b);
+void func_ptr_arg(int (*a)(int p, int) , int b);
 #endif // FUNCTIONS_H

@@ -37,7 +37,7 @@ typedef struct Something_Big {
 extern void fun(func_ptr2 p, Something_Big b);
 
 // expect a correct call signature for a function ptr
-void func_ptr_arg(int (*a)(int, int) , int b);
+void func_ptr_arg(int (*a)(int p, int) , int b);
 
 // C++ testing
 void func_ref(int& a);
@@ -45,7 +45,7 @@ int& func_return_ref();
 void func_ref_many(int& a, char& b);
 void func_array(int a[10]);
 void func_ref_ptr(int*& a);
-// void func_ref_array(int (&a)[10]);
+void func_ref_array(int (&a)[10]);
 
 } // NS: ns
 #endif // FUNCTIONS_H

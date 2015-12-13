@@ -37,6 +37,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     import std.typecons : Tuple, Flag;
     import argvalue; // from docopt
     import application.types : StubPrefix, FileName, DirName;
+    import application.utility;
     import dsrcgen.cpp;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
@@ -65,21 +66,11 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     Regex!char[] exclude;
     Regex!char[] restrict;
-    Regex!char strip_incl;
 
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
 
-    /// Includes intended for the test double. Filtered according to the user.
-    private FileName[] td_includes;
-    // Dirty flag so sorting is only done when needed.
-    enum IncludeState {
-        Dirty,
-        Clean,
-        UserDefined
-    }
-
-    private IncludeState td_includes_st;
+    private TdIncludes td_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         import std.array : array;
@@ -107,13 +98,12 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             StubPrefix("Not used"), FileName(parsed["FILE"].toString),
             MainFileName(parsed["--main-fname"].toString),
             MainName(parsed["--main"].toString),
-            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl);
+            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl, strip_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
         }
 
-        variant.strip_incl = strip_incl;
         variant.exclude = exclude;
         variant.restrict = restrict;
 
@@ -122,7 +112,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
         MainFileName main_fname, MainName main_name, DirName output_dir,
-        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl) {
+        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
+        Flag!"PostInclude" post_incl, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
@@ -133,6 +124,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.gmock = gmock;
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
+        this.td_includes = TdIncludes(strip_incl);
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -152,10 +144,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     /// Force the includes to be those supplied by the user.
     void forceIncludes(string[] incls) {
-        foreach (incl; incls) {
-            td_includes ~= FileName(incl);
-        }
-        td_includes_st = IncludeState.UserDefined;
+        td_includes.forceIncludes(incls);
     }
 
     /// User supplied files used as input.
@@ -165,7 +154,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     // -- StubController --
 
-    bool doFile(in string filename) {
+    bool doFile(in string filename, in string info) {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
@@ -178,11 +167,17 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(restrict);
+            debug {
+                logger.tracef(!r, "--file-restrict skipping %s", info);
+            }
         } else if (exclude.length > 0) {
             r = !canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(exclude);
+            debug {
+                logger.tracef(!r, "--file-exclude skipping %s", info);
+            }
         }
 
         return r;
@@ -215,22 +210,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     // -- StubParameters --
 
     FileName[] getIncludes() {
-        import application.utility : stripIncl;
-
-        final switch (td_includes_st) {
-        case IncludeState.Dirty:
-            //TODO optimize use of stripIncl, it is slow
-            td_includes = stripIncl(td_includes, strip_incl);
-            td_includes_st = IncludeState.Clean;
-            break;
-
-        case IncludeState.Clean:
-            break;
-        case IncludeState.UserDefined:
-            break;
-        }
-
-        return td_includes;
+        td_includes.doStrip();
+        return td_includes.incls;
     }
 
     DirName getOutputDirectory() {
@@ -272,18 +253,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         file_data ~= FileData(fname, impl_data.render());
     }
 
-    void putLocation(FileName fname) {
-        final switch (td_includes_st) {
-        case IncludeState.Dirty:
-            td_includes ~= fname;
-            break;
-        case IncludeState.Clean:
-            td_includes ~= fname;
-            td_includes_st = IncludeState.Dirty;
-            break;
-        case IncludeState.UserDefined:
-            break;
-        }
+    void putLocation(FileName fname, LocationType type) {
+        td_includes.put(fname, type);
     }
 }
 

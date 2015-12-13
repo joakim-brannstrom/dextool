@@ -26,6 +26,7 @@ import deimos.clang.index;
 import clang.Cursor;
 import clang.SourceLocation;
 
+import cpptooling.analyzer.clang.utility;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
 
@@ -363,10 +364,9 @@ struct NamespaceVisitor {
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
-        logNode(c, 0);
-
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_Namespace:
+            logNode(c, 0);
             data.put(NamespaceVisitor.make(c, stack).visit(c));
             break;
         default:
@@ -439,68 +439,4 @@ struct ParseContext {
     }
 
     CppRoot root;
-}
-
-private:
-
-/** Travers a node tree and gather all paramdecl to an array.
- * Params:
- * T = Type that shall wrap TypeKindVariable.
- * cursor = A node containing ParmDecl nodes as children.
- * Example:
- * -----
- * class Simple{ Simple(char x, char y); }
- * -----
- * The AST for the above is kind of the following:
- * Example:
- * ---
- * Simple [CXCursor_Constructor Type(CXType(CXType_FunctionProto))
- *   x [CXCursor_ParmDecl Type(CXType(CXType_Char_S))
- *   y [CXCursor_ParmDecl Type(CXType(CXType_Char_S))
- * ---
- * It is translated to the array [("char", "x"), ("char", "y")].
- */
-auto paramDeclTo(Cursor cursor) {
-    import cpptooling.analyzer.clang.type : TypeKind, translateType;
-    import cpptooling.data.representation : TypeKindVariable, CppVariable,
-        makeCxParam, CxParam, VariadicType;
-
-    CxParam[] params;
-
-    if (cursor.type.isTypedef) {
-        // handles the following case.
-        // typedef unsigned char (func_type) (const unsigned int baz);
-        // extern func_ptr hest;
-        // Must grab the underlying type and parse the arguments.
-        cursor = cursor.type.declaration;
-        foreach (arg; cursor.type.func.arguments) {
-            auto type = translateType(arg);
-            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable("")));
-        }
-    } else {
-        foreach (param; cursor.func.parameters) {
-            auto type = translateType(param.type);
-            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable(param.spelling)));
-        }
-    }
-
-    if (cursor.func.isVariadic) {
-        params ~= makeCxParam();
-    }
-
-    debug {
-        import std.variant : visit;
-
-        foreach (p; params) {
-            // dfmt off
-            () @trusted {
-                p.visit!((TypeKindVariable p) => logger.trace(p.type.txt, ":", cast(string) p.name),
-                         (TypeKind p) => logger.trace(p.txt),
-                         (VariadicType p) => logger.trace("..."));
-            }();
-            // dfmt on
-        }
-    }
-
-    return params;
 }

@@ -33,7 +33,7 @@ import application.types;
 @safe interface StubController {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
-    bool doFile(in string filename);
+    bool doFile(in string filename, in string info);
 
     /** A list of includes for the test double header.
      *
@@ -124,7 +124,7 @@ import application.types;
      * Just the files that was input?
      * Deduplicated list of files where the symbols was found?
      */
-    void putLocation(FileName loc);
+    void putLocation(FileName loc, LocationType type);
 }
 
 struct StubGenerator {
@@ -147,17 +147,18 @@ struct StubGenerator {
      * Controller is involved to allow filtering of identifiers in files.
      *
      * Intermediate analyzes what is left after filtering.
-     * On demand extra data is created.
+     * On demand extra data is created. An example of on demand is --gmock.
      *
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      *
      * TODO refactor the control flow. Especially the gmock part.
+     * TODO rename translate to rawFilter. See cppvariant.
      */
     auto process(CppRoot root) {
         import cpptooling.data.representation : CppNamespace, CppNs;
 
-        logger.trace("Raw data:\n" ~ root.toString());
+        logger.trace("Raw:\n" ~ root.toString());
         auto tr = .translate(root, ctrl, products);
 
         // Does it have any C functions?
@@ -277,6 +278,10 @@ CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
 
     CppRoot tr;
 
+    if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
+        prod.putLocation(FileName(input.location.file), LocationType.Root);
+    }
+
     foreach (f; input.funcRange().dedup) {
         auto r = translateCFunc(f, ctrl, prod);
         if (!r.isNull) {
@@ -307,9 +312,9 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
 
     NullableVoid!CxGlobalVariable r;
 
-    if (ctrl.doFile(g.location.file)) {
+    if (ctrl.doFile(g.location.file, cast(string) g.name ~ " " ~ g.location.toString)) {
         r = g;
-        prod.putLocation(FileName(g.location.file));
+        prod.putLocation(FileName(g.location.file), LocationType.Leaf);
     } else {
         logger.info("Ignoring global variable: ", g.toString);
     }

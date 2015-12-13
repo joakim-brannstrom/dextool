@@ -26,7 +26,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : MainInterface;
+import application.types : MainInterface, LocationType;
 import cpptooling.data.representation : CFunction, CppClass;
 
 @safe:
@@ -38,9 +38,9 @@ auto rawFilter(ControllerT, ProductsT)(CFunction func, ControllerT ctrl, Product
 
     NullableVoid!CFunction r;
 
-    if (ctrl.doFile(func.location.file)) {
+    if (ctrl.doFile(func.location.file, func.toString)) {
         r = func;
-        prod.putLocation(FileName(func.location.file));
+        prod.putLocation(FileName(func.location.file), LocationType.Leaf);
     } else {
         logger.info("Ignoring function: ", func.toString);
     }

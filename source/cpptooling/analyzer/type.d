@@ -96,6 +96,11 @@ pure @safe nothrow @nogc struct TypeKind {
             txt_ = s;
     }
 
+    /// Crucial that the representation is correct.
+    auto unsafeForceTxt(string s) {
+        txt_ = s;
+    }
+
 private:
     string txt_;
 }

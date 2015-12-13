@@ -27,9 +27,9 @@
 
 const int TEST_INIT_a;
 const int * TEST_INIT_b;
-int *const TEST_INIT_c;
-const int *const TEST_INIT_d;
+int *const  TEST_INIT_c;
+const int *const  TEST_INIT_d;
 const int *const * TEST_INIT_e;
-const int *const *const TEST_INIT_f;
-int *const *const TEST_INIT_g;
+const int *const *const  TEST_INIT_f;
+int *const *const  TEST_INIT_g;
 const Foo TEST_INIT_bar;

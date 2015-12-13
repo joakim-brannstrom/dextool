@@ -32,10 +32,11 @@ import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
 
-private void logType(ref Type type) {
+void logType(ref Type type, string func = __FUNCTION__, uint line = __LINE__) {
     // dfmt off
     debug {
-    logger.trace(format("%s|%s|%s|%s",
+    logger.trace(format("%s:%s %s|%s|%s|%s",
+                        func, line,
                         type.kind,
                         type.declaration,
                         type.isValid,
@@ -44,11 +45,10 @@ private void logType(ref Type type) {
     // dfmt on
 }
 
-private nothrow struct WrapTypeKind {
+nothrow struct WrapTypeKind {
     this(Type type) {
         this.type = type;
         this.typeKind.txt = type.spelling;
-        this.typeKind.info = TypeKind.SimpleInfo(this.typeKind.txt ~ " %s");
 
         this.typeKind.isConst = type.isConst;
         this.typeKind.isRef = type.declaration.isReference;
@@ -113,10 +113,13 @@ body {
                 result = translateIncompleteArray(type);
                 break;
             case CXType_Unexposed:
-                result.typeKind.txt = translateUnexposed(type, false);
+                result = translateUnexposed(type);
                 break;
             case CXType_LValueReference:
-                result = translateReference(type);
+                result = translatePointer(type);
+                break;
+            case CXType_FunctionProto:
+                result = translateFuncProto(type);
                 break;
             default:
                 result = translateDefault(type);
@@ -126,15 +129,28 @@ body {
 
     // dfmt off
     debug {
-        logger.tracef("full:%s c:%s r:%s p:%s",
+        logger.tracef("full:%s fmt:%s c:%s r:%s p:%s",
                       result.typeKind.txt,
+                      result.typeKind.info.fmt,
                       result.typeKind.isConst,
                       result.typeKind.isRef,
                       result.typeKind.isPointer);
-    }
-    // dfmt on
 
-    return result;
+        tmp_c = result.type.declaration;
+        tmp_t = tmp_c.typedefUnderlyingType;
+        // dfmt off
+        logger.trace(format("%s %s %s %s c:%s t:%s",
+                            result.type.spelling,
+                            to!string(result.type.kind),
+                            tmp_c.spelling,
+                            type_abilities(tmp_t),
+                            cursor_abilities(tmp_c),
+                            type_abilities(result.type)));
+        // dfmt on
+}
+// dfmt on
+
+return result;
 }
 
 private:
@@ -143,6 +159,7 @@ WrapTypeKind translateDefault(Type type) {
     logType(type);
 
     auto result = WrapTypeKind(type);
+    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
 
     return result;
 }
@@ -152,6 +169,7 @@ in {
     assert(type.kind == CXTypeKind.CXType_Typedef);
 }
 body {
+    logger.trace("translateTypedef");
     logType(type);
 
     static bool valueTypeIsConst(Type type) {
@@ -164,6 +182,7 @@ body {
     }
 
     auto result = WrapTypeKind(type);
+    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
 
     if (valueTypeIsConst(type)) {
         result.typeKind.isConst = true;
@@ -172,20 +191,33 @@ body {
     return result;
 }
 
-string translateUnexposed(Type type, bool rewriteIdToObject)
+///TODO refactor the nested if's
+auto translateUnexposed(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_Unexposed);
 }
 body {
+    logger.trace("translateUnexposed");
+    logType(type);
     auto declaration = type.declaration;
+    auto rval = WrapTypeKind(type);
+    rval.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
 
-    if (declaration.isValid)
-        return translateType(declaration.type).typeKind.txt;
-    else
-        return translateCursorType(type.kind);
+    if (declaration.isValid) {
+        rval = translateType(declaration.type);
+    } else {
+        auto canonical_type = type.canonicalType;
+        if (canonical_type.isValid) {
+            rval = translateType(canonical_type);
+        } else {
+            rval.typeKind.txt = translateCursorType(type.kind);
+        }
+    }
+
+    return rval;
 }
 
-WrapTypeKind translateConstantArray(Type type)
+auto translateConstantArray(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_ConstantArray);
 }
@@ -229,7 +261,7 @@ body {
     return result;
 }
 
-WrapTypeKind translateIncompleteArray(Type type)
+auto translateIncompleteArray(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_IncompleteArray);
 }
@@ -273,51 +305,66 @@ body {
     return result;
 }
 
-WrapTypeKind translatePointer(Type type)
-in {
-    assert(type.kind == CXTypeKind.CXType_Pointer);
+auto visitPointeeType(WrapTypeKind t, string prefix) 
+out (result) {
+    assert(result.typeKind.info.kind == TypeKind.Info.Kind.simple);
 }
 body {
-    logger.trace("translatePointer");
-    static bool valueTypeIsConst(Type type) {
-        auto pointee = type.pointeeType;
+    logger.trace("visitPointeeType");
+    logType(t.type);
 
-        while (pointee.kind == CXTypeKind.CXType_Pointer)
-            pointee = pointee.pointeeType;
+    auto rval = translateType(t.type);
 
-        return pointee.isConst;
+    TypeKind.SimpleInfo info;
+    final switch (rval.typeKind.info.kind) {
+    case TypeKind.Info.Kind.simple:
+        info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
+        rval.typeKind.info = info;
+        rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+        break;
+    case TypeKind.Info.Kind.array:
+        info.fmt = rval.typeKind.toString(format("(%s%s)", prefix, "%s"));
+        rval.typeKind.info = info;
+        rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+        break;
+    case TypeKind.Info.Kind.funcPtr:
+        //TODO a potential bug, implement this
+        logger.errorf("ptr to func ptr is not implemented. '%s'", rval.typeKind.txt);
+        break;
+    case TypeKind.Info.Kind.null_:
+        logger.errorf("info for type '%s' is null", t.typeKind.txt);
+        break;
     }
 
-    auto result = WrapTypeKind(type);
-    result.typeKind.isPointer = true;
-
-    if (valueTypeIsConst(type)) {
-        result.typeKind.isConst = true;
-    }
-
-    return result;
+    return rval;
 }
 
-WrapTypeKind translateReference(Type type)
+auto translatePointer(Type type)
 in {
-    assert(type.kind == CXTypeKind.CXType_LValueReference);
+    assert(type.kind == CXTypeKind.CXType_Pointer || type.kind == CXTypeKind.CXType_LValueReference);
 }
 body {
-    logger.trace("translateReference");
-    static bool valueTypeIsConst(Type type) {
-        auto pointee = type.pointeeType;
-
-        while (pointee.kind == CXTypeKind.CXType_Pointer)
-            pointee = pointee.pointeeType;
-
-        return pointee.isConst;
+    string prefix;
+    if (type.kind == CXTypeKind.CXType_Pointer) {
+        prefix = "*";
+    } else {
+        prefix = "&";
     }
 
-    auto result = WrapTypeKind(type);
-    result.typeKind.isRef = true;
+    logger.tracef("translatePointer (%s)", prefix);
 
-    if (valueTypeIsConst(type)) {
-        result.typeKind.isConst = true;
+    auto result = WrapTypeKind(type.pointeeType);
+    result = visitPointeeType(result, prefix);
+
+    result.typeKind.isPointer = type.kind == CXTypeKind.CXType_Pointer;
+    result.typeKind.isRef = type.kind == CXTypeKind.CXType_LValueReference;
+    result.typeKind.isConst = type.isConst;
+
+    if (type.isConst) {
+        TypeKind.SimpleInfo info;
+        info.fmt = result.typeKind.toString("const %s");
+        result.typeKind.info = info;
+        result.typeKind.unsafeForceTxt(result.typeKind.toString(""));
     }
 
     return result;
@@ -330,67 +377,45 @@ in {
 body {
     import std.range : enumerate;
     import std.array : appender;
-    import clang.Token;
-
-    //TODO investigate if it can be done simpler.
-    //TODO spacing is funky
-    static struct ConvToken {
-        private string identifier;
-        string spacing = "";
-        string tok;
-
-        this(string identifier) {
-            this.identifier = identifier;
-        }
-
-        void convToken(long idx, Token t) {
-            import deimos.clang.index : CXTokenKind;
-            import std.algorithm : among;
-
-            tok = t.spelling;
-
-            switch (t.kind) with (CXTokenKind) {
-            case CXToken_Keyword:
-                if (idx == 0 && tok.among("extern")) {
-                    tok = null;
-                } else {
-                    spacing = " ";
-                }
-                break;
-
-            case CXToken_Punctuation:
-                if (tok.among(";")) {
-                    tok = null;
-                }
-                spacing = "";
-                break;
-
-            case CXToken_Identifier:
-                spacing = " ";
-                if (tok == identifier) {
-                    tok = "%s";
-                }
-                break;
-            default:
-            }
-        }
-    }
 
     logger.trace("translateFunctionPointer");
 
-    auto t = WrapTypeKind(type);
-    auto func = type.pointeeType.func;
-    auto toks = func.cursor.tokens;
+    auto t = WrapTypeKind(type.pointeeType);
+    auto func = visitPointeeType(t, "");
 
-    auto app = appender!string();
-    auto c = ConvToken(type.cursor.spelling);
-    foreach (index, value; toks.tokens.enumerate) {
-        c.convToken(index, value);
-        app.put(c.tok);
-        app.put(c.spacing);
-    }
-    t.typeKind.info = TypeKind.FuncPtrInfo(app.data);
     t.typeKind.isFuncPtr = true;
+    t.typeKind.isConst = type.isConst;
+
+    TypeKind.FuncPtrInfo info;
+    if (type.isConst) {
+        info.fmt = func.typeKind.toString("(*const %s)");
+    } else {
+        info.fmt = func.typeKind.toString("(*%s)");
+    }
+    t.typeKind.info = info;
+
+    return t;
+}
+
+WrapTypeKind translateFuncProto(Type type)
+in {
+    assert(type.kind == CXTypeKind.CXType_FunctionProto);
+}
+body {
+    import std.range : enumerate;
+    import std.array : appender;
+    import cpptooling.analyzer.clang.utility;
+
+    logger.trace("translateFuncProto");
+
+    auto t = WrapTypeKind(type);
+    auto params = extractParams(type.cursor, type.func.isVariadic);
+    auto return_t = translateType(type.func.resultType);
+
+    TypeKind.SimpleInfo info;
+    info.fmt = format("%s%s(%s)", return_t.typeKind.toString(""), "%s", params.joinParamNames());
+    t.typeKind.info = info;
+    t.typeKind.txt = t.typeKind.toString("");
 
     return t;
 }

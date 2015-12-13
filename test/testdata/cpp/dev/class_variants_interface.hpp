@@ -3,9 +3,13 @@
 
 namespace no_inherit {
 
-class JustACtorSoVirtual {
+// both generating a mock and NOT generating one is ok.
+// the important to test is:
+//  - if a mock is generated then the d'tor is NOT virtual.
+//  - if a mock is generated it is valid.
+class JustACtor {
 public:
-    JustACtorSoVirtual();
+    JustACtor();
 };
 
 class NotVirtualWithDtor {

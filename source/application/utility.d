@@ -146,3 +146,76 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
     return r;
 
 }
+
+/** Includes intended for the test double. Filtered according to the user.
+ *
+ * States:
+ *  - Normal.
+ *      Start state.
+ *      File are accepted and stored in buffer.
+ *      Important that transitions FROM this state clears the internal buffer.
+ *      Rational: The other states override data that was gathered during
+ *      Normal.
+ *  - HaveRoot.
+ *      One or more roots have been found.
+ *      Replaces all "Normal".
+ *  - UserDefined.
+ *      The user have supplied a list of includes which override any detected.
+ */
+struct TdIncludes {
+    import std.regex;
+
+    enum State {
+        Normal,
+        HaveRoot,
+        UserDefined
+    }
+
+    FileName[] incls;
+    State st;
+    Regex!char strip_incl;
+    private FileName[] unstripped_incls;
+
+    @disable this();
+
+    this(Regex!char strip_incl) {
+        this.strip_incl = strip_incl;
+    }
+
+    /** Replace buffer of includes with argument.
+     *
+     * See description of states to understand what UserDefined entitles.
+     */
+    void forceIncludes(string[] in_incls) {
+        st = State.UserDefined;
+        foreach (incl; in_incls) {
+            incls ~= FileName(incl);
+        }
+    }
+
+    void doStrip() @safe {
+        incls ~= stripIncl(unstripped_incls, strip_incl);
+    }
+
+    void put(FileName fname, LocationType type) @safe {
+        final switch (st) with (State) {
+        case Normal:
+            if (type == LocationType.Root) {
+                unstripped_incls = [fname];
+                st = HaveRoot;
+            } else {
+                unstripped_incls ~= fname;
+            }
+            break;
+        case HaveRoot:
+            // only accepting roots
+            if (type == LocationType.Root) {
+                unstripped_incls ~= fname;
+            }
+            break;
+        case UserDefined:
+            // ignoring new includes
+            break;
+        }
+    }
+}

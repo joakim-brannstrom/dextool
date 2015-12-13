@@ -1,12 +1,15 @@
+#ifndef STRUCTS_H
+#define STRUCTS_H
+
 struct Foo {
     int a;
 };
 
-struct Bar {
+typedef struct Bar {
     int x;
 } b;
 
-struct Foo c;
+typedef struct Foo c;
 
 struct A {
     struct B {
@@ -32,3 +35,5 @@ struct E {
 };
 
 struct F;
+
+#endif // STRUCTS_H

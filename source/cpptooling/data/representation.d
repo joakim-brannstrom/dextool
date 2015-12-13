@@ -86,7 +86,8 @@ alias CxReturnType = Typedef!(TypeKind, TypeKind.init, "CxReturnType");
 enum VirtualType {
     No,
     Yes,
-    Pure
+    Pure,
+    Unknown
 }
 
 enum AccessType {
@@ -810,20 +811,21 @@ pure @safe nothrow struct CppClass {
 
     void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
             || is(T == CppDtor) || is(T == CppMethodOp)) {
+        auto f = CppFunc(func);
+
         final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
-            methods_pub ~= CppFunc(func);
+            methods_pub ~= f;
             break;
         case AccessType.Protected:
-            methods_prot ~= CppFunc(func);
+            methods_prot ~= f;
             break;
         case AccessType.Private:
-            methods_priv ~= CppFunc(func);
+            methods_priv ~= f;
             break;
         }
 
-        this.st = StateType.Dirty;
-        updateVirt(this);
+        isVirtual_ = analyzeVirtuality(isVirtual_, f);
     }
 
     void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
@@ -994,27 +996,10 @@ pure @safe nothrow struct CppClass {
     }
 
 private:
-    static void updateVirt(T : const(Tx), Tx)(ref T th) @trusted {
-        if (StateType.Dirty == th.st) {
-            (cast(Tx) th).isVirtual_ = analyzeVirtuality(cast(Tx) th);
-            (cast(Tx) th).st = StateType.Clean;
-        }
-    }
-
-    // Dirty if the virtuality has to be recalculated.
-    enum StateType {
-        Dirty,
-        Clean
-    }
-
-    //TODO remove state etc in the future if the current strategy works
-    //regarding only reanalyze on put.
-    StateType st;
-
     CppClassName name_;
     CppClassInherit[] inherits_;
 
-    VirtualType isVirtual_ = VirtualType.Pure;
+    VirtualType isVirtual_ = VirtualType.Unknown;
 
     CppFunc[] methods_pub;
     CppFunc[] methods_prot;
@@ -1029,8 +1014,8 @@ private:
 
 // Clang have no function that says if a class is virtual/pure virtual.
 // So have to post process.
-private VirtualType analyzeVirtuality(CppClass th) @safe {
-    import std.conv : to;
+private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
+    import std.algorithm : among;
 
     struct Rval {
         enum Type {
@@ -1043,7 +1028,7 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
         Type t;
     }
 
-    static auto getVirt(CppClass.CppFunc func) @trusted {
+    static auto getVirt(T func) @trusted {
         import std.variant : visit;
 
         //dfmt off
@@ -1054,50 +1039,45 @@ private VirtualType analyzeVirtuality(CppClass th) @safe {
         //dfmt on
     }
 
-    auto v = VirtualType.Pure;
-    //TODO optimize the ranges so we don't traverse unnecessary
+    VirtualType r = current;
+    auto mVirt = getVirt(p);
 
-    // initialization with a value that affects virtualization classification
-    // ctor and dtor do not.
-    foreach (m; th.methodRange) {
-        auto mVirt = getVirt(m);
-
-        if (mVirt.t == Rval.Type.Normal) {
-            v = mVirt.value;
-            break;
+    final switch (current) {
+    case VirtualType.Pure:
+        // a non-virtual destructor lowers purity
+        if (mVirt.t == Rval.Type.Dtor && mVirt.value == VirtualType.No) {
+            r = VirtualType.Yes;
+        } else if (mVirt.t == Rval.Type.Normal && mVirt.value == VirtualType.Yes) {
+            r = VirtualType.Yes;
         }
-    }
-    // initialized with a value from a method.
-    foreach (m; th.methodRange) {
-        auto mVirt = getVirt(m);
-
-        final switch (mVirt.value) {
-        case VirtualType.Pure:
-            break;
-        case VirtualType.Yes:
-            if (mVirt.t == Rval.Type.Normal) {
-                v = VirtualType.Yes;
-            }
-            break;
-        case VirtualType.No:
-            // a non-virtual destructor lowers purity
-            if (v == VirtualType.Pure && mVirt.t == Rval.Type.Dtor) {
-                v = VirtualType.No;
-            }
-            break;
+        break;
+    case VirtualType.Yes:
+        // one or more methods are virtual or pure, stay at this state
+        break;
+    case VirtualType.No:
+        if (mVirt.t.among(Rval.Type.Normal, Rval.Type.Dtor)
+                && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
+            r = VirtualType.Yes;
         }
-
-        debug {
-            logger.trace(cast(string) th.name, ":", m.type, ":",
-                to!string(mVirt), ":", to!string(v));
+        break;
+    case VirtualType.Unknown:
+        // ctor cannot affect purity evaluation
+        if (mVirt.t == Rval.Type.Dtor && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
+            r = VirtualType.Pure;
+        } else if (mVirt.t != Rval.Type.Ctor) {
+            r = mVirt.value;
         }
+        break;
     }
 
     debug {
-        logger.trace(cast(string) th.name, ":sum:", to!string(v));
+        import std.conv : to;
+
+        logger.trace(p.type, ":", to!string(mVirt), ":",
+            to!string(current), "->", to!string(r));
     }
 
-    return v;
+    return r;
 }
 
 pure @safe nothrow struct CppNamespace {
@@ -1514,7 +1494,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes File:noloc Line:0 Column:0
 public:
   void voider();
   Foo();
@@ -1540,7 +1520,7 @@ unittest {
 
     shouldEqualPretty(
         c.toString,
-        "class Foo : public pub, protected prot, private priv { // isVirtual Pure File:a.h Line:123 Column:45
+        "class Foo : public pub, protected prot, private priv { // isVirtual Unknown File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1552,15 +1532,15 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Unknown File:noloc Line:0 Column:0
 public:
-class Pub { // isVirtual Pure File:noloc Line:0 Column:0
+class Pub { // isVirtual Unknown File:noloc Line:0 Column:0
 }; //Class:Pub
 protected:
-class Prot { // isVirtual Pure File:noloc Line:0 Column:0
+class Prot { // isVirtual Unknown File:noloc Line:0 Column:0
 }; //Class:Prot
 private:
-class Priv { // isVirtual Pure File:noloc Line:0 Column:0
+class Priv { // isVirtual Unknown File:noloc Line:0 Column:0
 }; //Class:Priv
 }; //Class:Foo");
 }
