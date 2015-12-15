@@ -217,16 +217,15 @@ private:
 }
 
 /** Extract information about a class.
- *
- * The constructor is disabled to force the class to be in a consistent state.
- * static make to create ClassVisitor objects to avoid the unnecessary storage
- * of a Cursor but still derive parameters from the Cursor.
  */
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
         CppClass, CxLocation, VirtualType;
 
-    /** Make a ClassVisitor by deriving the name and virtuality from a Clang Cursor.
+    /** Make a ClassVisitor to descend a Clang Cursor.
+     *
+     * Static make to create ClassVisitor objects to avoid the unnecessary storage
+     * of a Cursor but still derive parameters from the Cursor.
      */
     static auto make(ref Cursor c) {
         auto loc = toInternal!CxLocation(c.location());
@@ -235,6 +234,7 @@ struct ClassVisitor {
         return r;
     }
 
+     /// The constructor is disabled to force the class to be in a consistent state.
     @disable this();
 
     private this(CppClassName name, CxLocation loc) {
@@ -243,6 +243,7 @@ struct ClassVisitor {
 
     auto visit(ref Cursor c) {
         ///TODO add information if it is a public/protected/private class.
+        ///TODO add metadata to the class if it is a definition or declaration
         if (!c.isDefinition) {
             logger.error("Expected cursor to be a definition but it is:", to!string(c));
             return data;
