@@ -28,6 +28,11 @@ void devTest() {
             runDextool(input_ext,
                 params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], dex_flags);
             break;
+        case "param_restrict.hpp":
+            runDextool(input_ext,
+                params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString, "--file-restrict=.*/b.hpp"], dex_flags);
+            break;
+
         default:
             runDextool(input_ext, params, dex_flags);
         }

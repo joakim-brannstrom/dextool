@@ -19,6 +19,7 @@
 module application.app_main;
 
 import std.stdio;
+import std.typecons : Flag;
 
 import logger = std.experimental.logger;
 
@@ -33,35 +34,64 @@ import cpptooling.analyzer.clang.visitor;
 import cpptooling.data.representation : AccessType;
 import cpptooling.utility.clang : visitAst, logNode;
 
-static string doc = "
-usage:
-  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool cpptestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool cpptestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]
-
-arguments:
- FILE           C/C++ to analyze
- CFLAGS         Compiler flags.
+static string main_opt = "usage:
+ dextool <command> [options] [<args>...]
 
 options:
+ -h, --help         show this help
+ -d, --debug        turn on debug output for tracing of generator flow
+ --version          print the version of dextool
+
+commands:
+  ctestdouble       generate a C test double. Language is set to C.
+  cpptestdouble     generate a C++ test double. Language is set to C++.
+  help
+";
+
+static string basic_options = "
  -h, --help         show this help
  -d, --debug        turn on debug output for tracing of generator flow
  --out=dir          directory for generated files [default: ./]
  --main=name        used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     used as part of filename for generated files [default: test_double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
- --strip-incl=r     A regexp used to strip the include paths
+";
+
+static auto ctestdouble_opt = [
+    "usage:
+  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+    " --strip-incl=r     A regexp used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it
-
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
+    "
 others:
- --file-exclude=...  exclude files from generation matching the regex.
- --file-restrict=... regex. restrict the scope of the test double to the set
-                     union of FILE and restrict.
- --td-include=...    user supplied includes used instead of those found.
+ --file-exclude=     exclude files from generation matching the regex.
+ --file-restrict=    restrict the scope of the test double to those files
+                     matching the regex.
+ --td-include=       user supplied includes used instead of those found.
+"
+];
 
+static auto cpptestdouble_opt = [
+    "usage:
+  dextool cpptestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool cpptestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+    " --strip-incl=r     a regexp used to strip the include paths
+ --gmock            generate a gmock implementation of test double interface
+ --gen-pre-incl     generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    generate a post include header file if it doesn't exist and use it",
+    "
+others:
+ --file-exclude=     exclude files from generation matching the regex.
+ --file-restrict=    restrict the scope of the test double to those files
+                     matching the regex.
+ --td-include=       user supplied includes used instead of those found.
+"
+];
+
+static string help_opt = "
 REGEX
 
 The regex syntax is found at http://dlang.org/phobos/std_regex.html
@@ -130,12 +160,12 @@ class SimpleLogger : logger.Logger {
     }
 }
 
-void prepareEnv(ref ArgValue[string] parsed) {
+void confLogLevel(Flag!"debug" debug_) {
     import std.exception;
     import std.experimental.logger.core : sharedLog;
 
     try {
-        if (parsed["--debug"].isTrue) {
+        if (debug_) {
             logger.globalLogLevel(logger.LogLevel.all);
         } else {
             logger.globalLogLevel(logger.LogLevel.info);
@@ -149,29 +179,59 @@ void prepareEnv(ref ArgValue[string] parsed) {
     }
 }
 
-ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
-    import std.algorithm : among;
+ExitStatusType doTestDouble(string category, string[] args) {
+    import std.algorithm;
+    import std.traits;
 
-    ExitStatusType exit_status = ExitStatusType.Errors;
+    static string optTo(string[] opt) {
+        import std.format;
 
-    string[] cflags;
-    if (parsed["--"].isTrue) {
-        cflags = parsed["CFLAGS"].asList;
+        auto r = format("%s
+
+options:%s%s
+%s", opt[0], basic_options, opt[1], opt[2]);
+
+        logger.trace(r);
+        return r;
     }
 
-    if (parsed["ctestdouble"].isTrue) {
+    auto exit_status = ExitStatusType.Errors;
+
+    switch (category) {
+    case "help":
+        writeln(main_opt, help_opt);
+        exit_status = ExitStatusType.Ok;
+        break;
+    case "ctestdouble":
         import application.ctestdouble;
+
+        auto parsed = docopt.docopt(optTo(ctestdouble_opt), args[1 .. $]);
+        printArgs(parsed);
+        string[] cflags;
+        if (parsed["--"].isTrue) {
+            cflags = parsed["CFLAGS"].asList;
+        }
 
         auto variant = CTestDoubleVariant.makeVariant(parsed);
         exit_status = genCstub(variant, cflags);
-    } else if (parsed["cpptestdouble"].isTrue) {
+        break;
+    case "cpptestdouble":
         import application.cpptestdouble;
+
+        auto parsed = docopt.docopt(optTo(cpptestdouble_opt), args[1 .. $]);
+        printArgs(parsed);
+        string[] cflags;
+        if (parsed["--"].isTrue) {
+            cflags = parsed["CFLAGS"].asList;
+        }
 
         auto variant = CppTestDoubleVariant.makeVariant(parsed);
         exit_status = genCpp(variant, cflags);
-    } else {
+        break;
+    default:
         logger.error("Usage error");
-        writeln(doc);
+        writeln(main_opt, help_opt);
+        break;
     }
 
     return exit_status;
@@ -185,19 +245,19 @@ ExitStatusType doTestDouble(ref ArgValue[string] parsed) {
 void printArgs(ref ArgValue[string] parsed) nothrow {
     import std.algorithm : map, joiner;
     import std.ascii : newline;
+    import std.conv;
     import std.format : format;
-    import std.stdio : writeln;
     import std.string : leftJustifier;
 
     bool err = true;
 
     try {
         // dfmt off
-        writeln("args:",
+        logger.trace("args:",
                 newline,
                 parsed.byKeyValue()
                     .map!(a => format("%s:%s", leftJustifier(a.key, 20), a.value.toString))
-                    .joiner(newline)
+                    .joiner(newline).text()
                );
         // dfmt on
         err = false;
@@ -215,22 +275,42 @@ void printArgs(ref ArgValue[string] parsed) nothrow {
     }
 }
 
+auto parseMainCli(string[] args) {
+    import std.algorithm;
+    import std.array;
+    import std.typecons;
+
+    alias Rval = Tuple!(string, Flag!"debug", string[]);
+
+    auto rem = args;
+
+    auto debug_ = Flag!"debug".no;
+    if (!findAmong(args, ["-d", "--debug"]).empty) {
+        rem = args.filter!(a => !a.among("-d", "--debug")).array();
+        debug_ = Flag!"debug".yes;
+    }
+
+    if (rem.length <= 1) {
+        return Rval("help", debug_, []);
+    } else if (rem.length >= 2 && args[1] == "help") {
+        return Rval("help", debug_, []);
+    }
+
+    return Rval(rem[1], debug_, rem);
+}
+
 int rmain(string[] args) nothrow {
     import std.conv;
     import std.exception;
 
-    string errmsg, tracemsg;
     ExitStatusType exit_status = ExitStatusType.Errors;
-    bool help = true;
-    bool optionsFirst = false;
-    auto version_ = "dextool v0.4.1";
 
     try {
-        auto parsed = docopt.docopt(doc, args[1 .. $], help, version_, optionsFirst);
-        prepareEnv(parsed);
-        printArgs(parsed);
+        auto parsed = parseMainCli(args);
+        confLogLevel(parsed[1]);
+        logger.trace(parsed);
 
-        exit_status = doTestDouble(parsed);
+        exit_status = doTestDouble(parsed[0], parsed[2]);
     }
     catch (Exception ex) {
         collectException(logger.trace(text(ex)));
