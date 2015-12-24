@@ -160,14 +160,34 @@ struct ShowAst {
         return true;
     }
 
-    void apply(Cursor c) {
+    void apply(ref Cursor c) {
         logNode(c, depth);
         incr();
 
-        if (c.isValid) {
-            printTokens(c, depth);
-            apply(c.type);
+        switch (c.kind) with (CXCursorKind) {
+        case CXCursor_CXXBaseSpecifier:
+            printBacktrack!(a => a == CXCursorKind.CXCursor_Namespace)(c,
+                "cxxbase -> namespace", depth);
+            break;
 
+        case CXCursor_ClassDecl:
+            printBacktrack!(a => a == CXCursorKind.CXCursor_Namespace)(c,
+                "class -> namespace", depth);
+            break;
+
+        default:
+            printBacktrack(c, "default", depth);
+            break;
+        }
+
+        if (c.isValid) {
+            // can only print tokens for valid cursors
+            //printTokens(c, depth);
+
+            // analyze type information
+            //apply(c.type);
+            //
+            // analyze what a reference cursor point at
             if (c.isReference) {
                 logger.info("is referenced");
                 auto r = c.referenced;
@@ -207,6 +227,20 @@ struct ShowAst {
                     logType(t);
                 }
             }
+        }
+    }
+
+    static void printBacktrack(alias pred = a => true)(ref Cursor c, string id, int depth) {
+        import std.range : repeat;
+
+        auto curr = c;
+        while (curr.isValid) {
+            bool m = pred(curr.kind);
+            logger.trace(repeat(' ', depth), "|", m ? "ok|" : "no|", id);
+            logNode(curr, depth);
+
+            curr = curr.semanticParent;
+            ++depth;
         }
     }
 

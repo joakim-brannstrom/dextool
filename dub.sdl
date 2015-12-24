@@ -53,7 +53,7 @@ configuration "debug" {
     }
 }
 
-configuration "devtool_release" {
+configuration "devtool" {
     targetName "devtool"
     targetType "executable"
     buildType "debugInfo"
