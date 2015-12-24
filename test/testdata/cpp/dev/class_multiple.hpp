@@ -10,6 +10,12 @@ public:
     virtual void func1() const = 0;
 };
 
+// even non-pure classes have a gmock generated for them
+class Global3 {
+public:
+    virtual void func1() {}
+};
+
 namespace ns {
 class InsideNs1 {
 public:

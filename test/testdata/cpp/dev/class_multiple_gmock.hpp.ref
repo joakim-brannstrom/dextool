@@ -17,6 +17,13 @@ public:
 };
 } //NS:TestDouble
 
+namespace TestDouble {
+class MockGlobal3 : public Global3 {
+public:
+    MOCK_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
 namespace ns {
 namespace ns2 {
 namespace TestDouble {

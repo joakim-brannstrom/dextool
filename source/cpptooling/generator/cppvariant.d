@@ -343,7 +343,6 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
         .each!(a => r.put(a.get));
 
     root.classRange
-        .filter!(a => a.virtualType == VirtualType.Pure)
         .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
