@@ -90,6 +90,84 @@ struct FunctionVisitor {
     }
 }
 
+/** Extract information regarding a inheritance for a class.
+ *
+ */
+struct InheritVisitor {
+    import cpptooling.data.representation;
+    import cpptooling.utility.stack : VisitNodeDepth;
+
+    static auto make(ref Cursor c)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_CXXBaseSpecifier);
+        assert(c.isReference);
+    }
+    body {
+        // name of a CXXBaseSpecificer is "class X" while referenced is "X"
+        auto name = CppClassName(c.referenced.spelling);
+
+        auto access = CppAccess(toAccessType(c.access.accessSpecifier));
+        auto inherit = CppInherit(name, access);
+        auto r = InheritVisitor(inherit);
+        return r;
+    }
+
+    auto visit(ref Cursor c)
+    in {
+        assert(c.isReference);
+    }
+    body {
+        static struct GatherNs {
+            CppNsStack stack;
+
+            void apply(ref Cursor c, int depth)
+            in {
+                assert(c.kind == CXCursorKind.CXCursor_Namespace);
+            }
+            body {
+                logNode(c, depth);
+                stack ~= CppNs(c.spelling);
+            }
+        }
+
+        auto c_ref = c.referenced;
+        GatherNs gather;
+        backtrackNode!(kind => kind == CXCursorKind.CXCursor_Namespace)(c_ref,
+            gather, "cxx_base -> ns", 1);
+
+        import std.algorithm : each;
+        import std.range : retro;
+
+        //TODO would copy work instead of each?
+        retro(gather.stack).each!(a => data.put(a));
+
+        return data;
+    }
+
+    // TODO is backtracker useful in other places? moved to allow it to be
+    // reused
+    static void backtrackNode(alias pred = a => true, T)(ref Cursor c,
+        ref T callback, string log_txt, int depth) {
+        import std.range : repeat;
+
+        auto curr = c;
+        while (curr.isValid) {
+            bool matching = pred(curr.kind);
+            logger.trace(repeat(' ', depth), "|", matching ? "ok|" : "no|", log_txt);
+
+            if (matching) {
+                callback.apply(curr, depth);
+            }
+
+            curr = curr.semanticParent;
+            ++depth;
+        }
+    }
+
+private:
+    CppInherit data;
+}
+
 /** Descend a class cursor to extract interior information.
  * C'tors, d'tors, member methods etc.
  * Cleanly separates the functionality for initializing the container for a
@@ -98,9 +176,7 @@ struct FunctionVisitor {
  * Note that it also traverses the inheritance chain.
  */
 struct ClassDescendVisitor {
-    import cpptooling.data.representation : CppClass, CppAccess, CxParam,
-        CppMethodName, CppCtor, CppDtor, CppVirtualMethod, VirtualType,
-        CxReturnType, CppMethod, CppConstMethod;
+    import cpptooling.data.representation;
 
     @disable this();
 
@@ -121,6 +197,8 @@ struct ClassDescendVisitor {
     bool apply(ref Cursor c, ref Cursor parent) {
         import std.typecons : TypedefType;
 
+        logNode(c, 0);
+
         bool descend = true;
 
         switch (c.kind) with (CXCursorKind) {
@@ -140,6 +218,8 @@ struct ClassDescendVisitor {
             accessType = CppAccess(toAccessType(c.access.accessSpecifier));
             break;
         case CXCursor_CXXBaseSpecifier:
+            applyInherit(c, parent);
+            descend = false;
             break;
         case CXCursor_ClassDecl:
             // Another visitor must analyze the nested class to allow us to
@@ -150,6 +230,7 @@ struct ClassDescendVisitor {
         default:
             break;
         }
+
         return descend;
     }
 
@@ -168,6 +249,11 @@ private:
             CppVirtualMethod(c.func.isVirtual ? VirtualType.Yes : VirtualType.No));
         logger.info("dtor: ", tor.toString);
         data.put(tor);
+    }
+
+    void applyInherit(ref Cursor c, ref Cursor parent) {
+        auto inherit = InheritVisitor.make(c).visit(c);
+        data.put(inherit);
     }
 
     void applyMethod(ref Cursor c, ref Cursor parent) {
@@ -234,7 +320,7 @@ struct ClassVisitor {
         return r;
     }
 
-     /// The constructor is disabled to force the class to be in a consistent state.
+    /// The constructor is disabled to force the class to be in a consistent state.
     @disable this();
 
     private this(CppClassName name, CxLocation loc) {
