@@ -10,16 +10,18 @@ import std.path : asAbsolutePath, asNormalizedPath;
 
 void stage1() {
     writeln("Stage 1");
-
     auto root = Path("testdata/cstub/stage_1");
     auto files = dirEntries(root, "*.{h,hpp}", SpanMode.shallow);
 
     foreach (f; files) {
         auto input_ext = Path(f);
-        auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
-        auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
-        auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
-        auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
+        scope (failure)
+            testEnv.save(input_ext.baseName.toString);
+
+        auto out_hdr = testEnv.outdir ~ "test_double.hpp";
+        auto out_impl = testEnv.outdir ~ "test_double.cpp";
+        auto out_global = testEnv.outdir ~ "test_double_global.cpp";
+        auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
         auto params = ["ctestdouble", "--debug"];
@@ -52,8 +54,8 @@ void stage1() {
 
         println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
-        auto incls = ["-I" ~ input_ext.dirName.toString];
-        auto mainf = Path("testdata/cstub/main1.cpp");
+        auto incls = ["-I" ~ input_ext.dirName.absolutePath.toString];
+        auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
         case "param_gmock.h":
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"],
@@ -83,7 +85,7 @@ void stage1() {
         }
 
         printStatus(Status.Ok, input_ext);
-        cleanTestEnv();
+        testEnv.clean();
     }
 }
 
@@ -95,10 +97,13 @@ void stage2() {
 
     foreach (f; files) {
         auto input_ext = Path(f);
-        auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
-        auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
-        auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
-        auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
+        scope (failure)
+            testEnv.save(input_ext.baseName.toString);
+
+        auto out_hdr = testEnv.outdir ~ "test_double.hpp";
+        auto out_impl = testEnv.outdir ~ "test_double.cpp";
+        auto out_global = testEnv.outdir ~ "test_double_global.cpp";
+        auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
         auto params = ["ctestdouble", "--debug"];
@@ -106,9 +111,9 @@ void stage2() {
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
             copy(root ~ "no_overwrite_pre_includes.hpp",
-                Path(OUTDIR) ~ "test_double_pre_includes.hpp");
+                testEnv.outdir ~ "test_double_pre_includes.hpp");
             copy(root ~ "no_overwrite_post_includes.hpp",
-                Path(OUTDIR) ~ "test_double_post_includes.hpp");
+                testEnv.outdir ~ "test_double_post_includes.hpp");
             runDextool(input_ext, params ~ ["--gen-pre-incl",
                 "--gen-post-incl"], incls ~ ["-DPRE_INCLUDES"]);
             break;
@@ -152,17 +157,17 @@ void stage2() {
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
             compareResult(GR(input.up ~ "no_overwrite_pre_includes.hpp",
-                Path(OUTDIR) ~ "test_double_pre_includes.hpp"),
+                testEnv.outdir ~ "test_double_pre_includes.hpp"),
                 GR(input.up ~ "no_overwrite_post_includes.hpp",
-                Path(OUTDIR) ~ "test_double_post_includes.hpp"));
+                testEnv.outdir ~ "test_double_post_includes.hpp"));
             break;
         case "param_gen_pre_post_include.h":
             compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
                 GR(input ~ Ext(".cpp.ref"), out_impl),
                 GR(input.up ~ "param_gen_pre_includes.hpp.ref",
-                Path(OUTDIR) ~ "test_double_pre_includes.hpp"),
+                testEnv.outdir ~ "test_double_pre_includes.hpp"),
                 GR(input.up ~ "param_gen_post_includes.hpp.ref",
-                Path(OUTDIR) ~ "test_double_post_includes.hpp"));
+                testEnv.outdir ~ "test_double_post_includes.hpp"));
             break;
 
         default:
@@ -182,7 +187,7 @@ void stage2() {
         }
 
         printStatus(Status.Ok, input_ext);
-        cleanTestEnv();
+        testEnv.clean();
     }
 }
 
@@ -192,14 +197,13 @@ int main(string[] args) {
         return 1;
     }
 
-    setOutdir("outdata");
-    setDextool(args[1]);
+    testEnv = TestEnv("outdir", "c_fail_log", args[1]);
 
     // Setup and cleanup
     chdir(thisExePath.dirName);
     scope (exit)
-        teardownTestEnv();
-    setupTestEnv();
+        testEnv.teardown();
+    testEnv.setup();
 
     // start testing
     try {
@@ -208,7 +212,6 @@ int main(string[] args) {
     }
     catch (ErrorLevelException ex) {
         printStatus(Status.Fail, ex.msg);
-        pause();
         return 1;
     }
 

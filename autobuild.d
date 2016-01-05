@@ -69,7 +69,6 @@ void cleanup() {
           dirEntries(".", "*.lst", SpanMode.shallow)
           )
         .map!(a => Path(a))
-        //.tee!(a => writeln("rm ", a))
         .each!(a => tryRemove(a));
     // dfmt on
 
@@ -113,6 +112,7 @@ struct Fsm {
         Release_build,
         Release_test,
         Test_passed,
+        Test_failed,
         Doc_check_counter,
         Doc_build,
         Slocs,
@@ -124,9 +124,11 @@ struct Fsm {
 
     // Signals used to determine next state
     Flag!"UtTestPassed" flagUtTestPassed;
-    Flag!"TestPassed" flagTestPassed;
     Flag!"CompileError" flagCompileError;
     uint docCount;
+
+    alias ErrorMsg = Tuple!(Path, "fname", string, "msg");
+    ErrorMsg[] testErrorLog;
 
     void run(Path[] inotify_paths) {
         this.inotify_paths = inotify_paths;
@@ -136,13 +138,15 @@ struct Fsm {
 
             GenerateFsmAction(this, st);
 
-            st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError, flagTestPassed);
+            auto flagTotalTestPassed = testErrorLog.length == 0 ? Yes.TotalTestPassed
+                : No.TotalTestPassed;
+            st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError, flagTotalTestPassed);
         }
     }
 
     static State next(State st, uint docCount,
         Flag!"UtTestPassed" flagUtTestPassed,
-        Flag!"CompileError" flagCompileError, Flag!"TestPassed" flagTestPassed) {
+        Flag!"CompileError" flagCompileError, Flag!"TotalTestPassed" flagTotalTestPassed) {
         auto next_ = st;
 
         final switch (st) {
@@ -176,17 +180,23 @@ struct Fsm {
             break;
         case State.Release_test:
             next_ = State.AudioStatus;
-            if (flagTestPassed)
+            if (flagTotalTestPassed)
                 next_ = State.Test_passed;
+            else
+                next_ = State.Test_failed;
             break;
         case State.Test_passed:
             next_ = State.Doc_check_counter;
+            break;
+        case State.Test_failed:
+            next_ = State.AudioStatus;
             break;
         case State.Doc_check_counter:
             next_ = State.AudioStatus;
             if (docCount >= 10)
                 next_ = State.Doc_build;
             break;
+            next_ = State.AudioStatus;
         case State.Doc_build:
             next_ = State.Slocs;
             break;
@@ -211,7 +221,7 @@ struct Fsm {
     }
 
     void stateAudioStatus() {
-        if (!flagCompileError && flagUtTestPassed && flagTestPassed)
+        if (!flagCompileError && flagUtTestPassed && testErrorLog.length == 0)
             playSound(Yes.Positive);
         else
             playSound(No.Positive);
@@ -220,7 +230,7 @@ struct Fsm {
     void stateReset() {
         flagCompileError = Flag!"CompileError".no;
         flagUtTestPassed = Flag!"UtTestPassed".no;
-        flagTestPassed = Flag!"TestPassed".no;
+        testErrorLog.length = 0;
     }
 
     void stateStart() {
@@ -270,7 +280,7 @@ struct Fsm {
         auto r = tryRunCollect(thisExePath.dirName, a.data);
         flagUtTestPassed = r.status == 0 ? Yes.UtTestPassed : No.UtTestPassed;
 
-        if (!flagTestPassed) {
+        if (!flagUtTestPassed) {
             writeln(r.output);
         }
 
@@ -317,11 +327,6 @@ struct Fsm {
 
     void stateRelease_test() {
         void runTest(string name) {
-            // FSM exception: no use running more tests when one has failed
-            if (flagTestPassed) {
-                return;
-            }
-
             Args a;
             a ~= "./" ~ name;
             a ~= buildNormalizedPathFixed(thisExePath.dirName.toString, "build", "dextool-debug");
@@ -332,24 +337,36 @@ struct Fsm {
             scope (exit)
                 echoOff;
             auto r = tryRunCollect(test_dir, a.data);
-            flagTestPassed = r.status == 0 ? Yes.TestPassed : No.TestPassed;
-
-            if (!flagTestPassed) {
-                writeln(r.output);
+            if (r.status != 0) {
+                testErrorLog ~= ErrorMsg(test_dir ~ name ~ Ext(".log"), r.output);
             }
         }
 
+        printStatus(Status.Run, "Test of code generation");
         // dfmt off
         only(
              "cstub_tests.sh",
              "cpp_tests.sh"
-             )
+            )
             .each!(a => runTest(a));
         // dfmt on
     }
 
     void stateTest_passed() {
         docCount++;
+        printStatus(Status.Ok, "Test of code generation");
+    }
+
+    void stateTest_failed() {
+        static void logToFile(ErrorMsg a) {
+            printStatus(Status.Fail, "log written to -> ", a.fname);
+
+            auto f = File(a.fname.toString, "w");
+            f.write(a.msg);
+        }
+
+        testErrorLog.each!logToFile;
+        printStatus(Status.Fail, "Test of code generation");
     }
 
     void stateDoc_check_counter() {

@@ -15,13 +15,16 @@ void devTest() {
 
     foreach (f; files) {
         auto input_ext = Path(f);
-        auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
-        auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
-        auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
+        scope (failure)
+            testEnv.save(input_ext.baseName.toString);
+
+        auto out_hdr = testEnv.outdir ~ "test_double.hpp";
+        auto out_impl = testEnv.outdir ~ "test_double.cpp";
+        auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
         auto params = ["cpptestdouble", "--gmock", "--debug"];
-        auto incls = ["-I" ~ (root ~ "extra").toString];
+        auto incls = ["-I" ~ (root ~ "extra").absolutePath.toString];
         auto dex_flags = ["-xc++"] ~ incls;
         switch (input_ext.baseName.toString) {
         case "exclude_self.hpp":
@@ -39,8 +42,8 @@ void devTest() {
             GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         println(Color.yellow, "Compiling");
-        auto flags = ["-std=c++03", "-Wpedantic", "-Werror", "-I" ~ (root ~ "extra").toString];
-        auto mainf = Path("testdata/cpp/main_dev.cpp");
+        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
+        auto mainf = Path("testdata/cpp/main_dev.cpp").absolutePath;
         incls ~= "-I" ~ input_ext.dirName.toString;
         switch (input_ext.baseName.toString) {
         default:
@@ -48,7 +51,7 @@ void devTest() {
         }
 
         printStatus(Status.Ok, input_ext);
-        cleanTestEnv();
+        testEnv.clean();
     }
 }
 
@@ -58,14 +61,13 @@ int main(string[] args) {
         return 1;
     }
 
-    setOutdir("outdata");
-    setDextool(args[1]);
+    testEnv = TestEnv("outdir", "cpp_fail_log", args[1]);
 
     // Setup and cleanup
     chdir(thisExePath.dirName);
     scope (exit)
-        teardownTestEnv();
-    setupTestEnv();
+        testEnv.teardown();
+    testEnv.setup();
 
     // start testing
     try {
@@ -75,7 +77,6 @@ int main(string[] args) {
     }
     catch (ErrorLevelException ex) {
         printStatus(Status.Fail, ex.msg);
-        pause();
         return 1;
     }
 
