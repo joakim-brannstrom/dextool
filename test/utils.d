@@ -33,9 +33,8 @@ struct GR {
     Path result;
 }
 
-void print(T...)(Color c, T args) {
-    immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
-
+auto print(T...)(Color c, T args) {
+    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
     writeln(escCodes[c], args, escCodes[Color.cancel]);
 }
 
