@@ -21,7 +21,7 @@ void stage1() {
         auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
-        print(Color.yellow, "[ Run ] ", input_ext);
+        printStatus(Status.Run, input_ext);
         auto params = ["ctestdouble", "--debug"];
         switch (input_ext.baseName.toString) {
         case "class_func.hpp":
@@ -43,14 +43,14 @@ void stage1() {
             runDextool(input_ext, params, []);
         }
 
-        print(Color.yellow, "Comparing");
+        println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
             GR(input ~ Ext(".cpp.ref"), out_impl),
             GR(Path(input.toString ~ "_global.cpp.ref"), out_global),
             GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
-        print(Color.yellow, "Compiling");
+        println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto incls = ["-I" ~ input_ext.dirName.toString];
         auto mainf = Path("testdata/cstub/main1.cpp");
@@ -82,7 +82,7 @@ void stage1() {
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
         }
 
-        print(Color.green, "[  OK ] ", input_ext);
+        printStatus(Status.Ok, input_ext);
         cleanTestEnv();
     }
 }
@@ -100,7 +100,7 @@ void stage2() {
         auto out_global = Path(.OUTDIR ~ "/test_double_global.cpp");
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
-        print(Color.yellow, "[ Run ] ", input_ext);
+        printStatus(Status.Run, input_ext);
         auto params = ["ctestdouble", "--debug"];
         auto incls = ["-I" ~ (root ~ "include").toString];
         switch (input_ext.baseName.toString) {
@@ -147,7 +147,7 @@ void stage2() {
             runDextool(input_ext, params, incls);
         }
 
-        print(Color.yellow, "Comparing");
+        println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
@@ -172,7 +172,7 @@ void stage2() {
                 GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
         }
 
-        print(Color.yellow, "Compiling");
+        println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto mainf = Path("testdata/cstub/main1.cpp");
         incls ~= "-I" ~ input_ext.dirName.toString;
@@ -181,7 +181,7 @@ void stage2() {
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
         }
 
-        print(Color.green, "[  OK ] ", input_ext);
+        printStatus(Status.Ok, input_ext);
         cleanTestEnv();
     }
 }
@@ -207,7 +207,7 @@ int main(string[] args) {
         stage2();
     }
     catch (ErrorLevelException ex) {
-        print(Color.red, ex.msg);
+        printStatus(Status.Fail, ex.msg);
         pause();
         return 1;
     }

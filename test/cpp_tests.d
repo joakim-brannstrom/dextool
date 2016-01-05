@@ -19,7 +19,7 @@ void devTest() {
         auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
         auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
 
-        print(Color.yellow, "[ Run ] ", input_ext);
+        printStatus(Status.Run, input_ext);
         auto params = ["cpptestdouble", "--gmock", "--debug"];
         auto incls = ["-I" ~ (root ~ "extra").toString];
         auto dex_flags = ["-xc++"] ~ incls;
@@ -32,13 +32,13 @@ void devTest() {
             runDextool(input_ext, params, dex_flags);
         }
 
-        print(Color.yellow, "Comparing");
+        println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
             GR(input ~ Ext(".cpp.ref"), out_impl),
             GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
-        print(Color.yellow, "Compiling");
+        println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror", "-I" ~ (root ~ "extra").toString];
         auto mainf = Path("testdata/cpp/main_dev.cpp");
         incls ~= "-I" ~ input_ext.dirName.toString;
@@ -47,8 +47,7 @@ void devTest() {
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
         }
 
-        print(Color.green, "[  OK ] ", input_ext);
-
+        printStatus(Status.Ok, input_ext);
         cleanTestEnv();
     }
 }
@@ -75,7 +74,7 @@ int main(string[] args) {
         devTest();
     }
     catch (ErrorLevelException ex) {
-        print(Color.red, ex.msg);
+        printStatus(Status.Fail, ex.msg);
         pause();
         return 1;
     }

@@ -59,9 +59,9 @@ extern (C) void handleSIGINT(int sig) nothrow @nogc @system {
 }
 
 void cleanup() {
-    print(Color.green, "[ RUN ] Cleanup");
+    printStatus(Status.Run, "Cleanup");
     scope (failure)
-        print(Color.red, "[ FAIL] cleanup");
+        printStatus(Status.Fail, "Cleanup");
 
     // dfmt off
     chain(
@@ -73,7 +73,7 @@ void cleanup() {
         .each!(a => tryRemove(a));
     // dfmt on
 
-    print(Color.green, "[  OK ] Cleanup");
+    printStatus(Status.Ok, "Cleanup");
 }
 
 /** Call appropriate function for for the state.
@@ -198,14 +198,11 @@ struct Fsm {
         return next_;
     }
 
-    static void printStatus(int status, string msg) {
-        switch (status) {
-        case 0:
-            print(Color.green, " === " ~ msg ~ " OK ===");
-            break;
-        default:
-            print(Color.red, " === " ~ msg ~ " ERROR ===");
-        }
+    static void printExitStatus(T...)(int status, T args) {
+        if (status == 0)
+            printStatus(Status.Ok, args);
+        else
+            printStatus(Status.Fail, args);
     }
 
     void stateInit() {
@@ -230,7 +227,7 @@ struct Fsm {
     }
 
     void stateWait() {
-        print(Color.yellow, "================================");
+        println(Color.yellow, "================================");
 
         Args a;
         a ~= "inotifywait";
@@ -255,13 +252,15 @@ struct Fsm {
         } else {
             enum SLEEP = 10;
             writeln(a.data);
-            print(Color.red, "Error: ", r.output);
+            printStatus(Status.Warn, "Error: ", r.output);
             writeln("sleeping ", SLEEP, "s");
             Thread.sleep(dur!("seconds")(SLEEP));
         }
     }
 
     void stateUt_run() {
+        printStatus(Status.Run, "Compile and run unittest");
+
         Args a;
         a ~= thisExePath.dirName ~ "build.sh";
         a ~= "run";
@@ -274,7 +273,8 @@ struct Fsm {
         if (!flagTestPassed) {
             writeln(r.output);
         }
-        printStatus(r.status, "Compile and run unittest");
+
+        printExitStatus(r.status, "Compile and run unittest");
     }
 
     void stateUt_cov() {
@@ -296,15 +296,23 @@ struct Fsm {
     }
 
     void stateRelease_build() {
+        printStatus(Status.Run, "Release build with debug symbols");
+
         Args a;
         a ~= thisExePath.dirName ~ "build.sh";
         a ~= "build";
         a ~= ["-c", "debug"];
 
-        auto status = tryRun(thisExePath.dirName, a.data);
+        auto r = tryRunCollect(thisExePath.dirName, a.data);
 
-        printStatus(status, "Release build with debug symbols");
-        flagCompileError = status == 0 ? No.CompileError : Yes.CompileError;
+        if (r.status == 0) {
+            flagCompileError = No.CompileError;
+        } else {
+            flagCompileError = Yes.CompileError;
+            writeln(r.output);
+        }
+
+        printExitStatus(r.status, "Release build with debug symbols");
     }
 
     void stateRelease_test() {
@@ -348,6 +356,10 @@ struct Fsm {
     }
 
     void stateDoc_build() {
+        printStatus(Status.Run, "Generate Documenation");
+        scope (exit)
+            printStatus(Status.Ok, "Generate Documenation");
+
         docCount = 0;
 
         Args a;
@@ -356,19 +368,20 @@ struct Fsm {
         a ~= ["-c", "debug"];
         a ~= ["-b", "docs"];
 
-        auto status = tryRun(thisExePath.dirName, a.data);
-        if (status == 0)
-            writeln("firefox ", thisExePath.dirName ~ "docs");
-        printStatus(status, "Generate Documenation");
+        tryRun(thisExePath.dirName, a.data);
     }
 
     void stateSlocs() {
+        printStatus(Status.Run, "Code statistics");
+        scope (exit)
+            printStatus(Status.Ok, "Code statistics");
+
         // dfmt off
         auto src_paths = only(
                               "clang/*.d",
                               "dsrcgen/source/dsrcgen/*",
                               "source"
-                              )
+                             )
             .map!(a => thisExePath.dirName ~ a)
             .map!(a => a.toString)
             .array;
