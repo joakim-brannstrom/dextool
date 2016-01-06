@@ -15,13 +15,16 @@ void devTest() {
 
     foreach (f; files) {
         auto input_ext = Path(f);
-        auto out_hdr = Path(.OUTDIR ~ "/test_double.hpp");
-        auto out_impl = Path(.OUTDIR ~ "/test_double.cpp");
-        auto out_gmock = Path(.OUTDIR ~ "/test_double_gmock.hpp");
+        scope (failure)
+            testEnv.save(input_ext.baseName.toString);
 
-        print(Color.yellow, "[ Run ] ", input_ext);
+        auto out_hdr = testEnv.outdir ~ "test_double.hpp";
+        auto out_impl = testEnv.outdir ~ "test_double.cpp";
+        auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
+
+        printStatus(Status.Run, input_ext);
         auto params = ["cpptestdouble", "--gmock", "--debug"];
-        auto incls = ["-I" ~ (root ~ "extra").toString];
+        auto incls = ["-I" ~ (root ~ "extra").absolutePath.toString];
         auto dex_flags = ["-xc++"] ~ incls;
         switch (input_ext.baseName.toString) {
         case "exclude_self.hpp":
@@ -38,24 +41,23 @@ void devTest() {
             runDextool(input_ext, params, dex_flags);
         }
 
-        print(Color.yellow, "Comparing");
+        println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
             GR(input ~ Ext(".cpp.ref"), out_impl),
             GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
-        print(Color.yellow, "Compiling");
-        auto flags = ["-std=c++03", "-Wpedantic", "-Werror", "-I" ~ (root ~ "extra").toString];
-        auto mainf = Path("testdata/cpp/main_dev.cpp");
+        println(Color.yellow, "Compiling");
+        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
+        auto mainf = Path("testdata/cpp/main_dev.cpp").absolutePath;
         incls ~= "-I" ~ input_ext.dirName.toString;
         switch (input_ext.baseName.toString) {
         default:
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
         }
 
-        print(Color.green, "[  OK ] ", input_ext);
-
-        cleanTestEnv();
+        printStatus(Status.Ok, input_ext);
+        testEnv.clean();
     }
 }
 
@@ -65,14 +67,13 @@ int main(string[] args) {
         return 1;
     }
 
-    setOutdir("outdata");
-    setDextool(args[1]);
+    testEnv = TestEnv("outdir", "cpp_fail_log", args[1]);
 
     // Setup and cleanup
     chdir(thisExePath.dirName);
     scope (exit)
-        teardownTestEnv();
-    setupTestEnv();
+        testEnv.teardown();
+    testEnv.setup();
 
     // start testing
     try {
@@ -81,8 +82,7 @@ int main(string[] args) {
         devTest();
     }
     catch (ErrorLevelException ex) {
-        print(Color.red, ex.msg);
-        pause();
+        printStatus(Status.Fail, ex.msg);
         return 1;
     }
 
