@@ -5,10 +5,20 @@
 ///
 /// Representation of the structure of C/C++ code in D.
 ///
-/// The guiding principle for this module is: "Correct by construction"
-/// It is the reason why the c'tor are huge.
-/// After the data is created it should be "correct".
-/// As far as possible avoid runtime errors.
+/// The guiding principle for this module is: "Correct by construction".
+///  * After the data is created it should be "correct".
+///  * As far as possible avoid runtime errors.
+/// Therefor the default c'tor is disabled.
+///
+/// Design rules for Structural representation.
+///  * default c'tor disabled.
+///  * attributes "pure @safe nothrow" for the struct.
+///  * All c'tor parameters shall be const.
+///  * After c'tor "const:" shall be used.
+///  * Ranges for arrays shall use the ArrayRange struct.
+///  * Add mixin for Id and Location when the need arise.
+///  * const: (The ':' is not a typo) can affect var members thus all member
+///    shall be defined after imports.
 ///
 /// This program is free software; you can redistribute it and/or modify
 /// it under the terms of the GNU General Public License as published by
@@ -287,6 +297,8 @@ private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
 }
 
 pure @safe nothrow struct CxGlobalVariable {
+    private TypeKindVariable variable;
+
     mixin mixinUniqueId;
     mixin mixingSourceLocation;
 
@@ -302,7 +314,9 @@ pure @safe nothrow struct CxGlobalVariable {
         this(TypeKindVariable(type, name), loc);
     }
 
-    string toString() const @safe {
+const:
+
+    string toString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
         import std.ascii : newline;
@@ -329,7 +343,7 @@ pure @safe nothrow struct CxGlobalVariable {
         return app.data;
     }
 
-    @property const {
+    @property {
         auto type() {
             return variable.type;
         }
@@ -342,22 +356,19 @@ pure @safe nothrow struct CxGlobalVariable {
             return variable;
         }
     }
-
-private:
-    TypeKindVariable variable;
 }
 
 struct CppMethodGeneric {
     template Parameters() {
         void put(const CxParam p) {
-            params ~= p;
+            params_ ~= p;
         }
 
         auto paramRange() const @nogc @safe pure nothrow {
-            return arrayRange(params);
+            return arrayRange(params_);
         }
 
-        private CxParam[] params;
+        private CxParam[] params_;
     }
 
     /** Common properties for C++ methods.
@@ -400,30 +411,47 @@ struct CppMethodGeneric {
 
     /// Helper for converting virtual type to string
     template StringHelperVirtual() {
-        void helperVirtualPre(AppT)(AppT app) const @safe {
-            switch (virtualType()) {
+        static string helperVirtualPre(VirtualType pre) @safe pure nothrow @nogc {
+            switch (pre) {
             case VirtualType.Yes:
             case VirtualType.Pure:
-                app.put("virtual ");
-                break;
+                return "virtual ";
             default:
+                return "";
             }
         }
 
-        void helperVirtualPost(AppT)(AppT app) const @safe {
-            switch (virtualType()) {
+        static string helperVirtualPost(VirtualType post) @safe pure nothrow @nogc {
+            switch (post) {
             case VirtualType.Pure:
-                app.put(" = 0");
-                break;
+                return " = 0";
             default:
+                return "";
+            }
+        }
+
+        static string helperConst(bool is_const) @safe pure nothrow @nogc {
+            final switch (is_const) {
+            case true:
+                return " const";
+            case false:
+                return "";
             }
         }
     }
 }
 
 /// Information about free functions.
+/// TODO: rename to CxFreeFunction
 pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
+
+    private {
+        CFunctionName name_;
+        CxParam[] params;
+        CxReturnType returnType_;
+        VariadicType isVariadic_;
+    }
 
     mixin mixinUniqueId;
     mixin mixingSourceLocation;
@@ -434,13 +462,10 @@ pure @safe nothrow struct CFunction {
     this(const CFunctionName name, const CxParam[] params_,
         const CxReturnType return_type, const VariadicType is_variadic, const CxLocation loc) {
         this.name_ = name;
-        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.returnType_ = return_type;
         this.isVariadic_ = is_variadic;
 
-        //TODO how do you replace this with a range?
-        foreach (p; params_) {
-            this.params ~= p;
-        }
+        this.params = params_.dup;
 
         setLocation(loc);
         setUniqueId(internalToString);
@@ -457,18 +482,20 @@ pure @safe nothrow struct CFunction {
         this(name, CxParam[].init, void_, VariadicType.no, loc);
     }
 
+const:
+
     /// A range over the parameters of the function.
-    auto paramRange() const @nogc @safe pure nothrow {
+    auto paramRange() @nogc @safe pure nothrow {
         return arrayRange(params);
     }
 
     /// The return type of the function.
-    auto returnType() const pure @safe @property {
+    auto returnType() @property {
         return returnType_;
     }
 
     /// Function name representation.
-    auto name() @property const pure {
+    auto name() @property {
         return name_;
     }
 
@@ -478,7 +505,7 @@ pure @safe nothrow struct CFunction {
     }
 
     // Separating file location from the rest
-    private string internalToString() const @safe {
+    private string internalToString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
 
@@ -487,7 +514,7 @@ pure @safe nothrow struct CFunction {
         return rval.data;
     }
 
-    string toString() const @safe {
+    string toString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
 
@@ -505,47 +532,45 @@ pure @safe nothrow struct CFunction {
             assertVisit(p);
         }
     }
-
-private:
-    CFunctionName name_;
-
-    CxParam[] params;
-    CxReturnType returnType_;
-    VariadicType isVariadic_;
 }
 
+/** Represent a C++ constructor.
+ *
+ * The construction of CppCtor is simplified in the example.
+ * Example:
+ * ----
+ * class A {
+ * public:
+ *    A();      // CppCtor("A", null, Public);
+ *    A(int x); // CppCtor("A", ["int x"], Public);
+ * };
+ * ----
+ */
 pure @safe nothrow struct CppCtor {
-    import std.typecons : TypedefType;
-
-    //mixin mixinUniqueId;
-    //mixin mixingSourceLocation;
+    private {
+        CppAccess accessType_;
+        CppMethodName name_;
+    }
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params_, const CppAccess access) {
+    this(const CppMethodName name, const CxParam[] params, const CppAccess access) {
         this.name_ = name;
         this.accessType_ = access;
-
-        //TODO how do you replace this with a range?
-        foreach (p; params_) {
-            this.params ~= p;
-        }
+        this.params_ = params.dup;
     }
 
     mixin CppMethodGeneric.Parameters;
 
-    string toString() const @safe {
-        import std.array : appender;
-        import std.algorithm : each;
-        import std.format : formattedWrite;
+const:
 
-        auto rval = appender!string();
-        formattedWrite(rval, "%s(%s)", name_.str, paramRange.joinParams);
+    string toString() {
+        import std.format : format;
 
-        return rval.data;
+        return format("%s(%s)", name_.str, paramRange.joinParams);
     }
 
-    @property const {
+    @property {
         auto accessType() {
             return accessType_;
         }
@@ -558,46 +583,52 @@ pure @safe nothrow struct CppCtor {
     invariant() {
         assert(name_.length > 0);
 
-        foreach (p; params) {
+        foreach (p; params_) {
             assertVisit(p);
         }
     }
-
-private:
-    CppAccess accessType_;
-
-    CppMethodName name_;
 }
 
 pure @safe nothrow struct CppDtor {
-    import std.typecons : TypedefType;
-
-    //mixin mixinUniqueId;
-    //mixin mixingSourceLocation;
+    private {
+        VirtualType isVirtual_;
+        CppAccess accessType_;
+        CppMethodName name_;
+    }
 
     @disable this();
 
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
         this.name_ = name;
         this.accessType_ = access;
+
+        import std.typecons : TypedefType;
+
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
     }
 
     mixin CppMethodGeneric.StringHelperVirtual;
 
-    string toString() const @safe {
-        import std.array : appender;
+const:
 
-        auto rval = appender!string();
-        helperVirtualPre(rval);
+    string toString() {
+        import std.algorithm : joiner;
+        import std.range : only;
+        import std.conv : text;
 
-        rval.put(name_.str);
-        rval.put("()");
-
-        return rval.data;
+        // dfmt off
+        return
+            only(
+                 helperVirtualPre(virtualType),
+                 name_.str,
+                 "()"
+                )
+            .joiner()
+            .text;
+        // dfmt on
     }
 
-    @property const {
+    @property {
         bool isVirtual() {
             return isVirtual_ != VirtualType.No;
         }
@@ -619,35 +650,25 @@ pure @safe nothrow struct CppDtor {
         assert(name_.length > 0);
         assert(isVirtual_ != VirtualType.Pure);
     }
-
-private:
-    VirtualType isVirtual_;
-    CppAccess accessType_;
-
-    CppMethodName name_;
 }
 
 pure @safe nothrow struct CppMethod {
-    import std.typecons : TypedefType;
-
-    //mixin mixinUniqueId;
-    //mixin mixingSourceLocation;
+    private CxReturnType returnType_;
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params_,
+    this(const CppMethodName name, const CxParam[] params,
         const CxReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name_ = name;
-        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.returnType_ = return_type;
         this.accessType_ = access;
+        this.params_ = params.dup;
+
+        import std.typecons : TypedefType;
+
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
-
-        //TODO how do you replace this with a range?
-        foreach (p; params_) {
-            this.params ~= p;
-        }
     }
 
     /// Function with no parameters.
@@ -667,55 +688,57 @@ pure @safe nothrow struct CppMethod {
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.Properties;
 
-    string toString() const @safe {
-        import std.array : appender;
-        import std.algorithm : each;
-        import std.format : formattedWrite;
+const:
 
-        auto rval = appender!string();
-        helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
+    string toString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
 
-        if (isConst) {
-            rval.put(" const");
-        }
-
-        helperVirtualPost(rval);
-
-        return rval.data;
+        // dfmt off
+        return
+            only(
+                 helperVirtualPre(virtualType),
+                 returnType_.txt,
+                 " ",
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst),
+                 helperVirtualPost(virtualType)
+                )
+            .joiner()
+            .text;
+        // dfmt on
     }
 
     invariant() {
         assert(name_.length > 0);
         assert(returnType_.txt.length > 0);
 
-        foreach (p; params) {
+        foreach (p; params_) {
             assertVisit(p);
         }
     }
-
-private:
-    CxReturnType returnType_;
 }
 
 pure @safe nothrow struct CppMethodOp {
-    import std.typecons : TypedefType;
+    private CxReturnType returnType_;
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params_,
+    this(const CppMethodName name, const CxParam[] params,
         const CxReturnType return_type, const CppAccess access,
         const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name_ = name;
-        this.returnType_ = duplicate(cast(const TypedefType!CxReturnType) return_type);
+        this.returnType_ = return_type;
         this.accessType_ = access;
+        this.params_ = params.dup;
+
+        import std.typecons : TypedefType;
+
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
-
-        //TODO how do you replace this with a range?
-        foreach (p; params_) {
-            this.params ~= p;
-        }
     }
 
     /// Operator with no parameters.
@@ -735,28 +758,33 @@ pure @safe nothrow struct CppMethodOp {
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.Properties;
 
-    string toString() const @safe {
-        import std.array : appender;
-        import std.algorithm : each;
-        import std.format : formattedWrite;
+const:
 
-        auto rval = appender!string();
-        helperVirtualPre(rval);
-        formattedWrite(rval, "%s %s(%s)", returnType_.txt, name_.str, paramRange.joinParams);
+    string toString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
 
-        if (isConst) {
-            rval.put(" const");
-        }
-
-        helperVirtualPost(rval);
-
-        // distinguish an operator from a normal method
-        rval.put(" /* operator */");
-
-        return rval.data;
+        // dfmt off
+        return
+            only(
+                 helperVirtualPre(virtualType),
+                 returnType_.txt,
+                 " ",
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst),
+                 helperVirtualPost(virtualType),
+                 // distinguish an operator from a normal method
+                 " /* operator */"
+                )
+            .joiner()
+            .text;
+        // dfmt on
     }
 
-    @property const {
+    @property {
         /// The operator type, aka in C++ the part after "operator"
         auto op()
         in {
@@ -771,13 +799,10 @@ pure @safe nothrow struct CppMethodOp {
         assert(name_.length > 0);
         assert(returnType_.txt.length > 0);
 
-        foreach (p; params) {
+        foreach (p; params_) {
             assertVisit(p);
         }
     }
-
-private:
-    CxReturnType returnType_;
 }
 
 pure @safe nothrow struct CppClass {
@@ -785,6 +810,23 @@ pure @safe nothrow struct CppClass {
     import std.typecons : TypedefType;
 
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
+
+    private {
+        CppClassName name_;
+        CppClassInherit[] inherits_;
+
+        VirtualType isVirtual_ = VirtualType.Unknown;
+
+        CppFunc[] methods_pub;
+        CppFunc[] methods_prot;
+        CppFunc[] methods_priv;
+
+        CppClass[] classes_pub;
+        CppClass[] classes_prot;
+        CppClass[] classes_priv;
+
+        string[] cmnt;
+    }
 
     mixin mixinUniqueId;
     mixin mixinKind;
@@ -842,132 +884,116 @@ pure @safe nothrow struct CppClass {
         }
     }
 
-    /// Add a comment string to the class.
+    /** Add a comment string for the class.
+     *
+     * Params:
+     *  comment = a oneline comment, must NOT end with newline
+     */
     void put(string comment) {
         cmnt ~= comment;
     }
 
-    auto inheritRange() const @nogc @safe pure nothrow {
+    auto inheritRange() @nogc {
         return arrayRange(inherits_);
     }
 
-    auto methodRange() @nogc @safe pure nothrow {
+    auto methodRange() @nogc {
         import std.range : chain;
 
         return chain(methods_pub, methods_prot, methods_priv);
     }
 
-    auto methodPublicRange() @nogc @safe pure nothrow {
+    auto methodPublicRange() @nogc {
         return arrayRange(methods_pub);
     }
 
-    auto methodProtectedRange() @nogc @safe pure nothrow {
+    auto methodProtectedRange() @nogc {
         return arrayRange(methods_prot);
     }
 
-    auto methodPrivateRange() @nogc @safe pure nothrow {
+    auto methodPrivateRange() @nogc {
         return arrayRange(methods_priv);
     }
 
-    auto classRange() @nogc @safe pure nothrow {
+    auto classRange() @nogc {
         import std.range : chain;
 
         return chain(classes_pub, classes_prot, classes_priv);
     }
 
-    auto classPublicRange() @nogc @safe pure nothrow {
+    auto classPublicRange() @nogc {
         return arrayRange(classes_pub);
     }
 
-    auto classProtectedRange() @nogc @safe pure nothrow {
+    auto classProtectedRange() @nogc {
         return arrayRange(classes_prot);
     }
 
-    auto classPrivateRange() @nogc @safe pure nothrow {
+    auto classPrivateRange() @nogc {
         return arrayRange(classes_priv);
     }
 
-    auto commentRange() const @nogc @safe pure nothrow {
+    auto commentRange() @nogc {
         return arrayRange(cmnt);
     }
 
-    ///TODO make the function const.
-    string toString() const @safe {
-        import std.array : Appender, appender;
-        import std.conv : to;
-        import std.algorithm : each;
-        import std.ascii : newline;
-        import std.format : formattedWrite;
+const:
 
+    string toString() {
         static string funcToString(CppFunc func) @trusted {
             //dfmt off
-            return func.visit!((CppMethod a) => a.toString,
-                               (CppMethodOp a) => a.toString,
-                               (CppCtor a) => a.toString,
-                               (CppDtor a) => a.toString);
+            return "  " ~ func.visit!((CppMethod a) => a.toString,
+                                      (CppMethodOp a) => a.toString,
+                                      (CppCtor a) => a.toString,
+                                      (CppDtor a) => a.toString);
             //dfmt on
         }
 
-        static void appPubRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_pub.length > 0 || th.classes_pub.length > 0) {
-                formattedWrite(app, "public:%s", newline);
-                (cast(Tx) th).methodPublicRange.each!(a => formattedWrite(app,
-                    "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classPublicRange.each!(a => formattedWrite(app,
-                    "%s%s", a.toString(), newline));
-            }
-        }
+        import std.algorithm : map, joiner;
+        import std.ascii : newline;
+        import std.conv : to, text;
+        import std.format : format;
+        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin, take;
+        import std.string : toLower;
 
-        static void appProtRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_prot.length > 0 || th.classes_prot.length > 0) {
-                formattedWrite(app, "protected:%s", newline);
-                (cast(Tx) th).methodProtectedRange.each!(a => formattedWrite(app,
-                    "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classProtectedRange.each!(a => formattedWrite(app,
-                    "%s%s", a.toString(), newline));
-            }
-        }
+        // dfmt off
+        auto begin_class =
+            chain(
+                  only("class", name_.str).joiner(" "),
+                  inherits.takeOne.map!(a => " : ").joiner(""),
+                  inherits.map!(a => only(// public/prot/priv
+                                          to!string(cast (TypedefType!(typeof(a.access))) a.access).toLower,
+                                          " ",
+                                          a.nesting.str, // namespace
+                                          a.name.str // class name
+                                         ).joiner("")
+                               ).joiner(", "), // separate inherit statements
+                  only(" { // isVirtual", to!string(virtualType), location.toString).joiner(" ")
+                 );
+        auto end_class = only("}; //Class:", name_.str).joiner("");
 
-        static void appPrivRange(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            if (th.methods_priv.length > 0 || th.classes_priv.length > 0) {
-                formattedWrite(app, "private:%s", newline);
-                (cast(Tx) th).methodPrivateRange.each!(a => formattedWrite(app,
-                    "  %s;%s", funcToString(a), newline));
-                (cast(Tx) th).classPrivateRange.each!(a => formattedWrite(app,
-                    "%s%s", a.toString(), newline));
-            }
-        }
-
-        static string inheritRangeToString(T)(T range) @trusted {
-            import std.range : enumerate;
-            import std.string : toLower;
-
-            auto app = appender!string();
-            // dfmt off
-            range.enumerate(0)
-                .each!(a => formattedWrite(app, "%s%s %s%s",
-                       a.index == 0 ? " : " : ", ",
-                       to!string(cast (TypedefType!(typeof(a.value.access))) a.value.access).toLower,
-                       a.value.nesting.str,
-                       a.value.name.str));
-            // dfmt on
-
-            return app.data;
-        }
-
-        auto app = appender!string();
-
-        commentRange().each!(a => formattedWrite(app, "// %s%s", a, newline));
-
-        formattedWrite(app, "class %s%s { // isVirtual %s %s%s", name_.str,
-            inheritRangeToString(inheritRange()), to!string(virtualType()),
-            location.toString, newline);
-        appPubRange(this, app);
-        appProtRange(this, app);
-        appPrivRange(this, app);
-        formattedWrite(app, "}; //Class:%s", name_.str);
-
-        return app.data;
+        return
+            chain(
+                  cmnt.map!(a => format("// %s", a)).joiner(newline),
+                  begin_class, newline, // <- not a typo, easier to see newline
+                  // methods
+                  methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(""),
+                  methods_pub.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(""),
+                  methods_prot.takeOne.map!(a => "protected:" ~ newline).joiner(""),
+                  methods_prot.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(""),
+                  methods_priv.takeOne.map!(a => "private:" ~ newline).joiner(""),
+                  methods_priv.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(""),
+                  // classes
+                  classes_pub.takeOne.map!(a => "public:" ~ newline).joiner(""),
+                  classes_pub.map!(a => a.toString).roundRobin(newline.repeat.take(classes_pub.length)).joiner(""),
+                  classes_prot.takeOne.map!(a => "protected:" ~ newline).joiner(""),
+                  classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(""),
+                  classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(""),
+                  classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(""),
+                  end_class
+                 )
+            .text;
+        // dfmt on
     }
 
     invariant() {
@@ -977,7 +1003,7 @@ pure @safe nothrow struct CppClass {
         }
     }
 
-    @property const {
+    @property {
         bool isVirtual() {
             return isVirtual_ != VirtualType.No;
         }
@@ -994,22 +1020,6 @@ pure @safe nothrow struct CppClass {
             return inherits_;
         }
     }
-
-private:
-    CppClassName name_;
-    CppClassInherit[] inherits_;
-
-    VirtualType isVirtual_ = VirtualType.Unknown;
-
-    CppFunc[] methods_pub;
-    CppFunc[] methods_prot;
-    CppFunc[] methods_priv;
-
-    CppClass[] classes_pub;
-    CppClass[] classes_prot;
-    CppClass[] classes_priv;
-
-    string[] cmnt;
 }
 
 // Clang have no function that says if a class is virtual/pure virtual.
@@ -1081,11 +1091,20 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
 }
 
 pure @safe nothrow struct CppNamespace {
+    private {
+        bool isAnonymous_;
+        CppNs name_;
+
+        CppNsStack stack;
+        CppClass[] classes;
+        CFunction[] funcs;
+        CppNamespace[] namespaces;
+        CxGlobalVariable[] globals;
+    }
+
     @disable this();
 
-    //mixin mixinUniqueId;
     mixin mixinKind;
-    //mixin mixingSourceLocation;
 
     static auto makeAnonymous() {
         return CppNamespace(CppNsStack.init);
@@ -1125,74 +1144,55 @@ pure @safe nothrow struct CppNamespace {
      * to the end. Therefor the range normal direction is from the end of the
      * array to the beginning.
      */
-    auto nsNestingRange() @nogc @safe pure nothrow {
+    auto nsNestingRange() @nogc {
         import std.range : retro;
 
         return arrayRange(stack).retro;
     }
 
-    auto classRange() @nogc @safe pure nothrow {
+    auto classRange() @nogc {
         return arrayRange(classes);
     }
 
-    auto funcRange() @nogc @safe pure nothrow {
+    auto funcRange() @nogc {
         return arrayRange(funcs);
     }
 
-    auto namespaceRange() @nogc @safe pure nothrow {
+    auto namespaceRange() @nogc {
         return arrayRange(namespaces);
     }
 
-    auto globalRange() @nogc @safe pure nothrow {
+    auto globalRange() @nogc {
         return arrayRange(globals);
     }
 
-    string toString() const @safe {
-        import std.array : Appender, appender;
-        import std.algorithm : each;
-        import std.format : formattedWrite;
-        import std.range : retro;
+const:
+
+    string toString() {
+        import std.algorithm : map, joiner;
         import std.ascii : newline;
+        import std.range : takeOne, only, chain, retro;
+        import std.conv : text;
+        import std.format : format;
 
-        static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            (cast(Tx) th).globalRange.each!(a => formattedWrite(app, "%s%s",
-                a.toString(), newline));
-            (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s%s", a.toString(),
-                newline));
-            (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s%s", a.toString(),
-                newline));
-            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s%s",
-                a.toString(), newline));
-        }
+        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner("");
+        auto ns_full_name = stack.map!(a => cast(string) a).joiner("::");
 
-        static void nsToStrings(T : const(Tx), Tx)(ref T th, out string ns_name, out string ns_concat) @trusted {
-            auto ns_app = appender!string();
-            ns_name = "";
-            ns_concat = "";
-
-            auto ns_r = (cast(Tx) th).nsNestingRange().retro;
-            if (!ns_r.empty) {
-                ns_name = ns_r.back.str;
-                ns_app.put(ns_r.front.str);
-                ns_r.popFront;
-                ns_r.each!(a => formattedWrite(ns_app, "::%s", a.str));
-                ns_concat = ns_app.data;
-            }
-        }
-
-        string ns_name;
-        string ns_concat;
-        nsToStrings(this, ns_name, ns_concat);
-
-        auto app = appender!string();
-        formattedWrite(app, "namespace %s { //%s%s", ns_name, ns_concat, newline);
-        appRanges(this, app);
-        formattedWrite(app, "} //NS:%s", ns_name);
-
-        return app.data;
+        // dfmt off
+        return chain(
+                     only(format("namespace %s { //%s", ns_top_name, ns_full_name)),
+                     globals.map!(a => a.toString),
+                     funcs.map!(a => a.toString),
+                     classes.map!(a => a.toString),
+                     namespaces.map!(a => a.toString),
+                     only(format("} //NS:%s", ns_top_name))
+                     )
+            .joiner(newline)
+            .text;
+        // dfmt on
     }
 
-    @property const {
+    @property {
         auto isAnonymous() {
             return isAnonymous_;
         }
@@ -1200,21 +1200,17 @@ pure @safe nothrow struct CppNamespace {
         auto name() {
             return name_;
         }
-
     }
-
-private:
-    bool isAnonymous_;
-    CppNs name_;
-
-    CppNsStack stack;
-    CppClass[] classes;
-    CFunction[] funcs;
-    CppNamespace[] namespaces;
-    CxGlobalVariable[] globals;
 }
 
 pure @safe nothrow struct CppRoot {
+    private {
+        CppNamespace[] ns;
+        CppClass[] classes;
+        CFunction[] funcs;
+        CxGlobalVariable[] globals;
+    }
+
     mixin mixingSourceLocation;
 
     this(in CxLocation loc) {
@@ -1237,66 +1233,43 @@ pure @safe nothrow struct CppRoot {
         globals ~= g;
     }
 
-    string toString() const @safe {
-        import std.array : Appender, appender;
-        import std.format : formattedWrite;
-        import std.ascii : newline;
-
-        static void appRanges(T : const(Tx), Tx)(ref T th, ref Appender!string app) @trusted {
-            import std.algorithm : each;
-            import std.ascii : newline;
-            import std.format : formattedWrite;
-
-            if (th.globals.length > 0) {
-                (cast(Tx) th).globalRange.each!(a => formattedWrite(app, "%s%s",
-                    a.toString(), newline));
-                app.put(newline);
-            }
-
-            if (th.funcs.length > 0) {
-                (cast(Tx) th).funcRange.each!(a => formattedWrite(app, "%s%s", a.toString,
-                    newline));
-                app.put(newline);
-            }
-
-            if (th.classes.length > 0) {
-                (cast(Tx) th).classRange.each!(a => formattedWrite(app, "%s%s", a.toString,
-                    newline));
-                app.put(newline);
-            }
-
-            (cast(Tx) th).namespaceRange.each!(a => formattedWrite(app, "%s%s", a.toString,
-                newline));
-        }
-
-        auto app = appender!string();
-        formattedWrite(app, "// %s%s", location().toString, newline);
-        appRanges(this, app);
-
-        return app.data;
-    }
-
-    auto namespaceRange() @nogc @safe pure nothrow {
+    auto namespaceRange() @nogc {
         return arrayRange(ns);
     }
 
-    auto classRange() @nogc @safe pure nothrow {
+    auto classRange() @nogc {
         return arrayRange(classes);
     }
 
-    auto funcRange() @nogc @safe pure nothrow {
+    auto funcRange() @nogc {
         return arrayRange(funcs);
     }
 
-    auto globalRange() @nogc @safe pure nothrow {
+    auto globalRange() @nogc {
         return arrayRange(globals);
     }
 
-private:
-    CppNamespace[] ns;
-    CppClass[] classes;
-    CFunction[] funcs;
-    CxGlobalVariable[] globals;
+const:
+
+    string toString() {
+        import std.ascii : newline;
+        import std.algorithm : map, joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : takeOne, only, chain, retro;
+
+        // dfmt on
+        return chain(only(format("// %s", location().toString)),
+            globals.takeOne.map!(a => ""), // newline
+            globals.map!(a => a.toString),
+            funcs.takeOne.map!(a => ""), // newline
+            funcs.map!(a => a.toString),
+            classes.takeOne.map!(a => ""), // newline
+            classes.map!(a => a.toString),
+            ns.takeOne.map!(a => ""), // newline
+            ns.map!(a => a.toString), only("")).joiner(newline).text;
+        // dfmt off
+    }
 }
 
 /// Find where in the structure a class with the uniqe id reside.
@@ -1344,7 +1317,7 @@ unittest {
     shouldEqual(m.isConst, false);
     shouldEqual(m.isVirtual, VirtualType.No);
     shouldEqual(m.name, "voider");
-    shouldEqual(m.params.length, 0);
+    shouldEqual(m.params_.length, 0);
     shouldEqual(m.returnType.txt, "void");
     shouldEqual(m.accessType, AccessType.Public);
 }
@@ -1644,6 +1617,7 @@ unittest {
     root.put(CppNamespace.make(CppNs("simple")));
 
     shouldEqualPretty(root.toString, "// File: Line:0 Column:0
+
 void nothing(); // File:a.h Line:123 Column:45
 
 class Foo { // isVirtual No File:noloc Line:0 Column:0
@@ -1731,6 +1705,7 @@ unittest {
     r.put(n);
 
     shouldEqualPretty(r.toString, "// File: Line:0 Column:0
+
 int x; // File:a.h Line:123 Column:45
 
 namespace  { //
