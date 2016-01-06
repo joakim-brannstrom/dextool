@@ -805,6 +805,71 @@ const:
     }
 }
 
+pure @safe nothrow struct CppInherit {
+    private {
+        CppAccess access_;
+        CppClassName name_;
+        CppNsStack ns;
+    }
+
+    @disable this();
+
+    this(CppClassName name, CppAccess access) {
+        this.name_ = name;
+        this.access_ = access;
+    }
+
+    void put(CppNs ns) {
+        this.ns ~= ns;
+    }
+
+    auto nsRange() @nogc @safe pure nothrow {
+        return arrayRange(ns);
+    }
+
+const:
+
+    auto toString() {
+        import std.algorithm : map, joiner;
+        import std.range : chain, only;
+        import std.array : Appender, appender;
+        import std.typecons : TypedefType;
+        import std.string : toLower;
+        import std.conv : to, text;
+
+        auto app = appender!string();
+        app.put(to!string(cast(TypedefType!CppAccess) access_).toLower);
+        app.put(" ");
+
+        // dfmt off
+        app.put(chain(ns.map!(a => cast(string) a),
+                      only(cast(string) name_))
+                .joiner("::")
+                .text()
+                );
+        // dfmt on
+
+        return app.data;
+    }
+
+    invariant {
+        assert(name_.length > 0);
+        foreach (n; ns) {
+            assert(n.length > 0);
+        }
+    }
+
+    @property {
+        auto name() {
+            return this.name_;
+        }
+
+        auto access() {
+            return access_;
+        }
+    }
+}
+
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
@@ -1735,4 +1800,42 @@ unittest {
 
     auto s = r.globalRange().dedup();
     shouldEqual(s.length, 1);
+}
+
+@Name("should be proper access specifiers for a inherit reference, no nesting")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    shouldEqual("public Class", ih.toString);
+
+    ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Protected));
+    shouldEqual("protected Class", ih.toString);
+
+    ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Private));
+    shouldEqual("private Class", ih.toString);
+}
+
+@Name("should be a inheritances of a class in namespaces")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    ih.put(CppNs("ns1"));
+    ih.toString.shouldEqual("public ns1::Class");
+
+    ih.put(CppNs("ns2"));
+    ih.toString.shouldEqual("public ns1::ns2::Class");
+
+    ih.put(CppNs("ns3"));
+    ih.toString.shouldEqual("public ns1::ns2::ns3::Class");
+}
+
+@Name("should be a class that inherits")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    ih.put(CppNs("ns1"));
+
+    auto c = CppClass(CppClassName("A"));
+    c.put(ih);
+
+    c.toString.shouldEqualPretty(
+        "class A : public ns1::Class { // isVirtual Unknown File:noloc Line:0 Column:0
+}; //Class:A");
 }
