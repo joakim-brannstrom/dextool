@@ -134,7 +134,9 @@ struct Fsm {
         this.inotify_paths = inotify_paths;
 
         while (!signalInterrupt) {
-            writeln("State ", st.to!string);
+            debug {
+                writeln("State ", st.to!string);
+            }
 
             GenerateFsmAction(this, st);
 
