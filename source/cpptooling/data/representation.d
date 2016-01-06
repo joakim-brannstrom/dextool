@@ -76,8 +76,6 @@ alias CppClassName = Typedef!(string, string.init, "CppClassName");
 alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
 
 alias CppClassVirtual = Typedef!(VirtualType, VirtualType.No, "CppClassVirtual");
-alias CppClassInherit = Tuple!(CppClassName, "name", CppClassNesting,
-    "nesting", CppAccess, "access");
 
 // Types for methods
 alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
@@ -878,7 +876,7 @@ pure @safe nothrow struct CppClass {
 
     private {
         CppClassName name_;
-        CppClassInherit[] inherits_;
+        CppInherit[] inherits_;
 
         VirtualType isVirtual_ = VirtualType.Unknown;
 
@@ -899,9 +897,11 @@ pure @safe nothrow struct CppClass {
 
     @disable this();
 
-    this(const CppClassName name, const CxLocation loc, const CppClassInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
         this.name_ = name;
-        this.inherits_ = inherits.dup;
+
+        () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
+
         setLocation(loc);
 
         ///TODO consider update so the identifier also depend on the namespace.
@@ -909,11 +909,11 @@ pure @safe nothrow struct CppClass {
     }
 
     this(const CppClassName name, const CxLocation loc) {
-        this(name, loc, CppClassInherit[].init);
+        this(name, loc, CppInherit[].init);
     }
 
     this(const CppClassName name) {
-        this(name, CxLocation("noloc", 0, 0), CppClassInherit[].init);
+        this(name, CxLocation("noloc", 0, 0), CppInherit[].init);
     }
 
     void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
@@ -956,6 +956,10 @@ pure @safe nothrow struct CppClass {
      */
     void put(string comment) {
         cmnt ~= comment;
+    }
+
+    void put(CppInherit inh) {
+        inherits_ ~= inh;
     }
 
     auto inheritRange() @nogc {
@@ -1018,7 +1022,8 @@ const:
         import std.ascii : newline;
         import std.conv : to, text;
         import std.format : format;
-        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin, take;
+        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin,
+            take;
         import std.string : toLower;
 
         // dfmt off
@@ -1026,13 +1031,7 @@ const:
             chain(
                   only("class", name_.str).joiner(" "),
                   inherits.takeOne.map!(a => " : ").joiner(""),
-                  inherits.map!(a => only(// public/prot/priv
-                                          to!string(cast (TypedefType!(typeof(a.access))) a.access).toLower,
-                                          " ",
-                                          a.nesting.str, // namespace
-                                          a.name.str // class name
-                                         ).joiner("")
-                               ).joiner(", "), // separate inherit statements
+                  inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
                   only(" { // isVirtual", to!string(virtualType), location.toString).joiner(" ")
                  );
         auto end_class = only("}; //Class:", name_.str).joiner("");
@@ -1546,13 +1545,10 @@ private:
 
 @Name("should contain the inherited classes")
 unittest {
-    CppClassInherit[] inherit;
-    inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
-        CppAccess(AccessType.Public));
-    inherit ~= CppClassInherit(CppClassName("prot"), CppClassNesting(""),
-        CppAccess(AccessType.Protected));
-    inherit ~= CppClassInherit(CppClassName("priv"), CppClassNesting(""),
-        CppAccess(AccessType.Private));
+    CppInherit[] inherit;
+    inherit ~= CppInherit(CppClassName("pub"), CppAccess(AccessType.Public));
+    inherit ~= CppInherit(CppClassName("prot"), CppAccess(AccessType.Protected));
+    inherit ~= CppInherit(CppClassName("priv"), CppAccess(AccessType.Private));
 
     auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
 
