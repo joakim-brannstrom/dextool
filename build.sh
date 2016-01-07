@@ -18,7 +18,7 @@ if [[ $# -eq 0 ]]; then
     dub build -c release -b release
     dub build -c debug
     dub build -c profile -b profile
-    dub build -c devtool_release
+    dub build -c devtool -b debug
 else
     dub $@
 fi
