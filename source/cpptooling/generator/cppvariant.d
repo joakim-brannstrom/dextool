@@ -343,7 +343,6 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
         .each!(a => r.put(a.get));
 
     root.classRange
-        .filter!(a => a.virtualType == VirtualType.Pure)
         .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
@@ -432,7 +431,7 @@ body {
     static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
         // dfmt off
         r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)
-            .each!(a => generateGmock!Parameters(a, gmock, params));
+            .each!(a => generateGmock(a, gmock, params));
         // dfmt on
     }
 
@@ -487,7 +486,7 @@ void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters par
         generateHdr(c, hdr);
         break;
     case ClassType.Gmock:
-        generateGmock!Parameters(c, gmock, params);
+        generateGmock(c, gmock, params);
         break;
     }
 }
