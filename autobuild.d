@@ -328,6 +328,13 @@ struct Fsm {
     }
 
     void stateRelease_test() {
+        static void consoleToFile(Path fname, string console) {
+            writeln("console log written to -> ", fname);
+
+            auto f = File(fname.toString, "w");
+            f.write(console);
+        }
+
         void runTest(string name) {
             Args a;
             a ~= "./" ~ name;
@@ -339,8 +346,12 @@ struct Fsm {
             scope (exit)
                 echoOff;
             auto r = tryRunCollect(test_dir, a.data);
+
+            auto logfile = test_dir ~ name ~ Ext(".log");
+            consoleToFile(logfile, r.output);
+
             if (r.status != 0) {
-                testErrorLog ~= ErrorMsg(test_dir ~ name ~ Ext(".log"), r.output);
+                testErrorLog ~= ErrorMsg(logfile, name);
             }
         }
 
@@ -360,14 +371,7 @@ struct Fsm {
     }
 
     void stateTest_failed() {
-        static void logToFile(ErrorMsg a) {
-            printStatus(Status.Fail, "log written to -> ", a.fname);
-
-            auto f = File(a.fname.toString, "w");
-            f.write(a.msg);
-        }
-
-        testErrorLog.each!logToFile;
+        testErrorLog.each!(a => printStatus(Status.Fail, a.msg, ", log at ", a.fname));
         printStatus(Status.Fail, "Test of code generation");
     }
 
