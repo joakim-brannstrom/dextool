@@ -46,19 +46,15 @@ body {
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    static string gmockMethod(T)(T m) {
-        // defensive code, I don't think this can happen
-        logger.errorf(m.paramRange().length > 10,
-            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
-            m.name, m.paramRange().length);
-
-        auto len = m.paramRange().length.text;
-        switch (m.isConst) {
-        case true:
-            return "MOCK_CONST_METHOD" ~ len;
-        default:
-            return "MOCK_METHOD" ~ len;
-        }
+    static string gmockMacro(size_t len, bool isConst)
+    in {
+        assert(len <= 10);
+    }
+    body {
+        if (isConst)
+            return "MOCK_CONST_METHOD" ~ len.text;
+        else
+            return "MOCK_METHOD" ~ len.text;
     }
 
     static void ignore() {
@@ -76,7 +72,7 @@ body {
             default:
                 logger.errorf(
                     "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
-                    op);
+                        op);
                 return "operator not supported";
             }
         }
@@ -84,19 +80,19 @@ body {
         static void genMockMethod(CppMethodOp m, CppModule hdr) {
             string params = m.paramRange().joinParams();
             string gmock_name = translateOp(m.op().str);
-            string gmock_method = gmockMethod(m);
-            string stmt = format("%s(%s, %s(%s))", gmock_method, gmock_name,
-                m.returnType().txt, params);
+            string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
+            string stmt = format("%s(%s, %s(%s))", gmock_macro, gmock_name,
+                    m.returnType().txt, params);
             hdr.stmt(stmt);
         }
 
-        static void genCallMock(CppMethodOp m, CppModule hdr) {
+        static void genMockCaller(CppMethodOp m, CppModule hdr) {
             import dsrcgen.cpp : E;
 
             string gmock_name = translateOp(m.op().str);
 
             CppModule code = hdr.method_inline(true, m.returnType.txt,
-                m.name.str, m.isConst, m.paramRange().joinParams());
+                    m.name.str, m.isConst, m.paramRange().joinParams());
             auto call = E(gmock_name)(m.paramRange().joinParamNames);
 
             if (m.returnType().txt == "void") {
@@ -107,23 +103,60 @@ body {
         }
 
         genMockMethod(m, hdr);
-        genCallMock(m, hdr);
+        genMockCaller(m, hdr);
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
-        import cpptooling.data.representation : VirtualType;
+        const size_t MAX_GMOCK_PARAMS = 10;
 
-        logger.errorf(m.paramRange().length > 10,
-            "%s: Too many parameters in function to generate a correct google mock. Nr:%d",
-            m.name, m.paramRange().length);
+        void genMethodWithFewParams(CppMethod m, CppModule hdr) {
+            hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
+                    m.isConst), m.name.str(), m.returnType().txt, m.paramRange().joinParams()));
+            return;
+        }
 
-        string params = m.paramRange().joinParams();
-        string name = m.name().str;
-        string gmock_method = gmockMethod(m);
-        string stmt = format("%s(%s, %s(%s))", gmock_method, name, m.returnType().txt,
-            params);
+        void genMethodWithManyParams(CppMethod m, CppModule hdr) {
+            import std.range : chunks, enumerate;
+            import std.typecons : Tuple;
+            import dsrcgen.cpp : E;
 
-        hdr.stmt(stmt);
+            string orig_name = m.name().str;
+            string orig_ret_type = m.returnType().txt;
+
+            alias Mock_Call = Tuple!(string, "return_type", E, "expression");
+            Mock_Call[] mock_calls;
+
+            // Generate partial mock methods with <= 10 parameters each
+            auto param_chunks = chunks(m.paramRange(), MAX_GMOCK_PARAMS).enumerate(1);
+            foreach (part_no, param_chunk; param_chunks) {
+                string part_name = format("%s_part_%s", orig_name, part_no);
+                string mock_ret_type = (part_no < param_chunks.length) ? "void" : orig_ret_type;
+
+                hdr.stmt(format("%s(%s, %s(%s))",
+                        gmockMacro(param_chunk.length, m.isConst), part_name,
+                        mock_ret_type, param_chunk.joinParams()));
+
+                // Save how to call partial mock method later
+                mock_calls ~= Mock_Call(mock_ret_type, E(part_name)(param_chunk.joinParamNames()));
+            }
+
+            // Generate mock method that delegates to partial mock methods
+            CppModule code = hdr.method_inline(true  /*virtual*/ , orig_ret_type, orig_name,
+                    m.isConst, m.paramRange().joinParams());
+            foreach (call; mock_calls) {
+                if (call.return_type == "void") {
+                    code.stmt(call.expression);
+                } else {
+                    code.return_(call.expression);
+                }
+            }
+        }
+
+        if (m.paramRange().length <= MAX_GMOCK_PARAMS) {
+            genMethodWithFewParams(m, hdr);
+        } else {
+            genMethodWithManyParams(m, hdr);
+        }
     }
 
     auto ns = hdr.namespace(params.getMainNs().str);
@@ -169,8 +202,8 @@ auto makeGmock(ClassT)(CppClass c) {
 
         auto params = m_.paramRange.array();
         auto m = CppMethod(m_.name, params, m_.returnType,
-            CppAccess(AccessType.Public), CppConstMethod(m_.isConst),
-            CppVirtualMethod(VirtualType.Pure));
+                CppAccess(AccessType.Public), CppConstMethod(m_.isConst),
+                CppVirtualMethod(VirtualType.Pure));
         return m;
     }
 
