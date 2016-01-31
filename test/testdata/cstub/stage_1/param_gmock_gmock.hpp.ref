@@ -6,6 +6,8 @@
 namespace TestDouble {
 class MockI_TestDouble : public I_TestDouble {
 public:
+    virtual ~MockI_TestDouble() {}
+
     MOCK_METHOD1(tiger, unsigned char(const unsigned int x0));
     MOCK_METHOD1(cyber, unsigned char(const unsigned int x0));
     MOCK_METHOD0(func_void, void());

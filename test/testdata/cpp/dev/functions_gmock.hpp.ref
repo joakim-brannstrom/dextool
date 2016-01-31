@@ -7,6 +7,8 @@ namespace ns {
 namespace TestDouble {
 class MockI_TestDouble : public I_TestDouble {
 public:
+    virtual ~MockI_TestDouble() {}
+
     MOCK_METHOD0(func_void, void());
     MOCK_METHOD0(func_return, int());
     MOCK_METHOD1(func_one_named, int(int a));

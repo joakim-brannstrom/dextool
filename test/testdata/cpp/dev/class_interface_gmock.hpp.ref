@@ -6,6 +6,8 @@
 namespace TestDouble {
 class MockSimple : public Simple {
 public:
+    virtual ~MockSimple() {}
+
     MOCK_METHOD0(func1, int());
     MOCK_METHOD1(func2, void(int x));
     MOCK_METHOD1(func2, void(double x));

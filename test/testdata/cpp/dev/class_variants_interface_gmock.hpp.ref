@@ -7,12 +7,16 @@ namespace no_inherit {
 namespace TestDouble {
 class MockVirtualWithDtor : public VirtualWithDtor {
 public:
+    virtual ~MockVirtualWithDtor() {}
+
 };
 } //NS:TestDouble
 
 namespace TestDouble {
 class MockCtorNotAffectingVirtualClassificationAsYes : public CtorNotAffectingVirtualClassificationAsYes {
 public:
+    virtual ~MockCtorNotAffectingVirtualClassificationAsYes() {}
+
     MOCK_METHOD0(foo, void());
 };
 } //NS:TestDouble
@@ -20,6 +24,8 @@ public:
 namespace TestDouble {
 class MockCtorNotAffectingVirtualClassificationAsPure : public CtorNotAffectingVirtualClassificationAsPure {
 public:
+    virtual ~MockCtorNotAffectingVirtualClassificationAsPure() {}
+
     MOCK_METHOD0(foo, void());
 };
 } //NS:TestDouble
@@ -27,6 +33,8 @@ public:
 namespace TestDouble {
 class MockCommonPatternForPureInterface1 : public CommonPatternForPureInterface1 {
 public:
+    virtual ~MockCommonPatternForPureInterface1() {}
+
     MOCK_METHOD0(expect_func_to_be_mocked, void());
 };
 } //NS:TestDouble
@@ -34,6 +42,8 @@ public:
 namespace TestDouble {
 class MockCommonPatternForPureInterface2 : public CommonPatternForPureInterface2 {
 public:
+    virtual ~MockCommonPatternForPureInterface2() {}
+
     MOCK_METHOD0(expect_func_to_be_mocked, void());
 };
 } //NS:TestDouble
@@ -41,6 +51,8 @@ public:
 namespace TestDouble {
 class MockAllProtPrivMadePublic : public AllProtPrivMadePublic {
 public:
+    virtual ~MockAllProtPrivMadePublic() {}
+
     MOCK_METHOD0(a_protected, void());
     MOCK_METHOD0(a_private, void());
 };
@@ -51,6 +63,8 @@ namespace inherit {
 namespace TestDouble {
 class MockDerivedVirtual : public DerivedVirtual {
 public:
+    virtual ~MockDerivedVirtual() {}
+
     MOCK_METHOD0(derived_func, void());
 };
 } //NS:TestDouble

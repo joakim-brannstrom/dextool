@@ -38,6 +38,7 @@ in {
     assert(in_c.virtualType.among(VirtualType.Pure, VirtualType.Yes));
 }
 body {
+    import std.ascii : newline;
     import std.algorithm : each;
     import std.conv : text;
     import std.format : format;
@@ -182,6 +183,7 @@ body {
     ns.suppressIndent(1);
     auto c = ns.class_("Mock" ~ in_c.name().str, "public " ~ in_c.name().str);
     auto pub = c.public_();
+    pub.dtor(true, "Mock" ~ in_c.name().str)[$.end = " {}" ~ newline];
 
     foreach (m; in_c.methodRange()) {
         // dfmt off

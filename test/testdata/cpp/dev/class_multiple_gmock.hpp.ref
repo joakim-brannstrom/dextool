@@ -6,6 +6,8 @@
 namespace TestDouble {
 class MockGlobal1 : public Global1 {
 public:
+    virtual ~MockGlobal1() {}
+
     MOCK_CONST_METHOD0(func1, void());
 };
 } //NS:TestDouble
@@ -13,6 +15,8 @@ public:
 namespace TestDouble {
 class MockGlobal2 : public Global2 {
 public:
+    virtual ~MockGlobal2() {}
+
     MOCK_CONST_METHOD0(func1, void());
 };
 } //NS:TestDouble
@@ -20,6 +24,8 @@ public:
 namespace TestDouble {
 class MockGlobal3 : public Global3 {
 public:
+    virtual ~MockGlobal3() {}
+
     MOCK_METHOD0(func1, void());
 };
 } //NS:TestDouble
@@ -29,6 +35,8 @@ namespace ns2 {
 namespace TestDouble {
 class MockInsideNs2 : public InsideNs2 {
 public:
+    virtual ~MockInsideNs2() {}
+
     MOCK_CONST_METHOD0(func1, void());
 };
 } //NS:TestDouble
@@ -37,6 +45,8 @@ public:
 namespace TestDouble {
 class MockInsideNs1 : public InsideNs1 {
 public:
+    virtual ~MockInsideNs1() {}
+
     MOCK_CONST_METHOD0(func1, void());
 };
 } //NS:TestDouble
