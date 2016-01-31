@@ -70,8 +70,7 @@ body {
             case "==":
                 return "opEquals";
             default:
-                logger.errorf(
-                    "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
+                logger.errorf("Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
                         op);
                 return "operator not supported";
             }
@@ -107,7 +106,7 @@ body {
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
-        const size_t MAX_GMOCK_PARAMS = 10;
+        enum MAX_GMOCK_PARAMS = 10;
 
         void genMethodWithFewParams(CppMethod m, CppModule hdr) {
             hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
@@ -116,40 +115,60 @@ body {
         }
 
         void genMethodWithManyParams(CppMethod m, CppModule hdr) {
-            import std.range : chunks, enumerate;
-            import std.typecons : Tuple;
+            import std.algorithm : each;
+            import std.range : chunks, enumerate, dropBackOne;
             import dsrcgen.cpp : E;
 
-            string orig_name = m.name().str;
-            string orig_ret_type = m.returnType().txt;
-
-            alias Mock_Call = Tuple!(string, "return_type", E, "expression");
-            Mock_Call[] mock_calls;
-
-            // Generate partial mock methods with <= 10 parameters each
-            auto param_chunks = chunks(m.paramRange(), MAX_GMOCK_PARAMS).enumerate(1);
-            foreach (part_no, param_chunk; param_chunks) {
-                string part_name = format("%s_part_%s", orig_name, part_no);
-                string mock_ret_type = (part_no < param_chunks.length) ? "void" : orig_ret_type;
-
-                hdr.stmt(format("%s(%s, %s(%s))",
-                        gmockMacro(param_chunk.length, m.isConst), part_name,
-                        mock_ret_type, param_chunk.joinParams()));
-
-                // Save how to call partial mock method later
-                mock_calls ~= Mock_Call(mock_ret_type, E(part_name)(param_chunk.joinParamNames()));
+            static string partName(string name, size_t part_no) {
+                return format("%s_part_%s", name, part_no);
             }
 
-            // Generate mock method that delegates to partial mock methods
-            CppModule code = hdr.method_inline(true  /*virtual*/ , orig_ret_type, orig_name,
-                    m.isConst, m.paramRange().joinParams());
-            foreach (call; mock_calls) {
-                if (call.return_type == "void") {
-                    code.stmt(call.expression);
+            static void genPart(T)(size_t part_no, T a, CppMethod m,
+                    CppModule code, CppModule delegate_mock) {
+                // inject gmock macro
+                code.stmt(format("%s(%s, void(%s))", gmockMacro(a.length,
+                        m.isConst), partName(m.name().str, part_no), a.joinParams));
+                //// inject delegation call to gmock macro
+                delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
+            }
+
+            static void genLastPart(T)(size_t part_no, T p, CppMethod m,
+                    CppModule code, CppModule delegate_mock) {
+                auto part_name = partName(m.name().str, part_no);
+                code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length,
+                        m.isConst), part_name, m.returnType().txt, p.joinParams));
+
+                auto stmt = E(part_name)(p.joinParamNames);
+
+                if (m.returnType().txt == "void") {
+                    delegate_mock.stmt(stmt);
                 } else {
-                    code.return_(call.expression);
+                    delegate_mock.return_(stmt);
                 }
             }
+
+            // Code block for gmock macros
+            auto code = hdr.base();
+            code.suppressIndent(1);
+
+            // Generate mock method that delegates to partial mock methods
+            auto delegate_mock = hdr.method_inline(true, m.returnType().txt,
+                    m.name().str, m.isConst, m.paramRange().joinParams());
+
+            auto param_chunks = chunks(m.paramRange(), MAX_GMOCK_PARAMS);
+
+            // dfmt off
+            param_chunks
+                .save // don't modify the range
+                .dropBackOne // separate last chunk to simply logic,
+                             // all methods will thus return void
+                .enumerate(1)
+                .each!(a => genPart(a.index, a.value, m, code, delegate_mock));
+            // dfmt on
+
+            // if the mocked function returns a value it is simulated via the
+            // "last part".
+            genLastPart(param_chunks.length, param_chunks.back, m, code, delegate_mock);
         }
 
         if (m.paramRange().length <= MAX_GMOCK_PARAMS) {
@@ -201,9 +220,8 @@ auto makeGmock(ClassT)(CppClass c) {
         import std.array : array;
 
         auto params = m_.paramRange.array();
-        auto m = CppMethod(m_.name, params, m_.returnType,
-                CppAccess(AccessType.Public), CppConstMethod(m_.isConst),
-                CppVirtualMethod(VirtualType.Pure));
+        auto m = CppMethod(m_.name, params, m_.returnType, CppAccess(AccessType.Public),
+                CppConstMethod(m_.isConst), CppVirtualMethod(VirtualType.Pure));
         return m;
     }
 

@@ -52,6 +52,14 @@ import std.range : isForwardRange;
         return payload[i];
     }
 
+    @property auto opIndex() {
+        return payload[];
+    }
+
+    @property typeof(this) opSlice(size_t lower, size_t upper) {
+        return ArrayRange(payload[lower .. upper]);
+    }
+
     @property auto length() @safe pure nothrow {
         return payload.length;
     }
