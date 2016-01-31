@@ -67,6 +67,7 @@ configuration "unittest" {
 
     targetName "unittest"
     targetType "executable"
+    buildType "unittest-cov"
     excludedSourceFiles "source/test/tok_main.d"
     mainSourceFile "test/ut_main.d"
 
