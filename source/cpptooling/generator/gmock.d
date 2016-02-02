@@ -121,7 +121,7 @@ body {
             import dsrcgen.cpp : E;
 
             static string partName(string name, size_t part_no) {
-                return format("%s_part_%s", name, part_no);
+                return format("%s_MockPart%s", name, part_no);
             }
 
             static void genPart(T)(size_t part_no, T a, CppMethod m,
