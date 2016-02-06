@@ -90,7 +90,7 @@ struct FunctionVisitor {
     }
 }
 
-/** Extract information regarding a inheritance for a class.
+/** Extract information regarding a class inheritance.
  *
  */
 struct InheritVisitor {
@@ -133,7 +133,7 @@ struct InheritVisitor {
         auto c_ref = c.referenced;
         GatherNs gather;
         backtrackNode!(kind => kind == CXCursorKind.CXCursor_Namespace)(c_ref,
-            gather, "cxx_base -> ns", 1);
+                gather, "cxx_base -> ns", 1);
 
         import std.algorithm : each;
         import std.range : retro;
@@ -147,7 +147,7 @@ struct InheritVisitor {
     // TODO is backtracker useful in other places? moved to allow it to be
     // reused
     static void backtrackNode(alias pred = a => true, T)(ref Cursor c,
-        ref T callback, string log_txt, int depth) {
+            ref T callback, string log_txt, int depth) {
         import std.range : repeat;
 
         auto curr = c;
@@ -224,7 +224,11 @@ struct ClassDescendVisitor {
         case CXCursor_ClassDecl:
             // Another visitor must analyze the nested class to allow us to
             // construct a correct representation.
-            data.put(ClassVisitor.make(c).visit(c), cast(TypedefType!CppAccess) accessType);
+            // TODO hmm a CppNsStack may not be foolproof. Investigate if it is
+            // needed to use a nesting structure that also describe the class
+            // it reside in.
+            data.put(ClassVisitor.make(c, data.resideInNs.dup).visit(c),
+                    cast(TypedefType!CppAccess) accessType);
             descend = false;
             break;
         default:
@@ -245,8 +249,8 @@ private:
 
     void applyDestructor(ref Cursor c, ref Cursor parent) {
         auto name = CppMethodName(c.spelling);
-        auto tor = CppDtor(name, accessType,
-            CppVirtualMethod(c.func.isVirtual ? VirtualType.Yes : VirtualType.No));
+        auto tor = CppDtor(name, accessType, CppVirtualMethod(c.func.isVirtual
+                ? VirtualType.Yes : VirtualType.No));
         logger.info("dtor: ", tor.toString);
         data.put(tor);
     }
@@ -265,8 +269,7 @@ private:
 
             if (name_.length <= 8) {
                 return false;
-            } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+",
-                    "-", "*")) {
+            } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+", "-", "*")) {
                 return true;
             }
 
@@ -286,12 +289,12 @@ private:
 
         if (helperIsOperator(name)) {
             auto op = CppMethodOp(name, params, return_type, accessType,
-                CppConstMethod(c.func.isConst), is_virtual);
+                    CppConstMethod(c.func.isConst), is_virtual);
             logger.info("operator: ", op.toString);
             data.put(op);
         } else {
             auto method = CppMethod(name, params, return_type, accessType,
-                CppConstMethod(c.func.isConst), is_virtual);
+                    CppConstMethod(c.func.isConst), is_virtual);
             logger.info("method: ", method.toString);
             data.put(method);
         }
@@ -306,25 +309,26 @@ private:
  */
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
-        CppClass, CxLocation, VirtualType;
+        CppClass, CxLocation, VirtualType, CppNsStack, CppInherit;
 
     /** Make a ClassVisitor to descend a Clang Cursor.
      *
      * Static make to create ClassVisitor objects to avoid the unnecessary storage
      * of a Cursor but still derive parameters from the Cursor.
      */
-    static auto make(ref Cursor c) {
+    static auto make(ref Cursor c, CppNsStack reside_in_ns) {
         auto loc = toInternal!CxLocation(c.location());
         auto name = CppClassName(c.spelling);
-        auto r = ClassVisitor(name, loc);
+        auto r = ClassVisitor(name, loc, reside_in_ns);
         return r;
     }
 
     /// The constructor is disabled to force the class to be in a consistent state.
     @disable this();
 
-    private this(CppClassName name, CxLocation loc) {
-        this.data = CppClass(name, loc);
+    //TODO consider making it public. The reason for private is dubious.
+    private this(CppClassName name, CxLocation loc, CppNsStack reside_in_ns) {
+        this.data = CppClass(name, loc, CppInherit[].init, reside_in_ns);
     }
 
     auto visit(ref Cursor c) {
@@ -361,6 +365,7 @@ struct NamespaceDescendVisitor {
 
     @disable this();
 
+    //TODO why using NullableRef? Avoid runtime errors....
     this(NullableRef!CppNamespace data) {
         if (data.isNull) {
             logger.fatal("CppNamespace parameter is null");
@@ -383,7 +388,7 @@ struct NamespaceDescendVisitor {
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
             // visit node to find nested classes
-            data.put(ClassVisitor.make(c).visit(c));
+            data.put(ClassVisitor.make(c, data.resideInNs.dup).visit(c));
             break;
         case CXCursor_FunctionDecl:
             data.put(FunctionVisitor.make(c).visit(c));
@@ -496,8 +501,10 @@ struct ParseContext {
         logNode(c, depth);
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
+            import cpptooling.data.representation : CppNsStack;
+
             // visit node to find nested classes
-            root.put(ClassVisitor.make(c).visit(c));
+            root.put(ClassVisitor.make(c, CppNsStack.init).visit(c));
             break;
         case CXCursor_CXXBaseSpecifier:
             descend = false;

@@ -33,7 +33,7 @@ public:
 namespace ns {
 namespace ns2 {
 namespace TestDouble {
-class MockInsideNs2 : public InsideNs2 {
+class MockInsideNs2 : public ::ns::ns2::InsideNs2 {
 public:
     virtual ~MockInsideNs2() {}
 
@@ -43,7 +43,7 @@ public:
 
 } //NS:ns2
 namespace TestDouble {
-class MockInsideNs1 : public InsideNs1 {
+class MockInsideNs1 : public ::ns::InsideNs1 {
 public:
     virtual ~MockInsideNs1() {}
 

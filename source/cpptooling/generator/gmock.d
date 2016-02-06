@@ -4,7 +4,7 @@ Date: 2015, Joakim Brännström
 License: GPL
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Generate a google mock implementation of a pure C++ interface.
+Generate a google mock implementation of a C++ class with at least one virtual.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -24,12 +24,24 @@ module cpptooling.generator.gmock;
 
 import dsrcgen.cpp : CppModule;
 
-import cpptooling.data.representation : CppClass;
+import cpptooling.data.representation : CppClass, CppNamespace;
 
 @safe:
 
-/// Assuming that in_c is pure virtual. Therefor the logic is simpler.
-/// TODO add support for const functions.
+/** Generate a Google Mock that implements in_c.
+ *
+ * Gmock has a restriction of max 10 parameters in a method. This gmock
+ * generator has a work-around for the limitation by splitting the parameters
+ * over many gmock functions. To fullfil the interface the generator then
+ * generates an inlined function that in turn calls the gmocked functions.
+ *
+ * See test case class_interface_more_than_10_params.hpp.
+ *
+ * Params:
+ *   in_c: Class to generate a mock implementation of.
+ *   hdr: Header to generate the code in.
+ *   params: tooling parameters that affects namespace the mock is generated in.
+ */
 void generateGmock(ParamT)(CppClass in_c, CppModule hdr, ParamT params)
 in {
     import std.algorithm : among;
@@ -39,9 +51,10 @@ in {
 }
 body {
     import std.ascii : newline;
-    import std.algorithm : each;
+    import std.algorithm : each, joiner, map;
     import std.conv : text;
     import std.format : format;
+    import std.range : chain, only, retro, takeOne;
     import std.variant : visit;
 
     import cpptooling.data.representation;
@@ -181,7 +194,18 @@ body {
 
     auto ns = hdr.namespace(params.getMainNs().str);
     ns.suppressIndent(1);
-    auto c = ns.class_("Mock" ~ in_c.name().str, "public " ~ in_c.name().str);
+    // dfmt off
+    // fully qualified class the mock inherit from
+    auto base_class = "public " ~
+        chain(
+              // when joined ensure the qualifier start with "::"
+              in_c.nsNestingRange.takeOne.map!(a => ""),
+              in_c.nsNestingRange.retro.map!(a => a.str),
+              only(in_c.name().str))
+        .joiner("::")
+        .text;
+    // dfmt on
+    auto c = ns.class_("Mock" ~ in_c.name().str, base_class);
     auto pub = c.public_();
     pub.dtor(true, "Mock" ~ in_c.name().str)[$.end = " {}" ~ newline];
 
@@ -227,7 +251,7 @@ auto makeGmock(ClassT)(CppClass c) {
         return m;
     }
 
-    auto rclass = CppClass(c.name, c.location, c.inherits);
+    auto rclass = CppClass(c.name, c.location, c.inherits, c.resideInNs);
     rclass.setKind(ClassT.Gmock);
     //dfmt off
     foreach (m_in; c.methodRange) {
