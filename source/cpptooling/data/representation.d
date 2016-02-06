@@ -266,7 +266,8 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     }
 
     // using cache to avoid getName is called twice.
-    return r.enumerate.map!(a => getName(a.value, a.index)).filter!(a => a.length > 0).joiner(", ").text();
+    return r.enumerate.map!(a => getName(a.value, a.index)).filter!(a => a.length > 0)
+        .joiner(", ").text();
 }
 
 /// Make a variadic parameter.
@@ -327,13 +328,14 @@ const:
             break;
         case Kind.array:
             formattedWrite(app, variable.type.info.fmt,
-                variable.type.info.elementType, variable.name.str, variable.type.info.indexes);
+                    variable.type.info.elementType, variable.name.str, variable.type.info.indexes);
             break;
         case Kind.funcPtr:
             formattedWrite(app, variable.type.info.fmt, variable.name.str);
             break;
         case Kind.null_:
-            logger.error("Type of global variable is null. Identifier ", variable.name.str);
+            logger.error("Type of global variable is null. Identifier ",
+                    variable.name.str);
             break;
         }
         formattedWrite(app, "; // %s", location());
@@ -457,8 +459,8 @@ pure @safe nothrow struct CFunction {
     @disable this();
 
     /// C function representation.
-    this(const CFunctionName name, const CxParam[] params_,
-        const CxReturnType return_type, const VariadicType is_variadic, const CxLocation loc) {
+    this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
+            const VariadicType is_variadic, const CxLocation loc) {
         this.name_ = name;
         this.returnType_ = return_type;
         this.isVariadic_ = is_variadic;
@@ -655,9 +657,8 @@ pure @safe nothrow struct CppMethod {
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params,
-        const CxReturnType return_type, const CppAccess access,
-        const CppConstMethod const_, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
+            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name_ = name;
         this.returnType_ = return_type;
         this.accessType_ = access;
@@ -670,14 +671,14 @@ pure @safe nothrow struct CppMethod {
     }
 
     /// Function with no parameters.
-    this(const CppMethodName name, const CxReturnType return_type,
-        const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CxReturnType return_type, const CppAccess access,
+            const CppConstMethod const_, const CppVirtualMethod virtual) {
         this(name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
-        const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
+            const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
         CxReturnType void_ = makeTypeKind("void", false, false, false);
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
@@ -725,9 +726,8 @@ pure @safe nothrow struct CppMethodOp {
 
     @disable this();
 
-    this(const CppMethodName name, const CxParam[] params,
-        const CxReturnType return_type, const CppAccess access,
-        const CppConstMethod const_, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
+            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
         this.name_ = name;
         this.returnType_ = return_type;
         this.accessType_ = access;
@@ -740,14 +740,14 @@ pure @safe nothrow struct CppMethodOp {
     }
 
     /// Operator with no parameters.
-    this(const CppMethodName name, const CxReturnType return_type,
-        const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+    this(const CppMethodName name, const CxReturnType return_type, const CppAccess access,
+            const CppConstMethod const_, const CppVirtualMethod virtual) {
         this(name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Operator with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
-        const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
+            const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
         CxReturnType void_ = makeTypeKind("void", false, false, false);
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
@@ -877,6 +877,7 @@ pure @safe nothrow struct CppClass {
     private {
         CppClassName name_;
         CppInherit[] inherits_;
+        CppNsStack reside_in_ns;
 
         VirtualType isVirtual_ = VirtualType.Unknown;
 
@@ -897,8 +898,10 @@ pure @safe nothrow struct CppClass {
 
     @disable this();
 
-    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc,
+            const CppInherit[] inherits, const CppNsStack ns) {
         this.name_ = name;
+        this.reside_in_ns = ns.dup;
 
         () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
 
@@ -908,16 +911,23 @@ pure @safe nothrow struct CppClass {
         setUniqueId(this.name_.str);
     }
 
+    //TODO remove
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
+        this(name, loc, inherits, CppNsStack.init);
+    }
+
+    //TODO remove
     this(const CppClassName name, const CxLocation loc) {
-        this(name, loc, CppInherit[].init);
+        this(name, loc, CppInherit[].init, CppNsStack.init);
     }
 
+    //TODO remove
     this(const CppClassName name) {
-        this(name, CxLocation("noloc", 0, 0), CppInherit[].init);
+        this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
     }
 
-    void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
-            || is(T == CppDtor) || is(T == CppMethodOp)) {
+    void put(T)(T func) @trusted 
+            if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
         auto f = CppFunc(func);
 
         final switch (cast(TypedefType!CppAccess) func.accessType) {
@@ -1002,6 +1012,17 @@ pure @safe nothrow struct CppClass {
         return arrayRange(classes_priv);
     }
 
+    /** Traverse stack from top to bottom.
+     * The implementation of the stack is such that new elements are appended
+     * to the end. Therefor the range normal direction is from the end of the
+     * array to the beginning.
+     */
+    auto nsNestingRange() @nogc {
+        import std.range : retro;
+
+        return arrayRange(reside_in_ns).retro;
+    }
+
     auto commentRange() @nogc {
         return arrayRange(cmnt);
     }
@@ -1030,30 +1051,36 @@ const:
         auto begin_class =
             chain(
                   only("class", name_.str).joiner(" "),
-                  inherits.takeOne.map!(a => " : ").joiner(""),
+                  inherits.takeOne.map!(a => " : ").joiner(),
                   inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
                   only(" { // isVirtual", to!string(virtualType), location.toString).joiner(" ")
                  );
-        auto end_class = only("}; //Class:", name_.str).joiner("");
+        auto end_class =
+            chain(
+                  only("}; //Class:").joiner(),
+                  reside_in_ns.map!(a => cast(string) a).joiner("::"),
+                  reside_in_ns.takeOne.map!(a => "::").joiner(),
+                  only(name_.str).joiner()
+                 );
 
         return
             chain(
                   cmnt.map!(a => format("// %s", a)).joiner(newline),
                   begin_class, newline, // <- not a typo, easier to see newline
                   // methods
-                  methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(""),
-                  methods_pub.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(""),
-                  methods_prot.takeOne.map!(a => "protected:" ~ newline).joiner(""),
-                  methods_prot.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(""),
-                  methods_priv.takeOne.map!(a => "private:" ~ newline).joiner(""),
-                  methods_priv.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(""),
+                  methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
+                  methods_pub.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(),
+                  methods_prot.takeOne.map!(a => "protected:" ~ newline).joiner(),
+                  methods_prot.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(),
+                  methods_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
+                  methods_priv.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(),
                   // classes
-                  classes_pub.takeOne.map!(a => "public:" ~ newline).joiner(""),
-                  classes_pub.map!(a => a.toString).roundRobin(newline.repeat.take(classes_pub.length)).joiner(""),
-                  classes_prot.takeOne.map!(a => "protected:" ~ newline).joiner(""),
-                  classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(""),
-                  classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(""),
-                  classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(""),
+                  classes_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
+                  classes_pub.map!(a => a.toString).roundRobin(newline.repeat.take(classes_pub.length)).joiner(),
+                  classes_prot.takeOne.map!(a => "protected:" ~ newline).joiner(),
+                  classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(),
+                  classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
+                  classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(),
                   end_class
                  )
             .text;
@@ -1082,6 +1109,10 @@ const:
 
         auto inherits() {
             return inherits_;
+        }
+
+        auto resideInNs() {
+            return reside_in_ns;
         }
     }
 }
@@ -1136,7 +1167,8 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
         break;
     case VirtualType.Unknown:
         // ctor cannot affect purity evaluation
-        if (mVirt.t == Rval.Type.Dtor && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
+        if (mVirt.t == Rval.Type.Dtor
+                && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
             r = VirtualType.Pure;
         } else if (mVirt.t != Rval.Type.Ctor) {
             r = mVirt.value;
@@ -1148,7 +1180,7 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
         import std.conv : to;
 
         logger.trace(p.type, ":", to!string(mVirt), ":",
-            to!string(current), "->", to!string(r));
+                to!string(current), "->", to!string(r));
     }
 
     return r;
@@ -1239,7 +1271,7 @@ const:
         import std.conv : text;
         import std.format : format;
 
-        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner("");
+        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner();
         auto ns_full_name = stack.map!(a => cast(string) a).joiner("::");
 
         // dfmt off
@@ -1263,6 +1295,10 @@ const:
 
         auto name() {
             return name_;
+        }
+
+        auto resideInNs() {
+            return stack;
         }
     }
 }
@@ -1324,14 +1360,14 @@ const:
 
         // dfmt on
         return chain(only(format("// %s", location().toString)),
-            globals.takeOne.map!(a => ""), // newline
-            globals.map!(a => a.toString),
-            funcs.takeOne.map!(a => ""), // newline
-            funcs.map!(a => a.toString),
-            classes.takeOne.map!(a => ""), // newline
-            classes.map!(a => a.toString),
-            ns.takeOne.map!(a => ""), // newline
-            ns.map!(a => a.toString), only("")).joiner(newline).text;
+                globals.takeOne.map!(a => ""), // newline
+                globals.map!(a => a.toString),
+                funcs.takeOne.map!(a => ""), // newline
+                funcs.map!(a => a.toString),
+                classes.takeOne.map!(a => ""), // newline
+                classes.map!(a => a.toString),
+                ns.takeOne.map!(a => ""), // newline
+                ns.map!(a => a.toString), only("")).joiner(newline).text;
         // dfmt off
     }
 }
@@ -1541,6 +1577,18 @@ protected:
 private:
   char* gun(int x, int y);
 }; //Class:Foo");
+}
+
+@Name("should be a class in a ns in the comment")
+unittest {
+    CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
+    auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
+
+    shouldEqualPretty(c.toString,
+                      "class A_Class { // isVirtual Unknown File:a.h Line:123 Column:45
+}; //Class:a_ns::another_ns::A_Class"
+                      );
+
 }
 
 @Name("should contain the inherited classes")

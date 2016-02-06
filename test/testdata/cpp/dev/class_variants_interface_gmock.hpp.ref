@@ -5,7 +5,7 @@
 
 namespace no_inherit {
 namespace TestDouble {
-class MockVirtualWithDtor : public VirtualWithDtor {
+class MockVirtualWithDtor : public ::no_inherit::VirtualWithDtor {
 public:
     virtual ~MockVirtualWithDtor() {}
 
@@ -13,7 +13,7 @@ public:
 } //NS:TestDouble
 
 namespace TestDouble {
-class MockCtorNotAffectingVirtualClassificationAsYes : public CtorNotAffectingVirtualClassificationAsYes {
+class MockCtorNotAffectingVirtualClassificationAsYes : public ::no_inherit::CtorNotAffectingVirtualClassificationAsYes {
 public:
     virtual ~MockCtorNotAffectingVirtualClassificationAsYes() {}
 
@@ -22,7 +22,7 @@ public:
 } //NS:TestDouble
 
 namespace TestDouble {
-class MockCtorNotAffectingVirtualClassificationAsPure : public CtorNotAffectingVirtualClassificationAsPure {
+class MockCtorNotAffectingVirtualClassificationAsPure : public ::no_inherit::CtorNotAffectingVirtualClassificationAsPure {
 public:
     virtual ~MockCtorNotAffectingVirtualClassificationAsPure() {}
 
@@ -31,7 +31,7 @@ public:
 } //NS:TestDouble
 
 namespace TestDouble {
-class MockCommonPatternForPureInterface1 : public CommonPatternForPureInterface1 {
+class MockCommonPatternForPureInterface1 : public ::no_inherit::CommonPatternForPureInterface1 {
 public:
     virtual ~MockCommonPatternForPureInterface1() {}
 
@@ -40,7 +40,7 @@ public:
 } //NS:TestDouble
 
 namespace TestDouble {
-class MockCommonPatternForPureInterface2 : public CommonPatternForPureInterface2 {
+class MockCommonPatternForPureInterface2 : public ::no_inherit::CommonPatternForPureInterface2 {
 public:
     virtual ~MockCommonPatternForPureInterface2() {}
 
@@ -49,7 +49,7 @@ public:
 } //NS:TestDouble
 
 namespace TestDouble {
-class MockAllProtPrivMadePublic : public AllProtPrivMadePublic {
+class MockAllProtPrivMadePublic : public ::no_inherit::AllProtPrivMadePublic {
 public:
     virtual ~MockAllProtPrivMadePublic() {}
 
@@ -61,7 +61,7 @@ public:
 } //NS:no_inherit
 namespace inherit {
 namespace TestDouble {
-class MockDerivedVirtual : public DerivedVirtual {
+class MockDerivedVirtual : public ::inherit::DerivedVirtual {
 public:
     virtual ~MockDerivedVirtual() {}
 
