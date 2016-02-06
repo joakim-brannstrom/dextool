@@ -26,7 +26,6 @@ import clang.Cursor;
 
 /** Travers a node tree and gather all paramdecl to an array.
  * Params:
- * T = Type that shall wrap TypeKindVariable.
  * cursor = A node containing ParmDecl nodes as children.
  * Example:
  * -----

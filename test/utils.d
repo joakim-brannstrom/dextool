@@ -9,6 +9,8 @@ import scriptlike;
 import std.path : asAbsolutePath, asNormalizedPath;
 
 struct TestEnv {
+    import std.ascii : newline;
+
     Path outdir;
     Path logdir;
     Path dextool;
@@ -26,13 +28,13 @@ struct TestEnv {
                     ["tmp:", outdir.toString],
                     ["logdir:", logdir.toString])
             .map!(a => leftJustifier(a[0], 10).text ~ a[1])
-            .joiner("\n")
+            .joiner(newline)
             .text;
         // dfmt on
     }
 
     void setup() {
-        writeln("Test environment:\n", toString);
+        writeln("Test environment:", newline, toString);
 
         mkdirRecurse(outdir);
 

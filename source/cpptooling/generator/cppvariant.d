@@ -112,7 +112,7 @@ import cpptooling.utility.nullvoid;
      *
      * Params:
      *   fname = file the content is intended to be written to.
-     *   data = data to write to the file.
+     *   hdr_data = data to write to the file.
      */
     void putFile(FileName fname, CppHModule hdr_data);
 

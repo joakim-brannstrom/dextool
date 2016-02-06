@@ -76,8 +76,6 @@ alias CppClassName = Typedef!(string, string.init, "CppClassName");
 alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
 
 alias CppClassVirtual = Typedef!(VirtualType, VirtualType.No, "CppClassVirtual");
-alias CppClassInherit = Tuple!(CppClassName, "name", CppClassNesting,
-    "nesting", CppAccess, "access");
 
 // Types for methods
 alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
@@ -805,6 +803,71 @@ const:
     }
 }
 
+pure @safe nothrow struct CppInherit {
+    private {
+        CppAccess access_;
+        CppClassName name_;
+        CppNsStack ns;
+    }
+
+    @disable this();
+
+    this(CppClassName name, CppAccess access) {
+        this.name_ = name;
+        this.access_ = access;
+    }
+
+    void put(CppNs ns) {
+        this.ns ~= ns;
+    }
+
+    auto nsRange() @nogc @safe pure nothrow {
+        return arrayRange(ns);
+    }
+
+const:
+
+    auto toString() {
+        import std.algorithm : map, joiner;
+        import std.range : chain, only;
+        import std.array : Appender, appender;
+        import std.typecons : TypedefType;
+        import std.string : toLower;
+        import std.conv : to, text;
+
+        auto app = appender!string();
+        app.put(to!string(cast(TypedefType!CppAccess) access_).toLower);
+        app.put(" ");
+
+        // dfmt off
+        app.put(chain(ns.map!(a => cast(string) a),
+                      only(cast(string) name_))
+                .joiner("::")
+                .text()
+                );
+        // dfmt on
+
+        return app.data;
+    }
+
+    invariant {
+        assert(name_.length > 0);
+        foreach (n; ns) {
+            assert(n.length > 0);
+        }
+    }
+
+    @property {
+        auto name() {
+            return this.name_;
+        }
+
+        auto access() {
+            return access_;
+        }
+    }
+}
+
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
@@ -813,7 +876,7 @@ pure @safe nothrow struct CppClass {
 
     private {
         CppClassName name_;
-        CppClassInherit[] inherits_;
+        CppInherit[] inherits_;
 
         VirtualType isVirtual_ = VirtualType.Unknown;
 
@@ -834,9 +897,11 @@ pure @safe nothrow struct CppClass {
 
     @disable this();
 
-    this(const CppClassName name, const CxLocation loc, const CppClassInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
         this.name_ = name;
-        this.inherits_ = inherits.dup;
+
+        () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
+
         setLocation(loc);
 
         ///TODO consider update so the identifier also depend on the namespace.
@@ -844,11 +909,11 @@ pure @safe nothrow struct CppClass {
     }
 
     this(const CppClassName name, const CxLocation loc) {
-        this(name, loc, CppClassInherit[].init);
+        this(name, loc, CppInherit[].init);
     }
 
     this(const CppClassName name) {
-        this(name, CxLocation("noloc", 0, 0), CppClassInherit[].init);
+        this(name, CxLocation("noloc", 0, 0), CppInherit[].init);
     }
 
     void put(T)(T func) @trusted if (is(T == CppMethod) || is(T == CppCtor)
@@ -891,6 +956,10 @@ pure @safe nothrow struct CppClass {
      */
     void put(string comment) {
         cmnt ~= comment;
+    }
+
+    void put(CppInherit inh) {
+        inherits_ ~= inh;
     }
 
     auto inheritRange() @nogc {
@@ -953,7 +1022,8 @@ const:
         import std.ascii : newline;
         import std.conv : to, text;
         import std.format : format;
-        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin, take;
+        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin,
+            take;
         import std.string : toLower;
 
         // dfmt off
@@ -961,13 +1031,7 @@ const:
             chain(
                   only("class", name_.str).joiner(" "),
                   inherits.takeOne.map!(a => " : ").joiner(""),
-                  inherits.map!(a => only(// public/prot/priv
-                                          to!string(cast (TypedefType!(typeof(a.access))) a.access).toLower,
-                                          " ",
-                                          a.nesting.str, // namespace
-                                          a.name.str // class name
-                                         ).joiner("")
-                               ).joiner(", "), // separate inherit statements
+                  inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
                   only(" { // isVirtual", to!string(virtualType), location.toString).joiner(" ")
                  );
         auto end_class = only("}; //Class:", name_.str).joiner("");
@@ -1481,13 +1545,10 @@ private:
 
 @Name("should contain the inherited classes")
 unittest {
-    CppClassInherit[] inherit;
-    inherit ~= CppClassInherit(CppClassName("pub"), CppClassNesting(""),
-        CppAccess(AccessType.Public));
-    inherit ~= CppClassInherit(CppClassName("prot"), CppClassNesting(""),
-        CppAccess(AccessType.Protected));
-    inherit ~= CppClassInherit(CppClassName("priv"), CppClassNesting(""),
-        CppAccess(AccessType.Private));
+    CppInherit[] inherit;
+    inherit ~= CppInherit(CppClassName("pub"), CppAccess(AccessType.Public));
+    inherit ~= CppInherit(CppClassName("prot"), CppAccess(AccessType.Protected));
+    inherit ~= CppInherit(CppClassName("priv"), CppAccess(AccessType.Private));
 
     auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
 
@@ -1735,4 +1796,42 @@ unittest {
 
     auto s = r.globalRange().dedup();
     shouldEqual(s.length, 1);
+}
+
+@Name("should be proper access specifiers for a inherit reference, no nesting")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    shouldEqual("public Class", ih.toString);
+
+    ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Protected));
+    shouldEqual("protected Class", ih.toString);
+
+    ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Private));
+    shouldEqual("private Class", ih.toString);
+}
+
+@Name("should be a inheritances of a class in namespaces")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    ih.put(CppNs("ns1"));
+    ih.toString.shouldEqual("public ns1::Class");
+
+    ih.put(CppNs("ns2"));
+    ih.toString.shouldEqual("public ns1::ns2::Class");
+
+    ih.put(CppNs("ns3"));
+    ih.toString.shouldEqual("public ns1::ns2::ns3::Class");
+}
+
+@Name("should be a class that inherits")
+unittest {
+    auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
+    ih.put(CppNs("ns1"));
+
+    auto c = CppClass(CppClassName("A"));
+    c.put(ih);
+
+    c.toString.shouldEqualPretty(
+        "class A : public ns1::Class { // isVirtual Unknown File:noloc Line:0 Column:0
+}; //Class:A");
 }
