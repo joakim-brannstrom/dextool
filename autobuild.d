@@ -144,10 +144,22 @@ struct Fsm {
 
             GenerateFsmAction(this, st);
 
-            flagTotalTestPassed = testErrorLog.length == 0 ? Yes.TotalTestPassed
-                : No.TotalTestPassed;
+            updateTotalTestStatus();
+
             st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError,
                     flagTotalTestPassed, travis);
+        }
+    }
+
+    void updateTotalTestStatus() {
+        if (testErrorLog.length != 0) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else if (flagUtTestPassed == No.UtTestPassed) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else if (flagCompileError == Yes.CompileError) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else {
+            flagTotalTestPassed = Yes.TotalTestPassed;
         }
     }
 

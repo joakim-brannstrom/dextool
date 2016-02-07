@@ -1,10 +1,15 @@
-# Overview
-Dextool is a suite of tools for analyzing and code generation of C/C++ source
+# dextool [![Build Status](https://travis-ci.org/joakim-brannstrom/dextool.svg?branch=master)](https://travis-ci.org/joakim-brannstrom/dextool)
+
+**dextool** is a suite of tools for analyzing and code generation of C/C++ source
 code.
 
+# Status
+**dextool** is beta quality. Stable release will be 1.0.
+
+# Overview
 The current focus is generation of test doubles for C code.
 
-### Building and installing
+# Building and installing
 To build dextool, run ```build.sh```.
 You may have to set the environment variable LFLAGS.
 
