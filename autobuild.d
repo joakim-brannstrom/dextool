@@ -7,11 +7,13 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module autobuild;
 
 import std.path : asAbsolutePath, asNormalizedPath;
+import std.typecons : Flag;
 
 import scriptlike;
 import utils;
 
 Flag!"SignalInterrupt" signalInterrupt;
+Flag!"TestsPassed" signalExitStatus;
 
 void echoOn() {
     .scriptlikeEcho = true;
@@ -93,8 +95,7 @@ auto GenerateFsmAction(T, TEnum)(ref T fsm, TEnum st) {
                            fsm.state%s();
                            break;
 
-                         },
-                typeof(fsm).stringof, TEnum.stringof, e, e));
+                         }, typeof(fsm).stringof, TEnum.stringof, e, e));
         }
     }
 }
@@ -116,7 +117,9 @@ struct Fsm {
         Doc_check_counter,
         Doc_build,
         Slocs,
-        AudioStatus
+        AudioStatus,
+        ExitOrRestart,
+        Exit
     }
 
     State st;
@@ -125,12 +128,13 @@ struct Fsm {
     // Signals used to determine next state
     Flag!"UtTestPassed" flagUtTestPassed;
     Flag!"CompileError" flagCompileError;
+    Flag!"TotalTestPassed" flagTotalTestPassed;
     uint docCount;
 
     alias ErrorMsg = Tuple!(Path, "fname", string, "msg");
     ErrorMsg[] testErrorLog;
 
-    void run(Path[] inotify_paths) {
+    void run(Path[] inotify_paths, Flag!"Travis" travis) {
         this.inotify_paths = inotify_paths;
 
         while (!signalInterrupt) {
@@ -140,15 +144,28 @@ struct Fsm {
 
             GenerateFsmAction(this, st);
 
-            auto flagTotalTestPassed = testErrorLog.length == 0 ? Yes.TotalTestPassed
-                : No.TotalTestPassed;
-            st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError, flagTotalTestPassed);
+            updateTotalTestStatus();
+
+            st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError,
+                    flagTotalTestPassed, travis);
         }
     }
 
-    static State next(State st, uint docCount,
-        Flag!"UtTestPassed" flagUtTestPassed,
-        Flag!"CompileError" flagCompileError, Flag!"TotalTestPassed" flagTotalTestPassed) {
+    void updateTotalTestStatus() {
+        if (testErrorLog.length != 0) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else if (flagUtTestPassed == No.UtTestPassed) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else if (flagCompileError == Yes.CompileError) {
+            flagTotalTestPassed = No.TotalTestPassed;
+        } else {
+            flagTotalTestPassed = Yes.TotalTestPassed;
+        }
+    }
+
+    static State next(State st, uint docCount, Flag!"UtTestPassed" flagUtTestPassed,
+            Flag!"CompileError" flagCompileError,
+            Flag!"TotalTestPassed" flagTotalTestPassed, Flag!"Travis" travis) {
         auto next_ = st;
 
         final switch (st) {
@@ -168,7 +185,7 @@ struct Fsm {
             next_ = State.Ut_run;
             break;
         case State.Ut_run:
-            next_ = State.AudioStatus;
+            next_ = State.ExitOrRestart;
             if (flagUtTestPassed)
                 next_ = State.Ut_cov;
             break;
@@ -178,10 +195,10 @@ struct Fsm {
         case State.Release_build:
             next_ = State.Release_test;
             if (flagCompileError)
-                next_ = State.AudioStatus;
+                next_ = State.ExitOrRestart;
             break;
         case State.Release_test:
-            next_ = State.AudioStatus;
+            next_ = State.ExitOrRestart;
             if (flagTotalTestPassed)
                 next_ = State.Test_passed;
             else
@@ -191,19 +208,26 @@ struct Fsm {
             next_ = State.Doc_check_counter;
             break;
         case State.Test_failed:
-            next_ = State.AudioStatus;
+            next_ = State.ExitOrRestart;
             break;
         case State.Doc_check_counter:
-            next_ = State.AudioStatus;
+            next_ = State.ExitOrRestart;
             if (docCount >= 10)
                 next_ = State.Doc_build;
             break;
-            next_ = State.AudioStatus;
         case State.Doc_build:
             next_ = State.Slocs;
             break;
         case State.Slocs:
+            next_ = State.ExitOrRestart;
+            break;
+        case State.ExitOrRestart:
             next_ = State.AudioStatus;
+            if (travis) {
+                next_ = State.Exit;
+            }
+            break;
+        case State.Exit:
             break;
         }
 
@@ -220,6 +244,9 @@ struct Fsm {
     void stateInit() {
         // force rebuild of doc and show code stat
         docCount = 10;
+
+        writeln("Watching the following paths for changes:");
+        inotify_paths.each!writeln;
     }
 
     void stateAudioStatus() {
@@ -420,6 +447,18 @@ struct Fsm {
             writeln(r.output);
         }
     }
+
+    void stateExitOrRestart() {
+    }
+
+    void stateExit() {
+        if (flagTotalTestPassed) {
+            .signalExitStatus = Yes.TestsPassed;
+        } else {
+            .signalExitStatus = No.TestsPassed;
+        }
+        .signalInterrupt = Yes.SignalInterrupt;
+    }
 }
 
 int main(string[] args) {
@@ -431,6 +470,11 @@ int main(string[] args) {
         writeln("error: Sanity check failed");
         return 1;
     }
+
+    import std.getopt;
+
+    bool run_and_exit;
+    getopt(args, "run_and_exit", &run_and_exit);
 
     setup();
 
@@ -452,10 +496,7 @@ int main(string[] args) {
 
     import std.stdio;
 
-    writeln("Watching the following paths for changes:");
-    inotify_paths.each!writeln;
+    (Fsm()).run(inotify_paths, run_and_exit ? Yes.Travis : No.Travis);
 
-    (Fsm()).run(inotify_paths);
-
-    return 0;
+    return signalExitStatus ? 0 : -1;
 }

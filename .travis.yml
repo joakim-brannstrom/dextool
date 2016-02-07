@@ -1,0 +1,33 @@
+language: d
+d:
+    - dmd
+
+os:
+    - linux
+
+sudo: required
+dist: trusty
+
+script: ./travis.sh
+
+notifications:
+    email: false
+
+# why doesn't this work?
+# I woudl like to "sudo: false" and remove the before_install
+# addons:
+#     apt:
+#         packages:
+#         - clang-3.7
+
+before_install:
+    # Add later version of Clang, apt from llvm.org. the repository link is for development version.
+    - sudo apt-key adv --fetch-keys http://llvm.org/apt/llvm-snapshot.gpg.key
+    - sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.7 main'
+    # install packages
+    - sudo apt-get -qq update
+    - sudo apt-get --force-yes -y -qq install libclang1-3.7
+    # - sudo apt-get --force-yes -y -qq install clang-3.7
+
+# env:
+    # - LFLAGS="-L/usr/lib/llvm-3.6/lib"
