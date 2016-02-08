@@ -62,7 +62,7 @@ configuration "devtool" {
 }
 
 configuration "unittest" {
-    // v0.5.5+ 3c2a33f3c7baa3516026561a131c651910b08e6a
+    // v0.5.8 f3ebdc8
     dependency "unit-threaded" path="unit-threaded"
 
     targetName "unittest"
