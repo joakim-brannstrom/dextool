@@ -1,0 +1,18 @@
+{
+    "name": "unit-threaded",
+    "description": "Advanced multi-threaded unit testing framework with minimal to no boilerplate",
+    "authors": ["Atila Neves"],
+    "homepage": "https://github.com/atilaneves/unit-threaded",
+    "copyright": "Copyright © 2013, Atila Neves",
+    "license": "BSD 3-clause",
+    "targetType": "library",
+    "configurations": [
+        { "name": "library" },
+        { "name": "unittest",
+          "targetType": "executable",
+          "sourcePaths": ["tests/pass"],
+          "sourceFiles": ["example/example_pass.d"],
+          "mainSourceFile": "example/example_pass.d"
+        }
+    ]
+}
