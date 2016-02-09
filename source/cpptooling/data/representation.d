@@ -1,38 +1,26 @@
-/// Written in the D programming language.
-/// Date: 2015, Joakim Brännström
-/// License: GPL
-/// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
-///
-/// Representation of the structure of C/C++ code in D.
-///
-/// The guiding principle for this module is: "Correct by construction".
-///  * After the data is created it should be "correct".
-///  * As far as possible avoid runtime errors.
-/// Therefor the default c'tor is disabled.
-///
-/// Design rules for Structural representation.
-///  * default c'tor disabled.
-///  * attributes "pure @safe nothrow" for the struct.
-///  * All c'tor parameters shall be const.
-///  * After c'tor "const:" shall be used.
-///  * Ranges for arrays shall use the ArrayRange struct.
-///  * Add mixin for Id and Location when the need arise.
-///  * const: (The ':' is not a typo) can affect var members thus all member
-///    shall be defined after imports.
-///
-/// This program is free software; you can redistribute it and/or modify
-/// it under the terms of the GNU General Public License as published by
-/// the Free Software Foundation; either version 2 of the License, or
-/// (at your option) any later version.
-///
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
-/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-/// GNU General Public License for more details.
-///
-/// You should have received a copy of the GNU General Public License
-/// along with this program; if not, write to the Free Software
-/// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+// Written in the D programming language.
+/**
+Date: 2015-2016, Joakim Brännström
+License: MPL-2, Mozilla Public License 2.0
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+Representation of the structure of C/C++ code in D.
+
+The guiding principle for this module is: "Correct by construction".
+ * After the data is created it should be "correct".
+ * As far as possible avoid runtime errors.
+Therefor the default c'tor is disabled.
+
+Design rules for Structural representation.
+ * default c'tor disabled.
+ * attributes "pure @safe nothrow" for the struct.
+ * All c'tor parameters shall be const.
+ * After c'tor "const:" shall be used.
+ * Ranges for arrays shall use the ArrayRange struct.
+ * Add mixin for Id and Location when the need arise.
+ * const: (The ':' is not a typo) can affect var members thus all member
+   shall be defined after imports.
+*/
 module cpptooling.data.representation;
 
 import std.array : Appender;
