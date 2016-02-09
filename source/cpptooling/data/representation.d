@@ -159,7 +159,7 @@ pure @safe nothrow struct CxLocation {
 }
 
 /// The source location.
-private template mixingSourceLocation() {
+private template mixinSourceLocation() {
     private CxLocation loc_;
 
     private void setLocation(CxLocation loc) {
@@ -287,7 +287,7 @@ pure @safe nothrow struct CxGlobalVariable {
     private TypeKindVariable variable;
 
     mixin mixinUniqueId;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -442,7 +442,7 @@ pure @safe nothrow struct CFunction {
     }
 
     mixin mixinUniqueId;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -882,7 +882,7 @@ pure @safe nothrow struct CppClass {
 
     mixin mixinUniqueId;
     mixin mixinKind;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -1299,7 +1299,7 @@ pure @safe nothrow struct CppRoot {
         CxGlobalVariable[] globals;
     }
 
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     this(in CxLocation loc) {
         setLocation(loc);
