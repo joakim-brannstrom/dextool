@@ -6,14 +6,15 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          "application.app_main",
                           "application.app",
+                          "application.app_main",
                           "application.cpptestdouble",
                           "application.ctestdouble",
+                          "application.types",
                           "application.utility",
-                          "cpptooling.analyzer.type",
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
+                          "cpptooling.analyzer.clang.utility",
                           "cpptooling.analyzer.clang.visitor",
                           "cpptooling.analyzer.type",
                           "cpptooling.data.representation",
