@@ -362,3 +362,21 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
       the Mozilla Public License, v. 2.0.
 
 
+==============================================================================
+Copyrights and Licenses for Third Party Software Distributed with deXtool:
+==============================================================================
+
+The following pieces of software have additional or alternate copyrights,
+licenses, and/or restrictions:
+
+Program             Directory
+-------             ---------
+test data           test/
+scriptlike          test/scriptlike
+Google Test         test/testdata/stage_4/fused_gtest/
+deimos-libclang     libclang/
+dsrcgen             dsrcgen/
+docopt              docopt/
+dstep               clang/
+clang hdrs          clang/resources/
+unit-threaded       unit-threaded/
