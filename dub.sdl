@@ -2,7 +2,7 @@ name "dextool"
 description "Suite of C/C++ tooling built on LLVM/Clang written in D"
 copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
-license "GPL"
+license "MPL-2"
 
 // v0.6.1-b.4
 dependency "docopt" path="docopt"
