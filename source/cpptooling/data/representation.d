@@ -886,8 +886,22 @@ pure @safe nothrow struct CppClass {
 
     @disable this();
 
+    /** Duplicate an existing classes.
+     * TODO also duplicate the dynamic arrays. For now it is "ok" to reuse
+     * them. But the duplication should really be done to ensure stability.
+     * Params:
+     *  other = class to duplicate.
+     */
+    this(CppClass other) {
+        this = other;
+    }
+
     this(const CppClassName name, const CxLocation loc,
-            const CppInherit[] inherits, const CppNsStack ns) {
+            const CppInherit[] inherits, const CppNsStack ns)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this.name_ = name;
         this.reside_in_ns = ns.dup;
 
@@ -900,21 +914,33 @@ pure @safe nothrow struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, loc, inherits, CppNsStack.init);
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc) {
+    this(const CppClassName name, const CxLocation loc)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, loc, CppInherit[].init, CppNsStack.init);
     }
 
     //TODO remove
-    this(const CppClassName name) {
+    this(const CppClassName name)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
     }
 
-    void put(T)(T func) @trusted 
+    void put(T)(T func) @trusted
             if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
         auto f = CppFunc(func);
 
@@ -1076,7 +1102,6 @@ const:
     }
 
     invariant() {
-        assert(name_.length > 0);
         foreach (i; inherits_) {
             assert(i.name.length > 0);
         }
