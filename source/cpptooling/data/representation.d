@@ -1127,6 +1127,24 @@ const:
         auto resideInNs() {
             return reside_in_ns;
         }
+
+        string fullyQualifiedName() {
+            //TODO optimize by only calculating once.
+
+            import std.array : array;
+            import std.algorithm : map, joiner;
+            import std.range : takeOne, only, chain, takeOne;
+            import std.utf : byChar, toUTF8;
+
+            // dfmt off
+            auto fqn = chain(
+                             reside_in_ns.map!(a => cast(string) a).joiner("::"),
+                             reside_in_ns.takeOne.map!(a => "::").joiner(),
+                             only(name_.str).joiner()
+                            );
+            return fqn.array().toUTF8;
+            // dfmt on
+        }
     }
 }
 
