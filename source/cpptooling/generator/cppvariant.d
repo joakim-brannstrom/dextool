@@ -51,8 +51,8 @@ import cpptooling.utility.nullvoid;
 @safe pure interface Parameters {
     import std.typecons : Tuple;
 
-    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName,
-        "globals", FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
+    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals",
+            FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();
@@ -211,14 +211,15 @@ private:
             prods.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
         }
         if (ctrl.doPostIncludes) {
-            prods.putFile(params.getFiles.post_incl, generatePostInclude(params.getFiles.post_incl));
+            prods.putFile(params.getFiles.post_incl,
+                    generatePostInclude(params.getFiles.post_incl));
         }
 
         if (ctrl.doGoogleMock) {
             import cpptooling.generator.gmock : generateGmockHdr;
 
-            prods.putFile(params.getFiles.gmock,
-                generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, modules.gmock));
+            prods.putFile(params.getFiles.gmock, generateGmockHdr(params.getFiles.hdr,
+                    params.getFiles.gmock, modules.gmock));
         }
     }
 }
@@ -429,7 +430,7 @@ body {
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
     static void eachNs(CppNamespace ns, Parameters params,
-        Generator.Modules modules, CppModule impl_singleton) {
+            Generator.Modules modules, CppModule impl_singleton) {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
