@@ -16,7 +16,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 import application.types;
 import cpptooling.utility.nullvoid;
 
-/// Control variouse aspectes of the analyze and generation like what nodes to
+/// Control various aspectes of the analyze and generation like what nodes to
 /// process.
 @safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
@@ -30,7 +30,7 @@ import cpptooling.utility.nullvoid;
      */
     FileName[] getIncludes();
 
-    /// Controls generation of google mock.
+    /// If any google mocks are generated.
     bool doGoogleMock();
 
     /// Generate a pre_include header file from internal template?
@@ -244,7 +244,7 @@ enum NamespaceType {
     TestDouble
 }
 
-/** Structurally transformed the input to a stub implementation.
+/** Structurally transform the input to a stub implementation.
  *
  * Ignoring C functions and globals by ignoring the root ranges funcRange and
  * globalRange.
@@ -263,7 +263,8 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     }
 
     // Assuming that namespaces are never duplicated at this stage.
-    // The assumtion comes from the structore of the AST.
+    // The assumption comes from the structure of the clang AST.
+
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
@@ -271,8 +272,11 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
 
     if (ctrl.doGoogleMock) {
         input.classRange
+            // only classes with virtual functions are mocked
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+            // ask controller if the file should be mocked, and thus the node
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+            // the class shall be processed further
             .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); raw.put(a);});
     }
     // dfmt on
