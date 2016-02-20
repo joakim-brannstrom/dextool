@@ -1403,19 +1403,6 @@ const:
     }
 }
 
-/// Find where in the structure a class with the uniqe id reside.
-@safe CppNsStack whereIsClass(CppRoot root, const size_t id) {
-    CppNsStack ns;
-
-    foreach (c; root.classRange()) {
-        if (c.id() == id) {
-            return ns;
-        }
-    }
-
-    return ns;
-}
-
 @Name("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
