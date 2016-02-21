@@ -26,7 +26,8 @@ int main(string[] args) {
                           "cpptooling.utility.range",
                           "cpptooling.utility.stack",
                           "cpptooling.utility.taggedalgebraic",
-                          "test.helpers"
+                          "test.helpers",
+                          "plugin.loader"
                           );
     //dfmt on
 }

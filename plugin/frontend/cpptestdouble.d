@@ -6,14 +6,55 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Generation of C++ test doubles.
 */
-module application.cpptestdouble;
+module plugin.frontend.cpptestdouble;
 
 import logger = std.experimental.logger;
 
 import application.types;
 import application.utility;
 
-import cpptooling.generator.cppvariant : Controller, Parameters, Products;
+import plugin.types;
+import plugin.backend.cppvariant : Controller, Parameters, Products;
+
+auto runPlugin(CliOption opt, CliArgs args) {
+    import std.typecons : TypedefType;
+    import docopt;
+    import argvalue;
+
+    auto parsed = docopt.docopt(cast(TypedefType!CliOption) opt, cast(TypedefType!CliArgs) args);
+
+    string[] cflags;
+    if (parsed["--"].isTrue) {
+        cflags = parsed["CFLAGS"].asList;
+    }
+
+    import plugin.docopt_util;
+
+    printArgs(parsed);
+
+    auto variant = CppTestDoubleVariant.makeVariant(parsed);
+    return genCpp(variant, cflags);
+}
+
+// dfmt off
+static auto cpptestdouble_opt = CliOptionParts(
+    "usage:
+  dextool cpptestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool cpptestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+    // -------------
+    " --strip-incl=r     a regexp used to strip the include paths
+ --gmock            generate a gmock implementation of test double interface
+ --gen-pre-incl     generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    generate a post include header file if it doesn't exist and use it",
+    // -------------
+"others:
+ --file-exclude=     exclude files from generation matching the regex.
+ --file-restrict=    restrict the scope of the test double to those files
+                     matching the regex.
+ --td-include=       user supplied includes used instead of those found.
+"
+);
+// dfmt on
 
 /** Test double generation of C++ code.
  *
@@ -251,7 +292,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags) {
     import std.file : exists;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
-    import cpptooling.generator.cppvariant : Generator;
+    import plugin.backend.cppvariant : Generator;
 
     if (!exists(cast(string) variant.getInputFile)) {
         logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);

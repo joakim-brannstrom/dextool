@@ -4,15 +4,56 @@ Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module application.ctestdouble;
+module plugin.frontend.ctestdouble;
 
 import logger = std.experimental.logger;
 
 import application.types;
 import application.utility;
 
-import cpptooling.generator.stub.cstub : StubGenerator, StubController,
-    StubParameters, StubProducts;
+import plugin.types;
+import plugin.backend.cvariant : StubGenerator, StubController, StubParameters,
+    StubProducts;
+
+auto runPlugin(CliOption opt, CliArgs args) {
+    import std.typecons : TypedefType;
+    import docopt;
+    import argvalue;
+
+    auto parsed = docopt.docopt(cast(TypedefType!CliOption) opt, cast(TypedefType!CliArgs) args);
+
+    string[] cflags;
+    if (parsed["--"].isTrue) {
+        cflags = parsed["CFLAGS"].asList;
+    }
+
+    import plugin.docopt_util;
+
+    printArgs(parsed);
+
+    auto variant = CTestDoubleVariant.makeVariant(parsed);
+    return genCstub(variant, cflags);
+}
+
+// dfmt off
+static auto ctestdouble_opt = CliOptionParts(
+    "usage:
+  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+    // -------------
+    " --strip-incl=r     A regexp used to strip the include paths
+ --gmock            Generate a gmock implementation of test double interface
+ --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
+    // -------------
+"others:
+ --file-exclude=     exclude files from generation matching the regex.
+ --file-restrict=    restrict the scope of the test double to those files
+                     matching the regex.
+ --td-include=       user supplied includes used instead of those found.
+"
+);
+// dfmt on
 
 /** Test double generation of C code.
  *

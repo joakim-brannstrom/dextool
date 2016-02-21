@@ -11,8 +11,6 @@ import std.typecons : Flag;
 
 import logger = std.experimental.logger;
 
-import docopt;
-import argvalue; // from docopt
 import dsrcgen.cpp;
 
 import application.types;
@@ -31,8 +29,6 @@ options:
  --version          print the version of dextool
 
 commands:
-  ctestdouble       generate a C test double. Language is set to C.
-  cpptestdouble     generate a C++ test double. Language is set to C++.
   help
 ";
 
@@ -44,38 +40,6 @@ static string basic_options = "
  --main-fname=n     used as part of filename for generated files [default: test_double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
 ";
-
-static auto ctestdouble_opt = [
-    "usage:
-  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
-    " --strip-incl=r     A regexp used to strip the include paths
- --gmock            Generate a gmock implementation of test double interface
- --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it", "
-others:
- --file-exclude=     exclude files from generation matching the regex.
- --file-restrict=    restrict the scope of the test double to those files
-                     matching the regex.
- --td-include=       user supplied includes used instead of those found.
-"
-];
-
-static auto cpptestdouble_opt = [
-    "usage:
-  dextool cpptestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool cpptestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
-    " --strip-incl=r     a regexp used to strip the include paths
- --gmock            generate a gmock implementation of test double interface
- --gen-pre-incl     generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    generate a post include header file if it doesn't exist and use it", "
-others:
- --file-exclude=     exclude files from generation matching the regex.
- --file-restrict=    restrict the scope of the test double to those files
-                     matching the regex.
- --td-include=       user supplied includes used instead of those found.
-"
-];
 
 static string help_opt = "
 REGEX
@@ -165,120 +129,89 @@ void confLogLevel(Flag!"debug" debug_) {
     }
 }
 
+string cliMergeCategory() {
+    import std.algorithm : map, joiner, reduce, max;
+    import std.ascii : newline;
+    import std.conv : text;
+    import std.range : chain, only;
+    import std.string : leftJustifier;
+
+    import plugin.register;
+
+    // dfmt off
+    auto max_length = getRegisteredPlugins()
+        .map!(a => a.category.length)
+        .reduce!((a,b) => max(a,b));
+
+    return getRegisteredPlugins()
+        .map!(a =>
+              chain(only("  "),
+                    // +1 so there is a space left between category and info
+                    only(leftJustifier(cast(string) a.category, max_length + 1).text),
+                    only(cast(string) a.categoryCliInfo))
+              .joiner()
+             )
+        .joiner(newline)
+        .text();
+    // dfmt on
+}
+
 ExitStatusType doTestDouble(string category, string[] args) {
     import std.algorithm;
     import std.traits;
 
-    static string optTo(string[] opt) {
+    // load the plugin system
+    import plugin.loader;
+    import plugin.types;
+
+    static auto optTo(CliOptionParts opt) {
         import std.format;
 
         auto r = format("%s
 
 options:%s%s
-%s", opt[0], basic_options, opt[1], opt[2]);
 
-        logger.trace(r);
-        return r;
+%s", opt.usage, basic_options, opt.optional, opt.others);
+
+        logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
+        return CliOption(r);
     }
 
     auto exit_status = ExitStatusType.Errors;
 
-    switch (category) {
-    case "help":
-        writeln(main_opt, help_opt);
+    if (category == "help") {
+        writeln(main_opt, cliMergeCategory(), help_opt);
         exit_status = ExitStatusType.Ok;
-        break;
-    case "ctestdouble":
-        import application.ctestdouble;
+    } else {
+        import plugin.register;
+        import std.range : takeOne;
 
-        auto parsed = docopt.docopt(optTo(ctestdouble_opt), args[1 .. $]);
-        printArgs(parsed);
-        string[] cflags;
-        if (parsed["--"].isTrue) {
-            cflags = parsed["CFLAGS"].asList;
+        // dfmt off
+        foreach (p; getRegisteredPlugins()
+                 .filter!(p => p.category == category)
+                 .takeOne) {
+            exit_status = p.func(optTo(p.opts), CliArgs(args[1 .. $]));
         }
-
-        auto variant = CTestDoubleVariant.makeVariant(parsed);
-        exit_status = genCstub(variant, cflags);
-        break;
-    case "cpptestdouble":
-        import application.cpptestdouble;
-
-        auto parsed = docopt.docopt(optTo(cpptestdouble_opt), args[1 .. $]);
-        printArgs(parsed);
-        string[] cflags;
-        if (parsed["--"].isTrue) {
-            cflags = parsed["CFLAGS"].asList;
-        }
-
-        auto variant = CppTestDoubleVariant.makeVariant(parsed);
-        exit_status = genCpp(variant, cflags);
-        break;
-    default:
-        logger.error("Usage error");
-        writeln(main_opt, help_opt);
-        break;
+        // dfmt on
     }
 
     return exit_status;
 }
 
-/** Correctly log all type of messages via logger.
- *
- * docopt uses std.json internally for pretty printing which results in errors
- * for regex containing things like "\.".
- */
-void printArgs(ref ArgValue[string] parsed) nothrow {
-    import std.algorithm : map, joiner;
-    import std.ascii : newline;
-    import std.conv;
-    import std.format : format;
-    import std.string : leftJustifier;
-
-    bool err = true;
-
-    try {
-        // dfmt off
-        logger.trace("args:",
-                newline,
-                parsed.byKeyValue()
-                    .map!(a => format("%s:%s", leftJustifier(a.key, 20), a.value.toString))
-                    .joiner(newline).text()
-               );
-        // dfmt on
-        err = false;
-    }
-    catch (Exception ex) {
-        ///TODO change to the specific exceptions.
-    }
-
-    if (err) {
-        try {
-            logger.error("Unable to log parsed program arguments");
-        }
-        catch (Exception ex) {
-        }
-    }
-}
-
 auto parseMainCli(string[] args) {
-    import std.algorithm;
-    import std.array;
-    import std.typecons;
+    import std.algorithm : findAmong, filter, among;
+    import std.array : array, empty;
+    import std.typecons : Tuple, Yes, No;
 
-    alias Rval = Tuple!(string, Flag!"debug", string[]);
+    alias Rval = Tuple!(string, "category", Flag!"debug", "debug_", string[], "args");
 
-    auto rem = args;
-
-    auto debug_ = Flag!"debug".no;
-    if (!findAmong(args, ["-d", "--debug"]).empty) {
-        rem = args.filter!(a => !a.among("-d", "--debug")).array();
-        debug_ = Flag!"debug".yes;
-    }
+    auto debug_ = findAmong(args, ["-d", "--debug"]).empty ? Flag!"debug".no : Flag!"debug".yes;
+    // holds the remining arguments after -d/--debug has bee removed
+    auto rem = args.filter!(a => !a.among("-d", "--debug")).array();
 
     if (rem.length <= 1) {
         return Rval("help", debug_, []);
-    } else if (rem.length >= 2 && args[1] == "help") {
+    } else if (rem.length >= 2 && rem[1].among("help", "-h", "--help")) {
         return Rval("help", debug_, []);
     }
 
@@ -293,10 +226,10 @@ int rmain(string[] args) nothrow {
 
     try {
         auto parsed = parseMainCli(args);
-        confLogLevel(parsed[1]);
+        confLogLevel(parsed.debug_);
         logger.trace(parsed);
 
-        exit_status = doTestDouble(parsed[0], parsed[2]);
+        exit_status = doTestDouble(parsed.category, parsed.args);
     }
     catch (Exception ex) {
         collectException(logger.trace(text(ex)));

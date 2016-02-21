@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Variant of C++ test double.
 */
-module cpptooling.generator.cppvariant;
+module plugin.backend.cppvariant;
 
 import std.typecons : Typedef;
 import logger = std.experimental.logger;

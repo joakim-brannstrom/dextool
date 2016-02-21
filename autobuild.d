@@ -431,6 +431,7 @@ struct Fsm {
         auto src_paths = only(
                               "clang/*.d",
                               "dsrcgen/source/dsrcgen/*",
+                              "plugin",
                               "source"
                              )
             .map!(a => thisExePath.dirName ~ a)
