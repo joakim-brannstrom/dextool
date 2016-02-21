@@ -26,7 +26,7 @@ void stage1() {
         auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
-        auto params = ["ctestdouble", "--debug"];
+        auto params = ["--DRT-gcopt=profile:1", "ctestdouble", "--debug"];
         switch (input_ext.baseName.toString) {
         case "class_func.hpp":
             runDextool(input_ext, params, ["-xc++", "-DAND_A_DEFINE"]);
@@ -57,6 +57,7 @@ void stage1() {
         auto incls = ["-I" ~ input_ext.dirName.absolutePath.toString];
         auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
+        case "bug_wchar.h":
         case "test_include_stdlib.h":
             // skip compiling, stdarg.h etc do not exist on all platforms
             break;
@@ -107,7 +108,7 @@ void stage2() {
         auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
-        auto params = ["ctestdouble", "--debug"];
+        auto params = ["--DRT-gcopt=profile:1", "ctestdouble", "--debug"];
         auto incls = ["-I" ~ (root ~ "include").toString];
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
