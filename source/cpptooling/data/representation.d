@@ -97,7 +97,6 @@ enum AccessType {
 /// unique between objects.
 private template mixinUniqueId() {
     //TODO add check to see that this do NOT already have id_.
-    //TODO make id_ a Algebraic type or Nullable to force it to be set before used.
 
     private size_t id_;
 
@@ -232,7 +231,13 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         return x;
     }
 
-    return r.enumerate.map!(a => getTypeName(a.value, a.index)).joiner(", ").text();
+    // dfmt off
+    return r
+        .enumerate
+        .map!(a => getTypeName(a.value, a.index))
+        .joiner(", ")
+        .text();
+    // dfmt on
 }
 
 /// Join a range of CxParams by extracting the parameter names.
@@ -254,8 +259,13 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     }
 
     // using cache to avoid getName is called twice.
-    return r.enumerate.map!(a => getName(a.value, a.index)).filter!(a => a.length > 0)
+    // dfmt off
+    return r
+        .enumerate
+        .map!(a => getName(a.value, a.index))
+        .filter!(a => a.length > 0)
         .joiner(", ").text();
+    // dfmt on
 }
 
 /// Make a variadic parameter.
