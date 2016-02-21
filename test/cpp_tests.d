@@ -13,6 +13,8 @@ void devTest() {
     auto root = Path("testdata/cpp/dev");
     auto files = dirEntries(root, "*.{hpp}", SpanMode.shallow);
 
+    const auto flags = compilerFlags();
+
     foreach (f; files) {
         auto input_ext = Path(f);
         scope (failure)
@@ -47,7 +49,6 @@ void devTest() {
                 GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         println(Color.yellow, "Compiling");
-        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto mainf = Path("testdata/cpp/main_dev.cpp").absolutePath;
         incls ~= "-I" ~ input_ext.dirName.toString;
         switch (input_ext.baseName.toString) {
