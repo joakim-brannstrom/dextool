@@ -269,7 +269,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags) {
     ctx.visit(file_ctx.cursor);
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(ctx.root);
+    Generator(variant, variant, variant).process(ctx.root, ctx.container);
 
     foreach (p; variant.file_data) {
         auto status = tryWriting(cast(string) p.filename, p.data);

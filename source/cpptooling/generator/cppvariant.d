@@ -119,6 +119,7 @@ struct Generator {
     import std.typecons : Typedef;
 
     import cpptooling.data.representation : CppRoot;
+    import cpptooling.data.symbol.container : Container;
     import cpptooling.utility.conv : str;
 
     static struct Modules {
@@ -146,7 +147,7 @@ struct Generator {
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      */
-    auto process(CppRoot root) {
+    auto process(ref CppRoot root, ref Container container) {
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n" ~ root.toString());
@@ -154,7 +155,7 @@ struct Generator {
         auto fl = rawFilter(root, ctrl, products);
         logger.trace("Filtered:\n" ~ fl.toString());
 
-        auto tr = translate(fl, ctrl, params);
+        auto tr = translate(fl, container, ctrl, params);
         logger.trace("Translated to implementation:\n" ~ tr.toString());
 
         auto modules = makeCppModules();
@@ -229,6 +230,7 @@ private:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, CxLocation;
+import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
 enum dummyLoc = CxLocation("<test double>", 0, 0);
@@ -321,19 +323,20 @@ body {
     return ns;
 }
 
-CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
-    import std.algorithm;
+CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
+    import std.algorithm : map, filter, each;
     import cpptooling.data.representation : VirtualType;
 
     auto r = CppRoot(root.location);
 
     // dfmt off
     root.namespaceRange
-        .map!(a => translate(a, ctrl, params))
+        .map!(a => translate(a, container, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => r.put(a.get));
 
     root.classRange
+        .map!(a => mergeClassInherit(a, container))
         .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
@@ -344,8 +347,9 @@ CppRoot translate(CppRoot root, Controller ctrl, Parameters params) {
  *
  * Currently only cares about free functions.
  */
-NullableVoid!CppNamespace translate(CppNamespace input, Controller ctrl, Parameters params) {
-    import std.algorithm;
+NullableVoid!CppNamespace translate(CppNamespace input, Container container,
+        Controller ctrl, Parameters params) {
+    import std.algorithm : map, filter, each;
     import std.typecons : TypedefType;
     import cpptooling.data.representation;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
@@ -383,11 +387,12 @@ NullableVoid!CppNamespace translate(CppNamespace input, Controller ctrl, Paramet
 
     //dfmt off
     input.namespaceRange()
-        .map!(a => translate(a, ctrl, params))
+        .map!(a => translate(a, container, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
 
     input.classRange
+        .map!(a => mergeClassInherit(a, container))
         .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
@@ -516,4 +521,77 @@ void generateNsTestDoubleImpl(CppNamespace ns, Parameters params, CppModule impl
     impl.sep(2);
 
     ns.classRange().each!((a) { generateClassImpl(a, cpp_ns); });
+}
+
+CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
+    if (class_.inheritRange.length == 0) {
+        return class_;
+    }
+
+    //TODO inefficient, lots of intermittent arrays and allocations.
+    // Convert to a range based no-allocation.
+
+    static bool isMethodOrOperator(T)(T method) @trusted {
+        import std.variant : visit;
+        import cpptooling.data.representation;
+
+        // dfmt off
+        return method.visit!((CppMethod c) => true,
+                        (CppMethodOp c) => true,
+                        (CppCtor c) => false,
+                        (CppDtor c) => false);
+        // dfmt on
+    }
+
+    static CppClass.CppFunc[] getMethods(ref CppClass c, ref Container container) {
+        import std.array : array, appender;
+        import std.algorithm : copy, filter, map, each, cache;
+        import std.range : chain;
+
+        // dfmt off
+        auto local_methods = c.methodRange
+                .filter!(a => isMethodOrOperator(a));
+
+        auto inherit_methods = c.inheritRange
+            .map!(a => container.find!CppClass(a.fullyQualifiedName))
+            .cache
+            .map!(a => a.front)
+            .map!(a => getMethods(a, container));
+        // dfmt on
+
+        auto methods = appender!(CppClass.CppFunc[])();
+        () @trusted{ local_methods.copy(methods); inherit_methods.copy(methods); }();
+
+        return methods.data;
+    }
+
+    static auto dedup(CppClass.CppFunc[] methods) {
+        import std.algorithm : makeIndex, uniq, map;
+
+        static auto getUniqeId(T)(ref T method) @trusted {
+            import std.variant : visit;
+            import cpptooling.data.representation;
+
+            // dfmt off
+            return method.visit!((CppMethod a) => a.id,
+                                 (CppMethodOp a) => a.id,
+                                 (CppCtor a) => a.id,
+                                 (CppDtor a) => a.id);
+            // dfmt on
+        }
+
+        return methods.uniq!((a, b) => getUniqeId(a) == getUniqeId(b));
+    }
+
+    auto methods = dedup(getMethods(class_, container));
+
+    auto c = CppClass(class_.name, class_.location, class_.inherits, class_.resideInNs);
+    // dfmt off
+    () @trusted {
+        import std.algorithm : each;
+        methods.each!(a => c.put(a));
+    }();
+    // dfmt on
+
+    return c;
 }

@@ -25,9 +25,7 @@ version (unittest) {
     }
 }
 
-@safe:
-
-struct Container {
+@safe struct Container {
     invariant() {
         assert(cppclass.length == t_cppclass.length);
     }
@@ -62,33 +60,32 @@ struct Container {
      * on for example an enum. By doing so it removes the dependency of all
      * callers having to specify the type, and knowing the type.
      *
-     * Params:
-     *  fqn = fully qualified name
-     *
      * Return: ref to object or null
      */
-    NullableRef!T find(T)(FullyQualifiedNameType fqn) {
+    auto find(T)(FullyQualifiedNameType fqn) {
         import std.string : toLower;
+        import std.range : only, dropOne;
+        import std.typecons : NullableRef;
 
         logger.trace("searching for: ", fqn);
 
         enum type_lower = "t_" ~ toLower(T.stringof);
         auto t_objs = __traits(getMember, typeof(this), type_lower);
 
-        NullableRef!T rval;
         foreach (item; t_objs) {
             if (item.fullyQualifiedName == fqn) {
-                rval.bind(item);
-                break;
+                return only(NullableRef!T(item.get));
             }
         }
 
         // Looking for a class that isn't found is never supposed to happen
         // because then the AST didn't contain the information needed to
         // compile the file.
-        assert(!rval.isNull);
+        //TODO consider adding an assert(false) here.
 
-        return rval;
+        // If the above logic is flawed/false then a zero length range is the
+        // correct return value.
+        return only(NullableRef!T((T*).init)).dropOne;
     }
 
     string toString() const {
@@ -118,14 +115,35 @@ unittest {
     auto c = CppClass(CppClassName("Class"));
 
     Container cont;
-    cont.put(c, FullyQualifiedNameType("::Class"));
+    cont.put(c, c.fullyQualifiedName);
 
     // not really needed test but independent at two places, see the invariant.
     1.shouldEqual(cont.cppclass.length);
 
     // should be able to find a stored class by the FQN
-    auto found_class = cont.find!CppClass(FullyQualifiedNameType("::Class"));
+    auto found_class = cont.find!CppClass(FullyQualifiedNameType("Class")).front;
 
     // should be able to use the found class
     "Class".shouldEqual(found_class.name);
+}
+
+@Name("should list all contained classes")
+unittest {
+    import cpptooling.data.representation : CppClass, CppClassName;
+    import test.helpers;
+
+    auto c = CppClass(CppClassName("Class"));
+
+    Container cont;
+    cont.put(c, c.fullyQualifiedName);
+    cont.put(c, c.fullyQualifiedName);
+    cont.put(c, c.fullyQualifiedName);
+
+    cont.toString.shouldEqualPretty("Container {
+classes {
+  Class
+  Class
+  Class
+} // classes
+} //Container");
 }
