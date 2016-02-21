@@ -34,7 +34,7 @@ void stage1() {
             out_hdr = out_hdr.up ~ "stub.hpp";
             out_impl = out_impl.up ~ "stub.cpp";
             break;
-        case "test_include_stdlib.hpp":
+        case "test_include_stdlib.h":
             runDextool(input_ext, params, ["-nostdinc"]);
             break;
         case "param_gmock.h":
@@ -56,6 +56,9 @@ void stage1() {
         auto incls = ["-I" ~ input_ext.dirName.absolutePath.toString];
         auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
+        case "test_include_stdlib.h":
+            // skip compiling, stdarg.h etc do not exist on all platforms
+            break;
         case "param_gmock.h":
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"], incls);
             break;
