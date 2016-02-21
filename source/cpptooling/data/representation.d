@@ -540,12 +540,16 @@ pure @safe nothrow struct CppCtor {
         CppMethodName name_;
     }
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CppAccess access) {
         this.name_ = name;
         this.accessType_ = access;
         this.params_ = params.dup;
+
+        setUniqueId(toString);
     }
 
     mixin CppMethodGeneric.Parameters;
@@ -584,6 +588,8 @@ pure @safe nothrow struct CppDtor {
         CppMethodName name_;
     }
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
@@ -593,6 +599,8 @@ pure @safe nothrow struct CppDtor {
         import std.typecons : TypedefType;
 
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        setUniqueId(name_.str);
     }
 
     mixin CppMethodGeneric.StringHelperVirtual;
@@ -643,6 +651,8 @@ const:
 pure @safe nothrow struct CppMethod {
     private CxReturnType returnType_;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
@@ -656,6 +666,8 @@ pure @safe nothrow struct CppMethod {
 
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        setUniqueId(signatureToString);
     }
 
     /// Function with no parameters.
@@ -677,6 +689,25 @@ pure @safe nothrow struct CppMethod {
 
 const:
 
+    /// Signature of the method.
+    private string signatureToString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
+
+        // dfmt off
+        return
+            only(
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst)
+                )
+            .joiner()
+            .text;
+        // dfmt on
+    }
+
     string toString() {
         import std.algorithm : joiner;
         import std.conv : text;
@@ -689,9 +720,7 @@ const:
                  helperVirtualPre(virtualType),
                  returnType_.txt,
                  " ",
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst),
+                 signatureToString,
                  helperVirtualPost(virtualType)
                 )
             .joiner()
@@ -711,6 +740,8 @@ const:
 
 pure @safe nothrow struct CppMethodOp {
     private CxReturnType returnType_;
+
+    mixin mixinUniqueId;
 
     @disable this();
 
@@ -746,6 +777,25 @@ pure @safe nothrow struct CppMethodOp {
 
 const:
 
+    /// Signature of the method.
+    private string signatureToString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
+
+        // dfmt off
+        return
+            only(
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst),
+                )
+            .joiner()
+            .text;
+        // dfmt on
+    }
+
     string toString() {
         import std.algorithm : joiner;
         import std.conv : text;
@@ -758,9 +808,7 @@ const:
                  helperVirtualPre(virtualType),
                  returnType_.txt,
                  " ",
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst),
+                 signatureToString,
                  helperVirtualPost(virtualType),
                  // distinguish an operator from a normal method
                  " /* operator */"
@@ -852,6 +900,20 @@ const:
 
         auto access() {
             return access_;
+        }
+
+        string fullyQualifiedName() {
+            //TODO optimize by only calculating once.
+            import std.algorithm : map, joiner;
+            import std.range : chain, only;
+            import std.conv : text;
+
+            // dfmt off
+            return chain(ns.map!(a => cast(string) a),
+                         only(cast(string) name_))
+                .joiner("::")
+                .text();
+            // dfmt on
         }
     }
 }
