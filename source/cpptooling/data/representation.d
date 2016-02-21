@@ -850,6 +850,8 @@ const:
 }
 
 pure @safe nothrow struct CppInherit {
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
     private {
         CppAccess access_;
         CppClassName name_;
@@ -912,17 +914,18 @@ const:
             return access_;
         }
 
-        string fullyQualifiedName() {
+        FullyQualifiedNameType fullyQualifiedName() {
             //TODO optimize by only calculating once.
             import std.algorithm : map, joiner;
             import std.range : chain, only;
             import std.conv : text;
 
             // dfmt off
-            return chain(ns.map!(a => cast(string) a),
-                         only(cast(string) name_))
+            auto r = chain(ns.map!(a => cast(string) a),
+                           only(cast(string) name_))
                 .joiner("::")
                 .text();
+            return FullyQualifiedNameType(r);
             // dfmt on
         }
     }
@@ -931,6 +934,7 @@ const:
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
@@ -1215,7 +1219,7 @@ const:
             return reside_in_ns;
         }
 
-        string fullyQualifiedName() {
+        FullyQualifiedNameType fullyQualifiedName() {
             //TODO optimize by only calculating once.
 
             import std.array : array;
@@ -1229,7 +1233,7 @@ const:
                              reside_in_ns.takeOne.map!(a => "::").joiner(),
                              only(name_.str).joiner()
                             );
-            return fqn.array().toUTF8;
+            return FullyQualifiedNameType(fqn.array().toUTF8);
             // dfmt on
         }
     }
