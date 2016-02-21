@@ -236,3 +236,30 @@ void demangleProfileLog(Path out_fname) {
 
     run(args.data);
 }
+
+auto compilerFlags() {
+    .scriptlikeEcho = true;
+    scope (exit)
+        .scriptlikeEcho = false;
+
+    auto default_flags = ["-std=c++98"];
+    Args cmd;
+    cmd ~= "g++";
+    cmd ~= "-dumpversion";
+
+    auto r = tryRunCollect(cmd.data);
+    auto version_ = r.output;
+    writeln("Compiler version: ", version_);
+
+    if (r.status != 0) {
+        return default_flags;
+    }
+
+    if (version_.length == 0) {
+        return default_flags;
+    } else if (version_[0] == '5') {
+        return default_flags ~ ["-Wpedantic", "-Werror"];
+    } else {
+        return default_flags ~ ["-pedantic", "-Werror"];
+    }
+}

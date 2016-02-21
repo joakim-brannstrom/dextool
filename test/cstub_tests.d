@@ -13,6 +13,8 @@ void stage1() {
     auto root = Path("testdata/cstub/stage_1");
     auto files = dirEntries(root, "*.{h,hpp}", SpanMode.shallow);
 
+    const auto flags = compilerFlags();
+
     foreach (f; files) {
         auto input_ext = Path(f);
         scope (failure)
@@ -52,7 +54,6 @@ void stage1() {
                     out_global), GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         println(Color.yellow, "Compiling");
-        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto incls = ["-I" ~ input_ext.dirName.absolutePath.toString];
         auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
@@ -63,10 +64,10 @@ void stage1() {
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"], incls);
             break;
         case "param_main.h":
-            compileResult(out_impl, mainf, flags, incls);
+            compileResult(out_impl, mainf, flags.dup, incls);
             break;
         case "variables.h":
-            compileResult(out_impl, mainf, flags, incls);
+            compileResult(out_impl, mainf, flags.dup, incls);
             break;
         case "const.h":
             compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_CONST"], incls);
@@ -92,6 +93,8 @@ void stage2() {
 
     auto root = Path("testdata/cstub/stage_2");
     auto files = dirEntries(root, "*.{h,hpp}", SpanMode.shallow);
+
+    const auto flags = compilerFlags();
 
     foreach (f; files) {
         auto input_ext = Path(f);
@@ -170,7 +173,6 @@ void stage2() {
         }
 
         println(Color.yellow, "Compiling");
-        auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
         auto mainf = Path("testdata/cstub/main1.cpp");
         incls ~= "-I" ~ input_ext.dirName.toString;
         switch (input_ext.baseName.toString) {
