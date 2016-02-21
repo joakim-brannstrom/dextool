@@ -97,7 +97,6 @@ enum AccessType {
 /// unique between objects.
 private template mixinUniqueId() {
     //TODO add check to see that this do NOT already have id_.
-    //TODO make id_ a Algebraic type or Nullable to force it to be set before used.
 
     private size_t id_;
 
@@ -159,7 +158,7 @@ pure @safe nothrow struct CxLocation {
 }
 
 /// The source location.
-private template mixingSourceLocation() {
+private template mixinSourceLocation() {
     private CxLocation loc_;
 
     private void setLocation(CxLocation loc) {
@@ -232,7 +231,13 @@ string joinParams(T)(T r) @safe if (isInputRange!T) {
         return x;
     }
 
-    return r.enumerate.map!(a => getTypeName(a.value, a.index)).joiner(", ").text();
+    // dfmt off
+    return r
+        .enumerate
+        .map!(a => getTypeName(a.value, a.index))
+        .joiner(", ")
+        .text();
+    // dfmt on
 }
 
 /// Join a range of CxParams by extracting the parameter names.
@@ -254,8 +259,13 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     }
 
     // using cache to avoid getName is called twice.
-    return r.enumerate.map!(a => getName(a.value, a.index)).filter!(a => a.length > 0)
+    // dfmt off
+    return r
+        .enumerate
+        .map!(a => getName(a.value, a.index))
+        .filter!(a => a.length > 0)
         .joiner(", ").text();
+    // dfmt on
 }
 
 /// Make a variadic parameter.
@@ -287,7 +297,7 @@ pure @safe nothrow struct CxGlobalVariable {
     private TypeKindVariable variable;
 
     mixin mixinUniqueId;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -442,7 +452,7 @@ pure @safe nothrow struct CFunction {
     }
 
     mixin mixinUniqueId;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -540,12 +550,16 @@ pure @safe nothrow struct CppCtor {
         CppMethodName name_;
     }
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CppAccess access) {
         this.name_ = name;
         this.accessType_ = access;
         this.params_ = params.dup;
+
+        setUniqueId(toString);
     }
 
     mixin CppMethodGeneric.Parameters;
@@ -584,6 +598,8 @@ pure @safe nothrow struct CppDtor {
         CppMethodName name_;
     }
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
@@ -593,6 +609,8 @@ pure @safe nothrow struct CppDtor {
         import std.typecons : TypedefType;
 
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        setUniqueId(name_.str);
     }
 
     mixin CppMethodGeneric.StringHelperVirtual;
@@ -643,6 +661,8 @@ const:
 pure @safe nothrow struct CppMethod {
     private CxReturnType returnType_;
 
+    mixin mixinUniqueId;
+
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
@@ -656,6 +676,8 @@ pure @safe nothrow struct CppMethod {
 
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
         this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        setUniqueId(signatureToString);
     }
 
     /// Function with no parameters.
@@ -677,6 +699,25 @@ pure @safe nothrow struct CppMethod {
 
 const:
 
+    /// Signature of the method.
+    private string signatureToString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
+
+        // dfmt off
+        return
+            only(
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst)
+                )
+            .joiner()
+            .text;
+        // dfmt on
+    }
+
     string toString() {
         import std.algorithm : joiner;
         import std.conv : text;
@@ -689,9 +730,7 @@ const:
                  helperVirtualPre(virtualType),
                  returnType_.txt,
                  " ",
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst),
+                 signatureToString,
                  helperVirtualPost(virtualType)
                 )
             .joiner()
@@ -711,6 +750,8 @@ const:
 
 pure @safe nothrow struct CppMethodOp {
     private CxReturnType returnType_;
+
+    mixin mixinUniqueId;
 
     @disable this();
 
@@ -746,6 +787,25 @@ pure @safe nothrow struct CppMethodOp {
 
 const:
 
+    /// Signature of the method.
+    private string signatureToString() {
+        import std.algorithm : joiner;
+        import std.conv : text;
+        import std.format : format;
+        import std.range : only;
+
+        // dfmt off
+        return
+            only(
+                 name_.str,
+                 format("(%s)", paramRange.joinParams),
+                 helperConst(isConst),
+                )
+            .joiner()
+            .text;
+        // dfmt on
+    }
+
     string toString() {
         import std.algorithm : joiner;
         import std.conv : text;
@@ -758,9 +818,7 @@ const:
                  helperVirtualPre(virtualType),
                  returnType_.txt,
                  " ",
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst),
+                 signatureToString,
                  helperVirtualPost(virtualType),
                  // distinguish an operator from a normal method
                  " /* operator */"
@@ -792,6 +850,8 @@ const:
 }
 
 pure @safe nothrow struct CppInherit {
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
     private {
         CppAccess access_;
         CppClassName name_;
@@ -853,12 +913,28 @@ const:
         auto access() {
             return access_;
         }
+
+        FullyQualifiedNameType fullyQualifiedName() {
+            //TODO optimize by only calculating once.
+            import std.algorithm : map, joiner;
+            import std.range : chain, only;
+            import std.conv : text;
+
+            // dfmt off
+            auto r = chain(ns.map!(a => cast(string) a),
+                           only(cast(string) name_))
+                .joiner("::")
+                .text();
+            return FullyQualifiedNameType(r);
+            // dfmt on
+        }
     }
 }
 
 pure @safe nothrow struct CppClass {
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
@@ -882,12 +958,26 @@ pure @safe nothrow struct CppClass {
 
     mixin mixinUniqueId;
     mixin mixinKind;
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     @disable this();
 
+    /** Duplicate an existing classes.
+     * TODO also duplicate the dynamic arrays. For now it is "ok" to reuse
+     * them. But the duplication should really be done to ensure stability.
+     * Params:
+     *  other = class to duplicate.
+     */
+    this(CppClass other) {
+        this = other;
+    }
+
     this(const CppClassName name, const CxLocation loc,
-            const CppInherit[] inherits, const CppNsStack ns) {
+            const CppInherit[] inherits, const CppNsStack ns)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this.name_ = name;
         this.reside_in_ns = ns.dup;
 
@@ -900,21 +990,33 @@ pure @safe nothrow struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits) {
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, loc, inherits, CppNsStack.init);
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc) {
+    this(const CppClassName name, const CxLocation loc)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, loc, CppInherit[].init, CppNsStack.init);
     }
 
     //TODO remove
-    this(const CppClassName name) {
+    this(const CppClassName name)
+    out {
+        assert(name_.length > 0);
+    }
+    body {
         this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
     }
 
-    void put(T)(T func) @trusted 
+    void put(T)(T func) @trusted
             if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
         auto f = CppFunc(func);
 
@@ -931,6 +1033,21 @@ pure @safe nothrow struct CppClass {
         }
 
         isVirtual_ = analyzeVirtuality(isVirtual_, f);
+    }
+
+    void put(CppFunc f) {
+        static void internalPut(T)(ref T class_, CppFunc f) @trusted {
+            import std.variant : visit;
+
+            // dfmt off
+            f.visit!((CppMethod a) => class_.put(a),
+                     (CppMethodOp a) => class_.put(a),
+                     (CppCtor a) => class_.put(a),
+                     (CppDtor a) => class_.put(a));
+            // dfmt on
+        }
+
+        internalPut(this, f);
     }
 
     void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
@@ -1076,7 +1193,6 @@ const:
     }
 
     invariant() {
-        assert(name_.length > 0);
         foreach (i; inherits_) {
             assert(i.name.length > 0);
         }
@@ -1101,6 +1217,24 @@ const:
 
         auto resideInNs() {
             return reside_in_ns;
+        }
+
+        FullyQualifiedNameType fullyQualifiedName() {
+            //TODO optimize by only calculating once.
+
+            import std.array : array;
+            import std.algorithm : map, joiner;
+            import std.range : takeOne, only, chain, takeOne;
+            import std.utf : byChar, toUTF8;
+
+            // dfmt off
+            auto fqn = chain(
+                             reside_in_ns.map!(a => cast(string) a).joiner("::"),
+                             reside_in_ns.takeOne.map!(a => "::").joiner(),
+                             only(name_.str).joiner()
+                            );
+            return FullyQualifiedNameType(fqn.array().toUTF8);
+            // dfmt on
         }
     }
 }
@@ -1299,7 +1433,7 @@ pure @safe nothrow struct CppRoot {
         CxGlobalVariable[] globals;
     }
 
-    mixin mixingSourceLocation;
+    mixin mixinSourceLocation;
 
     this(in CxLocation loc) {
         setLocation(loc);
@@ -1358,19 +1492,6 @@ const:
                 ns.map!(a => a.toString), only("")).joiner(newline).text;
         // dfmt off
     }
-}
-
-/// Find where in the structure a class with the uniqe id reside.
-@safe CppNsStack whereIsClass(CppRoot root, const size_t id) {
-    CppNsStack ns;
-
-    foreach (c; root.classRange()) {
-        if (c.id() == id) {
-            return ns;
-        }
-    }
-
-    return ns;
 }
 
 @Name("Test of c-function")

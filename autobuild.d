@@ -305,6 +305,7 @@ struct Fsm {
         a ~= "run";
         a ~= ["-c", "unittest"];
         a ~= ["-b", "unittest-cov"];
+        //a ~= ["--", "-d"];
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
         flagUtTestPassed = r.status == 0 ? Yes.UtTestPassed : No.UtTestPassed;

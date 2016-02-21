@@ -165,6 +165,7 @@ private:
  */
 struct ClassDescendVisitor {
     import cpptooling.data.representation;
+    import cpptooling.data.symbol.container;
 
     @disable this();
 
@@ -173,7 +174,21 @@ struct ClassDescendVisitor {
         this.accessType = CppAccess(AccessType.Private);
     }
 
-    CppClass visit(ref Cursor c) {
+    /** Visit node c and children extracting data for the class.
+     *
+     * c must be a class cursor.
+     *
+     * Params:
+     *  c = cursor to visit.
+     *  container = stored nested classes in the container.
+     */
+    CppClass visit(ref Cursor c, ref Container container)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+    }
+    body {
+        this.container = &container;
+
         visitAst!(typeof(this))(c, this);
         return data;
     }
@@ -215,8 +230,11 @@ struct ClassDescendVisitor {
             // TODO hmm a CppNsStack may not be foolproof. Investigate if it is
             // needed to use a nesting structure that also describe the class
             // it reside in.
-            data.put(ClassVisitor.make(c, data.resideInNs.dup).visit(c),
-                    cast(TypedefType!CppAccess) accessType);
+            // TODO change accessType from CppAccess to see if it reduces the
+            // casts
+            auto class_ = ClassVisitor.make(c, data.resideInNs.dup).visit(c, *container);
+            data.put(class_, cast(TypedefType!CppAccess) accessType);
+            container.put(class_, class_.fullyQualifiedName);
             descend = false;
             break;
         default:
@@ -291,6 +309,7 @@ private:
 private:
     CppClass data;
     CppAccess accessType;
+    Container* container;
 }
 
 /** Extract information about a class.
@@ -298,13 +317,18 @@ private:
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
         CppClass, CxLocation, VirtualType, CppNsStack, CppInherit;
+    import cpptooling.data.symbol.container;
 
     /** Make a ClassVisitor to descend a Clang Cursor.
      *
      * Static make to create ClassVisitor objects to avoid the unnecessary storage
      * of a Cursor but still derive parameters from the Cursor.
      */
-    static auto make(ref Cursor c, CppNsStack reside_in_ns) {
+    static auto make(ref Cursor c, CppNsStack reside_in_ns)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+    }
+    body {
         auto loc = toInternal!CxLocation(c.location());
         auto name = CppClassName(c.spelling);
         auto r = ClassVisitor(name, loc, reside_in_ns);
@@ -319,7 +343,11 @@ struct ClassVisitor {
         this.data = CppClass(name, loc, CppInherit[].init, reside_in_ns);
     }
 
-    auto visit(ref Cursor c) {
+    auto visit(ref Cursor c, ref Container container)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+    }
+    body {
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
         if (!c.isDefinition) {
@@ -327,14 +355,14 @@ struct ClassVisitor {
             return data;
         }
 
-        return ClassDescendVisitor(data).visit(c);
+        return ClassDescendVisitor(data).visit(c, container);
     }
 
 private:
     CppClass data;
 }
 
-AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
+private AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
     final switch (accessSpec) with (CX_CXXAccessSpecifier) {
     case CX_CXXInvalidAccessSpecifier:
         return AccessType.Public;
@@ -350,6 +378,7 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
 struct NamespaceDescendVisitor {
     import std.typecons : NullableRef;
     import cpptooling.data.representation : CppNamespace;
+    import cpptooling.data.symbol.container;
 
     @disable this();
 
@@ -362,7 +391,13 @@ struct NamespaceDescendVisitor {
         this.data = &data.get();
     }
 
-    void visit(ref Cursor c) {
+    void visit(ref Cursor c, ref Container container)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_Namespace);
+        assert(&container !is null);
+    }
+    body {
+        this.container = &container;
         visitAst!(typeof(this))(c, this);
     }
 
@@ -376,7 +411,9 @@ struct NamespaceDescendVisitor {
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
             // visit node to find nested classes
-            data.put(ClassVisitor.make(c, data.resideInNs.dup).visit(c));
+            auto class_ = ClassVisitor.make(c, data.resideInNs.dup).visit(c, *container);
+            container.put(class_, class_.fullyQualifiedName);
+            data.put(class_);
             break;
         case CXCursor_FunctionDecl:
             data.put(FunctionVisitor.make(c).visit(c));
@@ -394,6 +431,7 @@ struct NamespaceDescendVisitor {
 
 private:
     CppNamespace* data;
+    Container* container;
 }
 
 /** Extracts all namespaces.
@@ -405,6 +443,7 @@ private:
 struct NamespaceVisitor {
     import std.typecons : NullableRef;
     import cpptooling.data.representation : CppNsStack, CppNs, CppNamespace;
+    import cpptooling.data.symbol.container;
 
     static auto make(ref Cursor c) {
         return NamespaceVisitor.make(c, CppNsStack.init);
@@ -432,7 +471,13 @@ struct NamespaceVisitor {
         this.stack = stack.dup;
     }
 
-    auto visit(ref Cursor c) {
+    auto visit(ref Cursor c, ref Container container)
+    in {
+        assert(c.kind == CXCursorKind.CXCursor_Namespace);
+        assert(&container !is null);
+    }
+    body {
+        this.container = &container;
         visitAst!(typeof(this))(c, this);
         return data;
     }
@@ -440,14 +485,14 @@ struct NamespaceVisitor {
     void applyRoot(ref Cursor root) {
         logNode(root, 0);
         auto d = NullableRef!CppNamespace(&data);
-        NamespaceDescendVisitor(d).visit(root);
+        NamespaceDescendVisitor(d).visit(root, *container);
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_Namespace:
             logNode(c, 0);
-            data.put(NamespaceVisitor.make(c, stack).visit(c));
+            data.put(NamespaceVisitor.make(c, stack).visit(c, *container));
             break;
         default:
             break;
@@ -459,11 +504,13 @@ struct NamespaceVisitor {
 private:
     CppNamespace data;
     CppNsStack stack;
+    Container* container;
 }
 
 /// Root visitor of AST.
 struct ParseContext {
     import cpptooling.data.representation : CppRoot;
+    import cpptooling.data.symbol.container;
     import cpptooling.utility.stack : VisitNodeDepth;
 
     private VisitNodeDepth depth_;
@@ -471,6 +518,10 @@ struct ParseContext {
 
     void visit(Cursor cursor) {
         visitAst!(typeof(this))(cursor, this);
+
+        debug {
+            logger.trace(container.toString);
+        }
     }
 
     void applyRoot(ref Cursor c) {
@@ -492,13 +543,15 @@ struct ParseContext {
             import cpptooling.data.representation : CppNsStack;
 
             // visit node to find nested classes
-            root.put(ClassVisitor.make(c, CppNsStack.init).visit(c));
+            auto class_ = ClassVisitor.make(c, CppNsStack.init).visit(c, container);
+            container.put(class_, class_.fullyQualifiedName);
+            root.put(class_);
             break;
         case CXCursor_CXXBaseSpecifier:
             descend = false;
             break;
         case CXCursor_Namespace:
-            root.put(NamespaceVisitor.make(c).visit(c));
+            root.put(NamespaceVisitor.make(c).visit(c, container));
             descend = false;
             break;
         case CXCursor_FunctionDecl:
@@ -521,4 +574,5 @@ struct ParseContext {
     }
 
     CppRoot root;
+    Container container;
 }

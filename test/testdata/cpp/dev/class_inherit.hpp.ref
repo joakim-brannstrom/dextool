@@ -1,0 +1,15 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "class_inherit.hpp"
+
+namespace ns1 {
+namespace ns2 {
+namespace TestDouble {
+} //NS:TestDouble
+
+} //NS:ns2
+namespace TestDouble {
+} //NS:TestDouble
+
+} //NS:ns1
+#endif // test_double_hpp

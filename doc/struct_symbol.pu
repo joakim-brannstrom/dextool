@@ -1,0 +1,21 @@
+@startuml
+class CppClass
+
+class Container {
+Nullable!T find(Kind, FQN)
+Nullable!T find(RefSymbol)
+}
+
+class "RefSymbol" as RefSymbol {
+FQN
+Kind
+}
+
+class "TypeSymbol" as TypeSymbol {
+FQN
+}
+
+Container *-- TypeSymbol
+TypeSymbol *-- CppClass
+Container ... RefSymbol
+@end
