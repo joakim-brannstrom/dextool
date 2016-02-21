@@ -1016,7 +1016,7 @@ pure @safe nothrow struct CppClass {
         this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
     }
 
-    void put(T)(T func) @trusted
+    void put(T)(T func) @trusted 
             if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
         auto f = CppFunc(func);
 

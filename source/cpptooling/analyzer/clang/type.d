@@ -293,7 +293,7 @@ body {
     return result;
 }
 
-auto visitPointeeType(WrapTypeKind t, string prefix) 
+auto visitPointeeType(WrapTypeKind t, string prefix)
 out (result) {
     assert(result.typeKind.info.kind == TypeKind.Info.Kind.simple);
 }

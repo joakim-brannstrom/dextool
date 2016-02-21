@@ -29,12 +29,11 @@ void devTest() {
         switch (input_ext.baseName.toString) {
         case "exclude_self.hpp":
             runDextool(input_ext,
-                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], dex_flags);
+                    params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], dex_flags);
             break;
         case "param_restrict.hpp":
-            runDextool(input_ext,
-                params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
-                "--file-restrict=.*/b.hpp"], dex_flags);
+            runDextool(input_ext, params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
+                    "--file-restrict=.*/b.hpp"], dex_flags);
             break;
 
         default:
@@ -44,8 +43,8 @@ void devTest() {
         println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
-            GR(input ~ Ext(".cpp.ref"), out_impl),
-            GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
+                GR(input ~ Ext(".cpp.ref"), out_impl),
+                GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];

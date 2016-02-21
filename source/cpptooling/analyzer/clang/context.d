@@ -41,7 +41,7 @@ struct ClangContext {
         // the last argument determines if comments are parsed and therefor
         // accessible in the AST. Default is not.
         translation_unit = TranslationUnit.parse(index, input_file, user_args,
-            compiler.extraHeaders);
+                compiler.extraHeaders);
     }
 
     ~this() {

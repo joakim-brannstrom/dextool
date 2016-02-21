@@ -26,14 +26,14 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     c.setKind(KindT.Adapter);
 
     auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
-        true, false), CppVariable("inst")));
+            true, false), CppVariable("inst")));
 
     c.put("Adapter connecting an interface with an implementation.");
     c.put("The lifetime of the connection is the same as the instance of the adapter.");
 
     c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
     c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.No)));
+            CppVirtualMethod(VirtualType.No)));
 
     return c;
 }
@@ -45,8 +45,7 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
         CxGlobalVariable;
     import cpptooling.utility.conv : str;
 
-    auto type = makeTypeKind(main_ns.str ~ "::" ~ main_if.str ~ "*", false, false,
-        true);
+    auto type = makeTypeKind(main_ns.str ~ "::" ~ main_if.str ~ "*", false, false, true);
     auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(KindT.TestDoubleSingleton);
@@ -102,8 +101,8 @@ void generateImpl(CppClass c, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
-        auto b = impl.method_body(m.returnType().txt, c.name().str,
-            m.name().str, m.isConst(), params);
+        auto b = impl.method_body(m.returnType().txt, c.name().str, m.name()
+                .str, m.isConst(), params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
             stmt(E("test_double_inst") = E("&" ~ p));

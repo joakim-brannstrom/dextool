@@ -44,12 +44,11 @@ import clang.Visitor;
  */
 string abilities(Cursor c) {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
-        c.isDeclaration ? "d" : "", c.isDefinition ? "D" : "",
-        c.isExpression ? "e" : "", c.isEmpty ? "n" : "",
-        c.isPreprocessing ? "p" : "", c.isReference ? "r" : "",
-        c.isStatement ? "s" : "", c.isTranslationUnit ? "t" : "",
-        c.isUnexposed ? "u" : "", c.isVirtualBase ? "v" : "", c.isValid ? "V" : "",
-        );
+            c.isDeclaration ? "d" : "", c.isDefinition ? "D" : "", c.isExpression
+            ? "e" : "", c.isEmpty ? "n" : "", c.isPreprocessing ? "p" : "",
+            c.isReference ? "r" : "", c.isStatement ? "s" : "",
+            c.isTranslationUnit ? "t" : "", c.isUnexposed ? "u" : "",
+            c.isVirtualBase ? "v" : "", c.isValid ? "V" : "",);
 
     return s;
 }
@@ -65,7 +64,7 @@ string abilities(Cursor c) {
 string abilities(FunctionCursor c) {
     string s = abilities(c.cursor);
     s ~= format(" %s%s%s%s%s", c.isConst ? "c" : "", c.isPureVirtual ? "p" : "",
-        c.isStatic ? "s" : "", c.isVariadic ? "v" : "", c.isVirtual ? "V" : "");
+            c.isStatic ? "s" : "", c.isVariadic ? "v" : "", c.isVirtual ? "V" : "");
 
     return s;
 }

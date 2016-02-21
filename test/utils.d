@@ -96,14 +96,12 @@ struct GR {
 }
 
 void print(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m",
-        "\033[0;;m"];
+    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
     write(escCodes[c], args, escCodes[Color.cancel]);
 }
 
 void println(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m",
-        "\033[0;;m"];
+    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
     writeln(escCodes[c], args, escCodes[Color.cancel]);
 }
 
@@ -165,7 +163,7 @@ void compare(Path gold, Path result) {
 
     if (diff_detected) {
         throw new ErrorLevelException(-1,
-            "Output is different from reference file (gold): " ~ gold.toString);
+                "Output is different from reference file (gold): " ~ gold.toString);
     }
 }
 

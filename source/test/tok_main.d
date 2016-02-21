@@ -96,7 +96,7 @@ int tokenize(string filename) {
 
     // create Translation Unit
     CXTranslationUnit tu = clang_parseTranslationUnit(index,
-        filename.toStringz, null, 0, null, 0, 0);
+            filename.toStringz, null, 0, null, 0, 0);
     if (tu == null) {
         writef("Cannot parse translation unit\n");
         return 1;
@@ -153,12 +153,12 @@ struct ShowAst {
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_CXXBaseSpecifier:
             printBacktrack!(a => a == CXCursorKind.CXCursor_Namespace)(c,
-                "cxxbase -> namespace", depth);
+                    "cxxbase -> namespace", depth);
             break;
 
         case CXCursor_ClassDecl:
             printBacktrack!(a => a == CXCursorKind.CXCursor_Namespace)(c,
-                "class -> namespace", depth);
+                    "class -> namespace", depth);
             break;
 
         default:
@@ -240,9 +240,8 @@ struct ShowAst {
 
         foreach (ref t; toks.tokens) {
             auto loc = t.location();
-            logger.tracef("|%s%s [kind: %s, line=%d, col=%d off=%d",
-                repeat(' ', depth), t.spelling, text(t.kind), loc.line, loc.column,
-                loc.offset);
+            logger.tracef("|%s%s [kind: %s, line=%d, col=%d off=%d", repeat(' ',
+                    depth), t.spelling, text(t.kind), loc.line, loc.column, loc.offset);
         }
     }
 }

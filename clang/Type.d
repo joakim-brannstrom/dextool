@@ -38,11 +38,10 @@ import clang.Util;
  */
 string abilities(Type t) {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", t.isAnonymous ? "a" : "",
-        t.isArray ? "A" : "", t.isConst ? "c" : "", t.isEnum ? "e" : "",
-        t.isExposed ? "E" : "", t.isFunctionPointerType ? "f" : "",
-        t.isPOD ? "p" : "", t.isRestrict ? "r" : "", t.isTypedef ? "t" : "",
-        t.isValid ? "v" : "", t.isVolatile ? "V" : "", t.isWideCharType ? "w" : "",
-        );
+            t.isArray ? "A" : "", t.isConst ? "c" : "", t.isEnum ? "e" : "",
+            t.isExposed ? "E" : "", t.isFunctionPointerType ? "f" : "", t.isPOD
+            ? "p" : "", t.isRestrict ? "r" : "", t.isTypedef ? "t" : "", t.isValid
+            ? "v" : "", t.isVolatile ? "V" : "", t.isWideCharType ? "w" : "",);
 
     return s;
 }
@@ -145,13 +144,13 @@ struct Type {
     }
 
     @property bool isObjCIdType() {
-        return isTypedef
-            && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer && spelling == "id";
+        return isTypedef && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer
+            && spelling == "id";
     }
 
     @property bool isObjCClassType() {
-        return isTypedef
-            && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer && spelling == "Class";
+        return isTypedef && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer
+            && spelling == "Class";
     }
 
     @property bool isObjCSelType() {

@@ -95,7 +95,7 @@ private:
 
 ///TODO change the bools to using the Flag from typecons
 TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
-    bool isFuncPtr = false, bool isArray = false) pure @safe nothrow {
+        bool isFuncPtr = false, bool isArray = false) pure @safe nothrow {
     TypeKind t;
     t.info = TypeKind.SimpleInfo(txt ~ " %s");
     t.txt = txt;
@@ -114,7 +114,7 @@ TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
  */
 TypeKind duplicate(T)(T t_in) pure @safe nothrow {
     TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
-        t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
+            t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
     t.info = t_in.info;
 
     return t;

@@ -52,8 +52,7 @@ static auto ctestdouble_opt = [
     " --strip-incl=r     A regexp used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
-    "
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it", "
 others:
  --file-exclude=     exclude files from generation matching the regex.
  --file-restrict=    restrict the scope of the test double to those files
@@ -69,8 +68,7 @@ static auto cpptestdouble_opt = [
     " --strip-incl=r     a regexp used to strip the include paths
  --gmock            generate a gmock implementation of test double interface
  --gen-pre-incl     generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    generate a post include header file if it doesn't exist and use it",
-    "
+ --gen-post-incl    generate a post include header file if it doesn't exist and use it", "
 others:
  --file-exclude=     exclude files from generation matching the regex.
  --file-restrict=    restrict the scope of the test double to those files

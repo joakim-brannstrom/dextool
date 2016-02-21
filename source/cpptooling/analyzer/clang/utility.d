@@ -144,7 +144,7 @@ string joinParamNames(PTuple[] r) @safe {
     }
 
     // using cache to avoid calling getName twice.
-    return r.enumerate.map!(a => getTypeId(a.value, a.index)).filter!(a => a.length > 0).joiner(
-        ", ").text();
+    return r.enumerate.map!(a => getTypeId(a.value, a.index)).filter!(a => a.length > 0)
+        .joiner(", ").text();
 
 }

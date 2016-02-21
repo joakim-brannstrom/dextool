@@ -66,10 +66,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
         Flag!"Gmock" gmock = parsed["--gmock"].isTrue ? Flag!"Gmock".yes : Flag!"Gmock".no;
-        Flag!"PreInclude" pre_incl = parsed["--gen-pre-incl"].isTrue ? Flag!"PreInclude".yes
-            : Flag!"PreInclude".no;
-        Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue ? Flag!"PostInclude".yes
-            : Flag!"PostInclude".no;
+        Flag!"PreInclude" pre_incl = parsed["--gen-pre-incl"].isTrue
+            ? Flag!"PreInclude".yes : Flag!"PreInclude".no;
+        Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue
+            ? Flag!"PostInclude".yes : Flag!"PostInclude".no;
 
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -80,11 +80,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             strip_incl = regex(r".*/(.*)");
         }
 
-        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString),
-            StubPrefix("Not used"), FileName(parsed["FILE"].toString),
-            MainFileName(parsed["--main-fname"].toString),
-            MainName(parsed["--main"].toString),
-            DirName(parsed["--out"].toString), gmock, pre_incl, post_incl, strip_incl);
+        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
+                FileName(parsed["FILE"].toString), MainFileName(parsed["--main-fname"].toString),
+                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
+                gmock, pre_incl, post_incl, strip_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -96,10 +95,9 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return variant;
     }
 
-    this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file,
-        MainFileName main_fname, MainName main_name, DirName output_dir,
-        Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
-        Flag!"PostInclude" post_incl, Regex!char strip_incl) {
+    this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file, MainFileName main_fname, MainName main_name,
+            DirName output_dir, Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
+            Flag!"PostInclude" post_incl, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_file = input_file;
@@ -119,13 +117,13 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
         this.main_file_globals = FileName(buildPath(cast(string) output_dir,
-            base_filename ~ "_global" ~ implExt));
+                base_filename ~ "_global" ~ implExt));
         this.gmock_file = FileName(buildPath(cast(string) output_dir,
-            base_filename ~ "_gmock" ~ hdrExt));
+                base_filename ~ "_gmock" ~ hdrExt));
         this.pre_incl_file = FileName(buildPath(cast(string) output_dir,
-            base_filename ~ "_pre_includes" ~ hdrExt));
+                base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = FileName(buildPath(cast(string) output_dir,
-            base_filename ~ "_post_includes" ~ hdrExt));
+                base_filename ~ "_post_includes" ~ hdrExt));
     }
 
     /// Force the includes to be those supplied by the user.
@@ -206,7 +204,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     StubParameters.Files getFiles() {
         return StubParameters.Files(main_file_hdr, main_file_impl,
-            main_file_globals, gmock_file, pre_incl_file, post_incl_file);
+                main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
     MainName getMainName() {

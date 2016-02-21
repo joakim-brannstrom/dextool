@@ -51,8 +51,8 @@ import application.types;
 @safe pure interface StubParameters {
     import std.typecons : Tuple;
 
-    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName,
-        "globals", FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
+    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals",
+            FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();
@@ -180,9 +180,8 @@ struct StubGenerator {
     }
 
 private:
-    static private void postProcess(CppModule hdr, CppModule impl,
-        CppModule globals, CppModule gmock, StubController ctrl,
-        StubParameters params, StubProducts prod) {
+    static private void postProcess(CppModule hdr, CppModule impl, CppModule globals,
+            CppModule gmock, StubController ctrl, StubParameters params, StubProducts prod) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatetPreInclude, generatePostInclude;
 
@@ -225,7 +224,7 @@ private:
             import cpptooling.generator.gmock : generateGmockHdr;
 
             prod.putFile(params.getFiles.gmock,
-                generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, gmock));
+                    generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, gmock));
         }
     }
 
@@ -312,13 +311,12 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
 
 static import cpptooling.generator.adapter;
 
-alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(MainInterface,
-    ClassType);
+alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(MainInterface, ClassType);
 
 alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType;
 
 void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule hdr,
-    CppModule impl, CppModule globals, CppModule gmock) {
+        CppModule impl, CppModule globals, CppModule gmock) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
@@ -338,7 +336,7 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
     }
 
     static void eachNs(CppNamespace ns, StubParameters params, CppModule hdr,
-        CppModule impl, CppModule gmock) {
+            CppModule impl, CppModule gmock) {
         final switch (cast(NamespaceType) ns.kind) {
         case NamespaceType.Normal:
             break;
@@ -447,11 +445,9 @@ import cpptooling.generator.adapter : generateTestDoubleSingleton = generateSing
 
 static import cpptooling.generator.includes;
 
-alias generateCIncludes = cpptooling.generator.includes.generateC!(StubController,
-    StubParameters);
+alias generateCIncludes = cpptooling.generator.includes.generateC!(StubController, StubParameters);
 
-void generateNsTestDoubleHdr(CppNamespace ns, StubParameters params, CppModule hdr,
-    CppModule gmock) {
+void generateNsTestDoubleHdr(CppNamespace ns, StubParameters params, CppModule hdr, CppModule gmock) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 

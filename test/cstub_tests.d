@@ -48,9 +48,8 @@ void stage1() {
         println(Color.yellow, "Comparing");
         auto input = input_ext.stripExtension;
         compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
-            GR(input ~ Ext(".cpp.ref"), out_impl),
-            GR(Path(input.toString ~ "_global.cpp.ref"), out_global),
-            GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
+                GR(input ~ Ext(".cpp.ref"), out_impl), GR(Path(input.toString ~ "_global.cpp.ref"),
+                    out_global), GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
 
         println(Color.yellow, "Compiling");
         auto flags = ["-std=c++03", "-Wpedantic", "-Werror"];
@@ -58,8 +57,7 @@ void stage1() {
         auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
         case "param_gmock.h":
-            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"],
-                incls);
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"], incls);
             break;
         case "param_main.h":
             compileResult(out_impl, mainf, flags, incls);
@@ -68,16 +66,13 @@ void stage1() {
             compileResult(out_impl, mainf, flags, incls);
             break;
         case "const.h":
-            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_CONST"],
-                incls);
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_CONST"], incls);
             break;
         case "function_pointers.h":
-            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"],
-                incls);
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"], incls);
             break;
         case "arrays.h":
-            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_ARRAY"],
-                incls);
+            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE", "-DTEST_ARRAY"], incls);
             break;
 
         default:
@@ -111,41 +106,37 @@ void stage2() {
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
             copy(root ~ "no_overwrite_pre_includes.hpp",
-                testEnv.outdir ~ "test_double_pre_includes.hpp");
+                    testEnv.outdir ~ "test_double_pre_includes.hpp");
             copy(root ~ "no_overwrite_post_includes.hpp",
-                testEnv.outdir ~ "test_double_post_includes.hpp");
+                    testEnv.outdir ~ "test_double_post_includes.hpp");
             runDextool(input_ext, params ~ ["--gen-pre-incl",
-                "--gen-post-incl"], incls ~ ["-DPRE_INCLUDES"]);
+                    "--gen-post-incl"], incls ~ ["-DPRE_INCLUDES"]);
             break;
         case "no_overwrite_post_includes.hpp":
         case "no_overwrite_pre_includes.hpp":
             continue;
 
         case "param_exclude_many_files.h":
-            runDextool(input_ext,
-                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString,
-                `--file-exclude='.*/include/b\.[h,c]'`], incls);
+            runDextool(input_ext, params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString,
+                    `--file-exclude='.*/include/b\.[h,c]'`], incls);
             break;
         case "param_exclude_match_all.h":
-            runDextool(input_ext,
-                params ~ ["--file-exclude=.*/param_exclude_match_all.*",
-                `--file-exclude='.*/include/b\.c'`], incls);
+            runDextool(input_ext, params ~ ["--file-exclude=.*/param_exclude_match_all.*",
+                    `--file-exclude='.*/include/b\.c'`], incls);
             break;
         case "param_exclude_one_file.h":
             runDextool(input_ext,
-                params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], incls);
+                    params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], incls);
             break;
         case "param_gen_pre_post_include.h":
             runDextool(input_ext, params ~ ["--gen-pre-incl", "--gen-post-incl"], incls);
             break;
         case "param_include.h":
-            runDextool(input_ext, params ~ ["--td-include=b.h", "--td-include=stdio.h"],
-                incls);
+            runDextool(input_ext, params ~ ["--td-include=b.h", "--td-include=stdio.h"], incls);
             break;
         case "param_restrict.h":
-            runDextool(input_ext,
-                params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
-                "--file-restrict=.*/include/b.h"], incls);
+            runDextool(input_ext, params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
+                    "--file-restrict=.*/include/b.h"], incls);
             break;
 
         default:
@@ -157,24 +148,22 @@ void stage2() {
         switch (input_ext.baseName.toString) {
         case "no_overwrite.h":
             compareResult(GR(input.up ~ "no_overwrite_pre_includes.hpp",
-                testEnv.outdir ~ "test_double_pre_includes.hpp"),
-                GR(input.up ~ "no_overwrite_post_includes.hpp",
-                testEnv.outdir ~ "test_double_post_includes.hpp"));
+                    testEnv.outdir ~ "test_double_pre_includes.hpp"),
+                    GR(input.up ~ "no_overwrite_post_includes.hpp",
+                        testEnv.outdir ~ "test_double_post_includes.hpp"));
             break;
         case "param_gen_pre_post_include.h":
-            compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
-                GR(input ~ Ext(".cpp.ref"), out_impl),
-                GR(input.up ~ "param_gen_pre_includes.hpp.ref",
-                testEnv.outdir ~ "test_double_pre_includes.hpp"),
-                GR(input.up ~ "param_gen_post_includes.hpp.ref",
-                testEnv.outdir ~ "test_double_post_includes.hpp"));
+            compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr), GR(input ~ Ext(".cpp.ref"),
+                    out_impl), GR(input.up ~ "param_gen_pre_includes.hpp.ref",
+                    testEnv.outdir ~ "test_double_pre_includes.hpp"),
+                    GR(input.up ~ "param_gen_post_includes.hpp.ref",
+                        testEnv.outdir ~ "test_double_post_includes.hpp"));
             break;
 
         default:
             compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
-                GR(input ~ Ext(".cpp.ref"), out_impl),
-                GR(Path(input.toString ~ "_global.cpp.ref"), out_global),
-                GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
+                    GR(input ~ Ext(".cpp.ref"), out_impl), GR(Path(input.toString ~ "_global.cpp.ref"),
+                        out_global), GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
         }
 
         println(Color.yellow, "Compiling");
