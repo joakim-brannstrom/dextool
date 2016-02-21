@@ -25,7 +25,7 @@ void devTest() {
         auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
         printStatus(Status.Run, input_ext);
-        auto params = ["cpptestdouble", "--gmock", "--debug"];
+        auto params = ["--DRT-gcopt=profile:1", "cpptestdouble", "--gmock", "--debug"];
         auto incls = ["-I" ~ (root ~ "extra").absolutePath.toString];
         auto dex_flags = ["-xc++"] ~ incls;
         switch (input_ext.baseName.toString) {
