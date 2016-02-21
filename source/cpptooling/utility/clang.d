@@ -19,15 +19,14 @@ import clang.Visitor : Visitor;
  *   void incr(). Called before descending a node.
  *   void decr(). Called after ascending a node.
  */
-void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v) if (
-        hasApply!VisitorT && hasApplyRoot!VisitorT) {
+void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v)
+        if (hasApply!VisitorT && hasApplyRoot!VisitorT) {
     enum NodeType {
         Root,
         Child
     }
 
-    static void helperVisitAst(NodeType NodeT)(ref Cursor child, ref Cursor parent,
-        ref VisitorT v) {
+    static void helperVisitAst(NodeType NodeT)(ref Cursor child, ref Cursor parent, ref VisitorT v) {
         static if (__traits(hasMember, VisitorT, "incr")) {
             v.incr();
         }
@@ -56,16 +55,16 @@ void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v) if (
     helperVisitAst!(NodeType.Root)(cursor, cursor, v);
 }
 
-void logNode(int line = __LINE__, string file = __FILE__,
-    string funcName = __FUNCTION__, string prettyFuncName = __PRETTY_FUNCTION__,
-    string moduleName = __MODULE__)(ref Cursor c, int level) {
+void logNode(int line = __LINE__, string file = __FILE__, string funcName = __FUNCTION__,
+        string prettyFuncName = __PRETTY_FUNCTION__, string moduleName = __MODULE__)(
+        ref Cursor c, int level) {
     import std.range : repeat;
     import logger = std.experimental.logger;
 
-    logger.logf!(line, file, funcName, prettyFuncName, moduleName)(
-        logger.LogLevel.trace, "%s|%s [d=%s %s %s line=%d, col=%d %s]",
-        repeat(' ', level), c.spelling, c.displayName, c.kind, c.type,
-        c.location.spelling.line, c.location.spelling.column, c.abilities);
+    logger.logf!(line, file, funcName, prettyFuncName, moduleName)(logger.LogLevel.trace,
+            "%s|%s [d=%s %s %s line=%d, col=%d %s]", repeat(' ', level), c.spelling,
+            c.displayName, c.kind, c.type, c.location.spelling.line,
+            c.location.spelling.column, c.abilities);
 }
 
 private:

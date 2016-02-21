@@ -23,14 +23,13 @@ struct TranslationUnit {
 
     mixin CX;
 
-    static TranslationUnit parse(Index index, string sourceFilename,
-        string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
-        uint options = CXTranslationUnit_Flags.CXTranslationUnit_None) {
+    static TranslationUnit parse(Index index, string sourceFilename, string[] commandLineArgs,
+            CXUnsavedFile[] unsavedFiles = null,
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_None) {
 
-        auto p = clang_parseTranslationUnit(index.cx, sourceFilename.toStringz,
-            strToCArray(commandLineArgs), cast(int) commandLineArgs.length,
-            toCArray!(CXUnsavedFile)(unsavedFiles), cast(uint) unsavedFiles.length,
-            options);
+        auto p = clang_parseTranslationUnit(index.cx, sourceFilename.toStringz, strToCArray(commandLineArgs),
+                cast(int) commandLineArgs.length, toCArray!(CXUnsavedFile)(unsavedFiles),
+                cast(uint) unsavedFiles.length, options);
 
         auto r = TranslationUnit();
         r = TranslationUnit(p);

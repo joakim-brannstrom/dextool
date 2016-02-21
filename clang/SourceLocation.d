@@ -27,8 +27,8 @@ string toString(SourceLocation value) {
     if (value.isValid) {
         auto spell = value.spelling;
         return format("%s(%s) [file=%s('%s') line=%d column=%d offset=%d]",
-            text(typeid(value)), text(value.cx), text(spell.file),
-            text(spell.file.name), spell.line, spell.column, spell.offset);
+                text(typeid(value)), text(value.cx), text(spell.file),
+                text(spell.file.name), spell.line, spell.column, spell.offset);
     }
 
     return format("%s(%s)", text(typeid(value)), text(value.cx));
@@ -70,7 +70,7 @@ struct SourceLocation {
      *  offset = offset into the line. Starting at 1.
      */
     static Nullable!SourceLocation fromPosition(ref TranslationUnit tu,
-        ref File file, uint line, uint offset) {
+            ref File file, uint line, uint offset) {
 
         auto rval = Nullable!SourceLocation();
         auto r = SourceLocation(clang_getLocation(tu, file, line, offset));

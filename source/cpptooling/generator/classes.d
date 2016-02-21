@@ -32,8 +32,7 @@ void generateHdr(CppClass in_c, CppModule hdr) {
         import cpptooling.data.representation : VirtualType;
 
         string params = m.paramRange().joinParams();
-        auto o = hdr.method(m.isVirtual(), m.returnType().txt, m.name().str, m.isConst(),
-            params);
+        auto o = hdr.method(m.isVirtual(), m.returnType().txt, m.name().str, m.isConst(), params);
         if (m.virtualType() == VirtualType.Pure) {
             o[$.end = " = 0;"];
         }
