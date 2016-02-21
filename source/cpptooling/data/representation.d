@@ -959,6 +959,21 @@ pure @safe nothrow struct CppClass {
         isVirtual_ = analyzeVirtuality(isVirtual_, f);
     }
 
+    void put(CppFunc f) {
+        static void internalPut(T)(ref T class_, CppFunc f) @trusted {
+            import std.variant : visit;
+
+            // dfmt off
+            f.visit!((CppMethod a) => class_.put(a),
+                     (CppMethodOp a) => class_.put(a),
+                     (CppCtor a) => class_.put(a),
+                     (CppDtor a) => class_.put(a));
+            // dfmt on
+        }
+
+        internalPut(this, f);
+    }
+
     void put(T)(T class_, AccessType accessType) @trusted if (is(T == CppClass)) {
         final switch (accessType) {
         case AccessType.Public:
