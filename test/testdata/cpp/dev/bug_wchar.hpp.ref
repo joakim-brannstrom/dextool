@@ -1,0 +1,23 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "bug_wchar.hpp"
+
+namespace N {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual wchar_t * fun() = 0;
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:N
+#endif // test_double_hpp

@@ -82,9 +82,7 @@ body {
     }
 
     with (CXTypeKind) {
-        if (type.isWideCharType) {
-            result.typeKind.txt = "wchar";
-        } else if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
+        if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
             result = translateFunctionPointerType(type);
         } else {
             switch (type.kind) {
