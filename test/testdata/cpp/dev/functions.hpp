@@ -3,8 +3,6 @@
 // Expecting definitions for all function declarations.
 // A class with pure virtual member functions for each C function.
 
-namespace ns {
-
 // expect plain, simple function definitions.
 void func_void(void);
 int func_return(void);
@@ -47,5 +45,4 @@ void func_array(int a[10]);
 void func_ref_ptr(int*& a);
 void func_ref_array(int (&a)[10]);
 
-} // NS: ns
 #endif // FUNCTIONS_H

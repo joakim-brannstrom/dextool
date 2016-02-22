@@ -1,6 +1,6 @@
 #ifndef test_double_hpp
 #define test_double_hpp
-#include "functions.hpp"
+#include "functions_in_ns.hpp"
 
 namespace ns {
 namespace TestDouble {
