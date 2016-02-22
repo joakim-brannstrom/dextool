@@ -25,15 +25,20 @@ void profileGTest() {
     auto root = Path("testdata/stage_4/fused_gtest");
     auto input_ext = root ~ Path("gtest/gtest-all.cc");
 
+    scope (failure)
+        testEnv.save(root.baseName.toString);
+
     print(Color.yellow, "[ Run ] ", input_ext);
-    auto params = ["ctestdouble", "--gen-pre-incl", "--gen-post-incl"];
+    auto params = ["--DRT-gcopt=profile:1", "ctestdouble", "--gen-pre-incl", "--gen-post-incl"];
     auto flags = ["-xc++", "-I" ~ root.toString];
     runDextool(input_ext, params, flags);
 
     print(Color.green, "[  OK ] ", input_ext);
 
     helperDemangleLog();
-    cleanTestEnv();
+
+    pause("Press enter to cleanup");
+    testEnv.clean();
 }
 
 int main(string[] args) {
@@ -43,22 +48,20 @@ int main(string[] args) {
         return 1;
     }
 
-    setOutdir("outdata");
-    setDextool(args[1]);
+    testEnv = TestEnv("outdir", "profile_log", args[1]);
 
     // Setup and cleanup
     chdir(thisExePath.dirName);
     scope (exit)
-        teardownTestEnv();
-    setupTestEnv();
+        testEnv.teardown();
+    testEnv.setup();
 
     // start testing
     try {
         profileGTest();
     }
     catch (ErrorLevelException ex) {
-        print(Color.red, ex.msg);
-        pause();
+        printStatus(Status.Fail, ex.msg);
         return 1;
     }
 
