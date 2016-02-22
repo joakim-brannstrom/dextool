@@ -1,9 +1,8 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
-// Expecting definitions for all function declarations.
-// A class with pure virtual member functions for each C function.
+// Expecting NO generated code.
 
-namespace ns {
+// The following explanations are only applicable for functions_in_ns.hpp
 
 // expect plain, simple function definitions.
 void func_void(void);
@@ -47,5 +46,4 @@ void func_array(int a[10]);
 void func_ref_ptr(int*& a);
 void func_ref_array(int (&a)[10]);
 
-} // NS: ns
 #endif // FUNCTIONS_H
