@@ -351,7 +351,8 @@ struct ClassVisitor {
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
         if (!c.isDefinition) {
-            logger.error("Expected cursor to be a definition but it is:", to!string(c));
+            logger.error("Expected cursor to be a definition but it is: ",
+                    to!string(c), " File:", c.location.toString);
             return data;
         }
 

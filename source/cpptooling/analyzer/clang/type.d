@@ -82,9 +82,7 @@ body {
     }
 
     with (CXTypeKind) {
-        if (type.isWideCharType) {
-            result.typeKind.txt = "wchar";
-        } else if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
+        if (type.kind == CXType_BlockPointer || type.isFunctionPointerType) {
             result = translateFunctionPointerType(type);
         } else {
             switch (type.kind) {
@@ -179,8 +177,22 @@ body {
     return result;
 }
 
-///TODO refactor the nested if's
-auto translateUnexposed(Type type)
+/** Try and find the type via declaration or canonical type.
+ *
+ * It is possible to get stuck in an infinite loop of unexposed, passing
+ * along an incr index to detect and break the recursion.
+ *
+ * TODO refactor the nested if's
+ * TODO investigate if the declaration branch should check if rec_depth == 0,
+ * would force a check on canonical. Then when rec_depth == 2, "give up".
+ *
+ * Params:
+ *  type = type to expose
+ *  rec_depth = nr of recursions
+ *
+ * Return: The exposed type, if found. Otherwise raw spelling.
+ */
+WrapTypeKind translateUnexposed(Type type, uint rec_depth = 0)
 in {
     assert(type.kind == CXTypeKind.CXType_Unexposed);
 }
@@ -191,11 +203,21 @@ body {
     auto rval = WrapTypeKind(type);
     rval.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
 
-    if (declaration.isValid) {
-        rval = translateType(declaration.type);
+    if (rec_depth == 2) {
+        rval.typeKind.txt = type.spelling;
+        logger.error("Giving up, unable to determine the underlying type: ", rval.typeKind.txt);
+    } else if (declaration.isValid && declaration.type.isValid) {
+        if (declaration.type.kind == CXTypeKind.CXType_Unexposed) {
+            rval = translateUnexposed(declaration.type, rec_depth + 1);
+        } else {
+            rval = translateType(declaration.type);
+        }
     } else {
         auto canonical_type = type.canonicalType;
-        if (canonical_type.isValid) {
+
+        if (canonical_type.kind == CXTypeKind.CXType_Unexposed) {
+            rval = translateUnexposed(canonical_type, rec_depth + 1);
+        } else if (canonical_type.isValid) {
             rval = translateType(canonical_type);
         } else {
             rval.typeKind.txt = translateCursorType(type.kind);

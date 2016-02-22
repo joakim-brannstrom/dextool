@@ -1310,7 +1310,6 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
 
 pure @safe nothrow struct CppNamespace {
     private {
-        bool isAnonymous_;
         CppNs name_;
 
         CppNsStack stack;
@@ -1337,7 +1336,6 @@ pure @safe nothrow struct CppNamespace {
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
         }
-        this.isAnonymous_ = stack.length == 0;
         this.stack = stack.dup;
     }
 
@@ -1412,7 +1410,7 @@ const:
 
     @property {
         auto isAnonymous() {
-            return isAnonymous_;
+            return name_.length == 0;
         }
 
         auto name() {
