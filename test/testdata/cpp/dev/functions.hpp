@@ -1,7 +1,8 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
-// Expecting definitions for all function declarations.
-// A class with pure virtual member functions for each C function.
+// Expecting NO generated code.
+
+// The following explanations are only applicable for functions_in_ns.hpp
 
 // expect plain, simple function definitions.
 void func_void(void);
