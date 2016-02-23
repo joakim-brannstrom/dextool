@@ -58,7 +58,7 @@ void stage1() {
         auto mainf = Path("testdata/cstub/main1.cpp").absolutePath;
         switch (input_ext.baseName.toString) {
         case "bug_wchar.h":
-        case "test_include_stdlib.h":
+        case "test_include_stdlibs.h":
             // skip compiling, stdarg.h etc do not exist on all platforms
             break;
         case "param_gmock.h":
