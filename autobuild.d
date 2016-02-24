@@ -482,6 +482,7 @@ int main(string[] args) {
     // dfmt off
     auto inotify_paths = only(
                               "source",
+                              "plugin",
                               "clang",
                               "libclang",
                               "dub.sdl",
