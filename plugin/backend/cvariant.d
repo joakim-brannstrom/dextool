@@ -7,7 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 Generate a C test double implementation from data about the structural
 representation.
 */
-module cpptooling.generator.stub.cstub;
+module plugin.backend.cvariant;
 
 import std.typecons : Typedef;
 import logger = std.experimental.logger;

@@ -3,28 +3,67 @@
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
-
-Generation of C++ test doubles.
 */
-module application.cpptestdouble;
+module plugin.frontend.ctestdouble;
 
 import logger = std.experimental.logger;
 
 import application.types;
 import application.utility;
 
-import cpptooling.generator.cppvariant : Controller, Parameters, Products;
+import plugin.types;
+import plugin.backend.cvariant : StubGenerator, StubController, StubParameters,
+    StubProducts;
 
-/** Test double generation of C++ code.
+auto runPlugin(CliOption opt, CliArgs args) {
+    import std.typecons : TypedefType;
+    import docopt;
+    import argvalue;
+
+    auto parsed = docopt.docopt(cast(TypedefType!CliOption) opt, cast(TypedefType!CliArgs) args);
+
+    string[] cflags;
+    if (parsed["--"].isTrue) {
+        cflags = parsed["CFLAGS"].asList;
+    }
+
+    import plugin.docopt_util;
+
+    printArgs(parsed);
+
+    auto variant = CTestDoubleVariant.makeVariant(parsed);
+    return genCstub(variant, cflags);
+}
+
+// dfmt off
+static auto ctestdouble_opt = CliOptionParts(
+    "usage:
+  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+    // -------------
+    " --strip-incl=r     A regexp used to strip the include paths
+ --gmock            Generate a gmock implementation of test double interface
+ --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
+    // -------------
+"others:
+ --file-exclude=     exclude files from generation matching the regex.
+ --file-restrict=    restrict the scope of the test double to those files
+                     matching the regex.
+ --td-include=       user supplied includes used instead of those found.
+"
+);
+// dfmt on
+
+/** Test double generation of C code.
  *
  * TODO Describe the options.
  */
-class CppTestDoubleVariant : Controller, Parameters, Products {
-    import std.string : toLower;
+class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     import std.regex : regex, Regex;
     import std.typecons : Tuple, Flag;
     import argvalue; // from docopt
-    import application.types : StubPrefix, FileName, MainInterface, DirName;
+    import application.types : StubPrefix, FileName, DirName;
     import application.utility;
     import dsrcgen.cpp;
 
@@ -78,11 +117,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             strip_incl = regex(strip_incl_user);
             logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
         } else {
-            logger.trace("Using default regexp for stripping include path (basename)");
+            logger.trace("Using default regexp to strip include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 
-        auto variant = new CppTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
+        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
                 FileName(parsed["FILE"].toString), MainFileName(parsed["--main-fname"].toString),
                 MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
                 gmock, pre_incl, post_incl, strip_incl);
@@ -138,7 +177,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return input_file;
     }
 
-    // -- Controller --
+    // -- StubController --
 
     bool doFile(in string filename, in string info) {
         import std.algorithm : canFind;
@@ -193,7 +232,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return post_incl;
     }
 
-    // -- Parameters --
+    // -- StubParameters --
 
     FileName[] getIncludes() {
         td_includes.doStrip();
@@ -204,8 +243,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return output_dir;
     }
 
-    Parameters.Files getFiles() {
-        return Parameters.Files(main_file_hdr, main_file_impl,
+    StubParameters.Files getFiles() {
+        return StubParameters.Files(main_file_hdr, main_file_impl,
                 main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
@@ -229,7 +268,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return prefix;
     }
 
-    // -- Products --
+    // -- StubProducts --
 
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
@@ -245,13 +284,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 }
 
 /// TODO refactor, doing too many things.
-ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags) {
+ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
     import std.exception;
     import std.path : baseName, buildPath, stripExtension;
     import std.file : exists;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
-    import cpptooling.generator.cppvariant : Generator;
 
     if (!exists(cast(string) variant.getInputFile)) {
         logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
@@ -269,7 +307,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags) {
     ctx.visit(file_ctx.cursor);
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(ctx.root, ctx.container);
+    StubGenerator(variant, variant, variant).process(ctx.root);
 
     foreach (p; variant.file_data) {
         auto status = tryWriting(cast(string) p.filename, p.data);

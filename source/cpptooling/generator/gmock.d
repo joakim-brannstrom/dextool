@@ -24,9 +24,10 @@ import cpptooling.data.representation : CppClass, CppNamespace;
  * See test case class_interface_more_than_10_params.hpp.
  *
  * Params:
- *   in_c: Class to generate a mock implementation of.
- *   hdr: Header to generate the code in.
- *   params: tooling parameters that affects namespace the mock is generated in.
+ *   ParamT Parameter type holding static information.
+ *   in_c = Class to generate a mock implementation of.
+ *   hdr = Header to generate the code in.
+ *   params = tooling parameters that affects namespace the mock is generated in.
  */
 void generateGmock(ParamT)(CppClass in_c, CppModule hdr, ParamT params)
 in {
