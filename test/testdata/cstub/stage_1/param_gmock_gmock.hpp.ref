@@ -25,6 +25,7 @@ public:
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));
     MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
     MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int x1), int b));
+    MOCK_METHOD1(c_func_with_struct, void(const struct A *a));
 };
 } //NS:TestDouble
 
