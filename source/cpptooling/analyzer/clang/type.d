@@ -224,6 +224,28 @@ body {
         }
     }
 
+    if (type.isConst) {
+        rval.typeKind.isConst = type.isConst;
+
+        // unsure if this is a stable way of solving the const of unexposed
+        // types. But seems to be good enough.
+        final switch (rval.typeKind.info.kind) {
+        case TypeKind.Info.Kind.simple:
+            TypeKind.SimpleInfo info;
+            info.fmt = "const " ~ rval.typeKind.info.fmt;
+            rval.typeKind.info = info;
+            rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+            break;
+        case TypeKind.Info.Kind.array:
+        case TypeKind.Info.Kind.funcPtr:
+            logger.errorf("info for type '%s' is not implemented", rval.typeKind.txt);
+            break;
+        case TypeKind.Info.Kind.null_:
+            logger.errorf("info for type '%s' is null", rval.typeKind.txt);
+            break;
+        }
+    }
+
     return rval;
 }
 

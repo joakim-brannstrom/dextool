@@ -36,4 +36,8 @@ extern void fun(func_ptr2 p, Something_Big b);
 
 // expect a correct call signature for a function ptr
 void func_ptr_arg(int (*a)(int p, int) , int b);
+
+// expect a func signature exactly as the function below.
+// Not uncommon in C code that the keyword struct is used.
+void c_func_with_struct(const struct A* a);
 #endif // FUNCTIONS_H

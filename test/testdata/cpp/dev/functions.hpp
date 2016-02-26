@@ -39,6 +39,11 @@ extern void fun(func_ptr2 p, Something_Big b);
 // expect a correct call signature for a function ptr
 void func_ptr_arg(int (*a)(int p, int) , int b);
 
+// C++ behaves different from C.
+// In C++ the struct keyword is not expected to be kept in the function
+// signature, compared to C where it is.
+void c_func_with_struct(const struct A* a);
+
 // C++ testing
 void func_ref(int& a);
 int& func_return_ref();
