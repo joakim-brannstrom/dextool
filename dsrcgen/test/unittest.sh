@@ -1,4 +1,5 @@
 #!/bin/sh
 set -e
 
-rdmd -unittest --main -I../source ./main.d
+# rdmd -g -unittest --main -I../source ./ut2.d
+dub test
