@@ -13,29 +13,20 @@ import unit_threaded;
 mixin genUtMain;
 -----
 
-Or just use rdmd with the included gen_ut_main,
-which does the above. The examples below use the second option.
+Generally however, this code will be used by the gen_ut_main
+dub configuration via `dub run`.
 
-By default, genUtMain will look for unit tests in a $(D tests)
-folder and write a program out to a file named $(D ut.d). To change
+By default, genUtMain will look for unit tests in CWD
+and write a program out to a temporary file. To change
 the file to write to, use the $(D -f) option. To change what
 directories to look in, simply pass them in as the remaining
 command-line arguments.
 
-Examples:
------
-# write ut.d that finds unit tests from files in the tests directory
-rdmd $PHOBOS/std/experimental/testing/gen_ut_main.d
-
-# write foo.d that finds unit tests from the src and other directories
-rdmd $PHOBOS/std/experimental/testing/gen_ut_main.d -f foo.d src other
------
-
-The resulting $(D ut.d) file (or as named by the $(D -f) option) is
-also a program that must be compiled and, when run, will run the unit
-tests found. By default, it will run all tests. To run one test or
-all tests in a particular package, pass them in as command-line arguments.
-The $(D -h) option will list all command-line options.
+The resulting file is also a program that must be compiled and, when
+run, will run the unit tests found. By default, it will run all
+tests. To run one test or all tests in a particular package, pass them
+in as command-line arguments.  The $(D -h) option will list all
+command-line options.
 
 Examples (assuming the generated file is called $(D ut.d)):
 -----
@@ -79,6 +70,7 @@ struct Options {
     bool help;
     bool showVersion;
     string[] includes;
+    string[] files;
 
     bool earlyReturn() @safe pure nothrow const {
         return help || showVersion;
@@ -105,7 +97,7 @@ Options getGenUtOptions(string[] args) {
     }
 
     if (options.showVersion) {
-        writeln("unit_threaded.runtime version v0.5.7");
+        writeln("unit_threaded.runtime version v0.6.1");
         return options;
     }
 
@@ -121,13 +113,30 @@ Options getGenUtOptions(string[] args) {
 
 DirEntry[] findModuleEntries(in Options options) {
 
+    import std.algorithm: splitter, canFind;
+    import std.array: array, empty;
+
+    // dub list of files, don't bother reading the filesystem since
+    // dub has done it already
+    if(!options.files.empty && options.dirs == ["."]) {
+        return options.files.
+            filter!(a => a != options.fileName).
+            map!(a => buildNormalizedPath(a)).
+            map!(a => DirEntry(a))
+            .array;
+    }
+
     DirEntry[] modules;
     foreach (dir; options.dirs) {
         enforce(isDir(dir), dir ~ " is not a directory name");
         auto entries = dirEntries(dir, "*.d", SpanMode.depth);
         auto normalised = entries.map!(a => buildNormalizedPath(a.name));
 
+        bool isHiddenDir(string p) { return p.startsWith("."); }
+        bool anyHiddenDir(string p) { return p.splitter(dirSeparator).canFind!isHiddenDir; }
+
         modules ~= normalised.
+            filter!(a => !anyHiddenDir(a)).
             map!(a => DirEntry(a)).array;
     }
 
@@ -136,13 +145,14 @@ DirEntry[] findModuleEntries(in Options options) {
 
 
 string[] findModuleNames(in Options options) {
-    import std.path : dirSeparator, stripExtension;
+    import std.path : dirSeparator, stripExtension, absolutePath;
 
     // if a user passes -Isrc and a file is called src/foo/bar.d,
     // the module name should be foo.bar, not src.foo.bar,
     // so this function subtracts import path options
     string relativeToImportDirs(string path) {
         foreach(string importPath; options.includes) {
+            importPath = relativePath(importPath);
             if(!importPath.endsWith(dirSeparator)) importPath ~= dirSeparator;
             if(path.startsWith(importPath)) {
                 return path.replace(importPath, "");
@@ -154,6 +164,7 @@ string[] findModuleNames(in Options options) {
 
     return findModuleEntries(options).
         filter!(a => a.baseName != "package.d" && a.baseName != "reggaefile.d").
+        filter!(a => a.absolutePath != options.fileName.absolutePath).
         map!(a => relativeToImportDirs(a.name)).
         map!(a => replace(a.stripExtension, dirSeparator, ".")).
         array;
