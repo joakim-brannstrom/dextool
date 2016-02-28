@@ -6,12 +6,12 @@ license "MPL-2"
 
 // v0.6.1-b.4
 dependency "docopt" path="docopt"
-dependency "dsrcgen" path="dsrcgen"
+//dependency "dsrcgen" path="dsrcgen"
 
 targetPath "build"
 mainSourceFile "source/application/app.d"
-sourcePaths "source" "plugin" "clang" "libclang/deimos/clang"
-importPaths "source" "clang" "libclang"
+sourcePaths "source" "plugin" "clang" "libclang/deimos/clang" "dsrcgen/source"
+importPaths "source" "clang" "libclang" "dsrcgen/source"
 stringImportPaths "clang/resources"
 
 dflags "-dip25"
