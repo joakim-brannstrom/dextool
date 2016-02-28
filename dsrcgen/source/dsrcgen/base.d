@@ -78,20 +78,36 @@ class BaseModule : BaseElement {
         this.indent_width = indent_width;
     }
 
-    /// Number of levels to suppress indent of children.
-    /// Propagated to leafs.
+    /** Set indent suppression from this point and all children.
+     *
+     * Number of levels to suppress indent of children.
+     * Propagated to leafs.
+     *
+     * It can't suppress indent to lower than parent.
+     * To suppress further use suppressThisIndent.
+     *
+     * Params:
+     *  levels = nr of indentation levels to suppress
+     */
     void suppressIndent(int levels) {
         this.suppress_child_indent = levels;
     }
 
+    /** Suppress indentation by also affecting the level propagated from the parent.
+     *
+     * Params:
+     *  levels = nr of indentation levels to suppress
+     */
     void suppressThisIndent(int levels) {
         this.suppress_indent = levels;
     }
 
+    /// Sets the width of the indentation
     void setIndentation(int ind) {
         this.indent_width = ind;
     }
 
+    /// Clear the node of childrens.
     auto reset() {
         children.length = 0;
         return this;
@@ -116,7 +132,7 @@ class BaseModule : BaseElement {
         sep_lines = 0;
     }
 
-    string indent(string s, int parent_level, int level) {
+    string indent(string s, int parent_level, int level) const {
         import std.algorithm : max;
         import std.conv : to;
 

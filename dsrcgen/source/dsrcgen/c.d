@@ -4,6 +4,8 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.c;
 
+import std.typecons : Flag, Yes, No;
+
 import dsrcgen.base;
 
 @safe:
@@ -52,7 +54,7 @@ mixin template CModuleX() {
     }
 
     // Statements
-    auto stmt(string stmt_, bool separator = true) {
+    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Stmt!(typeof(this))(stmt_);
         append(e);
         if (separator) {
@@ -101,8 +103,7 @@ mixin template CModuleX() {
         if (f.length > 1 && f[0] == '<') {
             incl = format("#include %s", f);
         } else {
-            ///TODO ugly way. Does other string literals exist that could be used instead?
-            incl = format("#include %s%s%s", '"', f, '"');
+            incl = format(`#include "%s"`, f);
         }
 
         auto e = stmt(incl)[$.end = ""];
@@ -110,7 +111,7 @@ mixin template CModuleX() {
     }
 
     // Suites
-    auto suite(string headline, bool separator = true) {
+    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite!(typeof(this))(headline);
         append(e);
         if (separator) {
@@ -155,13 +156,13 @@ mixin template CModuleX() {
     }
 
     auto case_(string val) {
-        auto e = suite(format("case %s:", val), false)[$.begin = "", $.end = ""];
+        auto e = suite(format("case %s:", val), No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
 
     auto default_() {
-        auto e = suite("default:", false)[$.begin = "", $.end = ""];
+        auto e = suite("default:", No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
@@ -292,7 +293,7 @@ class Stmt(T) : T {
     override string renderIndent(int parent_level, int level) {
         string r = stmt_append_end(headline, attrs);
 
-        if (r.length > 0 && !("noindent" in attrs)) {
+        if (!("noindent" in attrs)) {
             r = indent(r, parent_level, level);
         }
 
@@ -710,8 +711,7 @@ content text
 #endif // somefile_hpp
 footer text
 // footer comment
-",
-        hdr.render);
+", hdr.render);
 }
 
 //@name("Test of Expression. Type conversion")

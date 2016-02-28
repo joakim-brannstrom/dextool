@@ -4,6 +4,8 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.cpp;
 
+import std.typecons : Flag, Yes, No;
+
 import dsrcgen.base;
 
 public import dsrcgen.c;
@@ -46,13 +48,13 @@ mixin template CppModuleX() {
      */
     auto class_suite(string class_name, string headline) {
         auto tmp = format("%s::%s", class_name, headline);
-        auto e = suite(tmp, true);
+        auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
     auto class_suite(string rval, string class_name, string headline) {
         auto tmp = format("%s %s::%s", rval, class_name, headline);
-        auto e = suite(tmp, true);
+        auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
@@ -86,13 +88,12 @@ mixin template CppModuleX() {
      *  class_name = name of the class to create a d'tor for.
      * Example:
      * ----
-     * dtor(true, "Foo");
+     * dtor(Yes.IsVirtual, "Foo");
      * ----
-     * TODO better solution for virtual. A boolean is kind of adhoc.
      */
-    auto dtor(bool virtual_, string class_name) {
-        auto e = stmt(format("%s%s%s()", virtual_ ? "virtual " : "",
-            class_name[0] == '~' ? "" : "~", class_name));
+    auto dtor(Flag!"isVirtual" isVirtual, string class_name) {
+        auto e = stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
+                class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
@@ -131,68 +132,70 @@ mixin template CppModuleX() {
     }
 
     auto public_() {
-        auto e = suite("public:", false)[$.begin = "", $.end = ""];
+        auto e = suite("public:", No.addSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
     auto protected_() {
-        auto e = suite("protected:", false)[$.begin = "", $.end = ""];
+        auto e = suite("protected:", No.addSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
     auto private_() {
-        auto e = suite("private:", false)[$.begin = "", $.end = ""];
+        auto e = suite("private:", No.addSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
-    auto method(bool virtual_, string return_type, string name, bool const_) {
-        auto e = stmt(format("%s%s %s()%s", virtual_ ? "virtual " : "",
-            return_type, name, const_ ? " const" : ""));
+    auto method(Flag!"isVirtual" isVirtual, string return_type, string name,
+            Flag!"isConst" isConst) {
+        auto e = stmt(format("%s%s %s()%s", isVirtual ? "virtual " : "",
+                return_type, name, isConst ? " const" : ""));
         return e;
     }
 
-    auto method(T...)(bool virtual_, string return_type, string name, bool const_,
-        auto ref T args) {
+    auto method(T...)(Flag!"isVirtual" isVirtual, string return_type,
+            string name, Flag!"isConst" isConst, auto ref T args) {
         string params = this.paramsToString(args);
 
-        auto e = stmt(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
-            return_type, name, params, const_ ? " const" : ""));
+        auto e = stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
+                return_type, name, params, isConst ? " const" : ""));
         return e;
     }
 
-    auto method_body(string return_type, string class_name, string name, bool const_) {
+    auto method_body(string return_type, string class_name, string name, Flag!"isConst" isConst) {
         auto e = class_suite(return_type, class_name, format("%s()%s", name,
-            const_ ? " const" : ""));
+                isConst ? " const" : ""));
         return e;
     }
 
     auto method_body(T...)(string return_type, string class_name, string name,
-        bool const_, auto ref T args) {
+            Flag!"isConst" isConst, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
-            params, const_ ? " const" : ""));
+                params, isConst ? " const" : ""));
         return e;
     }
 
-    auto method_inline(bool virtual_, string return_type, string name, bool const_) {
-        auto e = suite(format("%s%s %s()%s", virtual_ ? "virtual " : "",
-            return_type, name, const_ ? " const" : ""));
+    auto method_inline(Flag!"isVirtual" isVirtual, string return_type,
+            string name, Flag!"isConst" isConst) {
+        auto e = suite(format("%s%s %s()%s", isVirtual ? "virtual " : "",
+                return_type, name, isConst ? " const" : ""));
         return e;
     }
 
-    auto method_inline(T...)(bool virtual_, string return_type, string name,
-        bool const_, auto ref T args) {
+    auto method_inline(T...)(Flag!"isVirtual" isVirtual, string return_type,
+            string name, Flag!"isConst" isConst, auto ref T args) {
         string params = this.paramsToString(args);
 
-        auto e = suite(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
-            return_type, name, params, const_ ? " const" : ""));
+        auto e = suite(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
+                return_type, name, params, isConst ? " const" : ""));
         return e;
     }
 }
@@ -313,6 +316,7 @@ unittest {
         Foo();
         Foo(int y);
         ~Foo();
+        virtual ~Foo();
     };
     class Foo : Bar {
     };
@@ -332,6 +336,7 @@ private:
             auto ctor0 = ctor("Foo");
             auto ctor1 = ctor("Foo", "int y");
             auto dtor0 = dtor("Foo");
+            auto dtor1 = dtor(Yes.isVirtual, "Foo");
         }
         class_("Foo", "Bar");
         with (public_) {
@@ -396,9 +401,12 @@ unittest {
     auto expect = "    void foo() {
     }
     void bar(int foo) {
-    }";
+    }
+";
 
     auto m = new CppModule;
-    m.method_inline(false, "void", "foo", false);
-    m.method_inline(false, "void", "foo", false, "int", "foo");
+    m.method_inline(No.isVirtual, "void", "foo", No.isConst);
+    m.method_inline(No.isVirtual, "void", "bar", No.isConst, "int foo");
+
+    assert(expect == m.render, m.render);
 }

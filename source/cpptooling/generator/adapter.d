@@ -6,6 +6,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.generator.adapter;
 
+import std.typecons : Yes, No;
+
 import dsrcgen.cpp : CppModule;
 
 import application.types : MainNs, MainInterface;
@@ -102,7 +104,7 @@ void generateImpl(CppClass c, CppModule impl) {
 
         string params = m.paramRange().joinParams();
         auto b = impl.method_body(m.returnType().txt, c.name().str, m.name()
-                .str, m.isConst(), params);
+                .str, m.isConst ? Yes.isConst : No.isConst, params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
             stmt(E("test_double_inst") = E("&" ~ p));

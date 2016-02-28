@@ -8,6 +8,8 @@ Generate a google mock implementation of a C++ class with at least one virtual.
 */
 module cpptooling.generator.gmock;
 
+import std.typecons : Yes, No;
+
 import dsrcgen.cpp : CppModule;
 
 import cpptooling.data.representation : CppClass, CppNamespace;
@@ -91,8 +93,8 @@ body {
 
             string gmock_name = translateOp(m.op().str);
 
-            CppModule code = hdr.method_inline(true, m.returnType.txt,
-                    m.name.str, m.isConst, m.paramRange().joinParams());
+            CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.txt,
+                    m.name.str, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
             auto call = E(gmock_name)(m.paramRange().joinParamNames);
 
             if (m.returnType().txt == "void") {
@@ -153,8 +155,9 @@ body {
             code.suppressIndent(1);
 
             // Generate mock method that delegates to partial mock methods
-            auto delegate_mock = hdr.method_inline(true, m.returnType().txt,
-                    m.name().str, m.isConst, m.paramRange().joinParams());
+            auto delegate_mock = hdr.method_inline(Yes.isVirtual,
+                    m.returnType().txt, m.name().str, m.isConst ? Yes.isConst
+                    : No.isConst, m.paramRange().joinParams());
 
             auto param_chunks = chunks(m.paramRange(), MAX_GMOCK_PARAMS);
 
@@ -194,7 +197,7 @@ body {
     // dfmt on
     auto c = ns.class_("Mock" ~ in_c.name().str, base_class);
     auto pub = c.public_();
-    pub.dtor(true, "Mock" ~ in_c.name().str)[$.end = " {}" ~ newline];
+    pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name().str)[$.end = " {}" ~ newline];
 
     foreach (m; in_c.methodRange()) {
         // dfmt off

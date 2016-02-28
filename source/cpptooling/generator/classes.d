@@ -6,6 +6,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.generator.classes;
 
+import std.typecons : Yes, No;
+
 import dsrcgen.cpp : CppModule;
 
 import cpptooling.data.representation : CppClass;
@@ -25,14 +27,15 @@ void generateHdr(CppClass in_c, CppModule hdr) {
     }
 
     static void genDtor(CppDtor m, CppModule hdr) {
-        hdr.dtor(m.isVirtual(), m.name().str);
+        hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name().str);
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
         import cpptooling.data.representation : VirtualType;
 
         string params = m.paramRange().joinParams();
-        auto o = hdr.method(m.isVirtual(), m.returnType().txt, m.name().str, m.isConst(), params);
+        auto o = hdr.method(m.isVirtual() ? Yes.isVirtual : No.isVirtual,
+                m.returnType().txt, m.name().str, m.isConst ? Yes.isConst : No.isConst, params);
         if (m.virtualType() == VirtualType.Pure) {
             o[$.end = " = 0;"];
         }

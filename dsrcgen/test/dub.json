@@ -6,11 +6,19 @@
     "license": "BSL-1.0",
 
     "dependencies": {
-        "dsrcgen": {"path": ".."}
+        "unit-threaded": "~>0.6.0"
     },
 
     "targetPath": "build",
-    "targetType": "executable",
     "buildType": "unittest",
-    "mainSourceFile": "main.d"
+    "sourcePaths": ["../source"],
+    "importPaths": ["../source"],
+
+    "configurations": [
+        {
+            "name": "unittest",
+            "targetType": "executable",
+            "mainSourceFile": "ut.d"
+        }
+    ]
 }
