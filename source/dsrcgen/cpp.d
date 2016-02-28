@@ -92,7 +92,7 @@ mixin template CppModuleX() {
      */
     auto dtor(bool virtual_, string class_name) {
         auto e = stmt(format("%s%s%s()", virtual_ ? "virtual " : "",
-            class_name[0] == '~' ? "" : "~", class_name));
+                class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
@@ -153,46 +153,45 @@ mixin template CppModuleX() {
 
     auto method(bool virtual_, string return_type, string name, bool const_) {
         auto e = stmt(format("%s%s %s()%s", virtual_ ? "virtual " : "",
-            return_type, name, const_ ? " const" : ""));
+                return_type, name, const_ ? " const" : ""));
         return e;
     }
 
-    auto method(T...)(bool virtual_, string return_type, string name, bool const_,
-        auto ref T args) {
+    auto method(T...)(bool virtual_, string return_type, string name, bool const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
-            return_type, name, params, const_ ? " const" : ""));
+                return_type, name, params, const_ ? " const" : ""));
         return e;
     }
 
     auto method_body(string return_type, string class_name, string name, bool const_) {
         auto e = class_suite(return_type, class_name, format("%s()%s", name,
-            const_ ? " const" : ""));
+                const_ ? " const" : ""));
         return e;
     }
 
     auto method_body(T...)(string return_type, string class_name, string name,
-        bool const_, auto ref T args) {
+            bool const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
-            params, const_ ? " const" : ""));
+                params, const_ ? " const" : ""));
         return e;
     }
 
     auto method_inline(bool virtual_, string return_type, string name, bool const_) {
         auto e = suite(format("%s%s %s()%s", virtual_ ? "virtual " : "",
-            return_type, name, const_ ? " const" : ""));
+                return_type, name, const_ ? " const" : ""));
         return e;
     }
 
     auto method_inline(T...)(bool virtual_, string return_type, string name,
-        bool const_, auto ref T args) {
+            bool const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
-            return_type, name, params, const_ ? " const" : ""));
+                return_type, name, params, const_ ? " const" : ""));
         return e;
     }
 }
@@ -396,9 +395,12 @@ unittest {
     auto expect = "    void foo() {
     }
     void bar(int foo) {
-    }";
+    }
+";
 
     auto m = new CppModule;
     m.method_inline(false, "void", "foo", false);
-    m.method_inline(false, "void", "foo", false, "int", "foo");
+    m.method_inline(false, "void", "bar", false, "int foo");
+
+    assert(expect == m.render, m.render);
 }
