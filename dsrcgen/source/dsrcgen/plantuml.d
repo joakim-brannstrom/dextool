@@ -8,7 +8,7 @@ module dsrcgen.plantuml;
 
 import dsrcgen.base;
 
-version (unittest) {
+version (Have_unit_threaded) {
     import unit_threaded : Name, shouldEqual;
 } else {
     struct Name {

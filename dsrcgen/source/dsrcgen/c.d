@@ -54,7 +54,7 @@ mixin template CModuleX() {
     }
 
     // Statements
-    auto stmt(string stmt_, Flag!"AddSep" separator = Yes.AddSep) {
+    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Stmt!(typeof(this))(stmt_);
         append(e);
         if (separator) {
@@ -111,7 +111,7 @@ mixin template CModuleX() {
     }
 
     // Suites
-    auto suite(string headline, Flag!"AddSep" separator = Yes.AddSep) {
+    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite!(typeof(this))(headline);
         append(e);
         if (separator) {
@@ -156,13 +156,13 @@ mixin template CModuleX() {
     }
 
     auto case_(string val) {
-        auto e = suite(format("case %s:", val), No.AddSep)[$.begin = "", $.end = ""];
+        auto e = suite(format("case %s:", val), No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
 
     auto default_() {
-        auto e = suite("default:", No.AddSep)[$.begin = "", $.end = ""];
+        auto e = suite("default:", No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
