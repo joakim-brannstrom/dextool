@@ -4,6 +4,8 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.c;
 
+import std.typecons : Flag, Yes, No;
+
 import dsrcgen.base;
 
 @safe:
@@ -52,7 +54,7 @@ mixin template CModuleX() {
     }
 
     // Statements
-    auto stmt(string stmt_, bool separator = true) {
+    auto stmt(string stmt_, Flag!"AddSep" separator = Yes.AddSep) {
         auto e = new Stmt!(typeof(this))(stmt_);
         append(e);
         if (separator) {
@@ -109,7 +111,7 @@ mixin template CModuleX() {
     }
 
     // Suites
-    auto suite(string headline, bool separator = true) {
+    auto suite(string headline, Flag!"AddSep" separator = Yes.AddSep) {
         auto e = new Suite!(typeof(this))(headline);
         append(e);
         if (separator) {
@@ -154,13 +156,13 @@ mixin template CModuleX() {
     }
 
     auto case_(string val) {
-        auto e = suite(format("case %s:", val), false)[$.begin = "", $.end = ""];
+        auto e = suite(format("case %s:", val), No.AddSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
 
     auto default_() {
-        auto e = suite("default:", false)[$.begin = "", $.end = ""];
+        auto e = suite("default:", No.AddSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
     }
