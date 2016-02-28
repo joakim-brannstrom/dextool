@@ -4,6 +4,8 @@
 /// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.cpp;
 
+import std.typecons : Flag, Yes, No;
+
 import dsrcgen.base;
 
 public import dsrcgen.c;
@@ -46,13 +48,13 @@ mixin template CppModuleX() {
      */
     auto class_suite(string class_name, string headline) {
         auto tmp = format("%s::%s", class_name, headline);
-        auto e = suite(tmp, true);
+        auto e = suite(tmp, Yes.AddSep);
         return e;
     }
 
     auto class_suite(string rval, string class_name, string headline) {
         auto tmp = format("%s %s::%s", rval, class_name, headline);
-        auto e = suite(tmp, true);
+        auto e = suite(tmp, Yes.AddSep);
         return e;
     }
 
@@ -86,11 +88,10 @@ mixin template CppModuleX() {
      *  class_name = name of the class to create a d'tor for.
      * Example:
      * ----
-     * dtor(true, "Foo");
+     * dtor(Yes.IsVirtual, "Foo");
      * ----
-     * TODO better solution for virtual. A boolean is kind of adhoc.
      */
-    auto dtor(bool virtual_, string class_name) {
+    auto dtor(Flag!"IsVirtual" virtual_, string class_name) {
         auto e = stmt(format("%s%s%s()", virtual_ ? "virtual " : "",
                 class_name[0] == '~' ? "" : "~", class_name));
         return e;
@@ -131,33 +132,34 @@ mixin template CppModuleX() {
     }
 
     auto public_() {
-        auto e = suite("public:", false)[$.begin = "", $.end = ""];
+        auto e = suite("public:", No.AddSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
     auto protected_() {
-        auto e = suite("protected:", false)[$.begin = "", $.end = ""];
+        auto e = suite("protected:", No.AddSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
     auto private_() {
-        auto e = suite("private:", false)[$.begin = "", $.end = ""];
+        auto e = suite("private:", No.AddSep)[$.begin = "", $.end = ""];
         e.suppressThisIndent(1);
         e.sep;
         return e;
     }
 
-    auto method(bool virtual_, string return_type, string name, bool const_) {
+    auto method(Flag!"IsVirtual" virtual_, string return_type, string name, Flag!"IsConst" const_) {
         auto e = stmt(format("%s%s %s()%s", virtual_ ? "virtual " : "",
                 return_type, name, const_ ? " const" : ""));
         return e;
     }
 
-    auto method(T...)(bool virtual_, string return_type, string name, bool const_, auto ref T args) {
+    auto method(T...)(Flag!"IsVirtual" virtual_, string return_type, string name,
+            Flag!"IsConst" const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
@@ -165,14 +167,14 @@ mixin template CppModuleX() {
         return e;
     }
 
-    auto method_body(string return_type, string class_name, string name, bool const_) {
+    auto method_body(string return_type, string class_name, string name, Flag!"IsConst" const_) {
         auto e = class_suite(return_type, class_name, format("%s()%s", name,
                 const_ ? " const" : ""));
         return e;
     }
 
     auto method_body(T...)(string return_type, string class_name, string name,
-            bool const_, auto ref T args) {
+            Flag!"IsConst" const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
@@ -180,14 +182,15 @@ mixin template CppModuleX() {
         return e;
     }
 
-    auto method_inline(bool virtual_, string return_type, string name, bool const_) {
+    auto method_inline(Flag!"IsVirtual" virtual_, string return_type,
+            string name, Flag!"IsConst" const_) {
         auto e = suite(format("%s%s %s()%s", virtual_ ? "virtual " : "",
                 return_type, name, const_ ? " const" : ""));
         return e;
     }
 
-    auto method_inline(T...)(bool virtual_, string return_type, string name,
-            bool const_, auto ref T args) {
+    auto method_inline(T...)(Flag!"IsVirtual" virtual_, string return_type,
+            string name, Flag!"IsConst" const_, auto ref T args) {
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s%s %s(%s)%s", virtual_ ? "virtual " : "",
@@ -312,6 +315,7 @@ unittest {
         Foo();
         Foo(int y);
         ~Foo();
+        virtual ~Foo();
     };
     class Foo : Bar {
     };
@@ -331,6 +335,7 @@ private:
             auto ctor0 = ctor("Foo");
             auto ctor1 = ctor("Foo", "int y");
             auto dtor0 = dtor("Foo");
+            auto dtor1 = dtor(Yes.IsVirtual, "Foo");
         }
         class_("Foo", "Bar");
         with (public_) {
@@ -399,8 +404,8 @@ unittest {
 ";
 
     auto m = new CppModule;
-    m.method_inline(false, "void", "foo", false);
-    m.method_inline(false, "void", "bar", false, "int foo");
+    m.method_inline(No.IsVirtual, "void", "foo", No.IsConst);
+    m.method_inline(No.IsVirtual, "void", "bar", No.IsConst, "int foo");
 
     assert(expect == m.render, m.render);
 }
