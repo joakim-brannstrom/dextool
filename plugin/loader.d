@@ -41,6 +41,11 @@ shared static this() {
 
     registerPlugin(CliCategory("cpptestdouble"), CliCategoryInfo("generate a C++ test double. Language is set to C++"),
             CliOptionParts(cpptestdouble_opt), &plugin.frontend.cpptestdouble.runPlugin);
+
+    import plugin.frontend.plantuml;
+
+    registerPlugin(CliCategory("uml"), CliCategoryInfo("generate PlantUML diagrams"),
+            CliOptionParts(plantuml_opt), &plugin.frontend.plantuml.runPlugin);
 }
 
 version (unittest) {
