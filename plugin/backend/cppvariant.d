@@ -90,11 +90,11 @@ import cpptooling.utility.nullvoid;
 
 /// Data produced by the generator like files.
 @safe interface Products {
-    /** Data pushed from the stub generator to be written to files.
+    /** Data pushed from the generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
-     * StubGenerator to inject more data in the tree before writing. For
-     * example a custom header.
+     * Generator to inject more data in the tree before writing. For example a
+     * custom header.
      *
      * Params:
      *   fname = file the content is intended to be written to.
