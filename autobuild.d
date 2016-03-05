@@ -110,8 +110,8 @@ struct Fsm {
         Start,
         Ut_run,
         Ut_cov,
-        Release_build,
-        Release_test,
+        Debug_build,
+        Debug_test,
         Test_passed,
         Test_failed,
         Doc_check_counter,
@@ -190,14 +190,14 @@ struct Fsm {
                 next_ = State.Ut_cov;
             break;
         case State.Ut_cov:
-            next_ = State.Release_build;
+            next_ = State.Debug_build;
             break;
-        case State.Release_build:
-            next_ = State.Release_test;
+        case State.Debug_build:
+            next_ = State.Debug_test;
             if (flagCompileError)
                 next_ = State.ExitOrRestart;
             break;
-        case State.Release_test:
+        case State.Debug_test:
             next_ = State.ExitOrRestart;
             if (flagTotalTestPassed)
                 next_ = State.Test_passed;
@@ -335,8 +335,8 @@ struct Fsm {
         //fi
     }
 
-    void stateRelease_build() {
-        printStatus(Status.Run, "Release build with debug symbols");
+    void stateDebug_build() {
+        printStatus(Status.Run, "Debug build with debug symbols");
 
         Args a;
         a ~= thisExePath.dirName ~ "build.sh";
@@ -352,10 +352,10 @@ struct Fsm {
             writeln(r.output);
         }
 
-        printExitStatus(r.status, "Release build with debug symbols");
+        printExitStatus(r.status, "Debug build with debug symbols");
     }
 
-    void stateRelease_test() {
+    void stateDebug_test() {
         static void consoleToFile(Path fname, string console) {
             writeln("console log written to -> ", fname);
 
