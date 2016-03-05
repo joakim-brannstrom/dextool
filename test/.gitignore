@@ -2,5 +2,5 @@
 .profile_test
 .cpp_tests
 *.log
-cpp_fail_log/
-c_fail_log/
+c_tests/
+cpp_tests/
