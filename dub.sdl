@@ -17,8 +17,8 @@ stringImportPaths "clang/resources"
 dflags "-dip25"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
-lflags "--enable-new-dtags" "-rpath=." "$LFLAGS"
-libs ":libclang.so.1"
+lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH"
+libs "$LFLAG_CLANG_LIB"
 
 buildType "unittest-cov" {
     buildOptions "unittests" "debugMode" "debugInfo" "coverage"

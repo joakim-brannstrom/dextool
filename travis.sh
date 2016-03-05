@@ -11,6 +11,10 @@ if [[ $TEST_STATUS -ne 0 ]]; then
     echo "#### CPP_TEST #####"
     echo "###################"
     cat ./test/cpp_tests.log
+
+    exit $TEST_STATUS
 fi
 
-exit $TEST_STATUS
+# Test building all releases
+set -e
+./build.sh
