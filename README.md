@@ -10,8 +10,7 @@ code.
 The current focus is generation of test doubles for C code.
 
 # Building and installing
-To build dextool, run ```build.sh```.
-You may have to set the environment variable LFLAGS.
+See INSTALL.md
 
 # Usage
 ## Generate a simple C test double.
