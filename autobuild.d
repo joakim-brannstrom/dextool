@@ -491,7 +491,8 @@ int main(string[] args) {
                               "test/testdata",
                               "unit-threaded",
                               "test/cstub_tests.d",
-                              "test/cpp_tests.d"
+                              "test/cpp_tests.d",
+                              "test/utils.d"
         )
         .map!(a => thisExePath.dirName ~ a)
         .array;
