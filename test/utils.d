@@ -6,88 +6,124 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module utils;
 import scriptlike;
-import std.path : asAbsolutePath, asNormalizedPath;
+
+void echoOn() {
+    .scriptlikeEcho = true;
+}
+
+void echoOff() {
+    .scriptlikeEcho = false;
+}
 
 struct TestEnv {
     import std.ascii : newline;
 
-    Path outdir;
-    Path logdir;
-    Path dextool;
+    private string[] echo_;
+    private Path outdir_;
+    private Path dextool_;
+    private File logfile;
 
-    this(string outdir, string logdir, string dextool) {
-        this.outdir = Path(outdir).absolutePath;
-        this.logdir = Path(logdir).absolutePath;
-        this.dextool = Path(dextool);
+    this(Path dextool) {
+        this.dextool_ = dextool.absolutePath;
+    }
+
+    Path outdir() const {
+        return outdir_;
+    }
+
+    Path dextool() const {
+        return dextool_;
+    }
+
+    void echo(string s) nothrow {
+        echo_ ~= s;
+    }
+
+    void echo(T...)(T args) {
+        import std.format : format;
+
+        echo_ ~= format(args);
+    }
+
+    void runAndLog(string args) {
+        import std.algorithm : max;
+
+        auto status = tryRunCollect(args);
+
+        echo(status.output);
+        if (status.status != 0) {
+            auto l = min(100, status.output.length);
+
+            throw new ErrorLevelException(-1, status.output[0 .. l].dup);
+        }
     }
 
     string toString() {
         // dfmt off
         return only(
                     ["dextool:", dextool.toString],
-                    ["tmp:", outdir.toString],
-                    ["logdir:", logdir.toString])
+                    ["outdir:", outdir.toString],
+                    )
             .map!(a => leftJustifier(a[0], 10).text ~ a[1])
             .joiner(newline)
             .text;
         // dfmt on
     }
 
-    void setup() {
+    void setup(Path outdir__) {
+        outdir_ = outdir__.absolutePath.stripExtension;
         writeln("Test environment:", newline, toString);
-
         mkdirRecurse(outdir);
 
         // ensure logs are empty
-        if (exists(logdir)) {
-            dirEntries(logdir, SpanMode.shallow).each!(a => tryRmdirRecurse(Path(a)));
+        if (exists(outdir)) {
+            dirEntries(outdir, SpanMode.shallow).each!(a => tryRemove(Path(a)));
+        }
+
+        {
+            auto stdout_path = outdir ~ "stdout.log";
+            tryRemove(stdout_path);
+            stdout_ = File(stdout_path.toString, "w");
         }
     }
 
-    void clean() {
-        auto range = dirEntries(outdir, SpanMode.shallow);
-        range.each!(a => tryRemove(Path(a)));
-    }
-
-    void teardown() {
-        tryRmdirRecurse(outdir);
-    }
-
     void writeLog(string logname, string msg) {
-        mkdirRecurse(logdir);
+        mkdirRecurse(outdir);
 
-        auto f = File((logdir ~ logname ~ Ext(".txt")).toString, "w");
+        auto f = File((outdir ~ logname ~ Ext(".txt")).toString, "w");
         f.write(msg);
     }
 
-    /// Use when saving error data for later analyze
-    void save(string name) {
-        auto dst = logdir ~ name;
-        mkdirRecurse(dst);
-
-        Args a;
-        a ~= "cp";
-        a ~= "-r";
-        a ~= outdir.toString ~ "/*";
-        a ~= dst;
-        run(a.data);
+    void teardown() {
+        // Use when saving error data for later analyze
+        foreach (l; echo_) {
+            this.stdout_.writeln(l);
+        }
     }
 }
 
-Nullable!TestEnv testEnv;
+string EnvSetup() {
+    import std.format : format;
 
-enum Color {
-    red,
-    green,
-    yellow,
-    cancel
-}
+    return format(`
+    import scriptlike;
 
-enum Status {
-    Fail,
-    Warn,
-    Ok,
-    Run
+    auto testEnv = TestEnv(Path("../build/dextool-debug"));
+    scriptlikeCustomEcho = (string s) { testEnv.echo(s); };
+
+    // Setup and cleanup
+    chdir(thisExePath.dirName);
+
+    {
+        import std.traits : fullyQualifiedName;
+        enum tmp = 0;
+        enum tmp_dir = fullyQualifiedName!tmp;
+        testEnv.setup(Path("c_tests/" ~ tmp_dir));
+    }
+
+    scope (exit)
+        testEnv.teardown();
+`);
 }
 
 struct GR {
@@ -95,47 +131,10 @@ struct GR {
     Path result;
 }
 
-void print(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
-    write(escCodes[c], args, escCodes[Color.cancel]);
-}
-
-void println(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
-    writeln(escCodes[c], args, escCodes[Color.cancel]);
-}
-
-void printStatus(T...)(Status s, T args) {
-    Color c;
-    string txt;
-
-    final switch (s) {
-    case Status.Ok:
-        c = Color.green;
-        txt = "[  OK ] ";
-        break;
-    case Status.Run:
-        c = Color.yellow;
-        txt = "[ RUN ] ";
-        break;
-    case Status.Fail:
-        c = Color.red;
-        txt = "[ FAIL] ";
-        break;
-    case Status.Warn:
-        c = Color.red;
-        txt = "[ WARN] ";
-        break;
-    }
-
-    print(c, txt);
-    writeln(args);
-}
-
-void compare(Path gold, Path result) {
+void compare(Path gold, Path result, ref TestEnv testEnv) {
     import std.stdio : File;
 
-    writef("Comparing gold:'%s'\t output:'%s'\n", gold, result);
+    testEnv.echo("Comparing gold:'%s'\n        output:'%s'\n", gold, result);
 
     File goldf;
     File resultf;
@@ -155,22 +154,23 @@ void compare(Path gold, Path result) {
             continue;
         } else if (g != r && max_diff < 5) {
             // +1 of index because editors start counting lines from 1
-            writef("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
+            testEnv.echo("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
             diff_detected = true;
             ++max_diff;
         }
     }
 
+    //TODO replace with enforce
     if (diff_detected) {
         throw new ErrorLevelException(-1,
                 "Output is different from reference file (gold): " ~ gold.toString);
     }
 }
 
-void runDextool(Path input, string[] pre_args, string[] flags) {
-    .scriptlikeEcho = true;
+void runDextool(Path input, ref TestEnv testEnv, string[] pre_args, string[] flags) {
+    echoOn;
     scope (exit)
-        .scriptlikeEcho = false;
+        echoOff;
 
     Args args;
     args ~= testEnv.dextool;
@@ -187,25 +187,26 @@ void runDextool(Path input, string[] pre_args, string[] flags) {
 
     StopWatch sw;
     sw.start;
-    run(args.data);
+    testEnv.runAndLog(args.data);
     sw.stop;
-    println(Color.yellow, "time in ms: " ~ sw.peek().msecs.text);
+
+    testEnv.echo("Dextool execution time in ms: " ~ sw.peek().msecs.text);
 }
 
-void compareResult(T...)(T args) {
+void compareResult(T...)(ref TestEnv testEnv, T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
         if (existsAsFile(a.gold)) {
-            compare(a.gold, a.result);
+            compare(a.gold, a.result, testEnv);
         }
     }
 }
 
-void compileResult(Path input, Path main, string[] flags, string[] incls) {
-    .scriptlikeEcho = true;
+void compileResult(Path input, Path main, ref TestEnv testEnv, string[] flags, string[] incls) {
+    echoOn;
     scope (exit)
-        .scriptlikeEcho = false;
+        echoOff;
 
     auto binout = testEnv.outdir ~ "binary";
 
@@ -219,14 +220,14 @@ void compileResult(Path input, Path main, string[] flags, string[] incls) {
     args ~= input;
     args ~= main;
 
-    run(args.data);
-    run(binout.toString);
+    testEnv.runAndLog(args.data);
+    testEnv.runAndLog(binout.toString);
 }
 
-void demangleProfileLog(Path out_fname) {
-    .scriptlikeEcho = true;
+void demangleProfileLog(Path out_fname, ref TestEnv testEnv) {
+    echoOn;
     scope (exit)
-        .scriptlikeEcho = false;
+        echoOff;
 
     Args args;
     args ~= "ddemangle";
@@ -234,13 +235,13 @@ void demangleProfileLog(Path out_fname) {
     args ~= ">";
     args ~= out_fname.toString;
 
-    run(args.data);
+    testEnv.runAndLog(args.data);
 }
 
-auto compilerFlags() {
-    .scriptlikeEcho = true;
+string[] compilerFlags(ref TestEnv testEnv) {
+    echoOn;
     scope (exit)
-        .scriptlikeEcho = false;
+        echoOff;
 
     auto default_flags = ["-std=c++98"];
     Args cmd;
@@ -249,7 +250,7 @@ auto compilerFlags() {
 
     auto r = tryRunCollect(cmd.data);
     auto version_ = r.output;
-    writeln("Compiler version: ", version_);
+    testEnv.echo("Compiler version: %s\n", version_);
 
     if (r.status != 0) {
         return default_flags;
