@@ -296,7 +296,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
         return ExitStatusType.Errors;
     }
 
-    auto cflags = prependLangFlagIfMissing(in_cflags);
+    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc");
 
     auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
     logDiagnostic(file_ctx);
