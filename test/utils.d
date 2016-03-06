@@ -122,7 +122,7 @@ struct TestEnv {
 string EnvSetup(string logdir) {
     import std.format : format;
 
-    return format(`
+    auto txt = `
     import scriptlike;
 
     auto testEnv = TestEnv(Path("../build/dextool-debug"));
@@ -134,11 +134,13 @@ string EnvSetup(string logdir) {
         testEnv.teardown();
 
     {
-        import std.conv : text;
-
-        testEnv.setup(Path("%s/" ~ __MODULE__ ~ "_Line_" ~ text(__LINE__)));
+        import std.traits : fullyQualifiedName;
+        int _ = 0;
+        testEnv.setup(Path("%s/" ~ fullyQualifiedName!_));
     }
-`, logdir);
+`;
+
+    return format(txt, logdir);
 }
 
 struct GR {
