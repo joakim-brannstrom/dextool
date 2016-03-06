@@ -1,3 +1,5 @@
+// should ignore C++ code in global namespace
+
 void fun();
 
 class Smurf {

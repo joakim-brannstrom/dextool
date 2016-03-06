@@ -23,6 +23,57 @@ void echoOff() {
     .scriptlikeEcho = false;
 }
 
+enum Color {
+    red,
+    green,
+    yellow,
+    cancel
+}
+
+enum Status {
+    Fail,
+    Warn,
+    Ok,
+    Run
+}
+
+void print(T...)(Color c, T args) {
+    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
+    write(escCodes[c], args, escCodes[Color.cancel]);
+}
+
+void println(T...)(Color c, T args) {
+    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
+    writeln(escCodes[c], args, escCodes[Color.cancel]);
+}
+
+void printStatus(T...)(Status s, T args) {
+    Color c;
+    string txt;
+
+    final switch (s) {
+    case Status.Ok:
+        c = Color.green;
+        txt = "[  OK ] ";
+        break;
+    case Status.Run:
+        c = Color.yellow;
+        txt = "[ RUN ] ";
+        break;
+    case Status.Fail:
+        c = Color.red;
+        txt = "[ FAIL] ";
+        break;
+    case Status.Warn:
+        c = Color.red;
+        txt = "[ WARN] ";
+        break;
+    }
+
+    print(c, txt);
+    writeln(args);
+}
+
 void playSound(Flag!"Positive" positive) {
     Args a;
     a ~= "mplayer";
@@ -275,6 +326,7 @@ struct Fsm {
         a ~= ["-e", "modify"];
         a ~= ["-e", "attrib"];
         a ~= ["-e", "create"];
+        a ~= ["-e", "move_self"];
         a ~= ["--format", "%w"];
         a ~= inotify_paths;
 
@@ -366,7 +418,6 @@ struct Fsm {
         void runTest(string name) {
             Args a;
             a ~= "./" ~ name;
-            a ~= buildNormalizedPathFixed(thisExePath.dirName.toString, "build", "dextool-debug");
 
             auto test_dir = thisExePath.dirName ~ "test";
 
@@ -491,7 +542,8 @@ int main(string[] args) {
                               "test/testdata",
                               "unit-threaded",
                               "test/cstub_tests.d",
-                              "test/cpp_tests.d"
+                              "test/cpp_tests.d",
+                              "test/utils.d"
         )
         .map!(a => thisExePath.dirName ~ a)
         .array;

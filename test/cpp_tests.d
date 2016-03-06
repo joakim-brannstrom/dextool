@@ -1,90 +1,225 @@
 // Written in the D programming language.
 /**
-Date: 2015, Joakim Brännström
+Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
+module cpptestdouble_tests;
+
 import scriptlike;
 import utils;
-import std.path : asAbsolutePath, asNormalizedPath;
+import std.typecons : Flag, Yes, No;
 
-void devTest() {
-    writeln("Develop Testing");
-    auto root = Path("testdata/cpp/dev");
-    auto files = dirEntries(root, "*.{hpp}", SpanMode.shallow);
+import unit_threaded.runner;
+import unit_threaded : Name, shouldEqual, ShouldFail;
 
-    const auto flags = compilerFlags();
+enum globalTestdir = "cpp_tests";
 
-    foreach (f; files) {
-        auto input_ext = Path(f);
-        scope (failure)
-            testEnv.save(input_ext.baseName.toString);
+struct TestParams {
+    Flag!"skipCompare" skipCompare;
+    Flag!"skipCompile" skipCompile;
 
-        auto out_hdr = testEnv.outdir ~ "test_double.hpp";
-        auto out_impl = testEnv.outdir ~ "test_double.cpp";
-        auto out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
+    Path root;
+    Path input_ext;
+    Path out_hdr;
+    Path out_impl;
+    Path out_global;
+    Path out_gmock;
 
-        printStatus(Status.Run, input_ext);
-        auto params = ["--DRT-gcopt=profile:1", "cpptestdouble", "--gmock", "--debug"];
-        auto incls = ["-I" ~ (root ~ "extra").absolutePath.toString];
-        auto dex_flags = ["-xc++"] ~ incls;
-        switch (input_ext.baseName.toString) {
-        case "exclude_self.hpp":
-            runDextool(input_ext,
-                    params ~ ["--file-exclude=.*/" ~ input_ext.baseName.toString], dex_flags);
-            break;
-        case "param_restrict.hpp":
-            runDextool(input_ext, params ~ ["--file-restrict=.*/" ~ input_ext.baseName.toString,
-                    "--file-restrict=.*/b.hpp"], dex_flags);
-            break;
+    // dextool parameters;
+    string[] dexParams;
+    string[] dexFlags;
 
-        default:
-            runDextool(input_ext, params, dex_flags);
-        }
+    // Compiler flags
+    string[] compileFlags;
+    string[] compileIncls;
 
-        println(Color.yellow, "Comparing");
-        auto input = input_ext.stripExtension;
-        compareResult(GR(input ~ Ext(".hpp.ref"), out_hdr),
-                GR(input ~ Ext(".cpp.ref"), out_impl),
-                GR(Path(input.toString ~ "_gmock.hpp.ref"), out_gmock));
+    Path mainf;
+}
 
-        println(Color.yellow, "Compiling");
-        auto mainf = Path("testdata/cpp/main_dev.cpp").absolutePath;
-        incls ~= "-I" ~ input_ext.dirName.toString;
-        switch (input_ext.baseName.toString) {
-        default:
-            compileResult(out_impl, mainf, flags ~ ["-DTEST_INCLUDE"], incls);
-        }
+TestParams genTestParams(string f, const ref TestEnv testEnv) {
+    TestParams p;
 
-        printStatus(Status.Ok, input_ext);
-        testEnv.clean();
+    p.root = Path("testdata/cpp").absolutePath;
+    p.input_ext = p.root ~ Path(f);
+
+    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
+    p.out_impl = testEnv.outdir ~ "test_double.cpp";
+    p.out_global = testEnv.outdir ~ "test_double_global.cpp";
+    p.out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
+
+    p.dexParams = ["--DRT-gcopt=profile:1", "cpptestdouble", "--debug", "--gmock"];
+    p.dexFlags = [];
+
+    p.compileFlags = compilerFlags();
+    p.compileIncls = ["-I" ~ p.input_ext.dirName.toString];
+
+    p.mainf = p.root ~ Path("main_dev.cpp");
+
+    return p;
+}
+
+void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
+    testEnv.echo("Input:%s", p.input_ext.toRawString);
+    runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
+
+    if (!p.skipCompare) {
+        testEnv.echo("Comparing");
+        auto input = p.input_ext.stripExtension;
+        // dfmt off
+        compareResult(
+                      GR(input ~ Ext(".hpp.ref"), p.out_hdr),
+                      GR(input ~ Ext(".cpp.ref"), p.out_impl),
+                      GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global),
+                      GR(Path(input.toString ~ "_gmock.hpp.ref"), p.out_gmock));
+        // dfmt on
+    }
+
+    if (!p.skipCompile) {
+        testEnv.echo("Compiling");
+        compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
     }
 }
 
+@Name("Should not segfault. Bug with anonymous namespace")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/bug_anon_namespace.hpp", testEnv);
+
+    testEnv.echo("Input:%s", p.input_ext.toRawString);
+    runTestFile(p, testEnv);
+}
+
+@Name("Should not segfault or infinite recursion when poking at unexposed")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/bug_unexposed.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name(
+        "Should detect the type even though it is wchar_t. Bug: was treated specially which resulted in it never being set")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/bug_wchar.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a google mock with a constant member method")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_const.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be gmocks that correctly implemented classes that inherit")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_inherit.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be gmock with member methods and operators")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_interface.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a gmock with more than 10 parameters")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_interface_more_than_10_params.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a gmock impl for each class")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_multiple.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Test common class patterns and there generated gmocks. See input file for info")
+unittest {
+    //TODO split input in many tests.
+
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_variants_interface.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should exclude self from generated test double")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/exclude_self.hpp", testEnv);
+    p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString];
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
+
+    p.dexFlags = p.compileIncls;
+
+    runTestFile(p, testEnv);
+}
+
+@Name("Should generate implementation of functions in ns and externs")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/extern_in_ns.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
+
+    p.dexFlags = p.compileIncls;
+
+    runTestFile(p, testEnv);
+}
+
+@Name("Should only generate impl for those functions in ns")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/functions.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should use root as include")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/have_root.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
+
+    p.dexFlags = p.compileIncls;
+
+    runTestFile(p, testEnv);
+}
+
+@Name("Test --file-restrict")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_restrict.hpp", testEnv);
+    p.dexParams ~= ["--file-restrict=.*/" ~ p.input_ext.baseName.toString,
+        "--file-restrict=.*/b.hpp"];
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
+
+    p.dexFlags = p.compileIncls;
+
+    runTestFile(p, testEnv);
+}
+
 int main(string[] args) {
-    if (args.length <= 1) {
-        writef("Usage: %s <path-to-dextool>\n", args[0]);
-        return 1;
-    }
+    //import unit_threaded : enableStackTrace;
+    //
+    //enableStackTrace();
 
-    testEnv = TestEnv("outdir", "cpp_fail_log", args[1]);
-
-    // Setup and cleanup
-    chdir(thisExePath.dirName);
-    scope (exit)
-        testEnv.teardown();
-    testEnv.setup();
-
-    // start testing
-    try {
-        //stage1();
-        //stage2();
-        devTest();
-    }
-    catch (ErrorLevelException ex) {
-        printStatus(Status.Fail, ex.msg);
-        return 1;
-    }
-
-    return 0;
+    return args.runTests!("cpptestdouble_tests");
 }
