@@ -73,18 +73,23 @@ struct TestEnv {
     void setup(Path outdir__) {
         outdir_ = outdir__.absolutePath.stripExtension;
         writeln("Test environment:", newline, toString);
-        mkdirRecurse(outdir);
 
         // ensure logs are empty
         if (exists(outdir)) {
-            dirEntries(outdir, SpanMode.shallow).each!(a => tryRemove(Path(a)));
+            // tryRemove can fail, usually duo to I/O when tests are ran in
+            // parallel.
+            try {
+                dirEntries(outdir, SpanMode.shallow).each!(a => tryRemove(Path(a)));
+            }
+            catch (FileException ex) {
+                echo(ex.msg);
+            }
+        } else {
+            mkdirRecurse(outdir);
         }
 
-        {
-            auto stdout_path = outdir ~ "stdout.log";
-            tryRemove(stdout_path);
-            stdout_ = File(stdout_path.toString, "w");
-        }
+        auto stdout_path = outdir ~ "stdout.log";
+        logfile = File(stdout_path.toString, "w");
     }
 
     void writeLog(string logname, string msg) {
