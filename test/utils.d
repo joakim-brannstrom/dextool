@@ -15,6 +15,12 @@ void echoOff() {
     .scriptlikeEcho = false;
 }
 
+string escapePath(in Path p) {
+    import scriptlike : escapeShellArg;
+
+    return p.toRawString.dup.escapeShellArg;
+}
+
 struct TestEnv {
     import std.ascii : newline;
 
@@ -138,7 +144,7 @@ struct GR {
     Path result;
 }
 
-void compare(Path gold, Path result, ref TestEnv testEnv) {
+void compare(in Path gold, in Path result, ref TestEnv testEnv) {
     import std.stdio : File;
 
     testEnv.echo("Comparing gold:'%s'\n        output:'%s'\n", gold, result);
@@ -147,8 +153,8 @@ void compare(Path gold, Path result, ref TestEnv testEnv) {
     File resultf;
 
     try {
-        goldf = File(gold.toString);
-        resultf = File(result.toString);
+        goldf = File(gold.escapePath);
+        resultf = File(result.escapePath);
     }
     catch (ErrnoException ex) {
         throw new ErrorLevelException(-1, ex.msg);
@@ -170,24 +176,24 @@ void compare(Path gold, Path result, ref TestEnv testEnv) {
     //TODO replace with enforce
     if (diff_detected) {
         throw new ErrorLevelException(-1,
-                "Output is different from reference file (gold): " ~ gold.toString);
+                "Output is different from reference file (gold): " ~ gold.escapePath);
     }
 }
 
-void runDextool(Path input, ref TestEnv testEnv, string[] pre_args, string[] flags) {
+void runDextool(in Path input, ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     echoOn;
     scope (exit)
         echoOff;
 
     Args args;
     args ~= testEnv.dextool;
-    args ~= pre_args;
-    args ~= "--out=" ~ testEnv.outdir.toString;
-    args ~= input.toString;
+    args ~= pre_args.dup;
+    args ~= "--out=" ~ testEnv.outdir.escapePath;
+    args ~= input.escapePath;
 
     if (flags.length > 0) {
         args ~= "--";
-        args ~= flags;
+        args ~= flags.dup;
     }
 
     import std.datetime;
@@ -200,7 +206,7 @@ void runDextool(Path input, ref TestEnv testEnv, string[] pre_args, string[] fla
     testEnv.echo("Dextool execution time in ms: " ~ sw.peek().msecs.text);
 }
 
-void compareResult(T...)(ref TestEnv testEnv, T args) {
+void compareResult(T...)(ref TestEnv testEnv, in T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
@@ -210,7 +216,8 @@ void compareResult(T...)(ref TestEnv testEnv, T args) {
     }
 }
 
-void compileResult(Path input, Path main, ref TestEnv testEnv, string[] flags, string[] incls) {
+void compileResult(in Path input, in Path main, ref TestEnv testEnv,
+        in string[] flags, in string[] incls) {
     echoOn;
     scope (exit)
         echoOff;
@@ -219,19 +226,19 @@ void compileResult(Path input, Path main, ref TestEnv testEnv, string[] flags, s
 
     Args args;
     args ~= "g++";
-    args ~= flags;
+    args ~= flags.dup;
     args ~= "-g";
-    args ~= "-o" ~ binout.toString;
-    args ~= "-I" ~ testEnv.outdir.toString;
-    args ~= incls;
+    args ~= "-o" ~ binout.escapePath;
+    args ~= "-I" ~ testEnv.outdir.escapePath;
+    args ~= incls.dup;
     args ~= input;
     args ~= main;
 
     testEnv.runAndLog(args.data);
-    testEnv.runAndLog(binout.toString);
+    testEnv.runAndLog(binout.escapePath);
 }
 
-void demangleProfileLog(Path out_fname, ref TestEnv testEnv) {
+void demangleProfileLog(in Path out_fname, ref TestEnv testEnv) {
     echoOn;
     scope (exit)
         echoOff;
@@ -240,7 +247,7 @@ void demangleProfileLog(Path out_fname, ref TestEnv testEnv) {
     args ~= "ddemangle";
     args ~= "trace.log";
     args ~= ">";
-    args ~= out_fname.toString;
+    args ~= out_fname.escapePath;
 
     testEnv.runAndLog(args.data);
 }
