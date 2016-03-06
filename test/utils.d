@@ -251,11 +251,8 @@ string[] compilerFlags(ref TestEnv testEnv) {
         echoOff;
 
     auto default_flags = ["-std=c++98"];
-    Args cmd;
-    cmd ~= "g++";
-    cmd ~= "-dumpversion";
 
-    auto r = tryRunCollect(cmd.data);
+    auto r = tryRunCollect("g++ -dumpversion");
     auto version_ = r.output;
     testEnv.echo("Compiler version: %s\n", version_);
 
