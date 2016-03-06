@@ -119,7 +119,7 @@ struct TestEnv {
     }
 }
 
-string EnvSetup() {
+string EnvSetup(string logdir) {
     import std.format : format;
 
     return format(`
@@ -130,17 +130,15 @@ string EnvSetup() {
 
     // Setup and cleanup
     chdir(thisExePath.dirName);
-
-    {
-        import std.traits : fullyQualifiedName;
-        enum tmp = 0;
-        enum tmp_dir = fullyQualifiedName!tmp;
-        testEnv.setup(Path("c_tests/" ~ tmp_dir));
-    }
-
     scope (exit)
         testEnv.teardown();
-`);
+
+    {
+        import std.conv : text;
+
+        testEnv.setup(Path("%s/" ~ __MODULE__ ~ "_Line_" ~ text(__LINE__)));
+    }
+`, logdir);
 }
 
 struct GR {
