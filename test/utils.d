@@ -106,6 +106,10 @@ struct TestEnv {
     }
 
     void teardown() {
+        if (!logfile.isOpen) {
+            return;
+        }
+
         // Use when saving error data for later analyze
         foreach (l; echo_) {
             logfile.writeln(l);
