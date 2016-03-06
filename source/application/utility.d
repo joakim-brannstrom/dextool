@@ -78,13 +78,13 @@ auto tryWriting(string fname, string data) @trusted nothrow {
 }
 
 ///TODO move to clang module.
-auto prependLangFlagIfMissing(string[] in_cflags) {
+auto prependLangFlagIfMissing(string[] in_cflags, string prefer_lang) {
     import std.algorithm : findAmong;
 
     auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
 
     if (v is null) {
-        return ["-xc"] ~ in_cflags;
+        return [prefer_lang] ~ in_cflags;
     }
 
     return in_cflags.dup;
@@ -94,7 +94,7 @@ unittest {
     import test.helpers : shouldEqualPretty;
 
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
-    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags));
+    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, "-xc"));
 }
 
 /// if no regexp or no match when using the regexp, using the include
