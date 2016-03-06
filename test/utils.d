@@ -102,8 +102,10 @@ struct TestEnv {
     void teardown() {
         // Use when saving error data for later analyze
         foreach (l; echo_) {
-            this.stdout_.writeln(l);
+            logfile.writeln(l);
         }
+
+        logfile.close();
     }
 }
 
