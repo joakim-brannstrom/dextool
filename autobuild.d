@@ -275,6 +275,7 @@ struct Fsm {
         a ~= ["-e", "modify"];
         a ~= ["-e", "attrib"];
         a ~= ["-e", "create"];
+        a ~= ["-e", "move_self"];
         a ~= ["--format", "%w"];
         a ~= inotify_paths;
 
@@ -366,7 +367,6 @@ struct Fsm {
         void runTest(string name) {
             Args a;
             a ~= "./" ~ name;
-            a ~= buildNormalizedPathFixed(thisExePath.dirName.toString, "build", "dextool-debug");
 
             auto test_dir = thisExePath.dirName ~ "test";
 
