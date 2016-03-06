@@ -21,6 +21,19 @@ string escapePath(in Path p) {
     return p.toRawString.dup.escapeShellArg;
 }
 
+void runAndLog(string args) {
+    import std.algorithm : max;
+
+    auto status = tryRunCollect(args);
+
+    yap(status.output);
+    if (status.status != 0) {
+        auto l = min(100, status.output.length);
+
+        throw new ErrorLevelException(-1, status.output[0 .. l].dup);
+    }
+}
+
 struct TestEnv {
     import std.ascii : newline;
 
@@ -49,19 +62,6 @@ struct TestEnv {
         import std.format : format;
 
         echo_ ~= format(args);
-    }
-
-    void runAndLog(string args) {
-        import std.algorithm : max;
-
-        auto status = tryRunCollect(args);
-
-        echo(status.output);
-        if (status.status != 0) {
-            auto l = min(100, status.output.length);
-
-            throw new ErrorLevelException(-1, status.output[0 .. l].dup);
-        }
     }
 
     string toString() {
@@ -148,10 +148,10 @@ struct GR {
     Path result;
 }
 
-void compare(in Path gold, in Path result, ref TestEnv testEnv) {
+void compare(in Path gold, in Path result) {
     import std.stdio : File;
 
-    testEnv.echo("Comparing gold:'%s'\n        output:'%s'\n", gold, result);
+    yap("Comparing gold:'%s'\n        output:'%s'\n", gold, result);
 
     File goldf;
     File resultf;
@@ -171,7 +171,7 @@ void compare(in Path gold, in Path result, ref TestEnv testEnv) {
             continue;
         } else if (g != r && max_diff < 5) {
             // +1 of index because editors start counting lines from 1
-            testEnv.echo("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
+            yap("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
             diff_detected = true;
             ++max_diff;
         }
@@ -184,7 +184,7 @@ void compare(in Path gold, in Path result, ref TestEnv testEnv) {
     }
 }
 
-void runDextool(in Path input, ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+void runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     echoOn;
     scope (exit)
         echoOff;
@@ -204,23 +204,23 @@ void runDextool(in Path input, ref TestEnv testEnv, in string[] pre_args, in str
 
     StopWatch sw;
     sw.start;
-    testEnv.runAndLog(args.data);
+    runAndLog(args.data);
     sw.stop;
 
-    testEnv.echo("Dextool execution time in ms: " ~ sw.peek().msecs.text);
+    yap("Dextool execution time in ms: " ~ sw.peek().msecs.text);
 }
 
-void compareResult(T...)(ref TestEnv testEnv, in T args) {
+void compareResult(T...)(in T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
         if (existsAsFile(a.gold)) {
-            compare(a.gold, a.result, testEnv);
+            compare(a.gold, a.result);
         }
     }
 }
 
-void compileResult(in Path input, in Path main, ref TestEnv testEnv,
+void compileResult(in Path input, in Path main, const ref TestEnv testEnv,
         in string[] flags, in string[] incls) {
     echoOn;
     scope (exit)
@@ -238,11 +238,11 @@ void compileResult(in Path input, in Path main, ref TestEnv testEnv,
     args ~= input;
     args ~= main;
 
-    testEnv.runAndLog(args.data);
-    testEnv.runAndLog(binout.escapePath);
+    runAndLog(args.data);
+    runAndLog(binout.escapePath);
 }
 
-void demangleProfileLog(in Path out_fname, ref TestEnv testEnv) {
+void demangleProfileLog(in Path out_fname) {
     echoOn;
     scope (exit)
         echoOff;
@@ -253,10 +253,10 @@ void demangleProfileLog(in Path out_fname, ref TestEnv testEnv) {
     args ~= ">";
     args ~= out_fname.escapePath;
 
-    testEnv.runAndLog(args.data);
+    runAndLog(args.data);
 }
 
-string[] compilerFlags(ref TestEnv testEnv) {
+string[] compilerFlags() {
     echoOn;
     scope (exit)
         echoOff;
@@ -265,7 +265,7 @@ string[] compilerFlags(ref TestEnv testEnv) {
 
     auto r = tryRunCollect("g++ -dumpversion");
     auto version_ = r.output;
-    testEnv.echo("Compiler version: %s\n", version_);
+    yap("Compiler version: %s\n", version_);
 
     if (r.status != 0) {
         return default_flags;
