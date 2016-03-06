@@ -26,11 +26,12 @@ void runAndLog(string args) {
 
     auto status = tryRunCollect(args);
 
+    yap("Exit status: ", status.status);
     yap(status.output);
     if (status.status != 0) {
         auto l = min(100, status.output.length);
 
-        throw new ErrorLevelException(-1, status.output[0 .. l].dup);
+        throw new ErrorLevelException(status.status, status.output[0 .. l].dup);
     }
 }
 
@@ -98,13 +99,6 @@ struct TestEnv {
         logfile = File(stdout_path.toString, "w");
     }
 
-    void writeLog(string logname, string msg) {
-        mkdirRecurse(outdir);
-
-        auto f = File((outdir ~ logname ~ Ext(".txt")).toString, "w");
-        f.write(msg);
-    }
-
     void teardown() {
         if (!logfile.isOpen) {
             return;
@@ -151,7 +145,8 @@ struct GR {
 void compare(in Path gold, in Path result) {
     import std.stdio : File;
 
-    yap("Comparing gold:'%s'\n        output:'%s'\n", gold, result);
+    yap("Comparing gold:", gold);
+    yap("        result:", result);
 
     File goldf;
     File resultf;
@@ -171,7 +166,7 @@ void compare(in Path gold, in Path result) {
             continue;
         } else if (g != r && max_diff < 5) {
             // +1 of index because editors start counting lines from 1
-            yap("Line %d\t\ngold: %s\nout:  %s\n", idx + 1, g, r);
+            yap("Line ", idx + 1, "\ngold: ", g, "\nout:  ", r);
             diff_detected = true;
             ++max_diff;
         }
@@ -265,7 +260,7 @@ string[] compilerFlags() {
 
     auto r = tryRunCollect("g++ -dumpversion");
     auto version_ = r.output;
-    yap("Compiler version: %s\n", version_);
+    yap("Compiler version: ", version_);
 
     if (r.status != 0) {
         return default_flags;
