@@ -542,6 +542,7 @@ int main(string[] args) {
                               "unit-threaded",
                               "test/cstub_tests.d",
                               "test/cpp_tests.d",
+                              "test/plantuml_tests.d",
                               "test/external_main.d",
                               "test/utils.d"
         )

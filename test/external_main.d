@@ -9,11 +9,16 @@ int main(string[] args) {
     import unit_threaded.runner;
     import std.stdio;
 
+    //import unit_threaded : enableStackTrace;
+    //
+    //enableStackTrace();
+
     writeln(`Running tests`);
     //dfmt off
     return args.runTests!(
                           "cstub_tests",
                           "cpp_tests",
+                          "plantuml_tests",
                           );
     //dfmt on
 }

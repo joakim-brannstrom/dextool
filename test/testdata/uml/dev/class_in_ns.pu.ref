@@ -1,0 +1,4 @@
+@startuml
+    class "ns1::A" {
+    }
+@enduml

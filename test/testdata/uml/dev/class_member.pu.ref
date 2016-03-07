@@ -1,0 +1,7 @@
+@startuml
+    class "A" {
+    }
+    class "B" {
+    }
+    "B" *-- "A"
+@enduml
