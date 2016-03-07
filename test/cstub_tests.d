@@ -4,13 +4,12 @@ Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
-module ctestdouble_tests;
+module cstub_tests;
 
 import scriptlike;
 import utils;
 import std.typecons : Flag, Yes, No;
 
-import unit_threaded.runner;
 import unit_threaded : Name, shouldEqual, ShouldFail;
 
 enum globalTestdir = "c_tests";
@@ -275,12 +274,4 @@ unittest {
     p.dexFlags = p.compileIncls;
 
     runTestFile(p, testEnv);
-}
-
-int main(string[] args) {
-    //import unit_threaded : enableStackTrace;
-    //
-    //enableStackTrace();
-
-    return args.runTests!("ctestdouble_tests");
 }

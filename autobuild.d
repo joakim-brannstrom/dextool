@@ -437,8 +437,7 @@ struct Fsm {
         printStatus(Status.Run, "Test of code generation");
         // dfmt off
         only(
-             "cstub_tests.sh",
-             "cpp_tests.sh"
+             "external_tests.sh"
             )
             .each!(a => runTest(a));
         // dfmt on
@@ -543,6 +542,7 @@ int main(string[] args) {
                               "unit-threaded",
                               "test/cstub_tests.d",
                               "test/cpp_tests.d",
+                              "test/external_main.d",
                               "test/utils.d"
         )
         .map!(a => thisExePath.dirName ~ a)

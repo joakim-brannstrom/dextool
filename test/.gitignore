@@ -1,6 +1,5 @@
-.cstub_tests
 .profile_test
-.cpp_tests
+.external_tests
 *.log
 c_tests/
 cpp_tests/

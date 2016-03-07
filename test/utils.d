@@ -123,9 +123,12 @@ string EnvSetup(string logdir) {
     scriptlikeCustomEcho = (string s) { testEnv.echo(s); };
 
     // Setup and cleanup
-    chdir(thisExePath.dirName);
-    scope (exit)
+    scope (exit) {
+        // must unregister echo before teardown to stop receiving messages
+        scriptlikeCustomEcho = null;
         testEnv.teardown();
+    }
+    chdir(thisExePath.dirName);
 
     {
         import std.traits : fullyQualifiedName;
