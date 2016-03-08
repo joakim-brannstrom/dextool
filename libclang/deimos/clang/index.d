@@ -30,7 +30,7 @@ public import deimos.clang.cxstring;
  * compatible, thus CINDEX_VERSION_MAJOR is expected to remain stable.
  */
 enum CINDEX_VERSION_MAJOR = 0;
-enum CINDEX_VERSION_MINOR = 29;
+enum CINDEX_VERSION_MINOR = 30;
 
 int CINDEX_VERSION_ENCODE(int major, int minor) {
     return (major * 10000) + (minor * 1);
@@ -473,10 +473,10 @@ int clang_Range_isNull(CXSourceRange range);
  * buffer to which the given source location points.
  */
 void clang_getExpansionLocation(CXSourceLocation location,
-                                               CXFile* file,
-                                               uint* line,
-                                               uint* column,
-                                               uint* offset);
+                                               CXFile *file,
+                                               uint *line,
+                                               uint *column,
+                                               uint *offset);
 
 /**
  * \brief Retrieve the file, line, column, and offset represented by
@@ -519,9 +519,9 @@ void clang_getExpansionLocation(CXSourceLocation location,
  * source location. For an invalid source location, zero is returned.
  */
 void clang_getPresumedLocation(CXSourceLocation location,
-                                              CXString* filename,
-                                              uint* line,
-                                              uint* column);
+                                              CXString *filename,
+                                              uint *line,
+                                              uint *column);
 
 /**
  * \brief Legacy API to retrieve the file, line, column, and offset represented
@@ -532,10 +532,10 @@ void clang_getPresumedLocation(CXSourceLocation location,
  * details.
  */
 void clang_getInstantiationLocation(CXSourceLocation location,
-                                                   CXFile* file,
-                                                   uint* line,
-                                                   uint* column,
-                                                   uint* offset);
+                                                   CXFile *file,
+                                                   uint *line,
+                                                   uint *column,
+                                                   uint *offset);
 
 /**
  * \brief Retrieve the file, line, column, and offset represented by
@@ -560,10 +560,10 @@ void clang_getInstantiationLocation(CXSourceLocation location,
  * buffer to which the given source location points.
  */
 void clang_getSpellingLocation(CXSourceLocation location,
-                                              CXFile* file,
-                                              uint* line,
-                                              uint* column,
-                                              uint* offset);
+                                              CXFile *file,
+                                              uint *line,
+                                              uint *column,
+                                              uint *offset);
 
 /**
  * \brief Retrieve the file, line, column, and offset represented by
@@ -749,8 +749,8 @@ enum CXLoadDiag_Error {
  * diagnostics should be released using clang_disposeDiagnosticSet().
  */
 CXDiagnosticSet clang_loadDiagnostics(const(char)* file,
-                                                  CXLoadDiag_Error* error,
-                                                  CXString* errorString);
+                                                  CXLoadDiag_Error *error,
+                                                  CXString *errorString);
 
 /**
  * \brief Release a CXDiagnosticSet and all of its contained diagnostics.
@@ -924,7 +924,7 @@ CXString clang_getDiagnosticSpelling(CXDiagnostic);
  * warning, such as "-Wconversion" or "-pedantic".
  */
 CXString clang_getDiagnosticOption(CXDiagnostic Diag,
-                                                  CXString* Disable);
+                                                  CXString *Disable);
 
 /**
  * \brief Retrieve the category number for this diagnostic.
@@ -1013,7 +1013,7 @@ uint clang_getDiagnosticNumFixIts(CXDiagnostic Diagnostic);
  */
 CXString clang_getDiagnosticFixIt(CXDiagnostic Diagnostic,
                                                  uint FixIt,
-                                               CXSourceRange* ReplacementRange);
+                                               CXSourceRange *ReplacementRange);
 
 /**
  * @}
@@ -1081,7 +1081,7 @@ CXTranslationUnit clang_createTranslationUnitFromSourceFile(
                                          int num_clang_command_line_args,
                                    const(char*)* clang_command_line_args,
                                          uint num_unsaved_files,
-                                         CXUnsavedFile* unsaved_files);
+                                         CXUnsavedFile *unsaved_files);
 
 /**
  * \brief Same as \c clang_createTranslationUnit2, but returns
@@ -1104,7 +1104,7 @@ CXTranslationUnit clang_createTranslationUnit(
 CXErrorCode clang_createTranslationUnit2(
     CXIndex CIdx,
     const(char)* ast_filename,
-    CXTranslationUnit* out_TU);
+    CXTranslationUnit *out_TU);
 
 /**
  * \brief Flags that control the creation of translation units.
@@ -1230,7 +1230,7 @@ clang_parseTranslationUnit(CXIndex CIdx,
                            const(char)* source_filename,
                            const(char*)* command_line_args,
                            int num_command_line_args,
-                           CXUnsavedFile* unsaved_files,
+                           CXUnsavedFile *unsaved_files,
                            uint num_unsaved_files,
                            uint options);
 
@@ -1447,7 +1447,7 @@ uint clang_defaultReparseOptions(CXTranslationUnit TU);
  */
 int clang_reparseTranslationUnit(CXTranslationUnit TU,
                                                 uint num_unsaved_files,
-                                          CXUnsavedFile* unsaved_files,
+                                          CXUnsavedFile *unsaved_files,
                                                 uint options);
 
 /**
@@ -1480,8 +1480,8 @@ enum CXTUResourceUsageKind {
   * \brief Returns the human-readable null-terminated C string that represents
   *  the name of the memory category.  This string should never be freed.
   */
-
 const(char)* clang_getTUResourceUsageName(CXTUResourceUsageKind kind);
+
 
 struct CXTUResourceUsageEntry {
   /* \brief The memory usage category. */
@@ -1496,14 +1496,14 @@ struct CXTUResourceUsageEntry {
   */
 struct CXTUResourceUsage {
   /* \brief Private data member, used for queries. */
-  void* data;
+  void *data;
 
   /* \brief The number of entries in the 'entries' array. */
   uint numEntries;
 
   /* \brief An array of key-value pairs, representing the breakdown of memory
             usage. */
-  CXTUResourceUsageEntry* entries;
+  CXTUResourceUsageEntry *entries;
 
 }
 
@@ -1629,7 +1629,7 @@ enum CXCursorKind {
    * declared. For example, given:
    *
    * \code
-   * typedef uint size_type;
+   * typedef unsigned size_type;
    * size_type size;
    * \endcode
    *
@@ -2225,7 +2225,19 @@ enum CXCursorKind {
    */
   CXCursor_OMPTeamsDirective             = 253,
 
-  CXCursor_LastStmt                      = CXCursor_OMPTeamsDirective,
+  /** \brief OpenMP taskgroup directive.
+   */
+  CXCursor_OMPTaskgroupDirective          = 254,
+
+  /** \brief OpenMP cancellation point directive.
+   */
+  CXCursor_OMPCancellationPointDirective  = 255,
+
+  /** \brief OpenMP cancel directive.
+   */
+  CXCursor_OMPCancelDirective             = 256,
+
+  CXCursor_LastStmt                    = CXCursor_OMPCancelDirective,
 
   /**
    * \brief Cursor that represents the translation unit itself.
@@ -2276,8 +2288,13 @@ enum CXCursorKind {
    */
   CXCursor_ModuleImportDecl              = 600,
   CXCursor_FirstExtraDecl                = CXCursor_ModuleImportDecl,
-  CXCursor_LastExtraDecl                 = CXCursor_ModuleImportDecl
-}
+  CXCursor_LastExtraDecl                 = CXCursor_ModuleImportDecl,
+
+  /**
+   * \brief A code completion overload candidate.
+   */
+  CXCursor_OverloadCandidate             = 700
+};
 
 /**
  * \brief A cursor representing some element in the abstract syntax tree for
@@ -2587,7 +2604,7 @@ uint clang_CXCursorSet_insert(CXCursorSet cset,
  * \code
  * class C {
  *  void f();
- * }
+ * };
  *
  * void C::f() { }
  * \endcode
@@ -2622,7 +2639,7 @@ CXCursor clang_getCursorSemanticParent(CXCursor cursor);
  * \code
  * class C {
  *  void f();
- * }
+ * };
  *
  * void C::f() { }
  * \endcode
@@ -2691,13 +2708,13 @@ CXCursor clang_getCursorLexicalParent(CXCursor cursor);
  */
 void clang_getOverriddenCursors(CXCursor cursor,
                                                CXCursor **overridden,
-                                               uint* num_overridden);
+                                               uint *num_overridden);
 
 /**
  * \brief Free the set of overridden cursors returned by \c
  * clang_getOverriddenCursors().
  */
-void clang_disposeOverriddenCursors(CXCursor* overridden);
+void clang_disposeOverriddenCursors(CXCursor *overridden);
 
 /**
  * \brief Retrieve the file that is included by the given inclusion directive
@@ -2851,7 +2868,7 @@ enum CXCallingConv {
   CXCallingConv_X86Pascal = 5,
   CXCallingConv_AAPCS = 6,
   CXCallingConv_AAPCS_VFP = 7,
-  CXCallingConv_PnaclCall = 8,
+  /* Value 8 was PnaclCall, but it was never used, so it could safely be re-used. */
   CXCallingConv_IntelOclBicc = 9,
   CXCallingConv_X86_64Win64 = 10,
   CXCallingConv_X86_64SysV = 11,
@@ -3276,7 +3293,29 @@ long clang_Type_getSizeOf(CXType T);
  * If the field's name S is not found,
  *   CXTypeLayoutError_InvalidFieldName is returned.
  */
-long clang_Type_getOffsetOf(CXType T, const(char*) S);
+long clang_Type_getOffsetOf(CXType T, const(char)* S);
+
+/**
+ * \brief Return the offset of the field represented by the Cursor.
+ *
+ * If the cursor is not a field declaration, -1 is returned.
+ * If the cursor semantic parent is not a record field declaration,
+ *   CXTypeLayoutError_Invalid is returned.
+ * If the field's type declaration is an incomplete type,
+ *   CXTypeLayoutError_Incomplete is returned.
+ * If the field's type declaration is a dependent type,
+ *   CXTypeLayoutError_Dependent is returned.
+ * If the field's name S is not found,
+ *   CXTypeLayoutError_InvalidFieldName is returned.
+ */
+long clang_Cursor_getOffsetOfField(CXCursor C);
+
+/**
+ * \brief Determine whether the given cursor represents an anonymous record
+ * declaration.
+ */
+uint clang_Cursor_isAnonymous(CXCursor C);
+
 
 enum CXRefQualifierKind {
   /** \brief No ref-qualifier was provided. */
@@ -3672,7 +3711,7 @@ uint clang_isCursorDefinition(CXCursor);
  * struct X;
  * struct X {
  *   int member;
- * }
+ * };
  * \endcode
  *
  * The declarations and the definition of \c X are represented by three
@@ -4126,7 +4165,7 @@ CXSourceRange clang_getTokenExtent(CXTranslationUnit, CXToken);
  *
  */
 void clang_tokenize(CXTranslationUnit TU, CXSourceRange Range,
-                                   CXToken **Tokens, uint* NumTokens);
+                                   CXToken **Tokens, uint *NumTokens);
 
 /**
  * \brief Annotate the given set of tokens by providing cursors for each token
@@ -4186,10 +4225,10 @@ CXString clang_getCursorKindSpelling(CXCursorKind Kind);
 void clang_getDefinitionSpellingAndExtent(CXCursor,
                                           const(char)** startBuf,
                                           const(char)** endBuf,
-                                          uint* startLine,
-                                          uint* startColumn,
-                                          uint* endLine,
-                                          uint* endColumn);
+                                          uint *startLine,
+                                          uint *startColumn,
+                                          uint *endLine,
+                                          uint *endColumn);
 void clang_enableStackTraces();
 void clang_executeOnThread(void function (void*) fn, void* user_data,
                                           uint stack_size);
@@ -4811,11 +4850,11 @@ uint clang_defaultCodeCompleteOptions();
  * freed with \c clang_disposeCodeCompleteResults(). If code
  * completion fails, returns NULL.
  */
-CXCodeCompleteResults* clang_codeCompleteAt(CXTranslationUnit TU,
+CXCodeCompleteResults *clang_codeCompleteAt(CXTranslationUnit TU,
                                             const(char)* complete_filename,
                                             uint complete_line,
                                             uint complete_column,
-                                            CXUnsavedFile* unsaved_files,
+                                            CXUnsavedFile *unsaved_files,
                                             uint num_unsaved_files,
                                             uint options);
 
@@ -4887,7 +4926,7 @@ ulong clang_codeCompleteGetContexts(
 
 CXCursorKind clang_codeCompleteGetContainerKind(
                                                  CXCodeCompleteResults *Results,
-                                                     uint* IsIncomplete);
+                                                     uint *IsIncomplete);
 
 /**
  * \brief Returns the USR for the container for the current code completion
@@ -5020,7 +5059,7 @@ uint clang_remap_getNumFiles(CXRemapping);
  * is associated with.
  */
 void clang_remap_getFilenames(CXRemapping, uint index,
-                                     CXString* original, CXString* transformed);
+                                     CXString *original, CXString *transformed);
 
 /**
  * \brief Dispose the remapping.
@@ -5095,20 +5134,20 @@ CXResult clang_findReferencesInFile(CXCursor cursor, CXFile file,
 CXResult clang_findIncludesInFile(CXTranslationUnit TU,
                                                  CXFile file,
                                               CXCursorAndRangeVisitor visitor);
+
 /+#ifdef __has_feature
 #  if __has_feature(blocks)
 
 alias CXVisitorResult
     (^CXCursorAndRangeVisitorBlock)(CXCursor, CXSourceRange);
 
+
 CXResult clang_findReferencesInFileWithBlock(CXCursor, CXFile,
                                          CXCursorAndRangeVisitorBlock);
 
+
 CXResult clang_findIncludesInFileWithBlock(CXTranslationUnit, CXFile,
                                            CXCursorAndRangeVisitorBlock);
-
-
-
 
 #  endif
 #endif+/
@@ -5601,22 +5640,22 @@ enum CXIndexOptFlags {
  * reused after indexing is finished. Set to \c NULL if you do not require it.
  *
  * \returns 0 on success or if there were errors from which the compiler could
- * recover.  If there is a failure from which the there is no recovery, returns
+ * recover.  If there is a failure from which there is no recovery, returns
  * a non-zero \c CXErrorCode.
  *
  * The rest of the parameters are the same as #clang_parseTranslationUnit.
  */
 int clang_indexSourceFile(CXIndexAction,
                                          CXClientData client_data,
-                                         IndexerCallbacks* index_callbacks,
+                                         IndexerCallbacks *index_callbacks,
                                          uint index_callbacks_size,
                                          uint index_options,
                                          const(char)* source_filename,
                                          const(char*)* command_line_args,
                                          int num_command_line_args,
-                                         CXUnsavedFile* unsaved_files,
+                                         CXUnsavedFile *unsaved_files,
                                          uint num_unsaved_files,
-                                         CXTranslationUnit* out_TU,
+                                         CXTranslationUnit *out_TU,
                                          uint TU_options);
 
 /**
@@ -5632,12 +5671,12 @@ int clang_indexSourceFile(CXIndexAction,
  *
  * The parameters are the same as #clang_indexSourceFile.
  *
- * \returns If there is a failure from which the there is no recovery, returns
+ * \returns If there is a failure from which there is no recovery, returns
  * non-zero, otherwise returns 0.
  */
 int clang_indexTranslationUnit(CXIndexAction,
                                               CXClientData client_data,
-                                              IndexerCallbacks* index_callbacks,
+                                              IndexerCallbacks *index_callbacks,
                                               uint index_callbacks_size,
                                               uint index_options,
                                               CXTranslationUnit);
@@ -5651,11 +5690,11 @@ int clang_indexTranslationUnit(CXIndexAction,
  * retrieves the location of the argument.
  */
 void clang_indexLoc_getFileLocation(CXIdxLoc loc,
-                                                   CXIdxClientFile* indexFile,
-                                                   CXFile* file,
-                                                   uint* line,
-                                                   uint* column,
-                                                   uint* offset);
+                                                   CXIdxClientFile *indexFile,
+                                                   CXFile *file,
+                                                   uint *line,
+                                                   uint *column,
+                                                   uint *offset);
 
 /**
  * \brief Retrieve the CXSourceLocation represented by the given CXIdxLoc.
@@ -5664,11 +5703,47 @@ void clang_indexLoc_getFileLocation(CXIdxLoc loc,
 CXSourceLocation clang_indexLoc_getCXSourceLocation(CXIdxLoc loc);
 
 /**
+ * \brief Visitor invoked for each field found by a traversal.
+ *
+ * This visitor function will be invoked for each field found by
+ * \c clang_Type_visitFields. Its first argument is the cursor being
+ * visited, its second argument is the client data provided to
+ * \c clang_Type_visitFields.
+ *
+ * The visitor should return one of the \c CXVisitorResult values
+ * to direct \c clang_Type_visitFields.
+ */
+alias CXFieldVisitor = CXVisitorResult function (CXCursor C,
+                                                 CXClientData client_data);
+
+/**
+ * \brief Visit the fields of a particular type.
+ *
+ * This function visits all the direct fields of the given cursor,
+ * invoking the given \p visitor function with the cursors of each
+ * visited field. The traversal may be ended prematurely, if
+ * the visitor returns \c CXFieldVisit_Break.
+ *
+ * \param T the record type whose field may be visited.
+ *
+ * \param visitor the visitor function that will be invoked for each
+ * field of \p T.
+ *
+ * \param client_data pointer data supplied by the client, which will
+ * be passed to the visitor each time it is invoked.
+ *
+ * \returns a non-zero value if the traversal was terminated
+ * prematurely by the visitor returning \c CXFieldVisit_Break.
+ */
+uint clang_Type_visitFields(CXType T,
+                            CXFieldVisitor visitor,
+                            CXClientData client_data);
+
+
+/**
  * @}
  */
 
 /**
  * @}
  */
-
-/* Include the comment API for compatibility. This will eventually go away. */
