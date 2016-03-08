@@ -23,18 +23,45 @@ struct TranslationUnit {
 
     mixin CX;
 
-    static TranslationUnit parse(Index index, string sourceFilename, string[] commandLineArgs,
-            CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_None) {
+    static TranslationUnit parse(Index index, string sourceFilename,
+            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
 
-        auto p = clang_parseTranslationUnit(index.cx, sourceFilename.toStringz, strToCArray(commandLineArgs),
-                cast(int) commandLineArgs.length, toCArray!(CXUnsavedFile)(unsavedFiles),
-                cast(uint) unsavedFiles.length, options);
+        // dfmt off
+        auto p = clang_parseTranslationUnit(
+                                            index.cx,
+                                            sourceFilename.toStringz,
+                                            strToCArray(commandLineArgs),
+                                            cast(int) commandLineArgs.length,
+                                            toCArray!(CXUnsavedFile)(unsavedFiles),
+                                            cast(uint) unsavedFiles.length,
+                                            options
+                                            );
+        // dfmt on
 
-        auto r = TranslationUnit();
-        r = TranslationUnit(p);
+        auto r = TranslationUnit(p);
 
         return r;
+    }
+
+    static TranslationUnit parseString(Index index, string source,
+            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
+        // use an in-memory file instead
+        import std.file;
+
+        auto file = namedTempFile("dextool", ".h");
+        auto name = file.name();
+        file.write(source);
+        file.flush();
+        file.detach();
+
+        auto translationUnit = TranslationUnit.parse(index, name,
+                commandLineArgs, unsavedFiles, options);
+
+        remove(name);
+
+        return translationUnit;
     }
 
     private this(CXTranslationUnit cx) {

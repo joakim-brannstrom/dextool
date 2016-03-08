@@ -1,11 +1,9 @@
-/** Written in the D programming language.
- * Authors: Joakim Brännström (joakim.brannstrom dottli gmx.com)
- * Version: 1.1
- * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
- * History:
- *  1.1 additional features missing compared to cindex.py. 2015-03-06 $(BR)
- *    Joakim Brännström
- */
+// Written in the D programming language.
+/**
+Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+*/
 module clang.SourceRange;
 
 import std.conv;
@@ -43,19 +41,23 @@ struct SourceRange {
     }
 
     /// Retrieve a source location representing the first character within a source range.
-    @property SourceLocation start() {
+    @property SourceLocation start() const {
         auto r = clang_getRangeStart(cx);
         return SourceLocation(r);
     }
 
     /// Retrieve a source location representing the last character within a source range.
-    @property SourceLocation end() {
+    @property SourceLocation end() const {
         auto r = clang_getRangeEnd(cx);
         return SourceLocation(r);
     }
 
+    @property string path() const {
+        return start.path;
+    }
+
     ///
-    bool isNull() {
+    bool isNull() const {
         return clang_Range_isNull(cx) != 0;
     }
 
@@ -63,6 +65,16 @@ struct SourceRange {
     equals_t opEquals(const ref SourceRange range2) const {
         return clang_equalRanges(cast(CXSourceRange) cx, cast(CXSourceRange) range2) != 0;
     }
+}
+
+/** Check if two source ranges intersect
+ *
+ * Implementation by Wojciech Szęszoł, Feb 14 2016.
+ */
+bool intersects(in SourceRange a, in SourceRange b) {
+    return a.path == b.path && (a.start.offset <= b.start.offset
+            && b.start.offset < a.end.offset) || (a.start.offset < b.end.offset
+            && b.end.offset <= a.end.offset);
 }
 
 /// Retrieve a source range given the beginning and ending source locations.

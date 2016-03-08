@@ -20,20 +20,14 @@ import clang.Visitor;
 @property auto toString(Token tok) {
     import std.conv;
 
-    if (tok.isValid) {
-        return format("%s [%s %s]", tok.spelling, tok.kind, text(tok.cx),);
-    }
-
-    return text(tok);
+    return format("%s [%s %s]", tok.spelling, tok.kind, text(tok.cursor.cx),);
 }
 
-@property auto toString(ref TokenGroup toks) {
+@property auto toString(ref TokenRange toks) {
     string s;
 
     foreach (t; toks) {
-        if (t.isValid) {
-            s ~= t.spelling ~ " ";
-        }
+        s ~= t.spelling ~ " ";
     }
 
     return s.strip;
@@ -48,146 +42,115 @@ import clang.Visitor;
  *  can't create tokens manually.
  */
 struct Token {
-    private alias CType = CXToken;
-    CType cx;
-    alias cx this;
+    private struct Container {
+        CXTranslationUnit translationUnit;
+        CXToken* tokens;
+        ulong numTokens;
 
-    private TokenGroup* group;
+        ~this() {
+            if (tokens != null) {
+                clang_disposeTokens(translationUnit, tokens, to!uint(numTokens));
+            }
+        }
+    }
 
-    this(ref TokenGroup group, ref CXToken token) {
-        this.group = &group;
-        this.cx = token;
+    private const RefCounted!Container container;
+    size_t index;
+
+    @property private Container* containerPtr() return const {
+        return cast(Container*)&(container.refCountedPayload());
+    }
+
+    @property static Cursor empty() {
+        //TODO why is this function needed, remove?
+        auto r = clang_getNullCursor();
+        return Cursor(r);
     }
 
     /// Obtain the TokenKind of the current token.
-    @property CXTokenKind kind() {
-        return clang_getTokenKind(cx);
+    @property CXTokenKind kind() const {
+        return clang_getTokenKind(containerPtr.tokens[index]);
     }
 
     /** The spelling of this token.
      *
      *  This is the textual representation of the token in source.
      */
-    @property string spelling() {
-        auto r = clang_getTokenSpelling(group.tu, cx);
+    @property string spelling() const {
+        auto r = clang_getTokenSpelling(containerPtr.translationUnit, containerPtr.tokens[index]);
         return toD(r);
     }
 
     /// The SourceLocation this Token occurs at.
-    @property SourceLocation location() {
-        auto r = clang_getTokenLocation(group.tu, cx);
+    @property SourceLocation location() const {
+        auto r = clang_getTokenLocation(containerPtr.translationUnit, containerPtr.tokens[index]);
         return SourceLocation(r);
     }
 
     /// The SourceRange this Token occupies.
-    @property SourceRange extent() {
-        auto r = clang_getTokenExtent(group.tu, cx);
+    @property SourceRange extent() const {
+        auto r = clang_getTokenExtent(containerPtr.translationUnit, containerPtr.tokens[index]);
         return SourceRange(r);
     }
 
     /// The Cursor this Token corresponds to.
     @property Cursor cursor() {
-        Cursor c = Cursor.empty(group.tu);
-        clang_annotateTokens(group.tu, &cx, 1, &c.cx);
+        Cursor c = empty;
+        clang_annotateTokens(containerPtr.translationUnit, &containerPtr.tokens[index], 1, &c.cx);
 
         return c;
     }
-
-    @property bool isValid() {
-        return cx !is CType.init;
-    }
 }
 
-/** Tokenize the source code described by the given range into raw
- * lexical tokens.
- *
- * All of the tokens produced by tokenization will fall within range,
- *
- * Params:
- *  tu = the translation unit whose text is being tokenized.
- *  range = the source range in which text should be tokenized.
- */
-RefCounted!TokenGroup tokenize(TranslationUnit tu, SourceRange range) {
-    TokenGroup.CXTokenArray tokens;
-    auto tg = RefCounted!TokenGroup(tu);
+struct TokenRange {
+    private const RefCounted!(Token.Container) container;
+    private size_t begin;
+    private size_t end;
 
-    clang_tokenize(tu, range, &tokens.tokens, &tokens.length);
-    tg.cxtokens = tokens;
-
-    foreach (i; 0 .. tokens.length - 1) {
-        auto t = Token(tg, tokens.tokens[i]);
-        tg.tokens_ ~= t;
+    private static RefCounted!(Token.Container) makeContainer(
+            CXTranslationUnit translationUnit, CXToken* tokens, ulong numTokens) {
+        RefCounted!(Token.Container) result;
+        result.translationUnit = translationUnit;
+        result.tokens = tokens;
+        result.numTokens = numTokens;
+        return result;
     }
 
-    return tg;
-}
-
-private:
-
-/** Helper class to facilitate token management.
- * Tokens are allocated from libclang in chunks. They must be disposed of as a
- * collective group.
- *
- * One purpose of this class is for instances to represent groups of allocated
- * tokens. Each token in a group contains a reference back to an instance of
- * this class. When all tokens from a group are garbage collected, it allows
- * this class to be garbage collected. When this class is garbage collected,
- * it calls the libclang destructor which invalidates all tokens in the group.
- *
- * You should not instantiate this class outside of this module.
- */
-struct TokenGroup {
-    alias Delegate = int delegate(ref Token);
-
-    struct CXTokenArray {
-        CXToken* tokens;
-        uint length;
+    this(CXTranslationUnit translationUnit, CXToken* tokens, ulong numTokens) {
+        container = makeContainer(translationUnit, tokens, numTokens);
+        begin = 0;
+        end = numTokens;
     }
 
-    private TranslationUnit tu;
-    private CXTokenArray cxtokens;
-    private Token[] tokens_;
-
-    this(TranslationUnit tu) {
-        this.tu = tu;
+    @property bool empty() const {
+        return begin >= end;
     }
 
-    ~this() {
-        // this pointer will be set to point to the array of tokens that occur
-        // within the given source range. The returned pointer must be freed
-        // with clang_disposeTokens() before the translation unit is destroyed.
-
-        if (cxtokens.length > 0) {
-            clang_disposeTokens(tu.cx, cxtokens.tokens, cxtokens.length);
-            cxtokens.length = 0;
-            tokens_.length = 0;
-        }
+    @property Token front() const {
+        return Token(container, begin);
     }
 
-    auto opIndex(T)(T idx) {
-        return tokens_[idx];
+    @property Token back() const {
+        return Token(container, end - 1);
     }
 
-    auto opIndex(T...)(T ks) {
-        Token[] rval;
-
-        foreach (k; ks) {
-            rval ~= tokens_[k];
-        }
-
-        return rval;
+    @property void popFront() {
+        ++begin;
     }
 
-    auto opDollar(int dim)() {
-        return length;
+    @property void popBack() {
+        --end;
     }
 
-    @property auto length() {
-        return tokens_.length;
+    @property TokenRange save() const {
+        return this;
     }
 
-    /// Return: range of the tokens..
-    auto tokens() {
-        return tokens_[];
+    @property size_t length() const {
+        return end - begin;
+    }
+
+    Token opIndex(size_t index) const {
+        return Token(container, begin + index);
     }
 }
