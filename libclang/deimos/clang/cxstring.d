@@ -31,7 +31,7 @@ extern (C):
  * with the string data, call \c clang_disposeString() to free the string.
  */
 struct CXString {
-  void* data;
+  const(void)* data;
   uint private_flags;
 }
 
