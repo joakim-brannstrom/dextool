@@ -92,26 +92,31 @@ struct SourceLocation {
 
     /// Get the file represented by this source location.
     /// TODO implement with a cache, this is inefficient.
-    @property File file() @safe {
-        return expansion.file;
+    @property File file() const @safe {
+        return spelling.file;
     }
 
     /// Get the line represented by this source location.
     /// TODO implement with a cache, this is inefficient.
-    @property uint line() @safe {
-        return expansion.line;
+    @property uint line() const @safe {
+        return spelling.line;
     }
 
     /// Get the column represented by this source location.
     /// TODO implement with a cache, this is inefficient.
-    @property uint column() @safe {
-        return expansion.column;
+    @property uint column() const @safe {
+        return spelling.column;
     }
 
     /// Get the file offset represented by this source location.
     /// TODO implement with a cache, this is inefficient.
-    @property uint offset() @safe {
-        return expansion.offset;
+    @property uint offset() const @safe {
+        return spelling.offset;
+    }
+
+    /// The path the SourceLocation point to.
+    @property string path() const @safe {
+        return spelling.file.name;
     }
 
     /** Retrieve the file, line, column, and offset represented by
@@ -134,7 +139,7 @@ struct SourceLocation {
      * offset [out] if non-NULL, will be set to the offset into the
      * buffer to which the given source location points.
      */
-    @property Location expansion() @trusted {
+    @property Location expansion() const @trusted {
         Location data;
 
         clang_getExpansionLocation(cx, &data.file.cx, &data.line, &data.column, &data.offset);
@@ -177,7 +182,7 @@ struct SourceLocation {
      *  column [out] if non-NULL, will be set to the column number of the
      * source location. For an invalid source location, zero is returned.
      */
-    auto presumed() @trusted {
+    auto presumed() const @trusted {
         Location2 data;
         CXString cxstring;
 
@@ -208,7 +213,7 @@ struct SourceLocation {
      * offset [out] if non-NULL, will be set to the offset into the
      * buffer to which the given source location points.
      */
-    @property Location spelling() @trusted {
+    @property Location spelling() const @trusted {
         Location data;
 
         clang_getSpellingLocation(cx, &data.file.cx, &data.line, &data.column, &data.offset);

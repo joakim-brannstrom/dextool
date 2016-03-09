@@ -1,13 +1,13 @@
 /**
  * Copyright: Copyright (c) 2011 Jacob Carlborg. All rights reserved.
  * Authors: Jacob Carlborg, Joakim Brännström (joakim.brannstrom dottli gmx.com)
- * Version: 1.1
+ * Version: 1.1+
  * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
  * History:
  *  1.0 initial release. 2012-01-29 $(BR)
  *    Jacob Carlborg
  *
- *  1.1 additional features missing compared to cindex.py. 2015-03-07 $(BR)
+ *  1.1+ additional features missing compared to cindex.py. 2015-03-07 $(BR)
  *    Joakim Brännström
  */
 module clang.Cursor;
@@ -91,7 +91,13 @@ string abilities(EnumCursor c) {
 struct Cursor {
     mixin CX;
 
+    private static const CXCursorKind[string] predefined;
     private TranslationUnit translation_unit;
+
+    static this() {
+        // populate the database once
+        predefined = queryPredefined();
+    }
 
     /** disallowed for general use.
      * TODO consider using concepts from https://w0rp.com/blog/post/an-raii-constructor-by-another-name-is-just-as-sweet/
@@ -116,7 +122,7 @@ struct Cursor {
     }
 
     /// Return: the spelling of the entity pointed at by the cursor.
-    @property string spelling() {
+    @property string spelling() const {
         return toD(clang_getCursorSpelling(cx));
     }
 
@@ -141,7 +147,7 @@ struct Cursor {
     }
 
     /// Return: the kind of this cursor.
-    @property CXCursorKind kind() @trusted {
+    @property CXCursorKind kind() const @trusted {
         return clang_getCursorKind(cx);
     }
 
@@ -154,7 +160,7 @@ struct Cursor {
      * The location of a reference is where that reference occurs within the
      * source code.
      */
-    @property SourceLocation location() {
+    @property SourceLocation location() const {
         return SourceLocation(clang_getCursorLocation(cx));
     }
 
@@ -289,7 +295,7 @@ struct Cursor {
      * the extent covers the location of the reference (e.g., where the
      * referenced entity was actually used).
      */
-    @property SourceRange extent() @trusted {
+    @property SourceRange extent() const @trusted {
         auto r = clang_getCursorExtent(cx);
         return SourceRange(r);
     }
@@ -341,9 +347,15 @@ struct Cursor {
      * Returns: A RefCounted TokenGroup.
      */
     @property auto tokens() {
-        auto range = extent;
+        import std.algorithm.mutation : stripRight;
 
-        return tokenize(translation_unit, range);
+        CXToken* tokens = null;
+        uint numTokens = 0;
+        clang_tokenize(translation_unit.cx, extent.cx, &tokens, &numTokens);
+        auto result = TokenRange(translation_unit, tokens, numTokens);
+
+        // For some reason libclang returns some tokens out of cursors extent.cursor
+        return result.stripRight!(token => !intersects(extent, token.extent));
     }
 
     @property ObjcCursor objc() {
@@ -366,6 +378,31 @@ struct Cursor {
         return Visitor(this);
     }
 
+    /** Array of all children of the cursor.
+     *
+     *Params:
+     *  ignorePredefined = ignore cursors for primitive types.
+     */
+    @property Cursor[] children(bool ignorePredefined = false) {
+        import std.array : appender;
+        import std.stdio;
+
+        Cursor[] result = [];
+        auto app = appender(result);
+
+        if (ignorePredefined && isTranslationUnit) {
+            foreach (cursor, _; all) {
+                if (!cursor.isPredefined)
+                    app.put(cursor);
+            }
+        } else {
+            foreach (cursor, _; all)
+                app.put(cursor);
+        }
+
+        return app.data;
+    }
+
     /// Determine whether two cursors are equivalent.
     equals_t opEquals(const ref Cursor cursor) const {
         return clang_equalCursors(cast(CXCursor) cursor.cx, cast(CXCursor) cx) != 0;
@@ -382,7 +419,7 @@ struct Cursor {
     }
 
     /// Determine whether the given cursor kind represents a declaration.
-    @property bool isDeclaration() {
+    @property bool isDeclaration() const {
         return clang_isDeclaration(cx.kind) != 0;
     }
 
@@ -393,51 +430,55 @@ struct Cursor {
      * other cursors. Use clang_getCursorReferenced() to determine whether a
      * particular cursor refers to another entity.
      */
-    @property bool isReference() {
+    @property bool isReference() const {
         return clang_isReference(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents an expression.
-    @property bool isExpression() {
+    @property bool isExpression() const {
         return clang_isExpression(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents a statement.
-    @property bool isStatement() {
+    @property bool isStatement() const {
         return clang_isStatement(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents an attribute.
-    @property bool isAttribute() {
+    @property bool isAttribute() const {
         return clang_isAttribute(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents an invalid cursor.
-    @property bool isValid() {
-        return clang_isInvalid(cx.kind) == 0;
+    @property bool isValid() const {
+        // note that it checks for invalidity of the cursor, thus the inverse
+        // is the return value.
+        // Why this note?
+        // I almost thought it was a bug that the check was == 0
+        return !clang_isInvalid(cx.kind);
     }
 
     /// Determine whether the given cursor kind represents a translation unit.
-    @property bool isTranslationUnit() {
-        return clang_isTranslationUnit(cx.kind) == 0;
+    @property bool isTranslationUnit() const {
+        return clang_isTranslationUnit(cx.kind) != 0;
     }
 
     /** Determine whether the given cursor represents a preprocessing
      * element, such as a preprocessor directive or macro instantiation.
      */
-    @property bool isPreprocessing() {
+    @property bool isPreprocessing() const {
         return clang_isPreprocessing(cx.kind) != 0;
     }
 
     /** Determine whether the given cursor represents a currently unexposed
      * piece of the AST (e.g., CXCursor_UnexposedStmt).
      */
-    @property bool isUnexposed() {
+    @property bool isUnexposed() const {
         return clang_isUnexposed(cx.kind) != 0;
     }
 
     /// Return: if cursor is null/empty.
-    @property bool isEmpty() {
+    @property bool isEmpty() const {
         return clang_Cursor_isNull(cx) != 0;
     }
 
@@ -449,8 +490,28 @@ struct Cursor {
     }
 
     /// Returns: if the base class specified by the cursor with kind CX_CXXBaseSpecifier is virtual.
-    @property bool isVirtualBase() {
-        return clang_isVirtualBase(cx) == 1;
+    @property bool isVirtualBase() const {
+        return clang_isVirtualBase(cx) != 0;
+    }
+
+    bool isPredefined() const {
+        auto xkind = spelling in predefined;
+        return xkind !is null && *xkind == kind;
+    }
+
+    private static CXCursorKind[string] queryPredefined() {
+        import clang.Index;
+        import clang.TranslationUnit;
+
+        CXCursorKind[string] result;
+
+        Index index = Index(false, false);
+        TranslationUnit unit = TranslationUnit.parseString(index, "", []);
+
+        foreach (cursor; unit.cursor.children)
+            result[cursor.spelling] = cursor.kind;
+
+        return result;
     }
 }
 
