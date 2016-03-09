@@ -238,7 +238,7 @@ struct ShowAst {
 
         auto toks = c.tokens();
 
-        foreach (ref t; toks.tokens) {
+        foreach (ref t; toks) {
             auto loc = t.location();
             logger.tracef("|%s%s [kind: %s, line=%d, col=%d off=%d", repeat(' ',
                     depth), t.spelling, text(t.kind), loc.line, loc.column, loc.offset);
