@@ -7,6 +7,32 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module utils;
 import scriptlike;
 
+private void delegate(string) oldYap = null;
+private string[] yapLog;
+
+static this() {
+    scriptlikeCustomEcho = (string s) => dextoolYap(s);
+    echoOn;
+}
+
+void dextoolYap(string msg) nothrow {
+    yapLog ~= msg;
+}
+
+void dextoolYap(T...)(T args) {
+    import std.format : format;
+
+    yapLog ~= format(args);
+}
+
+string[] getYapLog() {
+    return yapLog.dup;
+}
+
+void resetYapLog() {
+    yapLog.length = 0;
+}
+
 void echoOn() {
     .scriptlikeEcho = true;
 }
@@ -38,7 +64,6 @@ void runAndLog(string args) {
 struct TestEnv {
     import std.ascii : newline;
 
-    private string[] echo_;
     private Path outdir_;
     private Path dextool_;
     private File logfile;
@@ -55,16 +80,6 @@ struct TestEnv {
         return dextool_;
     }
 
-    void echo(string s) nothrow {
-        echo_ ~= s;
-    }
-
-    void echo(T...)(T args) {
-        import std.format : format;
-
-        echo_ ~= format(args);
-    }
-
     string toString() {
         // dfmt off
         return only(
@@ -79,7 +94,7 @@ struct TestEnv {
 
     void setup(Path outdir__) {
         outdir_ = outdir__.absolutePath.stripExtension;
-        writeln("Test environment:", newline, toString);
+        yap("Test environment:", newline, toString);
 
         // ensure logs are empty
         if (exists(outdir)) {
@@ -89,7 +104,7 @@ struct TestEnv {
                 dirEntries(outdir, SpanMode.shallow).each!(a => tryRemove(Path(a)));
             }
             catch (FileException ex) {
-                echo(ex.msg);
+                yap(ex.msg);
             }
         } else {
             mkdirRecurse(outdir);
@@ -104,10 +119,14 @@ struct TestEnv {
             return;
         }
 
+        import std.range : chain;
+
         // Use when saving error data for later analyze
-        foreach (l; echo_) {
+        foreach (l; getYapLog) {
             logfile.writeln(l);
         }
+
+        resetYapLog();
 
         logfile.close();
     }
@@ -120,12 +139,9 @@ string EnvSetup(string logdir) {
     import scriptlike;
 
     auto testEnv = TestEnv(Path("../build/dextool-debug"));
-    scriptlikeCustomEcho = (string s) { testEnv.echo(s); };
 
     // Setup and cleanup
     scope (exit) {
-        // must unregister echo before teardown to stop receiving messages
-        scriptlikeCustomEcho = null;
         testEnv.teardown();
     }
     chdir(thisExePath.dirName);
@@ -183,10 +199,6 @@ void compare(in Path gold, in Path result) {
 }
 
 void runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
-    echoOn;
-    scope (exit)
-        echoOff;
-
     Args args;
     args ~= testEnv.dextool;
     args ~= pre_args.dup;
@@ -220,10 +232,6 @@ void compareResult(T...)(in T args) {
 
 void compileResult(in Path input, in Path main, const ref TestEnv testEnv,
         in string[] flags, in string[] incls) {
-    echoOn;
-    scope (exit)
-        echoOff;
-
     auto binout = testEnv.outdir ~ "binary";
 
     Args args;
@@ -241,10 +249,6 @@ void compileResult(in Path input, in Path main, const ref TestEnv testEnv,
 }
 
 void demangleProfileLog(in Path out_fname) {
-    echoOn;
-    scope (exit)
-        echoOff;
-
     Args args;
     args ~= "ddemangle";
     args ~= "trace.log";
@@ -255,10 +259,6 @@ void demangleProfileLog(in Path out_fname) {
 }
 
 string[] compilerFlags() {
-    echoOn;
-    scope (exit)
-        echoOff;
-
     auto default_flags = ["-std=c++98"];
 
     auto r = tryRunCollect("g++ -dumpversion");
