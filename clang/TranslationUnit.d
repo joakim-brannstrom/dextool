@@ -64,7 +64,7 @@ struct TranslationUnit {
         return translationUnit;
     }
 
-    private this(CXTranslationUnit cx) {
+    package this(CXTranslationUnit cx) {
         this.cx = cx;
     }
 
@@ -73,7 +73,7 @@ struct TranslationUnit {
     }
 
     @property DeclarationVisitor declarations() {
-        auto c = Cursor(this, clang_getTranslationUnitCursor(cx));
+        auto c = Cursor(clang_getTranslationUnitCursor(cx));
         return DeclarationVisitor(c);
     }
 
@@ -90,14 +90,8 @@ struct TranslationUnit {
 
     @property Cursor cursor() {
         auto r = clang_getTranslationUnitCursor(cx);
-        return Cursor(this, r);
+        return Cursor(r);
     }
-}
-
-/// Returns: the translation unit that a cursor originated from.
-package TranslationUnit translationUnitFromCursor(CXCursor cx) @trusted {
-    auto r = clang_Cursor_getTranslationUnit(cx);
-    return TranslationUnit(r);
 }
 
 struct DiagnosticVisitor {

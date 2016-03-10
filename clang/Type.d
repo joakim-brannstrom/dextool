@@ -106,7 +106,7 @@ struct Type {
     /// Return: the cursor for the declaration of the given type.
     @property Cursor declaration() @trusted {
         auto r = clang_getTypeDeclaration(cx);
-        return Cursor(cursor.translationUnit, r);
+        return Cursor(r);
     }
 
     @property FuncType func() {

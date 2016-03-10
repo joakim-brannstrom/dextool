@@ -35,8 +35,8 @@ private:
         auto tmp = cast(OpApplyData*) data;
 
         with (CXChildVisitResult) {
-            auto dCursor = Cursor(tmp.tu, cursor);
-            auto dParent = Cursor(tmp.tu, parent);
+            auto dCursor = Cursor(cursor);
+            auto dParent = Cursor(parent);
             auto r = tmp.dg(dCursor, dParent);
             tmp.returnCode = r;
             return r ? CXChildVisit_Break : CXChildVisit_Continue;
