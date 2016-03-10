@@ -92,33 +92,16 @@ struct Cursor {
     mixin CX;
 
     private static const CXCursorKind[string] predefined;
-    private TranslationUnit translation_unit;
 
     static this() {
         // populate the database once
         predefined = queryPredefined();
     }
 
-    /** disallowed for general use.
-     * TODO consider using concepts from https://w0rp.com/blog/post/an-raii-constructor-by-another-name-is-just-as-sweet/
-     */
-    package this(CXCursor c) {
-    }
-
-    this(Cursor cursor) {
-        translation_unit = cursor.translation_unit;
-        cx = cursor.cx;
-    }
-
-    this(TranslationUnit tu, CXCursor cx) {
-        this.translation_unit = tu;
-        this.cx = cx;
-    }
-
     /// Retrieve the NULL cursor, which represents no entity.
-    @property static Cursor empty(TranslationUnit tu) {
+    @property static Cursor empty() {
         auto r = clang_getNullCursor();
-        return Cursor(tu, r);
+        return Cursor(r);
     }
 
     /// Return: the spelling of the entity pointed at by the cursor.
@@ -186,7 +169,7 @@ struct Cursor {
      */
     @property Cursor definition() {
         auto r = clang_getCursorDefinition(cx);
-        return Cursor(translation_unit, r);
+        return Cursor(r);
     }
 
     /** Determine the semantic parent of the given cursor.
@@ -224,7 +207,7 @@ struct Cursor {
      */
     @property Cursor semanticParent() {
         auto r = clang_getCursorSemanticParent(cx);
-        return Cursor(translation_unit, r);
+        return Cursor(r);
     }
 
     /** Determine the lexical parent of the given cursor.
@@ -263,7 +246,7 @@ struct Cursor {
      */
     @property Cursor lexicalParent() {
         auto r = clang_getCursorLexicalParent(cx);
-        return Cursor(translation_unit, r);
+        return Cursor(r);
     }
 
     /** For a cursor that is a reference, retrieve a cursor representing the
@@ -278,7 +261,7 @@ struct Cursor {
      */
     @property Cursor referenced() {
         auto r = clang_getCursorReferenced(cx);
-        return Cursor(translation_unit, r);
+        return Cursor(r);
     }
 
     @property DeclarationVisitor declarations() {
@@ -326,7 +309,7 @@ struct Cursor {
      */
     @property Cursor canonical() @trusted {
         auto r = clang_getCanonicalCursor(cx);
-        return Cursor(translation_unit, r);
+        return Cursor(r);
     }
 
     /// Determine the "language" of the entity referred to by a given cursor.
@@ -336,7 +319,7 @@ struct Cursor {
 
     /// Returns: the translation unit that a cursor originated from.
     @property TranslationUnit translationUnit() {
-        return translation_unit;
+        return TranslationUnit(clang_Cursor_getTranslationUnit(cx));
     }
 
     /** Obtain Token instances formulating that compose this Cursor.
@@ -351,8 +334,8 @@ struct Cursor {
 
         CXToken* tokens = null;
         uint numTokens = 0;
-        clang_tokenize(translation_unit.cx, extent.cx, &tokens, &numTokens);
-        auto result = TokenRange(translation_unit, tokens, numTokens);
+        clang_tokenize(translationUnit.cx, extent.cx, &tokens, &numTokens);
+        auto result = TokenRange(translationUnit, tokens, numTokens);
 
         // For some reason libclang returns some tokens out of cursors extent.cursor
         return result.stripRight!(token => !intersects(extent, token.extent));
@@ -535,7 +518,7 @@ struct ObjcCursor {
         foreach (cursor, parent; TypedVisitor!(CXCursorKind.CXCursor_ObjCSuperClassRef)(cursor))
             return cursor;
 
-        return Cursor.empty(translation_unit);
+        return Cursor.empty();
     }
 
     @property ObjCProtocolVisitor protocols() {
