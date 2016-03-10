@@ -22,5 +22,5 @@ dub build
 source ./config.sh
 make dmd
 # or
-make ldc
+make ldc2
 ```

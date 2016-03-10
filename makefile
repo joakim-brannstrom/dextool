@@ -25,11 +25,11 @@ LINK_DMD_CLANG := -L-no-as-needed -L--enable-new-dtags -L-rpath=. -L${LFLAG_CLAN
 DC ?= dmd
 LDC ?= ldmd2
 
-.PHONY: dmd ldc clean
+.PHONY: dmd ldc2 clean
 
 all: dmd
 
-ldc: $(SRC)
+ldc2: $(SRC)
 	$(LDC) $(LDC_FLAGS) $(LDC_OPTIMIZE_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool
 	-rm -f *.o
 
