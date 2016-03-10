@@ -59,11 +59,11 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
-    testEnv.echo("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
     if (!p.skipCompare) {
-        testEnv.echo("Comparing");
+        dextoolYap("Comparing");
         auto input = p.input_ext.stripExtension;
         // dfmt off
         compareResult(
@@ -75,7 +75,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 
     if (!p.skipCompile) {
-        testEnv.echo("Compiling");
+        dextoolYap("Compiling");
         compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
     }
 }
@@ -85,7 +85,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_anon_namespace.hpp", testEnv);
 
-    testEnv.echo("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.toRawString);
     runTestFile(p, testEnv);
 }
 

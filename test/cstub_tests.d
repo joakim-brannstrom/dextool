@@ -59,11 +59,11 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
-    testEnv.echo("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
     if (!p.skipCompare) {
-        testEnv.echo("Comparing");
+        dextoolYap("Comparing");
         auto input = p.input_ext.stripExtension;
         // dfmt off
         compareResult(
@@ -75,7 +75,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 
     if (!p.skipCompile) {
-        testEnv.echo("Compiling");
+        dextoolYap("Compiling");
         compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
     }
 }
@@ -242,7 +242,7 @@ unittest {
     runTestFile(p, testEnv);
 
     // dfmt off
-    testEnv.echo("Comparing");
+    dextoolYap("Comparing");
     auto input = p.input_ext.stripExtension;
     compareResult(GR(input ~ Ext(".hpp.ref"), p.out_hdr),
                   GR(input ~ Ext(".cpp.ref"), p.out_impl),
