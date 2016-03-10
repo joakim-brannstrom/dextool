@@ -2,6 +2,7 @@ language: d
 d:
     - dmd-2.069.2
     - dmd
+    # - ldc
 
 os:
     - linux
