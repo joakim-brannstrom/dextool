@@ -27,6 +27,14 @@ import clang.Token;
 import clang.Util;
 import clang.Visitor;
 
+version (unittest) {
+    import unit_threaded : Name;
+} else {
+    struct Name {
+        string name_;
+    }
+}
+
 /** Cursor isX represented as a string of letters
  *
  * a = isAttribute
@@ -91,6 +99,7 @@ string abilities(EnumCursor c) {
 struct Cursor {
     mixin CX;
 
+    // for example primitive types are predefined
     private static const CXCursorKind[string] predefined;
 
     static this() {
@@ -496,6 +505,16 @@ struct Cursor {
 
         return result;
     }
+
+    public static string predefinedToString() {
+        import std.algorithm : map, joiner;
+        import std.ascii : newline;
+        import std.conv : text;
+        import std.string : leftJustifier;
+
+        return predefined.byKeyValue().map!(a => leftJustifier(a.key, 50)
+                .text ~ a.value.text).joiner(newline).text;
+    }
 }
 
 struct ObjcCursor {
@@ -700,4 +719,11 @@ struct EnumCursor {
             return true;
         }
     }
+}
+
+@Name("Should output the predefined types for inspection")
+unittest {
+    import unit_threaded : writelnUt;
+
+    writelnUt(Cursor.predefinedToString);
 }

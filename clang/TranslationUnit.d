@@ -47,19 +47,31 @@ struct TranslationUnit {
     static TranslationUnit parseString(Index index, string source,
             string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
             uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
-        // use an in-memory file instead
-        import std.file;
+        import std.string : toStringz;
+        import std.traits : fullyQualifiedName;
+        import std.path : buildPath;
 
-        auto file = namedTempFile("dextool", ".h");
-        auto name = file.name();
-        file.write(source);
-        file.flush();
-        file.detach();
+        static string virtualPath() {
+            version (Windows)
+                enum root = `C:\`;
 
-        auto translationUnit = TranslationUnit.parse(index, name,
-                commandLineArgs, unsavedFiles, options);
+            else
+                enum root = "/";
 
-        remove(name);
+            import std.conv : text;
+            import std.random;
+
+            return buildPath(root, text(uniform(1, 10_000_000)));
+        }
+
+        auto s = fullyQualifiedName!(typeof(this)) ~ ".h";
+        auto path = buildPath(virtualPath, s);
+
+        // in-memory file
+        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
+
+        auto translationUnit = TranslationUnit.parse(index, path,
+                commandLineArgs, [file] ~ unsavedFiles, options);
 
         return translationUnit;
     }
