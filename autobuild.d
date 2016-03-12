@@ -354,7 +354,7 @@ struct Fsm {
 
         Args a;
         a ~= thisExePath.dirName ~ "build.sh";
-        a ~= "run";
+        a ~= "test";
         a ~= ["-c", "unittest"];
         a ~= ["-b", "unittest-cov"];
         //a ~= ["--", "-d"];
