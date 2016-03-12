@@ -13,6 +13,7 @@ int main(string[] args) {
     return args.runTests!(
                           "application.types",
                           "application.utility",
+                          "clang.Cursor",
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.utility",
