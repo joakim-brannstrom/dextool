@@ -275,7 +275,9 @@ body {
         default:
             info.indexes = format("[%d]%s", array.size, info.indexes);
             auto translatedElement = translateType(elementType);
+
             assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+
             info.elementType = translatedElement.typeKind.txt;
             break;
         }
@@ -319,7 +321,9 @@ body {
         default:
             info.indexes = format("[]%s", info.indexes);
             auto translatedElement = translateType(elementType);
+
             assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+
             info.elementType = translatedElement.typeKind.txt;
             break;
         }
