@@ -176,6 +176,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should be an array using a macro for size")
+unittest {
+    //TODO Should use the original define (macro), not what it is replaced with
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_1/defines.h", testEnv);
+    p.compileFlags ~= "-DTEST_INCLUDE";
+    runTestFile(p, testEnv);
+}
+
 @Name("Should not overwrite an existing X_pre_includes or X_post_includes.hpp")
 unittest {
     mixin(EnvSetup(globalTestdir));
