@@ -137,16 +137,28 @@ class FunctionTestCase: TestCase {
     private TestFunction _func;
 }
 
+private shared(bool) _stacktrace = false; /// catch throwable and thus prevent stack trace?
+
+public void enableStackTrace() nothrow {
+    synchronized {
+        _stacktrace = true;
+    }
+}
+
 class BuiltinTestCase: FunctionTestCase {
     this(immutable TestData data) pure nothrow {
         super(data);
     }
 
     override void test() {
-        try {
+        if (_stacktrace) {
             super.test();
-        } catch(Throwable t) {
-            utFail(t.msg, t.file, t.line);
+        } else {
+            try {
+                super.test();
+            } catch(Throwable t) {
+                utFail(t.msg, t.file, t.line);
+            }
         }
     }
 }
