@@ -24,6 +24,10 @@ buildType "unittest-cov" {
     buildOptions "unittests" "debugMode" "debugInfo" "coverage"
 }
 
+buildType "unittest-local" {
+    buildOptions "unittests" "debugMode" "debugInfo"
+}
+
 buildType "release-profile" {
     buildOptions "profile" "releaseMode" "inline" "optimize"
 }
@@ -62,7 +66,7 @@ configuration "devtool" {
 }
 
 configuration "unittest" {
-    // v0.6.3 e03d1e070cb687eb1430b54fe620db792c2f60f7
+    // v0.6.4 191940f8246b3ebcc4efe47e7c5e420c642a8ebd
     dependency "unit-threaded" path="unit-threaded"
 
     targetName "unittest"

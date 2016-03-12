@@ -71,7 +71,20 @@ unittest {
     3.shouldEqual(5);
 }
 
+
 @(42, 2)
 void testValues(int i) {
     (i % 2 == 0).shouldBeTrue;
+}
+
+
+@ShouldFail
+void testShouldFailWithAssertionInTestFunction() {
+     assert(false);
+}
+
+@ShouldFail
+@(12, 14)
+void testIssue14(int i) {
+    (i % 2 == 0).shouldBeFalse;
 }
