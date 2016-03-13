@@ -224,6 +224,10 @@ struct ClassDescendVisitor {
             applyInherit(c, parent);
             descend = false;
             break;
+        case CXCursor_FieldDecl:
+            applyField(c, accessType);
+            descend = false;
+            break;
         case CXCursor_ClassDecl:
             // Another visitor must analyze the nested class to allow us to
             // construct a correct representation.
@@ -266,6 +270,17 @@ private:
         data.put(inherit);
     }
 
+    void applyField(ref Cursor c, const CppAccess accessType) {
+        import std.typecons : TypedefType;
+        import cpptooling.analyzer.clang.type : translateType;
+        import cpptooling.data.representation : TypeKindVariable;
+
+        auto tk = translateType(c.type).unwrap;
+        auto name = CppVariable(c.spelling);
+
+        data.put(TypeKindVariable(tk, name), cast(TypedefType!CppAccess) accessType);
+    }
+
     void applyMethod(ref Cursor c, ref Cursor parent) {
         import cpptooling.analyzer.clang.type : TypeKind, translateType;
         import cpptooling.data.representation : CppMethodOp;
@@ -274,6 +289,8 @@ private:
             import std.algorithm : among;
 
             if (name_.length <= 8) {
+                // "operator" keyword is 8 char long, thus an optimization to first look
+                // at the length
                 return false;
             } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+", "-", "*")) {
                 return true;

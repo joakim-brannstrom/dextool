@@ -212,6 +212,11 @@ string toInternal(CxParam p) @trusted {
     // dfmt on
 }
 
+/// Convert a TypeKindVariable to a string.
+string toInternal(TypeKindVariable tk) @trusted {
+    return tk.type.toString(tk.name.str);
+}
+
 /// Join a range of CxParams to a string separated by ", ".
 string joinParams(T)(T r) @safe if (isInputRange!T) {
     import std.algorithm : joiner, map;
@@ -953,6 +958,8 @@ pure @safe nothrow struct CppClass {
         CppClass[] classes_prot;
         CppClass[] classes_priv;
 
+        TypeKindVariable[] members;
+
         string[] cmnt;
     }
 
@@ -1064,6 +1071,11 @@ pure @safe nothrow struct CppClass {
         }
     }
 
+    void put(T)(T member_, AccessType accessType) @trusted 
+            if (is(T == TypeKindVariable)) {
+        members ~= member_;
+    }
+
     /** Add a comment string for the class.
      *
      * Params:
@@ -1115,6 +1127,10 @@ pure @safe nothrow struct CppClass {
 
     auto classPrivateRange() @nogc {
         return arrayRange(classes_priv);
+    }
+
+    auto memberRange() @nogc {
+        return arrayRange(members);
     }
 
     /** Traverse stack from top to bottom.
@@ -1186,6 +1202,7 @@ const:
                   classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(),
                   classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
                   classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(),
+                  members.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
                   end_class
                  )
             .text;
@@ -1989,4 +2006,14 @@ unittest {
     c.toString.shouldEqualPretty(
         "class A : public ns1::Class { // isVirtual Unknown File:noloc Line:0 Column:0
 }; //Class:A");
+}
+
+@Name("Should be a class with a data member")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+    c.put(TypeKindVariable(makeTypeKind("int", false, false, false), CppVariable("x")), AccessType.Public);
+
+    shouldEqualPretty(c.toString, "class Foo { // isVirtual Unknown File:noloc Line:0 Column:0
+  int x;
+}; //Class:Foo");
 }
