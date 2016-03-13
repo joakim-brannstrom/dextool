@@ -126,6 +126,16 @@ struct Generator {
         CppModule hdr;
         CppModule impl;
         CppModule gmock;
+
+        static auto make() {
+            Modules m;
+
+            //TODO how to do this with meta-programming and instrospection fo Modules?
+            m.hdr = new CppModule;
+            m.impl = new CppModule;
+            m.gmock = new CppModule;
+            return m;
+        }
     }
 
     this(Controller ctrl, Parameters params, Products products) {
@@ -158,7 +168,7 @@ struct Generator {
         auto tr = translate(fl, container, ctrl, params);
         logger.trace("Translated to implementation:\n" ~ tr.toString());
 
-        auto modules = makeCppModules();
+        auto modules = Modules.make();
         generate(tr, ctrl, params, modules);
         postProcess(ctrl, params, products, modules);
     }
@@ -167,18 +177,6 @@ private:
     Controller ctrl;
     Parameters params;
     Products products;
-
-    auto makeCppModules() {
-        import std.range : only;
-        import std.algorithm : each;
-
-        Modules m;
-        //TODO how to do this with meta-programming and instrospection fo Modules?
-        m.hdr = new CppModule;
-        m.impl = new CppModule;
-        m.gmock = new CppModule;
-        return m;
-    }
 
     static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
