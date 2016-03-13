@@ -3,3 +3,4 @@
 *.log
 c_tests/
 cpp_tests/
+plantuml_tests/
