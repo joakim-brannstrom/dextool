@@ -17,7 +17,7 @@ import deimos.clang.index;
 struct Compiler {
     import std.algorithm : any, map;
     import std.path : buildPath;
-    import std.typetuple : staticMap;
+    import std.meta : staticMap;
 
     private {
         version (Windows)
