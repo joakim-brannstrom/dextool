@@ -90,11 +90,11 @@ import cpptooling.utility.nullvoid;
 
 /// Data produced by the generator like files.
 @safe interface Products {
-    /** Data pushed from the stub generator to be written to files.
+    /** Data pushed from the generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
-     * StubGenerator to inject more data in the tree before writing. For
-     * example a custom header.
+     * Generator to inject more data in the tree before writing. For example a
+     * custom header.
      *
      * Params:
      *   fname = file the content is intended to be written to.
@@ -255,6 +255,7 @@ enum NamespaceType {
  */
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : among, each, filter;
+    import std.range : tee;
     import cpptooling.data.representation : VirtualType;
 
     auto raw = CppRoot(input.location);
@@ -277,8 +278,10 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
             // ask controller if the file should be mocked, and thus the node
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-            // the class shall be processed further
-            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); raw.put(a);});
+            // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            // the class shall be further processed
+            .each!(a => raw.put(a));
     }
     // dfmt on
 
@@ -293,6 +296,7 @@ in {
 }
 body {
     import std.algorithm : among, each, filter, map;
+    import std.range : tee;
     import application.types : FileName;
     import cpptooling.data.representation : dedup, VirtualType;
     import cpptooling.generator.func : filterFunc = rawFilter;
@@ -314,7 +318,9 @@ body {
         input.classRange
             .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-            .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
+            // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .each!(a => ns.put(a));
     }
     //dfmt on
 

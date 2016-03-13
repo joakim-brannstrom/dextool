@@ -383,6 +383,8 @@ void generateCGlobalPreProcessorDefine(CxGlobalVariable g, string prefix, CppMod
     auto ifndef = code.IFNDEF(d_name);
 
     final switch (g.type.info.kind) with (TypeKind.Info) {
+    case Kind.record:
+        goto case;
     case Kind.simple:
         ifndef.define(E(d_name) ~ E(g.name.str));
         break;
@@ -408,6 +410,8 @@ void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code
 
     string txt;
     final switch (g.type.info.kind) with (TypeKind.Info) {
+    case Kind.record:
+        goto case;
     case Kind.simple:
         txt = E(g.type.txt) ~ E(d_name);
         break;
