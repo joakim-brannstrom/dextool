@@ -84,11 +84,11 @@ mixin template CppModuleX() {
 
     /** Virtual d'tor.
      * Params:
-     *  virtual_ = if evaluated to true prepend with virtual.
+     *  isVirtual = if evaluated to true prepend with virtual.
      *  class_name = name of the class to create a d'tor for.
      * Example:
      * ----
-     * dtor(Yes.IsVirtual, "Foo");
+     * dtor(Yes.isVirtual, "Foo");
      * ----
      */
     auto dtor(Flag!"isVirtual" isVirtual, string class_name) {
