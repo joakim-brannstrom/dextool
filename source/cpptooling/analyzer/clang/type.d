@@ -107,6 +107,9 @@ body {
             case CXType_FunctionProto:
                 result = translateFuncProto(type);
                 break;
+            case CXType_Record:
+                result = translateRecord(type);
+                break;
             default:
                 result = translateDefault(type);
             }
@@ -230,6 +233,8 @@ body {
         // unsure if this is a stable way of solving the const of unexposed
         // types. But seems to be good enough.
         final switch (rval.typeKind.info.kind) {
+        case TypeKind.Info.Kind.record:
+            goto case;
         case TypeKind.Info.Kind.simple:
             TypeKind.SimpleInfo info;
             info.fmt = "const " ~ rval.typeKind.info.fmt;
@@ -276,7 +281,8 @@ body {
             info.indexes = format("[%d]%s", array.size, info.indexes);
             auto translatedElement = translateType(elementType);
 
-            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple
+                    || translatedElement.typeKind.info.kind == TypeKind.Info.Kind.record);
 
             info.elementType = translatedElement.typeKind.txt;
             break;
@@ -322,7 +328,8 @@ body {
             info.indexes = format("[]%s", info.indexes);
             auto translatedElement = translateType(elementType);
 
-            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple);
+            assert(translatedElement.typeKind.info.kind == TypeKind.Info.Kind.simple
+                    || translatedElement.typeKind.info.kind == TypeKind.Info.Kind.record);
 
             info.elementType = translatedElement.typeKind.txt;
             break;
@@ -353,6 +360,7 @@ body {
 
     TypeKind.SimpleInfo info;
     final switch (rval.typeKind.info.kind) {
+    case TypeKind.Info.Kind.record:
     case TypeKind.Info.Kind.simple:
         info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
         rval.typeKind.info = info;
@@ -452,6 +460,21 @@ body {
     info.fmt = format("%s%s(%s)", return_t.typeKind.toString(""), "%s", params.joinParamNames());
     t.typeKind.info = info;
     t.typeKind.txt = t.typeKind.toString("");
+
+    return t;
+}
+
+WrapTypeKind translateRecord(Type type)
+in {
+    assert(type.kind == CXTypeKind.CXType_Record);
+}
+body {
+    logger.trace("translateRecord");
+
+    auto t = translateDefault(type);
+    TypeKind.RecordInfo info;
+    info.fmt = t.typeKind.info.fmt;
+    t.typeKind.info = info;
 
     return t;
 }

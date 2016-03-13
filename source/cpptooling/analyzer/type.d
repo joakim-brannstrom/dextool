@@ -52,12 +52,20 @@ pure @safe nothrow @nogc struct TypeKind {
         string fmt;
     }
 
+    /** The type 'class A'
+     * fmt = class %s
+     */
+    static struct RecordInfo {
+        string fmt;
+    }
+
     /// Formatting information needed to reproduce the type and identifier.
     static union InternalInfo {
         typeof(null) null_;
         SimpleInfo simple;
         ArrayInfo array;
         FuncPtrInfo funcPtr;
+        RecordInfo record;
     }
 
     alias Info = TaggedAlgebraic!InternalInfo;
@@ -134,6 +142,9 @@ auto toString(TypeKind t, string id) {
         txt = format(t.info.fmt, t.info.elementType, id, t.info.indexes);
         break;
     case Kind.funcPtr:
+        txt = format(t.info.fmt, id);
+        break;
+    case Kind.record:
         txt = format(t.info.fmt, id);
         break;
     case Kind.null_:
