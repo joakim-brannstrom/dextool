@@ -121,6 +121,24 @@ struct StubGenerator {
     import cpptooling.data.representation : CppRoot;
     import cpptooling.utility.conv : str;
 
+    static struct Modules {
+        CppModule hdr;
+        CppModule impl;
+        CppModule globals;
+        CppModule gmock;
+
+        static auto make() {
+            Modules m;
+
+            //TODO how to do this with meta-programming and instrospection fo Modules?
+            m.hdr = new CppModule;
+            m.impl = new CppModule;
+            m.globals = new CppModule;
+            m.gmock = new CppModule;
+            return m;
+        }
+    }
+
     this(StubController ctrl, StubParameters params, StubProducts products) {
         this.ctrl = ctrl;
         this.params = params;
@@ -144,6 +162,7 @@ struct StubGenerator {
      * TODO rename translate to rawFilter. See cppvariant.
      */
     auto process(CppRoot root) {
+
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n" ~ root.toString());
@@ -171,17 +190,18 @@ struct StubGenerator {
 
         logger.trace("Post processed:\n" ~ tr.toString());
 
-        auto hdr = new CppModule;
-        auto impl = new CppModule;
-        auto globals = new CppModule;
-        auto gmock = new CppModule;
-        generate(tr, ctrl, params, hdr, impl, globals, gmock);
-        postProcess(hdr, impl, globals, gmock, ctrl, params, products);
+        auto m = Modules.make();
+        generate(tr, ctrl, params, m.hdr, m.impl, m.globals, m.gmock);
+        postProcess(m, ctrl, params, products);
     }
 
 private:
-    static private void postProcess(CppModule hdr, CppModule impl, CppModule globals,
-            CppModule gmock, StubController ctrl, StubParameters params, StubProducts prod) {
+    StubController ctrl;
+    StubParameters params;
+    StubProducts products;
+
+    static void postProcess(Modules modules, StubController ctrl,
+            StubParameters params, StubProducts prod) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatetPreInclude, generatePostInclude;
 
@@ -208,9 +228,9 @@ private:
             return o;
         }
 
-        prod.putFile(params.getFiles.hdr, outputHdr(hdr, params.getFiles.hdr));
-        prod.putFile(params.getFiles.impl, output(impl, params.getFiles.hdr));
-        prod.putFile(params.getFiles.globals, output(globals, params.getFiles.hdr));
+        prod.putFile(params.getFiles.hdr, outputHdr(modules.hdr, params.getFiles.hdr));
+        prod.putFile(params.getFiles.impl, output(modules.impl, params.getFiles.hdr));
+        prod.putFile(params.getFiles.globals, output(modules.globals, params.getFiles.hdr));
 
         if (ctrl.doPreIncludes) {
             prod.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
@@ -223,14 +243,10 @@ private:
         if (ctrl.doGoogleMock) {
             import cpptooling.generator.gmock : generateGmockHdr;
 
-            prod.putFile(params.getFiles.gmock,
-                    generateGmockHdr(params.getFiles.hdr, params.getFiles.gmock, gmock));
+            prod.putFile(params.getFiles.gmock, generateGmockHdr(params.getFiles.hdr,
+                    params.getFiles.gmock, modules.gmock));
         }
     }
-
-    StubController ctrl;
-    StubParameters params;
-    StubProducts products;
 }
 
 private:
