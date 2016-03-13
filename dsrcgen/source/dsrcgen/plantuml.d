@@ -290,7 +290,7 @@ struct PlantumlRootModule {
     static auto make() {
         import std.ascii : newline;
 
-        auto r = new typeof(this);
+        typeof(this) r;
         r.root = new PlantumlModule;
         r.root.suppressIndent(1);
         r.content = r.root.suite("")[$.begin = "@startuml" ~ newline, $.end = "@enduml"];
