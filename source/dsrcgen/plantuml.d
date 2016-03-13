@@ -6,6 +6,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dsrcgen.plantuml;
 
+import std.meta : AliasSeq, staticIndexOf;
+import std.typecons : Flag;
+
 import dsrcgen.base;
 
 version (Have_unit_threaded) {
@@ -49,7 +52,7 @@ enum Relate {
     AggregateArrowTo
 }
 
-private string relateToString(Relate relate) {
+string relateToString(Relate relate) {
     string r_type;
     final switch (relate) with (Relate) {
     case WeakRelate:
@@ -85,10 +88,8 @@ enum LabelPos {
 }
 
 class PlantumlModule : BaseModule {
-    import std.meta : AliasSeq;
-    import std.meta : staticIndexOf;
     import std.traits : ReturnType;
-    import std.typecons : Typedef, Tuple;
+    import std.typecons : Typedef, Tuple, Yes, No;
 
     alias ClassModuleType = Typedef!(typeof(this), typeof(this).init, "ClassModuleType");
     alias ClassType = Tuple!(string, "name", ClassModuleType, "m");
@@ -135,7 +136,7 @@ class PlantumlModule : BaseModule {
     }
 
     // Statements
-    auto stmt(string stmt_, bool separator = true) {
+    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Stmt(stmt_);
         append(e);
         if (separator) {
@@ -145,21 +146,43 @@ class PlantumlModule : BaseModule {
     }
 
     auto class_(string name) {
-        return ClassType(name, ClassModuleType(stmt("class " ~ name)));
+        import std.format : format;
+
+        auto e = stmt(format(`class "%s"`, name));
+        return ClassType(name, ClassModuleType(e));
+    }
+
+    auto classBody(string name) {
+        import std.format : format;
+
+        auto e = suite(format(`class "%s"`, name));
+        return ClassType(name, ClassModuleType(e));
     }
 
     auto component(string name) {
-        return ComponentType(name, ComponentModuleType(stmt("component " ~ name)));
+        import std.format : format;
+
+        auto e = stmt(format(`component "%s"`, name));
+        return ComponentType(name, ComponentModuleType(e));
+    }
+
+    auto componentBody(string name) {
+        import std.format : format;
+
+        auto e = suite(format(`component "%s"`, name));
+        return ComponentType(name, ComponentModuleType(e));
     }
 
     auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
+        import std.format : format;
+
         auto block = stmt("");
         block.suppressIndent(1);
 
-        auto left = block.text(a.name);
-        auto middle = block.stmt(relateToString(relate), false);
+        auto left = block.text(format(`"%s"`, a.name));
+        auto middle = block.stmt(relateToString(relate), No.addSep);
         middle.setIndentation(1);
-        auto right = block.stmt(b.name, false);
+        auto right = block.stmt(format(`"%s"`, b.name), No.addSep);
         right.setIndentation(1);
 
         auto rl = Relation(RelateLeft(left), RelateRight(right),
@@ -168,10 +191,16 @@ class PlantumlModule : BaseModule {
         return rl;
     }
 
+    auto unsafeRelate(string a, string b, Relate type) {
+        import std.format : format;
+
+        return RelationType(stmt(format(`"%s" %s "%s"`, a, relateToString(type), b)));
+    }
+
     auto unsafeRelate(string a, string b, string type) {
         import std.format : format;
 
-        return RelationType(stmt(format("%s %s %s", a, type, b)));
+        return RelationType(stmt(format(`"%s" %s "%s"`, a, type, b)));
     }
 
     // Suites
@@ -184,6 +213,102 @@ class PlantumlModule : BaseModule {
         return e;
     }
 }
+
+private string paramsToString(T...)(auto ref T args) {
+    import std.conv : to;
+
+    string params;
+    if (args.length >= 1) {
+        params = to!string(args[0]);
+    }
+    if (args.length >= 2) {
+        foreach (v; args[1 .. $]) {
+            params ~= ", " ~ to!string(v);
+        }
+    }
+    return params;
+}
+
+// Begin: Class Diagram functions
+private alias CanHaveMethodSeq = AliasSeq!(PlantumlModule.ClassType, PlantumlModule.ClassModuleType);
+private enum CanHaveMethod(T) = staticIndexOf!(T, CanHaveMethodSeq) >= 0;
+
+private auto getM(T)(T m) {
+    static if (is(T == PlantumlModule.ClassModuleType)) {
+        return m;
+    } else static if (is(T == PlantumlModule.ClassType)) {
+        return m.m;
+    } else {
+        static assert(false, "Type not supported " ~ T.stringof);
+    }
+}
+
+auto method(T)(T m, string txt) if (CanHaveMethod!T) {
+    auto e = m.getM.stmt(txt);
+    return e;
+}
+
+auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
+        Flag!"isConst" isConst) if (CanHaveMethod!T) {
+    import std.format : format;
+
+    auto e = m.getM.stmt(format("%s%s %s()%s", isVirtual ? "virtual " : "",
+            return_type, name, isConst ? " const" : ""));
+    return e;
+}
+
+auto method(T0, T...)(T m, Flag!"isVirtual" isVirtual, string return_type,
+        string name, Flag!"isConst" isConst, auto ref T args) if (CanHaveMethod!T) {
+    import std.format : format;
+
+    string params = m.paramsToString(args);
+
+    auto e = m.getM.stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
+            return_type, name, params, isConst ? " const" : ""));
+    return e;
+}
+
+auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
+    auto e = m.getM.stmt(class_name ~ "()");
+    return e;
+}
+
+auto ctor_body(T0, T...)(T0 m, string class_name, auto ref T args)
+        if (CanHaveMethod!T) {
+    import std.format : format;
+
+    string params = this.paramsToString(args);
+
+    auto e = m.getM.class_suite(class_name, format("%s(%s)", class_name, params));
+    return e;
+}
+
+/** Virtual d'tor.
+ * Params:
+ *  m = ?
+ *  isVirtual = if evaluated to true prepend with virtual.
+ *  class_name = name of the class to create a d'tor for.
+ * Example:
+ * ----
+ * dtor(Yes.isVirtual, "Foo");
+ * ----
+ */
+auto dtor(T)(T m, Flag!"isVirtual" isVirtual, string class_name)
+        if (CanHaveMethod!T) {
+    import std.format : format;
+
+    auto e = m.getM.stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
+            class_name[0] == '~' ? "" : "~", class_name));
+    return e;
+}
+
+auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
+    import std.format : format;
+
+    auto e = m.getM.stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
+    return e;
+}
+// End: Class Diagram functions
 
 auto label(PlantumlModule.Relation m, string txt, LabelPos pos) {
     import std.format : format;
@@ -323,10 +448,10 @@ unittest {
 
     c.class_("A");
 
-    r.render.shouldEqual("@startuml
-class A
+    r.render.shouldEqual(`@startuml
+class "A"
 @enduml
-");
+`);
 }
 
 // from now on assuming the block works correctly
@@ -345,16 +470,16 @@ unittest {
     c.relate(a, b, Relate.ArrowTo);
     c.relate(a, b, Relate.AggregateArrowTo);
 
-    c.render.shouldEqual("    class A
-    class B
-    A .. B
-    A -- B
-    A O-- B
-    A *-- B
-    A --|> B
-    A --> B
-    A *--> B
-");
+    c.render.shouldEqual(`    class "A"
+    class "B"
+    "A" .. "B"
+    "A" -- "B"
+    "A" O-- "B"
+    "A" *-- "B"
+    "A" --|> "B"
+    "A" --> "B"
+    "A" *--> "B"
+`);
 }
 
 @Name("should be two related components")
@@ -372,16 +497,16 @@ unittest {
     c.relate(a, b, Relate.ArrowTo);
     c.relate(a, b, Relate.AggregateArrowTo);
 
-    c.render.shouldEqual("    component A
-    component B
-    A .. B
-    A -- B
-    A O-- B
-    A *-- B
-    A --|> B
-    A --> B
-    A *--> B
-");
+    c.render.shouldEqual(`    component "A"
+    component "B"
+    "A" .. "B"
+    "A" -- "B"
+    "A" O-- "B"
+    "A" *-- "B"
+    "A" --|> "B"
+    "A" --> "B"
+    "A" *--> "B"
+`);
 }
 
 @Name("should be a labels on the relation between two components")
@@ -394,9 +519,9 @@ unittest {
     auto l = c.relate(a, b, Relate.Relate);
     l.label("related");
 
-    c.render.shouldEqual(`    component A
-    component B
-    A -- B : "related"
+    c.render.shouldEqual(`    component "A"
+    component "B"
+    "A" -- "B" : "related"
 `);
 }
 
@@ -413,8 +538,8 @@ unittest {
     l.label("2", LabelPos.Right);
     l.label("related", LabelPos.OnRelation);
 
-    c.render.shouldEqual(`    component A
-    component B
-    A "1" -- "2" B : "related"
+    c.render.shouldEqual(`    component "A"
+    component "B"
+    "A" "1" -- "2" "B" : "related"
 `);
 }
