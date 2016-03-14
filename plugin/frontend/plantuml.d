@@ -46,7 +46,8 @@ static auto plantuml_opt = CliOptionParts(
   dextool uml [options] [--file-exclude=...] FILE [--] [CFLAGS...]
   dextool uml [options] [--file-restrict=...] FILE [--] [CFLAGS...]",
     // -------------
-    "",
+    " --out=dir           directory for generated files [default: ./]
+ --file-prefix=p     prefix used when generating test artifacts [default: view_]",
     // -------------
 "others:
  --file-exclude=     exclude files from generation matching the regex.
@@ -76,7 +77,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable DirName output_dir;
     immutable FileName file_component;
 
-    immutable MainName main_name;
+    immutable FilePrefix file_prefix;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -93,7 +94,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         Regex!char strip_incl;
 
         auto variant = new PlantUMLFrontend(FileName(parsed["FILE"].toString),
-                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString));
+                FilePrefix(parsed["--file-prefix"].toString), DirName(parsed["--out"].toString));
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -101,17 +102,15 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FileName input_file, MainName main_name, DirName output_dir) {
+    this(FileName input_file, FilePrefix file_prefix, DirName output_dir) {
         this.input_file = input_file;
-        this.main_name = main_name;
+        this.file_prefix = file_prefix;
         this.output_dir = output_dir;
 
         import std.path : baseName, buildPath, stripExtension;
 
-        string prefix_fname = toLower(cast(string) main_name);
-
         this.file_component = FileName(buildPath(cast(string) output_dir,
-                prefix_fname ~ "_component" ~ fileExt));
+                cast(string) file_prefix ~ "component" ~ fileExt));
     }
 
     /// User supplied files used as input.
@@ -160,8 +159,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return Parameters.Files(file_component);
     }
 
-    MainName getMainName() {
-        return main_name;
+    FilePrefix getFilePrefix() {
+        return file_prefix;
     }
 
     // -- Products --

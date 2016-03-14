@@ -32,7 +32,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.root = Path("testdata/uml").absolutePath;
     p.input_ext = p.root ~ Path(f);
 
-    p.out_pu = testEnv.outdir ~ "testdouble_component.pu";
+    p.out_pu = testEnv.outdir ~ "view_component.pu";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
     p.dexFlags = [];

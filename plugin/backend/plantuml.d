@@ -38,8 +38,8 @@ import application.types;
     /// Files to write generated test double data to.
     Files getFiles();
 
-    /// Name affecting interface, namespace and output file.
-    MainName getMainName();
+    /// Name affecting filenames.
+    FilePrefix getFilePrefix();
 }
 
 /// Data produced by the generator like files.
