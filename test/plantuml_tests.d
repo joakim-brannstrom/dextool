@@ -119,3 +119,10 @@ unittest {
     p.dexParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
     runTestFile(p, testEnv);
 }
+
+@Name("Should be relations via composition and aggregation")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_relate.hpp", testEnv);
+    runTestFile(p, testEnv);
+}

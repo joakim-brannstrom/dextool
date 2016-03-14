@@ -211,7 +211,7 @@ body {
 
     // dfmt off
     r.classRange
-        .each!(a => generateComponent(a, modules.classes));
+        .each!(a => generateClass(a, modules.classes));
 
     r.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
@@ -223,7 +223,7 @@ void generate(CppNamespace ns, Controller ctrl, Parameters params, Generator.Mod
 
     // dfmt off
     ns.classRange
-        .each!(a => generateComponent(a, modules.classes));
+        .each!(a => generateClass(a, modules.classes));
 
     ns.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
@@ -232,7 +232,7 @@ void generate(CppNamespace ns, Controller ctrl, Parameters params, Generator.Mod
 
 import cpptooling.utility.conv : str;
 
-void generateComponent(CppClass c, PlantumlModule m) {
+void generateClass(CppClass c, PlantumlModule m) {
     import std.algorithm : each;
     import cpptooling.data.representation;
 
@@ -256,10 +256,12 @@ void generateComponent(CppClass c, PlantumlModule m) {
         // move filtering to rawFilter
         final switch (tkv.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
-            uml.unsafeRelate(parent, tkv.type.toString("")
-                    .stripRight, Relate.Aggregate);
+            uml.unsafeRelate(parent, tkv.type.info.type, Relate.Aggregate);
             break;
         case Kind.simple:
+            if (tkv.type.isRecord && (tkv.type.isPointer || tkv.type.isRef)) {
+                uml.unsafeRelate(parent, tkv.type.info.type, Relate.Compose);
+            }
             break;
         case Kind.array:
             break;
