@@ -59,6 +59,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/single_class.hpp", testEnv);
+    p.dexParams ~= "--class-methods";
     runTestFile(p, testEnv);
 }
 

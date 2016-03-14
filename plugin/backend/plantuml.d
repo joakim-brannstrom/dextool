@@ -23,6 +23,9 @@ import application.types;
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
+
+    /// If class methods should be part of the generated class diagrams.
+    bool doClassMethods() const;
 }
 
 /// Parameters used during generation.
@@ -148,6 +151,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     input.classRange
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .map!(a => rawFilter(a, ctrl))
         .each!(a => raw.put(a));
     // dfmt on
 
@@ -174,10 +178,26 @@ body {
     input.classRange
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .map!(a => rawFilter(a, ctrl))
         .each!(a => ns.put(a));
     //dfmt on
 
     return ns;
+}
+
+CppClass rawFilter(CppClass input, Controller ctrl) {
+    import std.algorithm : filter, each;
+    import cpptooling.data.representation : AccessType;
+
+    auto c = CppClass(input.name, input.location, input.inherits, input.resideInNs);
+
+    if (ctrl.doClassMethods) {
+        input.methodPublicRange.each!(a => c.put(a));
+    }
+
+    input.memberRange.each!(a => c.put(a, AccessType.Public));
+
+    return c;
 }
 
 /** Translate the structure to a plantuml diagram.

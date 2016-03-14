@@ -960,7 +960,9 @@ pure @safe nothrow struct CppClass {
         CppClass[] classes_prot;
         CppClass[] classes_priv;
 
-        TypeKindVariable[] members;
+        TypeKindVariable[] members_pub;
+        TypeKindVariable[] members_prot;
+        TypeKindVariable[] members_priv;
 
         string[] cmnt;
     }
@@ -1075,7 +1077,17 @@ pure @safe nothrow struct CppClass {
 
     void put(T)(T member_, AccessType accessType) @trusted 
             if (is(T == TypeKindVariable)) {
-        members ~= member_;
+        final switch (accessType) {
+        case AccessType.Public:
+            members_pub ~= member_;
+            break;
+        case AccessType.Protected:
+            members_prot ~= member_;
+            break;
+        case AccessType.Private:
+            members_priv ~= member_;
+            break;
+        }
     }
 
     /** Add a comment string for the class.
@@ -1132,7 +1144,21 @@ pure @safe nothrow struct CppClass {
     }
 
     auto memberRange() @nogc {
-        return arrayRange(members);
+        import std.range : chain;
+
+        return chain(members_pub, members_prot, members_priv);
+    }
+
+    auto memberPublicRange() @nogc {
+        return arrayRange(members_pub);
+    }
+
+    auto memberProtectedRange() @nogc {
+        return arrayRange(members_prot);
+    }
+
+    auto memberPrivateRange() @nogc {
+        return arrayRange(members_priv);
     }
 
     /** Traverse stack from top to bottom.
@@ -1204,7 +1230,9 @@ const:
                   classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(),
                   classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
                   classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(),
-                  members.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
+                  members_pub.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
+                  members_prot.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
+                  members_priv.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
                   end_class
                  )
             .text;
