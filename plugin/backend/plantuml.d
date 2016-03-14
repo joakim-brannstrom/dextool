@@ -23,6 +23,9 @@ import application.types;
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
+
+    /// If class methods should be part of the generated class diagrams.
+    bool doClassMethods() const;
 }
 
 /// Parameters used during generation.
@@ -30,7 +33,7 @@ import application.types;
 @safe pure interface Parameters {
     import std.typecons : Tuple;
 
-    alias Files = Tuple!(FileName, "component");
+    alias Files = Tuple!(FileName, "classes");
 
     /// Output directory to store files in.
     DirName getOutputDirectory();
@@ -38,8 +41,8 @@ import application.types;
     /// Files to write generated test double data to.
     Files getFiles();
 
-    /// Name affecting interface, namespace and output file.
-    MainName getMainName();
+    /// Name affecting filenames.
+    FilePrefix getFilePrefix();
 }
 
 /// Data produced by the generator like files.
@@ -65,13 +68,13 @@ struct Generator {
     import cpptooling.data.symbol.container : Container;
 
     static struct Modules {
-        PlantumlModule component;
+        PlantumlModule classes;
 
         static auto make() {
             Modules m;
 
             //TODO how to do this with meta-programming and instrospection fo Modules?
-            m.component = new PlantumlModule;
+            m.classes = new PlantumlModule;
 
             return m;
         }
@@ -112,7 +115,7 @@ private:
             return proot;
         }
 
-        prods.putFile(params.getFiles.component, output(m.component));
+        prods.putFile(params.getFiles.classes, output(m.classes));
     }
 }
 
@@ -148,6 +151,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     input.classRange
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .map!(a => rawFilter(a, ctrl))
         .each!(a => raw.put(a));
     // dfmt on
 
@@ -174,10 +178,26 @@ body {
     input.classRange
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .map!(a => rawFilter(a, ctrl))
         .each!(a => ns.put(a));
     //dfmt on
 
     return ns;
+}
+
+CppClass rawFilter(CppClass input, Controller ctrl) {
+    import std.algorithm : filter, each;
+    import cpptooling.data.representation : AccessType;
+
+    auto c = CppClass(input.name, input.location, input.inherits, input.resideInNs);
+
+    if (ctrl.doClassMethods) {
+        input.methodPublicRange.each!(a => c.put(a));
+    }
+
+    input.memberRange.each!(a => c.put(a, AccessType.Public));
+
+    return c;
 }
 
 /** Translate the structure to a plantuml diagram.
@@ -191,7 +211,7 @@ body {
 
     // dfmt off
     r.classRange
-        .each!(a => generateComponent(a, modules.component));
+        .each!(a => generateClass(a, modules.classes));
 
     r.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
@@ -203,7 +223,7 @@ void generate(CppNamespace ns, Controller ctrl, Parameters params, Generator.Mod
 
     // dfmt off
     ns.classRange
-        .each!(a => generateComponent(a, modules.component));
+        .each!(a => generateClass(a, modules.classes));
 
     ns.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
@@ -212,7 +232,7 @@ void generate(CppNamespace ns, Controller ctrl, Parameters params, Generator.Mod
 
 import cpptooling.utility.conv : str;
 
-void generateComponent(CppClass c, PlantumlModule m) {
+void generateClass(CppClass c, PlantumlModule m) {
     import std.algorithm : each;
     import cpptooling.data.representation;
 
@@ -236,10 +256,12 @@ void generateComponent(CppClass c, PlantumlModule m) {
         // move filtering to rawFilter
         final switch (tkv.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
-            uml.unsafeRelate(parent, tkv.type.toString("")
-                    .stripRight, Relate.Aggregate);
+            uml.unsafeRelate(parent, tkv.type.info.type, Relate.Aggregate);
             break;
         case Kind.simple:
+            if (tkv.type.isRecord && (tkv.type.isPointer || tkv.type.isRef)) {
+                uml.unsafeRelate(parent, tkv.type.info.type, Relate.Compose);
+            }
             break;
         case Kind.array:
             break;

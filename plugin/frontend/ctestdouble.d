@@ -41,7 +41,11 @@ static auto ctestdouble_opt = CliOptionParts(
   dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
   dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
     // -------------
-    " --strip-incl=r     A regexp used to strip the include paths
+    " --out=dir          directory for generated files [default: ./]
+ --main=name        used as part of interface, namespace etc [default: TestDouble]
+ --main-fname=n     used as part of filename for generated files [default: test_double]
+ --prefix=p         prefix used when generating test artifacts [default: Test_]
+ --strip-incl=r     A regexp used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it",

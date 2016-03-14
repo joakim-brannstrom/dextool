@@ -46,7 +46,9 @@ static auto plantuml_opt = CliOptionParts(
   dextool uml [options] [--file-exclude=...] FILE [--] [CFLAGS...]
   dextool uml [options] [--file-restrict=...] FILE [--] [CFLAGS...]",
     // -------------
-    "",
+    " --out=dir           directory for generated files [default: ./]
+ --file-prefix=p     prefix used when generating test artifacts [default: view_]
+ --class-methods     include methods in the generated class diagram",
     // -------------
 "others:
  --file-exclude=     exclude files from generation matching the regex.
@@ -61,8 +63,8 @@ static auto plantuml_opt = CliOptionParts(
 class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
-    import std.typecons : Tuple, Flag;
-    import application.types : FileName, DirName;
+    import std.typecons : Tuple, Flag, Yes, No;
+    import application.types : FileName, DirName, FilePrefix;
     import application.utility;
 
     import argvalue; // from docopt
@@ -76,7 +78,9 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable DirName output_dir;
     immutable FileName file_component;
 
-    immutable MainName main_name;
+    immutable FilePrefix file_prefix;
+
+    immutable Flag!"generateClassMethods" gen_class_methods;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -92,8 +96,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
 
+        auto class_methods = parsed["--class-methods"].isTrue
+            ? Yes.generateClassMethods : No.generateClassMethods;
+
         auto variant = new PlantUMLFrontend(FileName(parsed["FILE"].toString),
-                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString));
+                FilePrefix(parsed["--file-prefix"].toString),
+                DirName(parsed["--out"].toString), class_methods);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -101,17 +109,17 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FileName input_file, MainName main_name, DirName output_dir) {
+    this(FileName input_file, FilePrefix file_prefix, DirName output_dir,
+            Flag!"generateClassMethods" gen_class_methods) {
         this.input_file = input_file;
-        this.main_name = main_name;
+        this.file_prefix = file_prefix;
         this.output_dir = output_dir;
+        this.gen_class_methods = gen_class_methods;
 
         import std.path : baseName, buildPath, stripExtension;
 
-        string prefix_fname = toLower(cast(string) main_name);
-
         this.file_component = FileName(buildPath(cast(string) output_dir,
-                prefix_fname ~ "_component" ~ fileExt));
+                cast(string) file_prefix ~ "classes" ~ fileExt));
     }
 
     /// User supplied files used as input.
@@ -150,6 +158,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return r;
     }
 
+    bool doClassMethods() const {
+        return gen_class_methods;
+    }
+
     // -- Parameters --
 
     DirName getOutputDirectory() {
@@ -160,8 +172,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return Parameters.Files(file_component);
     }
 
-    MainName getMainName() {
-        return main_name;
+    FilePrefix getFilePrefix() {
+        return file_prefix;
     }
 
     // -- Products --

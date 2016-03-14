@@ -24,6 +24,9 @@ enum LocationType {
  */
 alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
 
+/// Prefix used for prepending generated files.
+alias FilePrefix = Typedef!(string, string.init, "StubPrefix");
+
 alias MainFileName = Typedef!(string, string.init, "MainFileName");
 alias MainName = Typedef!(string, string.init, "MainName");
 alias MainNs = Typedef!(string, string.init, "MainNs");

@@ -42,6 +42,7 @@ nothrow struct WrapTypeKind {
         this.typeKind.isRef = type.declaration.isReference;
         this.typeKind.isPointer = (type.kind == CXTypeKind.CXType_Pointer);
         this.typeKind.isArray = type.isArray;
+        this.typeKind.isRecord = (type.kind == CXTypeKind.CXType_Record);
     }
 
     TypeKind unwrap() @safe nothrow @property {
@@ -116,14 +117,26 @@ body {
         }
     }
 
-    // dfmt off
     debug {
-        logger.tracef("full:%s fmt:%s c:%s r:%s p:%s",
+        // dfmt off
+        logger.tracef("full:%s fmt:%s c:%s r:%s p:%s rr:%s",
                       result.typeKind.txt,
                       result.typeKind.info.fmt,
                       result.typeKind.isConst,
                       result.typeKind.isRef,
-                      result.typeKind.isPointer);
+                      result.typeKind.isPointer,
+                      result.typeKind.isRecord);
+        // dfmt on
+
+        switch (result.typeKind.info.kind) {
+        case TypeKind.Info.Kind.simple:
+            goto case;
+        case TypeKind.Info.Kind.record:
+            logger.trace("  type:", result.typeKind.info.type);
+            break;
+        default:
+            break;
+        }
 
         tmp_c = result.type.declaration;
         tmp_t = tmp_c.typedefUnderlyingType;
@@ -136,10 +149,9 @@ body {
                             cursor_abilities(tmp_c),
                             type_abilities(result.type)));
         // dfmt on
-}
-// dfmt on
+    }
 
-return result;
+    return result;
 }
 
 private:
@@ -148,7 +160,7 @@ WrapTypeKind translateDefault(Type type) {
     logType(type);
 
     auto result = WrapTypeKind(type);
-    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
+    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s", type.spelling);
 
     return result;
 }
@@ -171,7 +183,7 @@ body {
     }
 
     auto result = WrapTypeKind(type);
-    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
+    result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s", type.spelling);
 
     if (valueTypeIsConst(type)) {
         result.typeKind.isConst = true;
@@ -204,7 +216,7 @@ body {
     logType(type);
     auto declaration = type.declaration;
     auto rval = WrapTypeKind(type);
-    rval.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s");
+    rval.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s", type.spelling);
 
     if (rec_depth == 2) {
         rval.typeKind.txt = type.spelling;
@@ -237,11 +249,16 @@ body {
             goto case;
         case TypeKind.Info.Kind.simple:
             TypeKind.SimpleInfo info;
+            //TODO this isn't correct when analyzing a template, const should
+            //then be inside the template for each template parameter it occur
+            //on.
             info.fmt = "const " ~ rval.typeKind.info.fmt;
+            info.type = info.type;
             rval.typeKind.info = info;
             rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
             break;
         case TypeKind.Info.Kind.array:
+            goto case;
         case TypeKind.Info.Kind.funcPtr:
             logger.errorf("info for type '%s' is not implemented", rval.typeKind.txt);
             break;
@@ -361,8 +378,10 @@ body {
     TypeKind.SimpleInfo info;
     final switch (rval.typeKind.info.kind) {
     case TypeKind.Info.Kind.record:
+        goto case;
     case TypeKind.Info.Kind.simple:
         info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
+        info.type = rval.typeKind.info.type;
         rval.typeKind.info = info;
         rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
         break;
@@ -405,8 +424,8 @@ body {
     result.typeKind.isConst = type.isConst;
 
     if (type.isConst) {
-        TypeKind.SimpleInfo info;
-        info.fmt = result.typeKind.toString("const %s");
+        auto info = TypeKind.SimpleInfo(result.typeKind.toString("const %s"),
+                result.typeKind.info.type);
         result.typeKind.info = info;
         result.typeKind.unsafeForceTxt(result.typeKind.toString(""));
     }
@@ -474,7 +493,17 @@ body {
     auto t = translateDefault(type);
     TypeKind.RecordInfo info;
     info.fmt = t.typeKind.info.fmt;
+    info.type = t.typeKind.info.type;
+
+    if (t.typeKind.isConst) {
+        // ugly hack to strip prefix const
+        info.type = info.type[5 .. $];
+    }
+
+    logger.trace(type.spelling, ":", type.canonicalType.spelling);
+
     t.typeKind.info = info;
+    t.typeKind.isRecord = true;
 
     return t;
 }
