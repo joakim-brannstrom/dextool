@@ -110,7 +110,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         import std.path : baseName, buildPath, stripExtension;
 
         this.file_component = FileName(buildPath(cast(string) output_dir,
-                cast(string) file_prefix ~ "component" ~ fileExt));
+                cast(string) file_prefix ~ "classes" ~ fileExt));
     }
 
     /// User supplied files used as input.

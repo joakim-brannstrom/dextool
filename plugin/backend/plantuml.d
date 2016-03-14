@@ -30,7 +30,7 @@ import application.types;
 @safe pure interface Parameters {
     import std.typecons : Tuple;
 
-    alias Files = Tuple!(FileName, "component");
+    alias Files = Tuple!(FileName, "classes");
 
     /// Output directory to store files in.
     DirName getOutputDirectory();
@@ -65,13 +65,13 @@ struct Generator {
     import cpptooling.data.symbol.container : Container;
 
     static struct Modules {
-        PlantumlModule component;
+        PlantumlModule classes;
 
         static auto make() {
             Modules m;
 
             //TODO how to do this with meta-programming and instrospection fo Modules?
-            m.component = new PlantumlModule;
+            m.classes = new PlantumlModule;
 
             return m;
         }
@@ -112,7 +112,7 @@ private:
             return proot;
         }
 
-        prods.putFile(params.getFiles.component, output(m.component));
+        prods.putFile(params.getFiles.classes, output(m.classes));
     }
 }
 
@@ -191,7 +191,7 @@ body {
 
     // dfmt off
     r.classRange
-        .each!(a => generateComponent(a, modules.component));
+        .each!(a => generateComponent(a, modules.classes));
 
     r.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
@@ -203,7 +203,7 @@ void generate(CppNamespace ns, Controller ctrl, Parameters params, Generator.Mod
 
     // dfmt off
     ns.classRange
-        .each!(a => generateComponent(a, modules.component));
+        .each!(a => generateComponent(a, modules.classes));
 
     ns.namespaceRange
         .each!(a => generate(a, ctrl, params, modules));
