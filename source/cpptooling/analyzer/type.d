@@ -43,20 +43,25 @@ pure @safe nothrow @nogc struct TypeKind {
 
     /** Textual representation of simple types.
      *
-     * The type const int x would be:
+     * The type 'const int x' would be:
      *
      * TODO add the following:
      * fmt = const int %s
+     * type = int
      */
     static struct SimpleInfo {
         string fmt;
+        string type;
     }
 
-    /** The type 'class A'
-     * fmt = class %s
+    /** The type 'const A*'
+     *
+     * fmt = const %s*
+     * type = A
      */
     static struct RecordInfo {
         string fmt;
+        string type;
     }
 
     /// Formatting information needed to reproduce the type and identifier.
@@ -76,6 +81,7 @@ pure @safe nothrow @nogc struct TypeKind {
     bool isPointer;
     bool isFuncPtr;
     bool isArray;
+    bool isRecord;
 
     auto txt() const {
         return txt_;
@@ -103,7 +109,7 @@ private:
 
 ///TODO change the bools to using the Flag from typecons
 TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
-        bool isFuncPtr = false, bool isArray = false) pure @safe nothrow {
+        bool isFuncPtr = false, bool isArray = false, bool isRecord = false) pure @safe nothrow {
     TypeKind t;
     t.info = TypeKind.SimpleInfo(txt ~ " %s");
     t.txt = txt;
@@ -112,6 +118,7 @@ TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
     t.isPointer = isPointer;
     t.isFuncPtr = isFuncPtr;
     t.isArray = isArray;
+    t.isRecord = isRecord;
 
     return t;
 }
@@ -122,7 +129,7 @@ TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
  */
 TypeKind duplicate(T)(T t_in) pure @safe nothrow {
     TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
-            t_in.isPointer, t_in.isFuncPtr, t_in.isArray);
+            t_in.isPointer, t_in.isFuncPtr, t_in.isArray, t_in.isRecord);
     t.info = t_in.info;
 
     return t;
