@@ -62,7 +62,7 @@ string relateToString(Relate relate) {
         r_type = "--";
         break;
     case Compose:
-        r_type = "O--";
+        r_type = "o--";
         break;
     case Aggregate:
         r_type = "*--";
@@ -474,7 +474,7 @@ unittest {
     class "B"
     "A" .. "B"
     "A" -- "B"
-    "A" O-- "B"
+    "A" o-- "B"
     "A" *-- "B"
     "A" --|> "B"
     "A" --> "B"
@@ -501,7 +501,7 @@ unittest {
     component "B"
     "A" .. "B"
     "A" -- "B"
-    "A" O-- "B"
+    "A" o-- "B"
     "A" *-- "B"
     "A" --|> "B"
     "A" --> "B"
