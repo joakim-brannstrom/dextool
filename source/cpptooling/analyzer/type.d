@@ -41,6 +41,13 @@ pure @safe nothrow @nogc struct TypeKind {
         string fmt;
     }
 
+    /** The type of a function prototype, 'void foo(int)'
+     * fmt = void %s(int)
+     */
+    static struct FuncInfo {
+        string fmt;
+    }
+
     /** Textual representation of simple types.
      *
      * The type 'const int x' would be:
@@ -69,6 +76,7 @@ pure @safe nothrow @nogc struct TypeKind {
         typeof(null) null_;
         SimpleInfo simple;
         ArrayInfo array;
+        FuncInfo func;
         FuncPtrInfo funcPtr;
         RecordInfo record;
     }
@@ -147,6 +155,9 @@ auto toString(TypeKind t, string id) {
         break;
     case Kind.array:
         txt = format(t.info.fmt, t.info.elementType, id, t.info.indexes);
+        break;
+    case Kind.func:
+        txt = format(t.info.fmt, id);
         break;
     case Kind.funcPtr:
         txt = format(t.info.fmt, id);

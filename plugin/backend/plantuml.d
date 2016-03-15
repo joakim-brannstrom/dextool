@@ -263,6 +263,8 @@ void generateClass(CppClass c, PlantumlModule m) {
                 uml.unsafeRelate(parent, tkv.type.info.type, Relate.Compose);
             }
             break;
+        case TypeKind.Info.Kind.func:
+            break;
         case Kind.array:
             break;
         case Kind.funcPtr:
