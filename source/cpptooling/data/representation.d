@@ -327,9 +327,11 @@ const:
         auto app = appender!string();
         final switch (variable.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
+            goto case;
+        case Kind.func:
+            goto case;
         case Kind.simple:
-            formattedWrite(app,
-                    variable.type.info.fmt, variable.name.str);
+            formattedWrite(app, variable.type.info.fmt, variable.name.str);
             break;
         case Kind.array:
             formattedWrite(app, variable.type.info.fmt,

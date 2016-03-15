@@ -62,6 +62,20 @@ WrapTypeKind translateType(Type type)
 in {
     assert(type.isValid);
 }
+out (result) {
+    switch (result.typeKind.info.kind) with (TypeKind.Info.Kind) {
+    case simple:
+        goto case;
+    case record:
+        assert(result.typeKind.info.type != "");
+        break;
+    case null_:
+        assert(false);
+        break;
+    default:
+        break;
+    }
+}
 body {
     import clang.Cursor : cursor_abilities = abilities;
     import clang.Type : type_abilities = abilities;
@@ -128,10 +142,10 @@ body {
                       result.typeKind.isRecord);
         // dfmt on
 
-        switch (result.typeKind.info.kind) {
-        case TypeKind.Info.Kind.simple:
+        switch (result.typeKind.info.kind) with (TypeKind.Info.Kind) {
+        case simple:
             goto case;
-        case TypeKind.Info.Kind.record:
+        case record:
             logger.trace("  type:", result.typeKind.info.type);
             break;
         default:
@@ -211,6 +225,20 @@ WrapTypeKind translateUnexposed(Type type, uint rec_depth = 0)
 in {
     assert(type.kind == CXTypeKind.CXType_Unexposed);
 }
+out (result) {
+    switch (result.typeKind.info.kind) with (TypeKind.Info.Kind) {
+    case simple:
+        goto case;
+    case record:
+        assert(result.typeKind.info.type != "");
+        break;
+    case null_:
+        assert(false);
+        break;
+    default:
+        break;
+    }
+}
 body {
     logger.trace("translateUnexposed");
     logType(type);
@@ -235,6 +263,7 @@ body {
         } else if (canonical_type.isValid) {
             rval = translateType(canonical_type);
         } else {
+            // I don't think this case ever happens
             rval.typeKind.txt = translateCursorType(type.kind);
         }
     }
@@ -245,17 +274,27 @@ body {
         // unsure if this is a stable way of solving the const of unexposed
         // types. But seems to be good enough.
         final switch (rval.typeKind.info.kind) {
+        case TypeKind.Info.Kind.func:
+            logger.errorf("a func (not ptr) can't be const: ", rval.typeKind.txt);
+            break;
         case TypeKind.Info.Kind.record:
-            goto case;
+            TypeKind.RecordInfo info;
+            info.fmt = "const " ~ rval.typeKind.info.fmt;
+            info.type = rval.typeKind.toString("");
+            rval.typeKind.info = info;
+            rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+            logger.trace(info.type);
+            break;
         case TypeKind.Info.Kind.simple:
             TypeKind.SimpleInfo info;
             //TODO this isn't correct when analyzing a template, const should
             //then be inside the template for each template parameter it occur
             //on.
             info.fmt = "const " ~ rval.typeKind.info.fmt;
-            info.type = info.type;
+            info.type = rval.typeKind.toString("");
             rval.typeKind.info = info;
             rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+            logger.trace(info.type);
             break;
         case TypeKind.Info.Kind.array:
             goto case;
@@ -376,25 +415,39 @@ body {
     auto rval = translateType(t.type);
 
     TypeKind.SimpleInfo info;
-    final switch (rval.typeKind.info.kind) {
-    case TypeKind.Info.Kind.record:
-        goto case;
-    case TypeKind.Info.Kind.simple:
+
+    //TODO refactor, this is ugly repetative code
+    final switch (rval.typeKind.info.kind) with (TypeKind.Info.Kind) {
+    case func:
+        info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
+        // ugly hack to get some any type of pure type information
+        info.type = rval.typeKind.toString("");
+        rval.typeKind.info = info;
+        rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+        break;
+    case record:
         info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
         info.type = rval.typeKind.info.type;
         rval.typeKind.info = info;
         rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
         break;
-    case TypeKind.Info.Kind.array:
-        info.fmt = rval.typeKind.toString(format("(%s%s)", prefix, "%s"));
+    case simple:
+        info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
+        info.type = rval.typeKind.info.type;
         rval.typeKind.info = info;
         rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
         break;
-    case TypeKind.Info.Kind.funcPtr:
+    case array:
+        info.fmt = rval.typeKind.toString(format("(%s%s)", prefix, "%s"));
+        info.type = rval.typeKind.toString("");
+        rval.typeKind.info = info;
+        rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
+        break;
+    case funcPtr:
         //TODO a potential bug, implement this
         logger.errorf("ptr to func ptr is not implemented. '%s'", rval.typeKind.txt);
         break;
-    case TypeKind.Info.Kind.null_:
+    case null_:
         logger.errorf("info for type '%s' is null", t.typeKind.txt);
         break;
     }
@@ -424,10 +477,27 @@ body {
     result.typeKind.isConst = type.isConst;
 
     if (type.isConst) {
-        auto info = TypeKind.SimpleInfo(result.typeKind.toString("const %s"),
-                result.typeKind.info.type);
-        result.typeKind.info = info;
-        result.typeKind.unsafeForceTxt(result.typeKind.toString(""));
+        //TODO investigate if the other types shouldn't be handled differently
+        // from simple. Among others to be able to keep the kind.
+        final switch (result.typeKind.info.kind) with (TypeKind.Info.Kind) {
+        case func:
+            goto case;
+        case record:
+            goto case;
+        case funcPtr:
+            goto case;
+        case array:
+            goto case;
+        case simple:
+            auto info = TypeKind.SimpleInfo(result.typeKind.toString("const %s"),
+                    result.typeKind.info.type);
+            result.typeKind.info = info;
+            result.typeKind.unsafeForceTxt(result.typeKind.toString(""));
+            break;
+        case null_:
+            logger.errorf("info for type '%s' is null", result.typeKind.txt);
+            break;
+        }
     }
 
     return result;
@@ -475,7 +545,7 @@ body {
     auto params = extractParams(type.cursor, type.func.isVariadic);
     auto return_t = translateType(type.func.resultType);
 
-    TypeKind.SimpleInfo info;
+    TypeKind.FuncInfo info;
     info.fmt = format("%s%s(%s)", return_t.typeKind.toString(""), "%s", params.joinParamNames());
     t.typeKind.info = info;
     t.typeKind.txt = t.typeKind.toString("");
@@ -500,6 +570,7 @@ body {
         info.type = info.type[5 .. $];
     }
 
+    //TODO remove this trace in the future
     logger.trace(type.spelling, ":", type.canonicalType.spelling);
 
     t.typeKind.info = info;
