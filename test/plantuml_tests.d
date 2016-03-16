@@ -126,3 +126,12 @@ unittest {
     auto p = genTestParams("dev/class_relate.hpp", testEnv);
     runTestFile(p, testEnv);
 }
+
+@Name("Should load compiler settings from compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
+    // find compilation flags by looking up how single_file_main.c was compiled
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+    runTestFile(p, testEnv);
+}

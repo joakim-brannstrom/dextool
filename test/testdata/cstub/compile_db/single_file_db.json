@@ -1,0 +1,7 @@
+[
+    {
+        "directory": "testdata/cstub/compile_db",
+        "command": "g++ -Idir1 -c -o binary single_file_main.c",
+        "file": "single_file_main.c"
+    }
+]
