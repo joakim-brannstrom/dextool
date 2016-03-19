@@ -31,6 +31,7 @@ version (unittest) {
     }
 
     private {
+        //TODO change to using a hash map
         CppClass*[] cppclass;
         TypeSymbol!(CppClass*)[] t_cppclass;
     }
@@ -47,6 +48,11 @@ version (unittest) {
      * Changes to parameter cl after storages are NOT reflected in the stored class.
      */
     void put(ref CppClass cl, FullyQualifiedNameType fqn) {
+        //TODO change to using a hash map
+        if (find!CppClass(fqn).length != 0) {
+            return;
+        }
+
         auto heap_c = new CppClass(cl);
         cppclass ~= heap_c;
         t_cppclass ~= TypeSymbol!(CppClass*)(heap_c, fqn);
@@ -130,18 +136,38 @@ unittest {
 unittest {
     import cpptooling.data.representation : CppClass, CppClassName;
     import test.helpers;
-
-    auto c = CppClass(CppClassName("Class"));
+    import std.conv : to;
 
     Container cont;
-    cont.put(c, c.fullyQualifiedName);
-    cont.put(c, c.fullyQualifiedName);
-    cont.put(c, c.fullyQualifiedName);
+
+    for (auto i = 0; i < 3; ++i) {
+        auto c = CppClass(CppClassName("Class" ~ to!string(i)));
+        cont.put(c, c.fullyQualifiedName);
+    }
 
     cont.toString.shouldEqualPretty("Container {
 classes {
-  Class
-  Class
+  Class0
+  Class1
+  Class2
+} // classes
+} //Container");
+}
+
+@Name("Should never be duplicates of content")
+unittest {
+    import cpptooling.data.representation : CppClass, CppClassName;
+    import test.helpers;
+
+    Container cont;
+
+    for (auto i = 0; i < 3; ++i) {
+        auto c = CppClass(CppClassName("Class"));
+        cont.put(c, c.fullyQualifiedName);
+    }
+
+    cont.toString.shouldEqualPretty("Container {
+classes {
   Class
 } // classes
 } //Container");
