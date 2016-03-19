@@ -350,8 +350,6 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
 }
 
 /** Translate namspaces and the content to test double implementations.
- *
- * Currently only cares about free functions.
  */
 NullableVoid!CppNamespace translate(CppNamespace input, Container container,
         Controller ctrl, Parameters params) {

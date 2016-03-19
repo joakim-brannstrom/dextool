@@ -15,10 +15,10 @@ import clang.Cursor;
 import clang.SourceLocation;
 
 import cpptooling.analyzer.clang.utility;
-import cpptooling.data.representation : AccessType;
+import cpptooling.data.representation : AccessType, CppMethodName;
 import cpptooling.utility.clang : visitAst, logNode;
 
-auto toInternal(T)(SourceLocation c_loc) {
+private auto toInternal(T)(SourceLocation c_loc) {
     import std.conv : text;
 
     T into;
@@ -29,6 +29,21 @@ auto toInternal(T)(SourceLocation c_loc) {
     into.column = l.column;
 
     return into;
+}
+
+private bool isOperator(CppMethodName name_) {
+    import std.algorithm : among;
+
+    if (name_.length <= 8) {
+        // "operator" keyword is 8 char long, thus an optimization to first
+        // look at the length
+        return false;
+    } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+", "-",
+            "*", ">", ">=", "<", "<=", ">>", "<<")) {
+        return true;
+    }
+
+    return false;
 }
 
 struct VariableVisitor {
@@ -54,6 +69,8 @@ struct VariableVisitor {
 
 /// Seems more complicated than it need to be but the goal is to keep the
 /// API the same.
+/// TODO use isOperator to detect if the function is an operator. Thus if it is
+/// mark it as such. Probably need to modify cpptooling.data.representation.
 struct FunctionVisitor {
     import cpptooling.data.representation : CxParam, CFunctionName,
         CxReturnType, CFunction, VariadicType, CxLocation;
@@ -285,20 +302,6 @@ private:
         import cpptooling.analyzer.clang.type : TypeKind, translateType;
         import cpptooling.data.representation : CppMethodOp;
 
-        static bool helperIsOperator(CppMethodName name_) {
-            import std.algorithm : among;
-
-            if (name_.length <= 8) {
-                // "operator" keyword is 8 char long, thus an optimization to first look
-                // at the length
-                return false;
-            } else if (name_[8 .. $].among("=", "==", "+=", "-=", "++", "--", "+", "-", "*")) {
-                return true;
-            }
-
-            return false;
-        }
-
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
         auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
@@ -310,7 +313,7 @@ private:
             is_virtual = CppVirtualMethod(VirtualType.Yes);
         }
 
-        if (helperIsOperator(name)) {
+        if (isOperator(name)) {
             auto op = CppMethodOp(name, params, return_type, accessType,
                     CppConstMethod(c.func.isConst), is_virtual);
             logger.info("operator: ", op.toString);
@@ -349,6 +352,7 @@ struct ClassVisitor {
         auto loc = toInternal!CxLocation(c.location());
         auto name = CppClassName(c.spelling);
         auto r = ClassVisitor(name, loc, reside_in_ns);
+        logger.info("class: ", cast(string) name);
         return r;
     }
 
