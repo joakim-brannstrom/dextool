@@ -67,7 +67,7 @@ version (unittest) {
         import std.range : only, dropOne;
         import std.typecons : NullableRef;
 
-        logger.trace("searching for: ", fqn);
+        logger.trace("searching for: ", cast(string) fqn);
 
         enum type_lower = "t_" ~ toLower(T.stringof);
         auto t_objs = __traits(getMember, typeof(this), type_lower);
@@ -78,13 +78,12 @@ version (unittest) {
             }
         }
 
-        // Looking for a class that isn't found is never supposed to happen
-        // because then the AST didn't contain the information needed to
-        // compile the file.
-        //TODO consider adding an assert(false) here.
+        // When this happens the AST isn't complete.
+        // Happens for example when trying to create a mock of std::system_error
+        logger.errorf("AST is not complete. No symbol found for '%s'", cast(string) fqn);
 
-        // If the above logic is flawed/false then a zero length range is the
-        // correct return value.
+        // The only sensible option left is to return a zero length range
+        // to still allow range iterators etc to work.
         return only(NullableRef!T((T*).init)).dropOne;
     }
 

@@ -328,7 +328,7 @@ body {
 }
 
 CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
-    import std.algorithm : map, filter, each;
+    import std.algorithm : map, filter, each, among;
     import cpptooling.data.representation : VirtualType;
 
     auto r = CppRoot(root.location);
@@ -341,6 +341,8 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
 
     root.classRange
         .map!(a => mergeClassInherit(a, container))
+        // can happen that the result is a class with no methods, thus in state Unknown
+        .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
         .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
@@ -353,7 +355,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
  */
 NullableVoid!CppNamespace translate(CppNamespace input, Container container,
         Controller ctrl, Parameters params) {
-    import std.algorithm : map, filter, each;
+    import std.algorithm : map, filter, each, among;
     import std.typecons : TypedefType;
     import cpptooling.data.representation;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
@@ -397,6 +399,8 @@ NullableVoid!CppNamespace translate(CppNamespace input, Container container,
 
     input.classRange
         .map!(a => mergeClassInherit(a, container))
+        // can happen that the result is a class with no methods, thus in state Unknown
+        .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
         .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
@@ -558,6 +562,8 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
         auto inherit_methods = c.inheritRange
             .map!(a => container.find!CppClass(a.fullyQualifiedName))
+            // some classes do not exist in AST thus no methods returned
+            .filter!(a => a.length > 0)
             .cache
             .map!(a => a.front)
             .map!(a => getMethods(a, container));
