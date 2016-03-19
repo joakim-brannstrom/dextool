@@ -14,6 +14,7 @@ import application.utility;
 import plugin.types;
 import plugin.backend.cvariant : StubGenerator, StubController, StubParameters,
     StubProducts;
+import application.compilation_db;
 
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
@@ -32,16 +33,23 @@ auto runPlugin(CliOption opt, CliArgs args) {
     printArgs(parsed);
 
     auto variant = CTestDoubleVariant.makeVariant(parsed);
-    return genCstub(variant, cflags);
+
+    CompileCommandDB compile_db;
+    if (!parsed["--compile-db"].isNull) {
+        compile_db = parsed["--compile-db"].toString.orDefaultDb.fromFile;
+    }
+
+    return genCstub(variant, cflags, compile_db);
 }
 
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
-  dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
-  dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+ dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
     // -------------
     " --out=dir          directory for generated files [default: ./]
+ --compile-db=j     Retrieve compilation parameters from the file
  --main=name        used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     used as part of filename for generated files [default: test_double]
  --prefix=p         prefix used when generating test artifacts [default: Test_]
@@ -134,12 +142,22 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
             variant.forceIncludes(parsed["--td-include"].asList);
         }
 
+        // optional parts
         variant.exclude = exclude;
         variant.restrict = restrict;
 
         return variant;
     }
 
+    /** Design of c'tor.
+     *
+     * The c'tor has as paramters all the required configuration data.
+     * Assignment of members are used for optional configuration.
+     *
+     * Follows the design pattern "correct by construction".
+     *
+     * TODO document the parameters.
+     */
     this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file, MainFileName main_fname, MainName main_name,
             DirName output_dir, Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
             Flag!"PostInclude" post_incl, Regex!char strip_incl) {
@@ -288,24 +306,33 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 }
 
 /// TODO refactor, doing too many things.
-ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags) {
-    import std.exception;
-    import std.path : baseName, buildPath, stripExtension;
+ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileCommandDB compile_db) {
+    import std.conv : text;
     import std.file : exists;
+    import std.path : buildNormalizedPath, asAbsolutePath;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
 
-    if (!exists(cast(string) variant.getInputFile)) {
-        logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
+    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc");
+    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
+    logger.trace("Input file is: ", input_file);
+
+    auto compile_commands = lookup(compile_db, input_file);
+    if (compile_commands.length > 0) {
+        cflags ~= compile_commands[0].parseFlag;
+    }
+
+    if (!exists(input_file)) {
+        logger.errorf("File '%s' do not exist", input_file);
         return ExitStatusType.Errors;
     }
 
-    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc");
-
-    auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
+    auto file_ctx = ClangContext(input_file, cflags);
     logDiagnostic(file_ctx);
-    if (file_ctx.hasParseErrors)
+    if (file_ctx.hasParseErrors) {
+        logger.error("Code parsing error, exiting...");
         return ExitStatusType.Errors;
+    }
 
     auto ctx = ParseContext();
     ctx.visit(file_ctx.cursor);

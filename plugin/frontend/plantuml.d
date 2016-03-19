@@ -19,6 +19,7 @@ import application.utility;
 
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
+import application.compilation_db;
 
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
@@ -37,16 +38,23 @@ auto runPlugin(CliOption opt, CliArgs args) {
     printArgs(parsed);
 
     auto variant = PlantUMLFrontend.makeVariant(parsed);
-    return genUml(variant, cflags);
+
+    CompileCommandDB compile_db;
+    if (!parsed["--compile-db"].isNull) {
+        compile_db = parsed["--compile-db"].toString.orDefaultDb.fromFile;
+    }
+
+    return genUml(variant, cflags, compile_db);
 }
 
 // dfmt off
 static auto plantuml_opt = CliOptionParts(
     "usage:
-  dextool uml [options] [--file-exclude=...] FILE [--] [CFLAGS...]
-  dextool uml [options] [--file-restrict=...] FILE [--] [CFLAGS...]",
+ dextool uml [options] [--file-exclude=...] FILE [--] [CFLAGS...]
+ dextool uml [options] [--file-restrict=...] FILE [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
+ --compile-db=j     Retrieve compilation parameters from the file
  --file-prefix=p     prefix used when generating test artifacts [default: view_]
  --class-methods     include methods in the generated class diagram",
     // -------------
@@ -190,27 +198,35 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 }
 
-ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags) {
-    import std.exception;
-    import std.path : baseName, buildPath, stripExtension;
+ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileCommandDB compile_db) {
+    import std.conv : text;
     import std.file : exists;
+    import std.path : buildNormalizedPath, asAbsolutePath;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import plugin.backend.plantuml : Generator;
 
-    // does input file exist?
-    if (!exists(cast(string) variant.getInputFile)) {
-        logger.errorf("File '%s' do not exist", cast(string) variant.getInputFile);
+    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
+    logger.trace("Input file is: ", input_file);
+
+    auto compile_commands = lookup(compile_db, input_file);
+    if (compile_commands.length > 0) {
+        cflags ~= compile_commands[0].parseFlag;
+    }
+
+    if (!exists(input_file)) {
+        logger.errorf("File '%s' do not exist", input_file);
         return ExitStatusType.Errors;
     }
 
-    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
-
     // Get and ensure the clang context is valid
-    auto file_ctx = ClangContext(cast(string) variant.getInputFile, cflags);
+    auto file_ctx = ClangContext(input_file, cflags);
     logDiagnostic(file_ctx);
-    if (file_ctx.hasParseErrors)
+    if (file_ctx.hasParseErrors) {
+        logger.error("Code parsing error, exiting...");
         return ExitStatusType.Errors;
+    }
 
     auto ctx = ParseContext();
     ctx.visit(file_ctx.cursor);
