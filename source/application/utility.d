@@ -205,3 +205,16 @@ struct TdIncludes {
         }
     }
 }
+
+///TODO consider moving to compilation_db_util
+/// But be aware that this one has an error handling that may not be
+/// appropriate for all plugins.
+auto lookup(T)(T compile_db, string filename) {
+    import application.compilation_db : find, toString;
+
+    // TODO ugly hack. Will be fixed when multi-file support is added.
+    auto compile_commands = compile_db.find(filename);
+    logger.trace(compile_commands.length > 0,
+            "CompileDB matches by filename:\n", compile_commands.toString);
+    return compile_commands;
+}
