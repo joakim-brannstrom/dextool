@@ -96,13 +96,20 @@ CompileCommandDB parseCommands(string raw_input) {
 }
 
 CompileCommandDB fromFile(CompileDbJsonPath filename) {
-    import std.stdio : File;
     import std.algorithm : joiner;
     import std.conv : text;
+    import std.exception;
+    import std.stdio : File;
 
-    auto raw = File(cast(string) filename).byLineCopy.joiner.text;
+    try {
+        auto raw = File(cast(string) filename).byLineCopy.joiner.text;
+        return parseCommands(raw);
+    }
+    catch (ErrnoException ex) {
+        logger.errorf("Error when reading file '%s': %s", cast(string) filename, ex.msg);
+    }
 
-    return parseCommands(raw);
+    return CompileCommandDB([]);
 }
 
 /** Return default path if argument is null.

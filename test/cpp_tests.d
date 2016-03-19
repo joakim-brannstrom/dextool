@@ -230,3 +230,11 @@ unittest {
     p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
     runTestFile(p, testEnv);
 }
+
+@Name("Should not crash when std::system_error isn't found during analyze")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/bug_class_not_in_ast.hpp", testEnv);
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}

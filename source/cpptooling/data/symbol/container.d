@@ -31,6 +31,7 @@ version (unittest) {
     }
 
     private {
+        //TODO change to using a hash map
         CppClass*[] cppclass;
         TypeSymbol!(CppClass*)[] t_cppclass;
     }
@@ -47,6 +48,11 @@ version (unittest) {
      * Changes to parameter cl after storages are NOT reflected in the stored class.
      */
     void put(ref CppClass cl, FullyQualifiedNameType fqn) {
+        //TODO change to using a hash map
+        if (find!CppClass(fqn).length != 0) {
+            return;
+        }
+
         auto heap_c = new CppClass(cl);
         cppclass ~= heap_c;
         t_cppclass ~= TypeSymbol!(CppClass*)(heap_c, fqn);
@@ -67,7 +73,7 @@ version (unittest) {
         import std.range : only, dropOne;
         import std.typecons : NullableRef;
 
-        logger.trace("searching for: ", fqn);
+        logger.trace("searching for: ", cast(string) fqn);
 
         enum type_lower = "t_" ~ toLower(T.stringof);
         auto t_objs = __traits(getMember, typeof(this), type_lower);
@@ -78,13 +84,12 @@ version (unittest) {
             }
         }
 
-        // Looking for a class that isn't found is never supposed to happen
-        // because then the AST didn't contain the information needed to
-        // compile the file.
-        //TODO consider adding an assert(false) here.
+        // When this happens the AST isn't complete.
+        // Happens for example when trying to create a mock of std::system_error
+        logger.errorf("AST is not complete. No symbol found for '%s'", cast(string) fqn);
 
-        // If the above logic is flawed/false then a zero length range is the
-        // correct return value.
+        // The only sensible option left is to return a zero length range
+        // to still allow range iterators etc to work.
         return only(NullableRef!T((T*).init)).dropOne;
     }
 
@@ -131,18 +136,38 @@ unittest {
 unittest {
     import cpptooling.data.representation : CppClass, CppClassName;
     import test.helpers;
-
-    auto c = CppClass(CppClassName("Class"));
+    import std.conv : to;
 
     Container cont;
-    cont.put(c, c.fullyQualifiedName);
-    cont.put(c, c.fullyQualifiedName);
-    cont.put(c, c.fullyQualifiedName);
+
+    for (auto i = 0; i < 3; ++i) {
+        auto c = CppClass(CppClassName("Class" ~ to!string(i)));
+        cont.put(c, c.fullyQualifiedName);
+    }
 
     cont.toString.shouldEqualPretty("Container {
 classes {
-  Class
-  Class
+  Class0
+  Class1
+  Class2
+} // classes
+} //Container");
+}
+
+@Name("Should never be duplicates of content")
+unittest {
+    import cpptooling.data.representation : CppClass, CppClassName;
+    import test.helpers;
+
+    Container cont;
+
+    for (auto i = 0; i < 3; ++i) {
+        auto c = CppClass(CppClassName("Class"));
+        cont.put(c, c.fullyQualifiedName);
+    }
+
+    cont.toString.shouldEqualPretty("Container {
+classes {
   Class
 } // classes
 } //Container");
