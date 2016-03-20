@@ -8,10 +8,13 @@ module application.utility;
 
 import std.regex : Regex;
 import std.stdio : File;
-import std.typecons : Unique;
+import std.typecons : Unique, Nullable;
 import logger = std.experimental.logger;
 
+import cpptooling.analyzer.clang.visitor : ParseContext;
+
 import application.types;
+import application.compilation_db;
 
 ///TODO don't catch Exception, catch the specific.
 auto tryOpenFile(string filename, string mode) @trusted nothrow {
@@ -206,15 +209,66 @@ struct TdIncludes {
     }
 }
 
-///TODO consider moving to compilation_db_util
-/// But be aware that this one has an error handling that may not be
-/// appropriate for all plugins.
-auto lookup(T)(T compile_db, string filename) {
+/**
+ * TODO consider moving to compilation_db_util
+ *  But be aware that this one has an error handling that may not be
+ *  appropriate for all plugins.
+ */
+auto lookup(T)(T compile_db, string filename) @safe pure {
     import application.compilation_db : find, toString;
 
-    // TODO ugly hack. Will be fixed when multi-file support is added.
     auto compile_commands = compile_db.find(filename);
-    logger.trace(compile_commands.length > 0,
-            "CompileDB matches by filename:\n", compile_commands.toString);
+    debug {
+        logger.trace(compile_commands.length > 0,
+                "CompileDB matches by filename:\n", compile_commands.toString);
+    }
+
     return compile_commands;
+}
+
+void analyzeFile(string input_file, string[] cflags, out Nullable!ParseContext ctx_) {
+    import std.file : exists;
+
+    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.visitor;
+
+    if (!exists(input_file)) {
+        logger.errorf("File '%s' do not exist", input_file);
+        return;
+    }
+
+    // Get and ensure the clang context is valid
+    auto file_ctx = ClangContext(input_file, cflags);
+    if (file_ctx.hasParseErrors) {
+        logDiagnostic(file_ctx);
+        logger.error("Code parsing error, exiting...");
+        return;
+    }
+
+    auto ctx = ParseContext();
+    ctx.visit(file_ctx.cursor);
+
+    ctx_ = ctx;
+}
+
+ExitStatusType writeFileData(T)(ref T data) {
+    foreach (p; data) {
+        auto status = tryWriting(cast(string) p.filename, p.data);
+        if (status != ExitStatusType.Ok) {
+            return ExitStatusType.Errors;
+        }
+    }
+
+    return ExitStatusType.Ok;
+}
+
+/** Append the compiler flags if a match is found in the DB
+ */
+string[] appendIfFound(CompileCommandDB compile_db, in string[] cflags, in string input_file) @safe pure {
+    auto compile_commands = lookup(compile_db, input_file);
+    if (compile_commands.length > 0) {
+        return cflags ~ compile_commands[0].parseFlag;
+    }
+
+    return cflags.dup;
 }
