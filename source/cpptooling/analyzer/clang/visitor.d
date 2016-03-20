@@ -255,8 +255,10 @@ struct ClassDescendVisitor {
             // TODO change accessType from CppAccess to see if it reduces the
             // casts
             auto class_ = ClassVisitor.make(c, data.resideInNs.dup).visit(c, *container);
-            data.put(class_, cast(TypedefType!CppAccess) accessType);
-            container.put(class_, class_.fullyQualifiedName);
+            if (!class_.isNull) {
+                data.put(class_.get, cast(TypedefType!CppAccess) accessType);
+                container.put(class_, class_.fullyQualifiedName);
+            }
             descend = false;
             break;
         default:
@@ -370,15 +372,21 @@ struct ClassVisitor {
         assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
     }
     body {
+        import std.typecons : Nullable;
+
+        auto d = Nullable!CppClass(data);
+        d.nullify;
+
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
         if (!c.isDefinition) {
             logger.error("Expected cursor to be a definition but it is: ",
                     to!string(c), " File:", c.location.toString);
-            return data;
+            return d;
         }
 
-        return ClassDescendVisitor(data).visit(c, container);
+        d = ClassDescendVisitor(data).visit(c, container);
+        return d;
     }
 
 private:
@@ -435,8 +443,10 @@ struct NamespaceDescendVisitor {
         case CXCursor_ClassDecl:
             // visit node to find nested classes
             auto class_ = ClassVisitor.make(c, data.resideInNs.dup).visit(c, *container);
-            container.put(class_, class_.fullyQualifiedName);
-            data.put(class_);
+            if (!class_.isNull) {
+                container.put(class_, class_.fullyQualifiedName);
+                data.put(class_);
+            }
             break;
         case CXCursor_FunctionDecl:
             data.put(FunctionVisitor.make(c).visit(c));
@@ -573,8 +583,10 @@ struct ParseContext {
 
             // visit node to find nested classes
             auto class_ = ClassVisitor.make(c, CppNsStack.init).visit(c, container);
-            container.put(class_, class_.fullyQualifiedName);
-            root.put(class_);
+            if (!class_.isNull) {
+                container.put(class_, class_.fullyQualifiedName);
+                root.put(class_);
+            }
             break;
         case CXCursor_CXXBaseSpecifier:
             descend = false;
