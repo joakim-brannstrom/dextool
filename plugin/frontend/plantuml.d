@@ -22,6 +22,31 @@ import plugin.backend.plantuml : Controller, Parameters, Products;
 import cpptooling.data.representation : CppRoot;
 import application.compilation_db;
 
+/** Contains the file processing directives after parsing user arguments.
+ *
+ * If not FILE argument then it is assumed that all files in the CompileDB
+ * shall be processed.
+ *
+ * Indicated by the directive All.
+ */
+struct FileProcess {
+    enum Directive {
+        Single,
+        All
+    }
+
+    static auto make() {
+        return FileProcess(Directive.All, FileName(null));
+    }
+
+    static auto make(FileName input_file) {
+        return FileProcess(Directive.Single, input_file);
+    }
+
+    Directive directive;
+    FileName inputFile;
+}
+
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
     import docopt;
@@ -45,7 +70,14 @@ auto runPlugin(CliOption opt, CliArgs args) {
         compile_db = parsed["--compile-db"].toString.orDefaultDb.fromFile;
     }
 
-    return genUml(variant, cflags, compile_db);
+    FileProcess file_process;
+    if (parsed["FILE"].isNull) {
+        file_process = FileProcess.make;
+    } else {
+        file_process = FileProcess.make(FileName(parsed["FILE"].toString));
+    }
+
+    return genUml(variant, cflags, compile_db, file_process);
 }
 
 // dfmt off
@@ -109,8 +141,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         auto class_methods = parsed["--class-methods"].isTrue
             ? Yes.generateClassMethods : No.generateClassMethods;
 
-        auto variant = new PlantUMLFrontend(FileName(parsed["FILE"].toString),
-                FilePrefix(parsed["--file-prefix"].toString),
+        auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
                 DirName(parsed["--out"].toString), class_methods);
 
         variant.exclude = exclude;
@@ -119,9 +150,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FileName input_file, FilePrefix file_prefix, DirName output_dir,
-            Flag!"generateClassMethods" gen_class_methods) {
-        this.input_file = input_file;
+    this(FilePrefix file_prefix, DirName output_dir, Flag!"generateClassMethods" gen_class_methods) {
         this.file_prefix = file_prefix;
         this.output_dir = output_dir;
         this.gen_class_methods = gen_class_methods;
@@ -130,11 +159,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         this.file_component = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
-    }
-
-    /// User supplied files used as input.
-    FileName getInputFile() {
-        return input_file;
     }
 
     // -- Controller --
@@ -200,7 +224,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 }
 
-ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileCommandDB compile_db) {
+ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
+        CompileCommandDB compile_db, FileProcess file_process) {
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
@@ -210,17 +235,27 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileComma
     import plugin.backend.plantuml : Generator;
 
     auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
-    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
-    logger.trace("Input file: ", input_file);
-
-    cflags = compile_db.appendIfFound(cflags, input_file);
-
     Container symbol_container;
     Nullable!CppRoot root;
-    analyzeFile(input_file, cflags, symbol_container, root);
 
-    if (root.isNull) {
-        return ExitStatusType.Errors;
+    final switch (file_process.directive) {
+    case FileProcess.Directive.All:
+        break;
+
+    case FileProcess.Directive.Single:
+        //TODO refactor when All is finished. This is a special case of All.
+        auto input_file = buildNormalizedPath(
+                cast(string) file_process.inputFile).asAbsolutePath.text;
+        logger.trace("Input file: ", input_file);
+
+        cflags = compile_db.appendIfFound(cflags, input_file);
+
+        analyzeFile(input_file, cflags, symbol_container, root);
+
+        if (root.isNull) {
+            return ExitStatusType.Errors;
+        }
+        break;
     }
 
     // process and put the data in variant.
