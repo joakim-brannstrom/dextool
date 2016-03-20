@@ -49,7 +49,7 @@ version (unittest) {
      */
     void put(ref CppClass cl, FullyQualifiedNameType fqn) {
         //TODO change to using a hash map
-        if (find!CppClass(fqn).length != 0) {
+        if (internalFind!CppClass(fqn).length != 0) {
             return;
         }
 
@@ -60,20 +60,12 @@ version (unittest) {
 
     import std.typecons : NullableRef;
 
-    /** Find the represented object via search parameter.
-     *
-     * TODO Decouple the compile time arg from the concrete type by basing it
-     * on for example an enum. By doing so it removes the dependency of all
-     * callers having to specify the type, and knowing the type.
-     *
-     * Return: ref to object or null
-     */
-    auto find(T)(FullyQualifiedNameType fqn) {
+    // Do not spam log traces because of internal searches via put.
+    // For further info see the public find
+    private auto internalFind(T)(FullyQualifiedNameType fqn) {
         import std.string : toLower;
         import std.range : only, dropOne;
         import std.typecons : NullableRef;
-
-        logger.trace("searching for: ", cast(string) fqn);
 
         enum type_lower = "t_" ~ toLower(T.stringof);
         auto t_objs = __traits(getMember, typeof(this), type_lower);
@@ -86,11 +78,29 @@ version (unittest) {
 
         // When this happens the AST isn't complete.
         // Happens for example when trying to create a mock of std::system_error
-        logger.errorf("AST is not complete. No symbol found for '%s'", cast(string) fqn);
 
         // The only sensible option left is to return a zero length range
         // to still allow range iterators etc to work.
         return only(NullableRef!T((T*).init)).dropOne;
+    }
+
+    /** Find the represented object via search parameter.
+     *
+     * TODO Decouple the compile time arg from the concrete type by basing it
+     * on for example an enum. By doing so it removes the dependency of all
+     * callers having to specify the type, and knowing the type.
+     *
+     * Return: ref to object or null
+     */
+    auto find(T)(FullyQualifiedNameType fqn) {
+        logger.trace("searching for: ", cast(string) fqn);
+
+        auto rval = internalFind!T(fqn);
+
+        logger.errorf(rval.length == 0,
+                "AST is not complete. No symbol found for '%s'", cast(string) fqn);
+
+        return rval;
     }
 
     string toString() const {
