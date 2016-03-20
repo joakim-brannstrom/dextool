@@ -208,38 +208,19 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileComma
 
     auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
     auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
-    logger.trace("Input file is: ", input_file);
+    logger.trace("Input file: ", input_file);
 
-    auto compile_commands = lookup(compile_db, input_file);
-    if (compile_commands.length > 0) {
-        cflags ~= compile_commands[0].parseFlag;
-    }
+    cflags = compile_db.appendIfFound(cflags, input_file);
 
-    if (!exists(input_file)) {
-        logger.errorf("File '%s' do not exist", input_file);
+    Nullable!ParseContext ctx;
+    analyzeFile(input_file, cflags, ctx);
+
+    if (ctx.isNull) {
         return ExitStatusType.Errors;
     }
-
-    // Get and ensure the clang context is valid
-    auto file_ctx = ClangContext(input_file, cflags);
-    logDiagnostic(file_ctx);
-    if (file_ctx.hasParseErrors) {
-        logger.error("Code parsing error, exiting...");
-        return ExitStatusType.Errors;
-    }
-
-    auto ctx = ParseContext();
-    ctx.visit(file_ctx.cursor);
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(ctx.root, ctx.container);
+    Generator(variant, variant, variant).process(ctx.get.root, ctx.get.container);
 
-    foreach (p; variant.fileData) {
-        auto status = tryWriting(cast(string) p.filename, p.data);
-        if (status != ExitStatusType.Ok) {
-            return ExitStatusType.Errors;
-        }
-    }
-
-    return ExitStatusType.Ok;
+    return writeFileData(variant.fileData);
 }
