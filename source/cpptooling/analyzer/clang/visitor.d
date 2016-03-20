@@ -7,6 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module cpptooling.analyzer.clang.visitor;
 
 import std.conv : to;
+import std.typecons : NullableRef;
 import logger = std.experimental.logger;
 
 import deimos.clang.index;
@@ -538,11 +539,17 @@ struct ParseContext {
     private VisitNodeDepth depth_;
     alias depth_ this;
 
+    @disable this();
+
+    this(ref Container cont) {
+        this.container.bind(&cont);
+    }
+
     void visit(Cursor cursor) {
         visitAst!(typeof(this))(cursor, this);
 
         debug {
-            logger.trace(container.toString);
+            logger.trace(container.get.toString);
         }
     }
 
@@ -596,5 +603,5 @@ struct ParseContext {
     }
 
     CppRoot root;
-    Container container;
+    NullableRef!Container container;
 }

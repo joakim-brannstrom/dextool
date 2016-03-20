@@ -19,6 +19,7 @@ import application.utility;
 
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
+import cpptooling.data.representation : CppRoot;
 import application.compilation_db;
 
 auto runPlugin(CliOption opt, CliArgs args) {
@@ -50,8 +51,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto plantuml_opt = CliOptionParts(
     "usage:
- dextool uml [options] [--file-exclude=...] FILE [--] [CFLAGS...]
- dextool uml [options] [--file-restrict=...] FILE [--] [CFLAGS...]",
+ dextool uml [options] [--file-exclude=...] [FILE] [--] [CFLAGS...]
+ dextool uml [options] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --compile-db=j     Retrieve compilation parameters from the file
@@ -82,7 +83,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     static const fileExt = ".pu";
 
-    immutable FileName input_file;
+    // TODO ugly hack to remove immutable. Fix it appropriately
+    FileName input_file;
     immutable DirName output_dir;
     immutable FileName file_component;
 
@@ -93,7 +95,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     Regex!char[] exclude;
     Regex!char[] restrict;
 
-    /// Data produced by the generatore intented to be written to specified file.
+    /// Data produced by the generator intended to be written to specified file.
     FileData[] fileData;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
@@ -204,6 +206,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileComma
     import std.path : buildNormalizedPath, asAbsolutePath;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
+    import cpptooling.data.symbol.container;
     import plugin.backend.plantuml : Generator;
 
     auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
@@ -212,15 +215,16 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags, CompileComma
 
     cflags = compile_db.appendIfFound(cflags, input_file);
 
-    Nullable!ParseContext ctx;
-    analyzeFile(input_file, cflags, ctx);
+    Container symbol_container;
+    Nullable!CppRoot root;
+    analyzeFile(input_file, cflags, symbol_container, root);
 
-    if (ctx.isNull) {
+    if (root.isNull) {
         return ExitStatusType.Errors;
     }
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(ctx.get.root, ctx.get.container);
+    Generator(variant, variant, variant).process(root.get, symbol_container);
 
     return writeFileData(variant.fileData);
 }

@@ -312,6 +312,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileC
     import std.path : buildNormalizedPath, asAbsolutePath;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
+    import cpptooling.data.symbol.container;
 
     auto cflags = prependLangFlagIfMissing(in_cflags, "-xc");
     auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
@@ -319,15 +320,17 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileC
 
     cflags = compile_db.appendIfFound(cflags, input_file);
 
-    Nullable!ParseContext ctx;
-    analyzeFile(input_file, cflags, ctx);
+    // container not used but required when analyzing
+    Container symbol_container;
+    Nullable!CppRoot root;
+    analyzeFile(input_file, cflags, symbol_container, root);
 
-    if (ctx.isNull) {
+    if (root.isNull) {
         return ExitStatusType.Errors;
     }
 
     // process and put the data in variant.
-    StubGenerator(variant, variant, variant).process(ctx.root);
+    StubGenerator(variant, variant, variant).process(root.get);
 
     return writeFileData(variant.file_data);
 }
