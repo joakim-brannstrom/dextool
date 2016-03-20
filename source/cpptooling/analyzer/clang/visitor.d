@@ -488,6 +488,7 @@ struct NamespaceVisitor {
      *  stack = namespace nesting that c reside in.
      */
     static auto make(ref Cursor c, const CppNsStack stack) {
+        logger.info("namespace: ", cast(string) c.spelling);
         if (c.kind != CXCursorKind.CXCursor_Namespace) {
             logger.error("Expected cursor to be of type Namespace. It is: ", to!string(c));
         }
@@ -592,6 +593,8 @@ struct ParseContext {
             descend = false;
             break;
         case CXCursor_Namespace:
+            //TODO change NS visitor to take a ref.
+            // The same NS can occur many times in the AST
             root.put(NamespaceVisitor.make(c).visit(c, container));
             descend = false;
             break;

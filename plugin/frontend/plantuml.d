@@ -19,7 +19,7 @@ import application.utility;
 
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
-import cpptooling.data.representation : CppRoot;
+import cpptooling.data.representation : CppRoot, CppNamespace, CppClass;
 import application.compilation_db;
 
 /** Contains the file processing directives after parsing user arguments.
@@ -224,42 +224,250 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 }
 
+/** Merge the content of two Representations.
+ *
+ * Incomplete merge so far, only classes.
+ *
+ * Assuming that it is a merge of namespace and their content that is needed.
+ * The content of classes etc do not change.
+ */
+auto merge(T)(T ra, T rb) if (is(T == CppRoot)) {
+    import std.algorithm : each, filter;
+    import std.range : chain, tee;
+
+    import cpptooling.data.symbol.types;
+
+    logger.trace("root");
+    logger.trace("Merge A ", ra.toString);
+    logger.trace("Merge B ", rb.toString);
+
+    T r;
+
+    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
+            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
+
+    {
+        logger.trace(" -- class merge --");
+        CppClass[FullyQualifiedNameType] merged;
+
+        foreach (c; chain(ra.classRange, rb.classRange)) {
+            auto fqn = c.fullyQualifiedName;
+            if (fqn in merged) {
+                logger.trace("merge ", fqn, "|", merged.keys);
+                merged[fqn] = mergeClass(merged[fqn], c);
+            } else {
+                merged[fqn] = c;
+            }
+        }
+
+        foreach (c; merged.values) {
+            r.put(c);
+        }
+
+        logger.trace(merged.keys);
+        logger.trace("Merged ", merged.length);
+    }
+
+    {
+        logger.trace(" -- namespace merge --");
+        CppNamespace[FullyQualifiedNameType] merged;
+
+        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
+            auto fqn = ns.fullyQualifiedName;
+
+            if (fqn in merged) {
+                logger.trace("merge ", fqn, "|", merged.keys);
+                merged[fqn] = mergeNamespace(merged[fqn], ns);
+            } else {
+                merged[fqn] = ns;
+            }
+        }
+
+        foreach (ns; merged.values) {
+            r.put(ns);
+        }
+
+        logger.trace(merged.keys);
+        logger.trace("Merged ", merged.length);
+    }
+
+    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
+    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
+
+    return r;
+}
+
+CppNamespace mergeNamespace(T)(T ra, T rb) if (is(T == CppNamespace)) {
+    import std.algorithm : each, filter;
+    import std.range : chain, tee;
+
+    import cpptooling.data.symbol.types;
+
+    logger.trace("ns");
+    //logger.trace("Merge A ", ra.toString);
+    //logger.trace("Merge B ", rb.toString);
+
+    auto r = T(ra.resideInNs);
+
+    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
+            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
+
+    {
+        logger.trace(" -- class merge --");
+        CppClass[FullyQualifiedNameType] merged;
+
+        foreach (c; chain(ra.classRange, rb.classRange)) {
+            auto fqn = c.fullyQualifiedName;
+            if (fqn in merged) {
+                logger.trace("merge ", fqn, "|", merged.keys);
+                merged[fqn] = mergeClass(merged[fqn], c);
+            } else {
+                merged[fqn] = c;
+            }
+        }
+
+        foreach (c; merged.values) {
+            r.put(c);
+        }
+
+        logger.trace(merged.keys);
+        logger.trace("Merged ", merged.length);
+    }
+
+    {
+        logger.trace(" -- namespace merge --");
+        CppNamespace[FullyQualifiedNameType] merged;
+
+        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
+            auto fqn = ns.fullyQualifiedName;
+
+            if (fqn in merged) {
+                logger.trace("merge ", fqn, "|", merged.keys);
+                merged[fqn] = mergeNamespace(merged[fqn], ns);
+            } else {
+                merged[fqn] = ns;
+            }
+        }
+
+        foreach (ns; merged.values) {
+            r.put(ns);
+        }
+
+        logger.trace(merged.keys);
+        logger.trace("Merged ", merged.length);
+    }
+
+    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
+    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
+
+    return r;
+}
+
+auto mergeClass(T)(T ca, T cb) {
+    import std.algorithm;
+    import cpptooling.data.representation : AccessType, CppVariable;
+
+    static string internalToString(CppClass.CppFunc f) {
+        import std.variant : visit;
+        import cpptooling.data.representation;
+
+        // dfmt off
+        return f.visit!((CppMethod a) => a.toString,
+                        (CppMethodOp a) => a.toString,
+                        (CppCtor a) => a.toString,
+                        (CppDtor a) => a.toString);
+        // dfmt on
+    }
+
+    auto r = CppClass(ca);
+
+    {
+        bool[string] methods;
+        ca.methodRange.each!(a => methods[a.toString] = true);
+        foreach (m; cb.methodPublicRange.filter!(a => internalToString(a) !in methods)) {
+            r.put(m);
+            methods[internalToString(m)] = true;
+        }
+        logger.trace(r.toString);
+    }
+
+    {
+        bool[CppVariable] members;
+        ca.memberRange.each!((a) { members[a.name] = true; });
+        logger.trace(members);
+        foreach (m; cb.memberRange.filter!(a => a.name !in members)) {
+            logger.trace(m.name);
+            r.put(m, AccessType.Public);
+            members[m.name] = true;
+        }
+        logger.trace(members);
+        logger.trace(r.toString);
+    }
+
+    return r;
+}
+
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         CompileCommandDB compile_db, FileProcess file_process) {
+    import std.algorithm : map;
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
+    import std.typecons : TypedefType;
+
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
     import plugin.backend.plantuml : Generator;
 
-    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
-    Container symbol_container;
-    Nullable!CppRoot root;
-
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
+        auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+        Container symbol_container;
+        CppRoot root;
+
+        logger.trace("Number of files to process: ", compile_db.length);
+
+        foreach (entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
+            logger.trace("Input file: ", cast(string) entry.absoluteFile);
+            cflags ~= parseFlag(entry);
+
+            Nullable!CppRoot partial_root;
+            analyzeFile(cast(string) entry.absoluteFile, cflags, symbol_container, partial_root);
+
+            if (partial_root.isNull) {
+                return ExitStatusType.Errors;
+            }
+
+            root = merge(root, partial_root);
+        }
+
+        // process and put the data in variant.
+        Generator(variant, variant, variant).process(root, symbol_container);
         break;
 
     case FileProcess.Directive.Single:
+        auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+
         //TODO refactor when All is finished. This is a special case of All.
-        auto input_file = buildNormalizedPath(
-                cast(string) file_process.inputFile).asAbsolutePath.text;
+        auto input_file = buildNormalizedPath(cast(string) file_process.inputFile)
+            .asAbsolutePath.text;
         logger.trace("Input file: ", input_file);
 
         cflags = compile_db.appendIfFound(cflags, input_file);
 
+        Container symbol_container;
+        Nullable!CppRoot root;
         analyzeFile(input_file, cflags, symbol_container, root);
 
         if (root.isNull) {
             return ExitStatusType.Errors;
         }
+
+        // process and put the data in variant.
+        Generator(variant, variant, variant).process(root.get, symbol_container);
         break;
     }
-
-    // process and put the data in variant.
-    Generator(variant, variant, variant).process(root.get, symbol_container);
 
     return writeFileData(variant.fileData);
 }
