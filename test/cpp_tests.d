@@ -238,3 +238,11 @@ unittest {
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
+
+@Name("Should be a gmock of the class that is NOT forward declared")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_forward_decl.hpp", testEnv);
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}

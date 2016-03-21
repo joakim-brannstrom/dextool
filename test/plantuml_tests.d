@@ -152,7 +152,16 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("compile_db/merge_nested_ns.hpp", testEnv);
     p.input_ext = Path("");
-    //auto p = genTestParams("compile_db/dir3/nested_e.hpp", testEnv);
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json").toString];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should continue even though a compile error occured")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/bad_code.hpp", testEnv);
+    p.input_ext = Path("");
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
+        .toString, "--skip-file-error"];
     runTestFile(p, testEnv);
 }

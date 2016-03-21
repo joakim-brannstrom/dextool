@@ -1,0 +1,12 @@
+[
+    {
+        "directory": "testdata/uml/compile_db",
+        "command": "g++ -I bad_code -c -o binary dir3/f1.hpp",
+        "file": "bad_code/f1.hpp"
+    },
+    {
+        "directory": "testdata/uml/compile_db",
+        "command": "g++ -I bad_code -c -o binary dir3/f2.hpp",
+        "file": "bad_code/f2.hpp"
+    }
+]

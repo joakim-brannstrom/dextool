@@ -1,0 +1,5 @@
+@startuml
+    class "F2" {
+    }
+    "F2" o-- "F1"
+@enduml
