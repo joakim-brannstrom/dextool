@@ -12,6 +12,8 @@ Generate PlantUML diagrams of C/C++ source code.
 */
 module plugin.frontend.plantuml;
 
+import std.typecons : Flag, Yes, No;
+
 import logger = std.experimental.logger;
 
 import application.types;
@@ -77,7 +79,9 @@ auto runPlugin(CliOption opt, CliArgs args) {
         file_process = FileProcess.make(FileName(parsed["FILE"].toString));
     }
 
-    return genUml(variant, cflags, compile_db, file_process);
+    auto skipFileError = parsed["--skip-file-error"].isTrue ? Yes.skipFileError : No.skipFileError;
+
+    return genUml(variant, cflags, compile_db, file_process, skipFileError);
 }
 
 // dfmt off
@@ -87,9 +91,10 @@ static auto plantuml_opt = CliOptionParts(
  dextool uml [options] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
- --compile-db=j     Retrieve compilation parameters from the file
+ --compile-db=j      Retrieve compilation parameters from the file
  --file-prefix=p     prefix used when generating test artifacts [default: view_]
- --class-methods     include methods in the generated class diagram",
+ --class-methods     include methods in the generated class diagram
+ --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
  --file-exclude=     exclude files from generation matching the regex.
@@ -408,7 +413,7 @@ auto mergeClass(T)(T ca, T cb) {
 }
 
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
-        CompileCommandDB compile_db, FileProcess file_process) {
+        CompileCommandDB compile_db, FileProcess file_process, Flag!"skipFileError" skipFileError) {
     import std.algorithm : map;
     import std.conv : text;
     import std.file : exists;
@@ -435,11 +440,14 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             Nullable!CppRoot partial_root;
             analyzeFile(cast(string) entry.absoluteFile, cflags, symbol_container, partial_root);
 
-            if (partial_root.isNull) {
+            // compile error, let user decide how to proceed.
+            if (partial_root.isNull && skipFileError) {
+                logger.errorf("Continue analyze...");
+            } else if (partial_root.isNull) {
                 return ExitStatusType.Errors;
+            } else {
+                root = merge(root, partial_root);
             }
-
-            root = merge(root, partial_root);
         }
 
         // process and put the data in variant.
