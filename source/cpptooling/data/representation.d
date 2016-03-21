@@ -1358,6 +1358,8 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
 }
 
 pure @safe nothrow struct CppNamespace {
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
     private {
         CppNs name_;
 
@@ -1467,7 +1469,22 @@ const:
         }
 
         auto resideInNs() {
+            //TODO change name, it is the full stack. So fully qualified name.
             return stack;
+        }
+
+        auto fullyQualifiedName() {
+            //TODO optimize by only calculating once.
+
+            import std.array : array;
+            import std.algorithm : map, joiner;
+            import std.range : takeOne, only, chain, takeOne;
+            import std.utf : byChar, toUTF8;
+
+            // dfmt off
+            auto fqn = stack.map!(a => cast(string) a).joiner("::");
+            return FullyQualifiedNameType(fqn.array().toUTF8);
+            // dfmt on
         }
     }
 }

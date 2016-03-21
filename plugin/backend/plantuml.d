@@ -73,7 +73,7 @@ struct Generator {
         static auto make() {
             Modules m;
 
-            //TODO how to do this with meta-programming and instrospection fo Modules?
+            //TODO how to do this with meta-programming and instrospection of Modules?
             m.classes = new PlantumlModule;
 
             return m;
@@ -93,9 +93,6 @@ struct Generator {
 
         auto fl = rawFilter(root, ctrl, products);
         logger.trace("Filtered:\n" ~ fl.toString());
-
-        //auto tr = translate(fl, container, ctrl, params);
-        //logger.trace("Translated to essentials for UML:\n" ~ tr.toString());
 
         auto m = Modules.make();
         generate(fl, ctrl, params, m);

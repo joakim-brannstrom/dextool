@@ -313,6 +313,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import std.path : buildNormalizedPath, asAbsolutePath;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
+    import cpptooling.data.symbol.container;
     import plugin.backend.cppvariant : Generator;
 
     auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
@@ -321,15 +322,16 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
 
     cflags = compile_db.appendIfFound(cflags, input_file);
 
-    Nullable!ParseContext ctx;
-    analyzeFile(input_file, cflags, ctx);
+    Container symbol_container;
+    Nullable!CppRoot root;
+    analyzeFile(input_file, cflags, symbol_container, root);
 
-    if (ctx.isNull) {
+    if (root.isNull) {
         return ExitStatusType.Errors;
     }
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(ctx.root, ctx.container);
+    Generator(variant, variant, variant).process(root.get, symbol_container);
 
     return writeFileData(variant.file_data);
 }

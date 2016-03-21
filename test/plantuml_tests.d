@@ -19,6 +19,7 @@ struct TestParams {
 
     Path root;
     Path input_ext;
+    Path base_file_compare;
     Path out_pu;
 
     // dextool parameters;
@@ -31,6 +32,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 
     p.root = Path("testdata/uml").absolutePath;
     p.input_ext = p.root ~ Path(f);
+    p.base_file_compare = p.input_ext.stripExtension;
 
     p.out_pu = testEnv.outdir ~ "view_classes.pu";
 
@@ -46,7 +48,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 
     if (!p.skipCompare) {
         dextoolYap("Comparing");
-        auto input = p.input_ext.stripExtension;
+        Path input = p.base_file_compare;
         // dfmt off
         compareResult(
                       GR(input ~ Ext(".pu.ref"), p.out_pu),
@@ -133,5 +135,24 @@ unittest {
     auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
     // find compilation flags by looking up how single_file_main.c was compiled
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should process all files in the compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/two_files.hpp", testEnv);
+    p.input_ext = Path("");
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/two_file_db.json").toString];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should merge classes in namespaces when processing the compilation DB")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/merge_nested_ns.hpp", testEnv);
+    p.input_ext = Path("");
+    //auto p = genTestParams("compile_db/dir3/nested_e.hpp", testEnv);
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json").toString];
     runTestFile(p, testEnv);
 }

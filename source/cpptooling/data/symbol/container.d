@@ -25,6 +25,18 @@ version (unittest) {
     }
 }
 
+/** Contain symbols found during analyze to allow flat, fast lookup.
+ *
+ * The symbols are stored as copies.
+ * It allows the representation to be chnaged.
+ *
+ * Lookup is done via Fully Qualified Name.
+ *
+ * Assumtion. The C++ one definition rule is never violated.
+ *
+ * The alternative would be to searcch in the Representation.
+ * Currently only holds classes.
+ */
 @safe struct Container {
     invariant() {
         assert(cppclass.length == t_cppclass.length);

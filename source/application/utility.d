@@ -8,10 +8,12 @@ module application.utility;
 
 import std.regex : Regex;
 import std.stdio : File;
-import std.typecons : Unique, Nullable;
+import std.typecons : Unique, Nullable, NullableRef;
 import logger = std.experimental.logger;
 
 import cpptooling.analyzer.clang.visitor : ParseContext;
+import cpptooling.data.symbol.container;
+import cpptooling.data.representation : CppRoot;
 
 import application.types;
 import application.compilation_db;
@@ -226,7 +228,8 @@ auto lookup(T)(T compile_db, string filename) @safe pure {
     return compile_commands;
 }
 
-void analyzeFile(string input_file, string[] cflags, out Nullable!ParseContext ctx_) {
+void analyzeFile(string input_file, string[] cflags, ref Container container,
+        out Nullable!CppRoot root) {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.context;
@@ -245,10 +248,10 @@ void analyzeFile(string input_file, string[] cflags, out Nullable!ParseContext c
         return;
     }
 
-    auto ctx = ParseContext();
+    auto ctx = ParseContext(container);
     ctx.visit(file_ctx.cursor);
 
-    ctx_ = ctx;
+    root = ctx.root;
 }
 
 ExitStatusType writeFileData(T)(ref T data) {
