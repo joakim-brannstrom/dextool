@@ -143,34 +143,6 @@ CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe pure n
     return CompileCommandSearch(found);
 }
 
-/** Reduce the matches to one by using the directory.
- *
- * Errors are logged if expectations aren't fulfilled.
- * No asserts, no program termination.
- * Graceful degradation.
- *
- * Error logging if the reduction doesn't result in an array of 1 element.
- *
- * Params:
- *  dir_filename = "directory"
- *
- * Return: normally, an array of one elements
- */
-//CompileCommandSearch reduce(CompileCommandSearch s, string directory) @safe {
-//    import std.algorithm : find;
-//    import std.path;
-//
-//    string abs_dir = buildNormalizedPath(directory).absolutePath;
-//
-//    auto found = find!((a,b) => (buildNormalizedPath(cast(string) a.directory).absolutePath == b))(cast(CompileCommand[]) s, abs_dir);
-//
-//    logger.error(found.length > 1, "Ambiguous search, unable to reduce to one match: ", CompileCommandSearch(found).toString);
-//    logger.errorf(found.length == 0, "No match found for the directory '%s'", abs_dir);
-//
-//    return CompileCommandSearch(found);
-//
-//}
-
 string toString(CompileCommandSearch search) @safe pure {
     import std.algorithm : map, joiner;
     import std.conv : text;
