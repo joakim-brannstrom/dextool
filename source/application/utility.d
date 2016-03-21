@@ -244,7 +244,7 @@ void analyzeFile(string input_file, string[] cflags, ref Container container,
     auto file_ctx = ClangContext(input_file, cflags);
     if (file_ctx.hasParseErrors) {
         logDiagnostic(file_ctx);
-        logger.error("Code parsing error, exiting...");
+        logger.error("Compile error...");
         return;
     }
 
