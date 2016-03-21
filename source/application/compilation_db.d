@@ -190,11 +190,22 @@ auto parseFlag(CompileCommand cmd) @safe pure {
             }  // linker flags
             else if (arg.among("-l", "-L", "-z", "-u", "-T", "-Xlinker")) {
                 st = State.Skip;
+            }  // machine dependent flags
+            // TODO investigate if it is a bad idea to remove -m flags that may affect int size etc
+            else if (arg.among("-m")) {
+                st = State.Skip;
+            }  // machine dependent flags, AVR
+            else if (arg.among("-nodevicelib", "-Waddr-space-convert")) {
+                st = State.Skip;
+            }  // machine dependent flags, VxWorks
+            else if (arg.among("-non-static", "-Bstatic", "-Bdynamic",
+                    "-Xbind-lazy", "-Xbind-now")) {
+                st = State.Skip;
             }  // Preprocessor
             else if (arg.among("-MT", "-MQ", "-MF")) {
                 st = State.Skip;
             }  // if an include flag make it absolute, as one argument by checking
-            // length
+            // length. 3 is to only match those that are -Ixyz
             else if (arg.length >= 3 && arg[0 .. 2] == "-I") {
                 rval.put("-I");
                 rval.put(buildNormalizedPath(cast(string) workdir, arg[2 .. $]).absolutePath);
@@ -214,15 +225,25 @@ auto parseFlag(CompileCommand cmd) @safe pure {
     import std.algorithm : filter, among, splitter;
     import std.range : dropOne;
 
+    // dfmt off
     auto pass1 = (cast(string) cmd.command).splitter(' ')
-        .dropOne // remove empty strings
-        .filter!(a => !(a == "")) // remove compile flag
-        .filter!(a => !a.among("-c")) // remove destination flag and -c directive
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-o"))) // linker flags
-        .filter!(a => !a.among("-static", "-shared", "-rdynamic", "-s")) // a linker flag with filename as one argument, determined by checking length
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-l", "-o"))) // remove some of the preprocessor flags.
+        .dropOne
+        // remove empty strings
+        .filter!(a => !(a == ""))
+        // remove compile flag
+        .filter!(a => !a.among("-c"))
+        // machine dependent flags
+        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-m")))
+        // remove destination flag
+        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-o")))
+        // linker flags
+        .filter!(a => !a.among("-static", "-shared", "-rdynamic", "-s"))
+        // a linker flag with filename as one argument, determined by checking length
+        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-l", "-o")))
+        // remove some of the preprocessor flags.
         .filter!(a => !a.among("-MD", "-MQ", "-MMD", "-MP", "-MG", "-E",
                 "-cc1", "-S", "-M", "-MM", "-###"));
+    // dfmt on
 
     return filterPair(pass1, cmd.directory);
 }
@@ -241,7 +262,19 @@ unittest {
 unittest {
     auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
             CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
-            CompileCommand.Command(`g++           -MD     -lfoo.a -l bar.a       -I bar     -Igun`));
+            CompileCommand.Command(
+                `g++           -MD     -lfoo.a -l bar.a       -I    bar     -Igun`));
+
+    auto s = cmd.parseFlag;
+    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+}
+
+@Name("Should be cflags with machine dependent removed")
+unittest {
+    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
+            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
+            CompileCommand.Command(
+                `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`));
 
     auto s = cmd.parseFlag;
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
