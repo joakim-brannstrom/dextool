@@ -370,28 +370,17 @@ CppNamespace mergeNamespace(T)(T ra, T rb) if (is(T == CppNamespace)) {
 
 auto mergeClass(T)(T ca, T cb) {
     import std.algorithm;
-    import cpptooling.data.representation : AccessType, CppVariable;
-
-    static string internalToString(CppClass.CppFunc f) {
-        import std.variant : visit;
-        import cpptooling.data.representation;
-
-        // dfmt off
-        return f.visit!((CppMethod a) => a.toString,
-                        (CppMethodOp a) => a.toString,
-                        (CppCtor a) => a.toString,
-                        (CppDtor a) => a.toString);
-        // dfmt on
-    }
+    import cpptooling.data.representation : AccessType, CppVariable,
+        funcToString;
 
     auto r = CppClass(ca);
 
     {
         bool[string] methods;
         ca.methodRange.each!(a => methods[a.toString] = true);
-        foreach (m; cb.methodPublicRange.filter!(a => internalToString(a) !in methods)) {
+        foreach (m; cb.methodPublicRange.filter!(a => funcToString(a) !in methods)) {
             r.put(m);
-            methods[internalToString(m)] = true;
+            methods[funcToString(m)] = true;
         }
         logger.trace(r.toString);
     }

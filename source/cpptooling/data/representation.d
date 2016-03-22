@@ -92,6 +92,17 @@ enum AccessType {
     Private
 }
 
+string funcToString(CppClass.CppFunc func) @trusted {
+    import std.variant : visit;
+
+    //dfmt off
+    return "  " ~ func.visit!((CppMethod a) => a.toString,
+                              (CppMethodOp a) => a.toString,
+                              (CppCtor a) => a.toString,
+                              (CppDtor a) => a.toString);
+    //dfmt on
+}
+
 /// Expects a toString function where it is mixed in.
 /// base value for hash is 0 to force deterministic hashes. Use the pointer for
 /// unique between objects.
@@ -1181,15 +1192,6 @@ pure @safe nothrow struct CppClass {
 const:
 
     string toString() {
-        static string funcToString(CppFunc func) @trusted {
-            //dfmt off
-            return "  " ~ func.visit!((CppMethod a) => a.toString,
-                                      (CppMethodOp a) => a.toString,
-                                      (CppCtor a) => a.toString,
-                                      (CppDtor a) => a.toString);
-            //dfmt on
-        }
-
         import std.algorithm : map, joiner;
         import std.ascii : newline;
         import std.conv : to, text;
