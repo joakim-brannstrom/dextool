@@ -435,10 +435,11 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
         foreach (entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
             logger.trace("Input file: ", cast(string) entry.absoluteFile);
-            cflags ~= parseFlag(entry);
+            auto entry_cflags = cflags ~ parseFlag(entry);
 
             Nullable!CppRoot partial_root;
-            analyzeFile(cast(string) entry.absoluteFile, cflags, symbol_container, partial_root);
+            analyzeFile(cast(string) entry.absoluteFile, entry_cflags,
+                    symbol_container, partial_root);
 
             // compile error, let user decide how to proceed.
             if (partial_root.isNull && skipFileError) {
