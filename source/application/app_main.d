@@ -232,5 +232,14 @@ int rmain(string[] args) nothrow {
         exit_status = ExitStatusType.Errors;
     }
 
+    if (exit_status != ExitStatusType.Ok) {
+        try {
+            logger.errorf(
+                    "Dextool exiting due to runtime error. Run with --debug for more information");
+        }
+        catch (Exception ex) {
+        }
+    }
+
     return cast(typeof(return)) exit_status;
 }

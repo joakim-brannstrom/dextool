@@ -414,7 +414,7 @@ auto mergeClass(T)(T ca, T cb) {
 
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         CompileCommandDB compile_db, FileProcess file_process, Flag!"skipFileError" skipFileError) {
-    import std.algorithm : map;
+    import std.algorithm : map, joiner;
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
@@ -430,6 +430,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
         Container symbol_container;
         CppRoot root;
+        CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         logger.trace("Number of files to process: ", compile_db.length);
 
@@ -444,11 +445,22 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             // compile error, let user decide how to proceed.
             if (partial_root.isNull && skipFileError) {
                 logger.errorf("Continue analyze...");
+                unable_to_parse ~= entry.absoluteFile;
             } else if (partial_root.isNull) {
                 return ExitStatusType.Errors;
             } else {
                 root = merge(root, partial_root);
             }
+        }
+
+        if (unable_to_parse.length > 0) {
+            // TODO be aware that no test exist for this logic
+            import std.ascii : newline;
+            import std.range : roundRobin, repeat;
+
+            logger.errorf("Compile errors in the following files:\n%s\n",
+                    unable_to_parse.map!(a => (cast(string) a))
+                    .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
         }
 
         // process and put the data in variant.
