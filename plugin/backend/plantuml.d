@@ -256,7 +256,7 @@ void generateClass(CppClass c, PlantumlModule m) {
             uml.unsafeRelate(parent, tkv.type.info.type, Relate.Aggregate);
             break;
         case Kind.simple:
-            if (tkv.type.isRecord && (tkv.type.isPointer || tkv.type.isRef)) {
+            if (tkv.type.isRecord && (tkv.type.isPtr || tkv.type.isRef)) {
                 uml.unsafeRelate(parent, tkv.type.info.type, Relate.Compose);
             }
             break;

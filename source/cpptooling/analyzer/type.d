@@ -13,13 +13,40 @@ import std.string : format;
 import std.traits;
 import logger = std.experimental.logger;
 
-/** Type represenation and information.
+/** Type representation and information.
  *
  * txt is type, qualifiers and storage class. For example const int *.
  */
 pure @safe nothrow @nogc struct TypeKind {
     import std.traits : isSomeString;
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import std.typecons : Flag, Yes, No;
+
+    static auto make(string txt) pure @safe nothrow {
+        TypeKind t;
+        t.info = TypeKind.SimpleInfo(txt ~ " %s", txt);
+        t.txt = txt;
+
+        return t;
+    }
+
+    /** Return a duplicate.
+     * Side effect is that the cursor is thrown away.
+     * TODO investigate how this can be done with opAssign and postblit.
+     */
+    static auto clone(inout TypeKind t_) pure @safe nothrow {
+        TypeKind t;
+        t.info = t_.info;
+        t.txt = t_.txt;
+        t.isConst = t_.isConst;
+        t.isRef = t_.isRef;
+        t.isPtr = t_.isPtr;
+        t.isFuncPtr = t_.isFuncPtr;
+        t.isArray = t_.isArray;
+        t.isRecord = t_.isRecord;
+
+        return t;
+    }
 
     /** The type 'int x[2][3]'
      * elementType = int
@@ -84,12 +111,12 @@ pure @safe nothrow @nogc struct TypeKind {
     alias Info = TaggedAlgebraic!InternalInfo;
     Info info;
 
-    bool isConst;
-    bool isRef;
-    bool isPointer;
-    bool isFuncPtr;
-    bool isArray;
-    bool isRecord;
+    Flag!"isConst" isConst;
+    Flag!"isRef" isRef;
+    Flag!"isPtr" isPtr;
+    Flag!"isFuncPtr" isFuncPtr;
+    Flag!"isArray" isArray;
+    Flag!"isRecord" isRecord;
 
     auto txt() const {
         return txt_;
@@ -111,36 +138,32 @@ pure @safe nothrow @nogc struct TypeKind {
         txt_ = s;
     }
 
+    invariant {
+        // leading or trailing whitespace affects comparison.
+        // therefor considered to be never be allowed.
+        // it creates strange errors "far away", other parts of the program.
+        // aka, no stripping shall ever be needed before comparing two type.
+        final switch (this.info.kind) with (TypeKind.Info) {
+        case Kind.record:
+            assert(info.type.length == 0 || info.type[0] != ' ');
+            break;
+        case Kind.simple:
+            assert(info.type.length == 0 || info.type[0] != ' ');
+            break;
+        case TypeKind.Info.Kind.func:
+            break;
+        case Kind.array:
+            assert(info.elementType.length == 0 || info.elementType[0] != ' ');
+            break;
+        case Kind.funcPtr:
+            break;
+        case Kind.null_:
+            break;
+        }
+    }
+
 private:
     string txt_;
-}
-
-///TODO change the bools to using the Flag from typecons
-TypeKind makeTypeKind(string txt, bool isConst, bool isRef, bool isPointer,
-        bool isFuncPtr = false, bool isArray = false, bool isRecord = false) pure @safe nothrow {
-    TypeKind t;
-    t.info = TypeKind.SimpleInfo(txt ~ " %s");
-    t.txt = txt;
-    t.isConst = isConst;
-    t.isRef = isRef;
-    t.isPointer = isPointer;
-    t.isFuncPtr = isFuncPtr;
-    t.isArray = isArray;
-    t.isRecord = isRecord;
-
-    return t;
-}
-
-/** Return a duplicate.
- * Side effect is that the cursor is thrown away.
- * TODO investigate how this can be done with opAssign and postblit.
- */
-TypeKind duplicate(T)(T t_in) pure @safe nothrow {
-    TypeKind t = makeTypeKind(t_in.txt, t_in.isConst, t_in.isRef,
-            t_in.isPointer, t_in.isFuncPtr, t_in.isArray, t_in.isRecord);
-    t.info = t_in.info;
-
-    return t;
 }
 
 /// Combine type information with a identifier to produce a declaration.

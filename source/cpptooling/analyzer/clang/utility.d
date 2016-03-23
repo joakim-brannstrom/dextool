@@ -6,6 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.analyzer.clang.utility;
 
+import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import clang.Cursor;
@@ -107,7 +108,7 @@ auto extractParams(Cursor cursor, bool is_variadic) {
 
     if (is_variadic) {
         auto wtk = WrapTypeKind();
-        wtk.typeKind = makeTypeKind("", false, false, false);
+        wtk.typeKind = TypeKind.make("...");
         wtk.typeKind.info = TypeKind.SimpleInfo("%s");
         params ~= PTuple(wtk, "...");
     }

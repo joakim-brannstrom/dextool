@@ -12,6 +12,7 @@ module cpptooling.analyzer.clang.type;
 import std.conv : to;
 import std.string : format;
 import std.traits;
+import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import deimos.clang.index : CXTypeKind;
@@ -38,11 +39,11 @@ nothrow struct WrapTypeKind {
         this.type = type;
         this.typeKind.txt = type.spelling;
 
-        this.typeKind.isConst = type.isConst;
-        this.typeKind.isRef = type.declaration.isReference;
-        this.typeKind.isPointer = (type.kind == CXTypeKind.CXType_Pointer);
-        this.typeKind.isArray = type.isArray;
-        this.typeKind.isRecord = (type.kind == CXTypeKind.CXType_Record);
+        this.typeKind.isConst = cast(Flag!"isConst") type.isConst;
+        this.typeKind.isRef = cast(Flag!"isRef") type.declaration.isReference;
+        this.typeKind.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
+        this.typeKind.isArray = cast(Flag!"isArray") type.isArray;
+        this.typeKind.isRecord = cast(Flag!"isRecord")(type.kind == CXTypeKind.CXType_Record);
     }
 
     TypeKind unwrap() @safe nothrow @property {
@@ -138,7 +139,7 @@ body {
                       result.typeKind.info.fmt,
                       result.typeKind.isConst,
                       result.typeKind.isRef,
-                      result.typeKind.isPointer,
+                      result.typeKind.isPtr,
                       result.typeKind.isRecord);
         // dfmt on
 
@@ -200,7 +201,7 @@ body {
     result.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s", type.spelling);
 
     if (valueTypeIsConst(type)) {
-        result.typeKind.isConst = true;
+        result.typeKind.isConst = Yes.isConst;
     }
 
     return result;
@@ -269,7 +270,7 @@ body {
     }
 
     if (type.isConst) {
-        rval.typeKind.isConst = type.isConst;
+        rval.typeKind.isConst = cast(Flag!"isConst") type.isConst;
 
         // unsure if this is a stable way of solving the const of unexposed
         // types. But seems to be good enough.
@@ -420,7 +421,7 @@ body {
     final switch (rval.typeKind.info.kind) with (TypeKind.Info.Kind) {
     case func:
         info.fmt = rval.typeKind.toString(format("%s%s", prefix, "%s"));
-        // ugly hack to get some any type of pure type information
+        // ugly hack to get some type of pure type information
         info.type = rval.typeKind.toString("");
         rval.typeKind.info = info;
         rval.typeKind.unsafeForceTxt(rval.typeKind.toString(""));
@@ -472,9 +473,9 @@ body {
     auto result = WrapTypeKind(type.pointeeType);
     result = visitPointeeType(result, prefix);
 
-    result.typeKind.isPointer = type.kind == CXTypeKind.CXType_Pointer;
-    result.typeKind.isRef = type.kind == CXTypeKind.CXType_LValueReference;
-    result.typeKind.isConst = type.isConst;
+    result.typeKind.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
+    result.typeKind.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
+    result.typeKind.isConst = cast(Flag!"isConst") type.isConst;
 
     if (type.isConst) {
         //TODO investigate if the other types shouldn't be handled differently
@@ -516,8 +517,8 @@ body {
     auto t = WrapTypeKind(type.pointeeType);
     auto func = visitPointeeType(t, "");
 
-    t.typeKind.isFuncPtr = true;
-    t.typeKind.isConst = type.isConst;
+    t.typeKind.isFuncPtr = Yes.isFuncPtr;
+    t.typeKind.isConst = cast(Flag!"isConst") type.isConst;
 
     TypeKind.FuncPtrInfo info;
     if (type.isConst) {
@@ -567,14 +568,14 @@ body {
 
     if (t.typeKind.isConst) {
         // ugly hack to strip prefix const
-        info.type = info.type[5 .. $];
+        info.type = info.type[6 .. $];
     }
 
     //TODO remove this trace in the future
     logger.trace(type.spelling, ":", type.canonicalType.spelling);
 
     t.typeKind.info = info;
-    t.typeKind.isRecord = true;
+    t.typeKind.isRecord = Yes.isRecord;
 
     return t;
 }
