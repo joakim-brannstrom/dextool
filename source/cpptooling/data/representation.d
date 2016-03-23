@@ -25,11 +25,11 @@ module cpptooling.data.representation;
 
 import std.array : Appender;
 import std.range : isInputRange;
-import std.typecons : Typedef, Tuple, Flag;
+import std.typecons : Typedef, Tuple, Flag, Yes, No;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.type : TypeKind, makeTypeKind, duplicate, toString;
+import cpptooling.analyzer.type : TypeKind, toString;
 import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
@@ -485,7 +485,7 @@ pure @safe nothrow struct CFunction {
 
     /// Function with no parameters and returning void.
     this(const CFunctionName name, const CxLocation loc) {
-        CxReturnType void_ = makeTypeKind("void", false, false, false);
+        CxReturnType void_ = TypeKind.make("void");
         this(name, CxParam[].init, void_, VariadicType.no, loc);
     }
 
@@ -698,7 +698,7 @@ pure @safe nothrow struct CppMethod {
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
             const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
-        CxReturnType void_ = makeTypeKind("void", false, false, false);
+        auto void_ = CxReturnType(TypeKind.make("void"));
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -786,7 +786,7 @@ pure @safe nothrow struct CppMethodOp {
     /// Operator with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access,
             const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
-        CxReturnType void_ = makeTypeKind("void", false, false, false);
+        CxReturnType void_ = TypeKind.make("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -1567,17 +1567,15 @@ unittest {
     }
 
     { // a return type.
-        auto rtk = makeTypeKind("int", false, false, false);
+        auto rtk = TypeKind.make("int");
         auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk), dummyLoc);
         shouldEqual(f.toString, "int nothing(); // File:a.h Line:123 Column:45");
     }
 
     { // return type and parameters.
-        auto p0 = makeCxParam(TypeKindVariable(makeTypeKind("int", false,
-            false, false), CppVariable("x")));
-        auto p1 = makeCxParam(TypeKindVariable(makeTypeKind("char", false,
-            false, false), CppVariable("y")));
-        auto rtk = makeTypeKind("int", false, false, false);
+        auto p0 = makeCxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("x")));
+        auto p1 = makeCxParam(TypeKindVariable(TypeKind.make("char"), CppVariable("y")));
+        auto rtk = TypeKind.make("int");
         auto f = CFunction(CFunctionName("nothing"), [p0, p1],
             CxReturnType(rtk), VariadicType.no, dummyLoc);
         shouldEqual(f.toString, "int nothing(int x, char y); // File:a.h Line:123 Column:45");
@@ -1597,7 +1595,8 @@ unittest {
 
 @Name("Test creating a CppMethod with multiple parameters")
 unittest {
-    auto tk = makeTypeKind("char*", false, false, true);
+    auto tk = TypeKind.make("char*");
+    tk.isPtr = Yes.isPtr;
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
@@ -1677,8 +1676,9 @@ unittest {
 
 @Name("Test of toString for a free function")
 unittest {
-    auto ptk = makeTypeKind("char*", false, false, true);
-    auto rtk = makeTypeKind("int", false, false, false);
+    auto ptk = TypeKind.make("char*");
+    ptk.isPtr = Yes.isPtr;
+    auto rtk = TypeKind.make("int");
     auto f = CFunction(CFunctionName("nothing"),
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
         makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
@@ -1689,7 +1689,8 @@ unittest {
 
 @Name("Test of Ctor's")
 unittest {
-    auto tk = makeTypeKind("char*", false, false, true);
+    auto tk = TypeKind.make("char*");
+    tk.isPtr = Yes.isPtr;
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto ctor = CppCtor(CppMethodName("ctor"), [p, p], CppAccess(AccessType.Public));
@@ -1716,7 +1717,7 @@ unittest {
     }
 
     {
-        auto tk = makeTypeKind("int", false, false, false);
+        auto tk = TypeKind.make("int");
         auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk),
             CppAccess(AccessType.Protected), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
@@ -1724,18 +1725,22 @@ unittest {
     }
 
     {
+        auto tk = TypeKind.make("char*");
+        tk.isPtr = Yes.isPtr;
         auto m = CppMethod(CppMethodName("gun"),
-            CxReturnType(makeTypeKind("char*", false, false, true)),
+            CxReturnType(tk),
             CppAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(VirtualType.No));
-        m.put(CxParam(TypeKindVariable(makeTypeKind("int", false, false, false), CppVariable("x"))));
-        m.put(CxParam(TypeKindVariable(makeTypeKind("int", false, false, false), CppVariable("y"))));
+        m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("x"))));
+        m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("y"))));
         c.put(m);
     }
 
     {
+        auto tk = TypeKind.make("int");
+        tk.isPtr = Yes.isPtr;
         auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(makeTypeKind("int", false, false, true)),
+            CxReturnType(tk),
             CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.No));
         c.put(m);
     }
@@ -1815,7 +1820,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(makeTypeKind("int", false, false, true)),
+            CxReturnType(TypeKind.make("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Yes));
         c.put(m);
@@ -1844,7 +1849,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(makeTypeKind("int", false, false, true)),
+            CxReturnType(TypeKind.make("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(VirtualType.Pure));
         c.put(m);
@@ -1967,9 +1972,8 @@ unittest {
 
 @Name("should be a global definition")
 unittest {
-    auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
-        false, false), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(makeTypeKind("int", false, false, false), CppVariable("y"),
+    auto v0 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(TypeKind.make("int"), CppVariable("y"),
         dummyLoc);
 
     shouldEqualPretty(v0.toString, "int x; // File:a.h Line:123 Column:45");
@@ -1978,8 +1982,7 @@ unittest {
 
 @Name("globals in root")
 unittest {
-    auto v = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
-        false, false), CppVariable("x")), dummyLoc);
+    auto v = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
     auto n = CppNamespace.makeAnonymous();
     auto r = CppRoot();
     n.put(v);
@@ -2006,10 +2009,8 @@ unittest {
 
 @Name("should be possible to sort the data structures")
 unittest {
-    auto v0 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
-        false, false), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(TypeKindVariable(makeTypeKind("int", false,
-        false, false), CppVariable("x")), dummyLoc2);
+    auto v0 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc2);
     auto r = CppRoot();
     r.put(v0);
     r.put(v1);
@@ -2060,7 +2061,8 @@ unittest {
 @Name("Should be a class with a data member")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    c.put(TypeKindVariable(makeTypeKind("int", false, false, false), CppVariable("x")), AccessType.Public);
+    auto tk = TypeKind.make("int");
+    c.put(TypeKindVariable(tk, CppVariable("x")), AccessType.Public);
 
     shouldEqualPretty(c.toString, "class Foo { // isVirtual Unknown File:noloc Line:0 Column:0
   int x;

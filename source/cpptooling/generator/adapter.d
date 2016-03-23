@@ -27,8 +27,9 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     auto c = CppClass(CppClassName(c_name));
     c.setKind(KindT.Adapter);
 
-    auto param = makeCxParam(TypeKindVariable(makeTypeKind(c_if ~ "&", false,
-            true, false), CppVariable("inst")));
+    auto tk = TypeKind.make(c_if ~ "&");
+    tk.isRef = Yes.isRef;
+    auto param = makeCxParam(TypeKindVariable(tk, CppVariable("inst")));
 
     c.put("Adapter connecting an interface with an implementation.");
     c.put("The lifetime of the connection is the same as the instance of the adapter.");
@@ -43,11 +44,12 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
 CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
-    import cpptooling.data.representation : makeTypeKind, CppVariable,
+    import cpptooling.data.representation : TypeKind, CppVariable,
         CxGlobalVariable;
     import cpptooling.utility.conv : str;
 
-    auto type = makeTypeKind(main_ns.str ~ "::" ~ main_if.str ~ "*", false, false, true);
+    auto type = TypeKind.make(main_ns.str ~ "::" ~ main_if.str ~ "*");
+    type.isPtr = Yes.isPtr;
     auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(KindT.TestDoubleSingleton);
@@ -76,8 +78,7 @@ void generateImpl(CppClass c, CppModule impl) {
                 (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),
                 (VariadicType vt) {
                     logger.error("Variadic c'tor not supported:", m.toString);
-                    return TypeKindVariable(makeTypeKind("not supported", false,
-                        false, false), CppVariable("not supported"));
+                    return TypeKindVariable(TypeKind.make("not supported"), CppVariable("not supported"));
                 })();
         }();
         // dfmt on
@@ -137,7 +138,7 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
 
     foreach (g; in_ns.globalRange()) {
         auto stmt = E(g.type().toString(g.name().str));
-        if (g.type().isPointer) {
+        if (g.type().isPtr) {
             stmt = E("0");
         }
         ns.stmt(stmt);
