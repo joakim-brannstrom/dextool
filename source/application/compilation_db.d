@@ -236,6 +236,8 @@ auto parseFlag(CompileCommand cmd) @safe pure {
         .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-m")))
         // remove destination flag
         .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-o")))
+        // blacklist all -f, add to whitelist those that are compatible with clang
+        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-f")))
         // linker flags
         .filter!(a => !a.among("-static", "-shared", "-rdynamic", "-s"))
         // a linker flag with filename as one argument, determined by checking length
@@ -275,6 +277,17 @@ unittest {
             CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
             CompileCommand.Command(
                 `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`));
+
+    auto s = cmd.parseFlag;
+    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+}
+
+@Name("Should be cflags with all -f removed")
+unittest {
+    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
+            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
+            CompileCommand.Command(
+                `g++ -fmany-fooo -I bar -fno-fooo -Igun -flolol -c a_filename.c`));
 
     auto s = cmd.parseFlag;
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
