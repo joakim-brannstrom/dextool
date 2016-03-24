@@ -6,7 +6,8 @@ Feature requests, todos etc that aren't covered by code comments.
  - Filter -m flags
  - In legend or title the command that was run to generate the UML
  - Generate style includes
- - Generate dot files instead of plantuml to allow clustering
+ - Generate dot files instead of plantuml to allow clustering.
+ - In class diagrams mark pure interfaces with I.
 
 ## Quality of Life
  - Do not generate empty TestDouble namespaces. Junk code.
