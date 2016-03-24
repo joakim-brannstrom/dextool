@@ -96,10 +96,10 @@ string funcToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
 
     //dfmt off
-    return "  " ~ func.visit!((CppMethod a) => a.toString,
-                              (CppMethodOp a) => a.toString,
-                              (CppCtor a) => a.toString,
-                              (CppDtor a) => a.toString);
+    return func.visit!((CppMethod a) => a.toString,
+                       (CppMethodOp a) => a.toString,
+                       (CppCtor a) => a.toString,
+                       (CppDtor a) => a.toString);
     //dfmt on
 }
 
@@ -1222,11 +1222,11 @@ const:
                   begin_class, newline, // <- not a typo, easier to see newline
                   // methods
                   methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
-                  methods_pub.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(),
+                  methods_pub.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(),
                   methods_prot.takeOne.map!(a => "protected:" ~ newline).joiner(),
-                  methods_prot.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(),
+                  methods_prot.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(),
                   methods_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
-                  methods_priv.map!funcToString.roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(),
+                  methods_priv.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(),
                   // classes
                   classes_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
                   classes_pub.map!(a => a.toString).roundRobin(newline.repeat.take(classes_pub.length)).joiner(),
