@@ -725,5 +725,5 @@ struct EnumCursor {
 unittest {
     import unit_threaded : writelnUt;
 
-    writelnUt(Cursor.predefinedToString);
+    //writelnUt(Cursor.predefinedToString);
 }
