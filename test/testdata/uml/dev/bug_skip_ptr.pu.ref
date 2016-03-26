@@ -1,4 +1,3 @@
 @startuml
-    class "A" {
-    }
+    class "A"
 @enduml

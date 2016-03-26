@@ -1,0 +1,8 @@
+@startuml
+    class "A"
+    class "InheritDep"
+    class "MemberDep"
+    class "Method"
+    class "ParamDep"
+    "InheritDep" --|> "A"
+@enduml

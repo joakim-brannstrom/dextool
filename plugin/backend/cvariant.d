@@ -165,7 +165,7 @@ struct StubGenerator {
 
         import cpptooling.data.representation : CppNamespace, CppNs;
 
-        logger.trace("Raw:\n" ~ root.toString());
+        logger.trace("Raw:\n", root.toString());
         auto tr = .translate(root, ctrl, products);
 
         // Does it have any C functions?
@@ -188,7 +188,7 @@ struct StubGenerator {
             tr.put(ns);
         }
 
-        logger.trace("Post processed:\n" ~ tr.toString());
+        logger.trace("Post processed:\n", tr.toString());
 
         auto m = Modules.make();
         generate(tr, ctrl, params, m.hdr, m.impl, m.globals, m.gmock);

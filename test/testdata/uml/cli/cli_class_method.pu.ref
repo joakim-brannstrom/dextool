@@ -1,0 +1,9 @@
+@startuml
+    class "A"
+    class "InheritDep"
+    class "MemberDep"
+    class "Method" {
+        +virtual void a_pub()
+    }
+    class "ParamDep"
+@enduml

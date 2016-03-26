@@ -160,13 +160,13 @@ struct Generator {
     auto process(ref CppRoot root, ref Container container) {
         import cpptooling.data.representation : CppNamespace, CppNs;
 
-        logger.trace("Raw:\n" ~ root.toString());
+        logger.trace("Raw:\n", root.toString());
 
         auto fl = rawFilter(root, ctrl, products);
-        logger.trace("Filtered:\n" ~ fl.toString());
+        logger.trace("Filtered:\n", fl.toString());
 
         auto tr = translate(fl, container, ctrl, params);
-        logger.trace("Translated to implementation:\n" ~ tr.toString());
+        logger.trace("Translated to implementation:\n", tr.toString());
 
         auto modules = Modules.make();
         generate(tr, ctrl, params, modules);

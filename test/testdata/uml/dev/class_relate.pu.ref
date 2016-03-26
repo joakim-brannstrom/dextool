@@ -1,13 +1,9 @@
 @startuml
-    class "A" {
-    }
-    class "Aggregate" {
-    }
+    class "A"
+    class "Aggregate"
+    class "ComposePtr"
+    class "ComposeRef"
     "Aggregate" *-- "A"
-    class "ComposeRef" {
-    }
     "ComposeRef" o-- "A"
-    class "ComposePtr" {
-    }
     "ComposePtr" o-- "A"
 @enduml

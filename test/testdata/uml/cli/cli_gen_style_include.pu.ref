@@ -1,5 +1,4 @@
 @startuml
+    !include view_style.iuml
     class "A"
-    class "B"
-    "B" *-- "A"
 @enduml

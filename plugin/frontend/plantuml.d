@@ -92,13 +92,17 @@ static auto plantuml_opt = CliOptionParts(
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --compile-db=j      Retrieve compilation parameters from the file
- --file-prefix=p     prefix used when generating test artifacts [default: view_]
- --class-methods     include methods in the generated class diagram
+ --file-prefix=p     Prefix used when generating test artifacts [default: view_]
+ --class-method      Include methods in the generated class diagram
+ --class-paramdep    Class method parameters as directed association in diagram
+ --class-inheritdep  Class inheritance in diagram
+ --class-memberdep   Class member as composition/aggregation in diagram
+ --gen-style-incl    Generate a style file and include in all diagrams
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
- --file-exclude=     exclude files from generation matching the regex.
- --file-restrict=    restrict the scope of the test double to those files
+ --file-exclude=     Exclude files from generation matching the regex.
+ --file-restrict=    Restrict the scope of the test double to those files
                      matching the regex.
 "
 );
@@ -119,15 +123,22 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     alias FileData = Tuple!(FileName, "filename", string, "data");
 
     static const fileExt = ".pu";
+    static const inclExt = ".iuml";
 
     // TODO ugly hack to remove immutable. Fix it appropriately
     FileName input_file;
     immutable DirName output_dir;
-    immutable FileName file_component;
+    immutable FileName file_classes;
+    immutable FileName file_style;
+    immutable FileName file_style_output;
 
     immutable FilePrefix file_prefix;
 
-    immutable Flag!"generateClassMethods" gen_class_methods;
+    immutable Flag!"genClassMethod" gen_class_method;
+    immutable Flag!"genClassParamDependency" gen_class_param_dep;
+    immutable Flag!"genClassInheritDependency" gen_class_inherit_dep;
+    immutable Flag!"genClassMemberDependency" gen_class_member_dep;
+    immutable Flag!"doStyleIncl" do_style_incl;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -143,11 +154,20 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
 
-        auto class_methods = parsed["--class-methods"].isTrue
-            ? Yes.generateClassMethods : No.generateClassMethods;
+        auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
+        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
+            .isTrue;
+        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed[
+        "--class-inheritdep"].isTrue;
+        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
+        "--class-memberdep"].isTrue;
+
+        auto gen_style_incl = cast(Flag!"styleIncl") parsed["--gen-style-incl"].isTrue;
 
         auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
-                DirName(parsed["--out"].toString), class_methods);
+                DirName(parsed["--out"].toString),
+                gen_style_incl, gen_class_method, gen_class_param_dep,
+                gen_class_inherit_dep, gen_class_member_dep);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -155,15 +175,27 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FilePrefix file_prefix, DirName output_dir, Flag!"generateClassMethods" gen_class_methods) {
+    this(FilePrefix file_prefix, DirName output_dir, Flag!"styleIncl" style_incl,
+            Flag!"genClassMethod" class_method, Flag!"genClassParamDependency" class_param_dep,
+            Flag!"genClassInheritDependency" class_inherit_dep,
+            Flag!"genClassMemberDependency" class_member_dep) {
         this.file_prefix = file_prefix;
         this.output_dir = output_dir;
-        this.gen_class_methods = gen_class_methods;
+        this.gen_class_method = class_method;
+        this.gen_class_param_dep = class_param_dep;
+        this.gen_class_inherit_dep = class_inherit_dep;
+        this.gen_class_member_dep = class_member_dep;
 
-        import std.path : baseName, buildPath, stripExtension;
+        import std.path : baseName, buildPath, relativePath, stripExtension;
 
-        this.file_component = FileName(buildPath(cast(string) output_dir,
+        this.file_classes = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
+        this.file_style_output = FileName(buildPath(cast(string) output_dir,
+                cast(string) file_prefix ~ "style" ~ inclExt));
+        this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
+                cast(string) output_dir));
+
+        this.do_style_incl = cast(Flag!"doStyleIncl") style_incl;
     }
 
     // -- Controller --
@@ -197,22 +229,44 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return r;
     }
 
-    bool doClassMethods() const {
-        return gen_class_methods;
+    Flag!"genStyleInclFile" genStyleInclFile() {
+        import std.path : exists;
+
+        return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
     }
 
     // -- Parameters --
 
-    DirName getOutputDirectory() {
+    DirName getOutputDirectory() const {
         return output_dir;
     }
 
-    Parameters.Files getFiles() {
-        return Parameters.Files(file_component);
+    Parameters.Files getFiles() const {
+        return Parameters.Files(file_classes, file_style, file_style_output);
     }
 
-    FilePrefix getFilePrefix() {
+    FilePrefix getFilePrefix() const {
         return file_prefix;
+    }
+
+    Flag!"genClassMethod" genClassMethod() const {
+        return gen_class_method;
+    }
+
+    Flag!"genClassParamDependency" genClassParamDependency() const {
+        return gen_class_param_dep;
+    }
+
+    Flag!"genClassInheritDependency" genClassInheritDependency() const {
+        return gen_class_inherit_dep;
+    }
+
+    Flag!"genClassMemberDependency" genClassMemberDependency() const {
+        return gen_class_member_dep;
+    }
+
+    Flag!"doStyleIncl" doStyleIncl() const {
+        return do_style_incl;
     }
 
     // -- Products --
@@ -227,189 +281,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     void putLocation(FileName fname, LocationType type) {
     }
-}
-
-/** Merge the content of two Representations.
- *
- * Incomplete merge so far, only classes.
- *
- * Assuming that it is a merge of namespace and their content that is needed.
- * The content of classes etc do not change.
- */
-auto merge(T)(T ra, T rb) if (is(T == CppRoot)) {
-    import std.algorithm : each, filter;
-    import std.range : chain, tee;
-
-    import cpptooling.data.symbol.types;
-
-    logger.trace("root");
-    logger.trace("Merge A ", ra.toString);
-    logger.trace("Merge B ", rb.toString);
-
-    T r;
-
-    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
-            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
-
-    {
-        logger.trace(" -- class merge --");
-        CppClass[FullyQualifiedNameType] merged;
-
-        foreach (c; chain(ra.classRange, rb.classRange)) {
-            auto fqn = c.fullyQualifiedName;
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeClass(merged[fqn], c);
-            } else {
-                merged[fqn] = c;
-            }
-        }
-
-        foreach (c; merged.values) {
-            r.put(c);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    {
-        logger.trace(" -- namespace merge --");
-        CppNamespace[FullyQualifiedNameType] merged;
-
-        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
-            auto fqn = ns.fullyQualifiedName;
-
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeNamespace(merged[fqn], ns);
-            } else {
-                merged[fqn] = ns;
-            }
-        }
-
-        foreach (ns; merged.values) {
-            r.put(ns);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
-    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
-
-    return r;
-}
-
-CppNamespace mergeNamespace(T)(T ra, T rb) if (is(T == CppNamespace)) {
-    import std.algorithm : each, filter;
-    import std.range : chain, tee;
-
-    import cpptooling.data.symbol.types;
-
-    logger.trace("ns");
-    //logger.trace("Merge A ", ra.toString);
-    //logger.trace("Merge B ", rb.toString);
-
-    auto r = T(ra.resideInNs);
-
-    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
-            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
-
-    {
-        logger.trace(" -- class merge --");
-        CppClass[FullyQualifiedNameType] merged;
-
-        foreach (c; chain(ra.classRange, rb.classRange)) {
-            auto fqn = c.fullyQualifiedName;
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeClass(merged[fqn], c);
-            } else {
-                merged[fqn] = c;
-            }
-        }
-
-        foreach (c; merged.values) {
-            r.put(c);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    {
-        logger.trace(" -- namespace merge --");
-        CppNamespace[FullyQualifiedNameType] merged;
-
-        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
-            auto fqn = ns.fullyQualifiedName;
-
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeNamespace(merged[fqn], ns);
-            } else {
-                merged[fqn] = ns;
-            }
-        }
-
-        foreach (ns; merged.values) {
-            r.put(ns);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
-    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
-
-    return r;
-}
-
-auto mergeClass(T)(T ca, T cb) {
-    import std.algorithm;
-    import cpptooling.data.representation : AccessType, CppVariable;
-
-    static string internalToString(CppClass.CppFunc f) {
-        import std.variant : visit;
-        import cpptooling.data.representation;
-
-        // dfmt off
-        return f.visit!((CppMethod a) => a.toString,
-                        (CppMethodOp a) => a.toString,
-                        (CppCtor a) => a.toString,
-                        (CppDtor a) => a.toString);
-        // dfmt on
-    }
-
-    auto r = CppClass(ca);
-
-    {
-        bool[string] methods;
-        ca.methodRange.each!(a => methods[a.toString] = true);
-        foreach (m; cb.methodPublicRange.filter!(a => internalToString(a) !in methods)) {
-            r.put(m);
-            methods[internalToString(m)] = true;
-        }
-        logger.trace(r.toString);
-    }
-
-    {
-        bool[CppVariable] members;
-        ca.memberRange.each!((a) { members[a.name] = true; });
-        logger.trace(members);
-        foreach (m; cb.memberRange.filter!(a => a.name !in members)) {
-            logger.trace(m.name);
-            r.put(m, AccessType.Public);
-            members[m.name] = true;
-        }
-        logger.trace(members);
-        logger.trace(r.toString);
-    }
-
-    return r;
 }
 
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
@@ -428,8 +299,8 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
         auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+        auto generator = Generator(variant, variant, variant);
         Container symbol_container;
-        CppRoot root;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         logger.trace("Number of files to process: ", compile_db.length);
@@ -449,7 +320,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             } else if (partial_root.isNull) {
                 return ExitStatusType.Errors;
             } else {
-                root = merge(root, partial_root);
+                generator.analyze(partial_root.get, symbol_container);
             }
         }
 
@@ -464,7 +335,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         // process and put the data in variant.
-        Generator(variant, variant, variant).process(root, symbol_container);
+        generator.process();
         break;
 
     case FileProcess.Directive.Single:
@@ -486,7 +357,9 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         // process and put the data in variant.
-        Generator(variant, variant, variant).process(root.get, symbol_container);
+        auto generator = Generator(variant, variant, variant);
+        generator.analyze(root.get, symbol_container);
+        generator.process();
         break;
     }
 

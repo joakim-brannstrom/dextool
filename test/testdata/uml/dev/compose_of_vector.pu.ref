@@ -1,5 +1,5 @@
 @startuml
-    class "A" {
-    }
+    class "A"
+    class "std::vector<std::vector<int, std::allocator<int> > *, std::allocator<std::vector<int, std::allocator<int> > *> >"
     "A" *-- "std::vector<std::vector<int, std::allocator<int> > *, std::allocator<std::vector<int, std::allocator<int> > *> >"
 @enduml

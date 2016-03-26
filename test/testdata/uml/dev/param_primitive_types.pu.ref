@@ -1,5 +1,5 @@
 @startuml
     class "A"
     class "B"
-    "B" *-- "A"
+    "B" --> "A"
 @enduml

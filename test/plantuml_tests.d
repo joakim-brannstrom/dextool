@@ -9,7 +9,7 @@ module plantuml_tests;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import unit_threaded : Name, shouldEqual, ShouldFail;
+import unit_threaded : Name, shouldEqual, ShouldFail, shouldBeTrue;
 import utils;
 
 enum globalTestdir = "plantuml_tests";
@@ -24,6 +24,7 @@ struct TestParams {
 
     // dextool parameters;
     string[] dexParams;
+    string[] dexClassDiagram;
     string[] dexFlags;
 }
 
@@ -37,6 +38,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.out_pu = testEnv.outdir ~ "view_classes.pu";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
+    p.dexClassDiagram = ["--class-paramdep", "--class-inheritdep", "--class-memberdep"];
     p.dexFlags = [];
 
     return p;
@@ -44,7 +46,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
-    runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
+    runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexClassDiagram, p.dexFlags);
 
     if (!p.skipCompare) {
         dextoolYap("Comparing");
@@ -57,11 +59,20 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 }
 
-@Name("Should be a class diagram")
+@Name("Should be a class diagram with methods")
 unittest {
+    //TODO deprecated test, see CLI test of --class-method
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/single_class.hpp", testEnv);
-    p.dexParams ~= "--class-methods";
+    p.dexClassDiagram ~= "--class-method";
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a class diagram with NO methods")
+unittest {
+    //TODO deprecated test, see CLI test of --class-method
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/single_class_no_methods.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
@@ -129,6 +140,13 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should relate classes by parameter dependency")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_dependency.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 @Name("Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -164,4 +182,68 @@ unittest {
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
         .toString, "--skip-file-error"];
     runTestFile(p, testEnv);
+}
+
+@Name("Should not have parameter dependency on primitive types")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_primitive_types.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI with no class parameters")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
+    p.dexClassDiagram = [];
+    p.base_file_compare = p.input_ext.up ~ "cli_none";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --class-method")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
+    p.dexClassDiagram = ["--class-method"];
+    p.base_file_compare = p.input_ext.up ~ "cli_class_method";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --class-paramdep")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
+    p.dexClassDiagram = ["--class-paramdep"];
+    p.base_file_compare = p.input_ext.up ~ "cli_class_param_dep";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --class-inheritdep")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
+    p.dexClassDiagram = ["--class-inheritdep"];
+    p.base_file_compare = p.input_ext.up ~ "cli_class_inherit_dep";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --class-memberdep")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
+    p.dexClassDiagram = ["--class-memberdep"];
+    p.base_file_compare = p.input_ext.up ~ "cli_class_member_dep";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --gen-style-incl")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_gen_style_include.hpp", testEnv);
+    p.dexParams ~= "--gen-style-incl";
+    runTestFile(p, testEnv);
+
+    import std.file : exists;
+
+    exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
 }
