@@ -33,6 +33,13 @@ version (unittest) {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
+
+    /** Determine by checking the filesystem if a templated PREFIX_style file shall be created.
+     *
+     * Create it with a minimal style.
+     * Currently just the direction but may change in the future.
+     */
+    Flag!"genStyleInclFile" genStyleInclFile();
 }
 
 /// Parameters used during generation.
@@ -40,12 +47,12 @@ version (unittest) {
 @safe pure const interface Parameters {
     import std.typecons : Tuple, Flag;
 
-    alias Files = Tuple!(FileName, "classes");
+    alias Files = Tuple!(FileName, "classes", FileName, "styleIncl", FileName, "styleOutput");
 
     /// Output directory to store files in.
     DirName getOutputDirectory();
 
-    /// Files to write generated test double data to.
+    /// Files to write generated diagram data to.
     Files getFiles();
 
     /// Name affecting filenames.
@@ -62,6 +69,13 @@ version (unittest) {
 
     /// If the class members result in dependency on those members.
     Flag!"genClassMemberDependency" genClassMemberDependency();
+
+    /** In all diagrams generate an "!include" of the style file.
+     *
+     * If the file PREFIX_style do not exist, create it with a minimal style.
+     * Currently just the direction but may change in the future.
+     */
+    Flag!"doStyleIncl" doStyleIncl();
 }
 
 /// Data produced by the generator like files.
@@ -435,14 +449,50 @@ private:
     UMLCollection uml;
 
     static void postProcess(Controller ctrl, Parameters params, Products prods, Modules m) {
-        static auto output(PlantumlModule pm) {
+        static PlantumlRootModule makeMinimalStyle() {
             auto proot = PlantumlRootModule.make();
-            proot.content.append(pm);
+
+            auto m = new PlantumlModule;
+            m.stmt("left to right direction");
+            proot.content.append(m);
 
             return proot;
         }
 
-        prods.putFile(params.getFiles.classes, output(m.classes));
+        static PlantumlModule makeStyleInclude(FileName style_file) {
+            auto m = new PlantumlModule;
+            m.stmt("!include " ~ cast(string) style_file);
+
+            return m;
+        }
+
+        static PlantumlRootModule output(PlantumlModule[] pm) {
+            import std.algorithm : filter;
+
+            auto proot = PlantumlRootModule.make();
+
+            foreach (m; pm.filter!(a => a !is null)) {
+                proot.content.append(m);
+            }
+
+            return proot;
+        }
+
+        PlantumlModule style;
+
+        if (params.doStyleIncl) {
+            style = makeStyleInclude(params.getFiles.styleIncl);
+        }
+
+        if (ctrl.genStyleInclFile) {
+            prods.putFile(params.getFiles.styleOutput, makeMinimalStyle);
+        }
+
+        PlantumlModule[] class_module;
+        class_module ~= style;
+        class_module ~= m.classes;
+
+        prods.putFile(params.getFiles.classes, output(class_module));
     }
 }
 

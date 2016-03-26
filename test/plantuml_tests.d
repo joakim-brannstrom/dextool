@@ -9,7 +9,7 @@ module plantuml_tests;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import unit_threaded : Name, shouldEqual, ShouldFail;
+import unit_threaded : Name, shouldEqual, ShouldFail, shouldBeTrue;
 import utils;
 
 enum globalTestdir = "plantuml_tests";
@@ -234,4 +234,16 @@ unittest {
     p.dexClassDiagram = ["--class-memberdep"];
     p.base_file_compare = p.input_ext.up ~ "cli_class_member_dep";
     runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --gen-style-incl")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("cli/cli_gen_style_include.hpp", testEnv);
+    p.dexParams ~= "--gen-style-incl";
+    runTestFile(p, testEnv);
+
+    import std.file : exists;
+
+    exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
 }

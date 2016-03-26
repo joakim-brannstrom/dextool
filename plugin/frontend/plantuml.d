@@ -97,6 +97,7 @@ static auto plantuml_opt = CliOptionParts(
  --class-paramdep    Class method parameters as directed association in diagram
  --class-inheritdep  Class inheritance in diagram
  --class-memberdep   Class member as composition/aggregation in diagram
+ --gen-style-incl    Generate a style file and include in all diagrams
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
@@ -122,11 +123,14 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     alias FileData = Tuple!(FileName, "filename", string, "data");
 
     static const fileExt = ".pu";
+    static const inclExt = ".iuml";
 
     // TODO ugly hack to remove immutable. Fix it appropriately
     FileName input_file;
     immutable DirName output_dir;
-    immutable FileName file_component;
+    immutable FileName file_classes;
+    immutable FileName file_style;
+    immutable FileName file_style_output;
 
     immutable FilePrefix file_prefix;
 
@@ -134,6 +138,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable Flag!"genClassParamDependency" gen_class_param_dep;
     immutable Flag!"genClassInheritDependency" gen_class_inherit_dep;
     immutable Flag!"genClassMemberDependency" gen_class_member_dep;
+    immutable Flag!"doStyleIncl" do_style_incl;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -157,10 +162,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
         "--class-memberdep"].isTrue;
 
+        auto gen_style_incl = cast(Flag!"styleIncl") parsed["--gen-style-incl"].isTrue;
+
         auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
                 DirName(parsed["--out"].toString),
-                gen_class_method, gen_class_param_dep, gen_class_inherit_dep,
-                gen_class_member_dep);
+                gen_style_incl, gen_class_method, gen_class_param_dep,
+                gen_class_inherit_dep, gen_class_member_dep);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -168,8 +175,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FilePrefix file_prefix, DirName output_dir, Flag!"genClassMethod" class_method,
-            Flag!"genClassParamDependency" class_param_dep,
+    this(FilePrefix file_prefix, DirName output_dir, Flag!"styleIncl" style_incl,
+            Flag!"genClassMethod" class_method, Flag!"genClassParamDependency" class_param_dep,
             Flag!"genClassInheritDependency" class_inherit_dep,
             Flag!"genClassMemberDependency" class_member_dep) {
         this.file_prefix = file_prefix;
@@ -179,10 +186,16 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         this.gen_class_inherit_dep = class_inherit_dep;
         this.gen_class_member_dep = class_member_dep;
 
-        import std.path : baseName, buildPath, stripExtension;
+        import std.path : baseName, buildPath, relativePath, stripExtension;
 
-        this.file_component = FileName(buildPath(cast(string) output_dir,
+        this.file_classes = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
+        this.file_style_output = FileName(buildPath(cast(string) output_dir,
+                cast(string) file_prefix ~ "style" ~ inclExt));
+        this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
+                cast(string) output_dir));
+
+        this.do_style_incl = cast(Flag!"doStyleIncl") style_incl;
     }
 
     // -- Controller --
@@ -216,6 +229,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return r;
     }
 
+    Flag!"genStyleInclFile" genStyleInclFile() {
+        import std.path : exists;
+
+        return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
+    }
+
     // -- Parameters --
 
     DirName getOutputDirectory() const {
@@ -223,7 +242,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     Parameters.Files getFiles() const {
-        return Parameters.Files(file_component);
+        return Parameters.Files(file_classes, file_style, file_style_output);
     }
 
     FilePrefix getFilePrefix() const {
@@ -244,6 +263,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     Flag!"genClassMemberDependency" genClassMemberDependency() const {
         return gen_class_member_dep;
+    }
+
+    Flag!"doStyleIncl" doStyleIncl() const {
+        return do_style_incl;
     }
 
     // -- Products --

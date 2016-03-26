@@ -1,0 +1,4 @@
+@startuml
+    !include view_style.iuml
+    class "A"
+@enduml
