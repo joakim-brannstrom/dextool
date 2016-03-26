@@ -1,6 +1,4 @@
 @startuml
-    class "SingleFileDir" {
-    }
-    class "SingleFileMain" {
-    }
+    class "SingleFileDir"
+    class "SingleFileMain"
 @enduml

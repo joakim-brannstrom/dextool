@@ -57,11 +57,18 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 }
 
-@Name("Should be a class diagram")
+@Name("Should be a class diagram with methods")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/single_class.hpp", testEnv);
     p.dexParams ~= "--class-methods";
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a class diagram with NO methods")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/single_class_no_methods.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
@@ -129,6 +136,13 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should relate classes by parameter dependency")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_dependency.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 @Name("Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -163,5 +177,12 @@ unittest {
     p.input_ext = Path("");
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
         .toString, "--skip-file-error"];
+    runTestFile(p, testEnv);
+}
+
+@Name("Should not have parameter dependency on primitive types")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_primitive_types.hpp", testEnv);
     runTestFile(p, testEnv);
 }

@@ -38,7 +38,8 @@ int main(string[] args) {
                           "cpptooling.utility.stack",
                           "cpptooling.utility.taggedalgebraic",
                           "test.helpers",
-                          "plugin.loader"
+                          "plugin.loader",
+                          "plugin.backend.plantuml",
                           );
     //dfmt on
 }

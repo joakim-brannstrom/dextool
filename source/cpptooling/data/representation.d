@@ -103,6 +103,56 @@ string funcToString(CppClass.CppFunc func) @trusted {
     //dfmt on
 }
 
+/// Convert a CxParam to a string.
+string paramTypeToString(CxParam p) @trusted {
+    import std.variant : visit;
+
+    // dfmt off
+    return p.visit!(
+        (TypeKindVariable tk) { return tk.type.txt; },
+        (TypeKind t) { return t.txt; },
+        (VariadicType a) { return "..."; }
+        );
+    // dfmt on
+}
+
+/// Convert a CxParam to a string.
+string paramRawType(CxParam p) @trusted {
+    import std.variant : visit;
+
+    static string toInternal(TypeKind tk) {
+        string type;
+
+        final switch (tk.info.kind) with (TypeKind.Info) {
+        case Kind.record:
+            type = tk.info.type;
+            break;
+        case Kind.simple:
+            type = tk.info.type;
+            break;
+        case TypeKind.Info.Kind.func:
+            break;
+        case Kind.array:
+            type = tk.info.elementType;
+            break;
+        case Kind.funcPtr:
+            break;
+        case Kind.null_:
+            break;
+        }
+
+        return type;
+    }
+
+    // dfmt off
+    return p.visit!(
+        (TypeKindVariable tk) => toInternal(tk.type),
+        (TypeKind t) => toInternal(t),
+        (VariadicType a) => "..."
+        );
+    // dfmt on
+}
+
 /// Expects a toString function where it is mixed in.
 /// base value for hash is 0 to force deterministic hashes. Use the pointer for
 /// unique between objects.
@@ -425,6 +475,7 @@ struct CppMethodGeneric {
         private VirtualType isVirtual_;
         private CppAccess accessType_;
         private CppMethodName name_;
+        private CxReturnType returnType_;
     }
 
     /// Helper for converting virtual type to string
@@ -679,8 +730,6 @@ const:
 }
 
 pure @safe nothrow struct CppMethod {
-    private CxReturnType returnType_;
-
     mixin mixinUniqueId;
 
     @disable this();
@@ -769,8 +818,6 @@ const:
 }
 
 pure @safe nothrow struct CppMethodOp {
-    private CxReturnType returnType_;
-
     mixin mixinUniqueId;
 
     @disable this();

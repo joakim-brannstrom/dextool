@@ -197,10 +197,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return r;
     }
 
-    bool doClassMethods() const {
-        return gen_class_methods;
-    }
-
     // -- Parameters --
 
     DirName getOutputDirectory() {
@@ -215,6 +211,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return file_prefix;
     }
 
+    bool doClassMethods() const {
+        return gen_class_methods;
+    }
+
     // -- Products --
 
     void putFile(FileName fname, PlantumlRootModule root) {
@@ -227,178 +227,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     void putLocation(FileName fname, LocationType type) {
     }
-}
-
-/** Merge the content of two Representations.
- *
- * Incomplete merge so far, only classes.
- *
- * Assuming that it is a merge of namespace and their content that is needed.
- * The content of classes etc do not change.
- */
-auto merge(T)(T ra, T rb) if (is(T == CppRoot)) {
-    import std.algorithm : each, filter;
-    import std.range : chain, tee;
-
-    import cpptooling.data.symbol.types;
-
-    logger.trace("root");
-    logger.trace("Merge A ", ra.toString);
-    logger.trace("Merge B ", rb.toString);
-
-    T r;
-
-    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
-            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
-
-    {
-        logger.trace(" -- class merge --");
-        CppClass[FullyQualifiedNameType] merged;
-
-        foreach (c; chain(ra.classRange, rb.classRange)) {
-            auto fqn = c.fullyQualifiedName;
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeClass(merged[fqn], c);
-            } else {
-                merged[fqn] = c;
-            }
-        }
-
-        foreach (c; merged.values) {
-            r.put(c);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    {
-        logger.trace(" -- namespace merge --");
-        CppNamespace[FullyQualifiedNameType] merged;
-
-        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
-            auto fqn = ns.fullyQualifiedName;
-
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeNamespace(merged[fqn], ns);
-            } else {
-                merged[fqn] = ns;
-            }
-        }
-
-        foreach (ns; merged.values) {
-            r.put(ns);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
-    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
-
-    return r;
-}
-
-CppNamespace mergeNamespace(T)(T ra, T rb) if (is(T == CppNamespace)) {
-    import std.algorithm : each, filter;
-    import std.range : chain, tee;
-
-    import cpptooling.data.symbol.types;
-
-    logger.trace("ns");
-    //logger.trace("Merge A ", ra.toString);
-    //logger.trace("Merge B ", rb.toString);
-
-    auto r = T(ra.resideInNs);
-
-    logger.tracef("(%d %d) (%d %d)", ra.namespaceRange.length,
-            ra.classRange.length, rb.namespaceRange.length, rb.classRange.length);
-
-    {
-        logger.trace(" -- class merge --");
-        CppClass[FullyQualifiedNameType] merged;
-
-        foreach (c; chain(ra.classRange, rb.classRange)) {
-            auto fqn = c.fullyQualifiedName;
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeClass(merged[fqn], c);
-            } else {
-                merged[fqn] = c;
-            }
-        }
-
-        foreach (c; merged.values) {
-            r.put(c);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    {
-        logger.trace(" -- namespace merge --");
-        CppNamespace[FullyQualifiedNameType] merged;
-
-        foreach (ns; chain(ra.namespaceRange, rb.namespaceRange)) {
-            auto fqn = ns.fullyQualifiedName;
-
-            if (fqn in merged) {
-                logger.trace("merge ", fqn, "|", merged.keys);
-                merged[fqn] = mergeNamespace(merged[fqn], ns);
-            } else {
-                merged[fqn] = ns;
-            }
-        }
-
-        foreach (ns; merged.values) {
-            r.put(ns);
-        }
-
-        logger.trace(merged.keys);
-        logger.trace("Merged ", merged.length);
-    }
-
-    assert(r.namespaceRange.length <= (ra.namespaceRange.length + rb.namespaceRange.length));
-    assert(r.classRange.length <= (ra.classRange.length + rb.classRange.length));
-
-    return r;
-}
-
-auto mergeClass(T)(T ca, T cb) {
-    import std.algorithm;
-    import cpptooling.data.representation : AccessType, CppVariable,
-        funcToString;
-
-    auto r = CppClass(ca);
-
-    {
-        bool[string] methods;
-        ca.methodRange.each!(a => methods[a.toString] = true);
-        foreach (m; cb.methodPublicRange.filter!(a => funcToString(a) !in methods)) {
-            r.put(m);
-            methods[funcToString(m)] = true;
-        }
-        logger.trace(r.toString);
-    }
-
-    {
-        bool[CppVariable] members;
-        ca.memberRange.each!((a) { members[a.name] = true; });
-        logger.trace(members);
-        foreach (m; cb.memberRange.filter!(a => a.name !in members)) {
-            logger.trace(m.name);
-            r.put(m, AccessType.Public);
-            members[m.name] = true;
-        }
-        logger.trace(members);
-        logger.trace(r.toString);
-    }
-
-    return r;
 }
 
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
@@ -417,8 +245,8 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
         auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+        auto generator = Generator(variant, variant, variant);
         Container symbol_container;
-        CppRoot root;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         logger.trace("Number of files to process: ", compile_db.length);
@@ -438,7 +266,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             } else if (partial_root.isNull) {
                 return ExitStatusType.Errors;
             } else {
-                root = merge(root, partial_root);
+                generator.analyze(partial_root.get, symbol_container);
             }
         }
 
@@ -453,7 +281,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         // process and put the data in variant.
-        Generator(variant, variant, variant).process(root, symbol_container);
+        generator.process();
         break;
 
     case FileProcess.Directive.Single:
@@ -475,7 +303,9 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         // process and put the data in variant.
-        Generator(variant, variant, variant).process(root.get, symbol_container);
+        auto generator = Generator(variant, variant, variant);
+        generator.analyze(root.get, symbol_container);
+        generator.process();
         break;
     }
 
