@@ -92,13 +92,16 @@ static auto plantuml_opt = CliOptionParts(
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --compile-db=j      Retrieve compilation parameters from the file
- --file-prefix=p     prefix used when generating test artifacts [default: view_]
- --class-methods     include methods in the generated class diagram
+ --file-prefix=p     Prefix used when generating test artifacts [default: view_]
+ --class-method      Include methods in the generated class diagram
+ --class-paramdep    Class method parameters as directed association in diagram
+ --class-inheritdep  Class inheritance in diagram
+ --class-memberdep   Class member as composition/aggregation in diagram
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
- --file-exclude=     exclude files from generation matching the regex.
- --file-restrict=    restrict the scope of the test double to those files
+ --file-exclude=     Exclude files from generation matching the regex.
+ --file-restrict=    Restrict the scope of the test double to those files
                      matching the regex.
 "
 );
@@ -127,7 +130,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     immutable FilePrefix file_prefix;
 
-    immutable Flag!"generateClassMethods" gen_class_methods;
+    immutable Flag!"genClassMethod" gen_class_method;
+    immutable Flag!"genClassParamDependency" gen_class_param_dep;
+    immutable Flag!"genClassInheritDependency" gen_class_inherit_dep;
+    immutable Flag!"genClassMemberDependency" gen_class_member_dep;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -143,11 +149,18 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
 
-        auto class_methods = parsed["--class-methods"].isTrue
-            ? Yes.generateClassMethods : No.generateClassMethods;
+        auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
+        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
+            .isTrue;
+        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed[
+        "--class-inheritdep"].isTrue;
+        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
+        "--class-memberdep"].isTrue;
 
         auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
-                DirName(parsed["--out"].toString), class_methods);
+                DirName(parsed["--out"].toString),
+                gen_class_method, gen_class_param_dep, gen_class_inherit_dep,
+                gen_class_member_dep);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -155,10 +168,16 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FilePrefix file_prefix, DirName output_dir, Flag!"generateClassMethods" gen_class_methods) {
+    this(FilePrefix file_prefix, DirName output_dir, Flag!"genClassMethod" class_method,
+            Flag!"genClassParamDependency" class_param_dep,
+            Flag!"genClassInheritDependency" class_inherit_dep,
+            Flag!"genClassMemberDependency" class_member_dep) {
         this.file_prefix = file_prefix;
         this.output_dir = output_dir;
-        this.gen_class_methods = gen_class_methods;
+        this.gen_class_method = class_method;
+        this.gen_class_param_dep = class_param_dep;
+        this.gen_class_inherit_dep = class_inherit_dep;
+        this.gen_class_member_dep = class_member_dep;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -199,20 +218,32 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     // -- Parameters --
 
-    DirName getOutputDirectory() {
+    DirName getOutputDirectory() const {
         return output_dir;
     }
 
-    Parameters.Files getFiles() {
+    Parameters.Files getFiles() const {
         return Parameters.Files(file_component);
     }
 
-    FilePrefix getFilePrefix() {
+    FilePrefix getFilePrefix() const {
         return file_prefix;
     }
 
-    bool doClassMethods() const {
-        return gen_class_methods;
+    Flag!"genClassMethod" genClassMethod() const {
+        return gen_class_method;
+    }
+
+    Flag!"genClassParamDependency" genClassParamDependency() const {
+        return gen_class_param_dep;
+    }
+
+    Flag!"genClassInheritDependency" genClassInheritDependency() const {
+        return gen_class_inherit_dep;
+    }
+
+    Flag!"genClassMemberDependency" genClassMemberDependency() const {
+        return gen_class_member_dep;
     }
 
     // -- Products --

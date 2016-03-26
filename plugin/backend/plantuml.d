@@ -26,8 +26,9 @@ version (unittest) {
     }
 }
 
-/// Control various aspectes of the analyze and generation like what nodes to
-/// process.
+/** Control various aspectes of the analyze and generation like what nodes to
+ * process.
+ */
 @safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
@@ -36,8 +37,8 @@ version (unittest) {
 
 /// Parameters used during generation.
 /// Important aspact that they do NOT change, therefore it is pure.
-@safe pure interface Parameters {
-    import std.typecons : Tuple;
+@safe pure const interface Parameters {
+    import std.typecons : Tuple, Flag;
 
     alias Files = Tuple!(FileName, "classes");
 
@@ -51,7 +52,16 @@ version (unittest) {
     FilePrefix getFilePrefix();
 
     /// If class methods should be part of the generated class diagrams.
-    bool doClassMethods() const;
+    Flag!"genClassMethod" genClassMethod();
+
+    /// If the parameters of methods should result in directed association.
+    Flag!"genClassParamDependency" genClassParamDependency();
+
+    /// If the inheritance hierarchy between classes is generated.
+    Flag!"genClassInheritDependency" genClassInheritDependency();
+
+    /// If the class members result in dependency on those members.
+    Flag!"genClassMemberDependency" genClassMemberDependency();
 }
 
 /// Data produced by the generator like files.
@@ -343,7 +353,8 @@ unittest {
         c.put(m);
     }
 
-    put(uml, c);
+    put(uml, c, Yes.genClassMethod, Yes.genClassParamDependency,
+            Yes.genClassInheritDependency, Yes.genClassMemberDependency);
 
     uml.toString.shouldEqualPretty("UML Class Diagram (Total 1) {
 A {
@@ -407,14 +418,13 @@ struct Generator {
         auto fl = rawFilter(root, ctrl, products);
         logger.trace("Filtered:\n", fl.toString());
 
-        translate(fl, uml);
+        translate(fl, uml, params);
         logger.trace("Translated:\n", uml.toString);
-
     }
 
     auto process() {
         auto m = Modules.make();
-        generate(uml, m, cast(Flag!"genClassMethods") params.doClassMethods);
+        generate(uml, m);
         postProcess(ctrl, params, products, m);
     }
 
@@ -501,7 +511,10 @@ body {
     return ns;
 }
 
-void put(UMLCollection uml, CppClass c) {
+void put(UMLCollection uml, CppClass c, Flag!"genClassMethod" class_method,
+        Flag!"genClassParamDependency" class_param_dep,
+        Flag!"genClassInheritDependency" class_inherit_dep,
+        Flag!"genClassMemberDependency" class_member_dep) {
     import std.algorithm : each, map, filter, joiner;
     import std.array : array;
     import cpptooling.data.representation;
@@ -624,62 +637,75 @@ void put(UMLCollection uml, CppClass c) {
     uml.put(key);
 
     // dfmt off
-    c.methodPublicRange.map!(a => getMethod(a, "+")).each!(a => uml.put(key, a));
-    c.inheritRange
-        .map!(a => UMLCollection.RelateKey(a.fullyQualifiedName.str))
-        .each!(a => uml.relate(key, a, UMLCollection.Relate.Kind.Extend));
-    c.memberRange
-        .map!(a => getMemberRelation(a))
-        .filter!(a => a[1] != UMLCollection.Relate.Kind.None)
-        .each!(a => uml.relate(key, a[0], a[1]));
-    foreach (a; c.methodRange
-                .map!(a => getMethodRelation(a))
-                .joiner()
-                .filter!(a => a.kind != UMLCollection.Relate.Kind.None)
-                // remove self referencing keys, would result in circles which
-                // just clutters the diagrams
-                .filter!(a => a.key != key)) {
-        uml.relate(key, a.key, a.kind);
+    if (class_method) {
+        c.methodPublicRange.map!(a => getMethod(a, "+")).each!(a => uml.put(key, a));
+    }
+
+    if (class_inherit_dep) {
+        c.inheritRange
+            .map!(a => UMLCollection.RelateKey(a.fullyQualifiedName.str))
+            .each!(a => uml.relate(key, a, UMLCollection.Relate.Kind.Extend));
+    }
+
+    if (class_member_dep) {
+        c.memberRange
+            .map!(a => getMemberRelation(a))
+            .filter!(a => a[1] != UMLCollection.Relate.Kind.None)
+            .each!(a => uml.relate(key, a[0], a[1]));
+    }
+
+    if (class_param_dep) {
+        foreach (a; c.methodRange
+                 .map!(a => getMethodRelation(a))
+                 // flatten the range
+                 .joiner()
+                 .filter!(a => a.kind != UMLCollection.Relate.Kind.None)
+                 // remove self referencing keys, would result in circles which
+                 // just clutters the diagrams
+                 .filter!(a => a.key != key)) {
+            uml.relate(key, a.key, a.kind);
+        }
     }
     // dfmt on
 }
 
-void translate(CppRoot input, UMLCollection uml) {
+void translate(CppRoot input, UMLCollection uml, Parameters params) {
     foreach (ref c; input.classRange) {
-        put(uml, c);
+        put(uml, c, params.genClassMethod, params.genClassParamDependency,
+                params.genClassInheritDependency, params.genClassMemberDependency);
     }
 
     foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml);
+        translateNs(ns, uml, params);
     }
 }
 
-void translateNs(CppNamespace input, UMLCollection uml) {
+void translateNs(CppNamespace input, UMLCollection uml, Parameters params) {
     foreach (ref c; input.classRange) {
-        put(uml, c);
+        put(uml, c, params.genClassMethod, params.genClassParamDependency,
+                params.genClassInheritDependency, params.genClassMemberDependency);
     }
 
     foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml);
+        translateNs(ns, uml, params);
     }
 }
 
-void generate(UMLCollection uml, Generator.Modules modules, Flag!"genClassMethods" genClassMethods) {
+void generate(UMLCollection uml, Generator.Modules modules) {
     import std.algorithm : each;
 
     foreach (kv; uml.sortedClassRange) {
-        generateClass(kv[0], kv[1], modules.classes, genClassMethods);
+        generateClass(kv[0], kv[1], modules.classes);
     }
 
     generateClassRelate(uml.relateToFlatArray, modules.classes);
 }
 
-void generateClass(UMLCollection.ClassKey name, UMLCollection.Class c,
-        PlantumlModule m, Flag!"genClassMethods" genClassMethods) {
+void generateClass(UMLCollection.ClassKey name, UMLCollection.Class c, PlantumlModule m) {
     import std.algorithm : each;
     import std.array;
 
-    if (c.content.length == 0 || genClassMethods == No.genClassMethods) {
+    if (c.content.length == 0) {
         m.class_(cast(string) name);
     } else {
         auto content = m.classBody(cast(string) name);
