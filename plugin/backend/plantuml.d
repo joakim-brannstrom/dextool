@@ -454,6 +454,8 @@ private:
 
             auto m = new PlantumlModule;
             m.stmt("left to right direction");
+            m.stmt("skinparam componentStyle uml2");
+            m.stmt("set namespaceSeparator ::");
             proot.content.append(m);
 
             return proot;
