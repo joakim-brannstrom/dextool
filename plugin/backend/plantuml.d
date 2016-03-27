@@ -137,6 +137,7 @@ version (unittest) {
     alias RelateKey = Typedef!(string, string.init, "UMLKey");
 
     struct Class {
+        bool isInterface;
         string[] content;
     }
 
@@ -220,6 +221,14 @@ version (unittest) {
     }
     body {
         classes[key].content ~= content;
+    }
+
+    void put(ClassKey key, Flag!"isInterface" isInterface)
+    in {
+        assert(key in classes);
+    }
+    body {
+        classes[key].isInterface = isInterface;
     }
 
     /** Add a relation between two classes and increase the count on the class
@@ -687,6 +696,7 @@ void put(UMLCollection uml, CppClass c, Flag!"genClassMethod" class_method,
     auto key = UMLCollection.ClassKey(cast(string) c.fullyQualifiedName);
 
     uml.put(key);
+    uml.put(key, cast(Flag!"isInterface") c.isPureInterface);
 
     // dfmt off
     if (class_method) {
@@ -757,11 +767,21 @@ void generateClass(UMLCollection.ClassKey name, UMLCollection.Class c, PlantumlM
     import std.algorithm : each;
     import std.array;
 
+    PlantumlModule.ClassType pc;
+
     if (c.content.length == 0) {
-        m.class_(cast(string) name);
+        pc = m.class_(cast(string) name);
     } else {
-        auto content = m.classBody(cast(string) name);
-        c.content.each!(a => content.method(a));
+        pc = m.classBody(cast(string) name);
+        c.content.each!(a => pc.method(a));
+    }
+
+    if (c.isInterface) {
+        //TODO add a plantuml macro and use that as color for interface
+        // Allows the user to control the color via the PREFIX_style.iuml
+        import dsrcgen.plantuml;
+
+        pc.addSpot.text("(I, LightBlue)");
     }
 }
 

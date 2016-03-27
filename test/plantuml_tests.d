@@ -247,3 +247,10 @@ unittest {
 
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
 }
+
+@Name("Should be a pure interface class")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/pure_interface.hpp", testEnv);
+    runTestFile(p, testEnv);
+}

@@ -1301,6 +1301,10 @@ const:
             return isVirtual_ != VirtualType.No;
         }
 
+        bool isPureInterface() {
+            return isVirtual_ == VirtualType.Pure;
+        }
+
         auto virtualType() {
             return isVirtual_;
         }
