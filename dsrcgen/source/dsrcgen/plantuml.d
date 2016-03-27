@@ -7,7 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.plantuml;
 
 import std.meta : AliasSeq, staticIndexOf;
-import std.typecons : Flag;
+import std.typecons : Flag, Yes, No;
 
 import dsrcgen.base;
 
@@ -87,33 +87,40 @@ enum LabelPos {
     OnRelation
 }
 
+import std.traits : ReturnType;
+import std.typecons : Typedef, Tuple;
+
+alias ClassModuleType = Typedef!(PlantumlModule, null, "ClassModuleType");
+alias ClassSpotType = Typedef!(PlantumlModule, null, "ClassSpotType");
+alias ClassNameType = Typedef!(string, string.init, "ClassNameType");
+alias ClassType = Tuple!(ClassNameType, "name", ClassModuleType, "m", ClassSpotType, "spot");
+
+alias ComponentModuleType = Typedef!(PlantumlModule, null, "ComponentModuleType");
+alias ComponentAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
+alias ComponentNameType = Typedef!(string, string.init, "ComponentNameType");
+alias ComponentType = Tuple!(ComponentNameType, "name", ComponentModuleType,
+        "m", ComponentAsType, "as");
+
+alias RelationType = Typedef!(ReturnType!(PlantumlModule.stmt),
+        ReturnType!(PlantumlModule.stmt).init, "RelationType");
+
+mixin template RelateTypes(Tleft, Tright, Trel, Tblock) {
+    alias RelateLeft = Typedef!(Tleft, Tleft.init, "RelateLeft");
+    alias RelateRight = Typedef!(Tright, Tright.init, "RelateRight");
+    alias RelateMiddle = Typedef!(Trel, Trel.init, "RelateMiddle");
+    alias RelateBlock = Typedef!(Tblock, Tblock.init, "RelationBlock");
+    alias Relation = Tuple!(RelateLeft, "left", RelateRight, "right",
+            RelateMiddle, "rel", RelateBlock);
+}
+
+mixin RelateTypes!(Text!PlantumlModule, Text!PlantumlModule,
+        Text!PlantumlModule, PlantumlModule);
+
+// Types that can be related between each other
+alias CanRelateSeq = AliasSeq!(ClassNameType, ComponentNameType);
+enum CanRelate(T) = staticIndexOf!(T, CanRelateSeq) >= 0;
+
 class PlantumlModule : BaseModule {
-    import std.traits : ReturnType;
-    import std.typecons : Typedef, Tuple, Yes, No;
-
-    alias ClassModuleType = Typedef!(typeof(this), typeof(this).init, "ClassModuleType");
-    alias ClassType = Tuple!(string, "name", ClassModuleType, "m");
-
-    alias ComponentModuleType = Typedef!(typeof(this), typeof(this).init, "ComponentModuleType");
-    alias ComponentType = Tuple!(string, "name", ComponentModuleType, "m");
-
-    alias RelationType = Typedef!(ReturnType!stmt, ReturnType!stmt.init, "RelationType");
-
-    mixin template RelateTypes(Tleft, Tright, Trel, Tblock) {
-        alias RelateLeft = Typedef!(Tleft, Tleft.init, "RelateLeft");
-        alias RelateRight = Typedef!(Tright, Tright.init, "RelateRight");
-        alias RelateMiddle = Typedef!(Trel, Trel.init, "RelateMiddle");
-        alias RelateBlock = Typedef!(Tblock, Tblock.init, "RelationBlock");
-        alias Relation = Tuple!(RelateLeft, "left", RelateRight, "right",
-                RelateMiddle, "rel", RelateBlock);
-    }
-
-    mixin RelateTypes!(Text!(typeof(this)), Stmt, Stmt, typeof(this));
-
-    // Types that can be related between each other
-    alias CanRelateSeq = AliasSeq!(ClassType, ComponentType);
-    enum CanRelate(T) = staticIndexOf!(T, CanRelateSeq) >= 0;
-
     mixin Attrs;
 
     auto comment(string comment) {
@@ -145,45 +152,70 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
-    auto class_(string name) {
+    ClassType class_(string name) {
         import std.format : format;
 
         auto e = stmt(format(`class "%s"`, name));
-        return ClassType(name, ClassModuleType(e));
+        auto spot = e.text("");
+        spot.suppressThisIndent(1);
+
+        return ClassType(ClassNameType(name), ClassModuleType(e), ClassSpotType(spot));
     }
 
-    auto classBody(string name) {
+    ClassType classBody(string name) {
         import std.format : format;
 
-        auto e = suite(format(`class "%s"`, name));
-        return ClassType(name, ClassModuleType(e));
+        auto e = stmt(format(`class "%s"`, name));
+        e.suppressIndent(1);
+
+        auto spot = e.text("");
+        spot.suppressThisIndent(1);
+        e.text(" {");
+        e.sep;
+        auto s = e.base;
+        e.stmt("}", No.addSep).suppressThisIndent(1);
+
+        return ClassType(ClassNameType(name), ClassModuleType(s), ClassSpotType(spot));
     }
 
     auto component(string name) {
         import std.format : format;
 
         auto e = stmt(format(`component "%s"`, name));
-        return ComponentType(name, ComponentModuleType(e));
+        auto as = e.text("");
+
+        return ComponentType(ComponentNameType(name), ComponentModuleType(e), ComponentAsType(as));
     }
 
     auto componentBody(string name) {
         import std.format : format;
 
-        auto e = suite(format(`component "%s"`, name));
-        return ComponentType(name, ComponentModuleType(e));
+        auto e = stmt(format(`component "%s"`, name));
+        auto as = e.text("");
+
+        e.text(" {");
+        e.sep;
+        auto s = e.base;
+        s.suppressIndent(1);
+        e.stmt("}", No.addSep).suppressThisIndent(1);
+
+        return ComponentType(ComponentNameType(name), ComponentModuleType(s), ComponentAsType(as));
     }
 
     auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
         import std.format : format;
 
-        auto block = stmt("");
-        block.suppressIndent(1);
+        static if (is(T == ClassNameType)) {
+            enum side_format = `"%s"`;
+        } else static if (is(T == ComponentNameType)) {
+            // BUG PlantUML 8036 and lower errors when a component relation uses apostrophe (")
+            enum side_format = `%s`;
+        }
 
-        auto left = block.text(format(`"%s"`, a.name));
-        auto middle = block.stmt(relateToString(relate), No.addSep);
-        middle.setIndentation(1);
-        auto right = block.stmt(format(`"%s"`, b.name), No.addSep);
-        right.setIndentation(1);
+        auto block = stmt("");
+        auto left = block.text(format(side_format, cast(string) a));
+        auto middle = block.text(format(" %s ", relateToString(relate)));
+        auto right = block.text(format(side_format, cast(string) b));
 
         auto rl = Relation(RelateLeft(left), RelateRight(right),
                 RelateMiddle(middle), RelateBlock(block));
@@ -191,20 +223,14 @@ class PlantumlModule : BaseModule {
         return rl;
     }
 
-    auto unsafeRelate(string a, string b, Relate type) {
-        import std.format : format;
-
-        return RelationType(stmt(format(`"%s" %s "%s"`, a, relateToString(type), b)));
-    }
-
     auto unsafeRelate(string a, string b, string type) {
         import std.format : format;
 
-        return RelationType(stmt(format(`"%s" %s "%s"`, a, type, b)));
+        return RelationType(stmt(format(`%s %s %s`, a, type, b)));
     }
 
     // Suites
-    auto suite(string headline, bool separator = true) {
+    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite(headline);
         append(e);
         if (separator) {
@@ -230,13 +256,13 @@ private string paramsToString(T...)(auto ref T args) {
 }
 
 // Begin: Class Diagram functions
-private alias CanHaveMethodSeq = AliasSeq!(PlantumlModule.ClassType, PlantumlModule.ClassModuleType);
+private alias CanHaveMethodSeq = AliasSeq!(ClassType, ClassModuleType);
 private enum CanHaveMethod(T) = staticIndexOf!(T, CanHaveMethodSeq) >= 0;
 
 private auto getM(T)(T m) {
-    static if (is(T == PlantumlModule.ClassModuleType)) {
+    static if (is(T == ClassModuleType)) {
         return m;
-    } else static if (is(T == PlantumlModule.ClassType)) {
+    } else static if (is(T == ClassType)) {
         return m.m;
     } else {
         static assert(false, "Type not supported " ~ T.stringof);
@@ -308,9 +334,27 @@ auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
     auto e = m.getM.stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
     return e;
 }
+
+auto addSpot(T)(ref T m) if (is(T == ClassType)) {
+    auto spot = m.spot.suite("", No.addSep)[$.begin = "<< ", $.end = ">>", $.noident = true];
+    spot.suppressThisIndent(1);
+    spot.setIndentation(1);
+    m.spot = spot;
+
+    return spot;
+}
 // End: Class Diagram functions
 
-auto label(PlantumlModule.Relation m, string txt, LabelPos pos) {
+// Begin: Component Diagram functions
+auto addAs(T)(ref T m) if (is(T == ComponentType)) {
+    auto as = m.as.text(" as ");
+    m.as = as;
+
+    return as;
+}
+// End: Component Diagram functions
+
+auto label(Relation m, string txt, LabelPos pos) {
     import std.format : format;
 
     // A "Left" -- "Right" B : "OnRelation"
@@ -321,7 +365,7 @@ auto label(PlantumlModule.Relation m, string txt, LabelPos pos) {
         break;
     case Right:
         // it is not a mistake to put the right label on middle
-        m.rel.text(format(` "%s"`, txt));
+        m.rel.text(format(`"%s" `, txt));
         break;
     case OnRelation:
         m.right.text(format(` : "%s"`, txt));
@@ -331,7 +375,7 @@ auto label(PlantumlModule.Relation m, string txt, LabelPos pos) {
     return m;
 }
 
-auto label(PlantumlModule.Relation m, string txt) {
+auto label(Relation m, string txt) {
     import std.format : format;
 
     m.right.text(format(` : "%s"`, txt));
@@ -462,13 +506,13 @@ unittest {
     auto a = c.class_("A");
     auto b = c.class_("B");
 
-    c.relate(a, b, Relate.WeakRelate);
-    c.relate(a, b, Relate.Relate);
-    c.relate(a, b, Relate.Compose);
-    c.relate(a, b, Relate.Aggregate);
-    c.relate(a, b, Relate.Extend);
-    c.relate(a, b, Relate.ArrowTo);
-    c.relate(a, b, Relate.AggregateArrowTo);
+    c.relate(a.name, b.name, Relate.WeakRelate);
+    c.relate(a.name, b.name, Relate.Relate);
+    c.relate(a.name, b.name, Relate.Compose);
+    c.relate(a.name, b.name, Relate.Aggregate);
+    c.relate(a.name, b.name, Relate.Extend);
+    c.relate(a.name, b.name, Relate.ArrowTo);
+    c.relate(a.name, b.name, Relate.AggregateArrowTo);
 
     c.render.shouldEqual(`    class "A"
     class "B"
@@ -489,23 +533,23 @@ unittest {
     auto a = c.component("A");
     auto b = c.component("B");
 
-    c.relate(a, b, Relate.WeakRelate);
-    c.relate(a, b, Relate.Relate);
-    c.relate(a, b, Relate.Compose);
-    c.relate(a, b, Relate.Aggregate);
-    c.relate(a, b, Relate.Extend);
-    c.relate(a, b, Relate.ArrowTo);
-    c.relate(a, b, Relate.AggregateArrowTo);
+    c.relate(a.name, b.name, Relate.WeakRelate);
+    c.relate(a.name, b.name, Relate.Relate);
+    c.relate(a.name, b.name, Relate.Compose);
+    c.relate(a.name, b.name, Relate.Aggregate);
+    c.relate(a.name, b.name, Relate.Extend);
+    c.relate(a.name, b.name, Relate.ArrowTo);
+    c.relate(a.name, b.name, Relate.AggregateArrowTo);
 
     c.render.shouldEqual(`    component "A"
     component "B"
-    "A" .. "B"
-    "A" -- "B"
-    "A" o-- "B"
-    "A" *-- "B"
-    "A" --|> "B"
-    "A" --> "B"
-    "A" *--> "B"
+    A .. B
+    A -- B
+    A o-- B
+    A *-- B
+    A --|> B
+    A --> B
+    A *--> B
 `);
 }
 
@@ -516,12 +560,12 @@ unittest {
     auto a = c.component("A");
     auto b = c.component("B");
 
-    auto l = c.relate(a, b, Relate.Relate);
+    auto l = c.relate(a.name, b.name, Relate.Relate);
     l.label("related");
 
     c.render.shouldEqual(`    component "A"
     component "B"
-    "A" -- "B" : "related"
+    A -- B : "related"
 `);
 }
 
@@ -532,7 +576,7 @@ unittest {
     auto a = c.component("A");
     auto b = c.component("B");
 
-    auto l = c.relate(a, b, Relate.Relate);
+    auto l = c.relate(a.name, b.name, Relate.Relate);
 
     l.label("1", LabelPos.Left);
     l.label("2", LabelPos.Right);
@@ -540,6 +584,39 @@ unittest {
 
     c.render.shouldEqual(`    component "A"
     component "B"
-    "A" "1" -- "2" "B" : "related"
+    A "1" -- "2" B : "related"
+`);
+}
+
+@Name("Should be a class with a spot")
+unittest {
+    auto m = new PlantumlModule;
+
+    {
+        auto c = m.class_("A");
+        c.addSpot.text("(D, orchid)");
+    }
+
+    {
+        auto c = m.classBody("B");
+        c.addSpot.text("(I, orchid)");
+        c.method("fun()");
+    }
+
+    m.render.shouldEqual(`    class "A" << (D, orchid) >>
+    class "B" << (I, orchid) >> {
+        fun()
+    }
+`);
+}
+
+@Name("Should be a component with an 'as'")
+unittest {
+    auto m = new PlantumlModule;
+    auto c = m.component("A");
+
+    c.addAs.text("a");
+
+    m.render.shouldEqual(`    component "A" as a
 `);
 }
