@@ -157,7 +157,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
-    p.dexParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
+    p.dexDiagramParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
     runTestFile(p, testEnv);
 }
 
@@ -192,7 +192,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/single_file_main.hpp", testEnv);
     // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
     runTestFile(p, testEnv);
 }
 
@@ -201,7 +201,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/two_files.hpp", testEnv);
     p.input_ext = Path("");
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/two_file_db.json").toString];
+    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/two_file_db.json").toString];
     runTestFile(p, testEnv);
 }
 
@@ -210,7 +210,8 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/merge_nested_ns.hpp", testEnv);
     p.input_ext = Path("");
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json").toString];
+    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json")
+        .toString];
     runTestFile(p, testEnv);
 }
 
@@ -219,7 +220,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/bad_code.hpp", testEnv);
     p.input_ext = Path("");
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
+    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
         .toString, "--skip-file-error"];
     runTestFile(p, testEnv);
 }
@@ -277,12 +278,32 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_gen_style_include.hpp", testEnv);
-    p.dexParams ~= "--gen-style-incl";
+    p.dexDiagramParams ~= "--gen-style-incl";
     runTestFile(p, testEnv);
 
     import std.file : exists;
 
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
+}
+
+@Name("Test of CLI --comp-strip")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_comp_strip.hpp", testEnv);
+    p.dexDiagramParams ~= "--comp-strip='(.*)/strip_this'";
+    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
+        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --comp-strip with 'OR' strip regex")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_comp_strip_complex.hpp", testEnv);
+    p.dexDiagramParams ~= "--comp-strip='(.*)/strip_this|(.*)/keep_this'";
+    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
+        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
+    runTestFile(p, testEnv);
 }
 
 // END   CLI Tests ###########################################################

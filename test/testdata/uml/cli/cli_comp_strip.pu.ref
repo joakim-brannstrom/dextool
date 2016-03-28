@@ -1,0 +1,5 @@
+@startuml
+component "cli" as dGVzdGRhdGEvdW1sL2NsaQ
+component "keep_this" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM
+dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM --> dGVzdGRhdGEvdW1sL2NsaQ
+@enduml

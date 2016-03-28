@@ -97,6 +97,7 @@ static auto plantuml_opt = CliOptionParts(
  --class-paramdep    Class method parameters as directed association in diagram
  --class-inheritdep  Class inheritance in diagram
  --class-memberdep   Class member as composition/aggregation in diagram
+ --comp-strip=r      Regex used to strip path used to derive component name
  --gen-style-incl    Generate a style file and include in all diagrams
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
@@ -143,6 +144,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     Regex!char[] exclude;
     Regex!char[] restrict;
+    Regex!char comp_strip;
 
     /// Data produced by the generator intended to be written to specified file.
     FileData[] fileData;
@@ -153,7 +155,13 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
-        Regex!char strip_incl;
+        Regex!char comp_strip;
+
+        if (!parsed["--comp-strip"].isNull) {
+            string strip_user = parsed["--comp-strip"].toString;
+            comp_strip = regex(strip_user);
+            logger.trace("User supplied regex via --comp-strip: ", strip_user);
+        }
 
         auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
         auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
@@ -172,6 +180,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         variant.exclude = exclude;
         variant.restrict = restrict;
+        variant.comp_strip = comp_strip;
 
         return variant;
     }
@@ -236,6 +245,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         import std.path : exists;
 
         return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
+    }
+
+    FileName doComponentNameStrip(FileName fname) {
+        import application.utility : stripFile;
+
+        return stripFile(fname, comp_strip);
     }
 
     // -- Parameters --

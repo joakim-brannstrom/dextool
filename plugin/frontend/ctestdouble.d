@@ -127,7 +127,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
             strip_incl = regex(strip_incl_user);
-            logger.tracef("User supplied regex %s via --strip-incl", strip_incl);
+            logger.trace("User supplied regex via --strip-incl: ", strip_incl_user);
         } else {
             logger.trace("Using default regex to strip include path (basename)");
             strip_incl = regex(r".*/(.*)");

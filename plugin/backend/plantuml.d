@@ -41,6 +41,9 @@ version (unittest) {
      * Currently just the direction but may change in the future.
      */
     Flag!"genStyleInclFile" genStyleInclFile();
+
+    /// Strip the filename according to user regex.
+    FileName doComponentNameStrip(FileName fname);
 }
 
 /// Parameters used during generation.
@@ -337,6 +340,7 @@ private:
 
     struct Component {
         string displayName;
+        string[] toFile;
     }
 
     /// The component is only added if it doesn't already exist in the store.
@@ -359,6 +363,8 @@ private:
     body {
         put(to, toDisplayName);
         relateTo[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
+
+        components[from].toFile ~= cast(string) to;
     }
 
     /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
@@ -865,20 +871,21 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
 }
 
 void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container container) {
-    import std.algorithm;
-    import std.range;
+    import std.algorithm : map, filter, cache, joiner;
+    import std.range : only, chain, array, dropOne;
     import cpptooling.data.representation;
     import cpptooling.data.symbol.types;
 
     alias KeyValue = Tuple!(UMLComponentDiagram.Key, "key", string, "display",
             string, "absFilePath");
     alias KeyRelate = Tuple!(string, "file", KeyValue, "key", Relate.Kind, "kind");
+    alias PathKind = Tuple!(string, "file", Relate.Kind, "kind");
 
     /** Calculate the key based on the directory the file that declares the symbol exist in.
      *
      * Additional metadata as to make it possible to backtrack.
      */
-    static KeyValue makeKey(in string location_file) @trusted {
+    static KeyValue makeKey(in string location_file, Controller ctrl) @trusted {
         import std.base64;
         import std.path;
         import std.array : appender;
@@ -888,19 +895,19 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
 
         alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
-        string file_path = location_file.absolutePath;
-        string abs_path = file_path.dirName;
-        string rel_path = relativePath(abs_path);
-        string display_name = abs_path.baseName;
+        string file_path = buildNormalizedPath(location_file).absolutePath;
+        string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path.dirName));
+        string rel_path = relativePath(strip_path);
+        string display_name = strip_path.baseName;
 
         auto enc = appender!(char[])();
         SafeBase64.encode(cast(ubyte[]) rel_path, enc);
 
-        auto k = KeyValue(UMLComponentDiagram.Key(enc.data.idup), display_name, abs_path);
+        auto k = KeyValue(UMLComponentDiagram.Key(enc.data.idup), display_name, strip_path);
 
         debug {
-            logger.tracef("Component:%s file:%s base64:%s", k.display,
-                    file_path, cast(string) k.key);
+            logger.tracef("Component:%s stripped:%s file:%s base64:%s",
+                    k.display, strip_path, file_path, cast(string) k.key);
         }
 
         return k;
@@ -911,7 +918,7 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
         import std.string : strip;
 
         auto type_lookup = only(FullyQualifiedNameType(string.init)).dropOne;
-        auto rval = only(KeyRelate()).dropOne;
+        auto rval = only(PathKind()).dropOne;
 
         final switch (tk.info.kind) with (TypeKind.Info) {
         case Kind.record:
@@ -938,7 +945,7 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
                  .filter!(a => !a.isPrimitiveType)
                  .map!(a => container.find!CppClass(a)).joiner()
                  ) {
-            rval = only(KeyRelate(c.location.file, makeKey(c.location.file), Relate.Kind.None));
+            rval = only(PathKind(c.location.file, Relate.Kind.None));
         }
         // dfmt on
 
@@ -948,21 +955,20 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
     static auto getMemberRelation(TypeKindVariable tkv, ref Container container) {
         import std.typecons : tuple;
 
-        return lookupType(tkv.type, container).map!(a => KeyRelate(a.file,
-                a.key, Relate.Kind.Associate));
+        return lookupType(tkv.type, container).map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
     static auto getInheritRelation(CppInherit inherit, ref Container container) {
-        auto rval = only(KeyRelate()).dropOne;
+        auto rval = only(PathKind()).dropOne;
 
         foreach (c; container.find!CppClass(inherit.fullyQualifiedName)) {
-            rval = only(KeyRelate(c.location.file, makeKey(c.location.file), Relate.Kind.Associate));
+            rval = only(PathKind(c.location.file, Relate.Kind.Associate));
         }
 
         return rval;
     }
 
-    static KeyRelate[] getMethodRelation(ref CppClass.CppFunc f, ref Container container) {
+    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, ref Container container) {
         static auto genParam(CxParam p, ref Container container) @trusted {
             import std.variant : visit;
 
@@ -973,7 +979,7 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
                     (VariadicType vk) {
                         logger.error(
                             "Variadic function not supported. Would require runtime information to relate.");
-                        return only(KeyRelate()).dropOne;
+                        return only(PathKind()).dropOne;
                     });
             // dfmt on
         }
@@ -981,32 +987,34 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
         static auto genMethod(T)(T f, ref Container container) {
             import std.typecons : TypedefType;
 
-            return chain(f.paramRange.map!(a => genParam(a, container))
-                    .joiner(), lookupType(cast(TypedefType!CxReturnType) f.returnType, container));
+            // dfmt off
+            return chain(f.paramRange.map!(a => genParam(a, container)).joiner(),
+                         lookupType(cast(TypedefType!CxReturnType) f.returnType, container));
+            // dfmt on
         }
 
         static auto genCtor(CppCtor f, ref Container container) {
             return f.paramRange.map!(a => genParam(a, container)).joiner();
         }
 
-        static KeyRelate[] internalVisit(ref CppClass.CppFunc f, ref Container container) @trusted {
+        static PathKind[] internalVisit(ref CppClass.CppFunc f, ref Container container) @trusted {
             import std.variant : visit;
 
             // dfmt off
             return f.visit!((CppMethod m) => genMethod(m, container).array(),
                     (CppMethodOp m) => genMethod(m, container).array(),
                     (CppCtor m) => genCtor(m, container).array(),
-                    (CppDtor m) => KeyRelate[].init);
+                    (CppDtor m) => PathKind[].init);
             // dfmt on
         }
 
-        auto rval = KeyRelate[].init;
+        auto rval = PathKind[].init;
 
-        return internalVisit(f, container).map!(a => KeyRelate(a.file, a.key,
+        return internalVisit(f, container).map!(a => PathKind(a.file,
                 Relate.Kind.Associate)).array();
     }
 
-    auto key = makeKey(c.location.file);
+    auto key = makeKey(c.location.file, ctrl);
     uml.put(key.key, key.display);
 
     // dfmt off
@@ -1015,7 +1023,9 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
                       c.methodRange.map!(a => getMethodRelation(a, container)).joiner()
                       )
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.file, cast(string) a.key.display))
+        .filter!(a => ctrl.doFile(a.file, cast(string) a.file))
+        .map!(a => KeyRelate(a.file, makeKey(a.file, ctrl), a.kind))
+        .cache
         // self referencing components are invalid
         .filter!(a => a.key != key)) {
         uml.relate(key.key, a.key.key, a.key.display, a.kind);
@@ -1076,7 +1086,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp, Generator
     generateClassRelate(uml_class.relateToFlatArray, modules.classes);
 
     foreach (kv; uml_comp.sortedRange) {
-        generate(kv[0], kv[1].displayName, modules.components);
+        generate(kv[0], kv[1], modules.components);
     }
     generateComponentRelate(uml_comp.relateToFlatArray, modules.components);
 }
@@ -1127,8 +1137,9 @@ void generateClassRelate(T)(T relate_range, PlantumlModule m) {
     }
 }
 
-void generate(UMLComponentDiagram.Key key, string display, PlantumlModule m) {
-    auto comp = m.component(display);
+void generate(UMLComponentDiagram.Key key,
+        const UMLComponentDiagram.Component component, PlantumlModule m) {
+    auto comp = m.component(component.displayName);
     comp.addAs.text(cast(string) key);
 }
 
