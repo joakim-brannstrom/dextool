@@ -129,6 +129,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     FileName input_file;
     immutable DirName output_dir;
     immutable FileName file_classes;
+    immutable FileName file_components;
     immutable FileName file_style;
     immutable FileName file_style_output;
 
@@ -190,6 +191,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         this.file_classes = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
+        this.file_components = FileName(buildPath(cast(string) output_dir,
+                cast(string) file_prefix ~ "components" ~ fileExt));
         this.file_style_output = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "style" ~ inclExt));
         this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
@@ -242,7 +245,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     Parameters.Files getFiles() const {
-        return Parameters.Files(file_classes, file_style, file_style_output);
+        return Parameters.Files(file_classes, file_components, file_style, file_style_output);
     }
 
     FilePrefix getFilePrefix() const {

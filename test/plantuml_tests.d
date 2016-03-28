@@ -24,11 +24,11 @@ struct TestParams {
 
     // dextool parameters;
     string[] dexParams;
-    string[] dexClassDiagram;
+    string[] dexDiagramParams;
     string[] dexFlags;
 }
 
-TestParams genTestParams(string f, const ref TestEnv testEnv) {
+TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
     p.root = Path("testdata/uml").absolutePath;
@@ -38,15 +38,32 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.out_pu = testEnv.outdir ~ "view_classes.pu";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
-    p.dexClassDiagram = ["--class-paramdep", "--class-inheritdep", "--class-memberdep"];
+    p.dexDiagramParams = ["--class-paramdep", "--class-inheritdep", "--class-memberdep"];
     p.dexFlags = [];
+
+    return p;
+}
+
+TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
+    TestParams p;
+
+    p.root = Path("testdata/uml").absolutePath;
+    p.input_ext = p.root ~ Path(f);
+    p.base_file_compare = p.input_ext.stripExtension;
+
+    p.out_pu = testEnv.outdir ~ "view_components.pu";
+
+    p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
+    p.dexDiagramParams = [];
+    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("a")).toString,
+        "-I" ~ (p.input_ext.dirName ~ Path("b")).toString];
 
     return p;
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
-    runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexClassDiagram, p.dexFlags);
+    runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 
     if (!p.skipCompare) {
         dextoolYap("Comparing");
@@ -59,12 +76,14 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 }
 
+// BEGIN Test of single file analyze of Class Diagrams #######################
+
 @Name("Should be a class diagram with methods")
 unittest {
     //TODO deprecated test, see CLI test of --class-method
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/single_class.hpp", testEnv);
-    p.dexClassDiagram ~= "--class-method";
+    auto p = genTestClassParams("dev/single_class.hpp", testEnv);
+    p.dexDiagramParams ~= "--class-method";
     runTestFile(p, testEnv);
 }
 
@@ -72,85 +91,106 @@ unittest {
 unittest {
     //TODO deprecated test, see CLI test of --class-method
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/single_class_no_methods.hpp", testEnv);
+    auto p = genTestClassParams("dev/single_class_no_methods.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
 @Name("Should be a class diagram with 25 classes")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/multiple_class.hpp", testEnv);
+    auto p = genTestClassParams("dev/multiple_class.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two related classes by inheritance")
+@Name("Should be a class diagram with two related classes by inheritance")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/inherit_class.hpp", testEnv);
+    auto p = genTestClassParams("dev/inherit_class.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two classes related by composition")
+@Name("Should be a class diagram two classes related by composition")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_member.hpp", testEnv);
+    auto p = genTestClassParams("dev/class_member.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should skip the function pointer")
+@Name("Should be a class diagram, skip the function pointer")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_skip_funcptr.hpp", testEnv);
+    auto p = genTestClassParams("dev/bug_skip_funcptr.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should skip the pointer")
+@Name("Should be a class diagram, skip the pointer")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_skip_ptr.hpp", testEnv);
+    auto p = genTestClassParams("dev/bug_skip_ptr.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class in a namespace visualized with fully qualified name")
+@Name("Should be a class diagram with a pure interface class")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_in_ns.hpp", testEnv);
+    auto p = genTestClassParams("dev/pure_interface.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a lonely class even though instances exist in global and namespace")
+@Name("Should be a class diagram with a class in a namespace visualized with fully qualified name")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/global_instance.hpp", testEnv);
+    auto p = genTestClassParams("dev/class_in_ns.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should wrap relators in strings to correcty relate templates")
+@Name(
+        "Should be a class diagram with a lonely class even though instances exist in global and namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/compose_of_vector.hpp", testEnv);
+    auto p = genTestClassParams("dev/global_instance.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name(
+        "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
     p.dexParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
     runTestFile(p, testEnv);
 }
 
-@Name("Should be relations via composition and aggregation")
+@Name("Should be a class diagram with relations via composition and aggregation")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_relate.hpp", testEnv);
+    auto p = genTestClassParams("dev/class_relate.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should relate classes by parameter dependency")
+@Name("Should be a class diagram where classes are related by parameter dependency")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_dependency.hpp", testEnv);
+    auto p = genTestClassParams("dev/param_dependency.hpp", testEnv);
     runTestFile(p, testEnv);
 }
+
+@Name(
+        "Should be a class diagram with no parameter dependency because the parameters are of primitive types")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/param_primitive_types.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+// END   Test of single file analyze of Class Diagrams #######################
+
+// BEGIN Compilation Database Tests ##########################################
 
 @Name("Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
+    auto p = genTestClassParams("compile_db/single_file_main.hpp", testEnv);
     // find compilation flags by looking up how single_file_main.c was compiled
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
     runTestFile(p, testEnv);
@@ -159,7 +199,7 @@ unittest {
 @Name("Should process all files in the compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/two_files.hpp", testEnv);
+    auto p = genTestClassParams("compile_db/two_files.hpp", testEnv);
     p.input_ext = Path("");
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/two_file_db.json").toString];
     runTestFile(p, testEnv);
@@ -168,7 +208,7 @@ unittest {
 @Name("Should merge classes in namespaces when processing the compilation DB")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/merge_nested_ns.hpp", testEnv);
+    auto p = genTestClassParams("compile_db/merge_nested_ns.hpp", testEnv);
     p.input_ext = Path("");
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json").toString];
     runTestFile(p, testEnv);
@@ -177,25 +217,22 @@ unittest {
 @Name("Should continue even though a compile error occured")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/bad_code.hpp", testEnv);
+    auto p = genTestClassParams("compile_db/bad_code.hpp", testEnv);
     p.input_ext = Path("");
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
         .toString, "--skip-file-error"];
     runTestFile(p, testEnv);
 }
 
-@Name("Should not have parameter dependency on primitive types")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_primitive_types.hpp", testEnv);
-    runTestFile(p, testEnv);
-}
+// END   Compilation Database Tests ##########################################
+
+// BEGIN CLI Tests ###########################################################
 
 @Name("Test of CLI with no class parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
-    p.dexClassDiagram = [];
+    auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
+    p.dexDiagramParams = [];
     p.base_file_compare = p.input_ext.up ~ "cli_none";
     runTestFile(p, testEnv);
 }
@@ -203,8 +240,8 @@ unittest {
 @Name("Test of CLI --class-method")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
-    p.dexClassDiagram = ["--class-method"];
+    auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
+    p.dexDiagramParams = ["--class-method"];
     p.base_file_compare = p.input_ext.up ~ "cli_class_method";
     runTestFile(p, testEnv);
 }
@@ -212,8 +249,8 @@ unittest {
 @Name("Test of CLI --class-paramdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
-    p.dexClassDiagram = ["--class-paramdep"];
+    auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
+    p.dexDiagramParams = ["--class-paramdep"];
     p.base_file_compare = p.input_ext.up ~ "cli_class_param_dep";
     runTestFile(p, testEnv);
 }
@@ -221,8 +258,8 @@ unittest {
 @Name("Test of CLI --class-inheritdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
-    p.dexClassDiagram = ["--class-inheritdep"];
+    auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
+    p.dexDiagramParams = ["--class-inheritdep"];
     p.base_file_compare = p.input_ext.up ~ "cli_class_inherit_dep";
     runTestFile(p, testEnv);
 }
@@ -230,8 +267,8 @@ unittest {
 @Name("Test of CLI --class-memberdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_classes.hpp", testEnv);
-    p.dexClassDiagram = ["--class-memberdep"];
+    auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
+    p.dexDiagramParams = ["--class-memberdep"];
     p.base_file_compare = p.input_ext.up ~ "cli_class_member_dep";
     runTestFile(p, testEnv);
 }
@@ -239,7 +276,7 @@ unittest {
 @Name("Test of CLI --gen-style-incl")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("cli/cli_gen_style_include.hpp", testEnv);
+    auto p = genTestClassParams("cli/cli_gen_style_include.hpp", testEnv);
     p.dexParams ~= "--gen-style-incl";
     runTestFile(p, testEnv);
 
@@ -248,9 +285,29 @@ unittest {
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
 }
 
-@Name("Should be a pure interface class")
+// END   CLI Tests ###########################################################
+
+// BEGIN Test Component Diagrams #############################################
+
+@Name("Should be a component diagram of two component related by class members")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/pure_interface.hpp", testEnv);
+    auto p = genTestComponentParams("component/class_member.hpp", testEnv);
     runTestFile(p, testEnv);
 }
+
+@Name("Should be a component diagram with two components related by class inheritance")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/class_inherit.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be a component diagram with two components related by method parameters")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/class_method.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+// END   Test Component Diagrams #############################################
