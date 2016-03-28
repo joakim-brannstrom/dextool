@@ -88,11 +88,11 @@ version (unittest) {
             }
         }
 
-        // When this happens the AST isn't complete.
-        // Happens for example when trying to create a mock of std::system_error
+        // When this happens the AST doesn't have the declaration.
+        // A case when this happens is a pointer to a forward declared class.
 
-        // The only sensible option left is to return a zero length range
-        // to still allow range iterators etc to work.
+        // The only sensible option left is to return a zero length range to
+        // still allow range iterators etc to work.
         return only(NullableRef!T((T*).init)).dropOne;
     }
 
@@ -109,8 +109,7 @@ version (unittest) {
 
         auto rval = internalFind!T(fqn);
 
-        logger.errorf(rval.length == 0,
-                "AST is not complete. No symbol found for '%s'", cast(string) fqn);
+        logger.tracef(rval.length == 0, "No symbol found for '%s'", cast(string) fqn);
 
         return rval;
     }

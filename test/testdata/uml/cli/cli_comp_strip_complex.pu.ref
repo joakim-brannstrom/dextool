@@ -1,0 +1,3 @@
+@startuml
+component "cli" as dGVzdGRhdGEvdW1sL2NsaQ
+@enduml

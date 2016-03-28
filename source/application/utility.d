@@ -104,16 +104,20 @@ unittest {
 
 /// if no regexp or no match when using the regexp, using the include
 /// path as-is.
-auto stripIncl(FileName incl, Regex!char re) @trusted {
+auto stripFile(FileName fname, Regex!char re) @trusted {
     import std.array : array;
     import std.algorithm : joiner;
     import std.range : dropOne;
     import std.regex : matchFirst;
     import std.utf : byChar;
 
-    auto c = matchFirst(cast(string) incl, re);
-    auto rval = incl;
-    logger.tracef("for input '%s', --strip-incl match is: %s", cast(string) incl, c);
+    if (re.empty) {
+        return fname;
+    }
+
+    auto c = matchFirst(cast(string) fname, re);
+    auto rval = fname;
+    logger.tracef("for input '%s', strip match is: %s", cast(string) fname, c);
     if (!c.empty) {
         rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
     }
@@ -128,7 +132,7 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
 
     // dfmt off
     auto r = dedup(incls)
-        .map!(a => stripIncl(a, re))
+        .map!(a => stripFile(a, re))
         .cache()
         .filter!(a => a.length > 0)
         .array();

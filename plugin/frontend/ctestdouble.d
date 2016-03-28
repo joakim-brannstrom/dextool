@@ -50,19 +50,19 @@ static auto ctestdouble_opt = CliOptionParts(
     // -------------
     " --out=dir          directory for generated files [default: ./]
  --compile-db=j     Retrieve compilation parameters from the file
- --main=name        used as part of interface, namespace etc [default: TestDouble]
- --main-fname=n     used as part of filename for generated files [default: test_double]
- --prefix=p         prefix used when generating test artifacts [default: Test_]
+ --main=name        Used as part of interface, namespace etc [default: TestDouble]
+ --main-fname=n     Used as part of filename for generated files [default: test_double]
+ --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
     // -------------
 "others:
- --file-exclude=     exclude files from generation matching the regex.
- --file-restrict=    restrict the scope of the test double to those files
-                     matching the regex.
- --td-include=       user supplied includes used instead of those found.
+ --file-exclude=    Exclude files from generation matching the regex.
+ --file-restrict=   Restrict the scope of the test double to those files
+                    matching the regex.
+ --td-include=      User supplied includes used instead of those found.
 "
 );
 // dfmt on
@@ -127,9 +127,9 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
             strip_incl = regex(strip_incl_user);
-            logger.tracef("User supplied regexp %s via --strip-incl", strip_incl);
+            logger.trace("User supplied regex via --strip-incl: ", strip_incl_user);
         } else {
-            logger.trace("Using default regexp to strip include path (basename)");
+            logger.trace("Using default regex to strip include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 

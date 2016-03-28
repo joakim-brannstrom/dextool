@@ -97,6 +97,7 @@ static auto plantuml_opt = CliOptionParts(
  --class-paramdep    Class method parameters as directed association in diagram
  --class-inheritdep  Class inheritance in diagram
  --class-memberdep   Class member as composition/aggregation in diagram
+ --comp-strip=r      Regex used to strip path used to derive component name
  --gen-style-incl    Generate a style file and include in all diagrams
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
@@ -129,6 +130,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     FileName input_file;
     immutable DirName output_dir;
     immutable FileName file_classes;
+    immutable FileName file_components;
     immutable FileName file_style;
     immutable FileName file_style_output;
 
@@ -142,6 +144,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     Regex!char[] exclude;
     Regex!char[] restrict;
+    Regex!char comp_strip;
 
     /// Data produced by the generator intended to be written to specified file.
     FileData[] fileData;
@@ -152,7 +155,13 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
-        Regex!char strip_incl;
+        Regex!char comp_strip;
+
+        if (!parsed["--comp-strip"].isNull) {
+            string strip_user = parsed["--comp-strip"].toString;
+            comp_strip = regex(strip_user);
+            logger.trace("User supplied regex via --comp-strip: ", strip_user);
+        }
 
         auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
         auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
@@ -171,6 +180,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         variant.exclude = exclude;
         variant.restrict = restrict;
+        variant.comp_strip = comp_strip;
 
         return variant;
     }
@@ -190,6 +200,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         this.file_classes = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
+        this.file_components = FileName(buildPath(cast(string) output_dir,
+                cast(string) file_prefix ~ "components" ~ fileExt));
         this.file_style_output = FileName(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "style" ~ inclExt));
         this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
@@ -235,6 +247,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
     }
 
+    FileName doComponentNameStrip(FileName fname) {
+        import application.utility : stripFile;
+
+        return stripFile(fname, comp_strip);
+    }
+
     // -- Parameters --
 
     DirName getOutputDirectory() const {
@@ -242,7 +260,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     Parameters.Files getFiles() const {
-        return Parameters.Files(file_classes, file_style, file_style_output);
+        return Parameters.Files(file_classes, file_components, file_style, file_style_output);
     }
 
     FilePrefix getFilePrefix() const {
