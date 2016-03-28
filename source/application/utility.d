@@ -111,6 +111,10 @@ auto stripFile(FileName fname, Regex!char re) @trusted {
     import std.regex : matchFirst;
     import std.utf : byChar;
 
+    if (re.empty) {
+        return fname;
+    }
+
     auto c = matchFirst(cast(string) fname, re);
     auto rval = fname;
     logger.tracef("for input '%s', strip match is: %s", cast(string) fname, c);
