@@ -109,8 +109,7 @@ version (unittest) {
 
         auto rval = internalFind!T(fqn);
 
-        logger.errorf(rval.length == 0,
-                "AST is not complete. No symbol found for '%s'", cast(string) fqn);
+        logger.tracef(rval.length == 0, "No symbol found for '%s'", cast(string) fqn);
 
         return rval;
     }
