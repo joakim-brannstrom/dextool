@@ -1103,7 +1103,8 @@ pure @safe nothrow struct CppClass {
             break;
         }
 
-        isVirtual_ = analyzeVirtuality(isVirtual_, f);
+        isVirtual_ = analyzeVirtuality(isVirtual_, f,
+                cast(Flag!"hasMember")(memberRange.length > 0));
     }
 
     void put(CppFunc f) {
@@ -1343,7 +1344,7 @@ const:
 
 // Clang have no function that says if a class is virtual/pure virtual.
 // So have to post process.
-private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
+private VirtualType analyzeVirtuality(T)(in VirtualType current, T p, Flag!"hasMember" hasMember) @safe {
     import std.algorithm : among;
 
     struct Rval {
@@ -1373,8 +1374,11 @@ private VirtualType analyzeVirtuality(T)(in VirtualType current, T p) @safe {
 
     final switch (current) {
     case VirtualType.Pure:
-        // a non-virtual destructor lowers purity
-        if (mVirt.t == Rval.Type.Dtor && mVirt.value == VirtualType.No) {
+        // a pure interface can't have members
+        if (hasMember) {
+            r = VirtualType.Yes;
+        }  // a non-virtual destructor lowers purity
+        else if (mVirt.t == Rval.Type.Dtor && mVirt.value == VirtualType.No) {
             r = VirtualType.Yes;
         } else if (mVirt.t == Rval.Type.Normal && mVirt.value == VirtualType.Yes) {
             r = VirtualType.Yes;
