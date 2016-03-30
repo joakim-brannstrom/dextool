@@ -331,4 +331,25 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should be two components with no relation")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/class_no_relation.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be two components related by a free function using a class as parameter")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/free_global_func.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name("Should be two components related by a free function in a namespace")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/free_func_in_ns.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 // END   Test Component Diagrams #############################################
