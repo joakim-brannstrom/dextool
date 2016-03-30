@@ -352,4 +352,19 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should be two components related by the type used to declare a global variable")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/global_var.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name(
+        "Should be two components related by the type used to declare a variable enclosed in an namespace")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/global_in_ns.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 // END   Test Component Diagrams #############################################

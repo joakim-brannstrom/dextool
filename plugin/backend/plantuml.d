@@ -645,17 +645,14 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CppNamespace, CxLocation, CFunction;
+    CppDtor, CppNamespace, CxLocation, CFunction, CxGlobalVariable;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.utility.conv : str;
 import dsrcgen.plantuml;
 
 /** Structurally filter the data to remove unwanted parts.
  *
- * Remove:
- *  - free functions.
- *  - global variables.
- *  - anonymouse namespaces.
+ * TODO consider skipping the filtering stage. It seems unnecessary
  *
  * Params:
  *  ctrl: control what symbols are kept, thus processed further
@@ -681,6 +678,9 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
         .each!(a => raw.put(a));
 
     input.funcRange()
+        .each!(a => raw.put(a));
+
+    input.globalRange()
         .each!(a => raw.put(a));
     // dfmt on
 
@@ -851,7 +851,7 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
 }
 
 void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container container)
-        if (is(T == CppClass) || is(T == CFunction)) {
+        if (is(T == CppClass) || is(T == CFunction) || is(T == CxGlobalVariable)) {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : only, chain, array, dropOne;
     import cpptooling.data.representation;
@@ -1015,8 +1015,12 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
                   input.inheritRange.map!(a => getInheritRelation(a, container)).joiner(),
                   input.methodRange.map!(a => getMethodRelation(a, container)).joiner(),
                  );
-    } else {
+    } else static if (is(T == CFunction)) {
         auto path_kind_range = getFreeFuncRelation(input, container);
+    } else static if (is(T == CxGlobalVariable)) {
+        auto path_kind_range =
+            lookupType(input.type, container)
+            .map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
     foreach (a; path_kind_range
@@ -1045,7 +1049,7 @@ void translate(T)(T input, UMLClassDiagram uml_class, Parameters params)
 
 void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
         Parameters params, ref Container container)
-        if (is(T == CppRoot) || is(T == CppNamespace)) {
+        if (is(T == CppRoot) || is(T == CppNamespace) || is(T == CxGlobalVariable)) {
     void putRange(T)(T r) {
         foreach (ref c; r) {
             put(uml_comp, c, ctrl, container);
@@ -1054,6 +1058,7 @@ void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
 
     putRange(input.classRange);
     putRange(input.funcRange);
+    putRange(input.globalRange);
 
     foreach (ref ns; input.namespaceRange) {
         translate(ns, uml_comp, ctrl, params, container);
