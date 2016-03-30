@@ -454,6 +454,14 @@ struct NamespaceDescendVisitor {
         case CXCursor_Namespace:
             descend = false;
             break;
+        case CXCursor_VarDecl:
+            ///TODO ugly hack. Move this information to the representation.
+            /// but for now skipping all definitions
+            if (c.storageClass() == CX_StorageClass.CX_SC_Extern) {
+                data.put(VariableVisitor.make(c).visit(c));
+            }
+            descend = false;
+            break;
         default:
             break;
         }
