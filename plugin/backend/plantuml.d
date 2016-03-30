@@ -645,7 +645,7 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CppNamespace, CxLocation;
+    CppDtor, CppNamespace, CxLocation, CFunction;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.utility.conv : str;
 import dsrcgen.plantuml;
@@ -660,51 +660,31 @@ import dsrcgen.plantuml;
  * Params:
  *  ctrl: control what symbols are kept, thus processed further
  */
-CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
+T rawFilter(T)(T input, Controller ctrl, Products prod)
+        if (is(T == CppRoot) || is(T == CppNamespace)) {
     import std.algorithm : each, filter, map;
-    import cpptooling.data.representation : VirtualType;
 
-    auto raw = CppRoot(input.location);
+    static if (is(T == CppRoot)) {
+        auto raw = CppRoot(input.location);
+    } else {
+        auto raw = CppNamespace.make(input.name);
+    }
 
     // dfmt off
     input.namespaceRange
-        .filter!(a => !a.isAnonymous)
         .map!(a => rawFilter(a, ctrl, prod))
         .each!(a => raw.put(a));
 
     input.classRange
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .each!(a => raw.put(a));
+
+    input.funcRange()
         .each!(a => raw.put(a));
     // dfmt on
 
     return raw;
-}
-
-/// ditto
-CppNamespace rawFilter(CppNamespace input, Controller ctrl, Products prod)
-in {
-    assert(!input.isAnonymous);
-    assert(input.name.length > 0);
-}
-body {
-    import std.algorithm : each, filter, map;
-
-    auto ns = CppNamespace.make(input.name);
-
-    // dfmt off
-    input.namespaceRange
-        .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, ctrl, prod))
-        .each!(a => ns.put(a));
-
-    input.classRange
-        // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-        .each!(a => ns.put(a));
-    //dfmt on
-
-    return ns;
 }
 
 bool isPrimitiveType(FullyQualifiedNameType type) {
@@ -870,7 +850,8 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
     // dfmt on
 }
 
-void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container container) {
+void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container container)
+        if (is(T == CppClass) || is(T == CFunction)) {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : only, chain, array, dropOne;
     import cpptooling.data.representation;
@@ -968,22 +949,22 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
         return rval;
     }
 
-    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, ref Container container) {
-        static auto genParam(CxParam p, ref Container container) @trusted {
-            import std.variant : visit;
+    static auto genParam(CxParam p, ref Container container) @trusted {
+        import std.variant : visit;
 
-            // dfmt off
-            return p.visit!(
-                    (TypeKindVariable tkv) => lookupType(tkv.type, container),
-                    (TypeKind tk) => lookupType(tk, container),
-                    (VariadicType vk) {
+        // dfmt off
+        return p.visit!(
+                        (TypeKindVariable tkv) => lookupType(tkv.type, container),
+                        (TypeKind tk) => lookupType(tk, container),
+                        (VariadicType vk) {
                         logger.error(
-                            "Variadic function not supported. Would require runtime information to relate.");
+                                     "Variadic function not supported. Would require runtime information to relate.");
                         return only(PathKind()).dropOne;
-                    });
-            // dfmt on
-        }
+                        });
+        // dfmt on
+    }
 
+    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, ref Container container) {
         static auto genMethod(T)(T f, ref Container container) {
             import std.typecons : TypedefType;
 
@@ -1014,14 +995,31 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
                 Relate.Kind.Associate)).array();
     }
 
-    auto key = makeKey(c.location.file, ctrl);
+    static auto getFreeFuncRelation(ref CFunction f, ref Container container) {
+        import std.typecons : TypedefType;
+
+        // dfmt off
+        return chain(f.paramRange.map!(a => genParam(a, container)).joiner(),
+                     lookupType(cast(TypedefType!CxReturnType) f.returnType, container))
+            .map!(a => PathKind(a.file, Relate.Kind.Associate));
+        // dfmt on
+    }
+
+    auto key = makeKey(input.location.file, ctrl);
     uml.put(key.key, key.display);
 
     // dfmt off
-    foreach (a; chain(c.memberRange.map!(a => getMemberRelation(a, container)).joiner(),
-                      c.inheritRange.map!(a => getInheritRelation(a, container)).joiner(),
-                      c.methodRange.map!(a => getMethodRelation(a, container)).joiner()
-                      )
+    static if (is(T == CppClass)) {
+        auto path_kind_range =
+            chain(input.memberRange.map!(a => getMemberRelation(a, container)).joiner(),
+                  input.inheritRange.map!(a => getInheritRelation(a, container)).joiner(),
+                  input.methodRange.map!(a => getMethodRelation(a, container)).joiner(),
+                 );
+    } else {
+        auto path_kind_range = getFreeFuncRelation(input, container);
+    }
+
+    foreach (a; path_kind_range
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.file, cast(string) a.file))
         .map!(a => KeyRelate(a.file, makeKey(a.file, ctrl), a.kind))
@@ -1033,47 +1031,32 @@ void put(UMLComponentDiagram uml, CppClass c, Controller ctrl, ref Container con
     // dfmt on
 }
 
-void translate(CppRoot input, UMLClassDiagram uml_class, Parameters params) {
+void translate(T)(T input, UMLClassDiagram uml_class, Parameters params)
+        if (is(T == CppRoot) || is(T == CppNamespace)) {
     foreach (ref c; input.classRange) {
         put(uml_class, c, params.genClassMethod, params.genClassParamDependency,
                 params.genClassInheritDependency, params.genClassMemberDependency);
     }
 
     foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml_class, params);
+        translate(ns, uml_class, params);
     }
 }
 
-void translateNs(CppNamespace input, UMLClassDiagram uml_class, Parameters params) {
-    foreach (ref c; input.classRange) {
-        put(uml_class, c, params.genClassMethod, params.genClassParamDependency,
-                params.genClassInheritDependency, params.genClassMemberDependency);
+void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
+        Parameters params, ref Container container)
+        if (is(T == CppRoot) || is(T == CppNamespace)) {
+    void putRange(T)(T r) {
+        foreach (ref c; r) {
+            put(uml_comp, c, ctrl, container);
+        }
     }
+
+    putRange(input.classRange);
+    putRange(input.funcRange);
 
     foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml_class, params);
-    }
-}
-
-void translate(CppRoot input, UMLComponentDiagram uml_comp, Controller ctrl,
-        Parameters params, ref Container container) {
-    foreach (ref c; input.classRange) {
-        put(uml_comp, c, ctrl, container);
-    }
-
-    foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml_comp, ctrl, params, container);
-    }
-}
-
-void translateNs(CppNamespace input, UMLComponentDiagram uml_comp,
-        Controller ctrl, Parameters params, ref Container container) {
-    foreach (ref c; input.classRange) {
-        put(uml_comp, c, ctrl, container);
-    }
-
-    foreach (ref ns; input.namespaceRange) {
-        translateNs(ns, uml_comp, ctrl, params, container);
+        translate(ns, uml_comp, ctrl, params, container);
     }
 }
 
