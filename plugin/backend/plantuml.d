@@ -208,10 +208,12 @@ version (unittest) {
  * The relations are of the kind Fan-out.
  */
 @safe class UMLClassDiagram {
+    import cpptooling.data.representation : ClassVirtualType;
+
     alias Key = Typedef!(string, string.init, "UMLKey");
 
     struct Class {
-        bool isInterface;
+        ClassVirtualType classification;
         string[] content;
     }
 
@@ -231,12 +233,12 @@ version (unittest) {
         classes[key].content ~= content;
     }
 
-    void put(Key key, Flag!"isInterface" isInterface)
+    void put(Key key, ClassVirtualType classification)
     in {
         assert(key in classes);
     }
     body {
-        classes[key].isInterface = isInterface;
+        classes[key].classification = classification;
     }
 
     /** Add a relation between two classes and increase the count on the class
@@ -462,12 +464,9 @@ unittest {
 
 @Name("Should be a UML diagram with one class")
 unittest {
-    import unit_threaded : writelnUt;
-
     auto uml = new UMLClassDiagram;
     uml.put(UMLClassDiagram.Key("A"));
 
-    writelnUt(uml.toString);
     uml.toString.shouldEqualPretty("UML Class Diagram (Total 1) {
 A
 } // UML Class Diagram");
@@ -482,7 +481,7 @@ unittest {
     {
         auto m = CppMethod(CppMethodName("fun"), CxReturnType(TypeKind.make("int")),
                 CppAccess(AccessType.Public), CppConstMethod(false),
-                CppVirtualMethod(VirtualType.Yes));
+                CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
 
@@ -515,8 +514,6 @@ A -Extend- [1]B
 
 @Name("Should be a UML Component diagram with two components related")
 unittest {
-    import unit_threaded;
-
     auto uml = new UMLComponentDiagram;
     auto ka = UMLComponentDiagram.Key("a");
     auto kb = UMLComponentDiagram.Key("b");
@@ -524,7 +521,6 @@ unittest {
 
     uml.relate(ka, kb, "B", Relate.Kind.Relate);
 
-    writelnUt(uml.toString);
     uml.toString.shouldEqualPretty("UML Component Diagram (Total 2) {
 a as A
 b as B
@@ -815,7 +811,7 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
     auto key = UMLClassDiagram.Key(cast(string) c.fullyQualifiedName);
 
     uml.put(key);
-    uml.put(key, cast(Flag!"isInterface") c.isPureInterface);
+    uml.put(key, c.classification);
 
     // dfmt off
     if (class_method) {
@@ -1091,12 +1087,22 @@ void generate(UMLClassDiagram.Key name, UMLClassDiagram.Class c, PlantumlModule 
         c.content.each!(a => pc.method(a));
     }
 
-    if (c.isInterface) {
-        //TODO add a plantuml macro and use that as color for interface
-        // Allows the user to control the color via the PREFIX_style.iuml
-        import dsrcgen.plantuml;
+    import cpptooling.data.representation : ClassVirtualType;
+    import dsrcgen.plantuml : addSpot;
 
+    //TODO add a plantuml macro and use that as color for interface
+    // Allows the user to control the color via the PREFIX_style.iuml
+    switch (c.classification) with (ClassVirtualType) {
+    case Abstract:
+        pc.addSpot.text("(A, Pink)");
+        break;
+    case VirtualDtor:
+        goto case;
+    case Pure:
         pc.addSpot.text("(I, LightBlue)");
+        break;
+    default:
+        break;
     }
 }
 

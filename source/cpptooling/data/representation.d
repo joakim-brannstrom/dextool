@@ -63,12 +63,12 @@ alias CppClassName = Typedef!(string, string.init, "CppClassName");
 /// Don't check the length and use that as an insidential "no nesting".
 alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
 
-alias CppClassVirtual = Typedef!(VirtualType, VirtualType.No, "CppClassVirtual");
+alias CppClassVirtual = Typedef!(ClassVirtualType, ClassVirtualType.Unknown, "CppClassVirtual");
 
 // Types for methods
 alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
 alias CppConstMethod = Typedef!(bool, bool.init, "CppConstMethod");
-alias CppVirtualMethod = Typedef!(VirtualType, VirtualType.No, "CppVirtualMethod");
+alias CppVirtualMethod = Typedef!(MemberVirtualType, MemberVirtualType.Unknown, "CppVirtualMethod");
 alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
 
 // Types for free functions
@@ -79,11 +79,21 @@ alias VariadicType = Flag!"isVariadic";
 alias CxParam = Algebraic!(TypeKindVariable, TypeKind, VariadicType);
 alias CxReturnType = Typedef!(TypeKind, TypeKind.init, "CxReturnType");
 
-enum VirtualType {
-    No,
-    Yes,
-    Pure,
-    Unknown
+enum MemberVirtualType {
+    Unknown,
+    Normal,
+    Virtual,
+    Pure
+}
+
+///TODO is ClassClassificationType better?
+enum ClassVirtualType {
+    Unknown,
+    Normal,
+    Virtual,
+    VirtualDtor, // only one method, a d'tor and it is virtual
+    Abstract,
+    Pure
 }
 
 enum AccessType {
@@ -439,31 +449,33 @@ struct CppMethodGeneric {
         private CxParam[] params_;
     }
 
-    /** Common properties for C++ methods.
+    /** Common properties for c'tor, d'tor, methods and operators.
      *
      * Defines the needed variables.
      * Expecting them to be set in c'tors.
      */
-    template Properties() {
-        @property const {
-            auto isConst() {
-                return isConst_;
-            }
-
+    template BaseProperties() {
+        @property const pure @nogc nothrow {
             bool isVirtual() {
-                return isVirtual_ != VirtualType.No;
+                import std.algorithm : among;
+
+                with (MemberVirtualType) {
+                    return classification_.among(Virtual, Pure) != 0;
+                }
             }
 
-            auto virtualType() {
-                return isVirtual_;
+            bool isPure() {
+                with (MemberVirtualType) {
+                    return classification_ == Pure;
+                }
+            }
+
+            MemberVirtualType classification() {
+                return classification_;
             }
 
             auto accessType() {
                 return accessType_;
-            }
-
-            auto returnType() {
-                return returnType_;
             }
 
             auto name() {
@@ -471,28 +483,46 @@ struct CppMethodGeneric {
             }
         }
 
-        private bool isConst_;
-        private VirtualType isVirtual_;
+        private MemberVirtualType classification_;
         private CppAccess accessType_;
         private CppMethodName name_;
+    }
+
+    /** Properties used by methods and operators.
+     *
+     * Defines the needed variables.
+     * Expecting them to be set in c'tors.
+     */
+    template MethodProperties() {
+        @property const pure @nogc nothrow {
+            auto isConst() {
+                return isConst_;
+            }
+
+            auto returnType() {
+                return returnType_;
+            }
+        }
+
+        private bool isConst_;
         private CxReturnType returnType_;
     }
 
     /// Helper for converting virtual type to string
     template StringHelperVirtual() {
-        static string helperVirtualPre(VirtualType pre) @safe pure nothrow @nogc {
+        static string helperVirtualPre(MemberVirtualType pre) @safe pure nothrow @nogc {
             switch (pre) {
-            case VirtualType.Yes:
-            case VirtualType.Pure:
+            case MemberVirtualType.Virtual:
+            case MemberVirtualType.Pure:
                 return "virtual ";
             default:
                 return "";
             }
         }
 
-        static string helperVirtualPost(VirtualType post) @safe pure nothrow @nogc {
+        static string helperVirtualPost(MemberVirtualType post) @safe pure nothrow @nogc {
             switch (post) {
-            case VirtualType.Pure:
+            case MemberVirtualType.Pure:
                 return " = 0";
             default:
                 return "";
@@ -663,28 +693,21 @@ const:
 }
 
 pure @safe nothrow struct CppDtor {
-    private {
-        VirtualType isVirtual_;
-        CppAccess accessType_;
-        CppMethodName name_;
-    }
-
     mixin mixinUniqueId;
+    mixin CppMethodGeneric.BaseProperties;
+    mixin CppMethodGeneric.StringHelperVirtual;
 
     @disable this();
 
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
-        this.name_ = name;
-        this.accessType_ = access;
-
         import std.typecons : TypedefType;
 
-        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.accessType_ = access;
+        this.name_ = name;
 
         setUniqueId(name_.str);
     }
-
-    mixin CppMethodGeneric.StringHelperVirtual;
 
 const:
 
@@ -696,7 +719,7 @@ const:
         // dfmt off
         return
             only(
-                 helperVirtualPre(virtualType),
+                 helperVirtualPre(classification_),
                  name_.str,
                  "()"
                 )
@@ -705,46 +728,32 @@ const:
         // dfmt on
     }
 
-    @property {
-        bool isVirtual() {
-            return isVirtual_ != VirtualType.No;
-        }
-
-        auto virtualType() {
-            return isVirtual_;
-        }
-
-        auto accessType() {
-            return accessType_;
-        }
-
-        auto name() {
-            return name_;
-        }
-    }
-
     invariant() {
         assert(name_.length > 0);
-        assert(isVirtual_ != VirtualType.Pure);
+        assert(classification_ != MemberVirtualType.Unknown);
     }
 }
 
 pure @safe nothrow struct CppMethod {
     mixin mixinUniqueId;
+    mixin CppMethodGeneric.Parameters;
+    mixin CppMethodGeneric.StringHelperVirtual;
+    mixin CppMethodGeneric.BaseProperties;
+    mixin CppMethodGeneric.MethodProperties;
 
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
-        this.name_ = name;
-        this.returnType_ = return_type;
-        this.accessType_ = access;
-        this.params_ = params.dup;
-
         import std.typecons : TypedefType;
 
+        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.accessType_ = access;
+        this.name_ = name;
+        this.returnType_ = return_type;
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
-        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+
+        this.params_ = params.dup;
 
         setUniqueId(signatureToString);
     }
@@ -756,15 +765,11 @@ pure @safe nothrow struct CppMethod {
     }
 
     /// Function with no parameters and returning void.
-    this(const CppMethodName name, const CppAccess access,
-            const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
+    this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
+            const CppVirtualMethod virtual = MemberVirtualType.Normal) {
         auto void_ = CxReturnType(TypeKind.make("void"));
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
-
-    mixin CppMethodGeneric.Parameters;
-    mixin CppMethodGeneric.StringHelperVirtual;
-    mixin CppMethodGeneric.Properties;
 
 const:
 
@@ -796,11 +801,11 @@ const:
         // dfmt off
         return
             only(
-                 helperVirtualPre(virtualType),
+                 helperVirtualPre(classification_),
                  returnType_.txt,
                  " ",
                  signatureToString,
-                 helperVirtualPost(virtualType)
+                 helperVirtualPost(classification_)
                 )
             .joiner()
             .text;
@@ -810,6 +815,7 @@ const:
     invariant() {
         assert(name_.length > 0);
         assert(returnType_.txt.length > 0);
+        assert(classification_ != MemberVirtualType.Unknown);
 
         foreach (p; params_) {
             assertVisit(p);
@@ -819,20 +825,24 @@ const:
 
 pure @safe nothrow struct CppMethodOp {
     mixin mixinUniqueId;
+    mixin CppMethodGeneric.Parameters;
+    mixin CppMethodGeneric.StringHelperVirtual;
+    mixin CppMethodGeneric.BaseProperties;
+    mixin CppMethodGeneric.MethodProperties;
 
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
-        this.name_ = name;
-        this.returnType_ = return_type;
-        this.accessType_ = access;
-        this.params_ = params.dup;
-
         import std.typecons : TypedefType;
 
+        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.accessType_ = access;
+        this.name_ = name;
         this.isConst_ = cast(TypedefType!CppConstMethod) const_;
-        this.isVirtual_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.returnType_ = return_type;
+
+        this.params_ = params.dup;
     }
 
     /// Operator with no parameters.
@@ -842,15 +852,11 @@ pure @safe nothrow struct CppMethodOp {
     }
 
     /// Operator with no parameters and returning void.
-    this(const CppMethodName name, const CppAccess access,
-            const CppConstMethod const_ = false, const CppVirtualMethod virtual = VirtualType.No) {
+    this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
+            const CppVirtualMethod virtual = MemberVirtualType.Normal) {
         CxReturnType void_ = TypeKind.make("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
-
-    mixin CppMethodGeneric.Parameters;
-    mixin CppMethodGeneric.StringHelperVirtual;
-    mixin CppMethodGeneric.Properties;
 
 const:
 
@@ -882,11 +888,11 @@ const:
         // dfmt off
         return
             only(
-                 helperVirtualPre(virtualType),
+                 helperVirtualPre(classification_),
                  returnType_.txt,
                  " ",
                  signatureToString,
-                 helperVirtualPost(virtualType),
+                 helperVirtualPost(classification_),
                  // distinguish an operator from a normal method
                  " /* operator */"
                 )
@@ -909,6 +915,7 @@ const:
     invariant() {
         assert(name_.length > 0);
         assert(returnType_.txt.length > 0);
+        assert(classification_ != MemberVirtualType.Unknown);
 
         foreach (p; params_) {
             assertVisit(p);
@@ -1010,7 +1017,7 @@ pure @safe nothrow struct CppClass {
         CppInherit[] inherits_;
         CppNsStack reside_in_ns;
 
-        VirtualType isVirtual_ = VirtualType.Unknown;
+        ClassVirtualType classification_;
 
         CppFunc[] methods_pub;
         CppFunc[] methods_prot;
@@ -1103,7 +1110,7 @@ pure @safe nothrow struct CppClass {
             break;
         }
 
-        isVirtual_ = analyzeVirtuality(isVirtual_, f,
+        classification_ = classifyClass(classification_, f,
                 cast(Flag!"hasMember")(memberRange.length > 0));
     }
 
@@ -1254,7 +1261,7 @@ const:
                   only("class", name_.str).joiner(" "),
                   inherits.takeOne.map!(a => " : ").joiner(),
                   inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
-                  only(" { // isVirtual", to!string(virtualType), location.toString).joiner(" ")
+                  only(" { //", to!string(classification_), location.toString).joiner(" ")
                  );
         auto end_class =
             chain(
@@ -1299,15 +1306,29 @@ const:
 
     @property {
         bool isVirtual() {
-            return isVirtual_ != VirtualType.No;
+            import std.algorithm : among;
+
+            with (ClassVirtualType) {
+                return classification_.among(Virtual, VirtualDtor, Abstract, Pure) != 0;
+            }
         }
 
-        bool isPureInterface() {
-            return isVirtual_ == VirtualType.Pure;
+        bool isAbstract() {
+            with (ClassVirtualType) {
+                return classification_ == Abstract;
+            }
         }
 
-        auto virtualType() {
-            return isVirtual_;
+        bool isPure() {
+            import std.algorithm : among;
+
+            with (ClassVirtualType) {
+                return classification_.among(VirtualDtor, Pure) != 0;
+            }
+        }
+
+        auto classification() {
+            return classification_;
         }
 
         auto name() {
@@ -1342,64 +1363,96 @@ const:
     }
 }
 
-// Clang have no function that says if a class is virtual/pure virtual.
-// So have to post process.
-private VirtualType analyzeVirtuality(T)(in VirtualType current, T p, Flag!"hasMember" hasMember) @safe {
+// Clang have no property that clasifies a class as virtual/abstract/pure.
+private ClassVirtualType classifyClass(T)(in ClassVirtualType current, T p,
+        Flag!"hasMember" hasMember) @safe {
     import std.algorithm : among;
 
     struct Rval {
         enum Type {
-            Normal,
+            Method,
             Ctor,
             Dtor
         }
 
-        VirtualType value;
+        MemberVirtualType value;
         Type t;
     }
 
-    static auto getVirt(T func) @trusted {
+    static Rval getMethodClassification(T func) @trusted
+    out (result) {
+        assert(result.value != MemberVirtualType.Unknown);
+    }
+    body {
         import std.variant : visit;
 
         //dfmt off
-        return func.visit!((CppMethod a) => Rval(a.virtualType(), Rval.Type.Normal),
-                           (CppMethodOp a) => Rval(a.virtualType(), Rval.Type.Normal),
-                           (CppCtor a) => Rval(VirtualType.No, Rval.Type.Ctor),
-                           (CppDtor a) => Rval(a.virtualType(), Rval.Type.Dtor));
+        return func.visit!((CppMethod a) => Rval(a.classification(), Rval.Type.Method),
+                           (CppMethodOp a) => Rval(a.classification(), Rval.Type.Method),
+                           (CppCtor a) => Rval(MemberVirtualType.Normal, Rval.Type.Ctor),
+                           (CppDtor a) => Rval(a.classification(), Rval.Type.Dtor));
         //dfmt on
     }
 
-    VirtualType r = current;
-    auto mVirt = getVirt(p);
+    ClassVirtualType r = current;
+    auto mVirt = getMethodClassification(p);
 
     final switch (current) {
-    case VirtualType.Pure:
+    case ClassVirtualType.Pure:
         // a pure interface can't have members
         if (hasMember) {
-            r = VirtualType.Yes;
+            r = ClassVirtualType.Abstract;
         }  // a non-virtual destructor lowers purity
-        else if (mVirt.t == Rval.Type.Dtor && mVirt.value == VirtualType.No) {
-            r = VirtualType.Yes;
-        } else if (mVirt.t == Rval.Type.Normal && mVirt.value == VirtualType.Yes) {
-            r = VirtualType.Yes;
+        else if (mVirt.t == Rval.Type.Dtor && mVirt.value == MemberVirtualType.Normal) {
+            r = ClassVirtualType.Abstract;
+        } else if (mVirt.t == Rval.Type.Method && mVirt.value == MemberVirtualType.Virtual) {
+            r = ClassVirtualType.Abstract;
         }
         break;
-    case VirtualType.Yes:
-        // one or more methods are virtual or pure, stay at this state
+    case ClassVirtualType.Abstract:
+        // one or more methods are pure, stay at this state
         break;
-    case VirtualType.No:
-        if (mVirt.t.among(Rval.Type.Normal, Rval.Type.Dtor)
-                && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
-            r = VirtualType.Yes;
+    case ClassVirtualType.Virtual:
+        if (mVirt.value == MemberVirtualType.Pure) {
+            r = ClassVirtualType.Abstract;
         }
         break;
-    case VirtualType.Unknown:
+    case ClassVirtualType.VirtualDtor:
+        if (mVirt.value == MemberVirtualType.Pure) {
+            r = ClassVirtualType.Pure;
+        } else {
+            r = ClassVirtualType.Virtual;
+        }
+        break;
+    case ClassVirtualType.Normal:
+        if (mVirt.t.among(Rval.Type.Method,
+                Rval.Type.Dtor) && mVirt.value == MemberVirtualType.Pure) {
+            r = ClassVirtualType.Abstract;
+        } else if (mVirt.t.among(Rval.Type.Method, Rval.Type.Dtor)
+                && mVirt.value == MemberVirtualType.Virtual) {
+            r = ClassVirtualType.Virtual;
+        }
+        break;
+    case ClassVirtualType.Unknown:
         // ctor cannot affect purity evaluation
         if (mVirt.t == Rval.Type.Dtor
-                && mVirt.value.among(VirtualType.Pure, VirtualType.Yes)) {
-            r = VirtualType.Pure;
+                && mVirt.value.among(MemberVirtualType.Pure, MemberVirtualType.Virtual)) {
+            r = ClassVirtualType.VirtualDtor;
         } else if (mVirt.t != Rval.Type.Ctor) {
-            r = mVirt.value;
+            final switch (mVirt.value) {
+            case MemberVirtualType.Unknown:
+                r = ClassVirtualType.Unknown;
+                break;
+            case MemberVirtualType.Normal:
+                r = ClassVirtualType.Normal;
+                break;
+            case MemberVirtualType.Virtual:
+                r = ClassVirtualType.Virtual;
+                break;
+            case MemberVirtualType.Pure:
+                r = ClassVirtualType.Pure;
+                break;
+            }
         }
         break;
     }
@@ -1643,7 +1696,7 @@ unittest {
 unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     shouldEqual(m.isConst, false);
-    shouldEqual(m.isVirtual, VirtualType.No);
+    shouldEqual(m.classification, MemberVirtualType.Normal);
     shouldEqual(m.name, "voider");
     shouldEqual(m.params_.length, 0);
     shouldEqual(m.returnType.txt, "void");
@@ -1657,7 +1710,7 @@ unittest {
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
-        CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.Yes));
+        CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Virtual));
 
     shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
 }
@@ -1682,7 +1735,7 @@ unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Normal File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo");
@@ -1694,7 +1747,7 @@ unittest {
     auto op = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
     c.put(op);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual No File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Normal File:noloc Line:0 Column:0
 public:
   void operator=() /* operator */;
 }; //Class:Foo");
@@ -1758,7 +1811,7 @@ unittest {
 @Name("Test of Dtor's")
 unittest {
     auto dtor = CppDtor(CppMethodName("~dtor"), CppAccess(AccessType.Public),
-        CppVirtualMethod(VirtualType.Yes));
+        CppVirtualMethod(MemberVirtualType.Virtual));
 
     shouldEqual(dtor.toString, "virtual ~dtor()");
 }
@@ -1777,7 +1830,7 @@ unittest {
         auto tk = TypeKind.make("int");
         auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk),
             CppAccess(AccessType.Protected), CppConstMethod(false),
-            CppVirtualMethod(VirtualType.Pure));
+            CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
 
@@ -1787,7 +1840,7 @@ unittest {
         auto m = CppMethod(CppMethodName("gun"),
             CxReturnType(tk),
             CppAccess(AccessType.Private), CppConstMethod(false),
-            CppVirtualMethod(VirtualType.No));
+            CppVirtualMethod(MemberVirtualType.Normal));
         m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("x"))));
         m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("y"))));
         c.put(m);
@@ -1798,11 +1851,11 @@ unittest {
         tk.isPtr = Yes.isPtr;
         auto m = CppMethod(CppMethodName("wun"),
             CxReturnType(tk),
-            CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(VirtualType.No));
+            CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Normal));
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Abstract File:noloc Line:0 Column:0
 public:
   void voider();
   Foo();
@@ -1820,7 +1873,7 @@ unittest {
     auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
 
     shouldEqualPretty(c.toString,
-                      "class A_Class { // isVirtual Unknown File:a.h Line:123 Column:45
+                      "class A_Class { // Unknown File:a.h Line:123 Column:45
 }; //Class:a_ns::another_ns::A_Class"
                       );
 
@@ -1837,7 +1890,7 @@ unittest {
 
     shouldEqualPretty(
         c.toString,
-        "class Foo : public pub, protected prot, private priv { // isVirtual Unknown File:a.h Line:123 Column:45
+        "class Foo : public pub, protected prot, private priv { // Unknown File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1849,15 +1902,15 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Unknown File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Unknown File:noloc Line:0 Column:0
 public:
-class Pub { // isVirtual Unknown File:noloc Line:0 Column:0
+class Pub { // Unknown File:noloc Line:0 Column:0
 }; //Class:Pub
 protected:
-class Prot { // isVirtual Unknown File:noloc Line:0 Column:0
+class Prot { // Unknown File:noloc Line:0 Column:0
 }; //Class:Prot
 private:
-class Priv { // isVirtual Unknown File:noloc Line:0 Column:0
+class Priv { // Unknown File:noloc Line:0 Column:0
 }; //Class:Priv
 }; //Class:Foo");
 }
@@ -1872,18 +1925,18 @@ unittest {
     }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
-            CppVirtualMethod(VirtualType.Yes));
+            CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
             CxReturnType(TypeKind.make("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(VirtualType.Yes));
+            CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Yes File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Virtual File:noloc Line:0 Column:0
 public:
   Foo();
   virtual ~Foo();
@@ -1901,18 +1954,18 @@ unittest {
     }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
-            CppVirtualMethod(VirtualType.Yes));
+            CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
             CxReturnType(TypeKind.make("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(VirtualType.Pure));
+            CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Pure File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Pure File:noloc Line:0 Column:0
 public:
   Foo();
   virtual ~Foo();
@@ -1929,7 +1982,7 @@ unittest {
     ns.put(c);
 
     shouldEqualPretty(ns.toString, "namespace simple { //simple
-class Foo { // isVirtual No File:noloc Line:0 Column:0
+class Foo { // Normal File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo
@@ -1964,7 +2017,7 @@ unittest {
 
 void nothing(); // File:a.h Line:123 Column:45
 
-class Foo { // isVirtual No File:noloc Line:0 Column:0
+class Foo { // Normal File:noloc Line:0 Column:0
 public:
   void voider();
 }; //Class:Foo
@@ -2111,7 +2164,7 @@ unittest {
     c.put(ih);
 
     c.toString.shouldEqualPretty(
-        "class A : public ns1::Class { // isVirtual Unknown File:noloc Line:0 Column:0
+        "class A : public ns1::Class { // Unknown File:noloc Line:0 Column:0
 }; //Class:A");
 }
 
@@ -2121,7 +2174,39 @@ unittest {
     auto tk = TypeKind.make("int");
     c.put(TypeKindVariable(tk, CppVariable("x")), AccessType.Public);
 
-    shouldEqualPretty(c.toString, "class Foo { // isVirtual Unknown File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Unknown File:noloc Line:0 Column:0
   int x;
 }; //Class:Foo");
+}
+
+@Name("Should be an abstract class")
+unittest {
+    logger.trace("aaaaaaaaaaaaaaaaaaaa");
+    auto c = CppClass(CppClassName("Foo"));
+
+    {
+        auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
+            CppVirtualMethod(MemberVirtualType.Normal));
+        c.put(m);
+    }
+    {
+        auto m = CppMethod(CppMethodName("wun"),
+            CppAccess(AccessType.Public), CppConstMethod(false),
+            CppVirtualMethod(MemberVirtualType.Pure));
+        c.put(m);
+    }
+    {
+        auto m = CppMethod(CppMethodName("gun"),
+            CppAccess(AccessType.Public), CppConstMethod(false),
+            CppVirtualMethod(MemberVirtualType.Virtual));
+        c.put(m);
+    }
+
+    shouldEqualPretty(c.toString, "class Foo { // Abstract File:noloc Line:0 Column:0
+public:
+  ~Foo();
+  virtual void wun() = 0;
+  virtual void gun();
+}; //Class:Foo");
+
 }

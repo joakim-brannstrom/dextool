@@ -81,7 +81,7 @@ CppClass makeFuncInterface(Tr)(Tr r, in MainInterface main_if) {
 
         auto name = CppMethodName(f.name.str);
         auto m = CppMethod(name, params, f.returnType(), CppAccess(AccessType.Public),
-                CppConstMethod(false), CppVirtualMethod(VirtualType.Pure));
+                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
 
         c.put(m);
     }

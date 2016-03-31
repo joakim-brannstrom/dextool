@@ -31,12 +31,10 @@ void generateHdr(CppClass in_c, CppModule hdr) {
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
-        import cpptooling.data.representation : VirtualType;
-
         string params = m.paramRange().joinParams();
         auto o = hdr.method(m.isVirtual() ? Yes.isVirtual : No.isVirtual,
                 m.returnType().txt, m.name().str, m.isConst ? Yes.isConst : No.isConst, params);
-        if (m.virtualType() == VirtualType.Pure) {
+        if (m.isPure) {
             o[$.end = " = 0;"];
         }
     }
