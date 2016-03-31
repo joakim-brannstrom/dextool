@@ -33,10 +33,7 @@ import cpptooling.data.representation : CppClass, CppNamespace;
  */
 void generateGmock(ParamT)(CppClass in_c, CppModule hdr, ParamT params)
 in {
-    import std.algorithm : among;
-    import cpptooling.data.representation : VirtualType;
-
-    assert(in_c.virtualType.among(VirtualType.Pure, VirtualType.Yes));
+    assert(in_c.isVirtual);
 }
 body {
     import std.ascii : newline;
@@ -64,7 +61,7 @@ body {
     }
 
     static void genOp(CppMethodOp m, CppModule hdr) {
-        import cpptooling.data.representation : VirtualType;
+        import cpptooling.data.representation : MemberVirtualType;
 
         static string translateOp(string op) {
             switch (op) {
@@ -237,7 +234,7 @@ auto makeGmock(ClassT)(CppClass c) {
 
         auto params = m_.paramRange.array();
         auto m = CppMethod(m_.name, params, m_.returnType, CppAccess(AccessType.Public),
-                CppConstMethod(m_.isConst), CppVirtualMethod(VirtualType.Pure));
+                CppConstMethod(m_.isConst), CppVirtualMethod(MemberVirtualType.Pure));
         return m;
     }
 

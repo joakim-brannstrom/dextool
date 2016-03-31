@@ -36,7 +36,7 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
 
     c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
     c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-            CppVirtualMethod(VirtualType.No)));
+            CppVirtualMethod(MemberVirtualType.Normal)));
 
     return c;
 }

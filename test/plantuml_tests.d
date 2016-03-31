@@ -137,6 +137,13 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should be a class diagram with an abstract class")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/abstract_interface.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 @Name("Should be a class diagram with a class in a namespace visualized with fully qualified name")
 unittest {
     mixin(EnvSetup(globalTestdir));

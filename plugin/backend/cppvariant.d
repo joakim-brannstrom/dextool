@@ -256,7 +256,6 @@ enum NamespaceType {
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : among, each, filter;
     import std.range : tee;
-    import cpptooling.data.representation : VirtualType;
 
     auto raw = CppRoot(input.location);
 
@@ -275,7 +274,7 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     if (ctrl.doGoogleMock) {
         input.classRange
             // only classes with virtual functions are mocked
-            .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+            .filter!(a => a.isVirtual)
             // ask controller if the file should be mocked, and thus the node
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
             // pass on location as a product to be used to calculate #include
@@ -298,7 +297,7 @@ body {
     import std.algorithm : among, each, filter, map;
     import std.range : tee;
     import application.types : FileName;
-    import cpptooling.data.representation : dedup, VirtualType;
+    import cpptooling.data.representation : dedup;
     import cpptooling.generator.func : filterFunc = rawFilter;
 
     auto ns = CppNamespace.make(input.name);
@@ -316,7 +315,7 @@ body {
 
     if (ctrl.doGoogleMock) {
         input.classRange
-            .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+            .filter!(a => a.isVirtual)
             .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
             // pass on location as a product to be used to calculate #include
             .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
@@ -329,7 +328,6 @@ body {
 
 CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each, among;
-    import cpptooling.data.representation : VirtualType;
 
     auto r = CppRoot(root.location);
 
@@ -342,7 +340,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
     root.classRange
         .map!(a => mergeClassInherit(a, container))
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+        .filter!(a => a.isVirtual)
         .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
     // dfmt on
 
@@ -398,7 +396,7 @@ NullableVoid!CppNamespace translate(CppNamespace input, Container container,
     input.classRange
         .map!(a => mergeClassInherit(a, container))
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.virtualType.among(VirtualType.Pure, VirtualType.Yes))
+        .filter!(a => a.isVirtual)
         .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
@@ -431,10 +429,9 @@ body {
     genCppIncl(ctrl, params, modules.hdr);
 
     static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
-        // dfmt off
-        r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)
-            .each!(a => generateGmock(a, gmock, params));
-        // dfmt on
+        foreach (a; r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)) {
+            generateGmock(a, gmock, params);
+        }
     }
 
     // recursive to handle nested namespaces.

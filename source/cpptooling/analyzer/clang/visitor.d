@@ -269,6 +269,17 @@ struct ClassDescendVisitor {
     }
 
 private:
+    static CppVirtualMethod classify(T)(T c) {
+        auto is_virtual = MemberVirtualType.Normal;
+        if (c.func.isPureVirtual) {
+            is_virtual = MemberVirtualType.Pure;
+        } else if (c.func.isVirtual) {
+            is_virtual = MemberVirtualType.Virtual;
+        }
+
+        return CppVirtualMethod(is_virtual);
+    }
+
     void applyConstructor(ref Cursor c, ref Cursor parent) {
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
@@ -279,8 +290,7 @@ private:
 
     void applyDestructor(ref Cursor c, ref Cursor parent) {
         auto name = CppMethodName(c.spelling);
-        auto tor = CppDtor(name, accessType, CppVirtualMethod(c.func.isVirtual
-                ? VirtualType.Yes : VirtualType.No));
+        auto tor = CppDtor(name, accessType, classify(c));
         logger.info("dtor: ", tor.toString);
         data.put(tor);
     }
@@ -308,13 +318,7 @@ private:
         auto params = paramDeclTo(c);
         auto name = CppMethodName(c.spelling);
         auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
-
-        auto is_virtual = CppVirtualMethod(VirtualType.No);
-        if (c.func.isPureVirtual) {
-            is_virtual = CppVirtualMethod(VirtualType.Pure);
-        } else if (c.func.isVirtual) {
-            is_virtual = CppVirtualMethod(VirtualType.Yes);
-        }
+        auto is_virtual = classify(c);
 
         if (isOperator(name)) {
             auto op = CppMethodOp(name, params, return_type, accessType,
@@ -339,7 +343,7 @@ private:
  */
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
-        CppClass, CxLocation, VirtualType, CppNsStack, CppInherit;
+        CppClass, CxLocation, ClassVirtualType, CppNsStack, CppInherit;
     import cpptooling.data.symbol.container;
 
     /** Make a ClassVisitor to descend a Clang Cursor.
