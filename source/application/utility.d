@@ -88,7 +88,7 @@ auto prependLangFlagIfMissing(string[] in_cflags, string prefer_lang) {
 
     auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
 
-    if (v is null) {
+    if (v.length == 0) {
         return [prefer_lang] ~ in_cflags;
     }
 
