@@ -52,5 +52,8 @@ void func_array(int a[10]);
 void func_ref_ptr(int*& a);
 void func_ref_array(int (&a)[10]);
 
+// expecting static functions to be ignored
+static void ignore();
+
 } // NS: ns
 #endif // FUNCTIONS_H

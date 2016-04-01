@@ -102,6 +102,12 @@ enum AccessType {
     Private
 }
 
+enum StorageClass {
+    None,
+    Extern,
+    Static
+}
+
 string funcToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
 
@@ -550,6 +556,7 @@ pure @safe nothrow struct CFunction {
         CxParam[] params;
         CxReturnType returnType_;
         VariadicType isVariadic_;
+        StorageClass storageClass_;
     }
 
     mixin mixinUniqueId;
@@ -559,10 +566,11 @@ pure @safe nothrow struct CFunction {
 
     /// C function representation.
     this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
-            const VariadicType is_variadic, const CxLocation loc) {
+            const VariadicType is_variadic, const StorageClass storage_class, const CxLocation loc) {
         this.name_ = name;
         this.returnType_ = return_type;
         this.isVariadic_ = is_variadic;
+        this.storageClass_ = storage_class;
 
         this.params = params_.dup;
 
@@ -572,13 +580,13 @@ pure @safe nothrow struct CFunction {
 
     /// Function with no parameters.
     this(const CFunctionName name, const CxReturnType return_type, const CxLocation loc) {
-        this(name, CxParam[].init, return_type, VariadicType.no, loc);
+        this(name, CxParam[].init, return_type, VariadicType.no, StorageClass.None, loc);
     }
 
     /// Function with no parameters and returning void.
     this(const CFunctionName name, const CxLocation loc) {
         CxReturnType void_ = TypeKind.make("void");
-        this(name, CxParam[].init, void_, VariadicType.no, loc);
+        this(name, CxParam[].init, void_, VariadicType.no, StorageClass.None, loc);
     }
 
 const:
@@ -588,19 +596,23 @@ const:
         return arrayRange(params);
     }
 
-    /// The return type of the function.
-    auto returnType() @property {
-        return returnType_;
-    }
+    @property @nogc {
+        auto returnType() {
+            return returnType_;
+        }
 
-    /// Function name representation.
-    auto name() @property {
-        return name_;
-    }
+        auto name() {
+            return name_;
+        }
 
-    /// If the function is variadic, aka have a parameter with "...".
-    bool isVariadic() {
-        return VariadicType.yes == isVariadic_;
+        StorageClass storageClass() {
+            return storageClass_;
+        }
+
+        /// If the function is variadic, aka have a parameter with "...".
+        bool isVariadic() {
+            return VariadicType.yes == isVariadic_;
+        }
     }
 
     // Separating file location from the rest
@@ -615,10 +627,12 @@ const:
 
     string toString() {
         import std.array : Appender, appender;
+        import std.conv : to;
         import std.format : formattedWrite;
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s // %s", internalToString(), location());
+        formattedWrite(rval, "%s // %s %s", internalToString(),
+                to!string(storageClass), location());
 
         return rval.data;
     }
@@ -1673,13 +1687,19 @@ unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
         shouldEqual(f.returnType.txt, "void");
-        shouldEqual(f.toString, "void nothing(); // File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "void nothing(); // None File:a.h Line:123 Column:45");
+    }
+
+    { // extern storage.
+        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(TypeKind.make("void")), VariadicType.no, StorageClass.Extern, dummyLoc);
+        shouldEqual(f.returnType.txt, "void");
+        shouldEqual(f.toString, "void nothing(); // Extern File:a.h Line:123 Column:45");
     }
 
     { // a return type.
         auto rtk = TypeKind.make("int");
         auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk), dummyLoc);
-        shouldEqual(f.toString, "int nothing(); // File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "int nothing(); // None File:a.h Line:123 Column:45");
     }
 
     { // return type and parameters.
@@ -1687,8 +1707,8 @@ unittest {
         auto p1 = makeCxParam(TypeKindVariable(TypeKind.make("char"), CppVariable("y")));
         auto rtk = TypeKind.make("int");
         auto f = CFunction(CFunctionName("nothing"), [p0, p1],
-            CxReturnType(rtk), VariadicType.no, dummyLoc);
-        shouldEqual(f.toString, "int nothing(int x, char y); // File:a.h Line:123 Column:45");
+            CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
+        shouldEqual(f.toString, "int nothing(int x, char y); // None File:a.h Line:123 Column:45");
     }
 }
 
@@ -1792,9 +1812,9 @@ unittest {
     auto f = CFunction(CFunctionName("nothing"),
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
         makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
-        CxReturnType(rtk), VariadicType.no, dummyLoc);
+        CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
 
-    shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // File:a.h Line:123 Column:45");
+    shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // None File:a.h Line:123 Column:45");
 }
 
 @Name("Test of Ctor's")
@@ -2015,7 +2035,7 @@ unittest {
 
     shouldEqualPretty(root.toString, "// File: Line:0 Column:0
 
-void nothing(); // File:a.h Line:123 Column:45
+void nothing(); // None File:a.h Line:123 Column:45
 
 class Foo { // Normal File:noloc Line:0 Column:0
 public:
@@ -2060,7 +2080,7 @@ unittest {
     n.put(f);
 
     shouldEqualPretty(n.toString, "namespace  { //
-void nothing(); // File:a.h Line:123 Column:45
+void nothing(); // None File:a.h Line:123 Column:45
 } //NS:");
 }
 

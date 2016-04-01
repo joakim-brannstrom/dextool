@@ -74,7 +74,7 @@ struct VariableVisitor {
 /// mark it as such. Probably need to modify cpptooling.data.representation.
 struct FunctionVisitor {
     import cpptooling.data.representation : CxParam, CFunctionName,
-        CxReturnType, CFunction, VariadicType, CxLocation;
+        CxReturnType, CFunction, VariadicType, CxLocation, StorageClass;
 
     static auto make(ref Cursor) {
         return typeof(this)();
@@ -89,7 +89,19 @@ struct FunctionVisitor {
         auto is_variadic = c.func.isVariadic ? VariadicType.yes : VariadicType.no;
         auto loc = toInternal!CxLocation(c.location());
 
-        auto func = CFunction(name, params, return_type, is_variadic, loc);
+        auto storage_class = StorageClass.None;
+        switch (c.storageClass()) with (CX_StorageClass) {
+        case CX_SC_Extern:
+            storage_class = StorageClass.Extern;
+            break;
+        case CX_SC_Static:
+            storage_class = StorageClass.Static;
+            break;
+        default:
+            break;
+        }
+
+        auto func = CFunction(name, params, return_type, is_variadic, storage_class, loc);
         logger.info("function: ", func.toString);
 
         return func;

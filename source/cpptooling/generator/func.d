@@ -17,23 +17,6 @@ import cpptooling.data.representation : CFunction, CppClass;
 
 @safe:
 
-///TODO remove function, thus usage in cstub. see cppvariant rawFilter.
-auto rawFilter(ControllerT, ProductsT)(CFunction func, ControllerT ctrl, ProductsT prod) {
-    import application.types : FileName;
-    import cpptooling.utility.nullvoid;
-
-    NullableVoid!CFunction r;
-
-    if (ctrl.doFile(func.location.file, func.toString)) {
-        r = func;
-        prod.putLocation(FileName(func.location.file), LocationType.Leaf);
-    } else {
-        logger.info("Ignoring function: ", func.toString);
-    }
-
-    return r;
-}
-
 /// Generates a C implementation calling the test double via the matching
 /// interface.
 void generateFuncImpl(CFunction f, CppModule impl) {
