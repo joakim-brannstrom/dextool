@@ -1,8 +1,8 @@
 @startuml
+    class "ParamDep"
+    "ParamDep" --> "A"
     class "A"
     class "InheritDep"
     class "MemberDep"
     class "Method"
-    class "ParamDep"
-    "ParamDep" --> "A"
 @enduml

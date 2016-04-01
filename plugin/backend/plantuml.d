@@ -120,6 +120,11 @@ version (unittest) {
     private alias Inner = Tuple!(uint, "count", Kind, "kind");
     private Inner[][Key] to;
 
+    /// Returns: number of outgoing connections
+    size_t fanOut() pure nothrow const {
+        return to.length;
+    }
+
     void put(Key to_, Kind kind) {
         auto v = to_ in to;
         if (v is null) {
@@ -174,6 +179,40 @@ version (unittest) {
     }
 }
 
+size_t[] nameIndexSortedRange(T, alias sortNameBy)(T arr) pure {
+    import std.algorithm : makeIndex;
+
+    auto index = new size_t[arr.length];
+
+    makeIndex!((a, b) => sortNameBy(a) < sortNameBy(b))(arr, index);
+    return index;
+}
+
+auto nameSortedRange(T, alias sortNameBy)(const T t) pure {
+    import std.algorithm : map;
+    import std.array : array;
+
+    auto arr = t.asArray();
+    auto index = nameIndexSortedRange!(typeof(arr), sortNameBy)(arr);
+
+    return index.map!(i => arr[i]).array();
+}
+
+auto fanOutSorted(T)(T t) pure {
+    import std.algorithm : makeIndex, map;
+    import std.array : array;
+
+    //TODO how to avoid doing this allocation?
+
+    auto arr = t.nameSortedRange();
+    auto fanout_i = new size_t[arr.length];
+
+    makeIndex!((a, b) => t.relate_to[cast(
+            Relate.Key) a[0]].fanOut > t.relate_to[cast(Relate.Key) b[0]].fanOut)(arr, fanout_i);
+
+    return fanout_i.map!(i => arr[i]).array();
+}
+
 /** UML Class Diagram.
  *
  * Not designed for the general case.
@@ -221,7 +260,7 @@ version (unittest) {
     void put(Key key) {
         if (key !in classes) {
             classes[key] = Class.init;
-            relateTo[cast(Relate.Key) key] = Relate.init;
+            relate_to[cast(Relate.Key) key] = Relate.init;
         }
     }
 
@@ -252,7 +291,47 @@ version (unittest) {
     }
     body {
         put(to);
-        relateTo[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
+        relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
+    }
+
+    const(Relate) relateTo(Key k) pure const
+    in {
+        assert(k in classes);
+        assert((cast(Relate.Key) k) in relate_to);
+    }
+    body {
+        return relate_to[cast(Relate.Key) k];
+    }
+
+    /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
+    auto relateToFlatArray() pure const @trusted {
+        import std.algorithm : map, joiner;
+        import std.array;
+
+        return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
+    }
+
+    alias KeyClass = Tuple!(Key, const(Class));
+
+    KeyClass[] asArray() const pure nothrow @trusted {
+        import std.array : array;
+        import std.algorithm : map;
+
+        //TODO how to do this without so much generated GC
+
+        // dfmt off
+        return classes.byKeyValue
+            .map!(a => KeyClass(a.key, a.value))
+            .array();
+        // dfmt off
+    }
+
+    auto nameSortedRange() const pure @trusted {
+        static string sortClassNameBy(T)(ref T a) {
+            return a[0].str;
+        }
+
+        return .nameSortedRange!(typeof(this), sortClassNameBy)(this);
     }
 
     private string[] classesToStringArray() const pure @trusted {
@@ -277,35 +356,7 @@ version (unittest) {
         import std.algorithm : map, joiner;
         import std.array;
 
-        return relateTo.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
-    }
-
-    /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
-    auto relateToFlatArray() pure const @trusted {
-        import std.algorithm : map, joiner;
-        import std.array;
-
-        return relateTo.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
-    }
-
-    auto sortedClassRange() pure @trusted {
-        import std.array : array;
-        import std.algorithm;
-        import std.typecons : tuple;
-        import std.algorithm : makeIndex, uniq, map;
-
-        //TODO how to do this without so much generated GC
-
-        // dfmt off
-        auto arr = classes.byKeyValue
-            .map!(a => tuple(a.key, a.value))
-            .array();
-        auto index = new size_t[arr.length];
-
-        makeIndex!((a, b) => a[0].str < b[0].str)(arr, index);
-
-        return index.map!(i => arr[i]).array();
-        // dfmt on
+        return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
     override string toString() @safe pure const {
@@ -324,9 +375,8 @@ version (unittest) {
         // dfmt on
     }
 
-private:
-    Class[Key] classes;
-    Relate[Relate.Key] relateTo;
+    Relate[Relate.Key] relate_to;
+    private Class[Key] classes;
 }
 
 /** UML Component Diagram.
@@ -349,7 +399,7 @@ private:
     void put(Key key, string displayName) {
         if (key !in components) {
             components[key] = Component(displayName);
-            relateTo[cast(Relate.Key) key] = Relate.init;
+            relate_to[cast(Relate.Key) key] = Relate.init;
         }
     }
 
@@ -364,9 +414,18 @@ private:
     }
     body {
         put(to, toDisplayName);
-        relateTo[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
+        relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
 
         components[from].toFile ~= cast(string) to;
+    }
+
+    const(Relate) relateTo(Key k) pure const
+    in {
+        assert(k in components);
+        assert((cast(Relate.Key) k) in relate_to);
+    }
+    body {
+        return relate_to[cast(Relate.Key) k];
     }
 
     /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
@@ -374,32 +433,30 @@ private:
         import std.algorithm : map, joiner;
         import std.array : array;
 
-        return relateTo.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
+        return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
     }
 
-    auto sortedRange() const pure @trusted {
+    alias KeyComponent = Tuple!(Key, const(Component));
+
+    KeyComponent[] asArray() const pure nothrow @trusted {
         import std.array : array;
-        import std.algorithm : map, makeIndex;
-        import std.typecons : tuple;
-        import std.algorithm : makeIndex, map;
+        import std.algorithm : map;
+
+        //TODO how to do this without so much generated GC
 
         // dfmt off
-        auto arr = components.byKeyValue
-            .map!(a => tuple(a.key, a.value))
+        return components.byKeyValue
+            .map!(a => KeyComponent(a.key, a.value))
             .array();
-        auto index = new size_t[arr.length];
-
-        makeIndex!((a, b) => a[1].displayName < b[1].displayName)(arr, index);
-
-        return index.map!(i => arr[i]).array();
-        // dfmt on
+        // dfmt off
     }
 
-    private string[] relateToStringArray() const pure @trusted {
-        import std.algorithm : map, joiner;
-        import std.array : array;
+    auto nameSortedRange() const pure @trusted {
+        static string sortComponentNameBy(T)(ref T a) {
+            return a[1].displayName;
+        }
 
-        return relateTo.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
+        return .nameSortedRange!(typeof(this), sortComponentNameBy)(this);
     }
 
     private string[] componentsToStringArray() const pure @trusted {
@@ -407,7 +464,14 @@ private:
         import std.array : array;
         import std.format : format;
 
-        return sortedRange.map!(a => format("%s as %s", a[0].str, a[1].displayName)).array();
+        return nameSortedRange.map!(a => format("%s as %s", a[0].str, a[1].displayName)).array();
+    }
+
+    private string[] relateToStringArray() const pure @trusted {
+        import std.algorithm : map, joiner;
+        import std.array : array;
+
+        return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
     override string toString() @safe pure const {
@@ -426,9 +490,8 @@ private:
         // dfmt on
     }
 
-private:
-    Component[Key] components;
-    Relate[Relate.Key] relateTo;
+    Relate[Relate.Key] relate_to;
+    private Component[Key] components;
 }
 
 @Name("Should be a None relate not shown and an extended relate")
@@ -1064,18 +1127,24 @@ void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
 void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp, Generator.Modules modules) {
     import std.algorithm : each;
 
-    foreach (kv; uml_class.sortedClassRange) {
-        generate(kv[0], kv[1], modules.classes);
+    foreach (kv; uml_class.fanOutSorted) {
+        generate(kv[0], kv[1], uml_class.relateTo(kv[0]), modules.classes);
     }
-    generateClassRelate(uml_class.relateToFlatArray, modules.classes);
 
-    foreach (kv; uml_comp.sortedRange) {
+    foreach (kv; uml_comp.fanOutSorted) {
         generate(kv[0], kv[1], modules.components);
     }
     generateComponentRelate(uml_comp.relateToFlatArray, modules.components);
 }
 
-void generate(UMLClassDiagram.Key name, UMLClassDiagram.Class c, PlantumlModule m) {
+/** Generate PlantUML class and relations from the class.
+ *
+ * By generating the relations out of the class directly after the class
+ * definitions it makes it easier for GraphViz to generate a not-so-muddy
+ * image.
+ */
+void generate(UMLClassDiagram.Key name, const(UMLClassDiagram.Class) c,
+        const Relate rels, PlantumlModule m) {
     import std.algorithm : each;
 
     ClassType pc;
@@ -1104,6 +1173,8 @@ void generate(UMLClassDiagram.Key name, UMLClassDiagram.Class c, PlantumlModule 
     default:
         break;
     }
+
+    generateClassRelate(rels.toFlatArray(cast(Relate.Key) name), m);
 }
 
 void generateClassRelate(T)(T relate_range, PlantumlModule m) {

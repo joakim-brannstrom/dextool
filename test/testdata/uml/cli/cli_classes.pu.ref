@@ -1,13 +1,13 @@
 @startuml
-    class "A"
-    class "InheritDep"
     class "MemberDep"
+    "MemberDep" o-- "A"
+    "MemberDep" *-- "A"
+    class "InheritDep"
+    "InheritDep" --|> "A"
+    class "ParamDep"
+    "ParamDep" --> "A"
+    class "A"
     class "Method" {
         +virtual void a_pub();
     }
-    class "ParamDep"
-    "ParamDep" --> "A"
-    "InheritDep" --|> "A"
-    "MemberDep" o-- "A"
-    "MemberDep" *-- "A"
 @enduml
