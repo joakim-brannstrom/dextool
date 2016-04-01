@@ -40,4 +40,7 @@ void func_ptr_arg(int (*a)(int p, int) , int b);
 // expect a func signature exactly as the function below.
 // Not uncommon in C code that the keyword struct is used.
 void c_func_with_struct(const struct A* a);
+
+// expecting static functions to be ignored
+static void ignore();
 #endif // FUNCTIONS_H

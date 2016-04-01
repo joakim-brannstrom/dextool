@@ -147,12 +147,12 @@ struct StubGenerator {
 
     /** Process structural data to a test double.
      *
-     * translate -> intermediate -> code generation.
+     * filter -> translate -> code generation.
      *
-     * translate filters the structural data.
+     * filters the structural data.
      * Controller is involved to allow filtering of identifiers in files.
      *
-     * Intermediate analyzes what is left after filtering.
+     * Translate analyzes what is left after filtering.
      * On demand extra data is created. An example of on demand is --gmock.
      *
      * Code generation is a straight up translation.
@@ -162,20 +162,21 @@ struct StubGenerator {
      * TODO rename translate to rawFilter. See cppvariant.
      */
     auto process(CppRoot root) {
-
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n", root.toString());
-        auto tr = .translate(root, ctrl, products);
+
+        auto raw = rawFilter(root, ctrl, products);
+        logger.trace("Filtered:\n", raw.toString());
 
         // Does it have any C functions?
-        if (!tr.funcRange().empty) {
-            tr.put(makeCStubGlobal(params.getMainNs, params.getMainInterface));
+        if (!raw.funcRange().empty) {
+            raw.put(makeCStubGlobal(params.getMainNs, params.getMainInterface));
 
             auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
             ns.setKind(NamespaceType.TestDouble);
 
-            auto c_if = makeCFuncInterface(tr.funcRange(), params.getMainInterface);
+            auto c_if = makeCFuncInterface(raw.funcRange(), params.getMainInterface);
 
             ns.put(c_if);
             if (ctrl.doGoogleMock) {
@@ -185,13 +186,13 @@ struct StubGenerator {
                 ns.put(mock);
             }
             ns.put(makeTestDoubleAdapter(params.getMainInterface));
-            tr.put(ns);
+            raw.put(ns);
         }
 
-        logger.trace("Post processed:\n", tr.toString());
+        logger.trace("Post processed:\n", raw.toString());
 
         auto m = Modules.make();
-        generate(tr, ctrl, params, m.hdr, m.impl, m.globals, m.gmock);
+        generate(raw, ctrl, params, m.hdr, m.impl, m.globals, m.gmock);
         postProcess(m, ctrl, params, products);
     }
 
@@ -276,35 +277,40 @@ enum NamespaceType {
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
  */
-CppRoot translate(CppRoot input, StubController ctrl, StubProducts prod) {
-    import cpptooling.data.representation : dedup;
+CppRoot rawFilter(CppRoot input, StubController ctrl, StubProducts prod) {
+    import std.algorithm : filter, each;
+    import std.range : tee;
+    import cpptooling.data.representation : dedup, StorageClass;
 
-    CppRoot tr;
+    auto raw = CppRoot(input.location);
 
     if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
         prod.putLocation(FileName(input.location.file), LocationType.Root);
     }
 
-    foreach (f; input.funcRange().dedup) {
-        auto r = translateCFunc(f, ctrl, prod);
-        if (!r.isNull) {
-            tr.put(r.get);
-        }
-    }
+    // dfmt off
+    input.funcRange
+        .dedup
+        // by definition static functions can't be replaced by test doubles
+        .filter!(a => a.storageClass != StorageClass.Static)
+        // ask controller if to generate a test double for the function
+        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        // pass on location as a product to be used to calculate #include
+        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .each!(a => raw.put(a));
+    // dfmt on
 
     foreach (g; input.globalRange().dedup) {
         auto r = translateCGlobal(g, ctrl, prod);
         if (!r.isNull) {
-            tr.put(r.get);
+            raw.put(r.get);
         }
     }
 
-    return tr;
+    return raw;
 }
 
 static import cpptooling.generator.func;
-
-alias translateCFunc = cpptooling.generator.func.rawFilter!(StubController, StubProducts);
 
 alias generateCFuncImpl = cpptooling.generator.func.generateFuncImpl;
 

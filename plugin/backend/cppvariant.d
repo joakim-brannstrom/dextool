@@ -297,16 +297,18 @@ body {
     import std.algorithm : among, each, filter, map;
     import std.range : tee;
     import application.types : FileName;
-    import cpptooling.data.representation : dedup;
-    import cpptooling.generator.func : filterFunc = rawFilter;
+    import cpptooling.data.representation : dedup, StorageClass;
 
     auto ns = CppNamespace.make(input.name);
 
     // dfmt off
     input.funcRange
         .dedup
+        // by definition static functions can't be replaced by test doubles
+        .filter!(a => a.storageClass != StorageClass.Static)
         .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-        .each!((a) {prod.putLocation(FileName(a.location.file), LocationType.Leaf); ns.put(a);});
+        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .each!(a => ns.put(a));
 
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
