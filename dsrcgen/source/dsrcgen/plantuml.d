@@ -49,7 +49,8 @@ enum Relate {
     Aggregate,
     Extend,
     ArrowTo,
-    AggregateArrowTo
+    AggregateArrowTo,
+    DotArrowTo
 }
 
 string relateToString(Relate relate) {
@@ -75,6 +76,9 @@ string relateToString(Relate relate) {
         break;
     case AggregateArrowTo:
         r_type = "*-->";
+        break;
+    case DotArrowTo:
+        r_type = "->";
         break;
     }
 
