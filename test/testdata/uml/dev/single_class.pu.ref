@@ -1,8 +1,8 @@
 @startuml
-    class "SingleClass" {
-        +SingleClass()
-        +SingleClass(const SingleClass &other)
-        +SingleClass & operator=(const SingleClass &other) /* operator */
-        +virtual ~SingleClass()
-    }
+class "SingleClass" {
+    +SingleClass()
+    +SingleClass(const SingleClass &other)
+    +SingleClass & operator=(const SingleClass &other) /* operator */
+    +virtual ~SingleClass()
+}
 @enduml

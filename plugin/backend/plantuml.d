@@ -604,11 +604,7 @@ struct Generator {
 
             //TODO how to do this with meta-programming and introspection of Modules?
             m.classes = new PlantumlModule;
-            //TODO activate suppression. NOT done in this PR. Results in too
-            // much noise.
-            //m.classes.suppressIndent(1);
             m.components = new PlantumlModule;
-            m.components.suppressIndent(1);
 
             return m;
         }
@@ -653,14 +649,14 @@ private:
         static PlantumlRootModule makeMinimalStyle(Flag!"genClassMethod" show_methods) {
             auto proot = PlantumlRootModule.make();
 
-            auto m = new PlantumlModule;
+            auto m = proot.makeUml;
+            m.suppressIndent(1);
             m.stmt("left to right direction");
             m.stmt("skinparam componentStyle uml2");
             m.stmt("set namespaceSeparator ::");
             if (!show_methods) {
                 m.stmt("hide members");
             }
-            proot.content.append(m);
 
             return proot;
         }
@@ -677,9 +673,11 @@ private:
             import std.algorithm : filter;
 
             auto proot = PlantumlRootModule.make();
+            auto c = proot.makeUml();
+            c.suppressIndent(1);
 
             foreach (m; [style, content].filter!(a => a !is null)) {
-                proot.content.append(m);
+                c.append(m);
             }
 
             prods.putFile(fname, proot);
