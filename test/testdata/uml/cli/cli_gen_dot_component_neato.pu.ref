@@ -1,0 +1,11 @@
+@startdot
+digraph g {
+    layout=neato
+    edge [len=3]
+
+    colorscheme=svg
+    node [style=rounded shape=box]
+
+    "dGVzdGRhdGEvdW1sL2NsaQ" [label="cli"]
+}
+@enddot

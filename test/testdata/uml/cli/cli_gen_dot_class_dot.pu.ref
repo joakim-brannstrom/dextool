@@ -1,0 +1,20 @@
+@startdot
+digraph g {
+    layout=dot
+    rankdir=LR
+    pack=true
+    concentrate=true
+
+    colorscheme=svg
+    node [style=rounded shape=box]
+
+    edge [color=red]
+    [weight=1] "B" -> "A"
+    edge [color=mediumpurple]
+    [weight=1] "C" -> "A"
+    edge [color=darkorange]
+    [weight=4] "CountTest" -> "A"
+    edge [color=deeppink]
+    [weight=1] "D" -> "A"
+}
+@enddot

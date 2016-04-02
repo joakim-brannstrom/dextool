@@ -1,0 +1,14 @@
+@startdot
+digraph g {
+    layout=dot
+    rankdir=LR
+    pack=true
+    concentrate=true
+    splines=ortho
+
+    colorscheme=svg
+    node [style=rounded shape=box]
+
+    "dGVzdGRhdGEvdW1sL2NsaQ" [label="cli"]
+}
+@enddot
