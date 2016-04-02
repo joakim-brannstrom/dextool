@@ -1,5 +1,5 @@
 @startuml
-    class "File1"
     class "File2"
     "File2" --|> "File1"
+    class "File1"
 @enduml

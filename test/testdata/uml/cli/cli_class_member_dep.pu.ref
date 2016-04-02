@@ -1,9 +1,9 @@
 @startuml
-    class "A"
-    class "InheritDep"
     class "MemberDep"
-    class "Method"
-    class "ParamDep"
     "MemberDep" o-- "A"
     "MemberDep" *-- "A"
+    class "A"
+    class "InheritDep"
+    class "Method"
+    class "ParamDep"
 @enduml
