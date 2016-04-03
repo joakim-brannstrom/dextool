@@ -1,4 +1,3 @@
-@startdot
 digraph g {
     layout=dot
     rankdir=LR
@@ -11,4 +10,3 @@ digraph g {
 
     "dGVzdGRhdGEvdW1sL2NsaQ" [label="cli"]
 }
-@enddot

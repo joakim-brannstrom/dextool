@@ -1,0 +1,3 @@
+@startdot
+!include view_classes_neato.dot
+@enddot

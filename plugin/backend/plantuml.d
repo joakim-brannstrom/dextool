@@ -703,7 +703,7 @@ private:
             DotOrtho
         }
 
-        static PlantumlModule makeDotPreamble(DotLayout layout) {
+        static PlantumlModule makeDotPreamble(DotLayout layout, Flag!"doSmall" doSmall) {
             auto m = new PlantumlModule;
             m.suppressIndent(1);
 
@@ -732,7 +732,11 @@ private:
             m.sep(2);
 
             m.stmt("colorscheme=svg");
-            m.stmt("node [style=rounded shape=box]");
+            if (doSmall) {
+                m.stmt("node [style=rounded shape=box fontsize=9 width=0.25 height=0.375]");
+            } else {
+                m.stmt("node [style=rounded shape=box]");
+            }
             m.sep(2);
 
             return m;
@@ -745,24 +749,40 @@ private:
             return m;
         }
 
-        static void make(string type)(Products prods, FileName fname,
-                PlantumlModule style, PlantumlModule content) {
+        static void makeUml(Products prods, FileName fname, PlantumlModule style,
+                PlantumlModule content) {
             import std.algorithm : filter;
 
             auto proot = PlantumlRootModule.make();
-            static if (type == "uml") {
-                auto c = proot.makeUml();
-                c.suppressIndent(1);
-            } else static if (type == "dot") {
-                auto c = proot.makeDot("g");
-            } else {
-                static assert(0, "Type not supported: " ~ type);
-            }
+            auto c = proot.makeUml();
+            c.suppressIndent(1);
 
             foreach (m; [style, content].filter!(a => a !is null)) {
                 c.append(m);
             }
 
+            prods.putFile(fname, proot);
+        }
+
+        static void makeDot(Products prods, FileName fname, PlantumlModule style,
+                PlantumlModule content) {
+            import std.algorithm : filter;
+            import std.path : stripExtension, baseName;
+
+            immutable ext_dot = ".dot";
+
+            FileName fname_dot = (cast(string) fname).stripExtension ~ ext_dot;
+            auto dot = new PlantumlModule;
+            auto digraph = dot.digraph("g");
+            digraph.suppressThisIndent(1);
+            foreach (m; [style, content].filter!(a => a !is null)) {
+                digraph.append(m);
+            }
+            prods.putFile(fname_dot, dot);
+
+            auto proot = PlantumlRootModule.make();
+            auto pu = proot.makeDot;
+            pu.stmt("!include " ~ (cast(string) fname_dot).baseName);
             prods.putFile(fname, proot);
         }
 
@@ -797,18 +817,18 @@ private:
         }
 
         if (params.doGenDot) {
-            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
-                    DotLayout.Dot), makeDotPreamble(DotLayout.Dot), m.classes_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
-                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.classes_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.components,
-                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.components_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.components,
-                    DotLayout.DotOrtho), makeDotPreamble(DotLayout.DotOrtho), m.components_dot);
+            makeDot(prods, makeDotFileName(params.getFiles.classes, DotLayout.Dot),
+                    makeDotPreamble(DotLayout.Dot, Yes.doSmall), m.classes_dot);
+            makeDot(prods, makeDotFileName(params.getFiles.classes, DotLayout.Neato),
+                    makeDotPreamble(DotLayout.Neato, Yes.doSmall), m.classes_dot);
+            makeDot(prods, makeDotFileName(params.getFiles.components, DotLayout.Neato),
+                    makeDotPreamble(DotLayout.Neato, No.doSmall), m.components_dot);
+            makeDot(prods, makeDotFileName(params.getFiles.components, DotLayout.DotOrtho),
+                    makeDotPreamble(DotLayout.DotOrtho, No.doSmall), m.components_dot);
         }
 
-        make!"uml"(prods, params.getFiles.classes, style, m.classes);
-        make!"uml"(prods, params.getFiles.components, style, m.components);
+        makeUml(prods, params.getFiles.classes, style, m.classes);
+        makeUml(prods, params.getFiles.components, style, m.components);
     }
 }
 

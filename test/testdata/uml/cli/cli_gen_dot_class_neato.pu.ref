@@ -1,10 +1,9 @@
-@startdot
 digraph g {
     layout=neato
     edge [len=3]
 
     colorscheme=svg
-    node [style=rounded shape=box]
+    node [style=rounded shape=box fontsize=9 width=0.25 height=0.375]
 
     edge [color=red]
     [weight=1] "B" -> "A"
@@ -15,4 +14,3 @@ digraph g {
     edge [color=deeppink]
     [weight=1] "D" -> "A"
 }
-@enddot

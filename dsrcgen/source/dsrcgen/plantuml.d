@@ -232,6 +232,11 @@ class PlantumlModule : BaseModule {
         }
         return e;
     }
+
+    Suite digraph(string name) {
+        auto e = suite("digraph " ~ name);
+        return e;
+    }
 }
 
 private string paramsToString(T...)(auto ref T args) {
@@ -477,13 +482,11 @@ struct PlantumlRootModule {
         return e;
     }
 
-    PlantumlModule makeDot(string name) {
+    PlantumlModule makeDot() {
         import std.ascii : newline;
 
         auto dot = root.suite("")[$.begin = "@startdot" ~ newline, $.end = "@enddot"];
-        auto e = dot.suite("digraph " ~ name);
-
-        return e;
+        return dot;
     }
 
     auto render()
