@@ -81,6 +81,9 @@ version (unittest) {
      * Currently just the direction but may change in the future.
      */
     Flag!"doStyleIncl" doStyleIncl();
+
+    /// Generate a dot graph in the plantuml file
+    Flag!"doGenDot" doGenDot();
 }
 
 /// Data produced by the generator like files.
@@ -125,7 +128,11 @@ version (unittest) {
         return to.length;
     }
 
-    void put(Key to_, Kind kind) {
+    void put(Key to_, Kind kind)
+    out {
+        assert(to_ in to);
+    }
+    body {
         auto v = to_ in to;
         if (v is null) {
             to[to_] = Inner[].init;
@@ -145,6 +152,29 @@ version (unittest) {
         if (is_new) {
             *v ~= Inner(1, kind);
         }
+    }
+
+    /** A range of the form FROM-TO with metadata.
+     *
+     * count is the total number of outgoing connections to the target.
+     * For example would 2 Relation and 4 Extend result in the sum of 6.
+     */
+    auto toRange(const Relate.Key from) pure const @trusted {
+        import std.algorithm : map;
+        import std.array : array;
+
+        alias RelateTuple = Tuple!(Relate.Key, "from", Relate.Key, "to", ulong, "count");
+
+        static ulong sumFanOut(const(Inner)[] inner) pure {
+            import std.algorithm : sum;
+
+            return inner.map!(a => a.count).sum;
+        }
+
+        // dfmt off
+        return to.byKeyValue.map!(a => RelateTuple(from, a.key, sumFanOut(a.value)))
+            .array();
+        // dfmt on
     }
 
     /// Convert the TO/value store to a FROM-KIND-TO-COUNT array.
@@ -597,14 +627,20 @@ struct Generator {
 
     static struct Modules {
         PlantumlModule classes;
+        PlantumlModule classes_dot;
         PlantumlModule components;
+        PlantumlModule components_dot;
 
         static auto make() {
             Modules m;
 
             //TODO how to do this with meta-programming and introspection of Modules?
             m.classes = new PlantumlModule;
+            m.classes_dot = new PlantumlModule;
+            m.classes_dot.suppressIndent(1);
             m.components = new PlantumlModule;
+            m.components_dot = new PlantumlModule;
+            m.components_dot.suppressIndent(1);
 
             return m;
         }
@@ -634,7 +670,7 @@ struct Generator {
 
     auto process() {
         auto m = Modules.make();
-        generate(uml_class, uml_component, m);
+        generate(uml_class, uml_component, params.doGenDot, m);
         postProcess(ctrl, params, products, m);
     }
 
@@ -661,6 +697,47 @@ private:
             return proot;
         }
 
+        enum DotLayout {
+            Neato,
+            Dot,
+            DotOrtho
+        }
+
+        static PlantumlModule makeDotPreamble(DotLayout layout) {
+            auto m = new PlantumlModule;
+            m.suppressIndent(1);
+
+            //TODO if DotOrtho and Dot don't change consider removing the code
+            // duplication.
+            final switch (layout) with (DotLayout) {
+            case Neato:
+                m.stmt("layout=neato");
+                m.stmt("edge [len=3]");
+                break;
+            case DotOrtho:
+                m.stmt("layout=dot");
+                m.stmt("rankdir=LR");
+                m.stmt("pack=true");
+                m.stmt("concentrate=true");
+                m.stmt("splines=ortho");
+                break;
+            case Dot:
+                m.stmt("layout=dot");
+                m.stmt("rankdir=LR");
+                m.stmt("pack=true");
+                m.stmt("concentrate=true");
+                break;
+            }
+
+            m.sep(2);
+
+            m.stmt("colorscheme=svg");
+            m.stmt("node [style=rounded shape=box]");
+            m.sep(2);
+
+            return m;
+        }
+
         static PlantumlModule makeStyleInclude(FileName style_file) {
             auto m = new PlantumlModule;
             m.stmt("!include " ~ cast(string) style_file);
@@ -668,19 +745,45 @@ private:
             return m;
         }
 
-        static void make(Products prods, FileName fname, PlantumlModule style,
-                PlantumlModule content) {
+        static void make(string type)(Products prods, FileName fname,
+                PlantumlModule style, PlantumlModule content) {
             import std.algorithm : filter;
 
             auto proot = PlantumlRootModule.make();
-            auto c = proot.makeUml();
-            c.suppressIndent(1);
+            static if (type == "uml") {
+                auto c = proot.makeUml();
+                c.suppressIndent(1);
+            } else static if (type == "dot") {
+                auto c = proot.makeDot("g");
+            } else {
+                static assert(0, "Type not supported: " ~ type);
+            }
 
             foreach (m; [style, content].filter!(a => a !is null)) {
                 c.append(m);
             }
 
             prods.putFile(fname, proot);
+        }
+
+        static FileName makeDotFileName(FileName f, DotLayout layout) {
+            import std.path;
+
+            auto ext = extension(cast(string) f);
+
+            string suffix;
+            final switch (layout) with (DotLayout) {
+            case Dot:
+                goto case;
+            case DotOrtho:
+                suffix = "_dot";
+                break;
+            case Neato:
+                suffix = "_neato";
+                break;
+            }
+
+            return FileName((cast(string) f).stripExtension ~ suffix ~ ext);
         }
 
         PlantumlModule style;
@@ -693,8 +796,19 @@ private:
             prods.putFile(params.getFiles.styleOutput, makeMinimalStyle(params.genClassMethod));
         }
 
-        make(prods, params.getFiles.classes, style, m.classes);
-        make(prods, params.getFiles.components, style, m.components);
+        if (params.doGenDot) {
+            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
+                    DotLayout.Dot), makeDotPreamble(DotLayout.Dot), m.classes_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
+                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.classes_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.components,
+                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.components_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.components,
+                    DotLayout.DotOrtho), makeDotPreamble(DotLayout.DotOrtho), m.components_dot);
+        }
+
+        make!"uml"(prods, params.getFiles.classes, style, m.classes);
+        make!"uml"(prods, params.getFiles.components, style, m.components);
     }
 }
 
@@ -1122,15 +1236,32 @@ void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
     }
 }
 
-void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp, Generator.Modules modules) {
+void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
+        Flag!"doGenDot" doGenDot, Generator.Modules modules) {
     import std.algorithm : each;
+    import std.format : format;
+    import std.range : enumerate;
 
-    foreach (kv; uml_class.fanOutSorted) {
+    foreach (idx, kv; uml_class.fanOutSorted.enumerate) {
         generate(kv[0], kv[1], uml_class.relateTo(kv[0]), modules.classes);
+        if (doGenDot) {
+            generateDotRelate(uml_class.relateTo(kv[0])
+                    .toRange(cast(Relate.Key) kv[0]), idx, modules.classes_dot);
+        }
     }
 
-    foreach (kv; uml_comp.fanOutSorted) {
+    auto nodes = modules.components_dot.base;
+    nodes.suppressIndent(1);
+
+    foreach (idx, kv; uml_comp.fanOutSorted.enumerate) {
         generate(kv[0], kv[1], modules.components);
+        if (doGenDot) {
+            nodes.stmt(format(`"%s" [label="%s"]`, cast(string) kv[0], kv[1].displayName));
+            auto rels = modules.components_dot.base;
+            rels.suppressIndent(1);
+            auto r = uml_comp.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
+            generateDotRelate(r, idx, modules.components_dot);
+        }
     }
     generateComponentRelate(uml_comp.relateToFlatArray, modules.components);
 }
@@ -1197,6 +1328,32 @@ void generateClassRelate(T)(T relate_range, PlantumlModule m) {
 
     foreach (r; relate_range) {
         m.relate(cast(ClassNameType) r.from, cast(ClassNameType) r.to, convKind(r.kind));
+    }
+}
+
+void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModule m) {
+    import std.format : format;
+
+    static import dsrcgen.plantuml;
+
+    static string getColor(ulong idx) {
+        static string[] colors = [
+            "red", "mediumpurple", "darkorange", "deeppink", "green", "coral", "orangered", "plum", "deepskyblue",
+            "slategray", "cadetblue", "olive", "silver", "indianred", "black"
+        ];
+        return colors[idx % colors.length];
+    }
+
+    if (relate_range.length > 0) {
+        m.stmt(format("edge [color=%s]", getColor(color_idx)));
+    }
+
+    foreach (r; relate_range) {
+        auto l = m.relate(cast(ClassNameType) r.from, cast(ClassNameType) r.to,
+                dsrcgen.plantuml.Relate.DotArrowTo);
+        //TODO this is ugly, fix dsrcgen relate to support graphviz/DOT
+        auto w = new dsrcgen.plantuml.Text!PlantumlModule(format("[weight=%d] ", r.count));
+        l.block.prepend(w);
     }
 }
 

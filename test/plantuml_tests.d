@@ -303,13 +303,41 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --comp-strip with 'OR' strip regex")
+@Name("Test of CLI --comp-strip using a regex with 'OR'")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_comp_strip_complex.hpp", testEnv);
     p.dexDiagramParams ~= "--comp-strip='(.*)/strip_this|(.*)/keep_this'";
     p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
         "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --gen-dot, class diagram")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_gen_dot_class.hpp", testEnv);
+    p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
+        "--class-inheritdep", "--class-paramdep"];
+    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_dot");
+    p.out_pu = testEnv.outdir ~ "view_classes_dot.pu";
+    runTestFile(p, testEnv);
+    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_neato");
+    p.out_pu = testEnv.outdir ~ "view_classes_neato.pu";
+    runTestFile(p, testEnv);
+}
+
+@Name("Test of CLI --gen-dot, component diagram")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_gen_dot_component.hpp", testEnv);
+    p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
+        "--class-inheritdep", "--class-paramdep"];
+    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_component_dot");
+    p.out_pu = testEnv.outdir ~ "view_components_dot.pu";
+    runTestFile(p, testEnv);
+    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_component_neato");
+    p.out_pu = testEnv.outdir ~ "view_components_neato.pu";
     runTestFile(p, testEnv);
 }
 

@@ -99,6 +99,7 @@ static auto plantuml_opt = CliOptionParts(
  --class-memberdep   Class member as composition/aggregation in diagram
  --comp-strip=r      Regex used to strip path used to derive component name
  --gen-style-incl    Generate a style file and include in all diagrams
+ --gen-dot           Generate a dot graph block in the plantuml output
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
@@ -141,6 +142,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable Flag!"genClassInheritDependency" gen_class_inherit_dep;
     immutable Flag!"genClassMemberDependency" gen_class_member_dep;
     immutable Flag!"doStyleIncl" do_style_incl;
+    immutable Flag!"doGenDot" do_gen_dot;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -172,10 +174,11 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         "--class-memberdep"].isTrue;
 
         auto gen_style_incl = cast(Flag!"styleIncl") parsed["--gen-style-incl"].isTrue;
+        auto gen_dot = cast(Flag!"genDot") parsed["--gen-dot"].isTrue;
 
         auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
-                DirName(parsed["--out"].toString),
-                gen_style_incl, gen_class_method, gen_class_param_dep,
+                DirName(parsed["--out"].toString), gen_style_incl,
+                gen_dot, gen_class_method, gen_class_param_dep,
                 gen_class_inherit_dep, gen_class_member_dep);
 
         variant.exclude = exclude;
@@ -186,8 +189,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     this(FilePrefix file_prefix, DirName output_dir, Flag!"styleIncl" style_incl,
-            Flag!"genClassMethod" class_method, Flag!"genClassParamDependency" class_param_dep,
-            Flag!"genClassInheritDependency" class_inherit_dep,
+            Flag!"genDot" gen_dot, Flag!"genClassMethod" class_method,
+            Flag!"genClassParamDependency" class_param_dep, Flag!"genClassInheritDependency" class_inherit_dep,
             Flag!"genClassMemberDependency" class_member_dep) {
         this.file_prefix = file_prefix;
         this.output_dir = output_dir;
@@ -208,6 +211,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
                 cast(string) output_dir));
 
         this.do_style_incl = cast(Flag!"doStyleIncl") style_incl;
+        this.do_gen_dot = cast(Flag!"doGenDot") gen_dot;
     }
 
     // -- Controller --
@@ -285,6 +289,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     Flag!"doStyleIncl" doStyleIncl() const {
         return do_style_incl;
+    }
+
+    Flag!"doGenDot" doGenDot() const {
+        return do_gen_dot;
     }
 
     // -- Products --

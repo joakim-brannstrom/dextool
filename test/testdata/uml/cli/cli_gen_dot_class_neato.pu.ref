@@ -1,0 +1,18 @@
+@startdot
+digraph g {
+    layout=neato
+    edge [len=3]
+
+    colorscheme=svg
+    node [style=rounded shape=box]
+
+    edge [color=red]
+    [weight=1] "B" -> "A"
+    edge [color=mediumpurple]
+    [weight=1] "C" -> "A"
+    edge [color=darkorange]
+    [weight=4] "CountTest" -> "A"
+    edge [color=deeppink]
+    [weight=1] "D" -> "A"
+}
+@enddot

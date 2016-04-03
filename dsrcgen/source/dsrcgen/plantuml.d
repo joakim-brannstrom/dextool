@@ -49,7 +49,8 @@ enum Relate {
     Aggregate,
     Extend,
     ArrowTo,
-    AggregateArrowTo
+    AggregateArrowTo,
+    DotArrowTo
 }
 
 string relateToString(Relate relate) {
@@ -75,6 +76,9 @@ string relateToString(Relate relate) {
         break;
     case AggregateArrowTo:
         r_type = "*-->";
+        break;
+    case DotArrowTo:
+        r_type = "->";
         break;
     }
 
@@ -110,7 +114,7 @@ mixin template RelateTypes(Tleft, Tright, Trel, Tblock) {
     alias RelateMiddle = Typedef!(Trel, Trel.init, "RelateMiddle");
     alias RelateBlock = Typedef!(Tblock, Tblock.init, "RelationBlock");
     alias Relation = Tuple!(RelateLeft, "left", RelateRight, "right",
-            RelateMiddle, "rel", RelateBlock);
+            RelateMiddle, "rel", RelateBlock, "block");
 }
 
 mixin RelateTypes!(Text!PlantumlModule, Text!PlantumlModule,
