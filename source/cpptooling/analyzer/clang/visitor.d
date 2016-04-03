@@ -143,8 +143,15 @@ struct InheritVisitor {
                 assert(c.kind == CXCursorKind.CXCursor_Namespace);
             }
             body {
+                import std.format : format;
+
                 logNode(c, depth);
-                stack ~= CppNs(c.spelling);
+                string spelling = c.spelling;
+                if (spelling == "" || c.isAnonymous) {
+                    spelling = format("::(anonymous %s)", c.location.file);
+                }
+
+                stack ~= CppNs(spelling);
             }
         }
 
