@@ -1,0 +1,3 @@
+@startdot
+!include view_components_dot.dot
+@enddot

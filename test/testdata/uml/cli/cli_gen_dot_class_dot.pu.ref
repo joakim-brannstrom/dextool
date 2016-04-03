@@ -1,4 +1,3 @@
-@startdot
 digraph g {
     layout=dot
     rankdir=LR
@@ -17,4 +16,3 @@ digraph g {
     edge [color=deeppink]
     [weight=1] "D" -> "A"
 }
-@enddot

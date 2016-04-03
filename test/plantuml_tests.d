@@ -313,6 +313,23 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Test of CLI --gen-dot, include directive")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_gen_dot_incl_dotfile.hpp", testEnv);
+    p.dexDiagramParams ~= ["--gen-dot"];
+    foreach (f; [["cli_gen_doc_incl_dotfile_class_dot",
+            "view_classes_dot.dot"], ["cli_gen_dot_incl_dotfile_class_neato",
+            "view_classes_neato.dot"],
+            ["cli_gen_dot_incl_dotfile_component_dot",
+            "view_components_dot.dot"], ["cli_gen_dot_incl_dotfile_component_neato",
+            "view_components_neato.dot"]]) {
+        p.base_file_compare = p.base_file_compare.up ~ Path(f[0]);
+        p.out_pu = testEnv.outdir ~ f[1] ~ Ext(".pu");
+        runTestFile(p, testEnv);
+    }
+}
+
 @Name("Test of CLI --gen-dot, class diagram")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -320,10 +337,10 @@ unittest {
     p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
         "--class-inheritdep", "--class-paramdep"];
     p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_dot");
-    p.out_pu = testEnv.outdir ~ "view_classes_dot.pu";
+    p.out_pu = testEnv.outdir ~ "view_classes_dot.dot";
     runTestFile(p, testEnv);
     p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_neato");
-    p.out_pu = testEnv.outdir ~ "view_classes_neato.pu";
+    p.out_pu = testEnv.outdir ~ "view_classes_neato.dot";
     runTestFile(p, testEnv);
 }
 
@@ -334,10 +351,10 @@ unittest {
     p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
         "--class-inheritdep", "--class-paramdep"];
     p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_component_dot");
-    p.out_pu = testEnv.outdir ~ "view_components_dot.pu";
+    p.out_pu = testEnv.outdir ~ "view_components_dot.dot";
     runTestFile(p, testEnv);
-    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_component_neato");
-    p.out_pu = testEnv.outdir ~ "view_components_neato.pu";
+    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_component_neato");
+    p.out_pu = testEnv.outdir ~ "view_components_neato.dot";
     runTestFile(p, testEnv);
 }
 
