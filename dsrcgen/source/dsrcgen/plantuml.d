@@ -143,7 +143,7 @@ class PlantumlModule : BaseModule {
     }
 
     // Statements
-    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
+    Stmt stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Stmt(stmt_);
         append(e);
         if (separator) {
@@ -156,26 +156,16 @@ class PlantumlModule : BaseModule {
         import std.format : format;
 
         auto e = stmt(format(`class "%s"`, name));
-        auto spot = e.text("");
-        spot.suppressThisIndent(1);
 
-        return ClassType(ClassNameType(name), ClassModuleType(e), ClassSpotType(spot));
+        return ClassType(ClassNameType(name), ClassModuleType(e), ClassSpotType(null));
     }
 
     ClassType classBody(string name) {
         import std.format : format;
 
-        auto e = stmt(format(`class "%s"`, name));
-        e.suppressIndent(1);
+        auto s = suite(format(`class "%s"`, name));
 
-        auto spot = e.text("");
-        spot.suppressThisIndent(1);
-        e.text(" {");
-        e.sep;
-        auto s = e.base;
-        e.stmt("}", No.addSep).suppressThisIndent(1);
-
-        return ClassType(ClassNameType(name), ClassModuleType(s), ClassSpotType(spot));
+        return ClassType(ClassNameType(name), ClassModuleType(s), ClassSpotType(null));
     }
 
     auto component(string name) {
@@ -230,7 +220,7 @@ class PlantumlModule : BaseModule {
     }
 
     // Suites
-    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
+    Suite suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite(headline);
         append(e);
         if (separator) {
@@ -336,12 +326,15 @@ auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
 }
 
 auto addSpot(T)(ref T m) if (is(T == ClassType)) {
-    auto spot = m.spot.suite("", No.addSep)[$.begin = "<< ", $.end = ">>", $.noident = true];
-    spot.suppressThisIndent(1);
-    spot.setIndentation(1);
-    m.spot = spot;
+    if (auto inner = cast(Stmt) m.getM) {
+        m.spot = inner.makeSpot;
+    } else if (auto inner = cast(Suite) m.getM) {
+        m.spot = inner.makeSpot;
+    } else {
+        assert(0);
+    }
 
-    return spot;
+    return m.spot;
 }
 // End: Class Diagram functions
 
@@ -388,24 +381,28 @@ auto label(Relation m, string txt) {
  */
 class Stmt : PlantumlModule {
     private string headline;
+    private PlantumlModule spot;
 
     this(string headline) {
         this.headline = headline;
     }
 
-    override string renderIndent(int parent_level, int level) {
-        string end = "";
-        string r = headline;
+    PlantumlModule makeSpot() {
+        spot = new PlantumlModule;
+        spot.suppressIndent(1);
+        return spot;
+    }
 
-        if ("end" in attrs) {
-            end = attrs["end"];
-        }
+    override string renderIndent(int parent_level, int level) {
+        string end = ("end" in attrs) ? attrs["end"] : "";
+        string spot = spot !is null ? " << " ~ spot.render ~ " >>" : "";
+        string r = headline ~ spot ~ end;
 
         if (!("noindent" in attrs)) {
             r = indent(r, parent_level, level);
         }
 
-        return r ~ end;
+        return r;
     }
 }
 
@@ -418,18 +415,24 @@ class Stmt : PlantumlModule {
  */
 class Suite : PlantumlModule {
     private string headline;
+    private PlantumlModule spot;
 
     this(string headline) {
         this.headline = headline;
     }
 
+    PlantumlModule makeSpot() {
+        spot = new PlantumlModule;
+        spot.suppressIndent(1);
+        return spot;
+    }
+
     override string renderIndent(int parent_level, int level) {
         import std.ascii : newline;
 
-        string r = headline ~ " {" ~ newline;
-        if ("begin" in attrs) {
-            r = headline ~ attrs["begin"];
-        }
+        string begin = ("begin" in attrs) ? attrs["begin"] : " {" ~ newline;
+        string spot = spot !is null ? " << " ~ spot.render ~ " >>" : "";
+        string r = headline ~ spot ~ begin;
 
         if (r.length > 0 && !("noindent" in attrs)) {
             r = indent(r, parent_level, level);
@@ -454,17 +457,29 @@ class Suite : PlantumlModule {
  */
 struct PlantumlRootModule {
     private PlantumlModule root;
-    PlantumlModule content;
 
     static auto make() {
-        import std.ascii : newline;
-
         typeof(this) r;
         r.root = new PlantumlModule;
         r.root.suppressIndent(1);
-        r.content = r.root.suite("")[$.begin = "@startuml" ~ newline, $.end = "@enduml"];
 
         return r;
+    }
+
+    PlantumlModule makeUml() {
+        import std.ascii : newline;
+
+        auto e = root.suite("")[$.begin = "@startuml" ~ newline, $.end = "@enduml"];
+        return e;
+    }
+
+    PlantumlModule makeDot(string name) {
+        import std.ascii : newline;
+
+        auto dot = root.suite("")[$.begin = "@startdot" ~ newline, $.end = "@enddot"];
+        auto e = dot.suite("digraph " ~ name);
+
+        return e;
     }
 
     auto render()
@@ -479,6 +494,7 @@ struct PlantumlRootModule {
 @Name("should be a complete plantuml block ready to be rendered")
 unittest {
     auto b = PlantumlRootModule.make();
+    b.makeUml;
 
     b.render().shouldEqual("@startuml
 @enduml
@@ -488,7 +504,7 @@ unittest {
 @Name("should be a block with a class")
 unittest {
     auto r = PlantumlRootModule.make();
-    auto c = r.content;
+    auto c = r.makeUml;
 
     c.class_("A");
 
@@ -607,6 +623,31 @@ unittest {
     class "B" << (I, orchid) >> {
         fun()
     }
+`);
+}
+
+@Name("Should be a spot separated from the class name in a root module")
+unittest {
+    auto r = PlantumlRootModule.make;
+    auto m = r.makeUml;
+
+    {
+        auto c = m.class_("A");
+        c.addSpot.text("(D, orchid)");
+    }
+
+    {
+        auto c = m.classBody("B");
+        c.addSpot.text("(I, orchid)");
+        c.method("fun()");
+    }
+
+    r.render.shouldEqual(`@startuml
+class "A" << (D, orchid) >>
+class "B" << (I, orchid) >> {
+    fun()
+}
+@enduml
 `);
 }
 

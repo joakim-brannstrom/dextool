@@ -1,5 +1,5 @@
 @startuml
-    class "Derived"
-    "Derived" --|> "Base"
-    class "Base"
+class "Derived"
+"Derived" --|> "Base"
+class "Base"
 @enduml
