@@ -30,21 +30,9 @@ pure @safe nothrow @nogc struct TypeKind {
         return t;
     }
 
-    /** Return a duplicate.
-     * Side effect is that the cursor is thrown away.
-     * TODO investigate how this can be done with opAssign and postblit.
-     */
+    /// Return a duplicate.
     static auto clone(inout TypeKind t_) pure @safe nothrow {
-        TypeKind t;
-        t.info = t_.info;
-        t.txt = t_.txt;
-        t.isConst = t_.isConst;
-        t.isRef = t_.isRef;
-        t.isPtr = t_.isPtr;
-        t.isFuncPtr = t_.isFuncPtr;
-        t.isArray = t_.isArray;
-        t.isRecord = t_.isRecord;
-
+        TypeKind t = t_;
         return t;
     }
 
@@ -117,6 +105,7 @@ pure @safe nothrow @nogc struct TypeKind {
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
     Flag!"isRecord" isRecord;
+    Flag!"isAnonymous" isAnonymous;
 
     auto txt() const {
         return txt_;

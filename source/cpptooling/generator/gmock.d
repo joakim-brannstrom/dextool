@@ -238,7 +238,7 @@ auto makeGmock(ClassT)(CppClass c) {
         return m;
     }
 
-    auto rclass = CppClass(c.name, c.location, c.inherits, c.resideInNs);
+    auto rclass = CppClass(c.name, c.location, c.inherits, c.resideInNs, No.isStruct);
     rclass.setKind(ClassT.Gmock);
     //dfmt off
     foreach (m_in; c.methodRange) {

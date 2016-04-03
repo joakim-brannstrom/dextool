@@ -719,7 +719,9 @@ private:
                 m.stmt("rankdir=LR");
                 m.stmt("pack=true");
                 m.stmt("concentrate=true");
-                m.stmt("splines=ortho");
+                // inactivating, can result in a crash as of
+                // dot 2.38.0 (20140413.2041)
+                m.stmt("//splines=ortho");
                 break;
             case Dot:
                 m.stmt("layout=dot");
@@ -912,6 +914,10 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
         //TODO investigate why strip is needed when analyzing gtest
         import std.string : strip;
 
+        if (tkv.type.isAnonymous) {
+            return tuple(Relate.Key(""), Relate.Kind.None);
+        }
+
         final switch (tkv.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
             return tuple(Relate.Key(tkv.type.info.type.strip), Relate.Kind.Aggregate);
@@ -945,6 +951,9 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
             import std.string : strip;
 
             auto r = Rtuple(Relate.Kind.None, Relate.Key(""));
+            if (tk.isAnonymous) {
+                return Rtuple(Relate.Kind.None, Relate.Key(""));
+            }
 
             final switch (tk.info.kind) with (TypeKind.Info) {
             case Kind.record:

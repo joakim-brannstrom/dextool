@@ -3,7 +3,7 @@ digraph g {
     rankdir=LR
     pack=true
     concentrate=true
-    splines=ortho
+    //splines=ortho
 
     colorscheme=svg
     node [style=rounded shape=box]

@@ -143,8 +143,15 @@ struct InheritVisitor {
                 assert(c.kind == CXCursorKind.CXCursor_Namespace);
             }
             body {
+                import std.format : format;
+
                 logNode(c, depth);
-                stack ~= CppNs(c.spelling);
+                string spelling = c.spelling;
+                if (spelling == "" || c.isAnonymous) {
+                    spelling = format("::(anonymous %s)", c.location.file);
+                }
+
+                stack ~= CppNs(spelling);
             }
         }
 
@@ -214,7 +221,8 @@ struct ClassDescendVisitor {
      */
     CppClass visit(ref Cursor c, ref Container container)
     in {
-        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl
+                || c.kind == CXCursorKind.CXCursor_StructDecl);
     }
     body {
         this.container = &container;
@@ -258,6 +266,8 @@ struct ClassDescendVisitor {
             applyField(c, accessType);
             descend = false;
             break;
+        case CXCursor_StructDecl:
+            goto case;
         case CXCursor_ClassDecl:
             // Another visitor must analyze the nested class to allow us to
             // construct a correct representation.
@@ -354,6 +364,7 @@ private:
 /** Extract information about a class.
  */
 struct ClassVisitor {
+    import std.typecons : Nullable;
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
         CppClass, CxLocation, ClassVirtualType, CppNsStack, CppInherit;
     import cpptooling.data.symbol.container;
@@ -365,47 +376,68 @@ struct ClassVisitor {
      */
     static auto make(ref Cursor c, CppNsStack reside_in_ns)
     in {
-        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl
+                || c.kind == CXCursorKind.CXCursor_StructDecl);
     }
     body {
-        auto loc = toInternal!CxLocation(c.location());
         auto name = CppClassName(c.spelling);
-        auto r = ClassVisitor(name, loc, reside_in_ns);
         logger.info("class: ", cast(string) name);
-        return r;
+
+        auto loc = toInternal!CxLocation(c.location());
+        auto is_struct = cast(Flag!"isStruct")(c.kind == CXCursorKind.CXCursor_StructDecl);
+        return ClassVisitor(name, loc, reside_in_ns, is_struct);
     }
 
     /// The constructor is disabled to force the class to be in a consistent state.
     @disable this();
 
     //TODO consider making it public. The reason for private is dubious.
-    private this(CppClassName name, CxLocation loc, CppNsStack reside_in_ns) {
-        this.data = CppClass(name, loc, CppInherit[].init, reside_in_ns);
+    private this(CppClassName name, CxLocation loc, CppNsStack reside_in_ns,
+            Flag!"isStruct" is_struct) {
+        this.data = Nullable!CppClass(CppClass.init);
+        this.data.nullify;
+
+        if (name.length > 0) {
+            this.data = CppClass(name, loc, CppInherit[].init, reside_in_ns, is_struct);
+        } else {
+            //TODO the name of the struct should be a unique qualifier
+            // according to the source file and position
+            //
+            // Assuming this is optimized out. Keep the comment for
+            // documentation purpose.
+            //
+            // An anonymous struct declaration has name length zero.
+            // Example:
+            // typedef struct {
+            //    int x;
+            // } foo;
+        }
     }
 
-    auto visit(ref Cursor c, ref Container container)
+    Nullable!CppClass visit(ref Cursor c, ref Container container)
     in {
-        assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
+        assert(c.kind == CXCursorKind.CXCursor_ClassDecl
+                || c.kind == CXCursorKind.CXCursor_StructDecl);
     }
     body {
-        import std.typecons : Nullable;
-
-        auto d = Nullable!CppClass(data);
-        d.nullify;
+        if (data.isNull) {
+            return data;
+        }
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
         if (!c.isDefinition) {
             logger.trace("Forward declaration of class ", c.location.toString);
-            return d;
+            data.nullify;
+            return data;
         }
 
-        d = ClassDescendVisitor(data).visit(c, container);
-        return d;
+        data = ClassDescendVisitor(data).visit(c, container);
+        return data;
     }
 
 private:
-    CppClass data;
+    Nullable!CppClass data;
 }
 
 private AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
@@ -455,6 +487,8 @@ struct NamespaceDescendVisitor {
         bool descend = true;
 
         switch (c.kind) with (CXCursorKind) {
+        case CXCursor_StructDecl:
+            goto case;
         case CXCursor_ClassDecl:
             // visit node to find nested classes
             auto class_ = ClassVisitor.make(c, data.resideInNs.dup).visit(c, *container);
@@ -602,6 +636,8 @@ struct ParseContext {
         bool descend = true;
         logNode(c, depth);
         switch (c.kind) with (CXCursorKind) {
+        case CXCursor_StructDecl:
+            goto case;
         case CXCursor_ClassDecl:
             import cpptooling.data.representation : CppNsStack;
 

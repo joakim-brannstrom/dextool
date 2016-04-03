@@ -1,0 +1,5 @@
+@startuml
+class "Foo"
+"Foo" *-- "Struct_with_union"
+class "Struct_with_union"
+@enduml
