@@ -127,8 +127,18 @@ class BaseModule : BaseElement {
         sep_lines += count;
     }
 
+    void prepend(BaseElement e) {
+        children = e ~ children;
+        sep_lines = 0;
+    }
+
     void append(BaseElement e) {
         children ~= e;
+        sep_lines = 0;
+    }
+
+    void clearChildren() {
+        children.length = 0;
         sep_lines = 0;
     }
 
