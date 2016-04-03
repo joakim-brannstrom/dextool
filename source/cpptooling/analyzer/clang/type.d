@@ -44,6 +44,7 @@ nothrow struct WrapTypeKind {
         this.typeKind.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
         this.typeKind.isArray = cast(Flag!"isArray") type.isArray;
         this.typeKind.isRecord = cast(Flag!"isRecord")(type.kind == CXTypeKind.CXType_Record);
+        this.typeKind.isAnonymous = cast(Flag!"isAnonymous")(type.isAnonymous);
     }
 
     TypeKind unwrap() @safe nothrow @property {
@@ -134,13 +135,14 @@ body {
 
     debug {
         // dfmt off
-        logger.tracef("full:%s fmt:%s c:%s r:%s p:%s rr:%s",
+        logger.tracef("full:%s fmt:%s c:%s r:%s p:%s rr:%s a:%s",
                       result.typeKind.txt,
-                      result.typeKind.info.fmt,
+                      result.typeKind.info.kind != TypeKind.Info.Kind.null_ ? result.typeKind.info.fmt : "",
                       result.typeKind.isConst,
                       result.typeKind.isRef,
                       result.typeKind.isPtr,
-                      result.typeKind.isRecord);
+                      result.typeKind.isRecord,
+                      result.typeKind.isAnonymous);
         // dfmt on
 
         switch (result.typeKind.info.kind) with (TypeKind.Info.Kind) {
@@ -245,6 +247,7 @@ body {
     logType(type);
     auto declaration = type.declaration;
     auto rval = WrapTypeKind(type);
+
     rval.typeKind.info = TypeKind.SimpleInfo(type.spelling ~ " %s", type.spelling);
 
     if (rec_depth == 2) {
@@ -308,12 +311,24 @@ body {
         }
     }
 
+    import std.algorithm : canFind;
+
+    if (rval.typeKind.txt.canFind("(anonymous")) {
+        //TODO handle this case in the future
+        // ugly as hell.... how to determine this from the AST?
+        logger.error("Anonymous type: ", rval.typeKind.txt);
+        rval.typeKind.isAnonymous = Yes.isAnonymous;
+    }
+
     return rval;
 }
 
 auto translateConstantArray(Type type)
 in {
     assert(type.kind == CXTypeKind.CXType_ConstantArray);
+}
+out (result) {
+    assert(result.typeKind.info.kind == TypeKind.Info.Kind.array);
 }
 body {
     import std.format : format;
