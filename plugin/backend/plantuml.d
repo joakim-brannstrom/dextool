@@ -703,7 +703,7 @@ private:
             DotOrtho
         }
 
-        static PlantumlModule makeDotPreamble(DotLayout layout) {
+        static PlantumlModule makeDotPreamble(DotLayout layout, Flag!"doSmall" doSmall) {
             auto m = new PlantumlModule;
             m.suppressIndent(1);
 
@@ -732,7 +732,11 @@ private:
             m.sep(2);
 
             m.stmt("colorscheme=svg");
-            m.stmt("node [style=rounded shape=box]");
+            if (doSmall) {
+                m.stmt("node [style=rounded shape=box fontsize=9 width=0.25 height=0.375]");
+            } else {
+                m.stmt("node [style=rounded shape=box]");
+            }
             m.sep(2);
 
             return m;
@@ -797,14 +801,14 @@ private:
         }
 
         if (params.doGenDot) {
-            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
-                    DotLayout.Dot), makeDotPreamble(DotLayout.Dot), m.classes_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.classes,
-                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.classes_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.components,
-                    DotLayout.Neato), makeDotPreamble(DotLayout.Neato), m.components_dot);
-            make!"dot"(prods, makeDotFileName(params.getFiles.components,
-                    DotLayout.DotOrtho), makeDotPreamble(DotLayout.DotOrtho), m.components_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.classes, DotLayout.Dot),
+                    makeDotPreamble(DotLayout.Dot, Yes.doSmall), m.classes_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.classes, DotLayout.Neato),
+                    makeDotPreamble(DotLayout.Neato, Yes.doSmall), m.classes_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.components, DotLayout.Neato),
+                    makeDotPreamble(DotLayout.Neato, No.doSmall), m.components_dot);
+            make!"dot"(prods, makeDotFileName(params.getFiles.components, DotLayout.DotOrtho),
+                    makeDotPreamble(DotLayout.DotOrtho, No.doSmall), m.components_dot);
         }
 
         make!"uml"(prods, params.getFiles.classes, style, m.classes);

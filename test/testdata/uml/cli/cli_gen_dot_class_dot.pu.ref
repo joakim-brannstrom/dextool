@@ -6,7 +6,7 @@ digraph g {
     concentrate=true
 
     colorscheme=svg
-    node [style=rounded shape=box]
+    node [style=rounded shape=box fontsize=9 width=0.25 height=0.375]
 
     edge [color=red]
     [weight=1] "B" -> "A"
