@@ -1032,6 +1032,7 @@ pure @safe nothrow struct CppClass {
         CppNsStack reside_in_ns;
 
         ClassVirtualType classification_;
+        bool is_struct;
 
         CppFunc[] methods_pub;
         CppFunc[] methods_prot;
@@ -1064,14 +1065,15 @@ pure @safe nothrow struct CppClass {
         this = other;
     }
 
-    this(const CppClassName name, const CxLocation loc,
-            const CppInherit[] inherits, const CppNsStack ns)
+    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits,
+            const CppNsStack ns, const Flag!"isStruct" is_struct)
     out {
         assert(name_.length > 0);
     }
     body {
         this.name_ = name;
         this.reside_in_ns = ns.dup;
+        this.is_struct = is_struct;
 
         () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
 
@@ -1087,7 +1089,7 @@ pure @safe nothrow struct CppClass {
         assert(name_.length > 0);
     }
     body {
-        this(name, loc, inherits, CppNsStack.init);
+        this(name, loc, inherits, CppNsStack.init, No.isStruct);
     }
 
     //TODO remove
@@ -1096,7 +1098,7 @@ pure @safe nothrow struct CppClass {
         assert(name_.length > 0);
     }
     body {
-        this(name, loc, CppInherit[].init, CppNsStack.init);
+        this(name, loc, CppInherit[].init, CppNsStack.init, No.isStruct);
     }
 
     //TODO remove
@@ -1105,7 +1107,7 @@ pure @safe nothrow struct CppClass {
         assert(name_.length > 0);
     }
     body {
-        this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
+        this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init, No.isStruct);
     }
 
     void put(T)(T func) @trusted 
@@ -1272,14 +1274,14 @@ const:
         // dfmt off
         auto begin_class =
             chain(
-                  only("class", name_.str).joiner(" "),
+                  only(isStruct ? "struct" : "class", name_.str).joiner(" "),
                   inherits.takeOne.map!(a => " : ").joiner(),
                   inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
                   only(" { //", to!string(classification_), location.toString).joiner(" ")
                  );
         auto end_class =
             chain(
-                  only("}; //Class:").joiner(),
+                  only("}; //", isStruct ? "Struct:" : "Class:").joiner(),
                   reside_in_ns.map!(a => cast(string) a).joiner("::"),
                   reside_in_ns.takeOne.map!(a => "::").joiner(),
                   only(name_.str).joiner()
@@ -1339,6 +1341,10 @@ const:
             with (ClassVirtualType) {
                 return classification_.among(VirtualDtor, Pure) != 0;
             }
+        }
+
+        Flag!"isStruct" isStruct() {
+            return cast(Flag!"isStruct") is_struct;
         }
 
         auto classification() {
@@ -1887,16 +1893,25 @@ private:
 }; //Class:Foo");
 }
 
+@Name("should be a struct in a ns in the comment")
+unittest {
+    auto c = CppClass(CppClassName("A_Struct"), dummyLoc, CppInherit[].init, CppNsStack.init, Yes.isStruct);
+
+    shouldEqualPretty(c.toString,
+                      "struct A_Struct { // Unknown File:a.h Line:123 Column:45
+}; //Struct:A_Struct"
+                      );
+}
+
 @Name("should be a class in a ns in the comment")
 unittest {
     CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
-    auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
+    auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns, No.isStruct);
 
     shouldEqualPretty(c.toString,
                       "class A_Class { // Unknown File:a.h Line:123 Column:45
 }; //Class:a_ns::another_ns::A_Class"
                       );
-
 }
 
 @Name("should contain the inherited classes")

@@ -159,15 +159,6 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(
-        "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
-    p.dexDiagramParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
-    runTestFile(p, testEnv);
-}
-
 @Name("Should be a class diagram with relations via composition and aggregation")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -187,6 +178,15 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/param_primitive_types.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name(
+        "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
+    p.dexDiagramParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
     runTestFile(p, testEnv);
 }
 
@@ -419,4 +419,18 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name("Should be a component diagram related by a free function")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("component/free_func_use_struct.h", testEnv);
+    runTestFile(p, testEnv);
+}
+
 // END   Test Component Diagrams #############################################
+
+@Name("Should skip. Bug with anonymous union")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/bug_anon_union.hpp", testEnv);
+    runTestFile(p, testEnv);
+}

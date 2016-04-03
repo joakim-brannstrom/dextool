@@ -246,3 +246,11 @@ unittest {
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
+
+@Name("Should be a mock of a struct classified as Virtual")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/struct_interface.hpp", testEnv);
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}

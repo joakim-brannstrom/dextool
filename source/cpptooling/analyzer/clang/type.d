@@ -313,7 +313,7 @@ body {
 
     import std.algorithm : canFind;
 
-    if (rval.typeKind.txt.canFind("(anonymous")) {
+    if (rval.typeKind.txt.canFind("(anonymous ")) {
         //TODO handle this case in the future
         // ugly as hell.... how to determine this from the AST?
         logger.error("Anonymous type: ", rval.typeKind.txt);

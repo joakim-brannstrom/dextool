@@ -914,6 +914,10 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
         //TODO investigate why strip is needed when analyzing gtest
         import std.string : strip;
 
+        if (tkv.type.isAnonymous) {
+            return tuple(Relate.Key(""), Relate.Kind.None);
+        }
+
         final switch (tkv.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
             return tuple(Relate.Key(tkv.type.info.type.strip), Relate.Kind.Aggregate);
@@ -947,6 +951,9 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
             import std.string : strip;
 
             auto r = Rtuple(Relate.Kind.None, Relate.Key(""));
+            if (tk.isAnonymous) {
+                return Rtuple(Relate.Kind.None, Relate.Key(""));
+            }
 
             final switch (tk.info.kind) with (TypeKind.Info) {
             case Kind.record:

@@ -592,7 +592,8 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
     auto methods = dedup(getMethods(class_, container));
 
-    auto c = CppClass(class_.name, class_.location, class_.inherits, class_.resideInNs);
+    auto c = CppClass(class_.name, class_.location, class_.inherits,
+            class_.resideInNs, class_.isStruct);
     // dfmt off
     () @trusted {
         import std.algorithm : each;

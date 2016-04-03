@@ -1,0 +1,5 @@
+@startuml
+component "component" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudA
+component "a" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9h
+dGVzdGRhdGEvdW1sL2NvbXBvbmVudA --> dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9h
+@enduml

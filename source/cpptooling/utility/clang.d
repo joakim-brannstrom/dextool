@@ -62,9 +62,9 @@ void logNode(int line = __LINE__, string file = __FILE__, string funcName = __FU
     import logger = std.experimental.logger;
 
     logger.logf!(line, file, funcName, prettyFuncName, moduleName)(logger.LogLevel.trace,
-            "%s|%s [d=%s %s %s line=%d, col=%d %s]", repeat(' ', level), c.spelling,
-            c.displayName, c.kind, c.type, c.location.spelling.line,
-            c.location.spelling.column, c.abilities);
+            "%s|%s [d=%s %s %s line=%d, col=%d %s %s]", repeat(' ', level),
+            c.spelling, c.displayName, c.kind, c.type,
+            c.location.spelling.line, c.location.spelling.column, c.abilities, c.location.file);
 }
 
 private:
