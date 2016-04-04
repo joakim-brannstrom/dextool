@@ -125,7 +125,7 @@ struct Cursor {
      * If the passed in Cursor is not a function or variable declaration,
      * CX_SC_Invalid is returned else the storage class.
      */
-    @property CX_StorageClass storageClass() {
+    @property CX_StorageClass storageClass() const {
         return clang_Cursor_getStorageClass(cx);
     }
 
@@ -135,7 +135,7 @@ struct Cursor {
      *  cursor, such as the parameters of a function or template or the
      *  arguments of a class template specialization.
      */
-    @property string displayName() {
+    @property string displayName() const {
         return toD(clang_getCursorDisplayName(cx));
     }
 
@@ -158,7 +158,7 @@ struct Cursor {
     }
 
     /// Return: Retrieve the Type (if any) of the entity pointed at by the cursor.
-    @property Type type() @trusted {
+    @property Type type() @trusted const {
         auto r = clang_getCursorType(cx);
         return Type(this, r);
     }
@@ -168,7 +168,7 @@ struct Cursor {
      *
      * If the current cursor is not a typedef, this raises.
      */
-    @property Type typedefUnderlyingType() @trusted {
+    @property Type typedefUnderlyingType() @trusted const {
         auto r = clang_getTypedefDeclUnderlyingType(cx);
         return Type(this, r);
     }
@@ -177,7 +177,7 @@ struct Cursor {
      *  some entity, return a cursor that points to the definition of that
      *  entity.
      */
-    @property Cursor definition() {
+    @property Cursor definition() const {
         auto r = clang_getCursorDefinition(cx);
         return Cursor(r);
     }
@@ -215,7 +215,7 @@ struct Cursor {
      *
      * For global declarations, the semantic parent is the translation unit.
      */
-    @property Cursor semanticParent() {
+    @property Cursor semanticParent() const {
         auto r = clang_getCursorSemanticParent(cx);
         return Cursor(r);
     }
@@ -254,7 +254,7 @@ struct Cursor {
      * For declarations written in the global scope, the lexical parent is
      * the translation unit.
      */
-    @property Cursor lexicalParent() {
+    @property Cursor lexicalParent() const {
         auto r = clang_getCursorLexicalParent(cx);
         return Cursor(r);
     }
@@ -269,12 +269,12 @@ struct Cursor {
      * declaration or definition, it returns that declaration or definition
      * unchanged.  Otherwise, returns the NULL cursor.
      */
-    @property Cursor referenced() {
+    @property Cursor referenced() const {
         auto r = clang_getCursorReferenced(cx);
         return Cursor(r);
     }
 
-    @property DeclarationVisitor declarations() {
+    @property DeclarationVisitor declarations() const {
         return DeclarationVisitor(this);
     }
 
@@ -317,18 +317,18 @@ struct Cursor {
      *
      * Return: The canonical cursor for the entity referred to by the given cursor.
      */
-    @property Cursor canonical() @trusted {
+    @property Cursor canonical() @trusted const {
         auto r = clang_getCanonicalCursor(cx);
         return Cursor(r);
     }
 
     /// Determine the "language" of the entity referred to by a given cursor.
-    @property CXLanguageKind language() {
+    @property CXLanguageKind language() const {
         return clang_getCursorLanguage(cx);
     }
 
     /// Returns: the translation unit that a cursor originated from.
-    @property TranslationUnit translationUnit() {
+    @property TranslationUnit translationUnit() const {
         return TranslationUnit(clang_Cursor_getTranslationUnit(cx));
     }
 
@@ -339,7 +339,7 @@ struct Cursor {
      *
      * Returns: A RefCounted TokenGroup.
      */
-    @property auto tokens() {
+    @property auto tokens() const {
         import std.algorithm.mutation : stripRight;
 
         CXToken* tokens = null;
@@ -727,6 +727,71 @@ struct EnumCursor {
             return true;
         }
     }
+}
+
+import std.array : appender, Appender;
+
+void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file) {
+    import std.format;
+    import std.array : replicate;
+    import std.algorithm.comparison : min;
+
+    string stripPrefix(string x) {
+        immutable string prefix = "CXCursor_";
+        immutable size_t prefixSize = prefix.length;
+        return x.startsWith(prefix) ? x[prefixSize .. $] : x;
+    }
+
+    string prettyTokens(TokenRange tokens, size_t limit = 5) {
+        string prettyToken(Token token) {
+            immutable string prefix = "CXToken_";
+            immutable size_t prefixSize = prefix.length;
+            auto x = to!string(token.kind);
+            return "%s \"%s\"".format(x.startsWith(prefix) ? x[prefixSize .. $] : x, token.spelling);
+        }
+
+        auto result = appender!string("[");
+
+        if (tokens.length != 0) {
+            result.put(prettyToken(tokens[0]));
+
+            foreach (Token token; c.tokens[1 .. min($, limit)]) {
+                result.put(", ");
+                result.put(prettyToken(token));
+            }
+        }
+
+        if (tokens.length > limit)
+            result.put(", ..]");
+        else
+            result.put("]");
+
+        return result.data;
+    }
+
+    immutable size_t step = 4;
+
+    auto text = "%s \"%s\" [%d..%d] %s\n".format(stripPrefix(to!string(c.kind)),
+            c.spelling, c.extent.start.offset, c.extent.end.offset, prettyTokens(c.tokens));
+
+    result.put(" ".replicate(indent));
+    result.put(text);
+
+    if (file) {
+        foreach (cursor, _; c.all) {
+            if (!cursor.isPredefined() && cursor.location.file == *file)
+                dumpAST(cursor, result, indent + step);
+        }
+    } else {
+        foreach (cursor, _; c.all) {
+            if (!cursor.isPredefined())
+                cursor.dumpAST(result, indent + step);
+        }
+    }
+}
+
+void dumpAST(ref Cursor c, ref Appender!string result, size_t indent) {
+    dumpAST(c, result, indent, null);
 }
 
 @Name("Should output the predefined types for inspection")

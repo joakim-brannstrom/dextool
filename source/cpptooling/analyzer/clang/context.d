@@ -56,6 +56,10 @@ struct ClangContext {
         return translation_unit.cursor;
     }
 
+    TranslationUnit translationUnit() {
+        return translation_unit;
+    }
+
 private:
     string[] compilerArgs() {
         import std.array : array, join;

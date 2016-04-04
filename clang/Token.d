@@ -1,11 +1,19 @@
-/// Written in the D programming language.
-/// Date: 2015, Joakim Brännström
-/// License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
-/// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+// Written in the D programming language.
+/**
+ * Copyright: Copyright (c) 2015, Joakim Brännström. All rights reserved.
+ * Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+ *
+ * Only kept utility functionality and comments of the original implementation.
+ * The rest is synchronized with Token.d in DStep.
+ *
+ * Copyright: Copyright (c) 2016 Wojciech Szęszoł. All rights reserved.
+ * Authors: Wojciech Szęszoł
+ * Version: Initial created: Feb 14, 2016
+ * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
+ */
 module clang.Token;
 
-import std.conv;
-import std.string;
+import std.conv : to;
 import std.typecons;
 
 import deimos.clang.index;
@@ -18,12 +26,14 @@ import clang.Util;
 import clang.Visitor;
 
 @property auto toString(Token tok) {
-    import std.conv;
+    import std.format : format;
 
-    return format("%s [%s %s]", tok.spelling, tok.kind, text(tok.cursor.cx),);
+    return format("%s [%s %s]", tok.spelling, tok.kind, to!string(tok.cursor.cx),);
 }
 
 @property auto toString(ref TokenRange toks) {
+    import std.string;
+
     string s;
 
     foreach (t; toks) {
@@ -35,11 +45,11 @@ import clang.Visitor;
 
 /** Represents a single token from the preprocessor.
  *
- *  Tokens are effectively segments of source code. Source code is first parsed
- *  into tokens before being converted into the AST and Cursors.
+ * Tokens are effectively segments of source code. Source code is first parsed
+ * into tokens before being converted into the AST and Cursors.
  *
- *  Tokens are obtained from parsed TranslationUnit instances. You currently
- *  can't create tokens manually.
+ * Tokens are obtained from parsed TranslationUnit instances. You currently
+ * can't create tokens manually.
  */
 struct Token {
     private struct Container {
@@ -116,6 +126,12 @@ struct TokenRange {
         return result;
     }
 
+    private this(const RefCounted!(Token.Container) container, size_t begin, size_t end) {
+        this.container = container;
+        this.begin = begin;
+        this.end = end;
+    }
+
     this(CXTranslationUnit translationUnit, CXToken* tokens, ulong numTokens) {
         container = makeContainer(translationUnit, tokens, numTokens);
         begin = 0;
@@ -152,5 +168,13 @@ struct TokenRange {
 
     Token opIndex(size_t index) const {
         return Token(container, begin + index);
+    }
+
+    TokenRange opSlice(size_t begin, size_t end) const {
+        return TokenRange(container, this.begin + begin, this.begin + end);
+    }
+
+    size_t opDollar() const {
+        return length;
     }
 }
