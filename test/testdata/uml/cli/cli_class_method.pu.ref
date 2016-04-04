@@ -1,9 +1,9 @@
 @startuml
-class "A"
-class "InheritDep"
-class "MemberDep"
-class "Method" {
+class "A" as YzpAU0BB
+class "InheritDep" as YzpAU0BJbmhlcml0RGVw
+class "MemberDep" as YzpAU0BNZW1iZXJEZXA
+class "Method" as YzpAU0BNZXRob2Q {
     +virtual void a_pub()
 }
-class "ParamDep"
+class "ParamDep" as YzpAU0BQYXJhbURlcA
 @enduml

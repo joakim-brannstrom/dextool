@@ -1,34 +1,27 @@
-union Foo
-{
-	int a;
+union Foo {
+    int a;
 };
 
-union Bar
-{
-	int x;
+union Bar {
+    int x;
 } b;
 
 union Foo c;
 
-union A
-{
-	union B
-	{
-		int x;
-	} b;
+union A {
+    union B {
+        int x;
+    } b;
 };
 
-union C
-{
-	union
-	{
-		int x;
-		int y;
-	} point;
+union C {
+    union {
+        int x;
+        int y;
+    } point;
 };
 
-typedef union
-{
-	int x;
-	int y;
+typedef union {
+    int x;
+    int y;
 } D;

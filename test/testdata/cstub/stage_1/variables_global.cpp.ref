@@ -1,11 +1,43 @@
 #include "test_double.hpp"
 
-#ifndef TEST_INIT_b
-#define TEST_INIT_b b
-#endif // TEST_INIT_b
-#ifndef TEST_INIT_c
-#define TEST_INIT_c c
-#endif // TEST_INIT_c
+#ifndef TEST_INIT_expect_b
+#define TEST_INIT_expect_b int expect_b
+#endif // TEST_INIT_expect_b
+#ifndef TEST_INIT_expect_c
+#define TEST_INIT_expect_c const int expect_c
+#endif // TEST_INIT_expect_c
+#ifndef TEST_INIT_expect_d
+#define TEST_INIT_expect_d int *expect_d
+#endif // TEST_INIT_expect_d
+#ifndef TEST_INIT_expect_e
+#define TEST_INIT_expect_e int **expect_e
+#endif // TEST_INIT_expect_e
+#ifndef TEST_INIT_expect_f
+#define TEST_INIT_expect_f const int *expect_f
+#endif // TEST_INIT_expect_f
+#ifndef TEST_INIT_expect_g
+#define TEST_INIT_expect_g int *const expect_g
+#endif // TEST_INIT_expect_g
+#ifndef TEST_INIT_expect_h
+#define TEST_INIT_expect_h const int *const expect_h
+#endif // TEST_INIT_expect_h
+#ifndef TEST_INIT_expect_i
+#define TEST_INIT_expect_i const int *const *expect_i
+#endif // TEST_INIT_expect_i
+#ifndef TEST_INIT_expect_my_int
+#define TEST_INIT_expect_my_int my_int expect_my_int
+#endif // TEST_INIT_expect_my_int
+#ifndef TEST_INIT_expect_const_my_int
+#define TEST_INIT_expect_const_my_int const my_int *const expect_const_my_int
+#endif // TEST_INIT_expect_const_my_int
 
-int TEST_INIT_b;
-const int TEST_INIT_c;
+TEST_INIT_expect_b;
+TEST_INIT_expect_c;
+TEST_INIT_expect_d;
+TEST_INIT_expect_e;
+TEST_INIT_expect_f;
+TEST_INIT_expect_g;
+TEST_INIT_expect_h;
+TEST_INIT_expect_i;
+TEST_INIT_expect_my_int;
+TEST_INIT_expect_const_my_int;

@@ -7,8 +7,9 @@ extern "C" {
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual unsigned char tiger(const unsigned int x0) = 0;
-    virtual unsigned char cyber(const unsigned int x0) = 0;
+    virtual void tiger() = 0;
+    virtual unsigned char leopard(const unsigned int baz) = 0;
+    virtual unsigned char cyber(const unsigned int baz) = 0;
     virtual void func_void() = 0;
     virtual int func_return() = 0;
     virtual int func_one_named(int a) = 0;
@@ -23,7 +24,7 @@ public:
     virtual int func_extern(int out) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
     virtual void fun(func_ptr2 p, Something_Big b) = 0;
-    virtual void func_ptr_arg(int (*a)(int p, int x1), int b) = 0;
+    virtual void func_ptr_arg(int (*a)(int p, int ), int b) = 0;
     virtual void c_func_with_struct(const struct A *a) = 0;
 };
 

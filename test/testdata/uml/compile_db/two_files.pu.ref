@@ -1,5 +1,5 @@
 @startuml
-class "File2"
-"File2" --|> "File1"
-class "File1"
+class "File2" as YzpAU0BGaWxlMg
+class "File1" as YzpAU0BGaWxlMQ
+"YzpAU0BGaWxlMg" --|> "YzpAU0BGaWxlMQ"
 @enduml

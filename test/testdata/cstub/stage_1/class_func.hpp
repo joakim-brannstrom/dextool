@@ -5,6 +5,7 @@ void fun();
 class Smurf {
 public:
     Smurf();
+    Smurf(int);
     ~Smurf() {}
 };
 

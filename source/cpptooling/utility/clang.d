@@ -55,17 +55,31 @@ void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v)
     helperVisitAst!(NodeType.Root)(cursor, cursor, v);
 }
 
-void logNode(int line = __LINE__, string file = __FILE__, string funcName = __FUNCTION__,
-        string prettyFuncName = __PRETTY_FUNCTION__, string moduleName = __MODULE__)(
-        ref Cursor c, int level) {
+void logNode(ref Cursor c, in int indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
+    import std.array : array;
     import std.range : repeat;
     import logger = std.experimental.logger;
+    import clang.Cursor : dump;
     import clang.info;
 
-    logger.logf!(line, file, funcName, prettyFuncName, moduleName)(logger.LogLevel.trace,
-            "%s|%s|usr=%s|%s|%s|line=%d, col=%d %s|%s", repeat(' ', level),
-            c.spelling, c.usr, c.kind, c.abilities, c.location.spelling.line,
-            c.location.spelling.column, c.location.file, c.type);
+    // dfmt off
+    debug {
+        string indent_ = repeat(' ', indent).array();
+        logger.logf!(-1, "", "", "", "")
+            (logger.LogLevel.trace,
+             "%d %s%s|%s|%s|%s:%d:%d [%s:%d]",
+             indent,
+             indent_,
+             dump(c),
+             c.displayName,
+             c.abilities,
+             c.location.file,
+             c.location.spelling.line,
+             c.location.spelling.column,
+             func,
+             line);
+    }
+    // dfmt on
 }
 
 private:

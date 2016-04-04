@@ -1,3 +1,3 @@
 class A {
-    void(*ptr)(void* x0);
+    void(*ptr)(void* some);
 };

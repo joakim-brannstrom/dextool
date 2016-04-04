@@ -43,7 +43,9 @@ version (unittest) {
         import std.traits : hasMember, PointerTarget;
 
         static if (!hasMember!(Kind, PointerTarget!T.stringof)) {
-            static assert(false, "No member in Kind matching parameter " ~ PointerTarget!T.stringof);
+            static assert(false,
+                    "No member in cpptooling.data.symbol.types.Kind matching parameter "
+                    ~ PointerTarget!T.stringof);
         }
     }
 
@@ -53,6 +55,46 @@ version (unittest) {
 
     bool opEquals(FullyQualifiedNameType rhs) pure nothrow const {
         return fullyQualifiedName == rhs;
+    }
+
+    T get() {
+        return target;
+    }
+
+    alias get this;
+}
+
+/** Wrap a pointer with metadata.
+ *
+ * The metadata is used to find the symbol in search algorithms.
+ */
+@safe struct TypeSymbol2(T) if (isPointer!T) {
+    private T target;
+    USRType usr;
+
+    this(T target, USRType usr)
+    in {
+        assert(target !is null);
+    }
+    body {
+        this.target = target;
+        this.usr = usr;
+
+        import std.traits : hasMember, PointerTarget;
+
+        static if (!hasMember!(Kind, PointerTarget!T.stringof)) {
+            static assert(false,
+                    "No member in cpptooling.data.symbol.types.Kind matching parameter "
+                    ~ PointerTarget!T.stringof);
+        }
+    }
+
+    bool opEquals(ref const this rhs) pure nothrow const {
+        return usr == rhs.usr;
+    }
+
+    bool opEquals(USRType rhs) pure nothrow const {
+        return usr == rhs;
     }
 
     T get() {

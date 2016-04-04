@@ -424,7 +424,7 @@ struct Fsm {
     }
 
     void stateDebug_build() {
-        printStatus(Status.Run, "Debug build with debug symbols");
+        printStatus(Status.Run, "Debug build");
 
         Args a;
         a ~= thisExePath.dirName ~ "build.sh";

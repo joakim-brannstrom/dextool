@@ -15,6 +15,7 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
+import cpptooling.data.symbol.container;
 
 /// Control variouse aspectes of the analyze and generation like what nodes to
 /// process.
@@ -115,6 +116,7 @@ import application.types;
     void putLocation(FileName loc, LocationType type);
 }
 
+//TODO rename to Generator
 struct StubGenerator {
     import std.typecons : Typedef;
 
@@ -161,9 +163,15 @@ struct StubGenerator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(CppRoot root) {
+    auto process(CppRoot root, ref Container container) {
         import std.array;
         import cpptooling.data.representation : CppNamespace, CppNs;
+        import cpptooling.generator.func : makeFuncInterface;
+        import cpptooling.generator.adapter;
+
+        alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(
+                MainInterface, ClassType);
+        alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType;
 
         logger.trace("Raw:\n", root.toString());
 
@@ -177,7 +185,7 @@ struct StubGenerator {
             auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
             ns.setKind(NamespaceType.TestDouble);
 
-            auto c_if = makeCFuncInterface(raw.funcRange(), params.getMainInterface);
+            auto c_if = makeFuncInterface(raw.funcRange(), params.getMainInterface);
 
             ns.put(c_if);
             if (ctrl.doGoogleMock) {
@@ -193,7 +201,7 @@ struct StubGenerator {
         logger.trace("Post processed:\n", raw.toString());
 
         auto m = Modules.make();
-        generate(raw, ctrl, params, m.hdr, m.impl, m.globals, m.gmock);
+        generate(raw, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
         postProcess(m, ctrl, params, products);
     }
 
@@ -311,12 +319,6 @@ CppRoot rawFilter(CppRoot input, StubController ctrl, StubProducts prod) {
     return raw;
 }
 
-static import cpptooling.generator.func;
-
-alias generateCFuncImpl = cpptooling.generator.func.generateFuncImpl;
-
-alias makeCFuncInterface = cpptooling.generator.func.makeFuncInterface;
-
 auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod) {
     import cpptooling.utility.nullvoid;
 
@@ -332,19 +334,16 @@ auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod
     return r;
 }
 
-static import cpptooling.generator.adapter;
-
-alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(MainInterface, ClassType);
-
-alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType;
-
-void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule hdr,
-        CppModule impl, CppModule globals, CppModule gmock) {
+void generate(CppRoot r, StubController ctrl, StubParameters params,
+        const ref Container container, CppModule hdr, CppModule impl,
+        CppModule globals, CppModule gmock) {
     import std.algorithm : each;
     import std.array;
     import cpptooling.utility.conv : str;
+    import cpptooling.generator.func : generateFuncImpl;
+    import cpptooling.generator.includes;
 
-    generateCIncludes(ctrl, params, hdr);
+    generateC!(StubController, StubParameters)(ctrl, params, hdr);
 
     auto globalR = r.globalRange();
     if (!globalR.empty) {
@@ -355,17 +354,20 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
 
         globalR = r.globalRange();
         globalR.each!((a) {
-            generateCGlobalDefinition(a, params.getArtifactPrefix.str, globals);
+            generateCGlobalDefinition(a, params.getArtifactPrefix.str, container, globals);
         });
     }
 
     static void eachNs(CppNamespace ns, StubParameters params, CppModule hdr,
             CppModule impl, CppModule gmock) {
+        import cpptooling.generator.adapter;
+        import cpptooling.generator.adapter : generateSingleton;
+
         final switch (cast(NamespaceType) ns.kind) {
         case NamespaceType.Normal:
             break;
         case NamespaceType.TestDoubleSingleton:
-            generateTestDoubleSingleton(ns, impl);
+            generateSingleton(ns, impl);
             break;
         case NamespaceType.TestDouble:
             generateNsTestDoubleHdr(ns, params, hdr, gmock);
@@ -379,89 +381,76 @@ void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule h
     // The generated functions must be extern C declared.
     auto extern_c = impl.suite("extern \"C\"");
     extern_c.suppressIndent(1);
-    r.funcRange().each!((a) { generateCFuncImpl(a, extern_c); });
+    r.funcRange().each!((a) { generateFuncImpl(a, extern_c); });
 }
 
 void generateCGlobalPreProcessorDefine(CxGlobalVariable g, string prefix, CppModule code) {
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import cpptooling.analyzer.type : TypeKind;
+    import cpptooling.analyzer.type : TypeKind, toStringDecl, toRepr;
 
-    auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+    auto d_name = E((prefix ~ "Init_").toUpper ~ g.name.str);
     auto ifndef = code.IFNDEF(d_name);
 
-    final switch (g.type.info.kind) with (TypeKind.Info) {
-    case Kind.record:
-        goto case;
-    case Kind.func:
-        goto case;
-    case Kind.simple:
-        ifndef.define(E(d_name) ~ E(g.name.str));
-        break;
+    // example: #define TEST_INIT_extern_a int extern_a[4]
+    final switch (g.type.kind.info.kind) with (TypeKind.Info) {
     case Kind.array:
-        ifndef.define(E(d_name) ~ E(g.name.str ~ g.type.info.indexes));
-        break;
+    case Kind.func:
     case Kind.funcPtr:
-        ifndef.define(E(d_name));
+    case Kind.pointer:
+    case Kind.record:
+    case Kind.simple:
+    case Kind.typeRef:
+        ifndef.define(d_name ~ E(g.type.toStringDecl(g.name.str)));
         break;
+    case Kind.ctor:
+        // a C test double shold never have preprocessor macros for a C++ ctor
+        assert(false);
+    case Kind.dtor:
+        // a C test double shold never have preprocessor macros for a C++ dtor
+        assert(false);
     case Kind.null_:
         logger.error("Type of global definition is null. Identifier ", g.name.str);
         break;
     }
 }
 
-void generateCGlobalDefinition(CxGlobalVariable g, string prefix, CppModule code) {
+void generateCGlobalDefinition(CxGlobalVariable g, string prefix,
+        const ref Container container, CppModule code)
+in {
+    import std.algorithm : among;
+    import cpptooling.analyzer.type : TypeKind;
+
+    assert(!g.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
+}
+body {
     import std.format : format;
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import cpptooling.analyzer.type : TypeKind, toString;
+    import cpptooling.analyzer.type;
 
-    auto d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
-
-    string txt;
-    final switch (g.type.info.kind) with (TypeKind.Info) {
-    case Kind.record:
-        goto case;
-    case Kind.func:
-        goto case;
-    case Kind.simple:
-        txt = E(g.type.txt) ~ E(d_name);
-        break;
-    case Kind.array:
-        txt = E(g.type.info.elementType) ~ E(d_name);
-        break;
-    case Kind.funcPtr:
-        txt = E(g.type.toString(g.name.str)) ~ E(d_name);
-        break;
-    case Kind.null_:
-        logger.error("Type of global definition is null. Identifier ", g.name.str);
-        break;
-    }
-
-    code.stmt(txt);
+    string d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+    code.stmt(d_name);
 }
 
 void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
+    import cpptooling.generator.classes : generateHdr;
+    import cpptooling.generator.gmock : generateGmock;
+
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
     case ClassType.Adapter:
-        generateClassHdrNormal(c, hdr);
+        generateHdr(c, hdr);
         break;
     case ClassType.Gmock:
-        generateClassHdrGmock(c, gmock, params);
+        generateGmock!StubParameters(c, gmock, params);
         break;
     }
 }
 
-import cpptooling.generator.classes : generateClassHdrNormal = generateHdr;
-
-static import cpptooling.generator.gmock;
-
-alias generateClassHdrGmock = cpptooling.generator.gmock.generateGmock!StubParameters;
-
-import cpptooling.generator.adapter : generateClassImplAdapter = generateImpl;
-
 void generateClassImpl(CppClass c, CppModule impl) {
+    import cpptooling.generator.adapter : generateClassImplAdapter = generateImpl;
+
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
         break;
@@ -472,12 +461,6 @@ void generateClassImpl(CppClass c, CppModule impl) {
         break;
     }
 }
-
-import cpptooling.generator.adapter : generateTestDoubleSingleton = generateSingleton;
-
-static import cpptooling.generator.includes;
-
-alias generateCIncludes = cpptooling.generator.includes.generateC!(StubController, StubParameters);
 
 void generateNsTestDoubleHdr(CppNamespace ns, StubParameters params, CppModule hdr, CppModule gmock) {
     import std.algorithm : each;

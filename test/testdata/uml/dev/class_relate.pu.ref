@@ -1,9 +1,9 @@
 @startuml
-class "Aggregate"
-"Aggregate" *-- "A"
-class "ComposePtr"
-"ComposePtr" o-- "A"
-class "ComposeRef"
-"ComposeRef" o-- "A"
-class "A"
+class "Aggregate" as YzpAU0BBZ2dyZWdhdGU
+class "ComposePtr" as YzpAU0BDb21wb3NlUHRy
+class "ComposeRef" as YzpAU0BDb21wb3NlUmVm
+class "A" as YzpAU0BB
+"YzpAU0BBZ2dyZWdhdGU" *-- "YzpAU0BB"
+"YzpAU0BDb21wb3NlUHRy" o-- "YzpAU0BB"
+"YzpAU0BDb21wb3NlUmVm" o-- "YzpAU0BB"
 @enduml

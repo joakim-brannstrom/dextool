@@ -13,29 +13,31 @@ module cpptooling.data.type;
 import std.typecons : Typedef, Tuple, Flag;
 import std.variant : Algebraic;
 
-import cpptooling.analyzer.type : TypeKind;
+import cpptooling.analyzer.type : TypeKind, TypeKindAttr, TypeResult;
+import cpptooling.data.symbol.types : USRType;
 
 /// Name of a C++ namespace.
-alias CppNs = Typedef!(string, string.init, "CppNs");
+alias CppNs = Typedef!(string, null, "CppNs");
 /// Stack of nested C++ namespaces.
 alias CppNsStack = CppNs[];
 /// Nesting of C++ namespaces as a string.
-alias CppNsNesting = Typedef!(string, string.init, "CppNsNesting");
+alias CppNsNesting = Typedef!(string, null, "CppNsNesting");
 
-alias CppVariable = Typedef!(string, string.init, "CppVariable");
-alias TypeKindVariable = Tuple!(TypeKind, "type", CppVariable, "name");
+alias CppVariable = Typedef!(string, null, "CppVariable");
+//TODO change to using TypeAttr or TypeKindAttr
+alias TypeKindVariable = Tuple!(TypeKindAttr, "type", CppVariable, "name");
 
 // Types for classes
-alias CppClassName = Typedef!(string, string.init, "CppClassName");
+alias CppClassName = Typedef!(string, null, "CppClassName");
 
 ///TODO should be Optional type, either it has a nesting or it is "global".
 /// Don't check the length and use that as an insidential "no nesting".
-alias CppClassNesting = Typedef!(string, string.init, "CppNesting");
+alias CppClassNesting = Typedef!(string, null, "CppNesting");
 
 alias CppClassVirtual = Typedef!(ClassVirtualType, ClassVirtualType.Unknown, "CppClassVirtual");
 
 // Types for methods
-alias CppMethodName = Typedef!(string, string.init, "CppMethodName");
+alias CppMethodName = Typedef!(string, null, "CppMethodName");
 alias CppConstMethod = Typedef!(bool, bool.init, "CppConstMethod");
 alias CppVirtualMethod = Typedef!(MemberVirtualType, MemberVirtualType.Unknown, "CppVirtualMethod");
 alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
@@ -45,8 +47,9 @@ alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
 
 // Shared types between C and Cpp
 alias VariadicType = Flag!"isVariadic";
-alias CxParam = Algebraic!(TypeKindVariable, TypeKind, VariadicType);
-alias CxReturnType = Typedef!(TypeKind, TypeKind.init, "CxReturnType");
+alias CxParam = Algebraic!(TypeKindVariable, TypeKindAttr, VariadicType);
+alias CxReturnType = Typedef!(TypeKindAttr, TypeKindAttr.init, "CxReturnType");
+alias Location = Tuple!(string, "file", uint, "line", uint, "column");
 
 enum MemberVirtualType {
     Unknown,

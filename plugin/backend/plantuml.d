@@ -17,6 +17,7 @@ import dsrcgen.plantuml;
 
 import application.types;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
+import cpptooling.analyzer.type : USRType;
 
 version (unittest) {
     import test.helpers : shouldEqualPretty;
@@ -109,7 +110,7 @@ version (unittest) {
  * Intented to be used in a hashmap with the key as the "from".
  */
 @safe struct Relate {
-    alias Key = Typedef!(string, string.init, "RelateKey");
+    alias Key = USRType;
 
     enum Kind {
         None,
@@ -280,16 +281,18 @@ auto fanOutSorted(T)(T t) pure {
     import cpptooling.data.representation : ClassVirtualType;
 
     alias Key = Typedef!(string, string.init, "UMLKey");
+    alias DisplayName = Typedef!(string, string.init, "DisplayName");
 
     struct Class {
+        DisplayName displayName;
         ClassVirtualType classification;
         string[] content;
     }
 
     /// The class is only added if it doesn't already exist in the store.
-    void put(Key key) {
+    void put(Key key, DisplayName display_name) {
         if (key !in classes) {
-            classes[key] = Class.init;
+            classes[key] = Class(display_name);
             relate_to[cast(Relate.Key) key] = Relate.init;
         }
     }
@@ -313,14 +316,14 @@ auto fanOutSorted(T)(T t) pure {
     /** Add a relation between two classes and increase the count on the class
      * related TO.
      */
-    void relate(Key from, Key to, Relate.Kind kind)
+    void relate(Key from, Key to, DisplayName display_name, Relate.Kind kind)
     out {
         assert(from in classes);
         assert(to in classes);
         assert(kind != Relate.Kind.None);
     }
     body {
-        put(to);
+        put(to, display_name);
         relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
     }
 
@@ -358,7 +361,7 @@ auto fanOutSorted(T)(T t) pure {
 
     auto nameSortedRange() const pure @trusted {
         static string sortClassNameBy(T)(ref T a) {
-            return a[0].str;
+            return a[1].displayName.str;
         }
 
         return .nameSortedRange!(typeof(this), sortClassNameBy)(this);
@@ -373,9 +376,9 @@ auto fanOutSorted(T)(T t) pure {
         import std.range : only, chain, takeOne;
 
         // dfmt off
-        return classes.byKeyValue.map!(a => chain(only(format("%s%s", a.key.str, a.value.content.length == 0 ? "" : " {")),
+        return classes.byKeyValue.map!(a => chain(only(format("%s -> %s%s", a.value.displayName.str, a.key.str, a.value.content.length == 0 ? "" : " {")),
                                                   a.value.content.dup.map!(b => "  " ~ b),
-                                                  a.value.content.takeOne.map!(b => "} // " ~ a.key.str))
+                                                  a.value.content.takeOne.map!(b => "} // " ~ a.value.displayName.str))
                                        .joiner(newline)
                                        .text)
             .array();
@@ -426,9 +429,9 @@ auto fanOutSorted(T)(T t) pure {
     }
 
     /// The component is only added if it doesn't already exist in the store.
-    void put(Key key, string displayName) {
+    void put(Key key, string display_name) {
         if (key !in components) {
-            components[key] = Component(displayName);
+            components[key] = Component(display_name);
             relate_to[cast(Relate.Key) key] = Relate.init;
         }
     }
@@ -558,10 +561,10 @@ unittest {
 @Name("Should be a UML diagram with one class")
 unittest {
     auto uml = new UMLClassDiagram;
-    uml.put(UMLClassDiagram.Key("A"));
+    uml.put(UMLClassDiagram.Key("A"), UMLClassDiagram.DisplayName("A"));
 
     uml.toString.shouldEqualPretty("UML Class Diagram (Total 1) {
-A
+A -> A
 } // UML Class Diagram");
 }
 
@@ -569,21 +572,23 @@ A
 unittest {
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
+    import cpptooling.data.symbol.container;
 
+    Container container;
     auto uml = new UMLClassDiagram;
     auto c = CppClass(CppClassName("A"));
     {
-        auto m = CppMethod(CppMethodName("fun"), CxReturnType(TypeKind.make("int")),
+        auto m = CppMethod(CppMethodName("fun"), CxReturnType(makeSimple("int")),
                 CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
 
-    put(uml, c, Yes.genClassMethod, Yes.genClassParamDependency,
+    put(uml, c, container, Yes.genClassMethod, Yes.genClassParamDependency,
             Yes.genClassInheritDependency, Yes.genClassMemberDependency);
 
     uml.toString.shouldEqualPretty("UML Class Diagram (Total 1) {
-A {
+A ->  {
   +virtual int fun()
 } // A
 } // UML Class Diagram");
@@ -594,14 +599,14 @@ unittest {
     auto uml = new UMLClassDiagram;
     auto ka = UMLClassDiagram.Key("A");
     auto kb = UMLClassDiagram.Key("B");
-    uml.put(ka);
-    uml.put(kb);
+    uml.put(ka, UMLClassDiagram.DisplayName("A"));
+    uml.put(kb, UMLClassDiagram.DisplayName("B"));
 
-    uml.relate(ka, kb, Relate.Kind.Extend);
+    uml.relate(ka, kb, UMLClassDiagram.DisplayName("B"), Relate.Kind.Extend);
 
     uml.toString.shouldEqualPretty("UML Class Diagram (Total 2) {
-A
-B
+A -> A
+B -> B
 A -Extend- [1]B
 } // UML Class Diagram");
 }
@@ -664,7 +669,7 @@ struct Generator {
         auto fl = rawFilter(root, ctrl, products);
         logger.trace("Filtered:\n", fl.toString());
 
-        translate(fl, uml_class, params);
+        translate(fl, uml_class, params, container);
         translate(fl, uml_component, ctrl, params, container);
         logger.trace("Translated:\n", uml_class.toString, newline, uml_component.toString);
     }
@@ -874,34 +879,45 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
         .each!(a => raw.put(a));
 
     input.funcRange()
+        // ask controller if the file should be processed
+        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
         .each!(a => raw.put(a));
 
     input.globalRange()
+        // ask controller if the file should be processed
+        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
         .each!(a => raw.put(a));
     // dfmt on
 
     return raw;
 }
 
-bool isPrimitiveType(FullyQualifiedNameType type) {
-    import std.algorithm : among;
-
-    //TODO really ugly, consider some other way of doing this.
-    // Copied from translateCursorType.
-    // This is hard to keep in sync and error prone.
-
-    return 0 != type.among("void", "bool", "unsigned char", "unsigned short", "unsigned int", "unsigned long",
-            "unsigned long long", "char", "wchar", "short", "int", "long",
-            "long long", "float", "double", "long double", "null");
-}
-
-void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
-        Flag!"genClassParamDependency" class_param_dep,
+void put(UMLClassDiagram uml, CppClass c, const ref Container container,
+        Flag!"genClassMethod" class_method, Flag!"genClassParamDependency" class_param_dep,
         Flag!"genClassInheritDependency" class_inherit_dep,
         Flag!"genClassMemberDependency" class_member_dep) {
     import std.algorithm : each, map, filter, joiner;
     import std.array : array;
     import cpptooling.data.representation;
+
+    alias Rtuple = Tuple!(Relate.Kind, "kind", Relate.Key, "key",
+            UMLClassDiagram.DisplayName, "display");
+    alias KeyValue = Tuple!(UMLClassDiagram.Key, "key");
+
+    static KeyValue makeKey(in string key) @trusted {
+        import std.base64;
+        import std.array : appender;
+
+        //TODO consider using a hash function to shorten the length of the encoded path
+
+        alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
+
+        auto enc = appender!(char[])();
+        SafeBase64.encode(cast(ubyte[]) key, enc);
+
+        auto k = KeyValue(UMLClassDiagram.Key(enc.data.idup));
+        return k;
+    }
 
     static string getMethod(T)(T method_, string prefix) @trusted {
         import std.variant : visit;
@@ -911,33 +927,45 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
                 (CppCtor m) => prefix ~ m.toString, (CppDtor m) => prefix ~ m.toString);
     }
 
-    static auto getMemberRelation(TypeKindVariable tkv) {
+    static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) {
         import std.typecons : tuple;
-
-        //TODO investigate why strip is needed when analyzing gtest
-        import std.string : strip;
         import cpptooling.analyzer.type;
 
-        final switch (tkv.type.info.kind) with (TypeKind.Info) {
+        auto r = Rtuple(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
+
+        final switch (tkv.type.kind.info.kind) with (TypeKind.Info) {
+        case Kind.typeRef:
+            r = Rtuple(Relate.Kind.Aggregate, tkv.type.kind.usr,
+                    cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init, ""));
+            break;
         case Kind.record:
-            return tuple(Relate.Key(tkv.type.info.type.strip), Relate.Kind.Aggregate);
-        case Kind.simple:
-            if (tkv.type.isRecord && (tkv.type.isPtr || tkv.type.isRef)) {
-                return tuple(Relate.Key(tkv.type.info.type.strip), Relate.Kind.Compose);
+            r = Rtuple(Relate.Kind.Aggregate, tkv.type.kind.usr,
+                    cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init, ""));
+            break;
+        case Kind.pointer:
+            auto pointee = container.find!TypeKind(tkv.type.kind.info.pointee);
+            foreach (p; pointee) {
+                if (p.info.kind == Kind.record) {
+                    r = Rtuple(Relate.Kind.Compose, p.usr,
+                            cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
+                                ""));
+                }
             }
-            return tuple(Relate.Key(""), Relate.Kind.None);
-        case TypeKind.Info.Kind.func:
-            goto case;
+            break;
+        case Kind.simple:
+        case Kind.func:
         case Kind.array:
-            goto case;
         case Kind.funcPtr:
-            goto case;
+        case Kind.ctor:
+        case Kind.dtor:
         case Kind.null_:
-            return tuple(Relate.Key(""), Relate.Kind.None);
+            break;
         }
+
+        return r;
     }
 
-    static auto getMethodRelation(ref CppClass.CppFunc f) {
+    static auto getMethodRelation(ref CppClass.CppFunc f, const ref Container container) {
         import std.array : array;
         import std.algorithm : among, map;
         import std.variant : visit;
@@ -945,110 +973,126 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
         import std.typecons : TypedefType, Tuple;
         import cpptooling.analyzer.type;
 
-        alias Rtuple = Tuple!(Relate.Kind, "kind", Relate.Key, "key");
+        static Rtuple getTypeRelation(TypeKindAttr tk, const ref Container container) {
+            auto r = Rtuple(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
 
-        static Rtuple getTypeRelation(TypeKind tk) {
-            //TODO investigate why strip is needed when analyzing gtest
-            import std.string : strip;
-
-            auto r = Rtuple(Relate.Kind.None, Relate.Key(""));
-
-            final switch (tk.info.kind) with (TypeKind.Info) {
-            case Kind.record:
-                r[0] = Relate.Kind.Associate;
-                r[1] = tk.info.type.strip;
-                break;
-            case Kind.simple:
-                if (tk.isRecord && (tk.isPtr || tk.isRef)) {
-                    r[0] = Relate.Kind.Associate;
-                    r[1] = tk.info.type.strip;
+            final switch (tk.kind.info.kind) with (TypeKind.Info) {
+            case Kind.typeRef:
+                auto tref = container.find!TypeKind(tk.kind.info.canonicalRef);
+                foreach (t; tref) {
+                    if (t.info.kind == Kind.record) {
+                        r = Rtuple(Relate.Kind.Associate, Relate.Key(t.usr),
+                                cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
+                                    ""));
+                    }
                 }
                 break;
-            case TypeKind.Info.Kind.func:
+            case Kind.record:
+                r = Rtuple(Relate.Kind.Associate, tk.kind.usr,
+                        cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init, ""));
                 break;
             case Kind.array:
-                r[0] = Relate.Kind.Associate;
-                r[1] = tk.info.elementType.strip;
+                if (!tk.kind.info.elementAttr.isPrimitive) {
+                    r = Rtuple(Relate.Kind.Associate, tk.kind.info.element,
+                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
+                                ""));
+                }
                 break;
+            case Kind.pointer:
+                auto pointee = container.find!TypeKind(tk.kind.info.pointee);
+                foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
+                    r = Rtuple(Relate.Kind.Associate, Relate.Key(p.usr),
+                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
+                                ""));
+                }
+                break;
+            case Kind.simple:
+            case Kind.func:
             case Kind.funcPtr:
-                break;
+            case Kind.ctor:
+            case Kind.dtor:
             case Kind.null_:
-                break;
-            }
-
-            if ((cast(FullyQualifiedNameType) r.key).isPrimitiveType) {
-                r[0] = Relate.Kind.None;
             }
 
             return r;
         }
 
-        static Rtuple genParam(CxParam p) @trusted {
-            return p.visit!((TypeKindVariable tkv) => getTypeRelation(tkv.type),
-                    (TypeKind tk) => getTypeRelation(tk), (VariadicType vk) {
+        static Rtuple genParam(CxParam p, const ref Container container) @trusted {
+            return p.visit!((TypeKindVariable tkv) => getTypeRelation(tkv.type, container),
+                    (TypeKindAttr tk) => getTypeRelation(tk, container), (VariadicType vk) {
                         logger.error(
                             "Variadic function not supported. Would require runtime information to relate.");
                         return Rtuple.init;
                     });
         }
 
-        static Rtuple[] genMethod(T)(T f) {
-            return chain(f.paramRange.map!(a => genParam(a)),
-                    only(getTypeRelation(cast(TypedefType!CxReturnType) f.returnType))).array();
+        static Rtuple[] genMethod(T)(T f, const ref Container container) {
+            return chain(f.paramRange.map!(a => genParam(a, container)),
+                    only(getTypeRelation(cast(TypedefType!CxReturnType) f.returnType, container))).array();
         }
 
-        static Rtuple[] genCtor(CppCtor f) {
-            return f.paramRange.map!(a => genParam(a)).array();
+        static Rtuple[] genCtor(CppCtor f, const ref Container container) {
+            return f.paramRange.map!(a => genParam(a, container)).array();
         }
 
-        static Rtuple[] internalVisit(ref CppClass.CppFunc f) @trusted {
-            return f.visit!((CppMethod m) => genMethod(m),
-                    (CppMethodOp m) => genMethod(m), (CppCtor m) => genCtor(m),
-                    (CppDtor m) => [Rtuple.init]);
+        static Rtuple[] internalVisit(ref CppClass.CppFunc f, const ref Container container) @trusted {
+            return f.visit!((CppMethod m) => genMethod(m, container),
+                    (CppMethodOp m) => genMethod(m, container),
+                    (CppCtor m) => genCtor(m, container), (CppDtor m) => [Rtuple.init]);
         }
 
-        return internalVisit(f);
+        return internalVisit(f, container);
     }
 
-    auto key = UMLClassDiagram.Key(cast(string) c.fullyQualifiedName);
+    auto key = makeKey(cast(string) c.usr);
 
-    uml.put(key);
-    uml.put(key, c.classification);
+    uml.put(key.key, cast(UMLClassDiagram.DisplayName) c.fullyQualifiedName);
+    uml.put(key.key, c.classification);
+
+    // merge with component diagram. this is not pretty.
 
     // dfmt off
     if (class_method) {
-        c.methodPublicRange.map!(a => getMethod(a, "+")).each!(a => uml.put(key, a));
+        c.methodPublicRange.map!(a => getMethod(a, "+")).each!(a => uml.put(key.key, a));
     }
 
     if (class_inherit_dep) {
-        c.inheritRange
-            .map!(a => Relate.Key(a.fullyQualifiedName.str))
-            .each!(a => uml.relate(key, cast(UMLClassDiagram.Key) a, Relate.Kind.Extend));
+        foreach (a; c.inheritRange) {
+            auto key_ = makeKey(cast(string) a.usr).key;
+            uml.relate(key.key, key_, cast(UMLClassDiagram.DisplayName) a.fullyQualifiedName.str, Relate.Kind.Extend);
+        }
     }
 
     if (class_member_dep) {
+        foreach (a;
         c.memberRange
-            .map!(a => getMemberRelation(a))
-            .filter!(a => a[1] != Relate.Kind.None)
-            .each!(a => uml.relate(key, cast(UMLClassDiagram.Key) a[0], a[1]));
+            .map!(a => getMemberRelation(a, container))
+            .filter!(a => a.kind != Relate.Kind.None)) {
+            auto key_ = makeKey(cast(string) a.key).key;
+            uml.relate(key.key, key_, a.display, a.kind);
+        }
     }
 
     if (class_param_dep) {
+        import std.range : tee;
+
+        // TODO refact the last filter. It should use key.key
         foreach (a; c.methodRange
-                 .map!(a => getMethodRelation(a))
+                 .map!(a => getMethodRelation(a, container))
                  // flatten the range
                  .joiner()
                  .filter!(a => a.kind != Relate.Kind.None)
                  // remove self referencing keys, would result in circles which
                  // just clutters the diagrams
-                 .filter!(a => a.key != key)) {
-            uml.relate(key, cast(UMLClassDiagram.Key) a.key, a.kind);
+                 .filter!(a => a.key != c.usr)) {
+            auto key_ = makeKey(cast(string) a.key).key;
+            uml.relate(key.key, key_, a.display, a.kind);
         }
     }
     // dfmt on
 }
 
-void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container container)
+void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Container container)
         if (is(T == CppClass) || is(T == CFunction) || is(T == CxGlobalVariable)) {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : only, chain, array, dropOne;
@@ -1093,68 +1137,78 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
         return k;
     }
 
-    static auto lookupType(TypeKind tk, ref Container container) {
-        //TODO investigate why strip is needed when analyzing gtest
-        import std.string : strip;
+    static auto lookupType(TypeKindAttr tk, const ref Container container) {
+        enum rel_kind = Relate.Kind.None;
 
-        auto type_lookup = only(FullyQualifiedNameType(string.init)).dropOne;
+        auto type_lookup = only(USRType.init).dropOne;
         auto rval = only(PathKind()).dropOne;
 
-        final switch (tk.info.kind) with (TypeKind.Info) {
+        if (tk.attr.isPrimitive) {
+            return rval;
+        }
+
+        final switch (tk.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:
-            type_lookup = only(FullyQualifiedNameType(tk.info.type.strip));
-            break;
-        case Kind.simple:
-            if (tk.isRecord && (tk.isPtr || tk.isRef)) {
-                type_lookup = only(FullyQualifiedNameType(tk.info.type.strip));
-            }
-            break;
-        case TypeKind.Info.Kind.func:
+            rval = only(PathKind(tk.kind.loc.file, rel_kind));
             break;
         case Kind.array:
-            type_lookup = only(FullyQualifiedNameType(tk.info.elementType.strip));
+            if (!tk.kind.info.elementAttr.isPrimitive) {
+                type_lookup = only(tk.kind.info.element);
+            }
+            break;
+        case Kind.simple:
+            rval = only(PathKind(tk.kind.loc.file, rel_kind));
+            break;
+        case Kind.func:
+            rval = only(PathKind(tk.kind.loc.file, rel_kind));
             break;
         case Kind.funcPtr:
+            type_lookup = only(tk.kind.info.pointee);
             break;
+        case Kind.pointer:
+            type_lookup = only(tk.kind.info.pointee);
+            break;
+        case Kind.typeRef:
+            rval = only(PathKind(tk.kind.loc.file, rel_kind));
+            break;
+        case Kind.ctor:
+        case Kind.dtor:
         case Kind.null_:
             break;
         }
 
         // dfmt off
         foreach (c; type_lookup
-                 .filter!(a => !a.isPrimitiveType)
-                 .map!(a => container.find!CppClass(a)).joiner()
+                 .map!(a => container.find!TypeKind(a)).joiner()
                  ) {
-            rval = only(PathKind(c.location.file, Relate.Kind.None));
+            rval = only(PathKind(c.loc.file, rel_kind));
         }
         // dfmt on
 
         return rval;
     }
 
-    static auto getMemberRelation(TypeKindVariable tkv, ref Container container) {
-        import std.typecons : tuple;
-
+    static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) {
         return lookupType(tkv.type, container).map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
-    static auto getInheritRelation(CppInherit inherit, ref Container container) {
+    static auto getInheritRelation(CppInherit inherit, const ref Container container) {
         auto rval = only(PathKind()).dropOne;
 
-        foreach (c; container.find!CppClass(inherit.fullyQualifiedName)) {
-            rval = only(PathKind(c.location.file, Relate.Kind.Associate));
+        foreach (c; container.find!TypeKind(inherit.usr)) {
+            rval = only(PathKind(c.loc.file, Relate.Kind.Associate));
         }
 
         return rval;
     }
 
-    static auto genParam(CxParam p, ref Container container) @trusted {
+    static auto genParam(CxParam p, const ref Container container) @trusted {
         import std.variant : visit;
 
         // dfmt off
         return p.visit!(
                         (TypeKindVariable tkv) => lookupType(tkv.type, container),
-                        (TypeKind tk) => lookupType(tk, container),
+                        (TypeKindAttr tk) => lookupType(tk, container),
                         (VariadicType vk) {
                         logger.error(
                                      "Variadic function not supported. Would require runtime information to relate.");
@@ -1163,21 +1217,21 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
         // dfmt on
     }
 
-    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, ref Container container) {
-        static auto genMethod(T)(T f, ref Container container) {
+    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, const ref Container container) {
+        static auto genMethod(T)(T f, const ref Container container) {
             import std.typecons : TypedefType;
 
             // dfmt off
             return chain(f.paramRange.map!(a => genParam(a, container)).joiner(),
-                         lookupType(cast(TypedefType!CxReturnType) f.returnType, container));
+                         lookupType((cast(TypedefType!CxReturnType) f.returnType), container));
             // dfmt on
         }
 
-        static auto genCtor(CppCtor f, ref Container container) {
+        static auto genCtor(CppCtor f, const ref Container container) {
             return f.paramRange.map!(a => genParam(a, container)).joiner();
         }
 
-        static PathKind[] internalVisit(ref CppClass.CppFunc f, ref Container container) @trusted {
+        static PathKind[] internalVisit(ref CppClass.CppFunc f, const ref Container container) @trusted {
             import std.variant : visit;
 
             // dfmt off
@@ -1194,12 +1248,12 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
                 Relate.Kind.Associate)).array();
     }
 
-    static auto getFreeFuncRelation(ref CFunction f, ref Container container) {
+    static auto getFreeFuncRelation(ref CFunction f, const ref Container container) {
         import std.typecons : TypedefType;
 
         // dfmt off
         return chain(f.paramRange.map!(a => genParam(a, container)).joiner(),
-                     lookupType(cast(TypedefType!CxReturnType) f.returnType, container))
+                     lookupType((cast(TypedefType!CxReturnType) f.returnType), container))
             .map!(a => PathKind(a.file, Relate.Kind.Associate));
         // dfmt on
     }
@@ -1234,22 +1288,22 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
     // dfmt on
 }
 
-void translate(T)(T input, UMLClassDiagram uml_class, Parameters params)
-        if (is(T == CppRoot) || is(T == CppNamespace)) {
+void translate(T)(T input, UMLClassDiagram uml_class, Parameters params,
+        const ref Container container) if (is(T == CppRoot) || is(T == CppNamespace)) {
     foreach (ref c; input.classRange) {
-        put(uml_class, c, params.genClassMethod, params.genClassParamDependency,
+        put(uml_class, c, container, params.genClassMethod, params.genClassParamDependency,
                 params.genClassInheritDependency, params.genClassMemberDependency);
     }
 
     foreach (ref ns; input.namespaceRange) {
-        translate(ns, uml_class, params);
+        translate(ns, uml_class, params, container);
     }
 }
 
 void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
-        Parameters params, ref Container container)
+        Parameters params, const ref Container container)
         if (is(T == CppRoot) || is(T == CppNamespace) || is(T == CxGlobalVariable)) {
-    void putRange(T)(T r) {
+    void putRange(T)(T r) @safe {
         foreach (ref c; r) {
             put(uml_comp, c, ctrl, container);
         }
@@ -1270,24 +1324,38 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
     import std.format : format;
     import std.range : enumerate;
 
+    // TODO code duplicaton with class and component.
+    // Generalize, reduce.
+
+    auto classes_preamble = modules.classes.base;
+    classes_preamble.suppressIndent(1);
     foreach (idx, kv; uml_class.fanOutSorted.enumerate) {
-        generate(kv[0], kv[1], uml_class.relateTo(kv[0]), modules.classes);
+        generate(kv[0], kv[1], classes_preamble);
+        generateClassRelate(uml_class.relateTo(kv[0])
+                .toFlatArray(cast(Relate.Key) kv[0]), modules.classes);
         if (doGenDot) {
-            generateDotRelate(uml_class.relateTo(kv[0])
-                    .toRange(cast(Relate.Key) kv[0]), idx, modules.classes_dot);
+            auto nodes = modules.classes_dot.base;
+            nodes.suppressIndent(1);
+            nodes.stmt(format(`"%s" [label="%s"]`, cast(string) kv[0],
+                    cast(string) kv[1].displayName));
+
+            // make a range of all relations from THIS to other components
+            auto r = uml_class.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
+
+            generateDotRelate(r, idx, modules.classes_dot);
         }
     }
-
-    auto nodes = modules.components_dot.base;
-    nodes.suppressIndent(1);
 
     foreach (idx, kv; uml_comp.fanOutSorted.enumerate) {
         generate(kv[0], kv[1], modules.components);
         if (doGenDot) {
+            auto nodes = modules.components_dot.base;
+            nodes.suppressIndent(1);
             nodes.stmt(format(`"%s" [label="%s"]`, cast(string) kv[0], kv[1].displayName));
-            auto rels = modules.components_dot.base;
-            rels.suppressIndent(1);
+
+            // make a range of all relations from THIS to other components
             auto r = uml_comp.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
+
             generateDotRelate(r, idx, modules.components_dot);
         }
     }
@@ -1300,18 +1368,18 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
  * definitions it makes it easier for GraphViz to generate a not-so-muddy
  * image.
  */
-void generate(UMLClassDiagram.Key name, const(UMLClassDiagram.Class) c,
-        const Relate rels, PlantumlModule m) {
+void generate(UMLClassDiagram.Key key, const UMLClassDiagram.Class c, PlantumlModule m) {
     import std.algorithm : each;
 
     ClassType pc;
 
     if (c.content.length == 0) {
-        pc = m.class_(cast(string) name);
+        pc = m.class_(cast(string) c.displayName);
     } else {
-        pc = m.classBody(cast(string) name);
+        pc = m.classBody(cast(string) c.displayName);
         c.content.each!(a => pc.method(a));
     }
+    pc.addAs.text(cast(string) key);
 
     import cpptooling.data.representation : ClassVirtualType;
     import dsrcgen.plantuml : addSpot;
@@ -1320,18 +1388,16 @@ void generate(UMLClassDiagram.Key name, const(UMLClassDiagram.Class) c,
     // Allows the user to control the color via the PREFIX_style.iuml
     switch (c.classification) with (ClassVirtualType) {
     case Abstract:
-        pc.addSpot.text("(A, Pink)");
+        pc.addSpot("<< (A, Pink) >>");
         break;
     case VirtualDtor:
         goto case;
     case Pure:
-        pc.addSpot.text("(I, LightBlue)");
+        pc.addSpot("<< (I, LightBlue) >>");
         break;
     default:
         break;
     }
-
-    generateClassRelate(rels.toFlatArray(cast(Relate.Key) name), m);
 }
 
 void generateClassRelate(T)(T relate_range, PlantumlModule m) {

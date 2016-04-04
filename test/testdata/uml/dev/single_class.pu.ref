@@ -1,5 +1,5 @@
 @startuml
-class "SingleClass" {
+class "SingleClass" as YzpAU0BTaW5nbGVDbGFzcw {
     +SingleClass()
     +SingleClass(const SingleClass &other)
     +SingleClass & operator=(const SingleClass &other) /* operator */

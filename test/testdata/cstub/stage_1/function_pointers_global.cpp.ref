@@ -1,35 +1,35 @@
 #include "test_double.hpp"
 
 #ifndef TEST_INIT_e_a
-#define TEST_INIT_e_a
+#define TEST_INIT_e_a void (*e_a)()
 #endif // TEST_INIT_e_a
 #ifndef TEST_INIT_e_b
-#define TEST_INIT_e_b
+#define TEST_INIT_e_b int (*e_b)()
 #endif // TEST_INIT_e_b
 #ifndef TEST_INIT_e_c
-#define TEST_INIT_e_c
+#define TEST_INIT_e_c void (*e_c)(int )
 #endif // TEST_INIT_e_c
 #ifndef TEST_INIT_e_d
-#define TEST_INIT_e_d
+#define TEST_INIT_e_d void (*const e_d)()
 #endif // TEST_INIT_e_d
 #ifndef TEST_INIT_e_e
-#define TEST_INIT_e_e
+#define TEST_INIT_e_e int (*e_e)(int , int )
 #endif // TEST_INIT_e_e
 #ifndef TEST_INIT_e_f
-#define TEST_INIT_e_f
+#define TEST_INIT_e_f int (*e_f)(int pa, int pb)
 #endif // TEST_INIT_e_f
 #ifndef TEST_INIT_e_g
-#define TEST_INIT_e_g
+#define TEST_INIT_e_g int (*e_g)(int pa, int pb, ... )
 #endif // TEST_INIT_e_g
 #ifndef TEST_INIT_hest
-#define TEST_INIT_hest hest
+#define TEST_INIT_hest func_ptr hest
 #endif // TEST_INIT_hest
 
-void (*e_a)() TEST_INIT_e_a;
-int (*e_b)() TEST_INIT_e_b;
-void (*e_c)(int x0) TEST_INIT_e_c;
-void (*const e_d)() TEST_INIT_e_d;
-int (*e_e)(int x0, int x1) TEST_INIT_e_e;
-int (*e_f)(int pa, int pb) TEST_INIT_e_f;
-int (*e_g)(int pa, int pb, ...) TEST_INIT_e_g;
-func_ptr TEST_INIT_hest;
+TEST_INIT_e_a;
+TEST_INIT_e_b;
+TEST_INIT_e_c;
+TEST_INIT_e_d;
+TEST_INIT_e_e;
+TEST_INIT_e_f;
+TEST_INIT_e_g;
+TEST_INIT_hest;

@@ -10,7 +10,6 @@
  *  1.1 additional features missing compared to cindex.py. 2015-03-07 $(BR)
  *    Joakim Brännström
  */
-
 module clang.Type;
 
 import deimos.clang.index;
@@ -50,10 +49,10 @@ struct Type {
 
     /** Return the canonical type for a CXType.
      *
-     * Clang's type system explicitly models aliases and all the ways
-     * a specific type can be represented.  The canonical type is the underlying
-     * type with all the "sugar" removed.  For example, if 'T' is a typedef
-     * for 'int', the canonical type for 'T' would be 'int'.
+     * Clang's type system explicitly models aliases and all the ways a
+     * specific type can be represented.  The canonical type is the underlying
+     * type with all the "sugar" removed.  For example, if 'T' is a typedef for
+     * 'int', the canonical type for 'T' would be 'int'.
      */
     @property Type canonicalType() {
         auto r = clang_getCanonicalType(cx);
@@ -63,6 +62,8 @@ struct Type {
     /// For pointer types, returns the type of the pointee.
     @property Type pointeeType() {
         auto r = clang_getPointeeType(cx);
+        //TODO investigate if it is buggy behaviour to reuse THIS cursor.
+        // Shouldn't it be the pointee types cursor
         return Type(cursor, r);
     }
 
@@ -134,8 +135,9 @@ struct Type {
             return kind == CXType_WChar;
     }
 
-    /** Determine whether a CXType has the "const" qualifier set,
-     *  without looking through aliases that may have added "const" at a different level.
+    /** Determine whether a CXType has the "const" qualifier set, without
+     * looking through aliases that may have added "const" at a different
+     * level.
      */
     @property bool isConst() {
         return clang_isConstQualifiedType(cx) == 1;
@@ -153,15 +155,17 @@ struct Type {
         return spelling.length == 0;
     }
 
-    /** Determine whether a CXType has the "volatile" qualifier set,
-     *  without looking through aliases that may have added "volatile" at a different level.
+    /** Determine whether a CXType has the "volatile" qualifier set, without
+     * looking through aliases that may have added "volatile" at a different
+     * level.
      */
     @property bool isVolatile() {
         return clang_isVolatileQualifiedType(cx) == 1;
     }
 
-    /** Determine whether a CXType has the "restrict" qualifier set,
-     *  without looking through aliases that may have added "restrict" at a different level.
+    /** Determine whether a CXType has the "restrict" qualifier set, without
+     * looking through aliases that may have added "restrict" at a different
+     * level.
      */
     @property bool isRestrict() {
         return clang_isRestrictQualifiedType(cx) == 1;

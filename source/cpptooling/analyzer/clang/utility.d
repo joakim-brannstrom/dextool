@@ -10,6 +10,7 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import clang.Cursor;
+import cpptooling.data.symbol.container;
 
 /** Travers a node tree and gather all paramdecl to an array.
  * Params:
@@ -27,45 +28,27 @@ import clang.Cursor;
  * ---
  * It is translated to the array [("char", "x"), ("char", "y")].
  */
-auto paramDeclTo(Cursor cursor) {
-    import cpptooling.analyzer.clang.type : TypeKind, translateType;
+auto paramDeclTo(ref Cursor cursor, const ref Container container) {
+    import cpptooling.analyzer.clang.type;
     import cpptooling.data.representation : TypeKindVariable, CppVariable,
         makeCxParam, CxParam, VariadicType;
 
-    CxParam[] params;
+    CxParam[] rval;
 
-    if (cursor.type.isTypedef) {
-        // handles the following case.
-        // typedef unsigned char (func_type) (const unsigned int baz);
-        // extern func_ptr hest;
-        // Must grab the underlying type and parse the arguments.
-        // TODO investigate if the fixes to translateUnexposed can improve the
-        // param extraction here to allow grabbing of the underlying types
-        // identifier name.
-        cursor = cursor.type.declaration;
-        foreach (arg; cursor.type.func.arguments) {
-            auto type = translateType(arg);
-            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable("")));
-        }
-    } else {
-        foreach (param; cursor.func.parameters) {
-            auto type = translateType(param.type);
-            params ~= makeCxParam(TypeKindVariable(type.unwrap, CppVariable(param.spelling)));
-        }
-    }
-
-    if (cursor.func.isVariadic) {
-        params ~= makeCxParam();
+    auto type = cursor.type;
+    auto params = extractParams2(cursor, type, container, 0);
+    foreach (p; params) {
+        rval ~= makeCxParam(TypeKindVariable(p.tka, CppVariable(p.id)));
     }
 
     debug {
         import std.variant : visit;
 
-        foreach (p; params) {
+        foreach (p; rval) {
             // dfmt off
             () @trusted {
-                p.visit!((TypeKindVariable p) => logger.trace(p.type.txt, ":", cast(string) p.name),
-                         (TypeKind p) => logger.trace(p.txt),
+                p.visit!((TypeKindVariable p) => logger.trace(p.type.toStringDecl(cast(string) p.name)),
+                         (TypeKindAttr p) => logger.trace(p.toStringDecl("x")),
                          (VariadicType p) => logger.trace("..."));
             }();
             // dfmt on
@@ -75,77 +58,13 @@ auto paramDeclTo(Cursor cursor) {
     return params;
 }
 
-import cpptooling.analyzer.clang.type;
-import std.typecons : Tuple;
+void backtrackNode(T)(ref Cursor c, ref T callback, int depth = 0) {
+    import std.range : repeat;
 
-alias PTuple = Tuple!(WrapTypeKind, "wtk", string, "id");
-
-//TODO duplicate code in paramDeclTo, reuse this implementation.
-auto extractParams(Cursor cursor, bool is_variadic) {
-    import std.typecons : tuple, Tuple;
-
-    PTuple[] params;
-
-    if (cursor.type.isTypedef) {
-        // handles the following case.
-        // typedef unsigned char (func_type) (const unsigned int baz);
-        // extern func_ptr hest;
-        // Must grab the underlying type and parse the arguments.
-        // TODO investigate if the fixes to translateUnexposed can improve the
-        // param extraction here to allow grabbing of the underlying types
-        // identifier name.
-        cursor = cursor.type.declaration;
-        foreach (arg; cursor.type.func.arguments) {
-            auto type = translateType(arg);
-            params ~= PTuple(type, "");
-        }
-    } else {
-        foreach (param; cursor.func.parameters) {
-            auto type = translateType(param.type);
-            params ~= PTuple(type, param.spelling);
-        }
+    auto curr = c;
+    while (curr.isValid) {
+        callback.apply(curr, depth);
+        curr = curr.semanticParent;
+        ++depth;
     }
-
-    if (is_variadic) {
-        auto wtk = WrapTypeKind();
-        wtk.typeKind = TypeKind.make("...");
-        wtk.typeKind.info = TypeKind.SimpleInfo("%s");
-        params ~= PTuple(wtk, "...");
-    }
-
-    debug {
-        import std.variant : visit;
-
-        foreach (p; params) {
-            // dfmt off
-            () @trusted {
-                logger.trace(p.wtk.typeKind.txt, ":", cast(string) p.id);
-            }();
-            // dfmt on
-        }
-    }
-
-    return params;
-}
-
-/// Join an array slice of PTuples to a parameter string of "type" "id"
-string joinParamNames(PTuple[] r) @safe {
-    import std.algorithm : joiner, map, filter;
-    import std.conv : text;
-    import std.range : enumerate;
-
-    static string getTypeId(PTuple p, ulong uid) @trusted {
-        import std.variant : visit;
-
-        if (p.id == "") {
-            return p.wtk.typeKind.toString("x" ~ text(uid));
-        } else {
-            return p.wtk.typeKind.toString(p.id);
-        }
-    }
-
-    // using cache to avoid calling getName twice.
-    return r.enumerate.map!(a => getTypeId(a.value, a.index)).filter!(a => a.length > 0)
-        .joiner(", ").text();
-
 }

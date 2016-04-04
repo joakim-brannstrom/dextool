@@ -12,6 +12,9 @@ module cpptooling.data.symbol.container;
 
 import logger = std.experimental.logger;
 
+//TODO move TypeKind to .data
+import cpptooling.analyzer.type : TypeKind;
+
 import cpptooling.data.representation : CppClass;
 import cpptooling.data.symbol.typesymbol;
 import cpptooling.data.symbol.types;
@@ -32,10 +35,11 @@ version (unittest) {
  *
  * Lookup is done via Fully Qualified Name.
  *
- * Assumtion. The C++ one definition rule is never violated.
+ * BROKEN when doing whole-program analyze. Kept as a reminder.
+ *    "Assumtion. The C++ one definition rule is never violated."
  *
- * The alternative would be to searcch in the Representation.
- * Currently only holds classes.
+ * New design:
+ * Lookup via a unique identifier, Unified Symbol Resolution (USR).
  */
 @safe struct Container {
     invariant() {
@@ -46,10 +50,62 @@ version (unittest) {
         //TODO change to using a hash map
         CppClass*[] cppclass;
         TypeSymbol!(CppClass*)[] t_cppclass;
+
+        TypeKind*[USRType] lookup_typekind;
+        TypeKind*[] typekind;
     }
 
-    auto rangeTypeClass() @nogc {
+    private auto rangeTypeClass() @nogc {
         return t_cppclass;
+    }
+
+    private auto typeRange() @nogc const {
+        return typekind;
+    }
+
+    void put(TypeKind tk)
+    in {
+        assert(tk.usr.length > 0);
+    }
+    body {
+        if (tk.usr in lookup_typekind) {
+            return;
+        }
+
+        auto heap = new TypeKind(tk);
+        typekind ~= heap;
+        lookup_typekind[tk.usr] = heap;
+
+        debug {
+            import std.conv : to;
+            import cpptooling.analyzer.type;
+
+            logger.tracef("Stored kind:%s usr:%s repr:%s", (*typekind[$ - 1])
+                    .info.kind.to!string, cast(string)(*typekind[$ - 1]).usr,
+                    (*typekind[$ - 1]).toStringDecl(TypeAttr.init, "x"));
+        }
+    }
+
+    auto find(T)(USRType usr) const
+    out (result) {
+        logger.tracef("%sfind usr:%s", result.length == 0 ? "Failed " : "", cast(string) usr);
+    }
+    body {
+        import std.string : toLower;
+        import std.range : only, dropOne;
+        import std.typecons : NullableRef;
+
+        enum lookup = "lookup_" ~ toLower(T.stringof);
+        auto hash = __traits(getMember, typeof(this), lookup);
+
+        auto item = usr in hash;
+        if (item is null) {
+            return only(TypeKind.init).dropOne;
+        }
+
+        auto rval = only(TypeKind(**item));
+
+        return rval;
     }
 
     /** Duplicate and store the class in the container.
@@ -116,17 +172,20 @@ version (unittest) {
         import std.algorithm : joiner, map;
         import std.ascii : newline;
         import std.conv : text;
+        import std.format : format;
         import std.range : only, chain, takeOne;
+        import cpptooling.analyzer.type;
 
         // dfmt off
         return chain(
-                     only("Container {" ~ newline).joiner(),
-                     t_cppclass.takeOne.map!(a => "classes {" ~ newline).joiner,
-                     chain(
-                           t_cppclass.map!(a => "  " ~ a.fullyQualifiedName ~ newline),
-                          ).joiner(),
-                     t_cppclass.takeOne.map!(a => "} // classes" ~ newline).joiner,
-                     only("} //Container").joiner(),
+                     only("Container {" ~ newline).joiner,
+                     only("classes {" ~ newline).joiner,
+                        t_cppclass.map!(a => "  " ~ a.fullyQualifiedName ~ newline).joiner,
+                     only("} // classes" ~ newline).joiner,
+                     only("types {" ~ newline).joiner,
+                        typeRange.map!(a => format("  %s %s -> %s%s", a.info.kind.to!string(), cast(string) a.usr, (*a).internalGetFmt, newline)).joiner,
+                     only("} // types" ~ newline).joiner,
+                     only("} //Container").joiner,
                     ).text;
         // dfmt on
     }
@@ -170,6 +229,8 @@ classes {
   Class1
   Class2
 } // classes
+types {
+} // types
 } //Container");
 }
 
@@ -189,5 +250,7 @@ unittest {
 classes {
   Class
 } // classes
+types {
+} // types
 } //Container");
 }

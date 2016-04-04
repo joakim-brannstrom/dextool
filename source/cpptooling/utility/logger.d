@@ -7,25 +7,29 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+Logging utilities used to avoid template bloat by only instansiating the logger
+template one time by taking func and line as runtime parameters.
 */
 module cpptooling.utility.logger;
 
-version (unittest) {
-    import unit_threaded : Name, shouldEqual;
+static import std.experimental.logger;
 
-public:
-} else {
-    struct Name {
-        string name_;
-    }
-}
-
-auto errorf(T...)(auto ref T args) nothrow {
-    static import std.experimental.logger;
+auto internalLog(alias level)(const(char)[] txt, in uint indent = 0,
+        string func = __FUNCTION__, uint line = __LINE__) nothrow {
+    import std.array : array;
+    import std.range : repeat;
 
     try {
-        std.experimental.logger.errorf(args);
+        string indent_ = repeat(' ', indent).array();
+        std.experimental.logger.logf!(-1, "", "", "", "")(level,
+                "%d%s %s [%s:%d]", indent, indent_, txt, func, line);
     }
     catch (Exception ex) {
     }
 }
+
+alias trace = internalLog!(std.experimental.logger.LogLevel.trace);
+alias info = internalLog!(std.experimental.logger.LogLevel.info);
+alias error = internalLog!(std.experimental.logger.LogLevel.error);
+alias fatal = internalLog!(std.experimental.logger.LogLevel.fatal);

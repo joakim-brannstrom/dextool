@@ -22,6 +22,7 @@ import cpptooling.data.representation : CFunction, CppClass;
 void generateFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation : joinParams, joinParamNames;
     import cpptooling.utility.conv : str;
+    import cpptooling.analyzer.type : toStringDecl;
     import dsrcgen.c : E;
 
     // assuming that a function declaration void a() in C is meant to be void
@@ -33,8 +34,8 @@ void generateFuncImpl(CFunction f, CppModule impl) {
     }
     string names = joinParamNames(f.paramRange());
 
-    with (impl.func_body(f.returnType().txt, f.name().str, params)) {
-        if (f.returnType().txt == "void") {
+    with (impl.func_body(f.returnType.toStringDecl, f.name().str, params)) {
+        if (f.returnType.toStringDecl == "void") {
             stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
         } else {
             return_(E("test_double_inst->" ~ f.name().str)(E(names)));

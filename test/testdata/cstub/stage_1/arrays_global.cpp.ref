@@ -1,23 +1,27 @@
 #include "test_double.hpp"
 
 #ifndef TEST_INIT_extern_a
-#define TEST_INIT_extern_a extern_a[4]
+#define TEST_INIT_extern_a int extern_a[4]
 #endif // TEST_INIT_extern_a
 #ifndef TEST_INIT_extern_b
-#define TEST_INIT_extern_b extern_b[2][3]
+#define TEST_INIT_extern_b int extern_b[2][3]
 #endif // TEST_INIT_extern_b
 #ifndef TEST_INIT_extern_c
-#define TEST_INIT_extern_c extern_c[2][3][4]
+#define TEST_INIT_extern_c int extern_c[2][3][4]
 #endif // TEST_INIT_extern_c
 #ifndef TEST_INIT_extern_incmpl
-#define TEST_INIT_extern_incmpl extern_incmpl[]
+#define TEST_INIT_extern_incmpl char extern_incmpl[]
 #endif // TEST_INIT_extern_incmpl
 #ifndef TEST_INIT_extern_const_incmpl
-#define TEST_INIT_extern_const_incmpl extern_const_incmpl[]
+#define TEST_INIT_extern_const_incmpl const char *const extern_const_incmpl[]
 #endif // TEST_INIT_extern_const_incmpl
+#ifndef TEST_INIT_expect_const_ptr_array
+#define TEST_INIT_expect_const_ptr_array int *const expect_const_ptr_array[10]
+#endif // TEST_INIT_expect_const_ptr_array
 
-int TEST_INIT_extern_a;
-int TEST_INIT_extern_b;
-int TEST_INIT_extern_c;
-char TEST_INIT_extern_incmpl;
-const char *const  TEST_INIT_extern_const_incmpl;
+TEST_INIT_extern_a;
+TEST_INIT_extern_b;
+TEST_INIT_extern_c;
+TEST_INIT_extern_incmpl;
+TEST_INIT_extern_const_incmpl;
+TEST_INIT_expect_const_ptr_array;

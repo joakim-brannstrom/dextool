@@ -1,4 +1,4 @@
 @startuml
-class "SingleFileDir"
-class "SingleFileMain"
+class "SingleFileDir" as YzpAU0BTaW5nbGVGaWxlRGly
+class "SingleFileMain" as YzpAU0BTaW5nbGVGaWxlTWFpbg
 @enduml

@@ -1,22 +1,22 @@
 @startuml
-class "ns1::ns11::E11Inherit"
-"ns1::ns11::E11Inherit" --|> "ns1::ns12::E12"
-"ns1::ns11::E11Inherit" --|> "ns1::ns11::C11"
-"ns1::ns11::E11Inherit" --|> "ns1::E1"
-class "Dup"
-"Dup" *-- "ns1::File1"
-class "ns2::File2"
-"ns2::File2" --|> "ns1::File1"
-class "C0"
-class "ns1"
-class "ns1::C1"
-class "ns1::D1"
-class "ns1::E1"
-class "ns1::File1"
-class "ns1::ns11::C11"
-class "ns1::ns11::D11"
-class "ns1::ns11::E11"
-class "ns1::ns12::C12"
-class "ns1::ns12::D12"
-class "ns1::ns12::E12"
+class "ns1::ns11::E11Inherit" as YzpATkBuczFATkBuczExQFNARTExSW5oZXJpdA
+class "Dup" as YzpAU0BEdXA
+class "ns2::File2" as YzpATkBuczJAU0BGaWxlMg
+class "C0" as YzpAU0BDMA
+class "ns1" as YzpAU0BuczE
+class "ns1::C1" as YzpATkBuczFAU0BDMQ
+class "ns1::D1" as YzpATkBuczFAU0BEMQ
+class "ns1::E1" as YzpATkBuczFAU0BFMQ
+class "ns1::File1" as YzpATkBuczFAU0BGaWxlMQ
+class "ns1::ns11::C11" as YzpATkBuczFATkBuczExQFNAQzEx
+class "ns1::ns11::D11" as YzpATkBuczFATkBuczExQFNARDEx
+class "ns1::ns11::E11" as YzpATkBuczFATkBuczExQFNARTEx
+class "ns1::ns12::C12" as YzpATkBuczFATkBuczEyQFNAQzEy
+class "ns1::ns12::D12" as YzpATkBuczFATkBuczEyQFNARDEy
+class "ns1::ns12::E12" as YzpATkBuczFATkBuczEyQFNARTEy
+"YzpATkBuczFATkBuczExQFNARTExSW5oZXJpdA" --|> "YzpATkBuczFAU0BFMQ"
+"YzpATkBuczFATkBuczExQFNARTExSW5oZXJpdA" --|> "YzpATkBuczFATkBuczExQFNAQzEx"
+"YzpATkBuczFATkBuczExQFNARTExSW5oZXJpdA" --|> "YzpATkBuczFATkBuczEyQFNARTEy"
+"YzpAU0BEdXA" *-- "YzpATkBuczFAU0BGaWxlMQ"
+"YzpATkBuczJAU0BGaWxlMg" --|> "YzpATkBuczFAU0BGaWxlMQ"
 @enduml

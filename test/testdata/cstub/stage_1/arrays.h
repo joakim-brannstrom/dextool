@@ -11,4 +11,6 @@ extern int extern_c[2][3][4];
 
 extern char extern_incmpl[];
 extern const char* const extern_const_incmpl[];
+
+extern int* const expect_const_ptr_array[10];
 #endif // ARRAYS_H
