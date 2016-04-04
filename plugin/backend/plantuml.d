@@ -719,7 +719,11 @@ private:
                 m.stmt("rankdir=LR");
                 m.stmt("pack=true");
                 m.stmt("concentrate=true");
-                m.stmt("splines=ortho");
+                // inactivating, can result in a crash as of
+                // dot 2.38.0 (20140413.2041)
+                m.stmt("// activate for orthogonal lines, aka straight lines");
+                m.stmt("// but can result in GraphViz/dot crashing");
+                m.stmt("//splines=ortho");
                 break;
             case Dot:
                 m.stmt("layout=dot");

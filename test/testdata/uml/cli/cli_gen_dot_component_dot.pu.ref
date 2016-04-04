@@ -3,7 +3,9 @@ digraph g {
     rankdir=LR
     pack=true
     concentrate=true
-    splines=ortho
+    // activate for orthogonal lines, aka straight lines
+    // but can result in GraphViz/dot crashing
+    //splines=ortho
 
     colorscheme=svg
     node [style=rounded shape=box]

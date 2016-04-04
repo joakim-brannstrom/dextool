@@ -38,6 +38,7 @@ version (unittest) {
 /** Cursor isX represented as a string of letters
  *
  * a = isAttribute
+ * A = isAnonymous
  * d = isDeclaration
  * D = isDefinition
  * e = isExpression
@@ -51,11 +52,11 @@ version (unittest) {
  * V = isValid
  */
 string abilities(Cursor c) {
-    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
-            c.isDeclaration ? "d" : "", c.isDefinition ? "D" : "", c.isExpression
-            ? "e" : "", c.isEmpty ? "n" : "", c.isPreprocessing ? "p" : "",
-            c.isReference ? "r" : "", c.isStatement ? "s" : "",
-            c.isTranslationUnit ? "t" : "", c.isUnexposed ? "u" : "",
+    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
+            c.isAnonymous ? "A" : "", c.isDeclaration ? "d" : "", c.isDefinition
+            ? "D" : "", c.isExpression ? "e" : "", c.isEmpty ? "n" : "",
+            c.isPreprocessing ? "p" : "", c.isReference ? "r" : "", c.isStatement
+            ? "s" : "", c.isTranslationUnit ? "t" : "", c.isUnexposed ? "u" : "",
             c.isVirtualBase ? "v" : "", c.isValid ? "V" : "",);
 
     return s;
@@ -434,6 +435,13 @@ struct Cursor {
     /// Determine whether the given cursor kind represents a statement.
     @property bool isStatement() const {
         return clang_isStatement(cx.kind) != 0;
+    }
+
+    /** Determine whether the given cursor represents an anonymous record
+     * declaration.
+     */
+    @property bool isAnonymous() const {
+        return clang_Cursor_isAnonymous(cx) != 0;
     }
 
     /// Determine whether the given cursor kind represents an attribute.
