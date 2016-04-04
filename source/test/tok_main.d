@@ -257,6 +257,17 @@ int show_ast(string filename, string[] flags) {
     return 0;
 }
 
+int dump_ast(string filename, string[] flags) {
+    import cpptooling.analyzer.clang.context;
+    import clang.TranslationUnit : dumpAST;
+
+    auto file_ctx = ClangContext(filename, flags);
+    auto tu = file_ctx.translationUnit;
+    writeln(dumpAST(tu));
+
+    return 0;
+}
+
 int main(string[] args) {
     if (args.length < 3) {
         writeln("devtool <category> filename");
@@ -276,6 +287,8 @@ int main(string[] args) {
         return tokenize(args[2]);
     case "ast":
         return show_ast(args[2], flags);
+    case "dumpast":
+        return dump_ast(args[2], flags);
     default:
         return 1;
     }

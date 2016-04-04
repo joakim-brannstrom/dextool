@@ -84,6 +84,14 @@ struct TranslationUnit {
         return DiagnosticVisitor(cx);
     }
 
+    @property DiagnosticSet diagnosticSet() {
+        return DiagnosticSet(clang_getDiagnosticSetFromTU(cx));
+    }
+
+    @property size_t numDiagnostics() {
+        return clang_getNumDiagnostics(cx);
+    }
+
     @property DeclarationVisitor declarations() {
         auto c = Cursor(clang_getTranslationUnitCursor(cx));
         return DeclarationVisitor(c);
@@ -100,10 +108,35 @@ struct TranslationUnit {
         return r;
     }
 
+    File file() {
+        return file(spelling);
+    }
+
+    @property string spelling() {
+        return toD(clang_getTranslationUnitSpelling(cx));
+    }
+
     @property Cursor cursor() {
         auto r = clang_getTranslationUnitCursor(cx);
         return Cursor(r);
     }
+}
+
+string dumpAST(ref TranslationUnit tu, bool skipIncluded = false) {
+    import std.array : appender;
+    import clang.Cursor : dumpAST;
+
+    auto result = appender!string();
+    auto c = tu.cursor;
+
+    if (skipIncluded) {
+        File file = tu.file;
+        dumpAST(c, result, 0, &file);
+    } else {
+        dumpAST(c, result, 0);
+    }
+
+    return result.data;
 }
 
 struct DiagnosticVisitor {
