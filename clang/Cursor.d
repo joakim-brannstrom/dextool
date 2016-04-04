@@ -114,7 +114,20 @@ struct Cursor {
         return Cursor(r);
     }
 
-    /// Return: the spelling of the entity pointed at by the cursor.
+    /** Retrieve a Unified Symbol Resolution (USR) for the entity referenced by
+     * the given cursor.
+     *
+     * A Unified Symbol Resolution (USR) is a string that identifies a
+     * particular entity (function, class, variable, etc.) within a program.
+     * USRs can be compared across translation units to determine, e.g., when
+     * references in one translation refer to an entity defined in another
+     * translation unit.
+     */
+    @property string usr() const {
+        return toD(clang_getCursorUSR(cx));
+    }
+
+    /// Return: Retrieve a name for the entity referenced by this cursor.
     @property string spelling() const {
         return toD(clang_getCursorSpelling(cx));
     }
@@ -131,9 +144,9 @@ struct Cursor {
 
     /** Return the display name for the entity referenced by this cursor.
      *
-     *  The display name contains extra information that helps identify the
-     *  cursor, such as the parameters of a function or template or the
-     *  arguments of a class template specialization.
+     * The display name contains extra information that helps identify the
+     * cursor, such as the parameters of a function or template or the
+     * arguments of a class template specialization.
      */
     @property string displayName() const {
         return toD(clang_getCursorDisplayName(cx));
@@ -373,7 +386,7 @@ struct Cursor {
 
     /** Array of all children of the cursor.
      *
-     *Params:
+     * Params:
      *  ignorePredefined = ignore cursors for primitive types.
      */
     @property Cursor[] children(bool ignorePredefined = false) {
@@ -798,5 +811,5 @@ void dumpAST(ref Cursor c, ref Appender!string result, size_t indent) {
 unittest {
     import unit_threaded : writelnUt;
 
-    //writelnUt(Cursor.predefinedToString);
+    writelnUt(Cursor.predefinedToString);
 }

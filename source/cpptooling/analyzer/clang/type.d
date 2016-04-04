@@ -24,12 +24,13 @@ public import cpptooling.analyzer.type;
 void logType(ref Type type, string func = __FUNCTION__, uint line = __LINE__) {
     // dfmt off
     debug {
-    logger.trace(format("%s:%s %s|%s|%s|%s",
+    logger.tracef("%s:%s %s|%s|%s|%s|%s",
                         func, line,
+                        type.cursor.usr,
                         type.kind,
                         type.declaration,
                         type.isValid,
-                        type.typeKindSpelling));
+                        type.typeKindSpelling);
     }
     // dfmt on
 }
