@@ -47,18 +47,24 @@ mixin template CppModuleX() {
      * ----
      */
     auto class_suite(string class_name, string headline) {
+        import std.format : format;
+
         auto tmp = format("%s::%s", class_name, headline);
         auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
     auto class_suite(string rval, string class_name, string headline) {
+        import std.format : format;
+
         auto tmp = format("%s %s::%s", rval, class_name, headline);
         auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
     auto ctor(T...)(string class_name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s(%s)", class_name, params));
@@ -71,6 +77,8 @@ mixin template CppModuleX() {
     }
 
     auto ctor_body(T...)(string class_name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = class_suite(class_name, format("%s(%s)", class_name, params));
@@ -78,6 +86,8 @@ mixin template CppModuleX() {
     }
 
     auto ctor_body(string class_name) {
+        import std.format : format;
+
         auto e = class_suite(class_name, format("%s()", class_name));
         return e;
     }
@@ -92,18 +102,24 @@ mixin template CppModuleX() {
      * ----
      */
     auto dtor(Flag!"isVirtual" isVirtual, string class_name) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
                 class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
     auto dtor(string class_name) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
     /// Definition for a dtor.
     auto dtor_body(string class_name) {
+        import std.format : format;
+
         string s = class_name;
         if (s[0] == '~') {
             s = s[1 .. $];
@@ -123,6 +139,8 @@ mixin template CppModuleX() {
     }
 
     auto class_(string name, string inherit) {
+        import std.format : format;
+
         if (inherit.length == 0) {
             return class_(name);
         } else {
@@ -154,6 +172,8 @@ mixin template CppModuleX() {
 
     auto method(Flag!"isVirtual" isVirtual, string return_type, string name,
             Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s %s()%s", isVirtual ? "virtual " : "",
                 return_type, name, isConst ? " const" : ""));
         return e;
@@ -161,6 +181,8 @@ mixin template CppModuleX() {
 
     auto method(T...)(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
@@ -169,6 +191,8 @@ mixin template CppModuleX() {
     }
 
     auto method_body(string return_type, string class_name, string name, Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = class_suite(return_type, class_name, format("%s()%s", name,
                 isConst ? " const" : ""));
         return e;
@@ -176,6 +200,8 @@ mixin template CppModuleX() {
 
     auto method_body(T...)(string return_type, string class_name, string name,
             Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
@@ -185,6 +211,8 @@ mixin template CppModuleX() {
 
     auto method_inline(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = suite(format("%s%s %s()%s", isVirtual ? "virtual " : "",
                 return_type, name, isConst ? " const" : ""));
         return e;
@@ -192,6 +220,8 @@ mixin template CppModuleX() {
 
     auto method_inline(T...)(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
