@@ -311,8 +311,10 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
+    import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
+    import cpptooling.data.representation;
     import cpptooling.data.symbol.container;
     import plugin.backend.cppvariant : Generator;
 

@@ -12,7 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module application.compilation_db;
 
-import std.typecons : Nullable;
+import std.typecons : Nullable, Typedef;
 import logger = std.experimental.logger;
 
 import application.types;

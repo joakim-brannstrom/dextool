@@ -168,25 +168,25 @@ private:
 
 /// Combine type information with a identifier to produce a declaration.
 auto toString(TypeKind t, string id) {
-    import std.format : format;
+    static import std.format;
 
     string txt;
 
     final switch (t.info.kind) with (TypeKind.Info) {
     case Kind.simple:
-        txt = format(t.info.fmt, id);
+        txt = std.format.format(t.info.fmt, id);
         break;
     case Kind.array:
-        txt = format(t.info.fmt, t.info.elementType, id, t.info.indexes);
+        txt = std.format.format(t.info.fmt, t.info.elementType, id, t.info.indexes);
         break;
     case Kind.func:
-        txt = format(t.info.fmt, id);
+        txt = std.format.format(t.info.fmt, id);
         break;
     case Kind.funcPtr:
-        txt = format(t.info.fmt, id);
+        txt = std.format.format(t.info.fmt, id);
         break;
     case Kind.record:
-        txt = format(t.info.fmt, id);
+        txt = std.format.format(t.info.fmt, id);
         break;
     case Kind.null_:
         debug {

@@ -19,7 +19,7 @@ import application.types;
 import application.compilation_db;
 
 ///TODO don't catch Exception, catch the specific.
-auto tryOpenFile(string filename, string mode) @trusted nothrow {
+auto tryOpenFile(string filename, string mode) @trusted {
     import std.exception;
     import std.typecons : Unique;
 

@@ -7,6 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module cpptooling.generator.adapter;
 
 import std.typecons : Yes, No;
+import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
@@ -19,6 +20,7 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 /// Make a C++ adapter for an interface.
 CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
+    import cpptooling.analyzer.type;
     import cpptooling.data.representation;
 
     string c_if = cast(string) if_name;
@@ -71,6 +73,10 @@ void generateImpl(CppClass c, CppModule impl) {
 
     // C'tor is expected to have one parameter.
     static void genCtor(CppClass c, CppCtor m, CppModule impl) {
+        import dsrcgen.cpp;
+        import cpptooling.data.representation;
+        import cpptooling.analyzer.type : TypeKind, toString;
+
         // dfmt off
         TypeKindVariable p0 = () @trusted {
             return m.paramRange().front.visit!(

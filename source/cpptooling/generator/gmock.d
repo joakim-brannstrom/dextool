@@ -9,6 +9,7 @@ Generate a google mock implementation of a C++ class with at least one virtual.
 module cpptooling.generator.gmock;
 
 import std.typecons : Yes, No;
+import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
