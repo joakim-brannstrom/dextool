@@ -20,8 +20,13 @@ struct TestData {
 
     string getPath() const pure nothrow {
         string path = name.dup;
-        if(suffix) path ~= "." ~ suffix;
+        import std.array: empty;
+        if(!suffix.empty) path ~= "." ~ suffix;
         return path;
+    }
+
+    bool isTestClass() @safe const pure nothrow {
+        return testFunction is null;
     }
 }
 
@@ -106,7 +111,22 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
         enum shouldFail = hasUDA!(test, ShouldFail);
         enum singleThreaded = hasUDA!(test, Serial);
         enum builtin = true;
-        testData ~= TestData(name, (){ test(); }, hidden, shouldFail, singleThreaded, builtin);
+
+        // let's check for @Values UDAs, which are actually of type ValuesImpl
+        enum isValues(alias T) = is(typeof(T)) && is(typeof(T):ValuesImpl!U, U);
+        enum valuesUDAs = Filter!(isValues, __traits(getAttributes, test));
+        static if(valuesUDAs.length == 0) {
+            testData ~= TestData(name, (){ test(); }, hidden, shouldFail, singleThreaded, builtin);
+        } else {
+            static assert(valuesUDAs.length == 1, "Can only use @Values once");
+            foreach(value; valuesUDAs[0].values) {
+                // force single threaded so a composite test case is created
+                // we set a global static to the value the test expects then call the test function,
+                // which can retrieve the value with getValue!T
+                testData ~= TestData(name, () { ValueHolder!(typeof(value)).value = value; test(); },
+                                     hidden, shouldFail, true /*serial*/, builtin);
+            }
+        }
     }
     return testData;
 }
@@ -121,6 +141,18 @@ private template isStringUDA(alias T) {
 unittest {
     static assert(isStringUDA!"foo");
     static assert(!isStringUDA!5);
+}
+
+
+// if this member is a test function or class, given the predicate
+private template PassesTestPred(alias module_, alias pred, string moduleMember) {
+    mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
+    enum notPrivate = __traits(compiles, mixin(moduleMember)); //only way I know to check if private
+    static if(notPrivate)
+        enum PassesTestPred = notPrivate && pred!(module_, moduleMember) &&
+                              !HasAttribute!(module_, moduleMember, DontTest);
+    else
+        enum PassesTestPred = false;
 }
 
 
@@ -145,8 +177,10 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
         }
     }
 
-    return moduleTestData!(module_, isTestClass);
+
+    return moduleTestData!(module_, isTestClass, memberTestData);
 }
+
 
 /**
  * Finds all test functions in the given module.
@@ -154,14 +188,25 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
  */
 TestData[] moduleTestFunctions(alias module_)() pure {
 
+    enum isTypesAttr(alias T) = is(T) && is(T:Types!U, U...);
+
     template isTestFunction(alias module_, string moduleMember) {
         mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
-        // AliasSeq aren't passed as a single argument, but isSomeFunction only takes one
-        static if(AliasSeq!(mixin(moduleMember)).length == 1 && isSomeFunction!(mixin(moduleMember))) {
-            enum isTestFunction = hasTestPrefix!(module_, moduleMember) ||
-                HasAttribute!(module_, moduleMember, UnitTest);
-        } else {
+
+        static if(AliasSeq!(mixin(moduleMember)).length != 1) {
             enum isTestFunction = false;
+        } else static if(isSomeFunction!(mixin(moduleMember))) {
+            enum isTestFunction = hasTestPrefix!(module_, moduleMember) ||
+                                  HasAttribute!(module_, moduleMember, UnitTest);
+        } else {
+            // in this case we handle the possibility of a template function with
+            // the @Types UDA attached to it
+            alias types = GetTypes!(mixin(moduleMember));
+            enum isTestFunction = hasTestPrefix!(module_, moduleMember) &&
+                                  types.length > 0 &&
+                                  is(typeof(() {
+                                      mixin(moduleMember ~ `!` ~ types[0].stringof ~ `;`);
+                                  }));
         }
     }
 
@@ -172,8 +217,7 @@ TestData[] moduleTestFunctions(alias module_)() pure {
         enum prefix = "test";
         enum minSize = prefix.length + 1;
 
-        static if(isSomeFunction!(mixin(member)) &&
-                  member.length >= minSize && member[0 .. prefix.length] == prefix &&
+        static if(member.length >= minSize && member[0 .. prefix.length] == prefix &&
                   isUpper(member[prefix.length])) {
             enum hasTestPrefix = true;
         } else {
@@ -181,100 +225,118 @@ TestData[] moduleTestFunctions(alias module_)() pure {
         }
     }
 
-    return moduleTestData!(module_, isTestFunction);
+
+    return moduleTestData!(module_, isTestFunction, createFuncTestData);
 }
 
-private struct TestFunctionSuffix {
-    TestFunction testFunction;
-    string suffix; // used for values automatically passed to functions
+private TestData[] createFuncTestData(alias module_, string moduleMember)() {
+    mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
+    /*
+      Get all the test functions for this module member. There might be more than one
+      when using parametrized unit tests.
+
+      Examples:
+      ------
+      void testFoo() {} // -> the array contains one element, testFoo
+      @(1, 2, 3) void testBar(int) {} // The array contains 3 elements, one for each UDA value
+      @Types!(int, float) void testBaz(T)() {} //The array contains 2 elements, one for each type
+      ------
+    */
+    // if the predicate returned true (which is always the case here), then it's either
+    // a regular function or a templated one. If regular is has a pointer to it
+    enum isRegularFunction = __traits(compiles, &__traits(getMember, module_, moduleMember));
+
+    TestData[] rval;
+
+    static if(isRegularFunction) {
+
+        enum func = &__traits(getMember, module_, moduleMember);
+        enum arity = arity!func;
+
+        static assert(arity == 0 || arity == 1, "Test functions may take at most one parameter");
+
+        static if(arity == 0)
+            // the reason we're creating a lambda to call the function is that test functions
+            // are ordinary functions, but we're storing delegates
+            rval = [ memberTestData!(module_, moduleMember)(() { func(); }) ]; //simple case, just call the function
+        else {
+
+            // the function takes a parameter, check if it has UDAs for value parameters to be passed to it
+            alias params = Parameters!func;
+            static assert(params.length == 1, "Test functions may take at most one parameter");
+
+            alias values = GetAttributes!(module_, moduleMember, params[0]);
+
+            import std.conv;
+            static assert(values.length > 0,
+                          text("Test functions with a parameter of type <", params[0].stringof,
+                               "> must have value UDAs of the same type"));
+
+            TestData[] testData;
+            foreach(v; values) testData ~= memberTestData!(module_, moduleMember)(() { func(v); }, v.to!string);
+            rval = testData;
+        }
+    } else static if(HasTypes!(mixin(moduleMember))) { //template function with @Types
+        alias types = GetTypes!(mixin(moduleMember));
+        TestData[] testData;
+        foreach(type; types) {
+            testData ~= memberTestData!(module_, moduleMember)(() {
+                    mixin(moduleMember ~ `!(` ~ type.stringof ~ `)();`);
+                }, type.stringof);
+        }
+        rval = testData;
+    }
+
+    return rval;
 }
 
 
-private TestData[] moduleTestData(alias module_, alias pred)() pure {
+
+// this funtion returns TestData for either classes or test functions
+// built-in unittest modules are handled by moduleUnitTests
+// pred determines what qualifies as a test
+// createTestData must return TestData[]
+private TestData[] moduleTestData(alias module_, alias pred, alias createTestData)() pure {
     mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
     TestData[] testData;
     foreach(moduleMember; __traits(allMembers, module_)) {
 
-        enum notPrivate = __traits(compiles, mixin(moduleMember)); //only way I know to check if private
-
-        static if(notPrivate && pred!(module_, moduleMember) &&
-                  !HasAttribute!(module_, moduleMember, DontTest)) {
-
-            /*
-             This function returns an array because it might find a test function that takes
-             a parameter with UDAs of the appropriate type. One "real" test function is returned
-             for each one of those. Examples:
-             ------
-             void testFoo() {} // -> the array contains one element, testFoo
-             @(1, 2, 3) void testBar(int) {} // The array contains 3 elements, one for each UDA value
-             ------
-             */
-
-            TestFunctionSuffix[] getTestFunctions(alias module_, string moduleMember)() {
-                //returns delegates for test functions, null for test classes
-                static if(__traits(compiles, &__traits(getMember, module_, moduleMember))) {
-
-                    enum func = &__traits(getMember, module_, moduleMember);
-                    enum arity = arity!func;
-
-                    static assert(arity == 0 || arity == 1, "Test functions may take at most one parameter");
-
-                    static if(arity == 0)
-                        return [ TestFunctionSuffix((){ func(); }) ]; //simple case, just call it
-                    else {
-
-                        // check to see if the function has UDAs for parameters to be passed to it
-
-                        alias params = Parameters!func;
-                        static assert(params.length == 1, "Test functions may take at most one parameter");
-
-                        alias values = GetAttributes!(module_, moduleMember, params[0]);
-                        import std.conv;
-                        static assert(values.length > 0,
-                                      text("Test functions with a parameter of type <", params[0].stringof,
-                                       "> must have value UDAs of the same type"));
-
-                        TestFunctionSuffix[] functions;
-                        foreach(v; values) functions ~= TestFunctionSuffix((){ func(v); }, v.to!string);
-                        return functions;
-                    }
-                } else {
-                    //test class
-                    return [TestFunctionSuffix(null)];
-                }
-            }
-
-            auto functions = getTestFunctions!(module_, moduleMember);
-            foreach(f; functions) {
-                //if there is more than one function, they're all single threaded - multiple values per test call
-                //this is slightly hackish but works and actually makes sense - it causes factory to make
-                //a CompositeTestCase out of them
-                immutable singleThreaded = functions.length > 1 || HasAttribute!(module_, moduleMember, Serial);
-                enum builtin = false;
-                testData ~= TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
-                                     f.testFunction,
-                                     HasAttribute!(module_, moduleMember, HiddenTest),
-                                     HasAttribute!(module_, moduleMember, ShouldFail),
-                                     singleThreaded,
-                                     builtin,
-                                     f.suffix);
-            }
-        }
+        static if(PassesTestPred!(module_, pred, moduleMember))
+            testData ~= createTestData!(module_, moduleMember);
     }
 
     return testData;
+
 }
 
+// TestData for a member of a module (either a test function or test class)
+private TestData memberTestData(alias module_, string moduleMember)(TestFunction testFunction = null, string suffix = "") {
+    //if there is a suffix, all tests sharing that suffix are single threaded with multiple values per "real" test
+    //this is slightly hackish but works and actually makes sense - it causes unit_threaded.factory to make
+    //a CompositeTestCase out of them
+    immutable singleThreaded = HasAttribute!(module_, moduleMember, Serial) || suffix != "";
+    enum builtin = false;
 
+    return TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
+                    testFunction,
+                    HasAttribute!(module_, moduleMember, HiddenTest),
+                    HasAttribute!(module_, moduleMember, ShouldFail),
+                    singleThreaded,
+                    builtin,
+                    suffix);
+}
 
-import unit_threaded.tests.module_with_tests; //defines tests and non-tests
-import unit_threaded.asserts;
-import std.algorithm;
-import std.array;
+version(unittest) {
 
-//helper function for the unittest blocks below
-private auto addModPrefix(string[] elements, string module_ = "unit_threaded.tests.module_with_tests") nothrow {
-    return elements.map!(a => module_ ~ "." ~ a).array;
+    import unit_threaded.tests.module_with_tests; //defines tests and non-tests
+    import unit_threaded.asserts;
+    import std.algorithm;
+    import std.array;
+
+    //helper function for the unittest blocks below
+    private auto addModPrefix(string[] elements, string module_ = "unit_threaded.tests.module_with_tests") nothrow {
+        return elements.map!(a => module_ ~ "." ~ a).array;
+    }
 }
 
 unittest {
@@ -284,8 +346,8 @@ unittest {
 }
 
 unittest {
-    const expected = addModPrefix([ "testFoo", "testBar", "funcThatShouldShowUpCosOfAttr" ]);
-    const actual = moduleTestFunctions!(unit_threaded.tests.module_with_tests).map!(a => a.name).array;
+    const expected = addModPrefix([ "testFoo", "testBar", "funcThatShouldShowUpCosOfAttr"]);
+    const actual = moduleTestFunctions!(unit_threaded.tests.module_with_tests).map!(a => a.getPath).array;
     assertEqual(actual, expected);
 }
 
@@ -294,4 +356,84 @@ unittest {
     const expected = addModPrefix(["unittest0", "unittest1", "myUnitTest"]);
     const actual = moduleUnitTests!(unit_threaded.tests.module_with_tests).map!(a => a.name).array;
     assertEqual(actual, expected);
+}
+
+version(unittest) {
+    import unit_threaded.testcase: TestCase;
+    private void assertFail(TestCase test, string file = __FILE__, ulong line = __LINE__) {
+        import core.exception;
+        import std.conv;
+
+        try {
+            test.silence;
+            assert(test() != [], file ~ ":" ~ line.to!string ~ " Test was expected to fail but didn't");
+            assert(false, file ~ ":" ~ line.to!string ~ " Expected test case " ~ test.getPath ~
+                   " to fail with AssertError but it didn't");
+        } catch(AssertError) {}
+    }
+}
+
+@("Test that parametrized value tests work")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("testValues")).array;
+
+    // there should only be on test case which is a composite of the 3 values in testValues
+    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
+    assert(composite !is null, "Wrong dynamic type for TestCase");
+    auto tests = composite.tests;
+    assertEqual(tests.length, 3);
+
+    // the first and third test should pass, the second should fail
+    assertEqual(tests[0](), []);
+    assertEqual(tests[2](), []);
+
+    assertFail(tests[1]);
+}
+
+
+@("Test that parametrized type tests work")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("testTypes")).array;
+    const expected = addModPrefix(["testTypes.float", "testTypes.int"], "unit_threaded.tests.parametrized");
+    const actual = testData.map!(a => a.getPath).array;
+    assertEqual(actual, expected);
+
+    // there should only be on test case which is a composite of the 2 testTypes
+    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
+    assert(composite !is null, "Wrong dynamic type for TestCase");
+    auto tests = composite.tests;
+    assertEqual(tests.map!(a => a.getPath).array, expected);
+
+    // the second should pass, the first should fail
+    assertEqual(tests[1](), []);
+
+    assertFail(tests[0]);
+}
+
+@("Test that value parametrized built-in unittest blocks work")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("builtinValues")).array;
+
+    // there should only be on test case which is a composite of the 4 values
+    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
+    assert(composite !is null, "Wrong dynamic type for TestCase");
+    auto tests = composite.tests;
+    assertEqual(tests.length, 4);
+
+    // these should be ok
+    assertEqual(tests[1](), []);
+    assertEqual(tests[3](), []);
+
+    //these should fail
+    assertFail(tests[0]);
+    assertFail(tests[2]);
 }
