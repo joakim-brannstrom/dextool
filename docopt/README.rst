@@ -1,6 +1,7 @@
 ``docopt`` creates *beautiful* command-line interfaces
 ======================================================================
 
+.. image:: https://travis-ci.org/docopt/docopt.d.svg?branch=master
 
 You know what's awesome?  It's when the option parser *is*
 generated based on the beautiful help message that you write yourself!
@@ -72,7 +73,7 @@ Use `dub <http://code.dlang.org>`_.
     }
 
 
-**docopt** is tested with D 2.065.
+**docopt** is tested with D 2.070.
 
 Testing
 ======================================================================
@@ -380,3 +381,4 @@ tools, e.g.::
 - 0.6.1-b.1 Initial release in D.
 - 0.6.1-b.2 Updates for D 2.067
 - 0.6.1-b.3 Updates for D 2.067.1, gdc and ldc2
+- 0.6.1-b.5 Updates for D 2.070

@@ -4,7 +4,7 @@ copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
 
-// v0.6.1-b.4
+// v0.6.1-b.5 with local string length fix
 dependency "docopt" path="docopt"
 dependency "dsrcgen" path="dsrcgen"
 
