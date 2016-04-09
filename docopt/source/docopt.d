@@ -16,7 +16,7 @@ import std.container;
 import std.traits;
 import std.ascii;
 import std.conv;
-import std.c.stdlib;
+import core.stdc.stdlib;
 import std.json;
 
 import argvalue;
@@ -98,7 +98,7 @@ private Pattern[] parseLong(Tokens tokens, ref Option[] options) {
     auto parts = tokens.move().split("=");
     string longArg = parts[0];
     assert(startsWith(longArg, "--"));
-    string value = null;
+    string value;
 
     if (parts.length > 1) {
         value = parts[1];
@@ -133,7 +133,7 @@ private Pattern[] parseLong(Tokens tokens, ref Option[] options) {
         options = options ~ o;
 
         if (tokens.isParsingArgv) {
-            if (value == null) {
+            if (value.length == 0) {
                 o = new Option(null, longArg, argCount, new ArgValue(true));
             } else {
                 o = new Option(null, longArg, argCount, new ArgValue(value));
@@ -142,13 +142,13 @@ private Pattern[] parseLong(Tokens tokens, ref Option[] options) {
     } else {
         o = new Option(similar[0]._shortArg, similar[0]._longArg, similar[0]._argCount, similar[0]._value);
         if (o._argCount == 0) {
-            if (value != null) {
+            if (value.length != 0) {
                 auto msg = format("%s must not have an argument.", o._longArg); 
                 throw new TokensOptionError(msg);
             }
         } else {
-            if (value == null) {
-                if (tokens.current() == null || tokens.current() == "--") {
+            if (value.length == 0) {
+                if (tokens.current().length == 0 || tokens.current() == "--") {
                     auto msg = format("%s requires argument.", o._longArg);
                     throw new TokensOptionError(msg);
                 }
@@ -156,7 +156,7 @@ private Pattern[] parseLong(Tokens tokens, ref Option[] options) {
             }
         }
         if (tokens.isParsingArgv) {
-            if (value == null) {
+            if (value.length == 0 || value.length == 0) {
                 o.setValue(new ArgValue(true));
             } else {
                 o.setValue(new ArgValue(value));
@@ -194,10 +194,10 @@ private Pattern[] parseShort(Tokens tokens, ref Option[] options) {
             }
         } else {
             o = new Option(shortArg, similar[0]._longArg, similar[0]._argCount, similar[0]._value);
-            string value = null;
+            string value;
             if (o._argCount != 0) {
                 if (left == "") {
-                    if (tokens.current == null || tokens.current == "--") {
+                    if (tokens.current.length == 0 || tokens.current == "--") {
                         string msg = format("%s requires an argument", shortArg);
                         throw new TokensOptionError(msg);
                     }
@@ -208,7 +208,7 @@ private Pattern[] parseShort(Tokens tokens, ref Option[] options) {
                 }
             }
             if (tokens.isParsingArgv) {
-                if (value == null) {
+                if (value.length == 0 || value.length == 0) {
                     o.setValue(new ArgValue(true));
                 } else {
                     o.setValue(new ArgValue(value));
@@ -224,7 +224,7 @@ private Pattern[] parseShort(Tokens tokens, ref Option[] options) {
 private Pattern parsePattern(string source, ref Option[] options) {
     auto tokens = new Tokens(source, false);
     Pattern[] result = parseExpr(tokens, options);
-    if (tokens.current() != null) {
+    if (tokens.current().length != 0) {
         string msg = format("unexpected ending: %s", tokens.toString());
         throw new DocoptLanguageError(msg);
     }
@@ -319,7 +319,7 @@ private Pattern[] parseAtom(Tokens tokens, ref Option[] options) {
 private Pattern[] parseArgv(Tokens tokens, ref Option[] options, bool optionsFirst=false) {
     Pattern[] parsed;
 
-    while (tokens.current !is null) {
+    while (tokens.current.length != 0) {
         if (tokens.current == "--") {
             foreach(tok; tokens._list) {
                 parsed ~= new Argument(null, new ArgValue(tok));
@@ -351,9 +351,9 @@ private void extras(bool help, string vers, Pattern[] args) {
             }
         }
     }
-    if (vers != null) {
+    if (vers.length != 0) {
         foreach(opt; args) {
-            if ( opt.name == "--version" && opt.value !is null) {
+            if (opt.name == "--version" && opt.value !is null) {
                 throw new DocoptExitVersion("version");
             }
         }
@@ -373,7 +373,7 @@ Pattern[] subsetOptions(Option[] docOptions, Pattern[] patternOptions) {
 
 public ArgValue[string] parse(string doc, string[] argv,
                                bool help = true,
-                               string vers = null,
+                               string vers = "",
                                bool optionsFirst = false) {
     ArgValue[string] dict;
 
@@ -446,7 +446,7 @@ public ArgValue[string] parse(string doc, string[] argv,
 
 public ArgValue[string] docopt(string doc, string[] argv,
                                bool help = true,
-                               string vers = null,
+                               string vers = "",
                                bool optionsFirst = false)
 {
     try {

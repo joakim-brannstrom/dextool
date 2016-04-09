@@ -1,4 +1,3 @@
-
 all: test examples
 
 DOCOPTLIB = libdocopt.a

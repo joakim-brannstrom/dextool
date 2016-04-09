@@ -315,7 +315,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType;
+    import std.typecons : TypedefType, Nullable;
 
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;

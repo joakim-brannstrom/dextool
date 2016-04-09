@@ -568,6 +568,7 @@ A
 @Name("Should add a CppClass to the UML diagram, with methods")
 unittest {
     import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
 
     auto uml = new UMLClassDiagram;
     auto c = CppClass(CppClassName("A"));
@@ -915,6 +916,7 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
 
         //TODO investigate why strip is needed when analyzing gtest
         import std.string : strip;
+        import cpptooling.analyzer.type;
 
         final switch (tkv.type.info.kind) with (TypeKind.Info) {
         case Kind.record:
@@ -941,6 +943,7 @@ void put(UMLClassDiagram uml, CppClass c, Flag!"genClassMethod" class_method,
         import std.variant : visit;
         import std.range : chain, only;
         import std.typecons : TypedefType, Tuple;
+        import cpptooling.analyzer.type;
 
         alias Rtuple = Tuple!(Relate.Kind, "kind", Relate.Key, "key");
 
@@ -1049,6 +1052,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, ref Container con
         if (is(T == CppClass) || is(T == CFunction) || is(T == CxGlobalVariable)) {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : only, chain, array, dropOne;
+    import cpptooling.analyzer.type;
     import cpptooling.data.representation;
     import cpptooling.data.symbol.types;
 

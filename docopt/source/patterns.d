@@ -17,7 +17,7 @@ import std.container;
 import std.traits;
 import std.ascii;
 import std.conv;
-import std.c.stdlib;
+import core.stdc.stdlib;
 
 import argvalue;
 
@@ -280,7 +280,7 @@ package class Option : LeafPattern {
     uint _argCount;
 
     this(in string s, in string l, in uint ac=0, ArgValue v = new ArgValue(false) ) {
-        if (l != null) {
+        if (l !is null) {
             super(l, v);
         } else {
             super(s, v);
@@ -296,7 +296,7 @@ package class Option : LeafPattern {
     }
 
     override const string name() {
-        if (_longArg != null) {
+        if (_longArg !is null) {
             return _longArg;
         } else {
             return _shortArg;
@@ -305,11 +305,11 @@ package class Option : LeafPattern {
 
     override string toString() {
         string s = "None";
-        if (_shortArg != null) {
+        if (_shortArg !is null) {
             s = format("'%s'", _shortArg);
         }
         string l = "None";
-        if (_longArg != null) {
+        if (_longArg !is null) {
             l = format("'%s'", _longArg);
         }
 
@@ -321,7 +321,7 @@ package class Option : LeafPattern {
     }
 
     string toSimpleString() {
-        if (_longArg != null) {
+        if (_longArg !is null) {
             return _longArg;
         } else {
             return _shortArg;

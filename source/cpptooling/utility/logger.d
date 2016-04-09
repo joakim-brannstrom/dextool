@@ -10,7 +10,17 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.utility.logger;
 
-static errorf(T...)(auto ref T args) nothrow {
+version (unittest) {
+    import unit_threaded : Name, shouldEqual;
+
+public:
+} else {
+    struct Name {
+        string name_;
+    }
+}
+
+auto errorf(T...)(auto ref T args) nothrow {
     static import std.experimental.logger;
 
     try {

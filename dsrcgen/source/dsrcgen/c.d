@@ -76,20 +76,28 @@ mixin template CModuleX() {
     }
 
     auto goto_(string name) {
+        import std.format : format;
+
         return stmt(format("goto %s", name));
     }
 
     auto label(string name) {
+        import std.format : format;
+
         return stmt(format("%s:", name));
     }
 
     auto define(string name) {
+        import std.format : format;
+
         auto e = stmt(format("#define %s", name));
         e[$.end = ""];
         return e;
     }
 
     auto define(string name, string value) {
+        import std.format : format;
+
         // may need to replace \n with \\\n
         auto e = stmt(format("#define %s %s", name, value));
         e[$.end = ""];
@@ -97,6 +105,8 @@ mixin template CModuleX() {
     }
 
     auto include(string filename) {
+        import std.format : format;
+
         string f = filename;
         string incl;
 
@@ -126,10 +136,14 @@ mixin template CModuleX() {
     }
 
     auto if_(string cond) {
+        import std.format : format;
+
         return suite(format("if (%s)", cond));
     }
 
     auto else_if(string cond) {
+        import std.format : format;
+
         return suite(format("else if (%s)", cond));
     }
 
@@ -138,24 +152,34 @@ mixin template CModuleX() {
     }
 
     auto for_(string init, string cond, string next) {
+        import std.format : format;
+
         return suite(format("for (%s; %s; %s)", init, cond, next));
     }
 
     auto while_(string cond) {
+        import std.format : format;
+
         return suite(format("while (%s)", cond));
     }
 
     auto do_while(string cond) {
+        import std.format : format;
+
         auto e = suite("do");
         e[$.end = format("} while (%s);", cond)];
         return e;
     }
 
     auto switch_(string cond) {
+        import std.format : format;
+
         return suite(format("switch (%s)", cond));
     }
 
     auto case_(string val) {
+        import std.format : format;
+
         auto e = suite(format("case %s:", val), No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
@@ -168,11 +192,15 @@ mixin template CModuleX() {
     }
 
     auto func(string return_type, string name) {
+        import std.format : format;
+
         auto e = stmt(format("%s %s()", return_type, name));
         return e;
     }
 
     auto func(T...)(string return_type, string name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s %s(%s)", return_type, name, params));
@@ -180,11 +208,15 @@ mixin template CModuleX() {
     }
 
     auto func_body(string return_type, string name) {
+        import std.format : format;
+
         auto e = suite(format("%s %s()", return_type, name));
         return e;
     }
 
     auto func_body(T...)(string return_type, string name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s %s(%s)", return_type, name, params));
@@ -200,6 +232,8 @@ mixin template CModuleX() {
     }
 
     auto IFDEF(string name) {
+        import std.format : format;
+
         auto e = suite(format("#ifdef %s", name));
         e[$.begin = "", $.end = "#endif // " ~ name];
         e.sep;

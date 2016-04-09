@@ -16,7 +16,7 @@ import clang.Cursor;
 import clang.SourceLocation;
 
 import cpptooling.analyzer.clang.utility;
-import cpptooling.data.representation : AccessType, CppMethodName;
+import cpptooling.data.type;
 import cpptooling.utility.clang : visitAst, logNode;
 
 private auto toInternal(T)(SourceLocation c_loc) {
