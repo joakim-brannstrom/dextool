@@ -337,6 +337,8 @@ unittest
 /// start the process.
 auto tryRunCollect(string command)
 {
+    static import std.typecons;
+
 	yapFunc(command);
 	auto result = std.typecons.Tuple!(int, "status", string, "output")(0, null);
 
