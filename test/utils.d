@@ -164,8 +164,8 @@ struct GR {
 void compare(in Path gold, in Path result) {
     import std.stdio : File;
 
-    yap("Comparing gold:", gold);
-    yap("        result:", result);
+    yap("Comparing gold:", gold.toRawString);
+    yap("        result:", result.toRawString);
 
     File goldf;
     File resultf;

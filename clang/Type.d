@@ -13,47 +13,10 @@
 
 module clang.Type;
 
-import std.conv;
-import std.string;
-
 import deimos.clang.index;
 
 import clang.Cursor;
 import clang.Util;
-
-/** Type isX represented as a string of letters
- *
- * a = isAnonymous
- * A = isArray
- * c = isConst
- * e = isEnum
- * E = isExposed
- * f = isFunctionPointerType
- * p = isPOD
- * r = isRestrict
- * t = isTypedef
- * v = isValid
- * V = isVolatile
- * w = isWideCharType
- */
-string abilities(Type t) {
-    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", t.isAnonymous ? "a" : "",
-            t.isArray ? "A" : "", t.isConst ? "c" : "", t.isEnum ? "e" : "",
-            t.isExposed ? "E" : "", t.isFunctionPointerType ? "f" : "", t.isPOD
-            ? "p" : "", t.isRestrict ? "r" : "", t.isTypedef ? "t" : "", t.isValid
-            ? "v" : "", t.isVolatile ? "V" : "", t.isWideCharType ? "w" : "",);
-
-    return s;
-}
-
-/** FuncType isX represented as a string of letters
- *
- * v = isVariadic
- */
-string abilities(ref FuncType t) {
-    string s = format("%s %s", abilities(t.type), t.isVariadic ? "v" : "",);
-    return s;
-}
 
 struct Type {
     mixin CX;

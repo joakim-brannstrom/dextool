@@ -22,14 +22,17 @@ import clang.Type : Type;
 public import cpptooling.analyzer.type;
 
 void logType(ref Type type, string func = __FUNCTION__, uint line = __LINE__) {
+    import clang.info;
+
     // dfmt off
     debug {
-    logger.trace(format("%s:%s %s|%s|%s|%s",
+    logger.tracef("%s:%s %s|%s|%s|%s|%s",
                         func, line,
+                        type.cursor.usr,
                         type.kind,
-                        type.declaration,
+                        abilities(type),
                         type.isValid,
-                        type.typeKindSpelling));
+                        type.typeKindSpelling);
     }
     // dfmt on
 }
@@ -78,8 +81,7 @@ out (result) {
     }
 }
 body {
-    import clang.Cursor : cursor_abilities = abilities;
-    import clang.Type : type_abilities = abilities;
+    import clang.info;
 
     auto result = WrapTypeKind(type);
 
@@ -91,9 +93,9 @@ body {
                             type.spelling,
                             to!string(type.kind),
                             tmp_c.spelling,
-                            type_abilities(tmp_t),
-                            cursor_abilities(tmp_c),
-                            type_abilities(type)));
+                            abilities(tmp_t),
+                            abilities(tmp_c),
+                            abilities(type)));
         // dfmt on
     }
 
@@ -160,9 +162,9 @@ body {
                             result.type.spelling,
                             to!string(result.type.kind),
                             tmp_c.spelling,
-                            type_abilities(tmp_t),
-                            cursor_abilities(tmp_c),
-                            type_abilities(result.type)));
+                            abilities(tmp_t),
+                            abilities(tmp_c),
+                            abilities(result.type)));
         // dfmt on
     }
 

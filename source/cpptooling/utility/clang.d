@@ -60,11 +60,12 @@ void logNode(int line = __LINE__, string file = __FILE__, string funcName = __FU
         ref Cursor c, int level) {
     import std.range : repeat;
     import logger = std.experimental.logger;
+    import clang.info;
 
     logger.logf!(line, file, funcName, prettyFuncName, moduleName)(logger.LogLevel.trace,
-            "%s|%s [d=%s %s %s line=%d, col=%d %s]", repeat(' ', level), c.spelling,
-            c.displayName, c.kind, c.type, c.location.spelling.line,
-            c.location.spelling.column, c.abilities);
+            "%s|%s|usr=%s|%s|%s|line=%d, col=%d %s|%s", repeat(' ', level),
+            c.spelling, c.usr, c.kind, c.abilities, c.location.spelling.line,
+            c.location.spelling.column, c.location.file, c.type);
 }
 
 private:

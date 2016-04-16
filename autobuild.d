@@ -7,7 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module autobuild;
 
 import std.path : asAbsolutePath, asNormalizedPath;
-import std.typecons : Flag;
+import std.typecons : Flag, Yes, No;
 
 import scriptlike;
 import utils;
@@ -74,15 +74,32 @@ void printStatus(T...)(Status s, T args) {
     writeln(args);
 }
 
-void playSound(Flag!"Positive" positive) {
-    Args a;
-    a ~= "mplayer";
-    if (positive)
-        a ~= "/usr/share/sounds/KDE-Sys-App-Positive.ogg";
-    else
-        a ~= "/usr/share/sounds/KDE-Sys-App-Negative.ogg";
+void playSound(Flag!"Positive" positive) nothrow {
+    static import std.stdio;
+    import std.process;
 
-    tryRunCollect(a.data);
+    static Pid last_pid;
+
+    try {
+        auto devnull = std.stdio.File("/dev/null", "w");
+
+        if (last_pid !is null && last_pid.processID != 0) {
+            // cleanup possible zombie process
+            last_pid.wait;
+        }
+
+        auto a = ["mplayer"];
+        if (positive)
+            a ~= "/usr/share/sounds/KDE-Sys-App-Positive.ogg";
+        else
+            a ~= "/usr/share/sounds/KDE-Sys-App-Negative.ogg";
+
+        last_pid = spawnProcess(a, std.stdio.stdin, devnull, devnull);
+    }
+    catch (ProcessException ex) {
+    }
+    catch (Exception ex) {
+    }
 }
 
 bool sanityCheck() {
@@ -176,6 +193,8 @@ struct Fsm {
     State st;
     Path[] inotify_paths;
 
+    Flag!"utDebug" flagUtDebug;
+
     // Signals used to determine next state
     Flag!"UtTestPassed" flagUtTestPassed;
     Flag!"CompileError" flagCompileError;
@@ -185,8 +204,10 @@ struct Fsm {
     alias ErrorMsg = Tuple!(Path, "fname", string, "msg");
     ErrorMsg[] testErrorLog;
 
-    void run(Path[] inotify_paths, Flag!"Travis" travis) {
+    void run(Path[] inotify_paths, Flag!"Travis" travis,
+            Flag!"utDebug" ut_debug, Flag!"utSkip" ut_skip) {
         this.inotify_paths = inotify_paths;
+        this.flagUtDebug = ut_debug;
 
         while (!signalInterrupt) {
             debug {
@@ -198,7 +219,7 @@ struct Fsm {
             updateTotalTestStatus();
 
             st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError,
-                    flagTotalTestPassed, travis);
+                    flagTotalTestPassed, travis, ut_skip);
         }
     }
 
@@ -216,7 +237,8 @@ struct Fsm {
 
     static State next(State st, uint docCount, Flag!"UtTestPassed" flagUtTestPassed,
             Flag!"CompileError" flagCompileError,
-            Flag!"TotalTestPassed" flagTotalTestPassed, Flag!"Travis" travis) {
+            Flag!"TotalTestPassed" flagTotalTestPassed, Flag!"Travis" travis,
+            Flag!"utSkip" ut_skip) {
         auto next_ = st;
 
         final switch (st) {
@@ -234,6 +256,9 @@ struct Fsm {
             break;
         case State.Start:
             next_ = State.Ut_run;
+            if (ut_skip) {
+                next_ = State.Debug_build;
+            }
             break;
         case State.Ut_run:
             next_ = State.ExitOrRestart;
@@ -308,8 +333,8 @@ struct Fsm {
     }
 
     void stateReset() {
-        flagCompileError = Flag!"CompileError".no;
-        flagUtTestPassed = Flag!"UtTestPassed".no;
+        flagCompileError = No.CompileError;
+        flagUtTestPassed = No.UtTestPassed;
         testErrorLog.length = 0;
     }
 
@@ -357,12 +382,15 @@ struct Fsm {
         a ~= "test";
         a ~= ["-c", "unittest"];
         a ~= ["-b", "unittest-cov"];
-        //a ~= ["--", "-d"];
+
+        if (flagUtDebug) {
+            a ~= ["--", "-d"];
+        }
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
-        flagUtTestPassed = r.status == 0 ? Yes.UtTestPassed : No.UtTestPassed;
+        flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
 
-        if (!flagUtTestPassed) {
+        if (!flagUtTestPassed || flagUtDebug) {
             writeln(r.output);
         }
 
@@ -396,11 +424,9 @@ struct Fsm {
         a ~= ["-c", "debug"];
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
+        flagCompileError = cast(Flag!"CompileError")(r.status != 0);
 
-        if (r.status == 0) {
-            flagCompileError = No.CompileError;
-        } else {
-            flagCompileError = Yes.CompileError;
+        if (flagCompileError) {
             writeln(r.output);
         }
 
@@ -504,6 +530,7 @@ struct Fsm {
     }
 
     void stateExit() {
+        //.signalExitStatus = flagTotalTestPassed;
         if (flagTotalTestPassed) {
             .signalExitStatus = Yes.TestsPassed;
         } else {
@@ -526,7 +553,9 @@ int main(string[] args) {
     import std.getopt;
 
     bool run_and_exit;
-    getopt(args, "run_and_exit", &run_and_exit);
+    bool ut_debug;
+    bool ut_skip;
+    getopt(args, "run_and_exit", &run_and_exit, "ut_debug", &ut_debug, "ut_skip", &ut_skip);
 
     setup();
 
@@ -552,7 +581,8 @@ int main(string[] args) {
 
     import std.stdio;
 
-    (Fsm()).run(inotify_paths, run_and_exit ? Yes.Travis : No.Travis);
+    (Fsm()).run(inotify_paths, cast(Flag!"Travis") run_and_exit,
+            cast(Flag!"utDebug") ut_debug, cast(Flag!"utSkip") ut_skip);
 
     return signalExitStatus ? 0 : -1;
 }

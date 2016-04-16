@@ -271,7 +271,7 @@ int dump_ast(string filename, string[] flags) {
 int main(string[] args) {
     if (args.length < 3) {
         writeln("devtool <category> filename");
-        writeln("categories: tok, ast");
+        writeln("categories: tok, ast, dumpast");
         return 1;
     }
 
