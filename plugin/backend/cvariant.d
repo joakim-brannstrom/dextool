@@ -162,6 +162,7 @@ struct StubGenerator {
      * TODO rename translate to rawFilter. See cppvariant.
      */
     auto process(CppRoot root) {
+        import std.array;
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n", root.toString());
@@ -170,7 +171,7 @@ struct StubGenerator {
         logger.trace("Filtered:\n", raw.toString());
 
         // Does it have any C functions?
-        if (!raw.funcRange().empty) {
+        if (raw.funcRange().length != 0) {
             raw.put(makeCStubGlobal(params.getMainNs, params.getMainInterface));
 
             auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
@@ -340,6 +341,7 @@ alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType
 void generate(CppRoot r, StubController ctrl, StubParameters params, CppModule hdr,
         CppModule impl, CppModule globals, CppModule gmock) {
     import std.algorithm : each;
+    import std.array;
     import cpptooling.utility.conv : str;
 
     generateCIncludes(ctrl, params, hdr);

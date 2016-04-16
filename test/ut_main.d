@@ -34,7 +34,6 @@ int main(string[] args) {
                           "cpptooling.generator.includes",
                           "cpptooling.utility.clang",
                           "cpptooling.utility.conv",
-                          "cpptooling.utility.range",
                           "cpptooling.utility.stack",
                           "cpptooling.utility.taggedalgebraic",
                           "test.helpers",
