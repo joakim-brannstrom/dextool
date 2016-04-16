@@ -12,10 +12,6 @@
  */
 module clang.Cursor;
 
-import std.conv;
-import std.string;
-import std.typecons;
-
 import deimos.clang.index;
 
 import clang.File;
@@ -33,61 +29,6 @@ version (unittest) {
     struct Name {
         string name_;
     }
-}
-
-/** Cursor isX represented as a string of letters
- *
- * a = isAttribute
- * A = isAnonymous
- * d = isDeclaration
- * D = isDefinition
- * e = isExpression
- * n = isEmpty aka isNull
- * p = isPreprocessing
- * r = isReference
- * s = isStatement
- * t = isTranslationUnit
- * u = isUnexposed
- * v = isVirtualBase
- * V = isValid
- */
-string abilities(Cursor c) {
-    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
-            c.isAnonymous ? "A" : "", c.isDeclaration ? "d" : "", c.isDefinition
-            ? "D" : "", c.isExpression ? "e" : "", c.isEmpty ? "n" : "",
-            c.isPreprocessing ? "p" : "", c.isReference ? "r" : "", c.isStatement
-            ? "s" : "", c.isTranslationUnit ? "t" : "", c.isUnexposed ? "u" : "",
-            c.isVirtualBase ? "v" : "", c.isValid ? "V" : "",);
-
-    return s;
-}
-
-/** FunctionCursor isX represented as a string of letters
- *
- * c = isConst
- * p = isPureVirtual
- * s = isStatic
- * v = isVariadic
- * V = isVirtual
- */
-string abilities(FunctionCursor c) {
-    string s = abilities(c.cursor);
-    s ~= format(" %s%s%s%s%s", c.isConst ? "c" : "", c.isPureVirtual ? "p" : "",
-            c.isStatic ? "s" : "", c.isVariadic ? "v" : "", c.isVirtual ? "V" : "");
-
-    return s;
-}
-
-/** EnumCursor isX represented as a string of letters
- *
- * s = isSigned
- * u = isUnderlyingTypeEnum
- */
-string abilities(EnumCursor c) {
-    string s = abilities(c.cursor);
-    s ~= format(" %s%s", c.isSigned ? "s" : "", c.isUnderlyingTypeEnum ? "u" : "");
-
-    return s;
 }
 
 /** The Cursor class represents a reference to an element within the AST. It
@@ -744,18 +685,20 @@ struct EnumCursor {
 
 import std.array : appender, Appender;
 
-void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file) {
-    import std.format;
-    import std.array : replicate;
-    import std.algorithm.comparison : min;
+string dump(ref Cursor c) {
+    import std.string;
 
-    string stripPrefix(string x) {
+    static string stripPrefix(string x) {
         immutable string prefix = "CXCursor_";
         immutable size_t prefixSize = prefix.length;
         return x.startsWith(prefix) ? x[prefixSize .. $] : x;
     }
 
-    string prettyTokens(TokenRange tokens, size_t limit = 5) {
+    static string prettyTokens(ref Cursor c, size_t limit = 5) {
+        import std.algorithm.comparison : min;
+
+        TokenRange tokens = c.tokens;
+
         string prettyToken(Token token) {
             immutable string prefix = "CXToken_";
             immutable size_t prefixSize = prefix.length;
@@ -782,13 +725,24 @@ void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file
         return result.data;
     }
 
+    auto text = "%s \"%s\" [%d..%d] %s %s".format(stripPrefix(to!string(c.kind)),
+            c.spelling, c.extent.start.offset, c.extent.end.offset, prettyTokens(c), c.usr);
+
+    return text;
+}
+
+void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file) {
+    import std.ascii : newline;
+    import std.format;
+    import std.array : replicate;
+
     immutable size_t step = 4;
 
-    auto text = "%s \"%s\" [%d..%d] %s\n".format(stripPrefix(to!string(c.kind)),
-            c.spelling, c.extent.start.offset, c.extent.end.offset, prettyTokens(c.tokens));
+    auto text = dump(c);
 
     result.put(" ".replicate(indent));
     result.put(text);
+    result.put(newline);
 
     if (file) {
         foreach (cursor, _; c.all) {
