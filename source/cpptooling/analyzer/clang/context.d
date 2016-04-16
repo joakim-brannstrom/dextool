@@ -44,11 +44,6 @@ struct ClangContext {
                 compiler.extraHeaders);
     }
 
-    ~this() {
-        translation_unit.dispose;
-        index.dispose;
-    }
-
     /** Top cursor to travers the AST.
      * Return: Cursor of the translation unit
      */

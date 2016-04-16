@@ -13,7 +13,6 @@ import std.experimental.logger;
 import deimos.clang.index;
 
 import clang.SourceLocation;
-import clang.Util;
 
 string toString(SourceRange value) {
     import std.string;
@@ -32,6 +31,8 @@ string toString(SourceRange value) {
 
 ///
 struct SourceRange {
+    import clang.Util;
+
     mixin CX;
 
     /// Retrieve a NULL (invalid) source range.
