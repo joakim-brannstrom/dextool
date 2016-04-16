@@ -88,9 +88,20 @@ struct Cursor {
      * The display name contains extra information that helps identify the
      * cursor, such as the parameters of a function or template or the
      * arguments of a class template specialization.
+     *
+     * If it is NOT a declaration then the return value is the same as
+     * spelling.
      */
     @property string displayName() const {
         return toD(clang_getCursorDisplayName(cx));
+    }
+
+    /** Retrieve the string representing the mangled name of the cursor.
+     *
+     * Only useful for cursors that are NOT declarations.
+     */
+    @property string mangling() const {
+        return toD(clang_Cursor_getMangling(cx));
     }
 
     /// Return: the kind of this cursor.
