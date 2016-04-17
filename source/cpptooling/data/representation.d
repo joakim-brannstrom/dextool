@@ -32,7 +32,6 @@ import logger = std.experimental.logger;
 public import cpptooling.data.type;
 
 import cpptooling.analyzer.type : TypeKind, toString;
-import cpptooling.utility.range : arrayRange;
 import cpptooling.utility.conv : str;
 
 version (unittest) {
@@ -235,7 +234,7 @@ string toInternal(TypeKindVariable tk) @trusted {
 }
 
 /// Join a range of CxParams to a string separated by ", ".
-string joinParams(T)(T r) @safe if (isInputRange!T) {
+string joinParams(const(CxParam)[] r) @safe {
     import std.algorithm : joiner, map;
     import std.conv : text;
     import std.range : enumerate;
@@ -389,7 +388,7 @@ struct CppMethodGeneric {
         }
 
         auto paramRange() const @nogc @safe pure nothrow {
-            return arrayRange(params_);
+            return params_;
         }
 
         private CxParam[] params_;
@@ -533,7 +532,7 @@ const:
 
     /// A range over the parameters of the function.
     auto paramRange() @nogc @safe pure nothrow {
-        return arrayRange(params);
+        return params;
     }
 
     @property @nogc {
@@ -898,7 +897,7 @@ pure @safe nothrow struct CppInherit {
     }
 
     auto nsRange() @nogc @safe pure nothrow {
-        return arrayRange(ns);
+        return ns;
     }
 
 const:
@@ -1126,7 +1125,7 @@ pure @safe nothrow struct CppClass {
     }
 
     auto inheritRange() @nogc {
-        return arrayRange(inherits_);
+        return inherits_;
     }
 
     auto methodRange() @nogc {
@@ -1136,15 +1135,15 @@ pure @safe nothrow struct CppClass {
     }
 
     auto methodPublicRange() @nogc {
-        return arrayRange(methods_pub);
+        return methods_pub;
     }
 
     auto methodProtectedRange() @nogc {
-        return arrayRange(methods_prot);
+        return methods_prot;
     }
 
     auto methodPrivateRange() @nogc {
-        return arrayRange(methods_priv);
+        return methods_priv;
     }
 
     auto classRange() @nogc {
@@ -1154,15 +1153,15 @@ pure @safe nothrow struct CppClass {
     }
 
     auto classPublicRange() @nogc {
-        return arrayRange(classes_pub);
+        return classes_pub;
     }
 
     auto classProtectedRange() @nogc {
-        return arrayRange(classes_prot);
+        return classes_prot;
     }
 
     auto classPrivateRange() @nogc {
-        return arrayRange(classes_priv);
+        return classes_priv;
     }
 
     auto memberRange() @nogc {
@@ -1172,15 +1171,15 @@ pure @safe nothrow struct CppClass {
     }
 
     auto memberPublicRange() @nogc {
-        return arrayRange(members_pub);
+        return members_pub;
     }
 
     auto memberProtectedRange() @nogc {
-        return arrayRange(members_prot);
+        return members_prot;
     }
 
     auto memberPrivateRange() @nogc {
-        return arrayRange(members_priv);
+        return members_priv;
     }
 
     /** Traverse stack from top to bottom.
@@ -1191,11 +1190,11 @@ pure @safe nothrow struct CppClass {
     auto nsNestingRange() @nogc {
         import std.range : retro;
 
-        return arrayRange(reside_in_ns).retro;
+        return reside_in_ns.retro;
     }
 
     auto commentRange() @nogc {
-        return arrayRange(cmnt);
+        return cmnt;
     }
 
 const:
@@ -1478,23 +1477,23 @@ pure @safe nothrow struct CppNamespace {
     auto nsNestingRange() @nogc {
         import std.range : retro;
 
-        return arrayRange(stack).retro;
+        return stack.retro;
     }
 
     auto classRange() @nogc {
-        return arrayRange(classes);
+        return classes;
     }
 
     auto funcRange() @nogc {
-        return arrayRange(funcs);
+        return funcs;
     }
 
     auto namespaceRange() @nogc {
-        return arrayRange(namespaces);
+        return namespaces;
     }
 
     auto globalRange() @nogc {
-        return arrayRange(globals);
+        return globals;
     }
 
 const:
@@ -1584,19 +1583,19 @@ pure @safe nothrow struct CppRoot {
     }
 
     auto namespaceRange() @nogc {
-        return arrayRange(ns);
+        return ns;
     }
 
     auto classRange() @nogc {
-        return arrayRange(classes);
+        return classes;
     }
 
     auto funcRange() @nogc {
-        return arrayRange(funcs);
+        return funcs;
     }
 
     auto globalRange() @nogc {
-        return arrayRange(globals);
+        return globals;
     }
 
 const:

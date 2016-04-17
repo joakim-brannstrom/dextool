@@ -15,13 +15,22 @@ import clang.Cursor;
 import clang.Diagnostic;
 import clang.File;
 import clang.Index;
-import clang.Util;
 import clang.Visitor;
 
 struct TranslationUnit {
-    import std.typecons : Nullable;
+    import std.typecons : Nullable, RefCounted;
+    import clang.Util;
 
-    mixin CX;
+    static private struct ContainTU {
+        mixin CX!("TranslationUnit");
+
+        ~this() {
+            dispose();
+        }
+    }
+
+    RefCounted!ContainTU cx;
+    alias cx this;
 
     static TranslationUnit parse(Index index, string sourceFilename,
             string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,

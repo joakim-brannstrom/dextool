@@ -422,6 +422,7 @@ struct Fsm {
         a ~= thisExePath.dirName ~ "build.sh";
         a ~= "build";
         a ~= ["-c", "debug"];
+        a ~= ["-b", "debug"];
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
         flagCompileError = cast(Flag!"CompileError")(r.status != 0);

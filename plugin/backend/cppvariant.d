@@ -158,6 +158,7 @@ struct Generator {
      * Logical decisions should have been handled in earlier stages.
      */
     auto process(ref CppRoot root, ref Container container) {
+        import std.array;
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n", root.toString());
@@ -329,6 +330,7 @@ body {
 }
 
 CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
+    import std.array;
     import std.algorithm : map, filter, each, among;
 
     auto r = CppRoot(root.location);
@@ -354,6 +356,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
 NullableVoid!CppNamespace translate(CppNamespace input, Container container,
         Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each, among;
+    import std.array;
     import std.typecons : TypedefType;
     import cpptooling.data.representation;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
@@ -419,6 +422,8 @@ NullableVoid!CppNamespace translate(CppNamespace input, Container container,
  */
 void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules)
 in {
+    import std.array;
+
     assert(r.funcRange.empty);
 }
 body {

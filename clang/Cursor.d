@@ -23,14 +23,6 @@ import clang.Token;
 import clang.Util;
 import clang.Visitor;
 
-version (unittest) {
-    import unit_threaded : Name;
-} else {
-    struct Name {
-        string name_;
-    }
-}
-
 /** The Cursor class represents a reference to an element within the AST. It
  * acts as a kind of iterator.
  *
@@ -625,6 +617,8 @@ struct EnumCursor {
     alias cursor this;
 
     @property string value() @safe {
+        import std.conv : to;
+
         return to!string(signedValue);
     }
 
@@ -697,6 +691,7 @@ struct EnumCursor {
 import std.array : appender, Appender;
 
 string dump(ref Cursor c) {
+    import std.conv : to;
     import std.string;
 
     static string stripPrefix(string x) {
@@ -772,9 +767,9 @@ void dumpAST(ref Cursor c, ref Appender!string result, size_t indent) {
     dumpAST(c, result, indent, null);
 }
 
-@Name("Should output the predefined types for inspection")
 unittest {
-    import unit_threaded : writelnUt;
+    // "Should output the predefined types for inspection"
+    import std.stdio;
 
-    writelnUt(Cursor.predefinedToString);
+    writeln(Cursor.predefinedToString);
 }

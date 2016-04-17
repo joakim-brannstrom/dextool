@@ -79,6 +79,8 @@ void generateImpl(CppClass c, CppModule impl) {
 
         // dfmt off
         TypeKindVariable p0 = () @trusted {
+            import std.array;
+
             return m.paramRange().front.visit!(
                 (TypeKindVariable tkv) => tkv,
                 (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),

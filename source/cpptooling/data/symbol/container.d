@@ -49,9 +49,7 @@ version (unittest) {
     }
 
     auto rangeTypeClass() @nogc {
-        import cpptooling.utility.range : arrayRange;
-
-        return arrayRange(t_cppclass);
+        return t_cppclass;
     }
 
     /** Duplicate and store the class in the container.

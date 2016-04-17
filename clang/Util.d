@@ -53,8 +53,12 @@ U* toCArray(U, T)(T[] arr) {
         return arr.ptr;
 }
 
-mixin template CX() {
-    mixin("private alias " ~ cxName!(typeof(this)) ~ " CType;");
+mixin template CX(string name = "") {
+    static if (name.length == 0) {
+        mixin("private alias " ~ cxName!(typeof(this)) ~ " CType;");
+    } else {
+        mixin("private alias CX" ~ name ~ " CType;");
+    }
 
     CType cx;
     alias cx this;
