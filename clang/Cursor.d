@@ -625,6 +625,8 @@ struct EnumCursor {
     alias cursor this;
 
     @property string value() @safe {
+        import std.conv : to;
+
         return to!string(signedValue);
     }
 
@@ -697,6 +699,7 @@ struct EnumCursor {
 import std.array : appender, Appender;
 
 string dump(ref Cursor c) {
+    import std.conv : to;
     import std.string;
 
     static string stripPrefix(string x) {
