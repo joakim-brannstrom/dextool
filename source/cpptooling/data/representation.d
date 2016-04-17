@@ -234,7 +234,7 @@ string toInternal(TypeKindVariable tk) @trusted {
 }
 
 /// Join a range of CxParams to a string separated by ", ".
-string joinParams(T)(T r) @safe if (isInputRange!T) {
+string joinParams(const(CxParam)[] r) @safe {
     import std.algorithm : joiner, map;
     import std.conv : text;
     import std.range : enumerate;

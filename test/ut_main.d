@@ -18,7 +18,6 @@ int main(string[] args) {
                           "application.types",
                           "application.utility",
                           "application.compilation_db",
-                          "clang.Cursor",
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.utility",

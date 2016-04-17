@@ -12,7 +12,7 @@ if [[ -n "$DC" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-    dub build $COMPILER -c debug
+    dub build $COMPILER -c debug -b debug
     dub build $COMPILER -c profile -b profile
     dub build $COMPILER -c devtool -b debug
 

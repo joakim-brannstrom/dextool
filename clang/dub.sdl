@@ -1,0 +1,11 @@
+name "clang"
+description "Deimos bindings for libclang"
+
+dependency "libclang" path="../libclang"
+
+targetType "library"
+targetPath "build"
+
+sourcePaths "."
+stringImportPaths "resources"
+importPaths "."

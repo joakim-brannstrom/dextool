@@ -3,22 +3,24 @@ description "Suite of C/C++ tooling built on LLVM/Clang written in D"
 copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
+systemDependencies "libclang.so.1 3.6+"
 
 // v0.6.1-b.5 with local string length fix
 dependency "docopt" path="docopt"
 dependency "dsrcgen" path="dsrcgen"
+dependency "libclang" path="libclang"
+dependency "clang" path="clang"
 
 targetPath "build"
-mainSourceFile "source/application/app.d"
-sourcePaths "source" "plugin" "clang" "libclang/deimos/clang"
-importPaths "source" "clang" "libclang"
-stringImportPaths "clang/resources"
 
-dflags "-dip25"
+sourcePaths "source" "plugin"
+importPaths "source"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH"
 libs "$LFLAG_CLANG_LIB"
+
+dflags "-dip25"
 
 buildType "unittest-cov" {
     buildOptions "unittests" "debugMode" "debugInfo" "coverage"
@@ -29,12 +31,16 @@ buildType "unittest-local" {
 }
 
 buildType "release-profile" {
+    // adding releaseMode to disable asserts, debug blocks etc
     buildOptions "profile" "releaseMode" "inline" "optimize"
 }
 
 configuration "release" {
+    targetName "dextool"
     targetType "executable"
     buildType "release"
+
+    mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*.d"
 }
 
@@ -42,6 +48,8 @@ configuration "profile" {
     targetName "dextool-profile"
     targetType "executable"
     buildType "release-profile"
+
+    mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*.d"
 }
 
@@ -49,6 +57,8 @@ configuration "debug" {
     targetName "dextool-debug"
     targetType "executable"
     buildType "debugInfo"
+
+    mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*.d"
 
     buildRequirements {
@@ -61,8 +71,9 @@ configuration "devtool" {
     targetName "devtool"
     targetType "executable"
     buildType "debugInfo"
-    excludedSourceFiles "source/application/app*.d" "source/test/helpers.d"
+
     mainSourceFile "source/test/tok_main.d"
+    excludedSourceFiles "source/application/app*.d" "source/test/helpers.d"
 }
 
 configuration "unittest" {
@@ -72,8 +83,9 @@ configuration "unittest" {
     targetName "unittest"
     targetType "executable"
     buildType "unittest-cov"
-    excludedSourceFiles "source/test/tok_main.d"
+
     mainSourceFile "test/ut_main.d"
+    excludedSourceFiles "source/test/tok_main.d"
 
     buildRequirements {
         "requireBoundsCheck"

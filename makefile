@@ -31,10 +31,12 @@ all: dmd
 
 ldc2: $(SRC)
 	$(LDC) $(LDC_FLAGS) $(LDC_OPTIMIZE_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool
+	strip build/dextool
 	-rm -f *.o
 
 ldc-debug: $(SRC)
 	$(LDC) $(DEBUG_FLAGS) $(LDC_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-debug
+	strip build/dextool
 	-rm -f *.o
 
 dmd: $(SRC)
