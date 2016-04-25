@@ -647,7 +647,7 @@ unittest {
 }
 
 
-private void assertFail(E)(lazy E expression)
+void assertFail(E)(lazy E expression)
 {
     assertThrown!UnitTestException(expression);
 }
