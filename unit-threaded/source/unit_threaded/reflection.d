@@ -18,6 +18,7 @@ struct TestData {
     bool singleThreaded;
     bool builtin;
     string suffix; // append to end of getPath
+    string[] tags;
 
     string getPath() const pure nothrow {
         string path = name.dup;
@@ -112,25 +113,81 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
         enum shouldFail = hasUDA!(test, ShouldFail);
         enum singleThreaded = hasUDA!(test, Serial);
         enum builtin = true;
+        enum suffix = "";
 
         // let's check for @Values UDAs, which are actually of type ValuesImpl
         enum isValues(alias T) = is(typeof(T)) && is(typeof(T):ValuesImpl!U, U);
-        enum valuesUDAs = Filter!(isValues, __traits(getAttributes, test));
+        alias valuesUDAs = Filter!(isValues, __traits(getAttributes, test));
+
+        enum isTags(alias T) = is(typeof(T)) && is(typeof(T) == Tags);
+        enum tags = tagsFromAttrs!(Filter!(isTags, __traits(getAttributes, test)));
+
         static if(valuesUDAs.length == 0) {
-            testData ~= TestData(name, (){ test(); }, hidden, shouldFail, singleThreaded, builtin);
+            testData ~= TestData(name, (){ test(); }, hidden, shouldFail, singleThreaded, builtin, suffix, tags);
         } else {
-            static assert(valuesUDAs.length == 1, "Can only use @Values once");
-            foreach(value; valuesUDAs[0].values) {
-                // force single threaded so a composite test case is created
-                // we set a global static to the value the test expects then call the test function,
-                // which can retrieve the value with getValue!T
-                testData ~= TestData(name, () { ValueHolder!(typeof(value)).value = value; test(); },
-                                     hidden, shouldFail, true /*serial*/, builtin);
+
+            import std.range;
+
+            // cartesianProduct doesn't work with only one range, so in the usual case
+            // of only one @Values UDA, we bind to prod with a range of tuples, just
+            // as returned by cartesianProduct.
+
+            static if(valuesUDAs.length == 1) {
+                import std.typecons;
+                enum prod = valuesUDAs[0].values.map!(a => tuple(a));
+            } else {
+                mixin(`enum prod = cartesianProduct(` ~ valuesUDAs.length.iota.map!
+                      (a => `valuesUDAs[` ~ guaranteedToString(a) ~ `].values`).join(", ") ~ `);`);
+            }
+
+            foreach(comb; aliasSeqOf!prod) {
+                enum valuesName = valuesName(comb);
+
+                static if(hasUDA!(test, AutoTags))
+                    enum realTags = tags ~ valuesName.split(".").array;
+                else
+                    enum realTags = tags;
+
+                testData ~= TestData(name ~ "." ~ valuesName,
+                                     () {
+                                         foreach(i; aliasSeqOf!(comb.length.iota))
+                                             ValueHolder!(typeof(comb[i])).values[i] = comb[i];
+                                         test();
+                                     },
+                                     hidden, shouldFail, singleThreaded, builtin, suffix, realTags);
+
             }
         }
     }
+
     return testData;
 }
+
+private string valuesName(T)(T tuple) {
+    import std.algorithm;
+    import std.range;
+    string[] parts;
+    foreach(a; aliasSeqOf!(tuple.length.iota))
+        parts ~= guaranteedToString(tuple[a]);
+    return parts.join(".");
+}
+
+private string guaranteedToString(T)(T value) nothrow pure @safe {
+    import std.conv;
+    try
+        return value.to!string;
+    catch(Exception ex)
+        assert(0, "Could not convert value to string");
+}
+
+private string getValueAsString(T)(T value) nothrow pure @safe {
+    import std.conv;
+    try
+        return value.to!string;
+    catch(Exception ex)
+        assert(0, "Could not convert value to string");
+}
+
 
 private template isStringUDA(alias T) {
     static if(__traits(compiles, isSomeString!(typeof(T))))
@@ -268,36 +325,57 @@ private TestData[] createFuncTestData(alias module_, string moduleMember)() {
         enum func = &__traits(getMember, module_, moduleMember);
         enum arity = arity!func;
 
-        static assert(arity == 0 || arity == 1, "Test functions may take at most one parameter");
-
         static if(arity == 0)
             // the reason we're creating a lambda to call the function is that test functions
             // are ordinary functions, but we're storing delegates
             return [ memberTestData!(module_, moduleMember)(() { func(); }) ]; //simple case, just call the function
         else {
 
-            // the function takes a parameter, check if it has UDAs for value parameters to be passed to it
+            // the function has parameters, check if it has UDAs for value parameters to be passed to it
             alias params = Parameters!func;
-            static assert(params.length == 1, "Test functions may take at most one parameter");
 
-            alias values = GetAttributes!(module_, moduleMember, params[0]);
-
-            import std.conv;
-            static assert(values.length > 0,
-                          text("Test functions with a parameter of type <", params[0].stringof,
-                               "> must have value UDAs of the same type"));
+            static if(arity == 1) {
+                import std.typecons;
+                // bind a range of tuples to prod just as cartesianProduct returns
+                enum prod = [GetAttributes!(module_, moduleMember, params[0])].map!(a => tuple(a));
+            } else {
+                import std.range;
+                mixin(`enum prod = cartesianProduct(` ~ params.length.iota.map!
+                      (a => `[GetAttributes!(module_, moduleMember, params[` ~ guaranteedToString(a) ~ `])]`).join(", ") ~ `);`);
+            }
 
             TestData[] testData;
-            foreach(v; values) testData ~= memberTestData!(module_, moduleMember)(() { func(v); }, v.to!string);
+            foreach(comb; aliasSeqOf!prod) {
+                enum valuesName = valuesName(comb);
+
+                static if(HasAttribute!(module_, moduleMember, AutoTags))
+                    enum extraTags = valuesName.split(".").array;
+                else
+                    enum string[] extraTags = [];
+
+
+                testData ~= memberTestData!(module_, moduleMember, extraTags)(
+                    // func(value0, value1, ...)
+                    () { func(comb.expand); },
+                    valuesName);
+            }
+
             return testData;
         }
     } else static if(HasTypes!(mixin(moduleMember))) { //template function with @Types
         alias types = GetTypes!(mixin(moduleMember));
         TestData[] testData;
         foreach(type; types) {
-            testData ~= memberTestData!(module_, moduleMember)(() {
+            static if(HasAttribute!(module_, moduleMember, AutoTags))
+                enum extraTags = [type.stringof];
+            else
+                enum string[] extraTags = [];
+
+            testData ~= memberTestData!(module_, moduleMember, extraTags)(
+                () {
                     mixin(moduleMember ~ `!(` ~ type.stringof ~ `)();`);
-                }, type.stringof);
+                },
+                type.stringof);
         }
         return testData;
     } else {
@@ -325,12 +403,11 @@ private TestData[] moduleTestData(alias module_, alias pred, alias createTestDat
 }
 
 // TestData for a member of a module (either a test function or test class)
-private TestData memberTestData(alias module_, string moduleMember)(TestFunction testFunction = null, string suffix = "") {
-    //if there is a suffix, all tests sharing that suffix are single threaded with multiple values per "real" test
-    //this is slightly hackish but works and actually makes sense - it causes unit_threaded.factory to make
-    //a CompositeTestCase out of them
-    immutable singleThreaded = HasAttribute!(module_, moduleMember, Serial) || suffix != "";
+private TestData memberTestData(alias module_, string moduleMember, string[] extraTags = [])
+    (TestFunction testFunction = null, string suffix = "") {
+    immutable singleThreaded = HasAttribute!(module_, moduleMember, Serial);
     enum builtin = false;
+    enum tags = tagsFromAttrs!(GetAttributes!(module_, moduleMember, Tags));
 
     return TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
                     testFunction,
@@ -338,7 +415,16 @@ private TestData memberTestData(alias module_, string moduleMember)(TestFunction
                     HasAttribute!(module_, moduleMember, ShouldFail),
                     singleThreaded,
                     builtin,
-                    suffix);
+                    suffix,
+                    tags ~ extraTags);
+}
+
+string[] tagsFromAttrs(T...)() {
+    static assert(T.length <= 1, "@Tags can only be applied once");
+    static if(T.length)
+        return T[0].values;
+    else
+        return [];
 }
 
 version(unittest) {
@@ -349,27 +435,31 @@ version(unittest) {
     import std.array;
 
     //helper function for the unittest blocks below
-    private auto addModPrefix(string[] elements, string module_ = "unit_threaded.tests.module_with_tests") nothrow {
+    private auto addModPrefix(string[] elements,
+                              string module_ = "unit_threaded.tests.module_with_tests") nothrow {
         return elements.map!(a => module_ ~ "." ~ a).array;
     }
 }
 
 unittest {
     const expected = addModPrefix([ "FooTest", "BarTest", "Blergh"]);
-    const actual = moduleTestClasses!(unit_threaded.tests.module_with_tests).map!(a => a.name).array;
+    const actual = moduleTestClasses!(unit_threaded.tests.module_with_tests).
+        map!(a => a.name).array;
     assertEqual(actual, expected);
 }
 
 unittest {
     const expected = addModPrefix([ "testFoo", "testBar", "funcThatShouldShowUpCosOfAttr"]);
-    const actual = moduleTestFunctions!(unit_threaded.tests.module_with_tests).map!(a => a.getPath).array;
+    const actual = moduleTestFunctions!(unit_threaded.tests.module_with_tests).
+        map!(a => a.getPath).array;
     assertEqual(actual, expected);
 }
 
 
 unittest {
     const expected = addModPrefix(["unittest0", "unittest1", "myUnitTest"]);
-    const actual = moduleUnitTests!(unit_threaded.tests.module_with_tests).map!(a => a.name).array;
+    const actual = moduleUnitTests!(unit_threaded.tests.module_with_tests).
+        map!(a => a.name).array;
     assertEqual(actual, expected);
 }
 
@@ -386,25 +476,26 @@ version(unittest) {
                    " to fail with AssertError but it didn't");
         } catch(AssertError) {}
     }
+
+    private void assertPass(TestCase test, string file = __FILE__, ulong line = __LINE__) {
+        assertEqual(test(), [], file, line);
+    }
 }
 
-/*
 @("Test that parametrized value tests work")
 unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
 
-    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("testValues")).array;
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.endsWith("testValues")).array;
 
-    // there should only be on test case which is a composite of the 3 values in testValues
-    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
-    assert(composite !is null, "Wrong dynamic type for TestCase");
-    auto tests = composite.tests;
+    auto tests = createTestCases(testData);
     assertEqual(tests.length, 3);
 
     // the first and third test should pass, the second should fail
-    assertEqual(tests[0](), []);
-    assertEqual(tests[2](), []);
+    assertPass(tests[0]);
+    assertPass(tests[2]);
 
     assertFail(tests[1]);
 }
@@ -415,42 +506,170 @@ unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
 
-    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("testTypes")).array;
-    const expected = addModPrefix(["testTypes.float", "testTypes.int"], "unit_threaded.tests.parametrized");
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.endsWith("testTypes")).array;
+    const expected = addModPrefix(["testTypes.float", "testTypes.int"],
+                                  "unit_threaded.tests.parametrized");
     const actual = testData.map!(a => a.getPath).array;
     assertEqual(actual, expected);
 
-    // there should only be on test case which is a composite of the 2 testTypes
-    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
-    assert(composite !is null, "Wrong dynamic type for TestCase");
-    auto tests = composite.tests;
+    auto tests = createTestCases(testData);
     assertEqual(tests.map!(a => a.getPath).array, expected);
 
-    // the second should pass, the first should fail
-    assertEqual(tests[1](), []);
-
+    assertPass(tests[1]);
     assertFail(tests[0]);
 }
 
-@("Test that value parametrized built-in unittest blocks work")
+@("Value parametrized built-in unittests")
 unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
 
-    const testData = allTestData!(unit_threaded.tests.parametrized).filter!(a => a.name.endsWith("builtinValues")).array;
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("builtinIntValues")).array;
 
-    // there should only be on test case which is a composite of the 4 values
-    auto composite = cast(CompositeTestCase)createTestCases(testData)[0];
-    assert(composite !is null, "Wrong dynamic type for TestCase");
-    auto tests = composite.tests;
+    auto tests = createTestCases(testData);
     assertEqual(tests.length, 4);
 
     // these should be ok
-    assertEqual(tests[1](), []);
-    assertEqual(tests[3](), []);
+    assertPass(tests[1]);
 
     //these should fail
     assertFail(tests[0]);
     assertFail(tests[2]);
+    assertFail(tests[3]);
 }
-*/
+
+
+@("Tests can be selected by tags") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.tags).array;
+    auto testsNoTags = createTestCases(testData);
+    assertEqual(testsNoTags.length, 4);
+    assertPass(testsNoTags[0]);
+    assertFail(testsNoTags[1]);
+    assertFail(testsNoTags[2]);
+    assertFail(testsNoTags[3]);
+
+    auto testsNinja = createTestCases(testData, ["@ninja"]);
+    assertEqual(testsNinja.length, 1);
+    assertPass(testsNinja[0]);
+
+    auto testsMake = createTestCases(testData, ["@make"]);
+    assertEqual(testsMake.length, 3);
+    assertPass(testsMake.find!(a => a.getPath.canFind("testMake")).front);
+    assertPass(testsMake.find!(a => a.getPath.canFind("unittest0")).front);
+    assertFail(testsMake.find!(a => a.getPath.canFind("unittest2")).front);
+
+    auto testsNotNinja = createTestCases(testData, ["~@ninja"]);
+    assertEqual(testsNotNinja.length, 3);
+    assertPass(testsNotNinja.find!(a => a.getPath.canFind("testMake")).front);
+    assertFail(testsNotNinja.find!(a => a.getPath.canFind("unittest1")).front);
+    assertFail(testsNotNinja.find!(a => a.getPath.canFind("unittest2")).front);
+
+    assertEqual(createTestCases(testData, ["unit_threaded.tests.tags.testMake", "@ninja"]).length, 0);
+}
+
+@("Parametrized built-in tests with @AutoTags get tagged by value")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("builtinIntValues")).array;
+
+    auto two = createTestCases(testData, ["@2"]);
+
+    assertEqual(two.length, 1);
+    assertFail(two[0]);
+
+    auto three = createTestCases(testData, ["@3"]);
+    assertEqual(three.length, 1);
+    assertPass(three[0]);
+}
+
+@("Value parametrized function tests with @AutoTags get tagged by value")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("testValues")).array;
+
+    auto two = createTestCases(testData, ["@2"]);
+    assertEqual(two.length, 1);
+    assertFail(two[0]);
+}
+
+@("Type parameterized tests with @AutoTags get tagged by type")
+unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("testTypes")).array;
+
+    auto tests = createTestCases(testData, ["@int"]);
+    assertEqual(tests.length, 1);
+    assertPass(tests[0]);
+}
+
+@("Cartesian parameterized built-in values") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+    import unit_threaded.should;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("cartesianBuiltinNoAutoTags")).array;
+
+    auto tests = createTestCases(testData);
+    tests.map!(a => a.getPath).array.shouldBeSameSetAs(
+                addModPrefix(["foo.red", "foo.blue", "foo.green", "bar.red", "bar.blue", "bar.green"].
+                             map!(a => "cartesianBuiltinNoAutoTags." ~ a).array,
+                             "unit_threaded.tests.parametrized"));
+    assertEqual(tests.length, 6);
+
+    auto fooRed = tests.find!(a => a.getPath.canFind("foo.red")).front;
+    assertPass(fooRed);
+    assertEqual(getValue!(string, 0), "foo");
+    assertEqual(getValue!(string, 1), "red");
+    assertEqual(testData.find!(a => a.getPath.canFind("foo.red")).front.tags, []);
+
+    auto barGreen = tests.find!(a => a.getPath.canFind("bar.green")).front;
+    assertFail(barGreen);
+    assertEqual(getValue!(string, 0), "bar");
+    assertEqual(getValue!(string, 1), "green");
+
+    assertEqual(testData.find!(a => a.getPath.canFind("bar.green")).front.tags, []);
+    assertEqual(allTestData!(unit_threaded.tests.parametrized).
+                filter!(a => a.name.canFind("cartesianBuiltinAutoTags")).array.
+                find!(a => a.getPath.canFind("bar.green")).front.tags,
+                ["bar", "green"]);
+}
+
+@("Cartesian parameterized function values") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.testcase;
+    import unit_threaded.should;
+
+    const testData = allTestData!(unit_threaded.tests.parametrized).
+        filter!(a => a.name.canFind("CartesianFunction")).array;
+
+    auto tests = createTestCases(testData);
+        tests.map!(a => a.getPath).array.shouldBeSameSetAs(
+            addModPrefix(["1.foo", "1.bar", "2.foo", "2.bar", "3.foo", "3.bar"].
+                             map!(a => "testCartesianFunction." ~ a).array,
+                             "unit_threaded.tests.parametrized"));
+
+    foreach(test; tests) {
+        test.getPath.canFind("2.bar")
+            ? assertPass(test)
+            : assertFail(test);
+    }
+
+    assertEqual(testData.find!(a => a.getPath.canFind("2.bar")).front.tags,
+                ["2", "bar"]);
+
+}

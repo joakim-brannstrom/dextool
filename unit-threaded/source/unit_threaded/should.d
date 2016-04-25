@@ -21,6 +21,12 @@ public import unit_threaded.attrs;
  */
 class UnitTestException : Exception
 {
+    this(in string msg, string file = __FILE__,
+         size_t line = __LINE__, Throwable next = null)
+    {
+        this([msg], file, line, next);
+    }
+
     this(in string[] msgLines, string file = __FILE__,
          size_t line = __LINE__, Throwable next = null)
     {
@@ -396,6 +402,29 @@ void shouldNotThrow(T : Throwable = Exception, E)(lazy E expr,
         fail("Expression threw", file, line);
 }
 
+/**
+ * Verify that an exception is thrown with the right message
+ */
+void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
+                                                          string msg,
+                                                          string file = __FILE__,
+                                                          size_t line = __LINE__) {
+    auto threw = threw!T(expr);
+    if (!threw)
+        fail("Expression did not throw", file, line);
+
+    threw.throwable.msg.shouldEqual(msg, file, line);
+}
+
+///
+unittest {
+    void funcThrows(string msg) { throw new Exception(msg); }
+    funcThrows("foo bar").shouldThrowWithMessage!Exception("foo bar");
+    funcThrows("foo bar").shouldThrowWithMessage("foo bar");
+    assertFail(funcThrows("boo boo").shouldThrowWithMessage("foo bar"));
+}
+
+
 //@trusted because the user might want to catch a throwable
 //that's not derived from Exception, such as RangeError
 private auto threw(T : Throwable, E)(lazy E expr) @trusted
@@ -405,6 +434,8 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     {
         bool threw;
         TypeInfo typeInfo;
+        immutable(T) throwable;
+
         T opCast(T)() const pure if (is(T == bool))
         {
             return threw;
@@ -417,7 +448,7 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     }
     catch (T e)
     {
-        return ThrowResult(true, typeid(e));
+        return ThrowResult(true, typeid(e), cast(immutable)e);
     }
 
     return ThrowResult(false);
