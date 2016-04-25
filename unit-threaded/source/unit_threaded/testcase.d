@@ -9,6 +9,13 @@ import std.string;
 import std.conv;
 import std.algorithm;
 
+private shared(bool) _stacktrace = false; /// catch throwable and thus prevent stack trace?
+
+public void enableStackTrace() nothrow {
+    synchronized {
+        _stacktrace = true;
+    }
+}
 /**
  * Class from which other test cases derive
  */
@@ -160,9 +167,13 @@ class BuiltinTestCase: FunctionTestCase {
     override void test() {
         import core.exception: AssertError;
 
-        try
+        if (_stacktrace) {
             super.test();
-        catch(AssertError e)
-            unit_threaded.should.fail(e.msg, e.file, e.line);
+        } else {
+            try
+                super.test();
+            catch(AssertError e)
+                unit_threaded.should.fail(e.msg, e.file, e.line);
+        }
     }
 }
