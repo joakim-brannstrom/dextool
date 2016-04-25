@@ -9,6 +9,13 @@ import std.string;
 import std.conv;
 import std.algorithm;
 
+private shared(bool) _stacktrace = false; /// catch throwable and thus prevent stack trace?
+
+public void enableStackTrace() nothrow {
+    synchronized {
+        _stacktrace = true;
+    }
+}
 
 struct TestResult {
     int failures;
@@ -150,11 +157,15 @@ class BuiltinTestCase: FunctionTestCase {
     }
 
     override void test() {
-        try
+        if (_stacktrace) {
             super.test();
-        catch(UnitTestException e)
-            throw e;
-        catch(Throwable t)
-            utFail(t.msg, t.file, t.line);
+        } else {
+            try
+                super.test();
+            catch(UnitTestException e)
+                throw e;
+            catch(Throwable t)
+                utFail(t.msg, t.file, t.line);
+        }
     }
 }
