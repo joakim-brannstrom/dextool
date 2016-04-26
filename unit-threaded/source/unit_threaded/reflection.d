@@ -486,6 +486,7 @@ version(unittest) {
 unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
+    import unit_threaded.tests.parametrized;
 
     const testData = allTestData!(unit_threaded.tests.parametrized).
         filter!(a => a.name.endsWith("testValues")).array;
@@ -544,6 +545,7 @@ unittest {
 @("Tests can be selected by tags") unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
+    import unit_threaded.tests.tags;
 
     const testData = allTestData!(unit_threaded.tests.tags).array;
     auto testsNoTags = createTestCases(testData);
