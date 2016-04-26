@@ -482,6 +482,7 @@ version(unittest) {
     }
 }
 
+/*
 @("Test that parametrized value tests work")
 unittest {
     import unit_threaded.factory;
@@ -675,3 +676,4 @@ unittest {
                 ["2", "bar"]);
 
 }
+*/
