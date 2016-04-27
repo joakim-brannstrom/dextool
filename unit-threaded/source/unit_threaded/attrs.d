@@ -1,5 +1,7 @@
 module unit_threaded.attrs;
 
+import std.range;
+
 enum UnitTest; //opt-in to registration
 enum DontTest; //opt-out of registration
 enum Serial; //run tests in the module in one thread / serially
@@ -20,6 +22,23 @@ struct ShouldFail {
 struct Name {
     string value;
 }
+
+/// Associates one or more tags with the test
+struct Tags {
+    this(string[] values) { this.values =  values; }
+    this(string value)    { this.values = [value]; }
+    string[] values;
+}
+
+/** Automatically assign @Tags for each parameterized test
+ e.g.
+---------------
+@Values("foo", "bar) @AutoTags unittest { ... }
+// there are now two unit tests, one for "foo" with tag "foo"
+// and one for "bar" with tag "bar"
+---------------
+ */
+enum AutoTags;
 
 /** Attachs these types to the a parametrized unit test.
     The attached template function will be instantiated with
@@ -48,9 +67,15 @@ struct Types(T...) {}
 
  See `getValue`.
  */
-ValuesImpl!T Values(T)(T[] values...) {
+auto Values(T)(T[] values...) {
     return ValuesImpl!T(values.dup);
 }
+
+auto Values(R)(R values) if(isInputRange!R) {
+    import std.array;
+    return ValuesImpl!(ElementType!R)(values.array);
+}
+
 
 struct ValuesImpl(T) {
     T[] values;
@@ -60,10 +85,10 @@ struct ValuesImpl(T) {
  Retrieves the current test value of type T in a built-in unittest.
  See `Values`.
  */
-T getValue(T)() {
-    return ValueHolder!T.value;
+T getValue(T, int index = 0)() {
+    return ValueHolder!T.values[index];
 }
 
 package struct ValueHolder(T) {
-    static T value;
+    static T[10] values;
 }
