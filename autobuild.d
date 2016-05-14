@@ -178,6 +178,7 @@ struct Fsm {
         Start,
         Ut_run,
         Ut_cov,
+        Ut_skip,
         Debug_build,
         Debug_test,
         Test_passed,
@@ -257,7 +258,7 @@ struct Fsm {
         case State.Start:
             next_ = State.Ut_run;
             if (ut_skip) {
-                next_ = State.Debug_build;
+                next_ = State.Ut_skip;
             }
             break;
         case State.Ut_run:
@@ -266,6 +267,9 @@ struct Fsm {
                 next_ = State.Ut_cov;
             break;
         case State.Ut_cov:
+            next_ = State.Debug_build;
+            break;
+        case State.Ut_skip:
             next_ = State.Debug_build;
             break;
         case State.Debug_build:
@@ -413,6 +417,10 @@ struct Fsm {
         //else
         //    echo -e "${C_RED}=== $MSG ERROR ===${C_NONE}"
         //fi
+    }
+
+    void stateUt_skip() {
+        flagUtTestPassed = Yes.UtTestPassed;
     }
 
     void stateDebug_build() {
