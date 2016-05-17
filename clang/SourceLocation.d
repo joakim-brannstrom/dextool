@@ -26,6 +26,19 @@ string toString(SourceLocation value) {
 
     if (value.isValid) {
         auto spell = value.spelling;
+        return format("[file=%s line=%d column=%d offset=%d]",
+                text(spell.file), spell.line, spell.column, spell.offset);
+    }
+
+    return format("%s(%s)", text(typeid(value)), text(value.cx));
+}
+
+string toInternalString(SourceLocation value) {
+    import std.string;
+    import std.conv;
+
+    if (value.isValid) {
+        auto spell = value.spelling;
         return format("%s(%s) [file=%s('%s') line=%d column=%d offset=%d]",
                 text(typeid(value)), text(value.cx), text(spell.file),
                 text(spell.file.name), spell.line, spell.column, spell.offset);
