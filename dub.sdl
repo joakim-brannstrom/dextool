@@ -3,18 +3,24 @@ description "Suite of C/C++ tooling built on LLVM/Clang written in D"
 copyright "Copyright © 2014-2015, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
+
 systemDependencies "libclang.so.1 3.6+"
 
 // v0.6.1-b.5 with local string length fix
-dependency "docopt" path="docopt"
-dependency "dsrcgen" path="dsrcgen"
-dependency "libclang" path="libclang"
-dependency "clang" path="clang"
+dependency "dextool:docopt" version="*"
+dependency "dextool:dsrcgen" version="*"
+dependency "dextool:libclang" version="*"
+dependency "dextool:clang" version="*"
+
+subPackage "./docopt/"
+subPackage "./dsrcgen/"
+subPackage "./clang/"
+subPackage "./libclang/"
 
 targetPath "build"
 
 sourcePaths "source" "plugin"
-importPaths "source"
+importPaths "source" "plugin"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH"
