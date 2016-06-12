@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# source ./config.sh
+export LFLAG_CLANG_LIB=":libclang-3.7.so.1"
+export LFLAG_CLANG_PATH="-Llib/"
+
 if [[ "$DC" == "dmd" ]]; then
     ./autobuild.sh --run_and_exit
     TEST_STATUS=$?
@@ -13,13 +17,10 @@ if [[ "$DC" == "dmd" ]]; then
     fi
 
     set -e
-    source ./config.sh
     make $DC
 elif [[ "$DC" == "ldc2" ]]; then
     set -e
     ./build.sh
-    # load config.sh after build.sh to enusre that build.sh loaded it by itself
-    source ./config.sh
     make $DC
 else
     echo "Compiler not set or supported"
