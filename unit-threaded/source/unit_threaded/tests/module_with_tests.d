@@ -55,3 +55,19 @@ unittest {
 unittest {
     assert(true);
 }
+
+struct StructWithUnitTests{
+    alias StructWithUnitTests SelfSoDontRecurseForever;
+
+    @Name("InStruct")
+    unittest{
+        assert(true);
+    }
+    unittest{
+        // 2nd inner block.
+        assert(true);
+    }
+}
+
+// github issue #26 - template instance GetTypes!uint does not match template declaration
+alias RGB = uint;

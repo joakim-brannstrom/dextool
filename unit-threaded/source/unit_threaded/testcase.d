@@ -9,38 +9,51 @@ import std.string;
 import std.conv;
 import std.algorithm;
 
-private shared(bool) _stacktrace = false; /// catch throwable and thus prevent stack trace?
-
-public void enableStackTrace() nothrow {
-    synchronized {
-        _stacktrace = true;
-    }
-}
-
-struct TestResult {
-    int failures;
-    string output;
-}
-
 /**
  * Class from which other test cases derive
  */
 class TestCase {
+
+    /**
+     * Returns: the name of the test
+     */
     string getPath() const pure nothrow {
         return this.classinfo.name;
     }
 
     /**
      * Executes the test.
-     * Returns: array of failures
+     * Returns: array of failures (child classes may have more than 1)
      */
     string[] opCall() {
-        collectOutput();
-        printToScreen();
+        doTest();
+        printOutput();
         return _failed ? [getPath()] : [];
     }
 
-    final auto collectOutput() {
+    /**
+     Certain child classes override this
+     */
+    ulong numTestsRun() const { return 1; }
+
+package:
+
+    void silence() @safe pure nothrow { _silent = true; }
+    string output() @safe const pure nothrow { return _output; }
+
+protected:
+
+    abstract void test();
+    void setup() { } ///override to run before test()
+    void shutdown() { } ///override to run after test()
+
+private:
+
+    bool _failed;
+    string _output;
+    bool _silent;
+
+    final auto doTest() {
         print(getPath() ~ ":\n");
         check(setup());
         check(test());
@@ -48,23 +61,7 @@ class TestCase {
         if(_failed) print("\n\n");
     }
 
-    void printToScreen() const {
-        if(!_silent) utWrite(_output);
-    }
-
-    void setup() { } ///override to run before test()
-    void shutdown() { } ///override to run after test()
-    abstract void test();
-    ulong numTestsRun() const { return 1; }
-
-    package void silence() @safe pure nothrow { _silent = true; }
-
-private:
-    bool _failed;
-    string _output;
-    bool _silent;
-
-    bool check(E)(lazy E expression) {
+    final bool check(E)(lazy E expression) {
         try {
             expression();
         } catch(UnitTestException ex) {
@@ -76,13 +73,17 @@ private:
         return !_failed;
     }
 
-    void fail(in string msg) {
+    final void fail(in string msg) {
         _failed = true;
         print(msg);
     }
 
-    void print(in string msg) {
-        addToOutput(_output, msg);
+    final void print(in string msg) {
+        _output ~= msg;
+    }
+
+    final void printOutput() const {
+        if(!_silent) utWrite(_output);
     }
 }
 
@@ -157,15 +158,11 @@ class BuiltinTestCase: FunctionTestCase {
     }
 
     override void test() {
-        if (_stacktrace) {
+        import core.exception: AssertError;
+
+        try
             super.test();
-        } else {
-            try
-                super.test();
-            catch(UnitTestException e)
-                throw e;
-            catch(Throwable t)
-                utFail(t.msg, t.file, t.line);
-        }
+        catch(AssertError e)
+            unit_threaded.should.fail(e.msg, e.file, e.line);
     }
 }
