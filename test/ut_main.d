@@ -35,7 +35,6 @@ int main(string[] args) {
                           "cpptooling.utility.conv",
                           "cpptooling.utility.stack",
                           "cpptooling.utility.taggedalgebraic",
-                          "test.helpers",
                           "plugin.loader",
                           "plugin.backend.plantuml",
                           );
