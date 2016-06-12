@@ -1,7 +1,7 @@
 name "clang"
 description "Deimos bindings for libclang"
 
-dependency "libclang" path="../libclang"
+dependency "dextool:libclang" version="*"
 
 targetType "library"
 targetPath "build"
