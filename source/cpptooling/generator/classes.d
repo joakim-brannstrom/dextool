@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.generator.classes;
 
-import std.typecons : Yes, No;
+import std.typecons : Yes, No, Flag;
 
 import dsrcgen.cpp : CppModule;
 
@@ -31,9 +31,11 @@ void generateHdr(CppClass in_c, CppModule hdr) {
     }
 
     static void genMethod(CppMethod m, CppModule hdr) {
+        import cpptooling.analyzer.type;
+
         string params = m.paramRange().joinParams();
-        auto o = hdr.method(m.isVirtual() ? Yes.isVirtual : No.isVirtual,
-                m.returnType().txt, m.name().str, m.isConst ? Yes.isConst : No.isConst, params);
+        auto o = hdr.method(cast(Flag!"isVirtual") m.isVirtual(),
+                m.returnType.toStringDecl, m.name().str, cast(Flag!"isConst") m.isConst, params);
         if (m.isPure) {
             o[$.end = " = 0;"];
         }

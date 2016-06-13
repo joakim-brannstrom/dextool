@@ -1,13 +1,23 @@
 # TODO
 Feature requests, todos etc that aren't covered by code comments.
 
+## Performance
+ - Investigate why runtime of "cpp_tests.__unittestL235_107 /home/joker/src/dlang/clang_fun/test/testdata/cpp/dev/bug_class_not_in_ast.hpp"
+   increased to ~16s from less than 1s
+
+## Documentation
+ - Add a STYLE.md
+     How to name local variables, functions, methods etc.
+
 ## PlantUML
  - In plantuml allow continue even if an compile error occur.
- - Filter -m flags
  - In legend or title the command that was run to generate the UML
- - Generate style includes
- - Generate dot files instead of plantuml to allow clustering.
- - In class diagrams mark pure interfaces with I.
+ - Generate sequence diagrams statically
+ - Generate sequence diagrams by instrumenting the code
+ - [DONE] Filter -m flags
+ - [DONE] Generate style includes
+ - [DONE] Generate dot files instead of plantuml to allow clustering.
+ - [DONE] In class diagrams mark pure interfaces with I.
 
 ## Quality of Life
  - Do not generate empty TestDouble namespaces. Junk code.

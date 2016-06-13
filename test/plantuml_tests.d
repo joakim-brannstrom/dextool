@@ -78,7 +78,21 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 
 // BEGIN Test of single file analyze of Class Diagrams #######################
 
-@Name("Should be a class diagram with methods")
+@Name(testId ~ "Should use the field declaration as the name of the anonymous union")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/bug_anon_union.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name(testId ~ "Should use the field declaration as the name of the anonymous enum")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/bug_anon_enum.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
+@Name(testId ~ "Should be a class diagram with methods")
 unittest {
     //TODO deprecated test, see CLI test of --class-method
     mixin(EnvSetup(globalTestdir));
@@ -87,64 +101,67 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with NO methods")
+@Name(
+        testId
+        ~ "Should be a class diagram with NO methods and no self reference via copy ctor and assignment")
 unittest {
-    //TODO deprecated test, see CLI test of --class-method
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/single_class_no_methods.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with 25 classes")
+@Name(testId ~ "Should be a class diagram with 25 classes")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/multiple_class.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with two related classes by inheritance")
+@Name(testId ~ "Should be a class diagram with two related classes by inheritance")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/inherit_class.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram two classes related by composition")
+@Name(testId ~ "Should be a class diagram two classes related by composition")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/class_member.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram, skip the function pointer")
+@Name(testId ~ "Should be a class diagram, skip the function pointer")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/bug_skip_funcptr.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram, skip the pointer")
+@Name(testId ~ "Should be a class diagram, skip the pointer")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/bug_skip_ptr.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with a pure interface class")
+@Name(testId ~ "Should be a class diagram with a pure interface class")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/pure_interface.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with an abstract class")
+@Name(testId ~ "Should be a class diagram with an abstract class")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/abstract_interface.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with a class in a namespace visualized with fully qualified name")
+@Name(
+        testId
+        ~ "Should be a class diagram with a class in a namespace visualized with fully qualified name")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/class_in_ns.hpp", testEnv);
@@ -152,7 +169,8 @@ unittest {
 }
 
 @Name(
-        "Should be a class diagram with a lonely class even though instances exist in global and namespace")
+        testId
+        ~ "Should be a class diagram with a lonely class even though instances exist in global and namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/global_instance.hpp", testEnv);
@@ -160,7 +178,8 @@ unittest {
 }
 
 @Name(
-        "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
+        testId
+        ~ "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
@@ -168,14 +187,14 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram with relations via composition and aggregation")
+@Name(testId ~ "Should be a class diagram with relations via composition and aggregation")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/class_relate.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a class diagram where classes are related by parameter dependency")
+@Name(testId ~ "Should be a class diagram where classes are related by parameter dependency")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/param_dependency.hpp", testEnv);
@@ -183,7 +202,8 @@ unittest {
 }
 
 @Name(
-        "Should be a class diagram with no parameter dependency because the parameters are of primitive types")
+        testId
+        ~ "Should be a class diagram with no parameter dependency because the parameters are of primitive types")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/param_primitive_types.hpp", testEnv);
@@ -194,7 +214,7 @@ unittest {
 
 // BEGIN Compilation Database Tests ##########################################
 
-@Name("Should load compiler settings from compilation database")
+@Name(testId ~ "Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/single_file_main.hpp", testEnv);
@@ -203,7 +223,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should process all files in the compilation database")
+@Name(testId ~ "Should process all files in the compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/two_files.hpp", testEnv);
@@ -212,7 +232,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should merge classes in namespaces when processing the compilation DB")
+@Name(testId ~ "Should merge classes in namespaces when processing the compilation DB")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/merge_nested_ns.hpp", testEnv);
@@ -222,7 +242,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should continue even though a compile error occured")
+@Name(testId ~ "Should continue even though a compile error occured")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/bad_code.hpp", testEnv);
@@ -236,7 +256,7 @@ unittest {
 
 // BEGIN CLI Tests ###########################################################
 
-@Name("Test of CLI with no class parameters")
+@Name(testId ~ "Test of CLI with no class parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
@@ -245,7 +265,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --class-method")
+@Name(testId ~ "Test of CLI --class-method")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
@@ -254,7 +274,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --class-paramdep")
+@Name(testId ~ "Test of CLI --class-paramdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
@@ -263,7 +283,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --class-inheritdep")
+@Name(testId ~ "Test of CLI --class-inheritdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
@@ -272,7 +292,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --class-memberdep")
+@Name(testId ~ "Test of CLI --class-memberdep")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
@@ -281,7 +301,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --gen-style-incl")
+@Name(testId ~ "Test of CLI --gen-style-incl")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_gen_style_include.hpp", testEnv);
@@ -293,7 +313,7 @@ unittest {
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
 }
 
-@Name("Test of CLI --comp-strip")
+@Name(testId ~ "Test of CLI --comp-strip")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_comp_strip.hpp", testEnv);
@@ -303,7 +323,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --comp-strip using a regex with 'OR'")
+@Name(testId ~ "Test of CLI --comp-strip using a regex with 'OR'")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_comp_strip_complex.hpp", testEnv);
@@ -313,7 +333,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --gen-dot, include directive")
+@Name(testId ~ "Test of CLI --gen-dot, include directive")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_incl_dotfile.hpp", testEnv);
@@ -330,7 +350,7 @@ unittest {
     }
 }
 
-@Name("Test of CLI --gen-dot, class diagram")
+@Name(testId ~ "Test of CLI --gen-dot, class diagram")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_class.hpp", testEnv);
@@ -344,7 +364,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test of CLI --gen-dot, component diagram")
+@Name(testId ~ "Test of CLI --gen-dot, component diagram")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_component.hpp", testEnv);
@@ -362,49 +382,49 @@ unittest {
 
 // BEGIN Test Component Diagrams #############################################
 
-@Name("Should be a component diagram of two component related by class members")
+@Name(testId ~ "Should be a component diagram of two component related by class members")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/class_member.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a component diagram with two components related by class inheritance")
+@Name(testId ~ "Should be a component diagram with two components related by class inheritance")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/class_inherit.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a component diagram with two components related by method parameters")
+@Name(testId ~ "Should be a component diagram with two components related by method parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/class_method.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two components with no relation")
+@Name(testId ~ "Should be two components with no relation")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/class_no_relation.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two components related by a free function using a class as parameter")
+@Name(testId ~ "Should be two components related by a free function using a class as parameter")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/free_global_func.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two components related by a free function in a namespace")
+@Name(testId ~ "Should be two components related by a free function in a namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/free_func_in_ns.hpp", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name("Should be two components related by the type used to declare a global variable")
+@Name(testId ~ "Should be two components related by the type used to declare a global variable")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/global_var.hpp", testEnv);
@@ -412,7 +432,8 @@ unittest {
 }
 
 @Name(
-        "Should be two components related by the type used to declare a variable enclosed in an namespace")
+        testId
+        ~ "Should be two components related by the type used to declare a variable enclosed in an namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("component/global_in_ns.hpp", testEnv);

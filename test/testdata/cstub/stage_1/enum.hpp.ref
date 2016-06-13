@@ -1,15 +1,13 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
-#include "function_pointers.h"
+#include "enum.h"
 }
 
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual void tiger() = 0;
-    virtual unsigned char leopard(const unsigned int baz) = 0;
-    virtual unsigned char cyber(const unsigned int baz) = 0;
+    virtual void how_to_use_the_anon_inst() = 0;
 };
 
 ///

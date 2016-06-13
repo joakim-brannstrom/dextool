@@ -332,7 +332,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileC
     }
 
     // process and put the data in variant.
-    StubGenerator(variant, variant, variant).process(root.get);
+    StubGenerator(variant, variant, variant).process(root.get, symbol_container);
 
     return writeFileData(variant.file_data);
 }

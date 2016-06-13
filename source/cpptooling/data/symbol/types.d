@@ -17,7 +17,9 @@ import std.typecons : Typedef;
  */
 enum Kind {
     None,
+    TypeKind,
     CppClass
 }
 
 alias FullyQualifiedNameType = Typedef!(string, string.init, "CxFullyQualifiedName");
+alias USRType = Typedef!(string, string.init, "Unified Symbol Resolution Type");

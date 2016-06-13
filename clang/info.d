@@ -43,13 +43,12 @@ string abilities(Cursor c) {
  * c = isConst
  * p = isPureVirtual
  * s = isStatic
- * v = isVariadic
  * V = isVirtual
  */
 string abilities(FunctionCursor c) {
     string s = abilities(c.cursor);
-    s ~= format(" %s%s%s%s%s", c.isConst ? "c" : "", c.isPureVirtual ? "p" : "",
-            c.isStatic ? "s" : "", c.isVariadic ? "v" : "", c.isVirtual ? "V" : "");
+    s ~= format(" %s%s%s%s", c.isConst ? "c" : "", c.isPureVirtual ? "p" : "",
+            c.isStatic ? "s" : "", c.isVirtual ? "V" : "");
 
     return s;
 }

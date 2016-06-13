@@ -5,12 +5,17 @@ digraph g {
     colorscheme=svg
     node [style=rounded shape=box fontsize=9 width=0.25 height=0.375]
 
+    "YzpAU0BC" [label="B"]
     edge [color=red]
-    [weight=1] "B" -> "A"
+    [weight=1] "YzpAU0BC" -> "YzpAU0BB"
+    "YzpAU0BD" [label="C"]
     edge [color=mediumpurple]
-    [weight=1] "C" -> "A"
+    [weight=1] "YzpAU0BD" -> "YzpAU0BB"
+    "YzpAU0BDb3VudFRlc3Q" [label="CountTest"]
     edge [color=darkorange]
-    [weight=4] "CountTest" -> "A"
+    [weight=4] "YzpAU0BDb3VudFRlc3Q" -> "YzpAU0BB"
+    "YzpAU0BE" [label="D"]
     edge [color=deeppink]
-    [weight=1] "D" -> "A"
+    [weight=1] "YzpAU0BE" -> "YzpAU0BB"
+    "YzpAU0BB" [label="A"]
 }

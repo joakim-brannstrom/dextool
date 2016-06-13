@@ -46,6 +46,7 @@ body {
 
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
+    import cpptooling.analyzer.type;
 
     static string gmockMacro(size_t len, bool isConst)
     in {
@@ -81,8 +82,9 @@ body {
             string params = m.paramRange().joinParams();
             string gmock_name = translateOp(m.op().str);
             string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
+            //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
             string stmt = format("%s(%s, %s(%s))", gmock_macro, gmock_name,
-                    m.returnType().txt, params);
+                    m.returnType.toStringDecl, params);
             hdr.stmt(stmt);
         }
 
@@ -91,11 +93,12 @@ body {
 
             string gmock_name = translateOp(m.op().str);
 
-            CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.txt,
+            //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
+            CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.toStringDecl,
                     m.name.str, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
             auto call = E(gmock_name)(m.paramRange().joinParamNames);
 
-            if (m.returnType().txt == "void") {
+            if (m.returnType.toStringDecl == "void") {
                 code.stmt(call);
             } else {
                 code.return_(call);
@@ -111,7 +114,8 @@ body {
 
         void genMethodWithFewParams(CppMethod m, CppModule hdr) {
             hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
-                    m.isConst), m.name.str(), m.returnType().txt, m.paramRange().joinParams()));
+                    m.isConst), m.name.str(), m.returnType.toStringDecl,
+                    m.paramRange().joinParams()));
             return;
         }
 
@@ -136,12 +140,12 @@ body {
             static void genLastPart(T)(size_t part_no, T p, CppMethod m,
                     CppModule code, CppModule delegate_mock) {
                 auto part_name = partName(m.name().str, part_no);
-                code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length,
-                        m.isConst), part_name, m.returnType().txt, p.joinParams));
+                code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
+                        part_name, m.returnType.toStringDecl, p.joinParams));
 
                 auto stmt = E(part_name)(p.joinParamNames);
 
-                if (m.returnType().txt == "void") {
+                if (m.returnType.toStringDecl == "void") {
                     delegate_mock.stmt(stmt);
                 } else {
                     delegate_mock.return_(stmt);
@@ -154,10 +158,10 @@ body {
 
             // Generate mock method that delegates to partial mock methods
             auto delegate_mock = hdr.method_inline(Yes.isVirtual,
-                    m.returnType().txt, m.name().str, m.isConst ? Yes.isConst
-                    : No.isConst, m.paramRange().joinParams());
+                    m.returnType.toStringDecl, m.name().str, m.isConst
+                    ? Yes.isConst : No.isConst, m.paramRange().joinParams());
 
-            auto param_chunks = chunks(m.paramRange(), MAX_GMOCK_PARAMS);
+            auto param_chunks = m.paramRange.chunks(MAX_GMOCK_PARAMS);
 
             // dfmt off
             param_chunks

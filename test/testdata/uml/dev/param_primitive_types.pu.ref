@@ -1,5 +1,5 @@
 @startuml
-class "B"
-"B" --> "A"
-class "A"
+class "B" as YzpAU0BC
+class "A *" as YzpAU0BB
+"YzpAU0BC" --> "YzpAU0BB"
 @enduml

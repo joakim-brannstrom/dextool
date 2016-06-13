@@ -1,8 +1,8 @@
 @startuml
-class "InheritDep"
-"InheritDep" --|> "A"
-class "A"
-class "MemberDep"
-class "Method"
-class "ParamDep"
+class "InheritDep" as YzpAU0BJbmhlcml0RGVw
+class "A" as YzpAU0BB
+class "MemberDep" as YzpAU0BNZW1iZXJEZXA
+class "Method" as YzpAU0BNZXRob2Q
+class "ParamDep" as YzpAU0BQYXJhbURlcA
+"YzpAU0BJbmhlcml0RGVw" --|> "YzpAU0BB"
 @enduml

@@ -106,6 +106,37 @@ class SimpleLogger : logger.Logger {
     }
 }
 
+class DebugLogger : logger.Logger {
+    import std.conv;
+
+    int line = -1;
+    string file = null;
+    string func = null;
+    string prettyFunc = null;
+    string msg = null;
+    logger.LogLevel lvl;
+
+    this(const logger.LogLevel lv = logger.LogLevel.trace) {
+        super(lv);
+    }
+
+    override void writeLogMsg(ref LogEntry payload) @trusted {
+        this.line = payload.line;
+        this.file = payload.file;
+        this.func = payload.funcName;
+        this.prettyFunc = payload.prettyFuncName;
+        this.lvl = payload.logLevel;
+        this.msg = payload.msg;
+
+        if (this.line == -1) {
+            stderr.writefln("%s: %s", text(this.lvl), this.msg);
+        } else {
+            // Example of standard: 2016-05-01T22:31:54.019:type.d:retrieveType:159 c:@S@Foo:struct Foo
+            stderr.writefln("%s: %s [%s:%d]", text(this.lvl), this.msg, this.func, this.line);
+        }
+    }
+}
+
 void confLogLevel(Flag!"debug" debug_) {
     import std.exception;
     import std.experimental.logger.core : sharedLog;
@@ -113,6 +144,8 @@ void confLogLevel(Flag!"debug" debug_) {
     try {
         if (debug_) {
             logger.globalLogLevel(logger.LogLevel.all);
+            auto logger_ = new DebugLogger();
+            logger.sharedLog(logger_);
         } else {
             logger.globalLogLevel(logger.LogLevel.info);
             auto simple_logger = new SimpleLogger();

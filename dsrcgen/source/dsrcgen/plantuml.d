@@ -95,9 +95,11 @@ import std.traits : ReturnType;
 import std.typecons : Typedef, Tuple;
 
 alias ClassModuleType = Typedef!(PlantumlModule, null, "ClassModuleType");
+alias ClassAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
 alias ClassSpotType = Typedef!(PlantumlModule, null, "ClassSpotType");
 alias ClassNameType = Typedef!(string, string.init, "ClassNameType");
-alias ClassType = Tuple!(ClassNameType, "name", ClassModuleType, "m", ClassSpotType, "spot");
+alias ClassType = Tuple!(ClassNameType, "name", ClassModuleType, "m",
+        ClassSpotType, "spot", ClassAsType, "as");
 
 alias ComponentModuleType = Typedef!(PlantumlModule, null, "ComponentModuleType");
 alias ComponentAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
@@ -160,16 +162,28 @@ class PlantumlModule : BaseModule {
         import std.format : format;
 
         auto e = stmt(format(`class "%s"`, name));
+        auto as = e.text("");
+        auto spot = as.text("");
 
-        return ClassType(ClassNameType(name), ClassModuleType(e), ClassSpotType(null));
+        return ClassType(ClassNameType(name), ClassModuleType(e),
+                ClassSpotType(spot), ClassAsType(as));
     }
 
     ClassType classBody(string name) {
         import std.format : format;
 
-        auto s = suite(format(`class "%s"`, name));
+        auto e = stmt(format(`class "%s"`, name));
+        auto as = e.text("");
+        auto spot = as.text("");
 
-        return ClassType(ClassNameType(name), ClassModuleType(s), ClassSpotType(null));
+        e.text(" {");
+        e.sep;
+        auto s = e.base;
+        s.suppressIndent(1);
+        e.stmt("}", No.addSep).suppressThisIndent(1);
+
+        return ClassType(ClassNameType(name), ClassModuleType(s),
+                ClassSpotType(spot), ClassAsType(as));
     }
 
     auto component(string name) {
@@ -334,21 +348,20 @@ auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
     return e;
 }
 
-auto addSpot(T)(ref T m) if (is(T == ClassType)) {
-    if (auto inner = cast(Stmt) m.getM) {
-        m.spot = inner.makeSpot;
-    } else if (auto inner = cast(Suite) m.getM) {
-        m.spot = inner.makeSpot;
-    } else {
-        assert(0);
-    }
+auto addSpot(T)(ref T m, string spot) if (is(T == ClassType)) {
+    m.spot.clearChildren;
+
+    auto spot_ = m.as.text(" " ~ spot);
+    m.spot = spot_;
 
     return m.spot;
 }
 // End: Class Diagram functions
 
 // Begin: Component Diagram functions
-auto addAs(T)(ref T m) if (is(T == ComponentType)) {
+auto addAs(T)(ref T m) if (is(T == ComponentType) || is(T == ClassType)) {
+    m.as.clearChildren;
+
     auto as = m.as.text(" as ");
     m.as = as;
 
@@ -390,22 +403,14 @@ auto label(Relation m, string txt) {
  */
 class Stmt : PlantumlModule {
     private string headline;
-    private PlantumlModule spot;
 
     this(string headline) {
         this.headline = headline;
     }
 
-    PlantumlModule makeSpot() {
-        spot = new PlantumlModule;
-        spot.suppressIndent(1);
-        return spot;
-    }
-
     override string renderIndent(int parent_level, int level) {
         string end = ("end" in attrs) ? attrs["end"] : "";
-        string spot = spot !is null ? " << " ~ spot.render ~ " >>" : "";
-        string r = headline ~ spot ~ end;
+        string r = headline ~ end;
 
         if (!("noindent" in attrs)) {
             r = indent(r, parent_level, level);
@@ -424,24 +429,16 @@ class Stmt : PlantumlModule {
  */
 class Suite : PlantumlModule {
     private string headline;
-    private PlantumlModule spot;
 
     this(string headline) {
         this.headline = headline;
-    }
-
-    PlantumlModule makeSpot() {
-        spot = new PlantumlModule;
-        spot.suppressIndent(1);
-        return spot;
     }
 
     override string renderIndent(int parent_level, int level) {
         import std.ascii : newline;
 
         string begin = ("begin" in attrs) ? attrs["begin"] : " {" ~ newline;
-        string spot = spot !is null ? " << " ~ spot.render ~ " >>" : "";
-        string r = headline ~ spot ~ begin;
+        string r = headline ~ begin;
 
         if (r.length > 0 && !("noindent" in attrs)) {
             r = indent(r, parent_level, level);

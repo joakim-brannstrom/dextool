@@ -4,7 +4,7 @@ Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Representation of the structure of C/C++ code in D.
+Structuraly represents the semantic-centric view of of C/C++ code.
 
 The guiding principle for this module is: "Correct by construction".
  * After the data is created it should be "correct".
@@ -31,7 +31,8 @@ import logger = std.experimental.logger;
 
 public import cpptooling.data.type;
 
-import cpptooling.analyzer.type : TypeKind, toString;
+import cpptooling.analyzer.type;
+import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.conv : str;
 
 version (unittest) {
@@ -59,51 +60,14 @@ string funcToString(CppClass.CppFunc func) @trusted {
 }
 
 /// Convert a CxParam to a string.
-string paramTypeToString(CxParam p) @trusted {
+string paramTypeToString(CxParam p, string id = "") @trusted {
     import std.variant : visit;
 
     // dfmt off
     return p.visit!(
-        (TypeKindVariable tk) { return tk.type.txt; },
-        (TypeKind t) { return t.txt; },
+        (TypeKindVariable tk) { return tk.type.toStringDecl(id); },
+        (TypeKindAttr t) { return t.toStringDecl; },
         (VariadicType a) { return "..."; }
-        );
-    // dfmt on
-}
-
-/// Convert a CxParam to a string.
-string paramRawType(CxParam p) @trusted {
-    import std.variant : visit;
-
-    static string toInternal(TypeKind tk) {
-        string type;
-
-        final switch (tk.info.kind) with (TypeKind.Info) {
-        case Kind.record:
-            type = tk.info.type;
-            break;
-        case Kind.simple:
-            type = tk.info.type;
-            break;
-        case TypeKind.Info.Kind.func:
-            break;
-        case Kind.array:
-            type = tk.info.elementType;
-            break;
-        case Kind.funcPtr:
-            break;
-        case Kind.null_:
-            break;
-        }
-
-        return type;
-    }
-
-    // dfmt off
-    return p.visit!(
-        (TypeKindVariable tk) => toInternal(tk.type),
-        (TypeKind t) => toInternal(t),
-        (VariadicType a) => "..."
         );
     // dfmt on
 }
@@ -131,7 +95,7 @@ private template mixinUniqueId() {
         this.id_ = makeUniqueId(identifier);
     }
 
-    size_t id() const @property {
+    size_t id() const {
         return id_;
     }
 
@@ -152,10 +116,8 @@ private template mixinKind() {
         this.kind_ = kind;
     }
 
-    @property const {
-        auto kind() {
-            return kind_;
-        }
+    auto kind() const {
+        return kind_;
     }
 }
 
@@ -181,10 +143,8 @@ private template mixinSourceLocation() {
         this.loc_ = loc;
     }
 
-    @property const {
-        auto location() {
-            return loc_;
-        }
+    auto location() const {
+        return loc_;
     }
 }
 
@@ -221,8 +181,8 @@ string toInternal(CxParam p) @trusted {
 
     // dfmt off
     return p.visit!(
-        (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
-        (TypeKind t) { return t.txt; },
+        (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name.str);},
+        (TypeKindAttr t) { return t.toStringDecl; },
         (VariadicType a) { return "..."; }
         );
     // dfmt on
@@ -230,7 +190,7 @@ string toInternal(CxParam p) @trusted {
 
 /// Convert a TypeKindVariable to a string.
 string toInternal(TypeKindVariable tk) @trusted {
-    return tk.type.toString(tk.name.str);
+    return tk.type.toStringDecl(tk.name.str);
 }
 
 /// Join a range of CxParams to a string separated by ", ".
@@ -244,8 +204,8 @@ string joinParams(const(CxParam)[] r) @safe {
 
         // dfmt off
         auto x = (cast(Tx) p).visit!(
-            (TypeKindVariable tk) {return tk.type.toString(tk.name.str);},
-            (TypeKind t) { return t.toString("x" ~ text(uid)); },
+            (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name.str);},
+            (TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
             (VariadicType a) { return "..."; }
             );
         // dfmt on
@@ -273,7 +233,7 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
         // dfmt off
         return (cast(Tx) p).visit!(
             (TypeKindVariable tk) {return tk.name.str;},
-            (TypeKind t) { return "x" ~ text(uid); },
+            (TypeKindAttr t) { return "x" ~ text(uid); },
             (VariadicType a) { return ""; }
             );
         // dfmt on
@@ -302,14 +262,14 @@ CxParam makeCxParam(TypeKindVariable tk) @trusted {
     return CxParam(tk);
 }
 
-private static void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
+private void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     import std.variant : visit;
 
     // dfmt off
     (cast(Tx) p).visit!(
         (TypeKindVariable tk) { assert(tk.name.length > 0);
-                                assert(tk.type.txt.length > 0);},
-        (TypeKind t)          { assert(t.txt.length > 0); },
+                                assert(tk.type.toStringDecl.length > 0);},
+        (TypeKindAttr t)      { assert(t.toStringDecl.length > 0); },
         (VariadicType a)      {});
     // dfmt on
 }
@@ -328,33 +288,42 @@ pure @safe nothrow struct CxGlobalVariable {
         setUniqueId(variable.name.str);
     }
 
-    this(TypeKind type, CppVariable name, CxLocation loc) {
+    this(TypeKindAttr type, CppVariable name, CxLocation loc) {
         this(TypeKindVariable(type, name), loc);
     }
 
 const:
 
-    string toString() {
+    string toString()
+    in {
+        import std.algorithm : among;
+
+        // see switch stmt for explanation.
+        assert(!variable.type.kind.info.kind.among(TypeKind.Info.Kind.ctor,
+                TypeKind.Info.Kind.dtor));
+    }
+    body {
         import std.array : Appender, appender;
-        import std.format : formattedWrite;
         import std.ascii : newline;
+        import std.format : formattedWrite;
         import cpptooling.analyzer.type : TypeKind;
 
         auto app = appender!string();
-        final switch (variable.type.info.kind) with (TypeKind.Info) {
+        final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:
-            goto case;
         case Kind.func:
-            goto case;
-        case Kind.simple:
-            formattedWrite(app, variable.type.info.fmt, variable.name.str);
-            break;
-        case Kind.array:
-            formattedWrite(app, variable.type.info.fmt,
-                    variable.type.info.elementType, variable.name.str, variable.type.info.indexes);
-            break;
         case Kind.funcPtr:
-            formattedWrite(app, variable.type.info.fmt, variable.name.str);
+        case Kind.simple:
+        case Kind.typeRef:
+        case Kind.array:
+        case Kind.pointer:
+            app.put(variable.type.toStringDecl(variable.name.str));
+            break;
+        case Kind.ctor:
+            logger.error("Assumption broken. A global variable with the type of a Constructor");
+            break;
+        case Kind.dtor:
+            logger.error("Assumption broken. A global variable with the type of a Destructor");
             break;
         case Kind.null_:
             logger.error("Type of global variable is null. Identifier ",
@@ -366,18 +335,16 @@ const:
         return app.data;
     }
 
-    @property {
-        auto type() {
-            return variable.type;
-        }
+    auto type() {
+        return variable.type;
+    }
 
-        auto name() {
-            return variable.name;
-        }
+    auto name() {
+        return variable.name;
+    }
 
-        auto typeName() {
-            return variable;
-        }
+    auto typeName() {
+        return variable;
     }
 }
 
@@ -400,7 +367,7 @@ struct CppMethodGeneric {
      * Expecting them to be set in c'tors.
      */
     template BaseProperties() {
-        @property const pure @nogc nothrow {
+        const pure @nogc nothrow {
             bool isVirtual() {
                 import std.algorithm : among;
 
@@ -439,12 +406,12 @@ struct CppMethodGeneric {
      * Expecting them to be set in c'tors.
      */
     template MethodProperties() {
-        @property const pure @nogc nothrow {
-            auto isConst() {
+        const pure @nogc nothrow {
+            bool isConst() {
                 return isConst_;
             }
 
-            auto returnType() {
+            CxReturnType returnType() {
                 return returnType_;
             }
         }
@@ -491,6 +458,7 @@ pure @safe nothrow struct CFunction {
     import std.typecons : TypedefType;
 
     private {
+        bool isInitialized;
         CFunctionName name_;
         CxParam[] params;
         CxReturnType returnType_;
@@ -500,8 +468,6 @@ pure @safe nothrow struct CFunction {
 
     mixin mixinUniqueId;
     mixin mixinSourceLocation;
-
-    @disable this();
 
     /// C function representation.
     this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
@@ -515,6 +481,8 @@ pure @safe nothrow struct CFunction {
 
         setLocation(loc);
         setUniqueId(internalToString);
+
+        isInitialized = true;
     }
 
     /// Function with no parameters.
@@ -524,7 +492,7 @@ pure @safe nothrow struct CFunction {
 
     /// Function with no parameters and returning void.
     this(const CFunctionName name, const CxLocation loc) {
-        CxReturnType void_ = TypeKind.make("void");
+        CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, VariadicType.no, StorageClass.None, loc);
     }
 
@@ -535,7 +503,7 @@ const:
         return params;
     }
 
-    @property @nogc {
+    @nogc {
         auto returnType() {
             return returnType_;
         }
@@ -560,7 +528,8 @@ const:
         import std.format : formattedWrite;
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.txt, name.str, paramRange.joinParams);
+        formattedWrite(rval, "%s %s(%s);", returnType.toStringDecl, name.str,
+                paramRange.joinParams);
         return rval.data;
     }
 
@@ -577,11 +546,13 @@ const:
     }
 
     invariant() {
-        assert(name_.length > 0);
-        assert(returnType_.txt.length > 0);
+        if (isInitialized) {
+            assert(name_.length > 0);
+            assert(returnType_.toStringDecl.length > 0);
 
-        foreach (p; params) {
-            assertVisit(p);
+            foreach (p; params) {
+                assertVisit(p);
+            }
         }
     }
 }
@@ -626,14 +597,12 @@ const:
         return format("%s(%s)", name_.str, paramRange.joinParams);
     }
 
-    @property {
-        auto accessType() {
-            return accessType_;
-        }
+    auto accessType() {
+        return accessType_;
+    }
 
-        auto name() {
-            return name_;
-        }
+    auto name() {
+        return name_;
     }
 
     invariant() {
@@ -720,7 +689,7 @@ pure @safe nothrow struct CppMethod {
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
             const CppVirtualMethod virtual = MemberVirtualType.Normal) {
-        auto void_ = CxReturnType(TypeKind.make("void"));
+        CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -755,7 +724,7 @@ const:
         return
             only(
                  helperVirtualPre(classification_),
-                 returnType_.txt,
+                 returnType_.toStringDecl,
                  " ",
                  signatureToString,
                  helperVirtualPost(classification_)
@@ -767,7 +736,7 @@ const:
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.txt.length > 0);
+        assert(returnType_.toStringDecl.length > 0);
         assert(classification_ != MemberVirtualType.Unknown);
 
         foreach (p; params_) {
@@ -807,7 +776,7 @@ pure @safe nothrow struct CppMethodOp {
     /// Operator with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
             const CppVirtualMethod virtual = MemberVirtualType.Normal) {
-        CxReturnType void_ = TypeKind.make("void");
+        CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -842,7 +811,7 @@ const:
         return
             only(
                  helperVirtualPre(classification_),
-                 returnType_.txt,
+                 returnType_.toStringDecl,
                  " ",
                  signatureToString,
                  helperVirtualPost(classification_),
@@ -854,20 +823,18 @@ const:
         // dfmt on
     }
 
-    @property {
-        /// The operator type, aka in C++ the part after "operator"
-        auto op()
-        in {
-            assert(name_.length > 8);
-        }
-        body {
-            return CppMethodName((cast(string) name_)[8 .. $]);
-        }
+    /// The operator type, aka in C++ the part after "operator"
+    auto op()
+    in {
+        assert(name_.length > 8);
+    }
+    body {
+        return CppMethodName((cast(string) name_)[8 .. $]);
     }
 
     invariant() {
         assert(name_.length > 0);
-        assert(returnType_.txt.length > 0);
+        assert(returnType_.toStringDecl.length > 0);
         assert(classification_ != MemberVirtualType.Unknown);
 
         foreach (p; params_) {
@@ -878,6 +845,8 @@ const:
 
 pure @safe nothrow struct CppInherit {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
+    USRType usr;
 
     private {
         CppAccess access_;
@@ -932,29 +901,27 @@ const:
         }
     }
 
-    @property {
-        auto name() {
-            return this.name_;
-        }
+    auto name() {
+        return this.name_;
+    }
 
-        auto access() {
-            return access_;
-        }
+    auto access() {
+        return access_;
+    }
 
-        FullyQualifiedNameType fullyQualifiedName() {
-            //TODO optimize by only calculating once.
-            import std.algorithm : map, joiner;
-            import std.range : chain, only;
-            import std.conv : text;
+    FullyQualifiedNameType fullyQualifiedName() {
+        //TODO optimize by only calculating once.
+        import std.algorithm : map, joiner;
+        import std.range : chain, only;
+        import std.conv : text;
 
-            // dfmt off
+        // dfmt off
             auto r = chain(ns.map!(a => cast(string) a),
                            only(cast(string) name_))
                 .joiner("::")
                 .text();
             return FullyQualifiedNameType(r);
             // dfmt on
-        }
     }
 }
 
@@ -964,6 +931,8 @@ pure @safe nothrow struct CppClass {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
+
+    USRType usr;
 
     private {
         CppClassName name_;
@@ -984,7 +953,7 @@ pure @safe nothrow struct CppClass {
         TypeKindVariable[] members_prot;
         TypeKindVariable[] members_priv;
 
-        string[] cmnt;
+        string[] comments;
     }
 
     mixin mixinUniqueId;
@@ -1117,7 +1086,7 @@ pure @safe nothrow struct CppClass {
      *  comment = a oneline comment, must NOT end with newline
      */
     void put(string comment) {
-        cmnt ~= comment;
+        comments ~= comment;
     }
 
     void put(CppInherit inh) {
@@ -1194,7 +1163,7 @@ pure @safe nothrow struct CppClass {
     }
 
     auto commentRange() @nogc {
-        return cmnt;
+        return comments;
     }
 
 const:
@@ -1226,7 +1195,7 @@ const:
 
         return
             chain(
-                  cmnt.map!(a => format("// %s", a)).joiner(newline),
+                  comments.map!(a => format("// %s", a)).joiner(newline),
                   begin_class, newline, // <- not a typo, easier to see newline
                   // methods
                   methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
@@ -1257,62 +1226,60 @@ const:
         }
     }
 
-    @property {
-        bool isVirtual() {
-            import std.algorithm : among;
+    bool isVirtual() {
+        import std.algorithm : among;
 
-            with (ClassVirtualType) {
-                return classification_.among(Virtual, VirtualDtor, Abstract, Pure) != 0;
-            }
+        with (ClassVirtualType) {
+            return classification_.among(Virtual, VirtualDtor, Abstract, Pure) != 0;
         }
+    }
 
-        bool isAbstract() {
-            with (ClassVirtualType) {
-                return classification_ == Abstract;
-            }
+    bool isAbstract() {
+        with (ClassVirtualType) {
+            return classification_ == Abstract;
         }
+    }
 
-        bool isPure() {
-            import std.algorithm : among;
+    bool isPure() {
+        import std.algorithm : among;
 
-            with (ClassVirtualType) {
-                return classification_.among(VirtualDtor, Pure) != 0;
-            }
+        with (ClassVirtualType) {
+            return classification_.among(VirtualDtor, Pure) != 0;
         }
+    }
 
-        auto classification() {
-            return classification_;
-        }
+    auto classification() {
+        return classification_;
+    }
 
-        auto name() {
-            return name_;
-        }
+    auto name() {
+        return name_;
+    }
 
-        auto inherits() {
-            return inherits_;
-        }
+    auto inherits() {
+        return inherits_;
+    }
 
-        auto resideInNs() {
-            return reside_in_ns;
-        }
+    auto resideInNs() {
+        return reside_in_ns;
+    }
 
-        FullyQualifiedNameType fullyQualifiedName() {
-            //TODO optimize by only calculating once.
+    FullyQualifiedNameType fullyQualifiedName() {
+        //TODO optimize by only calculating once.
 
-            import std.array : array;
-            import std.algorithm : map, joiner;
-            import std.range : takeOne, only, chain, takeOne;
-            import std.utf : byChar, toUTF8;
+        import std.array : array;
+        import std.algorithm : map, joiner;
+        import std.range : takeOne, only, chain, takeOne;
+        import std.utf : byChar, toUTF8;
 
-            // dfmt off
-            auto fqn = chain(
-                             reside_in_ns.map!(a => cast(string) a).joiner("::"),
-                             reside_in_ns.takeOne.map!(a => "::").joiner(),
-                             only(name_.str).joiner()
-                            );
-            return FullyQualifiedNameType(fqn.array().toUTF8);
-            // dfmt on
-        }
+        // dfmt off
+        auto fqn = chain(
+                         reside_in_ns.map!(a => cast(string) a).joiner("::"),
+                         reside_in_ns.takeOne.map!(a => "::").joiner(),
+                         only(name_.str).joiner()
+                        );
+        return FullyQualifiedNameType(fqn.array().toUTF8);
+        // dfmt on
     }
 }
 
@@ -1522,33 +1489,31 @@ const:
         // dfmt on
     }
 
-    @property {
-        auto isAnonymous() {
-            return name_.length == 0;
-        }
+    auto isAnonymous() {
+        return name_.length == 0;
+    }
 
-        auto name() {
-            return name_;
-        }
+    auto name() {
+        return name_;
+    }
 
-        auto resideInNs() {
-            //TODO change name, it is the full stack. So fully qualified name.
-            return stack;
-        }
+    auto resideInNs() {
+        //TODO change name, it is the full stack. So fully qualified name.
+        return stack;
+    }
 
-        auto fullyQualifiedName() {
-            //TODO optimize by only calculating once.
+    auto fullyQualifiedName() {
+        //TODO optimize by only calculating once.
 
-            import std.array : array;
-            import std.algorithm : map, joiner;
-            import std.range : takeOne, only, chain, takeOne;
-            import std.utf : byChar, toUTF8;
+        import std.array : array;
+        import std.algorithm : map, joiner;
+        import std.range : takeOne, only, chain, takeOne;
+        import std.utf : byChar, toUTF8;
 
-            // dfmt off
+        // dfmt off
             auto fqn = stack.map!(a => cast(string) a).joiner("::");
             return FullyQualifiedNameType(fqn.array().toUTF8);
             // dfmt on
-        }
     }
 }
 
@@ -1625,28 +1590,26 @@ const:
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
-        shouldEqual(f.returnType.txt, "void");
+        shouldEqual(f.returnType.toStringDecl("x"), "void x");
         shouldEqual(f.toString, "void nothing(); // None File:a.h Line:123 Column:45");
     }
 
     { // extern storage.
-        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(TypeKind.make("void")), VariadicType.no, StorageClass.Extern, dummyLoc);
-        shouldEqual(f.returnType.txt, "void");
+        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(makeSimple("void")), VariadicType.no, StorageClass.Extern, dummyLoc);
+        shouldEqual(f.returnType.toStringDecl("x"), "void x");
         shouldEqual(f.toString, "void nothing(); // Extern File:a.h Line:123 Column:45");
     }
 
     { // a return type.
-        auto rtk = TypeKind.make("int");
-        auto f = CFunction(CFunctionName("nothing"), CxReturnType(rtk), dummyLoc);
+        auto f = CFunction(CFunctionName("nothing"), CxReturnType(makeSimple("int")), dummyLoc);
         shouldEqual(f.toString, "int nothing(); // None File:a.h Line:123 Column:45");
     }
 
     { // return type and parameters.
-        auto p0 = makeCxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("x")));
-        auto p1 = makeCxParam(TypeKindVariable(TypeKind.make("char"), CppVariable("y")));
-        auto rtk = TypeKind.make("int");
+        auto p0 = makeCxParam(TypeKindVariable(makeSimple("int"), CppVariable("x")));
+        auto p1 = makeCxParam(TypeKindVariable(makeSimple("char"), CppVariable("y")));
         auto f = CFunction(CFunctionName("nothing"), [p0, p1],
-            CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
+            CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None, dummyLoc);
         shouldEqual(f.toString, "int nothing(int x, char y); // None File:a.h Line:123 Column:45");
     }
 }
@@ -1658,14 +1621,14 @@ unittest {
     shouldEqual(m.classification, MemberVirtualType.Normal);
     shouldEqual(m.name, "voider");
     shouldEqual(m.params_.length, 0);
-    shouldEqual(m.returnType.txt, "void");
+    shouldEqual(m.returnType.toStringDecl("x"), "void x");
     shouldEqual(m.accessType, AccessType.Public);
 }
 
 @Name("Test creating a CppMethod with multiple parameters")
 unittest {
-    auto tk = TypeKind.make("char*");
-    tk.isPtr = Yes.isPtr;
+    auto tk = makeSimple("char*");
+    tk.attr.isPtr = Yes.isPtr;
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
@@ -1745,9 +1708,9 @@ unittest {
 
 @Name("Test of toString for a free function")
 unittest {
-    auto ptk = TypeKind.make("char*");
-    ptk.isPtr = Yes.isPtr;
-    auto rtk = TypeKind.make("int");
+    auto ptk = makeSimple("char*");
+    ptk.attr.isPtr = Yes.isPtr;
+    auto rtk = makeSimple("int");
     auto f = CFunction(CFunctionName("nothing"),
         [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
         makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
@@ -1758,8 +1721,8 @@ unittest {
 
 @Name("Test of Ctor's")
 unittest {
-    auto tk = TypeKind.make("char*");
-    tk.isPtr = Yes.isPtr;
+    auto tk = makeSimple("char*");
+    tk.attr.isPtr = Yes.isPtr;
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto ctor = CppCtor(CppMethodName("ctor"), [p, p], CppAccess(AccessType.Public));
@@ -1786,7 +1749,7 @@ unittest {
     }
 
     {
-        auto tk = TypeKind.make("int");
+        auto tk = makeSimple("int");
         auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk),
             CppAccess(AccessType.Protected), CppConstMethod(false),
             CppVirtualMethod(MemberVirtualType.Pure));
@@ -1794,20 +1757,19 @@ unittest {
     }
 
     {
-        auto tk = TypeKind.make("char*");
-        tk.isPtr = Yes.isPtr;
+        auto tk = makeSimple("char*");
+        tk.attr.isPtr = Yes.isPtr;
         auto m = CppMethod(CppMethodName("gun"),
             CxReturnType(tk),
             CppAccess(AccessType.Private), CppConstMethod(false),
             CppVirtualMethod(MemberVirtualType.Normal));
-        m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("x"))));
-        m.put(CxParam(TypeKindVariable(TypeKind.make("int"), CppVariable("y"))));
+        m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("x"))));
+        m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("y"))));
         c.put(m);
     }
 
     {
-        auto tk = TypeKind.make("int");
-        tk.isPtr = Yes.isPtr;
+        auto tk = makeSimple("int");
         auto m = CppMethod(CppMethodName("wun"),
             CxReturnType(tk),
             CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Normal));
@@ -1889,7 +1851,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(TypeKind.make("int")),
+            CxReturnType(makeSimple("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
@@ -1918,7 +1880,7 @@ unittest {
     }
     {
         auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(TypeKind.make("int")),
+            CxReturnType(makeSimple("int")),
             CppAccess(AccessType.Public), CppConstMethod(false),
             CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
@@ -2041,8 +2003,8 @@ unittest {
 
 @Name("should be a global definition")
 unittest {
-    auto v0 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(TypeKind.make("int"), CppVariable("y"),
+    auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(makeSimple("int"), CppVariable("y"),
         dummyLoc);
 
     shouldEqualPretty(v0.toString, "int x; // File:a.h Line:123 Column:45");
@@ -2051,7 +2013,7 @@ unittest {
 
 @Name("globals in root")
 unittest {
-    auto v = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
+    auto v = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
     auto n = CppNamespace.makeAnonymous();
     auto r = CppRoot();
     n.put(v);
@@ -2078,8 +2040,8 @@ unittest {
 
 @Name("should be possible to sort the data structures")
 unittest {
-    auto v0 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(TypeKindVariable(TypeKind.make("int"), CppVariable("x")), dummyLoc2);
+    auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
+    auto v1 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc2);
     auto r = CppRoot();
     r.put(v0);
     r.put(v1);
@@ -2130,7 +2092,7 @@ unittest {
 @Name("Should be a class with a data member")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    auto tk = TypeKind.make("int");
+    auto tk = makeSimple("int");
     c.put(TypeKindVariable(tk, CppVariable("x")), AccessType.Public);
 
     shouldEqualPretty(c.toString, "class Foo { // Unknown File:noloc Line:0 Column:0

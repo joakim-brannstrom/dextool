@@ -7,7 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module cpptooling.analyzer.clang.visitor;
 
 import std.conv : to;
-import std.typecons : NullableRef;
+import std.typecons : Nullable, NullableRef;
 import logger = std.experimental.logger;
 
 import deimos.clang.index;
@@ -15,9 +15,86 @@ import deimos.clang.index;
 import clang.Cursor;
 import clang.SourceLocation;
 
+import cpptooling.analyzer.type;
+import cpptooling.analyzer.clang.type : TypeKind, retrieveType;
 import cpptooling.analyzer.clang.utility;
 import cpptooling.data.type;
+import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.clang : visitAst, logNode;
+
+// Store the derived type information
+private void put(ref Cursor c, ref Container container) {
+    switch (c.kind) with (CXCursorKind) {
+    case CXCursor_CXXAccessSpecifier:
+    case CXCursor_CXXBaseSpecifier:
+    case CXCursor_MemberRef:
+    case CXCursor_NamespaceRef:
+    case CXCursor_LabelRef:
+    case CXCursor_TemplateRef:
+    case CXCursor_TypeRef:
+        // do nothing
+        return;
+
+    default:
+        break;
+    }
+
+    auto tka = retrieveType(c, container);
+    if (!tka.isNull) {
+        logTypeResult(tka);
+        container.put(tka.primary.kind);
+        foreach (e; tka.extra) {
+            container.put(e.kind);
+        }
+    }
+}
+
+private void put(ref Nullable!TypeResult tr, ref Container container) {
+    if (!tr.isNull) {
+        logTypeResult(tr);
+        container.put(tr.primary.kind);
+        foreach (e; tr.extra) {
+            container.put(e.kind);
+        }
+    }
+}
+
+private CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
+    import std.array;
+    import std.algorithm : map;
+    import std.range : chain, zip, tee;
+    import std.string : strip;
+
+    import cpptooling.analyzer.type;
+
+    auto tr_params = tr.primary.kind.info.params;
+
+    // dfmt off
+    CxParam[] params = zip(// range 1
+                           tr_params
+                           // lookup the parameters by the usr
+                           .map!(a => container.find!TypeKind(a.usr))
+                           // assuming none of the results to find failed
+                           // merge the results to a range
+                           .map!(a => a.front),
+                           // range 2
+                           tr_params)
+        .map!((a) {
+              if (a[1].isVariadic) {
+                  return CxParam(VariadicType.yes);
+              } else if (a[1].id.strip.length == 0) {
+                  //TODO fix the above workaround with strip by fixing type.d
+                  return CxParam(TypeKindAttr(a[0], a[1].attr));
+              } else {
+                  return CxParam(TypeKindVariable(TypeKindAttr(a[0], a[1].attr), CppVariable(a[1].id)));
+              }
+              })
+        .array();
+    // dfmt on
+
+    return params;
+}
 
 private auto toInternal(T)(SourceLocation c_loc) {
     import std.conv : text;
@@ -48,23 +125,26 @@ private bool isOperator(CppMethodName name_) {
 }
 
 struct VariableVisitor {
+    import cpptooling.data.representation : CxGlobalVariable;
+
     static auto make(ref Cursor) {
         return typeof(this)();
     }
 
-    auto visit(ref Cursor c) {
-        import cpptooling.data.representation : CxGlobalVariable, CppVariable,
-            CxLocation;
-        import cpptooling.analyzer.clang.type : TypeKind, translateType;
+    CxGlobalVariable visit(ref Cursor c, ref Container container)
+    out (result) {
+        logger.info("variable:", result.toString);
+    }
+    body {
+        import cpptooling.data.representation : CppVariable, CxLocation;
+
+        auto type = retrieveType(c, container);
+        put(type, container);
 
         auto name = CppVariable(c.spelling);
-        auto type = translateType(c.type);
         auto loc = toInternal!CxLocation(c.location());
 
-        auto var = CxGlobalVariable(type.unwrap, name, loc);
-        logger.info("variable:", var.toString);
-
-        return var;
+        return CxGlobalVariable(type.primary, name, loc);
     }
 }
 
@@ -80,31 +160,113 @@ struct FunctionVisitor {
         return typeof(this)();
     }
 
-    auto visit(ref Cursor c) {
-        import cpptooling.analyzer.clang.type : TypeKind, translateType;
+    Nullable!CFunction visit(ref Cursor c, ref Container container) {
+        import std.algorithm : among;
+        import std.functional : pipe;
 
-        auto params = paramDeclTo(c);
-        auto name = CFunctionName(c.spelling);
-        auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
-        auto is_variadic = c.func.isVariadic ? VariadicType.yes : VariadicType.no;
-        auto loc = toInternal!CxLocation(c.location());
+        // hint, start reading the function from the bottom up.
+        // design is pipe and data transformation
 
-        auto storage_class = StorageClass.None;
-        switch (c.storageClass()) with (CX_StorageClass) {
-        case CX_SC_Extern:
-            storage_class = StorageClass.Extern;
-            break;
-        case CX_SC_Static:
-            storage_class = StorageClass.Static;
-            break;
-        default:
-            break;
+        Nullable!TypeResult extractAndStoreRawType(ref Cursor c) {
+            auto tr = retrieveType(c, container);
+            if (tr.isNull) {
+                return tr;
+            }
+
+            assert(tr.primary.kind.info.kind.among(TypeKind.Info.Kind.func,
+                    TypeKind.Info.Kind.typeRef, TypeKind.Info.Kind.simple));
+            put(tr, container);
+
+            return tr;
         }
 
-        auto func = CFunction(name, params, return_type, is_variadic, storage_class, loc);
-        logger.info("function: ", func.toString);
+        Nullable!TypeResult lookupRefToConcreteType(Nullable!TypeResult tr) {
+            if (tr.isNull) {
+                return tr;
+            }
 
-        return func;
+            if (tr.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+                // replace typeRef kind with the func
+                auto kind = container.find!TypeKind(tr.primary.kind.info.canonicalRef).front;
+                tr.primary.kind = kind;
+            }
+
+            logTypeResult(tr);
+            assert(tr.primary.kind.info.kind == TypeKind.Info.Kind.func);
+
+            return tr;
+        }
+
+        static struct ComposeData {
+            TypeResult tr;
+            CFunctionName name;
+            CxLocation loc;
+            VariadicType isVariadic;
+            StorageClass storageClass;
+        }
+
+        ComposeData getCursorData(TypeResult tr) {
+            auto data = ComposeData(tr);
+
+            data.name = CFunctionName(c.spelling);
+            data.loc = toInternal!CxLocation(c.location());
+
+            switch (c.storageClass()) with (CX_StorageClass) {
+            case CX_SC_Extern:
+                data.storageClass = StorageClass.Extern;
+                break;
+            case CX_SC_Static:
+                data.storageClass = StorageClass.Static;
+                break;
+            default:
+                break;
+            }
+
+            return data;
+        }
+
+        Nullable!CFunction composeFunc(ComposeData data) {
+            Nullable!CFunction rval;
+
+            auto return_type = container.find!TypeKind(data.tr.primary.kind.info.return_);
+            if (auto return_type.length == 0) {
+                return rval;
+            }
+
+            auto params = toCxParam(data.tr, container);
+
+            VariadicType is_variadic;
+            // according to C/C++ standard the last parameter is the only one
+            // that can be a variadic, therefor only needing to peek at that
+            // one.
+            if (params.length > 0 && params[$ - 1].peek!VariadicType) {
+                is_variadic = VariadicType.yes;
+            }
+
+            rval = CFunction(data.name, params, CxReturnType(TypeKindAttr(return_type.front,
+                    data.tr.primary.kind.info.returnAttr)), is_variadic,
+                    data.storageClass, data.loc);
+            return rval;
+        }
+
+        // dfmt off
+        auto rval = pipe!(extractAndStoreRawType,
+                          lookupRefToConcreteType,
+                          // either break early if null or continue composing a
+                          // function representation
+                          (Nullable!TypeResult tr) {
+                              if (tr.isNull) {
+                                  return Nullable!CFunction();
+                              } else {
+                                  return pipe!(getCursorData, composeFunc)(tr.get);
+                              }
+                          }
+                          )
+            (c);
+        // dfmt on
+        logger.info(!rval.isNull, "function: ", rval.get.toString);
+
+        return rval;
     }
 }
 
@@ -123,19 +285,21 @@ struct InheritVisitor {
     body {
         // name of a CXXBaseSpecificer is "class X" while referenced is "X"
         auto name = CppClassName(c.referenced.spelling);
-
         auto access = CppAccess(toAccessType(c.access.accessSpecifier));
         auto inherit = CppInherit(name, access);
+
         auto r = InheritVisitor(inherit);
+
         return r;
     }
 
-    auto visit(ref Cursor c)
+    auto visit(ref Cursor c, ref Container container)
     in {
         assert(c.isReference);
     }
     body {
         static struct GatherNs {
+            Container* container;
             CppNsStack stack;
 
             void apply(ref Cursor c, int depth)
@@ -149,7 +313,7 @@ struct InheritVisitor {
         }
 
         auto c_ref = c.referenced;
-        GatherNs gather;
+        auto gather = GatherNs(&container);
         backtrackNode!(kind => kind == CXCursorKind.CXCursor_Namespace)(c_ref,
                 gather, "cxx_base -> ns", 1);
 
@@ -158,6 +322,10 @@ struct InheritVisitor {
 
         //TODO would copy work instead of each?
         retro(gather.stack).each!(a => data.put(a));
+
+        auto rt = retrieveType(c_ref, container);
+        put(rt, container);
+        data.usr = cast(USRType) rt.primary.kind.usr;
 
         return data;
     }
@@ -231,6 +399,7 @@ struct ClassDescendVisitor {
         import std.typecons : TypedefType;
 
         logNode(c, 0);
+        put(c, *container);
 
         bool descend = true;
 
@@ -293,7 +462,10 @@ private:
     }
 
     void applyConstructor(ref Cursor c, ref Cursor parent) {
-        auto params = paramDeclTo(c);
+        auto tka = retrieveType(c, *container);
+        put(tka, *container);
+
+        auto params = toCxParam(tka, *container);
         auto name = CppMethodName(c.spelling);
         auto tor = CppCtor(name, params, accessType);
         logger.info("ctor: ", tor.toString);
@@ -308,38 +480,41 @@ private:
     }
 
     void applyInherit(ref Cursor c, ref Cursor parent) {
-        auto inherit = InheritVisitor.make(c).visit(c);
+        auto inherit = InheritVisitor.make(c).visit(c, *container);
         data.put(inherit);
     }
 
     void applyField(ref Cursor c, const CppAccess accessType) {
         import std.typecons : TypedefType;
-        import cpptooling.analyzer.clang.type : translateType;
         import cpptooling.data.representation : TypeKindVariable;
 
-        auto tk = translateType(c.type).unwrap;
+        auto tka = retrieveType(c, *container);
         auto name = CppVariable(c.spelling);
 
-        data.put(TypeKindVariable(tk, name), cast(TypedefType!CppAccess) accessType);
+        data.put(TypeKindVariable(tka.primary, name), cast(TypedefType!CppAccess) accessType);
     }
 
     void applyMethod(ref Cursor c, ref Cursor parent) {
-        import cpptooling.analyzer.clang.type : TypeKind, translateType;
         import cpptooling.data.representation : CppMethodOp;
 
-        auto params = paramDeclTo(c);
+        auto tr = retrieveType(c, *container);
+        assert(tr.get.primary.kind.info.kind == TypeKind.Info.Kind.func);
+        put(tr, *container);
+
+        auto params = toCxParam(tr, *container);
         auto name = CppMethodName(c.spelling);
-        auto return_type = CxReturnType(translateType(c.func.resultType).unwrap);
+        auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
+                tr.primary.kind.info.return_).front, tr.primary.kind.info.returnAttr));
         auto is_virtual = classify(c);
 
         if (isOperator(name)) {
             auto op = CppMethodOp(name, params, return_type, accessType,
-                    CppConstMethod(c.func.isConst), is_virtual);
+                    CppConstMethod(tr.primary.attr.isConst), is_virtual);
             logger.info("operator: ", op.toString);
             data.put(op);
         } else {
             auto method = CppMethod(name, params, return_type, accessType,
-                    CppConstMethod(c.func.isConst), is_virtual);
+                    CppConstMethod(tr.primary.attr.isConst), is_virtual);
             logger.info("method: ", method.toString);
             data.put(method);
         }
@@ -388,10 +563,11 @@ struct ClassVisitor {
         assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
     }
     body {
-        import std.typecons : Nullable;
-
         auto d = Nullable!CppClass(data);
         d.nullify;
+
+        auto type = retrieveType(c, container);
+        put(type, container);
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
@@ -401,6 +577,7 @@ struct ClassVisitor {
         }
 
         d = ClassDescendVisitor(data).visit(c, container);
+        d.usr = cast(USRType) type.primary.kind.usr;
         return d;
     }
 
@@ -422,7 +599,6 @@ private AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
 }
 
 struct NamespaceDescendVisitor {
-    import std.typecons : NullableRef;
     import cpptooling.data.representation : CppNamespace;
     import cpptooling.data.symbol.container;
 
@@ -453,6 +629,7 @@ struct NamespaceDescendVisitor {
 
     bool apply(ref Cursor c, ref Cursor parent) {
         bool descend = true;
+        put(c, *container);
 
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
@@ -464,7 +641,10 @@ struct NamespaceDescendVisitor {
             }
             break;
         case CXCursor_FunctionDecl:
-            data.put(FunctionVisitor.make(c).visit(c));
+            auto f = FunctionVisitor.make(c).visit(c, *container);
+            if (!f.isNull) {
+                data.put(f.get);
+            }
             descend = false;
             break;
         case CXCursor_Namespace:
@@ -474,7 +654,7 @@ struct NamespaceDescendVisitor {
             ///TODO ugly hack. Move this information to the representation.
             /// but for now skipping all definitions
             if (c.storageClass() == CX_StorageClass.CX_SC_Extern) {
-                data.put(VariableVisitor.make(c).visit(c));
+                data.put(VariableVisitor.make(c).visit(c, *container));
             }
             descend = false;
             break;
@@ -497,7 +677,6 @@ private:
  * analyzing the content of a namespace.
  */
 struct NamespaceVisitor {
-    import std.typecons : NullableRef;
     import cpptooling.data.representation : CppNsStack, CppNs, CppNamespace;
     import cpptooling.data.symbol.container;
 
@@ -546,6 +725,8 @@ struct NamespaceVisitor {
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
+        put(c, *container);
+
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_Namespace:
             logNode(c, 0);
@@ -600,7 +781,7 @@ struct ParseContext {
 
     bool apply(ref Cursor c, ref Cursor parent) {
         bool descend = true;
-        logNode(c, depth);
+
         switch (c.kind) with (CXCursorKind) {
         case CXCursor_ClassDecl:
             import cpptooling.data.representation : CppNsStack;
@@ -622,14 +803,17 @@ struct ParseContext {
             descend = false;
             break;
         case CXCursor_FunctionDecl:
-            root.put(FunctionVisitor.make(c).visit(c));
+            auto f = FunctionVisitor.make(c).visit(c, container);
+            if (!f.isNull) {
+                root.put(f.get);
+            }
             descend = false;
             break;
         case CXCursor_VarDecl:
             ///TODO ugly hack. Move this information to the representation.
             /// but for now skipping all definitions
             if (c.storageClass() == CX_StorageClass.CX_SC_Extern) {
-                root.put(VariableVisitor.make(c).visit(c));
+                root.put(VariableVisitor.make(c).visit(c, container));
             }
             descend = false;
             break;

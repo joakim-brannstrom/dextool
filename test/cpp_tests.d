@@ -80,7 +80,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
     }
 }
 
-@Name("Should not segfault. Bug with anonymous namespace")
+@Name(testId ~ "Should not segfault. Bug with anonymous namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_anon_namespace.hpp", testEnv);
@@ -89,7 +89,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should not segfault or infinite recursion when poking at unexposed")
+@Name(testId ~ "Should not segfault or infinite recursion when poking at unexposed")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_unexposed.hpp", testEnv);
@@ -97,8 +97,8 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(
-        "Should detect the type even though it is wchar_t. Bug: was treated specially which resulted in it never being set")
+@Name(testId
+        ~ "Should detect the type even though it is wchar_t. Bug: was treated specially which resulted in it never being set")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_wchar.hpp", testEnv);
@@ -106,7 +106,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a google mock with a constant member method")
+@Name(testId ~ "Should be a google mock with a constant member method")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_const.hpp", testEnv);
@@ -114,7 +114,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be gmocks that correctly implemented classes that inherit")
+@Name(testId ~ "Should be gmocks that correctly implemented classes that inherit")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_inherit.hpp", testEnv);
@@ -122,7 +122,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be gmock with member methods and operators")
+@Name(testId ~ "Should be gmock with member methods and operators")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_interface.hpp", testEnv);
@@ -130,7 +130,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a gmock with more than 10 parameters")
+@Name(testId ~ "Should be a gmock with more than 10 parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_interface_more_than_10_params.hpp", testEnv);
@@ -138,7 +138,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a gmock impl for each class")
+@Name(testId ~ "Should be a gmock impl for each class")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_multiple.hpp", testEnv);
@@ -146,7 +146,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test common class patterns and there generated gmocks. See input file for info")
+@Name(testId ~ "Test common class patterns and there generated gmocks. See input file for info")
 unittest {
     //TODO split input in many tests.
 
@@ -156,7 +156,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should exclude self from generated test double")
+@Name(testId ~ "Should exclude self from generated test double")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/exclude_self.hpp", testEnv);
@@ -169,7 +169,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should generate implementation of functions in ns and externs")
+@Name(testId ~ "Should generate implementation of functions in ns and externs")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/extern_in_ns.hpp", testEnv);
@@ -181,7 +181,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should only generate impl for those functions in ns")
+@Name(testId ~ "Should only generate impl for those functions in ns")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/functions.hpp", testEnv);
@@ -189,7 +189,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should use root as include")
+@Name(testId ~ "Should use root as include")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/have_root.hpp", testEnv);
@@ -201,7 +201,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Test --file-restrict")
+@Name(testId ~ "Test --file-restrict")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/param_restrict.hpp", testEnv);
@@ -215,7 +215,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should load compiler settings from compilation database")
+@Name(testId ~ "Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
@@ -231,7 +231,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should not crash when std::system_error isn't found during analyze")
+@Name(testId ~ "Should not crash when std::system_error isn't found during analyze")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_class_not_in_ast.hpp", testEnv);
@@ -239,7 +239,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name("Should be a gmock of the class that is NOT forward declared")
+@Name(testId ~ "Should be a gmock of the class that is NOT forward declared")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/class_forward_decl.hpp", testEnv);

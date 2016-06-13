@@ -12,6 +12,7 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import application.types : MainNs, MainInterface;
+import cpptooling.analyzer.type;
 import cpptooling.data.representation : CppClass, CppNamespace, CxLocation;
 
 @safe:
@@ -20,7 +21,6 @@ enum dummyLoc = CxLocation("<test double>", 0, 0);
 
 /// Make a C++ adapter for an interface.
 CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
-    import cpptooling.analyzer.type;
     import cpptooling.data.representation;
 
     string c_if = cast(string) if_name;
@@ -29,8 +29,8 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     auto c = CppClass(CppClassName(c_name));
     c.setKind(KindT.Adapter);
 
-    auto tk = TypeKind.make(c_if ~ "&");
-    tk.isRef = Yes.isRef;
+    auto tk = makeSimple(c_if ~ "&", TypeAttr(No.isConst, Yes.isRef, No.isPtr,
+            No.isFuncPtr, No.isArray, Yes.isRecord, No.isPrimitive));
     auto param = makeCxParam(TypeKindVariable(tk, CppVariable("inst")));
 
     c.put("Adapter connecting an interface with an implementation.");
@@ -46,12 +46,12 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
 CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
-    import cpptooling.data.representation : TypeKind, CppVariable,
-        CxGlobalVariable;
+    import cpptooling.data.representation : CppVariable, CxGlobalVariable;
     import cpptooling.utility.conv : str;
 
-    auto type = TypeKind.make(main_ns.str ~ "::" ~ main_if.str ~ "*");
-    type.isPtr = Yes.isPtr;
+    auto type = makeSimple(main_ns.str ~ "::" ~ main_if.str ~ "*",
+            TypeAttr(No.isConst, No.isRef, Yes.isPtr, No.isFuncPtr, No.isArray,
+                Yes.isRecord, No.isPrimitive));
     auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(KindT.TestDoubleSingleton);
@@ -75,7 +75,7 @@ void generateImpl(CppClass c, CppModule impl) {
     static void genCtor(CppClass c, CppCtor m, CppModule impl) {
         import dsrcgen.cpp;
         import cpptooling.data.representation;
-        import cpptooling.analyzer.type : TypeKind, toString;
+        import cpptooling.analyzer.type : TypeKind;
 
         // dfmt off
         TypeKindVariable p0 = () @trusted {
@@ -83,15 +83,15 @@ void generateImpl(CppClass c, CppModule impl) {
 
             return m.paramRange().front.visit!(
                 (TypeKindVariable tkv) => tkv,
-                (TypeKind tk) => TypeKindVariable(tk, CppVariable("inst")),
+                (TypeKindAttr tk) => TypeKindVariable(tk, CppVariable("inst")),
                 (VariadicType vt) {
                     logger.error("Variadic c'tor not supported:", m.toString);
-                    return TypeKindVariable(TypeKind.make("not supported"), CppVariable("not supported"));
+                    return TypeKindVariable(makeSimple("not supported"), CppVariable("not supported"));
                 })();
         }();
         // dfmt on
 
-        with (impl.ctor_body(m.name.str, E(p0.type.toString(p0.name.str)))) {
+        with (impl.ctor_body(m.name.str, E(p0.type.toStringDecl(p0.name.str)))) {
             stmt(E("test_double_inst") = E("&" ~ p0.name.str));
         }
         impl.sep(2);
@@ -112,8 +112,8 @@ void generateImpl(CppClass c, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
-        auto b = impl.method_body(m.returnType().txt, c.name().str, m.name()
-                .str, m.isConst ? Yes.isConst : No.isConst, params);
+        auto b = impl.method_body(m.returnType.toStringDecl, c.name().str,
+                m.name().str, m.isConst ? Yes.isConst : No.isConst, params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
             stmt(E("test_double_inst") = E("&" ~ p));
@@ -145,8 +145,8 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
     impl.sep(2);
 
     foreach (g; in_ns.globalRange()) {
-        auto stmt = E(g.type().toString(g.name().str));
-        if (g.type().isPtr) {
+        auto stmt = E(g.type.toStringDecl(g.name().str));
+        if (g.type.attr.isPtr) {
             stmt = E("0");
         }
         ns.stmt(stmt);

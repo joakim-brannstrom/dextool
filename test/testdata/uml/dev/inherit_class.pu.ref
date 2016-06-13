@@ -1,5 +1,5 @@
 @startuml
-class "Derived"
-"Derived" --|> "Base"
-class "Base"
+class "Derived" as YzpAU0BEZXJpdmVk
+class "Base" as YzpAU0BCYXNl
+"YzpAU0BEZXJpdmVk" --|> "YzpAU0BCYXNl"
 @enduml

@@ -26,11 +26,15 @@ extern int (*e_g)(int pa, int pb, ...);
  * Expecting func_type to result in a function definition and affect the interface.
  * Expecting func_ptr to be defined as a variable.
  */
-typedef unsigned char (func_type)(const unsigned int baz);
+typedef void (func_type)();
+typedef unsigned char (func_param_type)(const unsigned int baz);
 typedef unsigned char (*func_ptr)(const unsigned baz);
-typedef func_type under_type;
+
+typedef func_type ref_type;
+typedef func_param_type ref_param_type;
 
 extern func_ptr hest;
 extern func_type tiger;
-extern under_type cyber;
+extern func_param_type leopard;
+extern ref_param_type cyber;
 #endif // FUNCTION_POINTERS_H

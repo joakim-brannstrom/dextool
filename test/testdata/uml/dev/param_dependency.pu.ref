@@ -1,13 +1,13 @@
 @startuml
-class "AB_ParamReturn"
-"AB_ParamReturn" --> "A"
-"AB_ParamReturn" --> "B"
-class "A_ByCtor"
-"A_ByCtor" --> "A"
-class "A_ByReturn"
-"A_ByReturn" --> "A"
-class "A_OneParam"
-"A_OneParam" --> "A"
-class "A"
-class "B"
+class "AB_ParamReturn" as YzpAU0BBQl9QYXJhbVJldHVybg
+class "A_ByCtor" as YzpAU0BBX0J5Q3Rvcg
+class "A_ByReturn" as YzpAU0BBX0J5UmV0dXJu
+class "A_OneParam" as YzpAU0BBX09uZVBhcmFt
+class "A" as YzpAU0BB
+class "B" as YzpAU0BC
+"YzpAU0BBQl9QYXJhbVJldHVybg" --> "YzpAU0BC"
+"YzpAU0BBQl9QYXJhbVJldHVybg" --> "YzpAU0BB"
+"YzpAU0BBX0J5Q3Rvcg" --> "YzpAU0BB"
+"YzpAU0BBX0J5UmV0dXJu" --> "YzpAU0BB"
+"YzpAU0BBX09uZVBhcmFt" --> "YzpAU0BB"
 @enduml

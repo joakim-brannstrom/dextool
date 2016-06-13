@@ -277,3 +277,10 @@ string[] compilerFlags() {
         return default_flags ~ ["-pedantic", "-Werror"];
     }
 }
+
+string testId(uint line = __LINE__) {
+    import std.conv : to;
+
+    // assuming it is always the UDA for a test and thus +1 to get the correct line
+    return "id:" ~ (line + 1).to!string() ~ " ";
+}

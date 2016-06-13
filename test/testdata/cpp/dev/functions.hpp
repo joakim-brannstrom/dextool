@@ -31,6 +31,7 @@ void unnamed_params(int, int);
 
 // expect usage of the typedef and NOT the underlying types
 typedef int (*func_ptr2)(int, int);
+typedef int (*func_ptr3)();
 typedef struct Something_Big {
     int tiny;
 } Something_Big;

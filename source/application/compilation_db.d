@@ -64,7 +64,7 @@ CompileCommandDB parseCommands(string raw_input) {
             rval = tmp;
         }
         catch (Exception ex) {
-            logger.errorf("Unable to parse json attribute: ", ex.msg);
+            logger.error("Unable to parse json attribute: " ~ ex.msg);
         }
 
         return rval;
@@ -83,7 +83,7 @@ CompileCommandDB parseCommands(string raw_input) {
             .filter!(a => !a.isNull).map!(a => a.get).array();
         }
         catch (Exception ex) {
-            logger.errorf("Unable to parse json:%s", ex.msg);
+            logger.error("Unable to parse json:" ~ ex.msg);
         }
 
         return r;

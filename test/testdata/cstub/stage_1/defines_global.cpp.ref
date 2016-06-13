@@ -1,7 +1,7 @@
 #include "test_double.hpp"
 
 #ifndef TEST_INIT_extern_
-#define TEST_INIT_extern_ extern_[10]
+#define TEST_INIT_extern_ int extern_[10]
 #endif // TEST_INIT_extern_
 
-int TEST_INIT_extern_;
+TEST_INIT_extern_;
