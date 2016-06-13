@@ -84,7 +84,8 @@ configuration "devtool" {
 
 configuration "unittest" {
     // v0.6.11 + local change
-    dependency "unit-threaded" path="unit-threaded"
+    dependency "unit-threaded" version="*"
+    subPackage "./unit-threaded/"
 
     targetName "unittest"
     targetType "executable"
