@@ -12,7 +12,7 @@ avoid name conflicts with the $(API_PATH_EXTR Path)-based wrappers in
 
 curl is omitted here because it involves an extra link dependency.
 
-Copyright: Copyright (C) 2014-2015 Nick Sabalausky
+Copyright: Copyright (C) 2014-2016 Nick Sabalausky
 License:   $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
 Authors:   Nick Sabalausky
 +/

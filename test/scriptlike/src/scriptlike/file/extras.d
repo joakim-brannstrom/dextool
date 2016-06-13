@@ -3,7 +3,7 @@ $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 
 Extra Scriptlike-only functionality to complement $(MODULE_STD_FILE).
 
-Copyright: Copyright (C) 2014-2015 Nick Sabalausky
+Copyright: Copyright (C) 2014-2016 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/

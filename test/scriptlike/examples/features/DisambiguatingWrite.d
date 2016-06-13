@@ -1,4 +1,5 @@
 import scriptlike;
+import std.stdio;
 
 void main()
 {
@@ -8,14 +9,14 @@ void main()
 		tryRemove("filename.txt");
 
 	// Save file
-	//write("filename.txt", "content");
+	//write("filename.txt", "content");  // Error: Symbols conflict!
 	// Change line above to...
-	writeFile("filename.txt", "content"); // Convenience alias included in scriptlike
+	writeFile("filename.txt", "content");  // Convenience alias included in scriptlike
 
 	// Output to stdout with no newline
-	//write("Hello world");
+	//write("Hello ", "world");  // Error: Symbols conflict!
 	// Change line above to...
-	std.stdio.write("Hello world");
+	std.stdio.write("Hello ", "world");
 	// or...
-	stdout.write("Hello world");
+	stdout.write("Hello ", "world");
 }

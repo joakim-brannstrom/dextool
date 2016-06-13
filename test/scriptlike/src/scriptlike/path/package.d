@@ -11,7 +11,7 @@ $(UL
 	$(LI $(MODULE_PATH_WRAP) )
 )
 
-Copyright: Copyright (C) 2014-2015 Nick Sabalausky
+Copyright: Copyright (C) 2014-2016 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/

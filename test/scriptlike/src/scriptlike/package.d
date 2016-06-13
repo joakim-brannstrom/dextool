@@ -30,7 +30,7 @@ Homepage:
 $(LINK https://github.com/abscissa/scriptlike)
 
 Copyright:
-Copyright (C) 2014-2015 Nick Sabalausky.
+Copyright (C) 2014-2016 Nick Sabalausky.
 Portions Copyright (C) 2010 Jesse Phillips.
 
 License: $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)

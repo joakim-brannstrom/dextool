@@ -34,7 +34,7 @@ when running in multiple threads).
 under which tested code output is turned back on, as well as special
 writelnUt debug messages.
 7. Ability to temporarily hide tests from being run by default whilst
-stil being able to run them
+still being able to run them
 
 Quick start with dub
 ----------------------
@@ -205,6 +205,38 @@ void testInit(T)() {
 The `@Name` UDA can be used instead of a plain string in order to name
 a `unittest` block.
 
+unit-threaded uses D's package and module system to make it possible
+to select a subset of tests to run. Sometimes however, tests in
+different modules address cross-cutting concerns and it may be
+desirable to indicate this grouping in order to select only those
+tests. The `@Tags` UDA can be used to do that. Any number of tags
+can be applied to a test:
+
+```d
+@Tags("foo", "tagged")
+unittest { ... }
+```
+
+The strings a test is tagged with can be used by the test runner
+binary to constrain which tests to run either by selecting tests
+with or without tags:
+
+    ./ut @foo ~@bar
+
+That will run all tests that have the "foo" tag that also don't have
+the "bar" tag.
+
+If using value or type parameterized tests, the `@AutoTags` UDA will
+give each sub-test a tag corresponding to their parameter:
+
+```d
+@Values("foo", "bar")
+@AutoTags // equivalent to writing @Tags("foo", "bar")
+@("autotag_test")
+unittest {
+   // ...
+}
+```
 
 Command-line Parameters
 -----------------------
@@ -219,6 +251,26 @@ Tests can be run in random order instead of in threads.  To do so, use
 the `-r` option.  A seed will be printed so that the same run can be
 repeated by using the `--seed` option. This implies running in a
 single thread.
+
+
+Integration tests and a sandbox environment
+------------------------------------------
+
+If you want to write tests that read from and write to the file system,
+you can use the `Sandbox` struct from
+[`unit_threaded.integration`](source/unit_threaded/integration) like so:
+
+```d
+with(immutable Sandbox()) {
+    writeFile("foo.txt", "foobarbaz\ntoto"); // can also pass string[] for lines
+    shouldExist("foo.txt");
+    shouldNotExist("bar.txt");
+    shouldEqualLines("foo.txt", ["foobarbaz", "toto"]);
+}
+```
+
+By default the sandbox main path is `tmp/unit-threaded` but you can change
+that by calling `Sandbox.setPath`
 
 
 Test Registration and Test Runner

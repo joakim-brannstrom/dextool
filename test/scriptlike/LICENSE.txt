@@ -2,7 +2,7 @@
 Scriptlike is licensed under The zlib/libpng License:
 -----------------------------------------------------
 
-Copyright (c) 2014-2015 Nick Sabalausky
+Copyright (c) 2014-2016 Nick Sabalausky
 Portions Copyright (C) 2010 Jesse Phillips
 
 This software is provided 'as-is', without any express or implied

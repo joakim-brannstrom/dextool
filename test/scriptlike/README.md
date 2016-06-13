@@ -12,9 +12,10 @@ Links:
 * [DUB](http://code.dlang.org/about) [Package](http://code.dlang.org/packages/scriptlike)
 * [Small article explaining the original motivations behind scriptlike](http://semitwist.com/articles/article/view/scriptlike-shell-scripting-in-d-annoyances-and-a-library-solution)
 
-Features
+Sections
 --------
 
+**[Features](#features)**
 * [Automatic Phobos Import](#automatic-phobos-import)
 * [User Input Prompts](#user-input-prompts)
 * [String Interpolation](#string-interpolation)
@@ -25,6 +26,10 @@ Features
 * [Dry Run Assistance](#dry-run-assistance)
 * [Fail](#fail)
 
+**[Disambiguating write and write](#disambiguating-write-and-write)**
+
+Features
+--------
 
 ### Automatic Phobos Import
 
@@ -308,16 +313,16 @@ Here's how to easily avoid symbol conflict errors with Scriptlike and ```write``
 
 ```d
 // Save file
-write("filename.txt", "content");
+write("filename.txt", "content");  // Error: Symbols conflict!
 // Change line above to...
 writeFile("filename.txt", "content"); // Convenience alias included in scriptlike
 
 // Output to stdout with no newline
-write("Hello world");
+write("Hello ", "world");  // Error: Symbols conflict!
 // Change line above to...
-std.stdio.write("Hello world");
+std.stdio.write("Hello ", "world");
 // or...
-stdout.write("Hello world");
+stdout.write("Hello ", "world");
 ```
 
 See: [```scriptlike.file.wrappers.writeFile```](http://semitwist.com/scriptlike/scriptlike/file/wrappers/writeFile.html), [```scriptlike.file.wrappers.readFile```](http://semitwist.com/scriptlike/scriptlike/file/wrappers/readFile.html), [```scriptlike.file.wrappers.write```](http://semitwist.com/scriptlike/scriptlike/file/wrappers/write.html), [```std.file.write```](http://dlang.org/phobos/std_file.html#write), [```std.stdio.write```](http://dlang.org/phobos/std_stdio.html#.write)
