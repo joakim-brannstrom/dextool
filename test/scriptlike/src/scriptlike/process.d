@@ -1,7 +1,7 @@
 // Scriptlike: Utility to aid in script-like programs.
 // Written in the D programming language.
 
-/// Copyright: Copyright (C) 2014-2015 Nick Sabalausky
+/// Copyright: Copyright (C) 2014-2016 Nick Sabalausky
 /// License:   $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
 /// Authors:   Nick Sabalausky
 
@@ -9,6 +9,8 @@ module scriptlike.process;
 
 import std.array;
 import std.conv;
+static import std.file;
+static import std.path;
 import std.process;
 import std.range;
 
@@ -337,10 +339,10 @@ unittest
 /// start the process.
 auto tryRunCollect(string command)
 {
-    static import std.typecons;
+	import std.typecons : Tuple;
 
 	yapFunc(command);
-	auto result = std.typecons.Tuple!(int, "status", string, "output")(0, null);
+	auto result = Tuple!(int, "status", string, "output")(0, null);
 
 	if(scriptlikeDryRun)
 		return result;

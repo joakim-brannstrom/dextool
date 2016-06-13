@@ -1,6 +1,15 @@
-/// This program runs and tests one or all of the "features" examples
-/// in this directory.
+/++
+This program runs and tests one or all of the "features" examples
+in this directory.
 
+Note: The tests for "DubProject" and "PlainScript" are only intended to
+test the APPROACHES they use for including Scriptlike in a script, not
+for testing Scriptlike itself (the rest of the tests do that). So IT'S OK
+they build against latest release version of Scriptlike instead of *this*
+copy of Scriptlike. (This isn't an issue on travis builds - the .travis.yml
+file is set up to automatically copy *this* Scriptlike to the path where
+dub *would've* stored the latest Scriptlike release.)
++/
 import scriptlike;
 
 void function()[string] lookupTest; // Lookup test by name
@@ -121,6 +130,7 @@ void testAll()
 		if(status != 0)
 			failed = true;
 	}
+	writeln("Done running tests for examples.");
 
 	failEnforce(!failed, "Not all tests succeeded.");
 }
@@ -305,6 +315,11 @@ What's your name?
 
 void testDubProject()
 {
+	// Force rebuild
+	tryRemove("../examples/dub-project/myscript");
+	tryRemove("../examples/dub-project/myscript.exe");
+
+	// Do test
 	testUseInScripts("dub-project", Path("../examples/dub-project"), "dub -q -- ");
 }
 
@@ -318,11 +333,11 @@ void testPlainScript()
 		return;
 	}
 
-	version(Windows)
-		// This Posix artifact gets in the way of calling .myscript.exe
-		// Only an issue when Win/Posix machines are operating from the same directory.
-		tryRemove("../examples/plain-script/.myscript");
+	// Force rebuild
+	tryRemove("../examples/plain-script/.myscript");
+	tryRemove("../examples/plain-script/.myscript.exe");
 
+	// Do tests
 	writeln("    Testing from its own directory...");
 	testUseInScripts(
 		"plain-script",

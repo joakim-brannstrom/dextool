@@ -62,6 +62,7 @@ import std.traits;
 T userInput(T = string)(string question = "")
 {
 	write(question ~ "\n> ");
+	stdout.flush;
 	auto ans = readln();
 
 	static if(is(T == bool))

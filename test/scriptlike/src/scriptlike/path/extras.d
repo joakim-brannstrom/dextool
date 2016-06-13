@@ -3,7 +3,7 @@ $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 
 Extra Scriptlike-only functionality to complement $(MODULE_STD_PATH).
 
-Copyright: Copyright (C) 2014-2015 Nick Sabalausky
+Copyright: Copyright (C) 2014-2016 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/
@@ -33,7 +33,7 @@ struct Ext
 	private string str;
 	
 	/// Main constructor.
-	this(string extension = null) pure @safe nothrow
+	this(string extension) pure @safe nothrow
 	{
 		this.str = extension;
 	}
@@ -102,7 +102,7 @@ struct Path
 	private string str = ".";
 	
 	/// Main constructor.
-	this(string path = ".") pure @safe nothrow
+	this(string path) pure @safe nothrow
 	{
 		this.str = buildNormalizedPathFixed(path);
 	}

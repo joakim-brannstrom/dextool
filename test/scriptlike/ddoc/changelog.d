@@ -6,6 +6,32 @@ $(LINK http://semitwist.com/scriptlike/changelog.html)
 
 (Dates below are YYYY/MM/DD)
 
+$(H2 v0.9.6 - 2016/05/28)
+
+(Note: This was going to be v0.9.5, but the release got borked, so it's released as v0.9.6 instead.)
+
+$(UL
+	$(FIXED
+		$(ISSUE 26): Deprecation warnings on DMD 2.070 and 2.071.
+	)
+	$(FIXED
+		$(ISSUE 27): Flush stdout when requesting input.
+		[$(LINK2 https://github.com/JesseKPhillips, Jesse Phillips)]
+	)
+	$(FIXED
+		$(LINK2 https://github.com/Abscissa/scriptlike/blob/master/USAGE.md#in-a-plain-script, Plain script)
+		example fails on DUB 0.9.25 (due to a change in dub's package cache directory structure).
+	)
+	$(FIXED
+		Testing any pull request on
+		$(LINK2 https://travis-ci.org/Abscissa/scriptlike/, Travis-CI)
+		fails.
+	)
+	$(FIXED
+		Unittests fail to build on DMD 2.071.
+	)
+)
+
 $(H2 v0.9.4 - 2015/09/22)
 
 $(UL
@@ -182,7 +208,7 @@ $(H2 v0.7.0 - 2015/04/02)
 $(UL
 	$(ENHANCE
 		$(ISSUE 14): Added scriptlike.interact module for easy user-input prompts.
-		(Thanks to $(LINK2 https://github.com/JesseKPhillips, Jesse Phillips))
+		[$(LINK2 https://github.com/JesseKPhillips, Jesse Phillips)]
 	)
 	$(FIXED Unittest compile failure on $(DMD) v2.067.0. )
 )
@@ -246,7 +272,7 @@ $(UL
 )
 
 Copyright:
-Copyright (C) 2014-2015 Nick Sabalausky.
+Copyright (C) 2014-2016 Nick Sabalausky.
 Portions Copyright (C) 2010 Jesse Phillips.
 
 License: zlib/libpng

@@ -14,13 +14,13 @@ If your project uses [DUB](http://code.dlang.org/getting_started), just include 
 dub.json:
 ```json
 "dependencies": {
-	"scriptlike": "~>0.9.4"
+	"scriptlike": "~>0.9.6"
 }
 ```
 
 dub.sdl:
 ```
-dependency "scriptlike" version="~>0.9.4"
+dependency "scriptlike" version="~>0.9.6"
 ```
 
 And then import with one of these:
@@ -66,27 +66,27 @@ myscript.sh:
 ```bash
 #!/bin/sh
 SCRIPT_DIR="$(dirname "$(dirname "$0")/$(readlink "$0")")"
-rdmd -I~/.dub/packages/scriptlike-0.9.4/src/ -of$SCRIPT_DIR/.myscript $SCRIPT_DIR/myscript.d "$@"
+rdmd -I~/.dub/packages/scriptlike-0.9.6/scriptlike/src/ -of$SCRIPT_DIR/.myscript $SCRIPT_DIR/myscript.d "$@"
 ```
 
 myscript.bat:
 ```batch
 @echo off
-rdmd -I%APPDATA%/dub/packages/scriptlike-0.9.4/src/ -of%~dp0.myscript %~dp0myscript.d %*
+rdmd -I%APPDATA%/dub/packages/scriptlike-0.9.6/scriptlike/src/ -of%~dp0.myscript %~dp0myscript.d %*
 ```
 
 On Linux/OSX:
 ```bash
 $ chmod +x myscript.sh
 $ ln -s myscript.sh myscript
-$ dub fetch scriptlike --version=0.9.4
+$ dub fetch scriptlike --version=0.9.6
 $ ./myscript Frank
 Hello, Frank!
 ```
 
 On Windows:
 ```batch
-> dub fetch scriptlike --version=0.9.4
+> dub fetch scriptlike --version=0.9.6
 > myscript Frank
 Hello, Frank!
 ```
@@ -101,7 +101,7 @@ FAQ
 **Long:** D does support Posix shebang lines, so you *could* omit the `myscript` file and add the following to the top of `myscript.d`:
 
 ```bash
-#!/PATH/TO/rdmd --shebang -I~/.dub/packages/scriptlike-0.9.4/src/
+#!/PATH/TO/rdmd --shebang -I~/.dub/packages/scriptlike-0.9.6/scriptlike/src/
 ```
 
 Problem is, there's no way to make that portable across machines. The rdmd tool isn't always going to be in the same place for everyone. Some people may have it in `/bin`, some may have it in `/opt/dmd2/linux/bin64`, `/opt/dmd2/linux/bin32` or `/opt/dmd2/osx/bin`, some people install via [DVM](https://github.com/jacob-carlborg/dvm) (which I recommend) which puts it in `~/.dvm/compilers/dmd-VERSION/...`, and some people simply unzip the [DMD](http://dlang.org/download.html#dmd) archive and use it directly from there.
