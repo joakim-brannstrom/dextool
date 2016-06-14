@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [[ -n "$LFLAGS_TRAVIS" ]]; then
+    export LFLAGS_TRAVIS=""
+fi
+
 if [[ -n "$LFLAG_CLANG_PATH" ]]; then
     echo "Using user env flag \$LFLAG_CLANG_PATH"
 elif [[ -d "/usr/lib/llvm-3.7/lib" ]]; then
@@ -25,3 +29,4 @@ fi
 
 echo "LFLAG_CLANG_PATH=$LFLAG_CLANG_PATH"
 echo "LFLAG_CLANG_LIB=$LFLAG_CLANG_LIB"
+echo "LFLAGS_TRAVIS=$LFLAGS_TRAVIS"

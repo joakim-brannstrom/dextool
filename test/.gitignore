@@ -4,3 +4,4 @@ external_tests
 c_tests/
 cpp_tests/
 plantuml_tests/
+dub.selections.json
