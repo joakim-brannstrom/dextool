@@ -27,8 +27,6 @@ git:
     depth: 3
 
 before_install:
-    # - git clone --depth 1 -b binary_clang https://github.com/joakim-brannstrom/dextool.git lib
-    # - mv lib/* .
     # Add later version of Clang, apt from llvm.org. the repository link is for development version.
     # - sudo apt-key adv --fetch-keys http://llvm.org/apt/llvm-snapshot.gpg.key
     # - sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.7 main'
