@@ -314,3 +314,22 @@ unittest {
     p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
     runTestFile(p, testEnv);
 }
+
+@Name(testId ~ "Should fail with an error message when file not found in the compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/file_not_found.c", testEnv);
+
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+
+    p.skipCompare = Yes.skipCompare;
+    p.skipCompile = Yes.skipCompile;
+    try {
+        runTestFile(p, testEnv);
+    }
+    catch (ErrorLevelException) {
+        // do nothing, expecting error status of dextool to be != 0
+    }
+
+    stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt"));
+}

@@ -119,8 +119,6 @@ struct TestEnv {
             return;
         }
 
-        import std.range : chain;
-
         // Use when saving error data for later analyze
         foreach (l; getYapLog) {
             logfile.writeln(l);
@@ -161,6 +159,11 @@ struct GR {
     Path result;
 }
 
+/**
+ * max_diff is arbitrarily chosen.
+ * The purpose is to limit the amount of text that is dumped.
+ * The reasoning is that it is better to give more than one line as feedback.
+ */
 void compare(in Path gold, in Path result) {
     import std.stdio : File;
 
@@ -193,12 +196,99 @@ void compare(in Path gold, in Path result) {
 
     //TODO replace with enforce
     if (diff_detected) {
+        yap("Output is different from reference file (gold): " ~ gold.escapePath);
         throw new ErrorLevelException(-1,
                 "Output is different from reference file (gold): " ~ gold.escapePath);
     }
 }
 
-void runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+/// Check if the logged stdout contains the golden block.
+///TODO refactor function. It is unnecessarily complex.
+void stdoutContains(in Path gold) {
+    import std.array : array;
+    import std.range : enumerate;
+    import std.stdio : File;
+
+    yap("Contains gold:", gold.toRawString);
+
+    File goldf;
+
+    try {
+        goldf = File(gold.escapePath);
+    }
+    catch (ErrnoException ex) {
+        throw new ErrorLevelException(-1, ex.msg);
+    }
+
+    enum ContainState {
+        NotFoundFirstLine,
+        Comparing,
+        BlockFound,
+        BlockNotFound
+    }
+
+    ContainState state;
+
+    auto gold_lines = goldf.byLine().array();
+    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
+    size_t gold_idx, result_idx;
+    while (!state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
+        string result_line;
+        if (result_idx < result_lines.length) {
+            result_line = result_lines[result_idx];
+        }
+
+        switch (state) with (ContainState) {
+        case NotFoundFirstLine:
+            if (gold_lines[0].strip == result_line.strip) {
+                state = Comparing;
+                ++gold_idx;
+            } else if (result_lines.length == result_idx) {
+                state = BlockNotFound;
+            }
+            break;
+        case Comparing:
+            if (gold_lines.length == gold_idx) {
+                state = BlockFound;
+            } else if (result_lines.length == result_idx) {
+                state = BlockNotFound;
+            } else if (gold_lines[gold_idx].strip != result_line.strip) {
+                state = BlockNotFound;
+            }
+
+            ++gold_idx;
+            break;
+        default:
+        }
+
+        if (state == ContainState.BlockNotFound && result_lines.length == result_idx) {
+            yap("Error: Stdout do not contain the reference file");
+            yap("Expected: " ~ gold_lines[0]);
+        } else if (state == ContainState.BlockNotFound) {
+            yap("Error: Difference from reference file. Line ", gold_idx);
+            yap("Expected: " ~ gold_lines[gold_idx]);
+            yap("  Actual: " ~ result_line);
+        }
+
+        if (state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
+            break;
+        }
+
+        ++result_idx;
+    }
+
+    if (state != ContainState.BlockFound) {
+        yap("Output do not contain the reference file (gold): " ~ gold.escapePath);
+        throw new ErrorLevelException(-1,
+                "Output do not contain the reference file (gold): " ~ gold.escapePath);
+    }
+}
+
+/** Run dextool.
+ *
+ * Return: The runtime in ms.
+ */
+auto runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     Args args;
     args ~= testEnv.dextool;
     args ~= pre_args.dup;
@@ -218,6 +308,7 @@ void runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, 
     sw.stop;
 
     yap("Dextool execution time in ms: " ~ sw.peek().msecs.text);
+    return sw.peek.msecs;
 }
 
 void compareResult(T...)(in T args) {
