@@ -11,5 +11,5 @@ docs/
 test/outdata/
 test/trace.*
 binary_size.txt
-.autobuild
 dub.selections.json
+autobuild
