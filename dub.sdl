@@ -16,6 +16,7 @@ subPackage "./docopt/"
 subPackage "./dsrcgen/"
 subPackage "./clang/"
 subPackage "./libclang/"
+subPackage "./unit-threaded/"
 
 targetPath "build"
 
@@ -83,9 +84,8 @@ configuration "devtool" {
 }
 
 configuration "unittest" {
-    // v0.6.11 + local change
-    dependency "unit-threaded" version="*"
-    subPackage "./unit-threaded/"
+    // v0.6.17
+    dependency "dextool:unit-threaded" version="*"
 
     targetName "unittest"
     targetType "executable"
