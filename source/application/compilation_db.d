@@ -143,6 +143,31 @@ CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe pure n
     return CompileCommandSearch(found);
 }
 
+/** Append the compiler flags if a match is found in the DB or error out.
+ */
+Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflags,
+        in string input_file) @safe {
+    import application.compilation_db : find, toString;
+
+    auto compile_commands = compile_db.find(input_file);
+    debug {
+        logger.trace(compile_commands.length > 0,
+                "CompilationDatabase matches by filename:\n", compile_commands.toString);
+    }
+    logger.error(compile_commands.length > 1,
+            "More than one match was found in the CompilationDatabase. Rerun with --debug for more information");
+
+    typeof(return) rval;
+    if (compile_commands.length == 0) {
+        logger.error("File not found in compilation database\n  ", input_file);
+        return rval;
+    } else {
+        rval = cflags ~ compile_commands[0].parseFlag;
+    }
+
+    return rval;
+}
+
 string toString(CompileCommandSearch search) @safe pure {
     import std.algorithm : map, joiner;
     import std.conv : text;

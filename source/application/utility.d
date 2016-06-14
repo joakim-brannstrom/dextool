@@ -215,23 +215,6 @@ struct TdIncludes {
     }
 }
 
-/**
- * TODO consider moving to compilation_db_util
- *  But be aware that this one has an error handling that may not be
- *  appropriate for all plugins.
- */
-auto lookup(T)(T compile_db, string filename) @safe pure {
-    import application.compilation_db : find, toString;
-
-    auto compile_commands = compile_db.find(filename);
-    debug {
-        logger.trace(compile_commands.length > 0,
-                "CompileDB matches by filename:\n", compile_commands.toString);
-    }
-
-    return compile_commands;
-}
-
 void analyzeFile(string input_file, string[] cflags, ref Container container,
         out Nullable!CppRoot root) {
     import std.file : exists;
@@ -267,15 +250,4 @@ ExitStatusType writeFileData(T)(ref T data) {
     }
 
     return ExitStatusType.Ok;
-}
-
-/** Append the compiler flags if a match is found in the DB
- */
-string[] appendIfFound(CompileCommandDB compile_db, in string[] cflags, in string input_file) @safe pure {
-    auto compile_commands = lookup(compile_db, input_file);
-    if (compile_commands.length > 0) {
-        return cflags ~ compile_commands[0].parseFlag;
-    }
-
-    return cflags.dup;
 }
