@@ -372,7 +372,13 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             .asAbsolutePath.text;
         logger.trace("Input file: ", input_file);
 
-        cflags = compile_db.appendIfFound(cflags, input_file);
+        if (compile_db.length > 0) {
+            auto db_cflags = compile_db.appendOrError(cflags, input_file);
+            if (db_cflags.isNull) {
+                return ExitStatusType.Errors;
+            }
+            cflags = db_cflags.get;
+        }
 
         Container symbol_container;
         Nullable!CppRoot root;
