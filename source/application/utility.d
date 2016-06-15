@@ -82,6 +82,10 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
+auto prependDefaultFlags(string[] in_cflags, string prefer_lang) {
+    return "-fsyntax-only" ~ prependLangFlagIfMissing(in_cflags, prefer_lang);
+}
+
 ///TODO move to clang module.
 auto prependLangFlagIfMissing(string[] in_cflags, string prefer_lang) {
     import std.algorithm : findAmong;

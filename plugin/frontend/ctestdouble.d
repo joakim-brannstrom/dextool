@@ -316,7 +316,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileC
     import cpptooling.data.symbol.container;
     import cpptooling.data.representation : CppRoot;
 
-    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc");
+    auto cflags = prependDefaultFlags(in_cflags, "-xc");
     auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
     logger.trace("Input file: ", input_file);
 
