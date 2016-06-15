@@ -35,8 +35,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
     auto variant = CTestDoubleVariant.makeVariant(parsed);
 
     CompileCommandDB compile_db;
-    if (!parsed["--compile-db"].isNull) {
-        compile_db = parsed["--compile-db"].toString.orDefaultDb.fromFile;
+    if (!parsed["--compile-db"].isEmpty) {
+        compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
     }
 
     return genCstub(variant, cflags, compile_db);
@@ -45,11 +45,10 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
- dextool ctestdouble [options] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
- dextool ctestdouble [options] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
+ dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
     // -------------
     " --out=dir          directory for generated files [default: ./]
- --compile-db=j     Retrieve compilation parameters from the file
  --main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
@@ -59,6 +58,7 @@ static auto ctestdouble_opt = CliOptionParts(
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
     // -------------
 "others:
+ --compile-db=j     Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex.
  --file-restrict=   Restrict the scope of the test double to those files
                     matching the regex.

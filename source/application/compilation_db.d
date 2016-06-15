@@ -26,6 +26,7 @@ version (unittest) {
     }
 }
 
+/// Hold an entry from the compilation database
 struct CompileCommand {
     alias FileName = Typedef!(string, string.init, "FileName");
     alias AbsoluteFileName = Typedef!(string, string.init, "AbsoluteFileName");
@@ -44,7 +45,7 @@ alias CompileCommandDB = Typedef!(CompileCommand[], null, "CompileCommandDB");
 // The file may be occur more than one time therefor an array.
 alias CompileCommandSearch = Typedef!(CompileCommand[], null, "CompileCommandSearch");
 
-CompileCommandDB parseCommands(string raw_input) {
+private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
     import std.json;
 
     static Nullable!CompileCommand toCompileCommand(JSONValue v) nothrow {
@@ -57,7 +58,8 @@ CompileCommandDB parseCommands(string raw_input) {
         Nullable!CompileCommand rval;
 
         try {
-            string abs_file = buildNormalizedPath(v["directory"].str, v["file"].str).absolutePath;
+            string abs_file = buildNormalizedPath(buildNormalizedPath(v["directory"].str,
+                    v["file"].str).absolutePath);
             auto tmp = CompileCommand(CompileCommand.FileName(v["file"].str),
                     CompileCommand.AbsoluteFileName(abs_file), CompileCommand.Directory(v["directory"].str),
                     CompileCommand.Command(v["command"].str));
@@ -70,56 +72,70 @@ CompileCommandDB parseCommands(string raw_input) {
         return rval;
     }
 
-    static CompileCommand[] toArray(JSONValue v) nothrow {
-        import std.algorithm;
+    static void put(T)(JSONValue v, ref T out_range) nothrow {
+        import std.algorithm : map, filter;
         import std.array : array;
         import logger = cpptooling.utility.logger;
 
-        CompileCommand[] r;
-
         try {
-            r = v.array() // map the JSON tuples to D structs
-            .map!(a => toCompileCommand(a)) // remove those that in one way or another was invalid
-            .filter!(a => !a.isNull).map!(a => a.get).array();
+            // dfmt off
+            foreach (e; v.array()
+                     // map the JSON tuples to D structs
+                     .map!(a => toCompileCommand(a))
+                     // remove invalid
+                     .filter!(a => !a.isNull)
+                     .map!(a => a.get)) {
+                out_range.put(e);
+            }
+            // dfmt on
         }
         catch (Exception ex) {
             logger.error("Unable to parse json:" ~ ex.msg);
         }
-
-        return r;
     }
-
-    auto json = parseJSON(raw_input);
-    auto cmds = toArray(json);
-
-    return CompileCommandDB(cmds);
-}
-
-CompileCommandDB fromFile(CompileDbJsonPath filename) {
-    import std.algorithm : joiner;
-    import std.conv : text;
-    import std.exception;
-    import std.stdio : File;
 
     try {
-        auto raw = File(cast(string) filename).byLineCopy.joiner.text;
-        return parseCommands(raw);
+        auto json = parseJSON(raw_input);
+        put(json, out_range);
     }
-    catch (ErrnoException ex) {
-        logger.errorf("Error when reading file '%s': %s", cast(string) filename, ex.msg);
-    }
+    catch (JSONException ex) {
+        import cpptooling.utility.logger : error;
 
-    return CompileCommandDB([]);
+        error("Error while parsing compilation database: " ~ ex.msg);
+    }
+    catch (Exception ex) {
+        import cpptooling.utility.logger : error;
+
+        error("Error while parsing compilation database: " ~ ex.msg);
+    }
+}
+
+void fromFile(T)(CompileDbJsonPath filename, ref T app) {
+    import std.algorithm : joiner;
+    import std.conv : text;
+    import std.stdio : File;
+
+    auto raw = File(cast(string) filename).byLineCopy.joiner.text;
+    raw.parseCommands(app);
+}
+
+void fromFiles(T)(CompileDbJsonPath[] fnames, ref T app) {
+    foreach (f; fnames) {
+        f.fromFile(app);
+    }
 }
 
 /** Return default path if argument is null.
  */
-CompileDbJsonPath orDefaultDb(string cli_path) @safe pure nothrow @nogc {
+CompileDbJsonPath[] orDefaultDb(string[] cli_path) @safe pure nothrow {
+    import std.array : array;
+    import std.algorithm : map;
+
     if (cli_path is null) {
-        return CompileDbJsonPath("compile_commands.json");
+        return [CompileDbJsonPath("compile_commands.json")];
     }
 
-    return CompileDbJsonPath(cli_path);
+    return cli_path.map!(a => CompileDbJsonPath(a)).array();
 }
 
 /** Contains the results of a search in the compilation database.
@@ -135,10 +151,12 @@ CompileDbJsonPath orDefaultDb(string cli_path) @safe pure nothrow @nogc {
  * Params:
  *  abs_filename = absolute filename to use as key when searching in the db
  */
-CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe pure nothrow @nogc {
+CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe /*pure nothrow @nogc*/ {
     import std.algorithm : find;
+    import std.range : takeOne;
 
-    auto found = find!((a, b) => (a.absoluteFile == b))(cast(CompileCommand[]) db, abs_filename);
+    auto found = find!((a, b) => (a.absoluteFile.length == b.length && a.absoluteFile == b))(
+            cast(CompileCommand[]) db, abs_filename).takeOne;
 
     return CompileCommandSearch(found);
 }
@@ -152,10 +170,8 @@ Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflag
     auto compile_commands = compile_db.find(input_file);
     debug {
         logger.trace(compile_commands.length > 0,
-                "CompilationDatabase matches by filename:\n", compile_commands.toString);
+                "CompilationDatabase match (by filename):\n", compile_commands.toString);
     }
-    logger.error(compile_commands.length > 1,
-            "More than one match was found in the CompilationDatabase. Rerun with --debug for more information");
 
     typeof(return) rval;
     if (compile_commands.length == 0) {
@@ -166,6 +182,18 @@ Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflag
     }
 
     return rval;
+}
+
+string toString(CompileCommandDB db) @safe pure {
+    import std.algorithm : map, joiner;
+    import std.conv : text;
+    import std.format : format;
+    import std.array;
+    import std.typecons : TypedefType;
+
+    return (cast(TypedefType!CompileCommandDB) db).map!(a => format("%s\n  %s\n  %s\n  %s\n",
+            cast(string) a.directory, cast(string) a.file,
+            cast(string) a.absoluteFile, cast(string) a.command)).joiner().text;
 }
 
 string toString(CompileCommandSearch search) @safe pure {
@@ -358,9 +386,13 @@ version (unittest) {
 ]`;
 }
 
+version (unittest) import std.array : appender;
+
 @Name("Should be a compile command DB")
 unittest {
-    auto cmds = parseCommands(raw_dummy1);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy1.parseCommands(app);
+    auto cmds = app.data;
 
     assert(cmds.length == 1);
     cmds[0].directory.shouldEqual("dir1/dir2");
@@ -371,7 +403,9 @@ unittest {
 
 @Name("Should be a DB with two entries")
 unittest {
-    auto cmds = parseCommands(raw_dummy2);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy2.parseCommands(app);
+    auto cmds = app.data;
 
     assert(cmds.length == 2);
     cmds[0].file.shouldEqual("file1.cpp");
@@ -380,7 +414,9 @@ unittest {
 
 @Name("Should find filename")
 unittest {
-    auto cmds = parseCommands(raw_dummy2);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy2.parseCommands(app);
+    auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find("dir/file2.cpp".absolutePath);
     assert(found.length == 1);
@@ -389,7 +425,9 @@ unittest {
 
 @Name("Should find no match by using an absolute path that doesn't exist in DB")
 unittest {
-    auto cmds = parseCommands(raw_dummy2);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy2.parseCommands(app);
+    auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find("./file2.cpp");
     assert(found.length == 0);
@@ -399,7 +437,9 @@ unittest {
 unittest {
     import unit_threaded : writelnUt;
 
-    auto cmds = parseCommands(raw_dummy3);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy3.parseCommands(app);
+    auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find("dir2/file3.cpp".absolutePath);
     assert(found.length == 1);
@@ -413,7 +453,9 @@ unittest {
 
 @Name("Should be a pretty printed search result")
 unittest {
-    auto cmds = parseCommands(raw_dummy2);
+    auto app = appender!(CompileCommand[])();
+    raw_dummy2.parseCommands(app);
+    auto cmds = CompileCommandDB(app.data);
     auto found = cmds.find("dir/file2.cpp".absolutePath);
 
     found.toString.shouldEqualPretty(format("dir

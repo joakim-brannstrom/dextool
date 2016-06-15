@@ -333,3 +333,19 @@ unittest {
 
     stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt"));
 }
+
+@Name(testId ~ "Should load compiler settings from the second compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    TestParams p;
+    p.root = Path("testdata/compile_db").absolutePath;
+    p.input_ext = p.root ~ Path("file2.h");
+    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
+
+    // find compilation flags by looking up how single_file_main.c was compiled
+    p.dexParams = ["ctestdouble", "--debug", "--compile-db=" ~ (p.root ~ "db1.json")
+        .toString, "--compile-db=" ~ (p.root ~ "db2.json").toString];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}

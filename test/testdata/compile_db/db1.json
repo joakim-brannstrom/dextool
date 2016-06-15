@@ -1,0 +1,12 @@
+[
+    {
+        "directory": "testdata/compile_db",
+        "command": "g++ -I. -c -o binary file1.h",
+        "file": "file1.h"
+    },
+    {
+        "directory": "testdata/compile_db",
+        "command": "g++ -I. -c -o binary file1.hpp",
+        "file": "file1.hpp"
+    }
+]
