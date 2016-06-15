@@ -318,7 +318,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import cpptooling.data.symbol.container;
     import plugin.backend.cppvariant : Generator;
 
-    auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+    auto cflags = prependDefaultFlags(in_cflags, "-xc++");
     auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
     logger.trace("Input file: ", input_file);
 

@@ -324,7 +324,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
-        auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+        auto cflags = prependDefaultFlags(in_cflags, "-xc++");
         auto generator = Generator(variant, variant, variant);
         Container symbol_container;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
@@ -365,7 +365,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         break;
 
     case FileProcess.Directive.Single:
-        auto cflags = prependLangFlagIfMissing(in_cflags, "-xc++");
+        auto cflags = prependDefaultFlags(in_cflags, "-xc++");
 
         //TODO refactor when All is finished. This is a special case of All.
         auto input_file = buildNormalizedPath(cast(string) file_process.inputFile)
