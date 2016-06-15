@@ -68,8 +68,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
     auto variant = PlantUMLFrontend.makeVariant(parsed);
 
     CompileCommandDB compile_db;
-    if (!parsed["--compile-db"].isNull) {
-        compile_db = parsed["--compile-db"].toString.orDefaultDb.fromFile;
+    if (!parsed["--compile-db"].isEmpty) {
+        compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
     }
 
     FileProcess file_process;
@@ -87,11 +87,10 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto plantuml_opt = CliOptionParts(
     "usage:
- dextool uml [options] [--file-exclude=...] [FILE] [--] [CFLAGS...]
- dextool uml [options] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
+ dextool uml [options] [--compile-db=...] [--file-exclude=...] [FILE] [--] [CFLAGS...]
+ dextool uml [options] [--compile-db=...] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
- --compile-db=j      Retrieve compilation parameters from the file
  --file-prefix=p     Prefix used when generating test artifacts [default: view_]
  --class-method      Include methods in the generated class diagram
  --class-paramdep    Class method parameters as directed association in diagram
@@ -103,6 +102,7 @@ static auto plantuml_opt = CliOptionParts(
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
+ --compile-db=j      Retrieve compilation parameters from the file
  --file-exclude=     Exclude files from generation matching the regex.
  --file-restrict=    Restrict the scope of the test double to those files
                      matching the regex.

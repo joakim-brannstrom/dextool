@@ -251,3 +251,12 @@ ExitStatusType writeFileData(T)(ref T data) {
 
     return ExitStatusType.Ok;
 }
+
+CompileCommandDB fromArgCompileDb(string[] paths) {
+    import std.array : appender;
+
+    auto app = appender!(CompileCommand[])();
+    paths.orDefaultDb.fromFiles(app);
+
+    return CompileCommandDB(app.data);
+}
