@@ -26,6 +26,7 @@ version (unittest) {
     }
 }
 
+/// Hold an entry from the compilation database
 struct CompileCommand {
     alias FileName = Typedef!(string, string.init, "FileName");
     alias AbsoluteFileName = Typedef!(string, string.init, "AbsoluteFileName");
@@ -44,7 +45,7 @@ alias CompileCommandDB = Typedef!(CompileCommand[], null, "CompileCommandDB");
 // The file may be occur more than one time therefor an array.
 alias CompileCommandSearch = Typedef!(CompileCommand[], null, "CompileCommandSearch");
 
-private CompileCommandDB parseCommands(string raw_input) nothrow {
+private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
     import std.json;
 
     static Nullable!CompileCommand toCompileCommand(JSONValue v) nothrow {
@@ -57,7 +58,8 @@ private CompileCommandDB parseCommands(string raw_input) nothrow {
         Nullable!CompileCommand rval;
 
         try {
-            string abs_file = buildNormalizedPath(v["directory"].str, v["file"].str).absolutePath;
+            string abs_file = buildNormalizedPath(buildNormalizedPath(v["directory"].str,
+                    v["file"].str).absolutePath);
             auto tmp = CompileCommand(CompileCommand.FileName(v["file"].str),
                     CompileCommand.AbsoluteFileName(abs_file), CompileCommand.Directory(v["directory"].str),
                     CompileCommand.Command(v["command"].str));
@@ -70,29 +72,31 @@ private CompileCommandDB parseCommands(string raw_input) nothrow {
         return rval;
     }
 
-    static CompileCommand[] toArray(JSONValue v) nothrow {
-        import std.algorithm;
+    static void put(T)(JSONValue v, ref T out_range) nothrow {
+        import std.algorithm : map, filter;
         import std.array : array;
         import logger = cpptooling.utility.logger;
 
-        CompileCommand[] r;
-
         try {
-            r = v.array() // map the JSON tuples to D structs
-            .map!(a => toCompileCommand(a)) // remove those that in one way or another was invalid
-            .filter!(a => !a.isNull).map!(a => a.get).array();
+            // dfmt off
+            foreach (e; v.array()
+                     // map the JSON tuples to D structs
+                     .map!(a => toCompileCommand(a))
+                     // remove invalid
+                     .filter!(a => !a.isNull)
+                     .map!(a => a.get)) {
+                out_range.put(e);
+            }
+            // dfmt on
         }
         catch (Exception ex) {
             logger.error("Unable to parse json:" ~ ex.msg);
         }
-
-        return r;
     }
 
-    CompileCommand[] cmds;
     try {
         auto json = parseJSON(raw_input);
-        cmds = toArray(json);
+        put(json, out_range);
     }
     catch (JSONException ex) {
         import cpptooling.utility.logger : error;
@@ -104,25 +108,26 @@ private CompileCommandDB parseCommands(string raw_input) nothrow {
 
         error("Error while parsing compilation database: " ~ ex.msg);
     }
-
-    return CompileCommandDB(cmds);
 }
 
 CompileCommandDB fromFile(CompileDbJsonPath filename) {
+    import std.array : appender;
     import std.algorithm : joiner;
     import std.conv : text;
     import std.exception;
     import std.stdio : File;
 
+    auto app = appender!(CompileCommand[])();
+
     try {
         auto raw = File(cast(string) filename).byLineCopy.joiner.text;
-        return parseCommands(raw);
+        raw.parseCommands(app);
     }
     catch (ErrnoException ex) {
         logger.errorf("Error when reading file '%s': %s", cast(string) filename, ex.msg);
     }
 
-    return CompileCommandDB([]);
+    return CompileCommandDB(app.data);
 }
 
 /** Return default path if argument is null.
