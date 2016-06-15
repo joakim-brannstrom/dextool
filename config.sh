@@ -1,9 +1,5 @@
 #!/bin/bash
 
-if [[ -n "$LFLAGS_TRAVIS" ]]; then
-    export LFLAGS_TRAVIS=""
-fi
-
 if [[ -n "$LFLAG_CLANG_PATH" ]]; then
     echo "Using user env flag \$LFLAG_CLANG_PATH"
 elif [[ -d "/usr/lib/llvm-3.7/lib" ]]; then
@@ -24,9 +20,8 @@ if [[ -z "$LFLAG_CLANG_PATH" ]]; then
     echo "You must export the environment variable LFLAG_CLANG_PATH with suitable linker flags to allow dmd to find libclang.so.1"
     echo "Example:"
     echo 'export LFLAG_CLANG_PATH="-L/usr/lib/llvm-3.6/lib"'
-    exit 1
+    return 1
 fi
 
 echo "LFLAG_CLANG_PATH=$LFLAG_CLANG_PATH"
 echo "LFLAG_CLANG_LIB=$LFLAG_CLANG_LIB"
-echo "LFLAGS_TRAVIS=$LFLAGS_TRAVIS"

@@ -1,11 +1,3 @@
-# addons:
-#     apt:
-#         packages:
-#         - clang-3.7
-#         sources:
-#         - llvm-toolchain-precise-3.7
-#         - ubuntu-toolchain-r-test
-
 language: d
 d:
     - dmd-2.069.2
@@ -25,15 +17,3 @@ notifications:
 
 git:
     depth: 3
-
-before_install:
-    # Add later version of Clang, apt from llvm.org. the repository link is for development version.
-    # - sudo apt-key adv --fetch-keys http://llvm.org/apt/llvm-snapshot.gpg.key
-    # - sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.7 main'
-    # install packages
-    # - sudo apt-get -qq update
-    # - sudo apt-get --force-yes -y -qq install libclang1-3.7
-    # - sudo apt-get --force-yes -y -qq install clang-3.7
-
-# env:
-    # - LFLAG_CLANG_LIB=":libclang-3.7.so.1"

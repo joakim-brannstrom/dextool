@@ -25,7 +25,6 @@ importPaths "source" "plugin"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH"
-// "$LFLAGS_TRAVIS"
 libs "$LFLAG_CLANG_LIB"
 
 dflags "-dip25"
