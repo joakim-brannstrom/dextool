@@ -44,7 +44,7 @@ alias CompileCommandDB = Typedef!(CompileCommand[], null, "CompileCommandDB");
 // The file may be occur more than one time therefor an array.
 alias CompileCommandSearch = Typedef!(CompileCommand[], null, "CompileCommandSearch");
 
-CompileCommandDB parseCommands(string raw_input) {
+private CompileCommandDB parseCommands(string raw_input) nothrow {
     import std.json;
 
     static Nullable!CompileCommand toCompileCommand(JSONValue v) nothrow {
@@ -89,8 +89,21 @@ CompileCommandDB parseCommands(string raw_input) {
         return r;
     }
 
-    auto json = parseJSON(raw_input);
-    auto cmds = toArray(json);
+    CompileCommand[] cmds;
+    try {
+        auto json = parseJSON(raw_input);
+        cmds = toArray(json);
+    }
+    catch (JSONException ex) {
+        import cpptooling.utility.logger : error;
+
+        error("Error while parsing compilation database: " ~ ex.msg);
+    }
+    catch (Exception ex) {
+        import cpptooling.utility.logger : error;
+
+        error("Error while parsing compilation database: " ~ ex.msg);
+    }
 
     return CompileCommandDB(cmds);
 }
