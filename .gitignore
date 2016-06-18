@@ -13,3 +13,4 @@ test/trace.*
 binary_size.txt
 dub.selections.json
 autobuild
+.autobuild.bin

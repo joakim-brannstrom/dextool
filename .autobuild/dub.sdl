@@ -9,7 +9,7 @@ subPackage "../test/scriptlike/"
 
 dflags "-dip25"
 
-targetName "../autobuild"
+targetName "../.autobuild.bin"
 targetType "executable"
 
 sourceFiles "../autobuild.d" "../test/utils.d"
