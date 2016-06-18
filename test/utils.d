@@ -288,12 +288,23 @@ void stdoutContains(in Path gold) {
  *
  * Return: The runtime in ms.
  */
-auto runDextool(in Path input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+    import std.traits : isArray;
+
     Args args;
     args ~= testEnv.dextool;
     args ~= pre_args.dup;
     args ~= "--out=" ~ testEnv.outdir.escapePath;
-    args ~= input.escapePath;
+
+    static if (isArray!T) {
+        foreach (f; input) {
+            args ~= "--in=" ~ f.escapePath;
+        }
+    } else {
+        if (input.escapePath.length > 0) {
+            args ~= "--in=" ~ input.escapePath;
+        }
+    }
 
     if (flags.length > 0) {
         args ~= "--";

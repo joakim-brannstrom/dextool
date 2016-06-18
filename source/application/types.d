@@ -35,3 +35,4 @@ alias MainInterface = Typedef!(string, string.init, "MainInterface");
 alias DirName = Typedef!(string, string.init, "DirectoryName");
 
 alias FileName = Typedef!(string, string.init, "FileName");
+alias FileNames = Typedef!(string[], null, "FileNames");

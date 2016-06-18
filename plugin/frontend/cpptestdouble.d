@@ -46,8 +46,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto cpptestdouble_opt = CliOptionParts(
     "usage:
- dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
- dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+ dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
+ dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
     // -------------
     " --out=dir          directory for generated files [default: ./]
  --main=name        Used as part of interface, namespace etc [default: TestDouble]
@@ -59,11 +59,12 @@ static auto cpptestdouble_opt = CliOptionParts(
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
     // -------------
 "others:
+ --in=              Input files to parse
  --compile-db=j     Retrieve compilation parameters from the file
- --file-exclude=    Exclude files from generation matching the regex.
+ --file-exclude=    Exclude files from generation matching the regex
  --file-restrict=   Restrict the scope of the test double to those files
                     matching the regex.
- --td-include=      User supplied includes used instead of those found.
+ --td-include=      User supplied includes used instead of those found
 "
 );
 // dfmt on
@@ -71,6 +72,7 @@ static auto cpptestdouble_opt = CliOptionParts(
 /** Test double generation of C++ code.
  *
  * TODO Describe the options.
+ * TODO implement --in=...
  */
 class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.string : toLower;
@@ -89,7 +91,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     immutable StubPrefix prefix;
     immutable StubPrefix file_prefix;
 
-    immutable FileName input_file;
+    FileNames input_files;
     immutable DirName output_dir;
     immutable FileName main_file_hdr;
     immutable FileName main_file_impl;
@@ -136,7 +138,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         }
 
         auto variant = new CppTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
-                FileName(parsed["FILE"].toString), MainFileName(parsed["--main-fname"].toString),
+                FileNames(parsed["--in"].asList), MainFileName(parsed["--main-fname"].toString),
                 MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
                 gmock, pre_incl, post_incl, strip_incl);
 
@@ -159,12 +161,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file, MainFileName main_fname, MainName main_name,
+    this(StubPrefix prefix, StubPrefix file_prefix, FileNames input_files, MainFileName main_fname, MainName main_name,
             DirName output_dir, Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
             Flag!"PostInclude" post_incl, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
-        this.input_file = input_file;
+        this.input_files = input_files;
         this.main_name = main_name;
         this.main_ns = MainNs(cast(string) main_name);
         this.main_if = MainInterface("I_" ~ cast(string) main_name);
@@ -196,8 +198,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     /// User supplied files used as input.
-    FileName getInputFile() {
-        return input_file;
+    FileNames getInputFile() {
+        return input_files;
     }
 
     // -- Controller --
@@ -319,7 +321,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import plugin.backend.cppvariant : Generator;
 
     auto cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
+    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile[0]).asAbsolutePath.text;
     logger.trace("Input file: ", input_file);
 
     if (compile_db.length > 0) {

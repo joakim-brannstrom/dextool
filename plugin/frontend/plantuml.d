@@ -26,7 +26,7 @@ import application.compilation_db;
 
 /** Contains the file processing directives after parsing user arguments.
  *
- * If not FILE argument then it is assumed that all files in the CompileDB
+ * If no --in argument then it is assumed that all files in the CompileDB
  * shall be processed.
  *
  * Indicated by the directive All.
@@ -73,10 +73,11 @@ auto runPlugin(CliOption opt, CliArgs args) {
     }
 
     FileProcess file_process;
-    if (parsed["FILE"].isNull) {
+    if (parsed["--in"].isEmpty) {
         file_process = FileProcess.make;
     } else {
-        file_process = FileProcess.make(FileName(parsed["FILE"].toString));
+        //TODO part of the multi file handling
+        file_process = FileProcess.make(FileName(parsed["--in"].asList[0]));
     }
 
     auto skipFileError = parsed["--skip-file-error"].isTrue ? Yes.skipFileError : No.skipFileError;
@@ -87,8 +88,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto plantuml_opt = CliOptionParts(
     "usage:
- dextool uml [options] [--compile-db=...] [--file-exclude=...] [FILE] [--] [CFLAGS...]
- dextool uml [options] [--compile-db=...] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
+ dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
+ dextool uml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --file-prefix=p     Prefix used when generating test artifacts [default: view_]
@@ -102,15 +103,18 @@ static auto plantuml_opt = CliOptionParts(
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
+ --in=              Input files to parse
  --compile-db=j      Retrieve compilation parameters from the file
- --file-exclude=     Exclude files from generation matching the regex.
+ --file-exclude=     Exclude files from generation matching the regex
  --file-restrict=    Restrict the scope of the test double to those files
-                     matching the regex.
+                     matching the regex
 "
 );
 // dfmt on
 
-/** Frontend for PlantUML generator
+/** Frontend for PlantUML generator.
+ *
+ * TODO implement --in=... for multi-file handling
  */
 class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
@@ -128,7 +132,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     static const inclExt = ".iuml";
 
     // TODO ugly hack to remove immutable. Fix it appropriately
-    FileName input_file;
+    FileNames input_files;
     immutable DirName output_dir;
     immutable FileName file_classes;
     immutable FileName file_components;
