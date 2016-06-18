@@ -9,7 +9,7 @@ subPackage "./scriptlike/"
 importPaths "."
 
 configuration "external_tests" {
-    targetName "external_tests"
+    targetName ".external_tests.bin"
     targetType "executable"
 
     sourceFiles "cstub_tests.d" "cpp_tests.d" "plantuml_tests.d" "utils.d"

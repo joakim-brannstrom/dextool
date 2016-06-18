@@ -199,6 +199,14 @@ struct ArrayType {
     Type type;
     alias type this;
 
+    this(Type type)
+    in {
+        assert(type.isArray);
+    }
+    body {
+        this.type = type;
+    }
+
     /** Return the element type of an array, complex, or vector type.
      *
      * If a type is passed in that is not an array, complex, or vector type,
@@ -207,6 +215,19 @@ struct ArrayType {
     @property Type elementType() {
         auto r = clang_getElementType(cx);
         return Type(type.cursor, r);
+    }
+
+    /** Return: Number of dimensions the array consist of */
+    @property size_t numDimensions() {
+        size_t result = 1;
+        auto subtype = elementType();
+
+        while (subtype.isArray) {
+            ++result;
+            subtype = subtype.array.elementType();
+        }
+
+        return result;
     }
 
     /** Return the number of elements of an array or vector type.

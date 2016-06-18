@@ -1,5 +1,6 @@
 .profile_test
 external_tests
+.external_tests.bin
 *.log
 c_tests/
 cpp_tests/

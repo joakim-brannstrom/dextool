@@ -110,26 +110,35 @@ struct SourceLocation {
     }
 
     /// Get the line represented by this source location.
-    /// TODO implement with a cache, this is inefficient.
-    @property uint line() const @safe {
-        return spelling.line;
+    @property uint line() const @trusted {
+        uint result;
+        clang_getSpellingLocation(cx, null, &result, null, null);
+        return result;
     }
 
     /// Get the column represented by this source location.
-    /// TODO implement with a cache, this is inefficient.
-    @property uint column() const @safe {
-        return spelling.column;
+    @property uint column() const @trusted {
+        uint result;
+        clang_getSpellingLocation(cx, null, null, &result, null);
+        return result;
     }
 
     /// Get the file offset represented by this source location.
-    /// TODO implement with a cache, this is inefficient.
-    @property uint offset() const @safe {
-        return spelling.offset;
+    @property uint offset() const @trusted {
+        uint result;
+        clang_getSpellingLocation(cx, null, null, null, &result);
+        return result;
     }
 
     /// The path the SourceLocation point to.
-    @property string path() const @safe {
-        return spelling.file.name;
+    @property string path() const @trusted {
+        File file;
+        clang_getSpellingLocation(cx, &file.cx, null, null, null);
+        return file.name;
+    }
+
+    @property bool isFromMainFile() const {
+        return clang_Location_isFromMainFile(cx) != 0;
     }
 
     /** Retrieve the file, line, column, and offset represented by
