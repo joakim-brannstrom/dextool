@@ -47,27 +47,18 @@ body {
     import std.conv : to;
     import clang.SourceLocation;
 
-    int backtracked = 0;
-
     // strategy 1, derive from lexical parent
-    string usr = backtrackLocation(c, backtracked);
+    auto loc_ = backtrackLocation(c);
 
     // strategy 2, I give up.
     // Problem with this is that it isn't possible to reverse engineer.
-    if (usr.length == 0) {
-        backtracked = 1;
-        usr = c.toHash.to!string;
+    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
+        loc_.backtracked = 1;
+        loc_.tag = c.toHash.to!string;
     }
 
-    // using a suffix that do NOT exist in the clang USR standard.
-    // TODO lookup the algorithm for clang USR to see if $ is valid.
-    enum suffix_marker = '$';
-
     auto app = appender!string();
-    app.put(usr);
-    app.put(suffix_marker);
-    app.put(backtracked.to!string);
-    app.put(c.spelling);
+    putBacktrackLocation(c, loc_, app);
 
     return USRType(app.data);
 }
@@ -117,31 +108,75 @@ void assertTypeResult(const ref TypeResult result) {
     }
 }
 
-/// using a for loop to ensure it is NOT an infinite loop.
-/// hoping 100 is enough for all type of nesting to reach at least
-/// translation unit.
-private auto backtrackLocation(ref Cursor c, out int backtracked) {
-    import clang.SourceLocation;
+struct BacktrackLocation {
+    static import clang.SourceLocation;
+    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
 
-    string out_loc;
+    union TagType {
+        typeof(null) null_;
+        clang.SourceLocation.SourceLocation.Location loc;
+        string spelling;
+    }
+
+    alias Tag = TaggedAlgebraic!TagType;
+
+    Tag tag;
+
+    /// Number of nodes backtracked through until a valid was found
+    int backtracked;
+}
+
+/** Lexical backtrack from the argument cursor to first cursor with a valid
+ * location.
+ *
+ * using a for loop to ensure it is NOT an infinite loop.
+ * hoping 100 is enough for all type of nesting to reach at least translation
+ * unit.
+ *
+ * Return: Location and nr of backtracks needed.
+ */
+private BacktrackLocation backtrackLocation(ref Cursor c) {
+    BacktrackLocation rval;
 
     auto parent = c;
-    for (auto i = 0; out_loc.length == 0 && i < 100; ++i, ++backtracked) {
+    for (rval.backtracked = 0; rval.tag.kind == BacktrackLocation.Tag.Kind.null_
+            && rval.backtracked < 100; ++rval.backtracked) {
         auto loc = parent.location;
         if (loc.file.toString.length != 0) {
-            out_loc = loc.toString;
+            rval.tag = loc.spelling;
         } else if (parent.isTranslationUnit) {
-            out_loc = parent.spelling;
+            rval.tag = parent.spelling;
             break;
         }
 
         parent = parent.lexicalParent;
     }
 
-    return out_loc;
+    return rval;
 }
 
-//TODO harmonize code with makeFallbackUSR, kind a code duplication
+/// TODO consider if .offset should be used too. But may make it harder to
+/// reverse engineer a location.
+private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, ref T app) {
+    // using a suffix that do NOT exist in the clang USR standard.
+    // TODO lookup the algorithm for clang USR to see if $ is valid.
+    enum marker = '$';
+
+    final switch (back_loc.tag.kind) with (BacktrackLocation.Tag) {
+    case Kind.loc:
+        app.put(back_loc.tag.toString);
+        break;
+    case Kind.spelling:
+        app.put(to!string(back_loc.tag));
+        break;
+    case Kind.null_:
+        break;
+    }
+    app.put(marker);
+    app.put(back_loc.backtracked.to!string);
+    app.put(c.spelling);
+}
+
 private Location makeLocation(ref Cursor c) {
     import std.array : appender;
 
@@ -152,17 +187,10 @@ private Location makeLocation(ref Cursor c) {
         return rval;
     }
 
-    //TODO change name... confusing loc and loc_
-    int backtracked;
-    auto loc_ = backtrackLocation(c, backtracked);
-
-    enum suffix_marker = '$';
+    auto back_loc = backtrackLocation(c);
 
     auto app = appender!string();
-    app.put(loc_);
-    app.put(suffix_marker);
-    app.put(backtracked.to!string);
-    app.put(c.spelling);
+    putBacktrackLocation(c, back_loc, app);
 
     rval.file = app.data;
     return rval;

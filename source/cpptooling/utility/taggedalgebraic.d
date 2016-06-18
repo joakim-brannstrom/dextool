@@ -296,7 +296,7 @@ unittest {
     static union U {
         S s;
     }
-    
+
     auto u = TaggedAlgebraic!U(S.init);
     const uc = u;
     immutable ui = cast(immutable)u;
