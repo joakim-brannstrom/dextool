@@ -325,11 +325,11 @@ struct Cursor {
         return result.stripRight!(token => !intersects(extent, token.extent));
     }
 
-    @property ObjcCursor objc() {
+    @property ObjcCursor objc() const {
         return ObjcCursor(this);
     }
 
-    @property FunctionCursor func() {
+    @property FunctionCursor func() const {
         return FunctionCursor(this);
     }
 
@@ -337,12 +337,44 @@ struct Cursor {
         return EnumCursor(this);
     }
 
-    @property AccessCursor access() {
+    @property AccessCursor access() const {
         return AccessCursor(this);
     }
 
-    @property Visitor all() {
+    @property IncludeCursor include() const {
+        return IncludeCursor(this);
+    }
+
+    string includedPath() {
+        auto file = clang_getIncludedFile(cx);
+        return toD(clang_getFileName(file));
+    }
+
+    @property Visitor all() const {
         return Visitor(this);
+    }
+
+    @property InOrderVisitor allInOrder() const {
+        return InOrderVisitor(this);
+    }
+
+    private Cursor[] childrenImpl(T)(bool ignorePredefined) const {
+        import std.array : appender;
+
+        Cursor[] result;
+        auto app = appender(result);
+
+        if (ignorePredefined && isTranslationUnit) {
+            foreach (cursor, _; T(this)) {
+                if (!cursor.isPredefined)
+                    app.put(cursor);
+            }
+        } else {
+            foreach (cursor, _; T(this))
+                app.put(cursor);
+        }
+
+        return app.data;
     }
 
     /** Array of all children of the cursor.
@@ -350,24 +382,12 @@ struct Cursor {
      * Params:
      *  ignorePredefined = ignore cursors for primitive types.
      */
-    @property Cursor[] children(bool ignorePredefined = false) {
-        import std.array : appender;
-        import std.stdio;
+    Cursor[] children(bool ignorePredefined = false) const {
+        return childrenImpl!Visitor(ignorePredefined);
+    }
 
-        Cursor[] result = [];
-        auto app = appender(result);
-
-        if (ignorePredefined && isTranslationUnit) {
-            foreach (cursor, _; all) {
-                if (!cursor.isPredefined)
-                    app.put(cursor);
-            }
-        } else {
-            foreach (cursor, _; all)
-                app.put(cursor);
-        }
-
-        return app.data;
+    Cursor[] childrenInOrder(bool ignorePredefined = false) const {
+        return childrenImpl!InOrderVisitor(ignorePredefined);
     }
 
     /// Determine whether two cursors are equivalent.
@@ -458,6 +478,13 @@ struct Cursor {
      */
     @property bool isPreprocessing() const {
         return clang_isPreprocessing(cx.kind) != 0;
+
+        // If clang_isPreprocessing isn't working out this is the
+        // implementation from DStep.
+
+        //CXCursorKind kind = clang_getCursorKind(cx);
+        //return CXCursorKind.CXCursor_FirstPreprocessing <= kind &&
+        //    kind <= CXCursorKind.CXCursor_LastPreprocessing;
     }
 
     /** Determine whether the given cursor represents a currently unexposed

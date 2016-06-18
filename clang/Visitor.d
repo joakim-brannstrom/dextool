@@ -15,14 +15,29 @@ struct Visitor {
     alias Delegate = int delegate(ref Cursor, ref Cursor);
     alias OpApply = int delegate(Delegate dg);
 
-    private Cursor cursor;
+    private CXCursor cursor;
 
-    this(Cursor cursor) {
+    this(CXCursor cursor) {
         this.cursor = cursor;
     }
 
+    this(Cursor cursor) {
+        this.cursor = cursor.cx;
+    }
+
     int opApply(Delegate dg) {
-        auto data = OpApplyData(dg, cursor.translationUnit);
+        auto data = OpApplyData(dg);
+        clang_visitChildren(cursor, &visitorFunction, cast(CXClientData)&data);
+
+        return data.returnCode;
+    }
+
+    int opApply(int delegate(ref Cursor) dg) {
+        int wrapper(ref Cursor cursor, ref Cursor) {
+            return dg(cursor);
+        }
+
+        auto data = OpApplyData(&wrapper);
         clang_visitChildren(cursor, &visitorFunction, cast(CXClientData)&data);
 
         return data.returnCode;
@@ -46,11 +61,9 @@ private:
     static struct OpApplyData {
         int returnCode;
         Delegate dg;
-        TranslationUnit tu;
 
-        this(Delegate dg, TranslationUnit tu) {
+        this(Delegate dg) {
             this.dg = dg;
-            this.tu = tu;
         }
     }
 
@@ -61,10 +74,90 @@ private:
             this.visitor = visitor;
         }
 
+        this(CXCursor cursor) {
+            visitor = Visitor(cursor);
+        }
+
         this(Cursor cursor) {
             visitor = Visitor(cursor);
         }
     }
+}
+
+struct InOrderVisitor {
+    alias int delegate(ref Cursor, ref Cursor) Delegate;
+
+    private Cursor cursor;
+
+    this(CXCursor cursor) {
+        this.cursor = Cursor(cursor);
+    }
+
+    this(Cursor cursor) {
+        this.cursor = cursor;
+    }
+
+    int opApply(Delegate dg) {
+        import std.array;
+
+        auto visitor = Visitor(cursor);
+        int result = 0;
+
+        auto macrosAppender = appender!(Cursor[])();
+        size_t itr = 0;
+
+        foreach (cursor, _; visitor) {
+            if (cursor.isPreprocessing)
+                macrosAppender.put(cursor);
+        }
+
+        auto macros = macrosAppender.data;
+        auto query = cursor.translationUnit.relativeLocationAccessorImpl(macros);
+
+        ulong macroIndex = macros.length != 0 ? query(macros[0].location) : ulong.max;
+
+        size_t jtr = 0;
+
+        foreach (cursor, parent; visitor) {
+            if (!cursor.isPreprocessing) {
+                ulong cursorIndex = query(cursor.location);
+
+                while (macroIndex < cursorIndex) {
+                    Cursor macroParent = macros[jtr].semanticParent;
+
+                    result = dg(macros[jtr], macroParent);
+
+                    if (result)
+                        return result;
+
+                    ++jtr;
+
+                    macroIndex = jtr < macros.length ? query(macros[jtr].location) : ulong.max;
+                }
+
+                result = dg(cursor, parent);
+
+                if (result)
+                    return result;
+            }
+        }
+
+        while (jtr < macros.length) {
+            Cursor macroParent = macros[jtr].semanticParent;
+
+            result = dg(macros[jtr], macroParent);
+
+            if (result)
+                return result;
+
+            ++jtr;
+        }
+
+        return result;
+    }
+
+private:
+
 }
 
 struct DeclarationVisitor {
