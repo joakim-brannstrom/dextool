@@ -110,7 +110,7 @@ struct Cursor {
      * The location of a reference is where that reference occurs within the
      * source code.
      */
-    @property SourceLocation location() const {
+    @property SourceLocation location() const @trusted {
         return SourceLocation(clang_getCursorLocation(cx));
     }
 
