@@ -324,11 +324,12 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
+    import cpptooling.data.representation : CxLocation;
     import plugin.backend.plantuml : Generator;
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
-        auto cflags = prependDefaultFlags(in_cflags, "");
+        const auto cflags = prependDefaultFlags(in_cflags, "");
         auto generator = Generator(variant, variant, variant);
         Container symbol_container;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
@@ -339,18 +340,18 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.trace("Input file: ", cast(string) entry.absoluteFile);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
-            Nullable!CppRoot partial_root;
-            analyzeFile(cast(string) entry.absoluteFile, entry_cflags,
-                    symbol_container, partial_root);
+            auto partial_root = CppRoot(CxLocation(cast(string) entry.absoluteFile, 0, 0));
+            auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
+                    entry_cflags, symbol_container, partial_root);
 
             // compile error, let user decide how to proceed.
-            if (partial_root.isNull && skipFileError) {
+            if (analyze_status == ExitStatusType.Errors && skipFileError) {
                 logger.errorf("Continue analyze...");
                 unable_to_parse ~= entry.absoluteFile;
-            } else if (partial_root.isNull) {
+            } else if (analyze_status == ExitStatusType.Errors) {
                 return ExitStatusType.Errors;
             } else {
-                generator.analyze(partial_root.get, symbol_container);
+                generator.analyze(partial_root, symbol_container);
             }
         }
 
@@ -385,16 +386,14 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         Container symbol_container;
-        Nullable!CppRoot root;
-        analyzeFile(input_file, cflags, symbol_container, root);
-
-        if (root.isNull) {
+        auto root = CppRoot(CxLocation(input_file, 0, 0));
+        if (analyzeFile(input_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
         // process and put the data in variant.
         auto generator = Generator(variant, variant, variant);
-        generator.analyze(root.get, symbol_container);
+        generator.analyze(root, symbol_container);
         generator.process();
         break;
     }

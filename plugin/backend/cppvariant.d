@@ -258,10 +258,10 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : among, each, filter;
     import std.range : tee;
 
-    auto raw = CppRoot(input.location);
+    auto raw = CppRoot(input.lastLocation);
 
-    if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
-        prod.putLocation(FileName(input.location.file), LocationType.Root);
+    if (ctrl.doFile(input.lastLocation.file, "root " ~ input.lastLocation.toString)) {
+        prod.putLocation(FileName(input.lastLocation.file), LocationType.Root);
     }
 
     // Assuming that namespaces are never duplicated at this stage.
@@ -277,9 +277,9 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
             // only classes with virtual functions are mocked
             .filter!(a => a.isVirtual)
             // ask controller if the file should be mocked, and thus the node
-            .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+            .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
             // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
             // the class shall be further processed
             .each!(a => raw.put(a));
     }
@@ -307,8 +307,8 @@ body {
         .dedup
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
-        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
         .each!(a => ns.put(a));
 
     input.namespaceRange
@@ -319,9 +319,9 @@ body {
     if (ctrl.doGoogleMock) {
         input.classRange
             .filter!(a => a.isVirtual)
-            .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+            .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
             // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
             .each!(a => ns.put(a));
     }
     //dfmt on
@@ -333,7 +333,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
     import std.array;
     import std.algorithm : map, filter, each, among;
 
-    auto r = CppRoot(root.location);
+    auto r = CppRoot(root.lastLocation);
 
     // dfmt off
     root.namespaceRange
@@ -597,7 +597,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
     auto methods = dedup(getMethods(class_, container));
 
-    auto c = CppClass(class_.name, class_.location, class_.inherits, class_.resideInNs);
+    auto c = CppClass(class_.name, class_.lastLocation, class_.inherits, class_.resideInNs);
     // dfmt off
     () @trusted {
         import std.algorithm : each;

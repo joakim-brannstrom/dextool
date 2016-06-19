@@ -145,14 +145,25 @@ struct StubGenerator {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
+        this.raw = CppRoot.make;
+    }
+
+    /** Analyse and store the content of root.
+     *
+     * Analyse consist of a filtering.
+     * filters the structural data.
+     * Controller is involved to allow filtering of identifiers in files.
+     */
+    void analyse(ref CppRoot root, ref Container container) {
+        logger.trace("Raw:\n", root.toString());
+
+        rawFilter(root, ctrl, products, raw);
+        logger.trace("Filtered:\n", raw.toString());
     }
 
     /** Process structural data to a test double.
      *
-     * filter -> translate -> code generation.
-     *
-     * filters the structural data.
-     * Controller is involved to allow filtering of identifiers in files.
+     * translate -> code generation.
      *
      * Translate analyzes what is left after filtering.
      * On demand extra data is created. An example of on demand is --gmock.
@@ -163,7 +174,7 @@ struct StubGenerator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(CppRoot root, ref Container container) {
+    auto process(ref Container container) {
         import std.array;
         import cpptooling.data.representation : CppNamespace, CppNs;
         import cpptooling.generator.func : makeFuncInterface;
@@ -173,19 +184,14 @@ struct StubGenerator {
                 MainInterface, ClassType);
         alias makeCStubGlobal = cpptooling.generator.adapter.makeSingleton!NamespaceType;
 
-        logger.trace("Raw:\n", root.toString());
-
-        auto raw = rawFilter(root, ctrl, products);
-        logger.trace("Filtered:\n", raw.toString());
-
         // Does it have any C functions?
-        if (raw.funcRange().length != 0) {
+        if (!raw.funcRange.empty) {
             raw.put(makeCStubGlobal(params.getMainNs, params.getMainInterface));
 
             auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
             ns.setKind(NamespaceType.TestDouble);
 
-            auto c_if = makeFuncInterface(raw.funcRange(), params.getMainInterface);
+            auto c_if = makeFuncInterface(raw.funcRange, params.getMainInterface);
 
             ns.put(c_if);
             if (ctrl.doGoogleMock) {
@@ -206,6 +212,8 @@ struct StubGenerator {
     }
 
 private:
+    CppRoot raw;
+
     StubController ctrl;
     StubParameters params;
     StubProducts products;
@@ -286,52 +294,32 @@ enum NamespaceType {
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
  */
-CppRoot rawFilter(CppRoot input, StubController ctrl, StubProducts prod) {
-    import std.algorithm : filter, each;
+void rawFilter(CppRoot input, StubController ctrl, StubProducts prod, ref CppRoot raw) {
+    import std.algorithm : filter, each, map, cache;
     import std.range : tee;
     import cpptooling.data.representation : dedup, StorageClass;
 
-    auto raw = CppRoot(input.location);
-
-    if (ctrl.doFile(input.location.file, "root " ~ input.location.toString)) {
-        prod.putLocation(FileName(input.location.file), LocationType.Root);
+    if (ctrl.doFile(input.lastLocation.file, "root " ~ input.lastLocation.toString)) {
+        prod.putLocation(FileName(input.lastLocation.file), LocationType.Root);
     }
 
     // dfmt off
     input.funcRange
-        .dedup
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
         // ask controller if to generate a test double for the function
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
         // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+        .each!(a => raw.put(a));
+
+    input.globalRange()
+        // ask controller if to generate a definitions
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        // pass on location as a product to be used to calculate #include
+        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
         .each!(a => raw.put(a));
     // dfmt on
-
-    foreach (g; input.globalRange().dedup) {
-        auto r = translateCGlobal(g, ctrl, prod);
-        if (!r.isNull) {
-            raw.put(r.get);
-        }
-    }
-
-    return raw;
-}
-
-auto translateCGlobal(CxGlobalVariable g, StubController ctrl, StubProducts prod) {
-    import cpptooling.utility.nullvoid;
-
-    NullableVoid!CxGlobalVariable r;
-
-    if (ctrl.doFile(g.location.file, cast(string) g.name ~ " " ~ g.location.toString)) {
-        r = g;
-        prod.putLocation(FileName(g.location.file), LocationType.Leaf);
-    } else {
-        logger.info("Ignoring global variable: ", g.toString);
-    }
-
-    return r;
 }
 
 void generate(CppRoot r, StubController ctrl, StubParameters params,
@@ -343,8 +331,9 @@ void generate(CppRoot r, StubController ctrl, StubParameters params,
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes;
 
-    generateC!(StubController, StubParameters)(ctrl, params, hdr);
+    generateC(ctrl, params, hdr);
 
+    //TODO refactor to using ranges
     auto globalR = r.globalRange();
     if (!globalR.empty) {
         globalR.each!((a) {
@@ -381,7 +370,7 @@ void generate(CppRoot r, StubController ctrl, StubParameters params,
     // The generated functions must be extern C declared.
     auto extern_c = impl.suite("extern \"C\"");
     extern_c.suppressIndent(1);
-    r.funcRange().each!((a) { generateFuncImpl(a, extern_c); });
+    r.funcRange.each!((a) { generateFuncImpl(a, extern_c); });
 }
 
 void generateCGlobalPreProcessorDefine(CxGlobalVariable g, string prefix, CppModule code) {

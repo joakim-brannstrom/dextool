@@ -321,11 +321,11 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import plugin.backend.cppvariant : Generator;
 
     auto cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile[0]).asAbsolutePath.text;
-    logger.trace("Input file: ", input_file);
+    auto in_file = buildNormalizedPath(cast(string) variant.getInputFile[0]).asAbsolutePath.text;
+    logger.trace("Input file: ", in_file);
 
     if (compile_db.length > 0) {
-        auto db_cflags = compile_db.appendOrError(cflags, input_file);
+        auto db_cflags = compile_db.appendOrError(cflags, in_file);
         if (db_cflags.isNull) {
             return ExitStatusType.Errors;
         }
@@ -333,15 +333,13 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     }
 
     Container symbol_container;
-    Nullable!CppRoot root;
-    analyzeFile(input_file, cflags, symbol_container, root);
-
-    if (root.isNull) {
+    auto root = CppRoot(CxLocation(in_file, 0, 0));
+    if (analyzeFile(in_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(root.get, symbol_container);
+    Generator(variant, variant, variant).process(root, symbol_container);
 
     return writeFileData(variant.file_data);
 }

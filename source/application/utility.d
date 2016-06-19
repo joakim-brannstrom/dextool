@@ -82,12 +82,12 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
-auto prependDefaultFlags(string[] in_cflags, string prefer_lang) {
+auto prependDefaultFlags(in string[] in_cflags, in string prefer_lang) {
     return "-fsyntax-only" ~ prependLangFlagIfMissing(in_cflags, prefer_lang);
 }
 
 ///TODO move to clang module.
-auto prependLangFlagIfMissing(string[] in_cflags, string prefer_lang) {
+auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
     import std.algorithm : findAmong;
 
     auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
@@ -147,6 +147,8 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
 }
 
 /** Includes intended for the test double. Filtered according to the user.
+ *
+ * TODO must handle many roots, unsure if it does atm.
  *
  * States:
  *  - Normal.
@@ -219,8 +221,18 @@ struct TdIncludes {
     }
 }
 
-void analyzeFile(string input_file, string[] cflags, ref Container container,
-        out Nullable!CppRoot root) {
+/** Analyze the input and store result in container and root.
+ *
+ * Params:
+ *  input_file = path to a file to analyze
+ *  cflags = compiler flags to pass on to clang
+ *  container = container to store symbols and classes in
+ *  out_ = push the structural representation into
+ *
+ * Returns: if the analyze was performed ok or errors occured
+ */
+ExitStatusType analyzeFile(in string input_file, in string[] cflags,
+        ref Container container, ref CppRoot out_) {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.context;
@@ -228,7 +240,7 @@ void analyzeFile(string input_file, string[] cflags, ref Container container,
 
     if (!exists(input_file)) {
         logger.errorf("File '%s' do not exist", input_file);
-        return;
+        return ExitStatusType.Errors;
     }
 
     // Get and ensure the clang context is valid
@@ -236,13 +248,13 @@ void analyzeFile(string input_file, string[] cflags, ref Container container,
     if (file_ctx.hasParseErrors) {
         logDiagnostic(file_ctx);
         logger.error("Compile error...");
-        return;
+        return ExitStatusType.Errors;
     }
 
-    auto ctx = ParseContext(container);
+    auto ctx = ParseContext(out_, container);
     ctx.visit(file_ctx.cursor);
 
-    root = ctx.root;
+    return ExitStatusType.Ok;
 }
 
 ExitStatusType writeFileData(T)(ref T data) {

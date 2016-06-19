@@ -6,6 +6,9 @@
 #ifndef TEST_INIT_b
 #define TEST_INIT_b const int *b
 #endif // TEST_INIT_b
+#ifndef TEST_INIT_bar
+#define TEST_INIT_bar const Foo bar
+#endif // TEST_INIT_bar
 #ifndef TEST_INIT_c
 #define TEST_INIT_c int *const c
 #endif // TEST_INIT_c
@@ -21,15 +24,12 @@
 #ifndef TEST_INIT_g
 #define TEST_INIT_g int *const *const g
 #endif // TEST_INIT_g
-#ifndef TEST_INIT_bar
-#define TEST_INIT_bar const Foo bar
-#endif // TEST_INIT_bar
 
 TEST_INIT_a;
 TEST_INIT_b;
+TEST_INIT_bar;
 TEST_INIT_c;
 TEST_INIT_d;
 TEST_INIT_e;
 TEST_INIT_f;
 TEST_INIT_g;
-TEST_INIT_bar;

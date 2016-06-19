@@ -16,12 +16,12 @@ Adapter::~Adapter() {
 } //NS:TestDouble
 
 extern "C" {
-void fun_b() {
-    test_double_inst->fun_b();
-}
-
 void fun_a() {
     test_double_inst->fun_a();
+}
+
+void fun_b() {
+    test_double_inst->fun_b();
 }
 
 }

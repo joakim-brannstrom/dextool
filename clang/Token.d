@@ -84,7 +84,7 @@ struct Token {
 
     /** The spelling of this token.
      *
-     *  This is the textual representation of the token in source.
+     * This is the textual representation of the token in source.
      */
     @property string spelling() const {
         auto r = clang_getTokenSpelling(containerPtr.translationUnit, containerPtr.tokens[index]);

@@ -16,56 +16,40 @@ Adapter::~Adapter() {
 } //NS:TestDouble
 
 extern "C" {
-void func_void() {
-    test_double_inst->func_void();
-}
-
-int func_return() {
-    return test_double_inst->func_return();
-}
-
-int func_one_named(int a) {
-    return test_double_inst->func_one_named(a);
-}
-
-void func_two_named(int a, int b) {
-    test_double_inst->func_two_named(a, b);
-}
-
-void func_three_named(int a, int b, int c) {
-    test_double_inst->func_three_named(a, b, c);
+const int c_func_one_named(const int a) {
+    return test_double_inst->c_func_one_named(a);
 }
 
 const int c_func_return() {
     return test_double_inst->c_func_return();
 }
 
-const int c_func_one_named(const int a) {
-    return test_double_inst->c_func_one_named(a);
+int func_extern(int out) {
+    return test_double_inst->func_extern(out);
 }
 
-void c_func_two_named(const int a, const int b) {
-    test_double_inst->c_func_two_named(a, b);
+int func_one_named(int a) {
+    return test_double_inst->func_one_named(a);
 }
 
-void c_func_three_named(const int a, const int b, const int c) {
-    test_double_inst->c_func_three_named(a, b, c);
-}
-
-void func_variadic() {
-    test_double_inst->func_variadic();
+int func_return() {
+    return test_double_inst->func_return();
 }
 
 int func_variadic_one_unnamed(char *x0, ...) {
     return test_double_inst->func_variadic_one_unnamed(x0);
 }
 
-int func_extern(int out) {
-    return test_double_inst->func_extern(out);
+void c_func_three_named(const int a, const int b, const int c) {
+    test_double_inst->c_func_three_named(a, b, c);
 }
 
-void unnamed_params(int x0, int x1) {
-    test_double_inst->unnamed_params(x0, x1);
+void c_func_two_named(const int a, const int b) {
+    test_double_inst->c_func_two_named(a, b);
+}
+
+void c_func_with_struct(const struct A *a) {
+    test_double_inst->c_func_with_struct(a);
 }
 
 void fun(func_ptr2 p, Something_Big b) {
@@ -76,8 +60,24 @@ void func_ptr_arg(int (*a)(int p, int ), int b) {
     test_double_inst->func_ptr_arg(a, b);
 }
 
-void c_func_with_struct(const struct A *a) {
-    test_double_inst->c_func_with_struct(a);
+void func_three_named(int a, int b, int c) {
+    test_double_inst->func_three_named(a, b, c);
+}
+
+void func_two_named(int a, int b) {
+    test_double_inst->func_two_named(a, b);
+}
+
+void func_variadic() {
+    test_double_inst->func_variadic();
+}
+
+void func_void() {
+    test_double_inst->func_void();
+}
+
+void unnamed_params(int x0, int x1) {
+    test_double_inst->unnamed_params(x0, x1);
 }
 
 }

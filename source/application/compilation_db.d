@@ -151,7 +151,22 @@ CompileDbJsonPath[] orDefaultDb(string[] cli_path) @safe pure nothrow {
  * Params:
  *  abs_filename = absolute filename to use as key when searching in the db
  */
-CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe /*pure nothrow @nogc*/ {
+CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe /*pure nothrow @nogc*/
+
+
+
+in {
+    import cpptooling.utility.logger;
+
+    trace("Looking for " ~ abs_filename);
+}
+out (result) {
+    import std.conv : to;
+    import cpptooling.utility.logger;
+
+    trace("Found " ~ to!string(result));
+}
+body {
     import std.algorithm : find;
     import std.range : takeOne;
 
@@ -171,6 +186,9 @@ Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflag
     debug {
         logger.trace(compile_commands.length > 0,
                 "CompilationDatabase match (by filename):\n", compile_commands.toString);
+        if (compile_commands.length == 0) {
+            logger.trace(compile_db.toString);
+        }
     }
 
     typeof(return) rval;
