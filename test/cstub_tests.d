@@ -20,6 +20,8 @@ struct TestParams {
 
     Path root;
     Path input_ext;
+
+    Path base_cmp;
     Path out_hdr;
     Path out_impl;
     Path out_global;
@@ -41,6 +43,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 
     p.root = Path("testdata/cstub").absolutePath;
     p.input_ext = p.root ~ Path(f);
+    p.base_cmp = p.input_ext.stripExtension;
 
     p.out_hdr = testEnv.outdir ~ "test_double.hpp";
     p.out_impl = testEnv.outdir ~ "test_double.cpp";
@@ -64,13 +67,13 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 
     if (!p.skipCompare) {
         dextoolYap("Comparing");
-        auto input = p.input_ext.stripExtension;
+        Path base = p.base_cmp;
         // dfmt off
         compareResult(
-                      GR(input ~ Ext(".hpp.ref"), p.out_hdr),
-                      GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                      GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global),
-                      GR(Path(input.toString ~ "_gmock.hpp.ref"), p.out_gmock));
+                      GR(base ~ Ext(".hpp.ref"), p.out_hdr),
+                      GR(base ~ Ext(".cpp.ref"), p.out_impl),
+                      GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
+                      GR(Path(base.toString ~ "_gmock.hpp.ref"), p.out_gmock));
         // dfmt on
     }
 
@@ -120,29 +123,6 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/functions.h", testEnv);
     p.compileFlags ~= "-DTEST_INCLUDE";
-    runTestFile(p, testEnv);
-}
-
-@Name(
-        testId
-        ~ "Should be a google mock of the interface used as callback from the C function implementations")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("stage_1/param_gmock.h", testEnv);
-    p.dexParams ~= "--gmock";
-    p.dexFlags ~= "-nostdinc";
-    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"];
-    runTestFile(p, testEnv);
-}
-
-@Name(testId ~ "Interface and adapter should be affected by parameter --main=X")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("stage_1/param_main.h", testEnv);
-    p.dexParams ~= ["--main=Stub", "--main-fname=stub"];
-    p.out_hdr = p.out_hdr.up ~ "stub.hpp";
-    p.out_impl = p.out_impl.up ~ "stub.cpp";
-    p.compileFlags = [];
     runTestFile(p, testEnv);
 }
 
@@ -215,6 +195,62 @@ unittest {
 
     runTestFile(p, testEnv);
 }
+
+// BEGIN Compilation Database Tests ##########################################
+
+@Name(testId ~ "Should load compiler settings from compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/single_file_main.c", testEnv);
+
+    // find compilation flags by looking up how single_file_main.c was compiled
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
+        .toString, "--file-restrict=.*/single_file.h"];
+
+    p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
+    p.compileFlags ~= "-DDEXTOOL_TEST";
+
+    p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
+    runTestFile(p, testEnv);
+}
+
+@Name(testId ~ "Should fail with an error message when file not found in the compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("compile_db/file_not_found.c", testEnv);
+
+    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+
+    p.skipCompare = Yes.skipCompare;
+    p.skipCompile = Yes.skipCompile;
+    try {
+        runTestFile(p, testEnv);
+    }
+    catch (ErrorLevelException) {
+        // do nothing, expecting error status of dextool to be != 0
+    }
+
+    stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt"));
+}
+
+@Name(testId ~ "Should load compiler settings from the second compilation database")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    TestParams p;
+    p.root = Path("testdata/compile_db").absolutePath;
+    p.input_ext = p.root ~ Path("file2.h");
+    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
+
+    // find compilation flags by looking up how single_file_main.c was compiled
+    p.dexParams = ["ctestdouble", "--debug", "--compile-db=" ~ (p.root ~ "db1.json")
+        .toString, "--compile-db=" ~ (p.root ~ "db2.json").toString];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}
+// END   Compilation Database Tests ##########################################
+
+// BEGIN CLI Tests ###########################################################
 
 @Name(testId ~ "Should exclude many files from the generated test double")
 unittest {
@@ -299,53 +335,42 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should load compiler settings from compilation database")
+@Name(
+        testId
+        ~ "Should be a google mock of the interface used as callback from the C function implementations")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file_main.c", testEnv);
-
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
-        .toString, "--file-restrict=.*/single_file.h"];
-
-    p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
-    p.compileFlags ~= "-DDEXTOOL_TEST";
-
-    p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
+    auto p = genTestParams("stage_1/param_gmock.h", testEnv);
+    p.dexParams ~= "--gmock";
+    p.dexFlags ~= "-nostdinc";
+    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"];
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should fail with an error message when file not found in the compilation database")
+@Name(testId ~ "Interface and adapter should be affected by parameter --main=X")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/file_not_found.c", testEnv);
-
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
-
-    p.skipCompare = Yes.skipCompare;
-    p.skipCompile = Yes.skipCompile;
-    try {
-        runTestFile(p, testEnv);
-    }
-    catch (ErrorLevelException) {
-        // do nothing, expecting error status of dextool to be != 0
-    }
-
-    stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt"));
+    auto p = genTestParams("stage_1/param_main.h", testEnv);
+    p.dexParams ~= ["--main=Stub", "--main-fname=stub"];
+    p.out_hdr = p.out_hdr.up ~ "stub.hpp";
+    p.out_impl = p.out_impl.up ~ "stub.cpp";
+    p.compileFlags = [];
+    runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should load compiler settings from the second compilation database")
+@Name(testId ~ "Should process many files")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    TestParams p;
-    p.root = Path("testdata/compile_db").absolutePath;
-    p.input_ext = p.root ~ Path("file2.h");
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
+    auto p = genTestParams("compile_db/param_many_in.h", testEnv);
 
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams = ["ctestdouble", "--debug", "--compile-db=" ~ (p.root ~ "db1.json")
-        .toString, "--compile-db=" ~ (p.root ~ "db2.json").toString];
+    p.input_ext = Path("");
+    p.dexParams ~= ["--gmock", "--in=testdata/cstub/compile_db/dir1/file1.h",
+        "--in=testdata/cstub/compile_db/dir1/file2.h", "--compile-db",
+        (p.root ~ "compile_db/db.json").toString];
+    p.compileIncls.length = 0;
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
+
+// END   CLI Tests ###########################################################

@@ -756,7 +756,8 @@ struct ParseContext {
 
     @disable this();
 
-    this(ref Container cont) {
+    this(ref CppRoot root, ref Container cont) {
+        this.root.bind(&root);
         this.container.bind(&cont);
     }
 
@@ -776,7 +777,7 @@ struct ParseContext {
         // retrieving the location from a root is via spelling.
         auto loc = CxLocation();
         loc.file = c.spelling;
-        root = CppRoot(loc);
+        root.putLocation(loc);
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {
@@ -824,6 +825,6 @@ struct ParseContext {
         return descend;
     }
 
-    CppRoot root;
+    NullableRef!CppRoot root;
     NullableRef!Container container;
 }

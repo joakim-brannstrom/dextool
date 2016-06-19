@@ -26,7 +26,7 @@ import application.compilation_db;
 
 /** Contains the file processing directives after parsing user arguments.
  *
- * If not FILE argument then it is assumed that all files in the CompileDB
+ * If no --in argument then it is assumed that all files in the CompileDB
  * shall be processed.
  *
  * Indicated by the directive All.
@@ -73,10 +73,11 @@ auto runPlugin(CliOption opt, CliArgs args) {
     }
 
     FileProcess file_process;
-    if (parsed["FILE"].isNull) {
+    if (parsed["--in"].isEmpty) {
         file_process = FileProcess.make;
     } else {
-        file_process = FileProcess.make(FileName(parsed["FILE"].toString));
+        //TODO part of the multi file handling
+        file_process = FileProcess.make(FileName(parsed["--in"].asList[0]));
     }
 
     auto skipFileError = parsed["--skip-file-error"].isTrue ? Yes.skipFileError : No.skipFileError;
@@ -87,8 +88,8 @@ auto runPlugin(CliOption opt, CliArgs args) {
 // dfmt off
 static auto plantuml_opt = CliOptionParts(
     "usage:
- dextool uml [options] [--compile-db=...] [--file-exclude=...] [FILE] [--] [CFLAGS...]
- dextool uml [options] [--compile-db=...] [--file-restrict=...] [FILE] [--] [CFLAGS...]",
+ dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
+ dextool uml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --file-prefix=p     Prefix used when generating test artifacts [default: view_]
@@ -102,15 +103,18 @@ static auto plantuml_opt = CliOptionParts(
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
+ --in=              Input files to parse
  --compile-db=j      Retrieve compilation parameters from the file
- --file-exclude=     Exclude files from generation matching the regex.
+ --file-exclude=     Exclude files from generation matching the regex
  --file-restrict=    Restrict the scope of the test double to those files
-                     matching the regex.
+                     matching the regex
 "
 );
 // dfmt on
 
-/** Frontend for PlantUML generator
+/** Frontend for PlantUML generator.
+ *
+ * TODO implement --in=... for multi-file handling
  */
 class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
@@ -128,7 +132,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     static const inclExt = ".iuml";
 
     // TODO ugly hack to remove immutable. Fix it appropriately
-    FileName input_file;
+    FileNames input_files;
     immutable DirName output_dir;
     immutable FileName file_classes;
     immutable FileName file_components;
@@ -320,11 +324,12 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
+    import cpptooling.data.representation : CxLocation;
     import plugin.backend.plantuml : Generator;
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
-        auto cflags = prependDefaultFlags(in_cflags, "");
+        const auto cflags = prependDefaultFlags(in_cflags, "");
         auto generator = Generator(variant, variant, variant);
         Container symbol_container;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
@@ -335,18 +340,18 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.trace("Input file: ", cast(string) entry.absoluteFile);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
-            Nullable!CppRoot partial_root;
-            analyzeFile(cast(string) entry.absoluteFile, entry_cflags,
-                    symbol_container, partial_root);
+            auto partial_root = CppRoot(CxLocation(cast(string) entry.absoluteFile, 0, 0));
+            auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
+                    entry_cflags, symbol_container, partial_root);
 
             // compile error, let user decide how to proceed.
-            if (partial_root.isNull && skipFileError) {
+            if (analyze_status == ExitStatusType.Errors && skipFileError) {
                 logger.errorf("Continue analyze...");
                 unable_to_parse ~= entry.absoluteFile;
-            } else if (partial_root.isNull) {
+            } else if (analyze_status == ExitStatusType.Errors) {
                 return ExitStatusType.Errors;
             } else {
-                generator.analyze(partial_root.get, symbol_container);
+                generator.analyze(partial_root, symbol_container);
             }
         }
 
@@ -381,16 +386,14 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         Container symbol_container;
-        Nullable!CppRoot root;
-        analyzeFile(input_file, cflags, symbol_container, root);
-
-        if (root.isNull) {
+        auto root = CppRoot(CxLocation(input_file, 0, 0));
+        if (analyzeFile(input_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
         // process and put the data in variant.
         auto generator = Generator(variant, variant, variant);
-        generator.analyze(root.get, symbol_container);
+        generator.analyze(root, symbol_container);
         generator.process();
         break;
     }

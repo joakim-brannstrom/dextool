@@ -14,7 +14,8 @@ import dsrcgen.cpp : CppModule;
  *
  * Wrapped in extern "C" to ensure C binding of the includes.
  */
-void generateC(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule hdr) {
+void generateWrapIncludeInExternC(ControllerT, ParamT)(ControllerT ctrl, ParamT params,
+        CppModule hdr) {
     import std.path : baseName;
     import cpptooling.utility.conv : str;
 
@@ -40,7 +41,7 @@ void generateC(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule h
  *
  * Compared to generateC there are no special wrapping extern "C" wrapping.
  */
-void generate(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule hdr) {
+void generateIncludes(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule hdr) {
     import std.path : baseName;
     import cpptooling.utility.conv : str;
 

@@ -865,7 +865,7 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
     import std.algorithm : each, filter, map;
 
     static if (is(T == CppRoot)) {
-        auto raw = CppRoot(input.location);
+        auto raw = CppRoot(input.lastLocation);
     } else {
         auto raw = CppNamespace.make(input.name);
     }
@@ -877,17 +877,17 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
 
     input.classRange
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
         .each!(a => raw.put(a));
 
     input.funcRange()
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
         .each!(a => raw.put(a));
 
     input.globalRange()
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.location.file, cast(string) a.name ~ " " ~ a.location.toString))
+        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
         .each!(a => raw.put(a));
     // dfmt on
 
@@ -1260,7 +1260,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         // dfmt on
     }
 
-    auto key = makeKey(input.location.file, ctrl);
+    auto key = makeKey(input.lastLocation.file, ctrl);
     uml.put(key.key, key.display);
 
     // dfmt off

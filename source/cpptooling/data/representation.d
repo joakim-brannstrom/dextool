@@ -11,6 +11,10 @@ The guiding principle for this module is: "Correct by construction".
  * As far as possible avoid runtime errors.
 Therefor the default c'tor is disabled.
 
+Structs was chosen instead of classes to:
+ * ensure allocation on the stack.
+ * lower the GC pressure.
+
 Design rules for Structural representation.
  * default c'tor disabled.
  * attributes "pure @safe nothrow" for the struct.
@@ -20,6 +24,8 @@ Design rules for Structural representation.
  * Add mixin for Id and Location when the need arise.
  * const: (The ':' is not a typo) can affect var members thus all member
    shall be defined after imports.
+
+TODO replace all dynamic array's with RedBlackTree's
 */
 module cpptooling.data.representation;
 
@@ -48,6 +54,8 @@ version (unittest) {
     }
 }
 
+enum unknownLocation = CxLocation("", 0, 0);
+
 string funcToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
 
@@ -72,39 +80,47 @@ string paramTypeToString(CxParam p, string id = "") @trusted {
     // dfmt on
 }
 
+private size_t makeHash(string identifier) @safe pure nothrow @nogc {
+    import std.digest.crc;
+
+    size_t value = 0;
+
+    if (identifier is null)
+        return value;
+    ubyte[4] hash = crc32Of(identifier);
+    return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
+}
+
 /// Expects a toString function where it is mixed in.
 /// base value for hash is 0 to force deterministic hashes. Use the pointer for
 /// unique between objects.
-private template mixinUniqueId() {
+private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == string)) {
     //TODO add check to see that this do NOT already have id_.
 
-    private size_t id_;
+    private IDType id_;
 
-    private void setUniqueId(string identifier) {
-        static size_t makeUniqueId(string identifier) {
-            import std.digest.crc;
-
-            size_t value = 0;
-
-            if (identifier is null)
-                return value;
-            ubyte[4] hash = crc32Of(identifier);
-            return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
+    static if (is(IDType == size_t)) {
+        private void setUniqueId(string identifier) {
+            this.id_ = makeHash(identifier);
         }
-
-        this.id_ = makeUniqueId(identifier);
+    } else static if (is(IDType == string)) {
+        private void setUniqueId(string identifier) {
+            this.id_ = identifier;
+        }
+    } else {
+        static assert(false, "IDType must be either size_t or string");
     }
 
-    size_t id() const {
+    IDType id() const {
         return id_;
     }
 
     int opCmp(T : typeof(this))(auto ref const T rhs) const {
-        return id() < rhs.id();
+        return this.id_ < rhs.id();
     }
 
-    bool opEquals(T : typeof(this))(auto ref const T rhs) {
-        return id() == rhs.id();
+    bool opEquals(T : typeof(this))(auto ref const T rhs) const {
+        return this.id_ == rhs.id();
     }
 }
 
@@ -126,7 +142,6 @@ pure @safe nothrow struct CxLocation {
     string file;
     uint line;
     uint column;
-    uint offset;
 
     auto toString() const {
         import std.format : format;
@@ -135,16 +150,29 @@ pure @safe nothrow struct CxLocation {
     }
 }
 
-/// The source location.
+/** The source location.
+ *
+ * TODO overload resolutions makes it troublesum to have the simple names
+ * set/put. Check in the future if it is possible to remove the Location
+ * suffix.
+ */
 private template mixinSourceLocation() {
-    private CxLocation loc_;
+    private CxLocation[] loc_;
 
     private void setLocation(CxLocation loc) {
-        this.loc_ = loc;
+        this.loc_ = [loc];
     }
 
-    auto location() const {
+    auto locations() const {
         return loc_;
+    }
+
+    auto lastLocation() const {
+        return this.loc_[$ - 1];
+    }
+
+    void putLocation(CxLocation loc) {
+        this.loc_ ~= loc;
     }
 }
 
@@ -275,12 +303,10 @@ private void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
 }
 
 pure @safe nothrow struct CxGlobalVariable {
-    private TypeKindVariable variable;
-
-    mixin mixinUniqueId;
+    mixin mixinUniqueId!string;
     mixin mixinSourceLocation;
 
-    @disable this();
+    private TypeKindVariable variable;
 
     this(TypeKindVariable tk, CxLocation loc) {
         this.variable = tk;
@@ -330,7 +356,7 @@ const:
                     variable.name.str);
             break;
         }
-        formattedWrite(app, "; // %s", location());
+        formattedWrite(app, "; // %(%s%)", locations());
 
         return app.data;
     }
@@ -455,6 +481,9 @@ struct CppMethodGeneric {
 /// Information about free functions.
 /// TODO: rename to CxFreeFunction
 pure @safe nothrow struct CFunction {
+    mixin mixinUniqueId!string;
+    mixin mixinSourceLocation;
+
     import std.typecons : TypedefType;
 
     private {
@@ -465,9 +494,6 @@ pure @safe nothrow struct CFunction {
         VariadicType isVariadic_;
         StorageClass storageClass_;
     }
-
-    mixin mixinUniqueId;
-    mixin mixinSourceLocation;
 
     /// C function representation.
     this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
@@ -539,8 +565,8 @@ const:
         import std.format : formattedWrite;
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s // %s %s", internalToString(),
-                to!string(storageClass), location());
+        formattedWrite(rval, "%s // %s %(%s%)", internalToString(),
+                to!string(storageClass), locations);
 
         return rval.data;
     }
@@ -570,12 +596,12 @@ const:
  * ----
  */
 pure @safe nothrow struct CppCtor {
+    mixin mixinUniqueId!string;
+
     private {
         CppAccess accessType_;
         CppMethodName name_;
     }
-
-    mixin mixinUniqueId;
 
     @disable this();
 
@@ -615,7 +641,7 @@ const:
 }
 
 pure @safe nothrow struct CppDtor {
-    mixin mixinUniqueId;
+    mixin mixinUniqueId!string;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.StringHelperVirtual;
 
@@ -657,7 +683,7 @@ const:
 }
 
 pure @safe nothrow struct CppMethod {
-    mixin mixinUniqueId;
+    mixin mixinUniqueId!string;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
@@ -746,7 +772,7 @@ const:
 }
 
 pure @safe nothrow struct CppMethodOp {
-    mixin mixinUniqueId;
+    mixin mixinUniqueId!string;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
@@ -926,6 +952,10 @@ const:
 }
 
 pure @safe nothrow struct CppClass {
+    mixin mixinUniqueId!size_t;
+    mixin mixinKind;
+    mixin mixinSourceLocation;
+
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -955,10 +985,6 @@ pure @safe nothrow struct CppClass {
 
         string[] comments;
     }
-
-    mixin mixinUniqueId;
-    mixin mixinKind;
-    mixin mixinSourceLocation;
 
     @disable this();
 
@@ -1183,7 +1209,7 @@ const:
                   only("class", name_.str).joiner(" "),
                   inherits.takeOne.map!(a => " : ").joiner(),
                   inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
-                  only(" { //", to!string(classification_), location.toString).joiner(" ")
+                  only(" { //", to!string(classification_), format("%(%s%)", locations)).joiner(" ")
                  );
         auto end_class =
             chain(
@@ -1388,6 +1414,8 @@ private ClassVirtualType classifyClass(T)(in ClassVirtualType current, T p,
 }
 
 pure @safe nothrow struct CppNamespace {
+    mixin mixinKind;
+
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     private {
@@ -1401,8 +1429,6 @@ pure @safe nothrow struct CppNamespace {
     }
 
     @disable this();
-
-    mixin mixinKind;
 
     static auto makeAnonymous() {
         return CppNamespace(CppNsStack.init);
@@ -1518,21 +1544,35 @@ const:
 }
 
 pure @safe nothrow struct CppRoot {
+    mixin mixinSourceLocation;
+
+    import std.container : RedBlackTree;
+
     private {
         CppNamespace[] ns;
         CppClass[] classes;
-        CFunction[] funcs;
-        CxGlobalVariable[] globals;
+        RedBlackTree!(CxGlobalVariable, "a.id < b.id") globals;
+        RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
-    mixin mixinSourceLocation;
+    static auto make() {
+        auto r = CppRoot(unknownLocation);
+        return r;
+    }
+
+    /// TODO activate
+    //@disable this();
 
     this(in CxLocation loc) {
+        import std.container : make;
+
         setLocation(loc);
+        this.globals = make!(typeof(this.globals));
+        this.funcs = make!(typeof(this.funcs));
     }
 
     void put(CFunction f) {
-        funcs ~= f;
+        () @trusted{ funcs.insert(f); }();
     }
 
     void put(CppClass s) {
@@ -1544,7 +1584,7 @@ pure @safe nothrow struct CppRoot {
     }
 
     void put(CxGlobalVariable g) {
-        globals ~= g;
+        () @trusted{ globals.insert(g); }();
     }
 
     auto namespaceRange() @nogc {
@@ -1556,11 +1596,11 @@ pure @safe nothrow struct CppRoot {
     }
 
     auto funcRange() @nogc {
-        return funcs;
+        return funcs[];
     }
 
     auto globalRange() @nogc {
-        return globals;
+        return globals[];
     }
 
 const:
@@ -1572,17 +1612,17 @@ const:
         import std.format : format;
         import std.range : takeOne, only, chain, retro;
 
-        // dfmt on
-        return chain(only(format("// %s", location().toString)),
-                globals.takeOne.map!(a => ""), // newline
-                globals.map!(a => a.toString),
-                funcs.takeOne.map!(a => ""), // newline
-                funcs.map!(a => a.toString),
+        // dfmt off
+        return chain(only(format("%(// %s\n%)", locations)),
+                globals[].takeOne.map!(a => ""), // newline
+                globals[].map!(a => a.toString),
+                funcs[].takeOne.map!(a => ""), // newline
+                funcs[].map!(a => a.toString),
                 classes.takeOne.map!(a => ""), // newline
                 classes.map!(a => a.toString),
                 ns.takeOne.map!(a => ""), // newline
                 ns.map!(a => a.toString), only("")).joiner(newline).text;
-        // dfmt off
+        // dfmt on
     }
 }
 
@@ -1595,7 +1635,8 @@ unittest {
     }
 
     { // extern storage.
-        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(makeSimple("void")), VariadicType.no, StorageClass.Extern, dummyLoc);
+        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(makeSimple("void")),
+                VariadicType.no, StorageClass.Extern, dummyLoc);
         shouldEqual(f.returnType.toStringDecl("x"), "void x");
         shouldEqual(f.toString, "void nothing(); // Extern File:a.h Line:123 Column:45");
     }
@@ -1609,7 +1650,7 @@ unittest {
         auto p0 = makeCxParam(TypeKindVariable(makeSimple("int"), CppVariable("x")));
         auto p1 = makeCxParam(TypeKindVariable(makeSimple("char"), CppVariable("y")));
         auto f = CFunction(CFunctionName("nothing"), [p0, p1],
-            CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None, dummyLoc);
+                CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None, dummyLoc);
         shouldEqual(f.toString, "int nothing(int x, char y); // None File:a.h Line:123 Column:45");
     }
 }
@@ -1632,7 +1673,8 @@ unittest {
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
     auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
-        CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Virtual));
+            CppAccess(AccessType.Public), CppConstMethod(true),
+            CppVirtualMethod(MemberVirtualType.Virtual));
 
     shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
 }
@@ -1711,12 +1753,12 @@ unittest {
     auto ptk = makeSimple("char*");
     ptk.attr.isPtr = Yes.isPtr;
     auto rtk = makeSimple("int");
-    auto f = CFunction(CFunctionName("nothing"),
-        [makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
-        makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
-        CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
+    auto f = CFunction(CFunctionName("nothing"), [makeCxParam(TypeKindVariable(ptk,
+            CppVariable("x"))), makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
+            CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
 
-    shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // None File:a.h Line:123 Column:45");
+    shouldEqualPretty(f.toString,
+            "int nothing(char* x, char* y); // None File:a.h Line:123 Column:45");
 }
 
 @Name("Test of Ctor's")
@@ -1733,7 +1775,7 @@ unittest {
 @Name("Test of Dtor's")
 unittest {
     auto dtor = CppDtor(CppMethodName("~dtor"), CppAccess(AccessType.Public),
-        CppVirtualMethod(MemberVirtualType.Virtual));
+            CppVirtualMethod(MemberVirtualType.Virtual));
 
     shouldEqual(dtor.toString, "virtual ~dtor()");
 }
@@ -1750,19 +1792,16 @@ unittest {
 
     {
         auto tk = makeSimple("int");
-        auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk),
-            CppAccess(AccessType.Protected), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk), CppAccess(AccessType.Protected),
+                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
 
     {
         auto tk = makeSimple("char*");
         tk.attr.isPtr = Yes.isPtr;
-        auto m = CppMethod(CppMethodName("gun"),
-            CxReturnType(tk),
-            CppAccess(AccessType.Private), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Normal));
+        auto m = CppMethod(CppMethodName("gun"), CxReturnType(tk), CppAccess(AccessType.Private),
+                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Normal));
         m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("x"))));
         m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("y"))));
         c.put(m);
@@ -1770,9 +1809,8 @@ unittest {
 
     {
         auto tk = makeSimple("int");
-        auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(tk),
-            CppAccess(AccessType.Public), CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Normal));
+        auto m = CppMethod(CppMethodName("wun"), CxReturnType(tk), CppAccess(AccessType.Public),
+                CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Normal));
         c.put(m);
     }
 
@@ -1793,10 +1831,8 @@ unittest {
     CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
     auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
 
-    shouldEqualPretty(c.toString,
-                      "class A_Class { // Unknown File:a.h Line:123 Column:45
-}; //Class:a_ns::another_ns::A_Class"
-                      );
+    shouldEqualPretty(c.toString, "class A_Class { // Unknown File:a.h Line:123 Column:45
+}; //Class:a_ns::another_ns::A_Class");
 
 }
 
@@ -1809,9 +1845,8 @@ unittest {
 
     auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
 
-    shouldEqualPretty(
-        c.toString,
-        "class Foo : public pub, protected prot, private priv { // Unknown File:a.h Line:123 Column:45
+    shouldEqualPretty(c.toString,
+            "class Foo : public pub, protected prot, private priv { // Unknown File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1846,14 +1881,13 @@ unittest {
     }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
-            CppVirtualMethod(MemberVirtualType.Virtual));
+                CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(makeSimple("int")),
-            CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Virtual));
+        auto m = CppMethod(CppMethodName("wun"), CxReturnType(makeSimple("int")),
+                CppAccess(AccessType.Public), CppConstMethod(false),
+                CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
 
@@ -1875,14 +1909,13 @@ unittest {
     }
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
-            CppVirtualMethod(MemberVirtualType.Virtual));
+                CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"),
-            CxReturnType(makeSimple("int")),
-            CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(CppMethodName("wun"), CxReturnType(makeSimple("int")),
+                CppAccess(AccessType.Public), CppConstMethod(false),
+                CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
 
@@ -1920,7 +1953,7 @@ unittest {
 
 @Name("Test of toString for CppRoot")
 unittest {
-    CppRoot root;
+    auto root = CppRoot.make();
 
     { // free function
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
@@ -1988,7 +2021,7 @@ void nothing(); // None File:a.h Line:123 Column:45
 @Name("should be a hash value based on string representation")
 unittest {
     struct A {
-        mixin mixinUniqueId;
+        mixin mixinUniqueId!size_t;
         this(bool fun) {
             setUniqueId("foo");
         }
@@ -2004,8 +2037,7 @@ unittest {
 @Name("should be a global definition")
 unittest {
     auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(makeSimple("int"), CppVariable("y"),
-        dummyLoc);
+    auto v1 = CxGlobalVariable(makeSimple("int"), CppVariable("y"), dummyLoc);
 
     shouldEqualPretty(v0.toString, "int x; // File:a.h Line:123 Column:45");
     shouldEqualPretty(v1.toString, "int y; // File:a.h Line:123 Column:45");
@@ -2015,7 +2047,7 @@ unittest {
 unittest {
     auto v = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
     auto n = CppNamespace.makeAnonymous();
-    auto r = CppRoot();
+    auto r = CppRoot.make();
     n.put(v);
     r.put(v);
     r.put(n);
@@ -2040,15 +2072,17 @@ unittest {
 
 @Name("should be possible to sort the data structures")
 unittest {
+    import std.array : array;
+
     auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
     auto v1 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc2);
-    auto r = CppRoot();
+    auto r = CppRoot.make();
     r.put(v0);
     r.put(v1);
     r.put(v0);
 
-    auto s = r.globalRange().dedup();
-    shouldEqual(s.length, 1);
+    auto s = r.globalRange;
+    shouldEqual(s.array().length, 1);
 }
 
 @Name("should be proper access specifiers for a inherit reference, no nesting")
@@ -2085,7 +2119,7 @@ unittest {
     c.put(ih);
 
     c.toString.shouldEqualPretty(
-        "class A : public ns1::Class { // Unknown File:noloc Line:0 Column:0
+            "class A : public ns1::Class { // Unknown File:noloc Line:0 Column:0
 }; //Class:A");
 }
 
@@ -2107,19 +2141,17 @@ unittest {
 
     {
         auto m = CppDtor(CppMethodName("~Foo"), CppAccess(AccessType.Public),
-            CppVirtualMethod(MemberVirtualType.Normal));
+                CppVirtualMethod(MemberVirtualType.Normal));
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"),
-            CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(CppMethodName("wun"), CppAccess(AccessType.Public),
+                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("gun"),
-            CppAccess(AccessType.Public), CppConstMethod(false),
-            CppVirtualMethod(MemberVirtualType.Virtual));
+        auto m = CppMethod(CppMethodName("gun"), CppAccess(AccessType.Public),
+                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
 

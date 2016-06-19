@@ -1,14 +1,16 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
-#include "param_restrict.h"
+#include "file1.h"
+#include "file2.h"
 }
 
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual void fun_a() = 0;
-    virtual void fun_b() = 0;
+    virtual void dup() = 0;
+    virtual void file1() = 0;
+    virtual void file2() = 0;
 };
 
 ///

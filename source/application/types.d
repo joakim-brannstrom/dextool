@@ -35,3 +35,6 @@ alias MainInterface = Typedef!(string, string.init, "MainInterface");
 alias DirName = Typedef!(string, string.init, "DirectoryName");
 
 alias FileName = Typedef!(string, string.init, "FileName");
+//TODO remove FileNames
+alias FileNames = Typedef!(string[], null, "FileNames");
+alias InFiles = Typedef!(string[], null, "InFiles");

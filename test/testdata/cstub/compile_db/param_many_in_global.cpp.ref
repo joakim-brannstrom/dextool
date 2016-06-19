@@ -1,0 +1,15 @@
+#include "test_double.hpp"
+
+#ifndef TEST_INIT_dup_global
+#define TEST_INIT_dup_global int dup_global
+#endif // TEST_INIT_dup_global
+#ifndef TEST_INIT_file1_global
+#define TEST_INIT_file1_global int file1_global
+#endif // TEST_INIT_file1_global
+#ifndef TEST_INIT_file2_global
+#define TEST_INIT_file2_global int file2_global
+#endif // TEST_INIT_file2_global
+
+TEST_INIT_dup_global;
+TEST_INIT_file1_global;
+TEST_INIT_file2_global;

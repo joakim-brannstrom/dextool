@@ -39,14 +39,14 @@ auto runPlugin(CliOption opt, CliArgs args) {
         compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
     }
 
-    return genCstub(variant, cflags, compile_db);
+    return genCstub(variant, cflags, compile_db, InFiles(parsed["--in"].asList));
 }
 
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
- dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] FILE [--] [CFLAGS...]
- dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] FILE [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
+ dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
     // -------------
     " --out=dir          directory for generated files [default: ./]
  --main=name        Used as part of interface, namespace etc [default: TestDouble]
@@ -58,11 +58,12 @@ static auto ctestdouble_opt = CliOptionParts(
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
     // -------------
 "others:
- --compile-db=j     Retrieve compilation parameters from the file
- --file-exclude=    Exclude files from generation matching the regex.
+ --in=              Input files to parse
+ --compile-db=      Retrieve compilation parameters from the file
+ --file-exclude=    Exclude files from generation matching the regex
  --file-restrict=   Restrict the scope of the test double to those files
-                    matching the regex.
- --td-include=      User supplied includes used instead of those found.
+                    matching the regex
+ --td-include=      User supplied includes used instead of those found
 "
 );
 // dfmt on
@@ -87,7 +88,6 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable StubPrefix prefix;
     immutable StubPrefix file_prefix;
 
-    immutable FileName input_file;
     immutable DirName output_dir;
     immutable FileName main_file_hdr;
     immutable FileName main_file_impl;
@@ -134,9 +134,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         }
 
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
-                FileName(parsed["FILE"].toString), MainFileName(parsed["--main-fname"].toString),
-                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
-                gmock, pre_incl, post_incl, strip_incl);
+                MainFileName(parsed["--main-fname"].toString), MainName(parsed["--main"].toString),
+                DirName(parsed["--out"].toString), gmock, pre_incl, post_incl, strip_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -158,12 +157,11 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
      *
      * TODO document the parameters.
      */
-    this(StubPrefix prefix, StubPrefix file_prefix, FileName input_file, MainFileName main_fname, MainName main_name,
-            DirName output_dir, Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
+    this(StubPrefix prefix, StubPrefix file_prefix, MainFileName main_fname, MainName main_name, DirName output_dir,
+            Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
             Flag!"PostInclude" post_incl, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
-        this.input_file = input_file;
         this.main_name = main_name;
         this.main_ns = MainNs(cast(string) main_name);
         this.main_if = MainInterface("I_" ~ cast(string) main_name);
@@ -192,11 +190,6 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     /// Force the includes to be those supplied by the user.
     void forceIncludes(string[] incls) {
         td_includes.forceIncludes(incls);
-    }
-
-    /// User supplied files used as input.
-    FileName getInputFile() {
-        return input_file;
     }
 
     // -- StubController --
@@ -306,39 +299,50 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 }
 
 /// TODO refactor, doing too many things.
-ExitStatusType genCstub(CTestDoubleVariant variant, string[] in_cflags, CompileCommandDB compile_db) {
+ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
+        CompileCommandDB compile_db, InFiles in_files) {
+    import std.algorithm : map;
     import std.conv : text;
     import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : Nullable;
+    import std.typecons : Nullable, TypedefType;
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
-    import cpptooling.data.representation : CppRoot;
+    import cpptooling.data.representation : CppRoot, CxLocation;
 
-    auto cflags = prependDefaultFlags(in_cflags, "-xc");
-    auto input_file = buildNormalizedPath(cast(string) variant.getInputFile).asAbsolutePath.text;
-    logger.trace("Input file: ", input_file);
+    const auto default_cflags = prependDefaultFlags(in_cflags, "-xc");
 
-    if (compile_db.length > 0) {
-        auto db_cflags = compile_db.appendOrError(cflags, input_file);
-        if (db_cflags.isNull) {
+    auto generator = StubGenerator(variant, variant, variant);
+    Container symbol_container;
+
+    foreach (in_file; (cast(TypedefType!InFiles) in_files).map!(a => buildNormalizedPath(a)
+            .asAbsolutePath.text)) {
+        logger.trace("Input: ", in_file);
+        string[] use_cflags;
+
+        // TODO duplicate code in c, c++ and plantuml. Fix it.
+        if (compile_db.length > 0) {
+            auto db_cflags = compile_db.appendOrError(default_cflags, in_file);
+            if (db_cflags.isNull) {
+                return ExitStatusType.Errors;
+            }
+            use_cflags = db_cflags.get;
+        } else {
+            use_cflags = default_cflags.dup;
+        }
+
+        auto root = CppRoot(CxLocation(in_file, 0, 0));
+        if (analyzeFile(in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-        cflags = db_cflags.get;
+
+        // process and put the data in variant.
+        generator.analyse(root, symbol_container);
     }
 
-    // container not used but required when analyzing
-    Container symbol_container;
-    Nullable!CppRoot root;
-    analyzeFile(input_file, cflags, symbol_container, root);
-
-    if (root.isNull) {
-        return ExitStatusType.Errors;
-    }
-
-    // process and put the data in variant.
-    StubGenerator(variant, variant, variant).process(root.get, symbol_container);
+    // Generate test double from the analysed data that has been stored
+    generator.process(symbol_container);
 
     return writeFileData(variant.file_data);
 }
