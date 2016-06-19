@@ -24,6 +24,8 @@ Design rules for Structural representation.
  * Add mixin for Id and Location when the need arise.
  * const: (The ':' is not a typo) can affect var members thus all member
    shall be defined after imports.
+
+TODO replace all dynamic array's with RedBlackTree's
 */
 module cpptooling.data.representation;
 

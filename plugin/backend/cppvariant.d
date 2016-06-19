@@ -430,10 +430,10 @@ body {
     import std.algorithm : each, filter;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
-    import cpptooling.generator.includes : genCppIncl = generate;
+    import cpptooling.generator.includes : generateIncludes;
     import cpptooling.utility.conv : str;
 
-    genCppIncl(ctrl, params, modules.hdr);
+    generateIncludes(ctrl, params, modules.hdr);
 
     static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
         foreach (a; r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)) {
