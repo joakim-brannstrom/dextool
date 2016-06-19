@@ -36,6 +36,9 @@ Feature requests, todos etc that aren't covered by code comments.
    types of interest. Descend variable is a bandaid and should thus be able to
    remove.
 
+## GUI
+ - A GUI to navigate the UML diagrams. Maybe with ImGUI?
+
 ## Features
  - Date in the header when it was generated.
  - Support for header with copyright notice in generated.
