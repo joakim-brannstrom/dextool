@@ -335,6 +335,16 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId ~ "Test of CLI --comp-by-file. Should be components created from filenames")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("cli/cli_comp_by_file.hpp", testEnv);
+    p.dexDiagramParams ~= ["--comp-by-file"];
+    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
+        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Test of CLI --gen-dot, include directive")
 unittest {
     mixin(EnvSetup(globalTestdir));

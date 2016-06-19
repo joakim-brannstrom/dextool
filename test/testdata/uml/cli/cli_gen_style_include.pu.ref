@@ -1,4 +1,4 @@
 @startuml
-!include view_style.iuml
+!include view_style.iuml!0
 class "A" as YzpAU0BB
 @enduml

@@ -97,6 +97,7 @@ static auto plantuml_opt = CliOptionParts(
  --class-paramdep    Class method parameters as directed association in diagram
  --class-inheritdep  Class inheritance in diagram
  --class-memberdep   Class member as composition/aggregation in diagram
+ --comp-by-file      Components by file instead of directory
  --comp-strip=r      Regex used to strip path used to derive component name
  --gen-style-incl    Generate a style file and include in all diagrams
  --gen-dot           Generate a dot graph block in the plantuml output
@@ -147,6 +148,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable Flag!"genClassMemberDependency" gen_class_member_dep;
     immutable Flag!"doStyleIncl" do_style_incl;
     immutable Flag!"doGenDot" do_gen_dot;
+    immutable Flag!"doComponentByFile" do_comp_by_file;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -177,13 +179,14 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
         "--class-memberdep"].isTrue;
 
-        auto gen_style_incl = cast(Flag!"styleIncl") parsed["--gen-style-incl"].isTrue;
-        auto gen_dot = cast(Flag!"genDot") parsed["--gen-dot"].isTrue;
+        auto gen_style_incl = cast(Flag!"doStyleIncl") parsed["--gen-style-incl"].isTrue;
+        auto gen_dot = cast(Flag!"doGenDot") parsed["--gen-dot"].isTrue;
+        auto do_comp_by_file = cast(Flag!"doComponentByFile") parsed["--comp-by-file"].isTrue;
 
         auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
                 DirName(parsed["--out"].toString), gen_style_incl,
                 gen_dot, gen_class_method, gen_class_param_dep,
-                gen_class_inherit_dep, gen_class_member_dep);
+                gen_class_inherit_dep, gen_class_member_dep, do_comp_by_file);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -192,16 +195,20 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FilePrefix file_prefix, DirName output_dir, Flag!"styleIncl" style_incl,
-            Flag!"genDot" gen_dot, Flag!"genClassMethod" class_method,
+    this(FilePrefix file_prefix, DirName output_dir, Flag!"doStyleIncl" style_incl,
+            Flag!"doGenDot" gen_dot, Flag!"genClassMethod" class_method,
             Flag!"genClassParamDependency" class_param_dep, Flag!"genClassInheritDependency" class_inherit_dep,
-            Flag!"genClassMemberDependency" class_member_dep) {
+            Flag!"genClassMemberDependency" class_member_dep,
+            Flag!"doComponentByFile" do_comp_by_file) {
         this.file_prefix = file_prefix;
         this.output_dir = output_dir;
         this.gen_class_method = class_method;
         this.gen_class_param_dep = class_param_dep;
         this.gen_class_inherit_dep = class_inherit_dep;
         this.gen_class_member_dep = class_member_dep;
+        this.do_comp_by_file = do_comp_by_file;
+        this.do_gen_dot = gen_dot;
+        this.do_style_incl = style_incl;
 
         import std.path : baseName, buildPath, relativePath, stripExtension;
 
@@ -213,9 +220,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
                 cast(string) file_prefix ~ "style" ~ inclExt));
         this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
                 cast(string) output_dir));
-
-        this.do_style_incl = cast(Flag!"doStyleIncl") style_incl;
-        this.do_gen_dot = cast(Flag!"doGenDot") gen_dot;
     }
 
     // -- Controller --
@@ -256,9 +260,14 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     FileName doComponentNameStrip(FileName fname) {
+        import std.path : dirName;
         import application.utility : stripFile;
 
-        return stripFile(fname, comp_strip);
+        if (do_comp_by_file) {
+            return stripFile(fname, comp_strip);
+        } else {
+            return stripFile(FileName((cast(string) fname).dirName), comp_strip);
+        }
     }
 
     // -- Parameters --

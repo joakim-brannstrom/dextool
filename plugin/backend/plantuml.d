@@ -661,7 +661,7 @@ struct Generator {
     }
 
     void analyze(ref CppRoot root, ref Container container) {
-        import std.ascii;
+        import std.ascii : newline;
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n", root.toString());
@@ -691,16 +691,23 @@ private:
         static PlantumlRootModule makeMinimalStyle(Flag!"genClassMethod" show_methods) {
             auto proot = PlantumlRootModule.make();
 
-            auto m = proot.makeUml;
-            m.suppressIndent(1);
-            m.stmt("left to right direction");
-            m.stmt("skinparam componentStyle uml2");
-            m.stmt("'skinparam linetype polyline");
-            m.stmt("'skinparam linetype ortho");
-            m.stmt("set namespaceSeparator ::");
-            if (!show_methods) {
-                m.stmt("hide members");
+            auto class_ = proot.makeUml;
+            class_.stmt("left to right direction");
+            class_.stmt("'skinparam linetype polyline");
+            class_.stmt("'skinparam linetype ortho");
+            class_.stmt("set namespaceSeparator none");
+            if (show_methods) {
+                class_.stmt("'hide members");
+            } else {
+                class_.stmt("hide members");
             }
+
+            auto component = proot.makeUml;
+            component.stmt("left to right direction");
+            component.stmt("skinparam componentStyle uml2");
+            component.stmt("'skinparam linetype polyline");
+            component.stmt("'skinparam linetype ortho");
+            component.stmt("set namespaceSeparator none");
 
             return proot;
         }
@@ -754,9 +761,21 @@ private:
             return m;
         }
 
-        static PlantumlModule makeStyleInclude(FileName style_file) {
+        enum StyleType {
+            Class,
+            Component
+        }
+
+        static PlantumlModule makeStyleInclude(Flag!"doStyleIncl" do_style_incl,
+                FileName style_file, StyleType style_type) {
+            import std.conv : to;
+
             auto m = new PlantumlModule;
-            m.stmt("!include " ~ cast(string) style_file);
+            if (!do_style_incl) {
+                return m;
+            }
+
+            m.stmt("!include " ~ cast(string) style_file ~ "!" ~ to!string(cast(int) style_type));
 
             return m;
         }
@@ -820,10 +839,6 @@ private:
 
         PlantumlModule style;
 
-        if (params.doStyleIncl) {
-            style = makeStyleInclude(params.getFiles.styleIncl);
-        }
-
         if (ctrl.genStyleInclFile) {
             prods.putFile(params.getFiles.styleOutput, makeMinimalStyle(params.genClassMethod));
         }
@@ -839,8 +854,10 @@ private:
                     makeDotPreamble(DotLayout.DotOrtho, No.doSmall), m.components_dot);
         }
 
-        makeUml(prods, params.getFiles.classes, style, m.classes);
-        makeUml(prods, params.getFiles.components, style, m.components);
+        makeUml(prods, params.getFiles.classes, makeStyleInclude(params.doStyleIncl,
+                params.getFiles.styleIncl, StyleType.Class), m.classes);
+        makeUml(prods, params.getFiles.components, makeStyleInclude(params.doStyleIncl,
+                params.getFiles.styleIncl, StyleType.Component), m.components);
     }
 }
 
@@ -1122,7 +1139,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
         string file_path = buildNormalizedPath(location_file).absolutePath;
-        string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path.dirName));
+        string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path));
         string rel_path = relativePath(strip_path);
         string display_name = strip_path.baseName;
 

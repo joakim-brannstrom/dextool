@@ -247,6 +247,11 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
+    auto namespace(string name, Flag!"addSep" separator = Yes.addSep) {
+        auto e = suite("namespace " ~ name);
+        return e;
+    }
+
     Suite digraph(string name) {
         auto e = suite("digraph " ~ name);
         return e;
@@ -614,12 +619,12 @@ unittest {
 
     {
         auto c = m.class_("A");
-        c.addSpot.text("(D, orchid)");
+        c.addSpot("<< (D, orchid) >>");
     }
 
     {
         auto c = m.classBody("B");
-        c.addSpot.text("(I, orchid)");
+        c.addSpot("<< (I, orchid) >>");
         c.method("fun()");
     }
 
@@ -637,12 +642,12 @@ unittest {
 
     {
         auto c = m.class_("A");
-        c.addSpot.text("(D, orchid)");
+        c.addSpot("<< (D, orchid) >>");
     }
 
     {
         auto c = m.classBody("B");
-        c.addSpot.text("(I, orchid)");
+        c.addSpot("<< (I, orchid) >>");
         c.method("fun()");
     }
 
@@ -663,5 +668,15 @@ unittest {
     c.addAs.text("a");
 
     m.render.shouldEqual(`    component "A" as a
+`);
+}
+
+@Name("Should be a namespace")
+unittest {
+    auto m = new PlantumlModule;
+    auto ns = m.namespace("ns");
+
+    m.render.shouldEqual(`    namespace ns {
+    }
 `);
 }

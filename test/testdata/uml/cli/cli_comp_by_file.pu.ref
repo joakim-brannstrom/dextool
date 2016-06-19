@@ -1,0 +1,5 @@
+@startuml
+component "b.hpp" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA
+component "a.hpp" as dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw
+dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA --> dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw
+@enduml
