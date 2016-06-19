@@ -126,7 +126,6 @@ pure @safe nothrow struct CxLocation {
     string file;
     uint line;
     uint column;
-    uint offset;
 
     auto toString() const {
         import std.format : format;
