@@ -1,0 +1,8 @@
+@startuml
+left to right direction
+skinparam componentStyle uml2
+'skinparam linetype polyline
+'skinparam linetype ortho
+set namespaceSeparator ::
+hide members
+@enduml

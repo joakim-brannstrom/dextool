@@ -311,6 +311,8 @@ unittest {
     import std.file : exists;
 
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
+    compareResult(GR(Path(p.base_file_compare.toString ~ "_style.pu.ref"),
+            testEnv.outdir ~ "view_style.iuml"));
 }
 
 @Name(testId ~ "Test of CLI --comp-strip")

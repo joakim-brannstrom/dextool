@@ -695,6 +695,8 @@ private:
             m.suppressIndent(1);
             m.stmt("left to right direction");
             m.stmt("skinparam componentStyle uml2");
+            m.stmt("'skinparam linetype polyline");
+            m.stmt("'skinparam linetype ortho");
             m.stmt("set namespaceSeparator ::");
             if (!show_methods) {
                 m.stmt("hide members");
