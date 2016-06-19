@@ -661,7 +661,7 @@ struct Generator {
     }
 
     void analyze(ref CppRoot root, ref Container container) {
-        import std.ascii;
+        import std.ascii : newline;
         import cpptooling.data.representation : CppNamespace, CppNs;
 
         logger.trace("Raw:\n", root.toString());
@@ -1122,7 +1122,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
         string file_path = buildNormalizedPath(location_file).absolutePath;
-        string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path.dirName));
+        string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path));
         string rel_path = relativePath(strip_path);
         string display_name = strip_path.baseName;
 
