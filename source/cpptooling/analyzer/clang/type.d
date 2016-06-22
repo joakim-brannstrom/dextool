@@ -210,12 +210,7 @@ TypeAttr makeTypeAttr(ref Type type) {
 
 TypeKindAttr makeTypeKindAttr(ref Type type) {
     TypeKindAttr tka;
-
-    tka.attr.isConst = cast(Flag!"isConst") type.isConst;
-    tka.attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
-    tka.attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
-    tka.attr.isArray = cast(Flag!"isArray") type.isArray;
-    tka.attr.isRecord = cast(Flag!"isRecord")(type.kind == CXTypeKind.CXType_Record);
+    tka.attr = makeTypeAttr(type);
 
     return tka;
 }
@@ -729,7 +724,7 @@ body {
     string spell = type.spelling;
 
     // ugly hack
-    if (type.isConst) {
+    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
         spell = spell[6 .. $];
     }
 
@@ -1096,10 +1091,10 @@ body {
         auto pointee = type.pointeeType;
         rval = retrievePointeeAttr(pointee, indent);
         // current appended so right most ptr is at position 0.
-        rval.ptrs ~= makeTypeKindAttr(type).attr;
+        rval.ptrs ~= makeTypeAttr(type);
     } else {
         // Base condition.
-        rval.base = makeTypeKindAttr(type).attr;
+        rval.base = makeTypeAttr(type);
     }
 
     return rval;
@@ -1180,7 +1175,7 @@ body {
     rval.primary.kind.usr = primary_usr;
     rval.primary.kind.loc = primary_loc;
     rval.primary.kind.info = info;
-    rval.primary.attr = makeTypeKindAttr(type).attr;
+    rval.primary.attr = makeTypeAttr(type);
     rval.extra ~= [element.primary] ~ element.extra;
 
     return rval;
@@ -1294,13 +1289,17 @@ body {
     const uint indent = this_indent + 1;
 
     auto handleTyperef(ref Nullable!TypeResult rval) {
+        if (isFuncProtoTypedef(c)) {
+            // this case is handled by handleTyperefFuncProto
+            return;
+        }
+
         // any TypeRef children and thus need to traverse the tree?
         foreach (child; c.children.takeOne) {
             if (!child.kind.among(CXCursorKind.CXCursor_TypeRef)) {
                 break;
             }
 
-            //TODO cleanup and harmonize with typeToTypedef
             auto tref = pass4(child, container, indent);
 
             auto type = c.type;
@@ -1335,13 +1334,75 @@ body {
         rval.extra = [tref.primary] ~ tref.extra;
     }
 
-    auto handleFuncProto(ref Nullable!TypeResult rval) {
-        if (isFuncProtoTypedef(c)) {
-            auto type = c.type;
-            rval = typeToFuncProto(c, type, container, indent);
+    auto handleTypeRefToTypeDeclFuncProto(ref Nullable!TypeResult rval) {
+        static bool isFuncProto(ref Cursor c) {
+            //TODO consider merging or improving isFuncProtoTypedef with this
+            if (!isFuncProtoTypedef(c)) {
+                return false;
+            }
+
+            if (c.children.length == 0) {
+                return false;
+            }
+
+            auto child_t = c.children[0].type;
+            if (!child_t.isFunctionType || child_t.isPointer) {
+                return false;
+            }
+
+            return true;
         }
+
+        if (!isFuncProto(c)) {
+            return;
+        }
+
+        auto child = c.children[0];
+        auto ref_child = child.referenced;
+        if (ref_child.kind != CXCursorKind.CXCursor_TypedefDecl) {
+            return;
+        }
+
+        auto tref = retrieveType(ref_child, container, indent);
+
+        // TODO consolidate code. Copied from handleDecl
+        auto type = c.type;
+        if (tref.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            rval = typeToTypedef(c, type, tref.primary.kind.usr,
+                    tref.primary.kind.info.canonicalRef, container, indent);
+        } else {
+            rval = typeToTypedef(c, type, tref.primary.kind.usr,
+                    tref.primary.kind.usr, container, indent);
+        }
+        rval.extra = [tref.primary] ~ tref.extra;
     }
 
+    auto handleFuncProto(ref Nullable!TypeResult rval) {
+        if (!isFuncProtoTypedef(c)) {
+            return;
+        }
+        auto type = c.type;
+        auto func = typeToFuncProto(c, type, container, indent);
+        // a USR for the function do not exist because the only sensible would
+        // be the typedef... but it is used by the typedef _for this function_
+        func.primary.kind.usr = makeFallbackUSR(c, indent);
+
+        rval = typeToTypedef(c, type, func.primary.kind.usr,
+                func.primary.kind.usr, container, indent);
+        rval.extra = [func.primary] ~ func.extra;
+    }
+
+    auto underlying(ref Nullable!TypeResult rval) {
+        auto underlying = c.typedefUnderlyingType;
+        auto tref = passType(c, underlying, container, indent);
+
+        auto type = c.type;
+        rval = typeToTypedef(c, type, tref.primary.kind.usr,
+                tref.primary.kind.usr, container, indent);
+        rval.extra = [tref.primary] ~ tref.extra;
+    }
+
+    // TODO investigate if this can be removed, aka always covered by underlying.
     auto fallback(ref Nullable!TypeResult rval) {
         // fallback, unable to represent as a typedef ref'ing a type
         auto type = c.type;
@@ -1349,7 +1410,14 @@ body {
     }
 
     typeof(return) rval;
-    foreach (f; [&handleTyperef, &handleFuncProto, &handleDecl, &fallback]) {
+    foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleTyperef,
+            &handleFuncProto, &handleDecl, &underlying, &fallback]) {
+        debug {
+            import std.conv : to;
+            import cpptooling.utility.logger : trace;
+
+            trace(idx.to!string(), this_indent);
+        }
         f(rval);
         if (!rval.isNull) {
             break;

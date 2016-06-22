@@ -9,12 +9,12 @@ class I_TestDouble {
 public:
     virtual const int c_func_one_named(const int a) = 0;
     virtual const int c_func_return() = 0;
+    virtual func_type * cyber(const unsigned int baz) = 0;
+    virtual func_type * leopard(const unsigned int baz) = 0;
     virtual int func_extern(int out) = 0;
     virtual int func_one_named(int a) = 0;
     virtual int func_return() = 0;
     virtual int func_variadic_one_unnamed(char *x0) = 0;
-    virtual unsigned char cyber(const unsigned int baz) = 0;
-    virtual unsigned char leopard(const unsigned int baz) = 0;
     virtual void c_func_three_named(const int a, const int b, const int c) = 0;
     virtual void c_func_two_named(const int a, const int b) = 0;
     virtual void c_func_with_struct(const struct A *a) = 0;
