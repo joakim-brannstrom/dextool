@@ -81,7 +81,10 @@ struct Type {
         return ArrayType(this);
     }
 
-    /// Determine whether two CXTypes represent the same type.
+    /** Determine whether two CXTypes represent the same type.
+     *
+     * Returns:non-zero if the CXTypes represent the same type and zero otherwise.
+     */
     equals_t opEquals(const ref Type type_) const {
         return clang_equalTypes(cast(CXType) type_.cx, cast(CXType) cx) != 0;
     }
@@ -175,6 +178,16 @@ struct Type {
     @property bool isPOD() {
         return clang_isPODType(cx) == 1;
     }
+
+    @property bool isPointer() {
+        import std.algorithm : among;
+
+        with (CXTypeKind) {
+            return kind.among(CXType_Pointer, CXType_BlockPointer, CXType_MemberPointer,
+                    CXType_LValueReference, CXType_RValueReference) != 0;
+        }
+    }
+
 }
 
 struct FuncType {

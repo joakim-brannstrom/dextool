@@ -72,8 +72,10 @@ string abilities(EnumCursor c) {
  * c = isConst
  * e = isEnum
  * E = isExposed
- * f = isFunctionPointerType
+ * f = isFunctionType
+ * F = isFunctionPointerType
  * p = isPOD
+ * P = isPointer
  * r = isRestrict
  * t = isTypedef
  * v = isValid
@@ -81,10 +83,11 @@ string abilities(EnumCursor c) {
  * w = isWideCharType
  */
 string abilities(Type t) {
-    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s", t.isAnonymous ? "a" : "",
+    string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s%s", t.isAnonymous ? "a" : "",
             t.isArray ? "A" : "", t.isConst ? "c" : "", t.isEnum ? "e" : "",
-            t.isExposed ? "E" : "", t.isFunctionPointerType ? "f" : "", t.isPOD
-            ? "p" : "", t.isRestrict ? "r" : "", t.isTypedef ? "t" : "", t.isValid
+            t.isExposed ? "E" : "", t.isFunctionType ? "f" : "",
+            t.isFunctionPointerType ? "F" : "", t.isPOD ? "p" : "", t.isPointer
+            ? "P" : "", t.isRestrict ? "r" : "", t.isTypedef ? "t" : "", t.isValid
             ? "v" : "", t.isVolatile ? "V" : "", t.isWideCharType ? "w" : "",);
 
     return s;
