@@ -991,7 +991,8 @@ body {
     info.params = params.map!(a => FuncInfoParam(a.tka.kind.usr, a.tka.attr, a.id, a.isVariadic)).array();
 
     primary.kind.info = info;
-    primary.kind.usr = c.usr;
+    // in the case of __sighandler_t it is already used for the typedef
+    primary.kind.usr = makeFallbackUSR(c, indent);
     primary.kind.loc = makeLocation(c);
 
     rval.primary = primary;
