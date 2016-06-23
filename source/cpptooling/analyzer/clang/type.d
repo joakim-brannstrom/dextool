@@ -52,7 +52,9 @@ body {
 
     // strategy 2, I give up.
     // Problem with this is that it isn't possible to reverse engineer.
-    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
+    //TODO fix the magic number 100. Coming from an internal state of backtrackLocation. NOT GOOD
+    // Checking if it is null_ should have been enough
+    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_ || loc_.backtracked == 100) {
         loc_.backtracked = 1;
         loc_.tag = c.toHash.to!string;
     }
