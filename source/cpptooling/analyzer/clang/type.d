@@ -34,7 +34,8 @@ auto takeOneTypeRef(T)(auto ref T in_) {
     import std.range : takeOne;
     import std.algorithm : filter, among;
 
-    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef && a.kind <= CXCursorKind.CXCursor_LastRef);
+    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
+            && a.kind <= CXCursorKind.CXCursor_LastRef);
 }
 
 /** Iteratively try to construct a USR that is reproducable from the cursor.
