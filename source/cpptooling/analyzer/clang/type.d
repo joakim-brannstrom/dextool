@@ -136,16 +136,18 @@ struct BacktrackLocation {
  * Return: Location and nr of backtracks needed.
  */
 private BacktrackLocation backtrackLocation(ref Cursor c) {
+    import clang.SourceLocation : toString;
+
     BacktrackLocation rval;
 
     auto parent = c;
     for (rval.backtracked = 0; rval.tag.kind == BacktrackLocation.Tag.Kind.null_
             && rval.backtracked < 100; ++rval.backtracked) {
-        auto loc = parent.location;
-        if (loc.file.toString.length != 0) {
-            rval.tag = loc.spelling;
+        auto loc = parent.location.toString;
+        if (loc.length != 0) {
+            rval.tag = loc;
         } else if (parent.isTranslationUnit) {
-            rval.tag = parent.spelling;
+            rval.tag = loc;
             break;
         }
 
@@ -875,7 +877,7 @@ body {
         rval.primary.kind.usr = c.usr;
         rval.primary.kind.loc = makeLocation(c);
         if (rval.primary.kind.usr.length == 0) {
-            rval.primary.kind.usr = makeFallbackUSR(c, this_indent + 1);
+            rval.primary.kind.usr = makeFallbackUSR(c, indent);
         }
     }
 
