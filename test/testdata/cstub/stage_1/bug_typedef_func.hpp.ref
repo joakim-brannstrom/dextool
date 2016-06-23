@@ -1,15 +1,13 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
-#include "function_pointers.h"
+#include "bug_typedef_func.h"
 }
 
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual func_type * cyber(const unsigned int baz) = 0;
-    virtual func_type * leopard(const unsigned int baz) = 0;
-    virtual void tiger() = 0;
+    virtual void_ptr func() = 0;
 };
 
 ///

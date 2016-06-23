@@ -80,6 +80,7 @@ void logTypeResult(const ref TypeResult result, in uint indent = 0,
             case Kind.typeRef:
                 extra = "|ex ref:" ~ cast(string) tka.kind.info.typeRef ~ "|ex canonical:" ~ cast(string) tka.kind.info.canonicalRef;
                 break;
+            case Kind.funcPtr:
             case Kind.pointer:
                 extra = "|ex usr:" ~ cast(string) tka.kind.info.pointee;
                 break;

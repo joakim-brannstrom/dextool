@@ -27,7 +27,7 @@ extern int (*e_g)(int pa, int pb, ...);
  * Expecting func_ptr to be defined as a variable.
  */
 typedef void (func_type)();
-typedef unsigned char (func_param_type)(const unsigned int baz);
+typedef func_type* (func_param_type)(const unsigned int baz);
 typedef unsigned char (*func_ptr)(const unsigned baz);
 
 typedef func_type ref_type;

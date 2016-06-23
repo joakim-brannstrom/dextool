@@ -394,6 +394,13 @@ unittest {
 
 // BEGIN Test Component Diagrams #############################################
 
+@Name(testId ~ "Should analyse __sighandler_t")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Should be a component diagram of two component related by class members")
 unittest {
     mixin(EnvSetup(globalTestdir));
