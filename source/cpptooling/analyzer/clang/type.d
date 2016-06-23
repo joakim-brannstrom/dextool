@@ -143,11 +143,13 @@ private BacktrackLocation backtrackLocation(ref Cursor c) {
     auto parent = c;
     for (rval.backtracked = 0; rval.tag.kind == BacktrackLocation.Tag.Kind.null_
             && rval.backtracked < 100; ++rval.backtracked) {
-        auto loc = parent.location.toString;
-        if (loc.length != 0) {
-            rval.tag = loc;
+        auto loc = parent.location;
+        if (loc.spelling.file is null) {
+            // do nothing
+        } else if (loc.toString.length != 0) {
+            rval.tag = loc.toString;
         } else if (parent.isTranslationUnit) {
-            rval.tag = loc;
+            rval.tag = loc.toString;
             break;
         }
 
