@@ -20,14 +20,21 @@ import clang.File;
 import clang.TranslationUnit;
 import clang.Util;
 
+string toString(SourceLocation.Location value) {
+    import std.string;
+    import std.conv;
+
+    return format("[file=%s line=%d column=%d offset=%d]", text(value.file),
+            value.line, value.column, value.offset);
+}
+
 string toString(SourceLocation value) {
     import std.string;
     import std.conv;
 
     if (value.isValid) {
         auto spell = value.spelling;
-        return format("[file=%s line=%d column=%d offset=%d]",
-                text(spell.file), spell.line, spell.column, spell.offset);
+        return spell.toString;
     }
 
     return format("%s(%s)", text(typeid(value)), text(value.cx));
