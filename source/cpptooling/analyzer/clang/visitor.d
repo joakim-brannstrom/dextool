@@ -96,15 +96,9 @@ private CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
     return params;
 }
 
-private auto toInternal(T)(SourceLocation c_loc) {
-    import std.conv : text;
-
-    T into;
+private auto toInternal(SourceLocation c_loc) {
     auto l = c_loc.expansion();
-
-    into.file = l.file.name();
-    into.line = l.line;
-    into.column = l.column;
+    auto into = LocationTag(Location(l.file.name(), l.line, l.column));
 
     return into;
 }
@@ -136,13 +130,13 @@ struct VariableVisitor {
         logger.info("variable:", result.toString);
     }
     body {
-        import cpptooling.data.representation : CppVariable, CxLocation;
+        import cpptooling.data.representation : CppVariable;
 
         auto type = retrieveType(c, container);
         put(type, container);
 
         auto name = CppVariable(c.spelling);
-        auto loc = toInternal!CxLocation(c.location());
+        auto loc = toInternal(c.location());
 
         return CxGlobalVariable(type.primary, name, loc);
     }
@@ -154,7 +148,7 @@ struct VariableVisitor {
 /// mark it as such. Probably need to modify cpptooling.data.representation.
 struct FunctionVisitor {
     import cpptooling.data.representation : CxParam, CFunctionName,
-        CxReturnType, CFunction, VariadicType, CxLocation, StorageClass;
+        CxReturnType, CFunction, VariadicType, LocationTag, StorageClass;
 
     static auto make(ref Cursor) {
         return typeof(this)();
@@ -200,7 +194,7 @@ struct FunctionVisitor {
         static struct ComposeData {
             TypeResult tr;
             CFunctionName name;
-            CxLocation loc;
+            LocationTag loc;
             VariadicType isVariadic;
             StorageClass storageClass;
         }
@@ -209,7 +203,7 @@ struct FunctionVisitor {
             auto data = ComposeData(tr);
 
             data.name = CFunctionName(c.spelling);
-            data.loc = toInternal!CxLocation(c.location());
+            data.loc = toInternal(c.location());
 
             switch (c.storageClass()) with (CX_StorageClass) {
             case CX_SC_Extern:
@@ -530,7 +524,7 @@ private:
  */
 struct ClassVisitor {
     import cpptooling.data.representation : CppClassName, CppClassVirtual,
-        CppClass, CxLocation, ClassVirtualType, CppNsStack, CppInherit;
+        CppClass, LocationTag, ClassVirtualType, CppNsStack, CppInherit;
     import cpptooling.data.symbol.container;
 
     /** Make a ClassVisitor to descend a Clang Cursor.
@@ -543,7 +537,7 @@ struct ClassVisitor {
         assert(c.kind == CXCursorKind.CXCursor_ClassDecl);
     }
     body {
-        auto loc = toInternal!CxLocation(c.location());
+        auto loc = toInternal(c.location());
         auto name = CppClassName(c.spelling);
         auto r = ClassVisitor(name, loc, reside_in_ns);
         logger.info("class: ", cast(string) name);
@@ -554,7 +548,7 @@ struct ClassVisitor {
     @disable this();
 
     //TODO consider making it public. The reason for private is dubious.
-    private this(CppClassName name, CxLocation loc, CppNsStack reside_in_ns) {
+    private this(CppClassName name, LocationTag loc, CppNsStack reside_in_ns) {
         this.data = CppClass(name, loc, CppInherit[].init, reside_in_ns);
     }
 
@@ -770,14 +764,12 @@ struct ParseContext {
     }
 
     void applyRoot(ref Cursor c) {
-        import cpptooling.data.representation : CxLocation;
+        import cpptooling.data.type : LocationTag;
 
         logNode(c, depth);
 
-        // retrieving the location from a root is via spelling.
-        auto loc = CxLocation();
-        loc.file = c.spelling;
-        root.putLocation(loc);
+        auto loc = LocationTag(Location(c.translationUnit.file.name));
+        root.setLocation(loc);
     }
 
     bool apply(ref Cursor c, ref Cursor parent) {

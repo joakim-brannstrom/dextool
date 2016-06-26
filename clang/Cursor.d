@@ -460,16 +460,14 @@ struct Cursor {
     }
 
     /// Determine whether the given cursor kind represents an invalid cursor.
-    @property bool isValid() const {
+    @property bool isValid() const @trusted {
         // note that it checks for invalidity of the cursor, thus the inverse
         // is the return value.
-        // Why this note?
-        // I almost thought it was a bug that the check was == 0
         return !clang_isInvalid(cx.kind);
     }
 
     /// Determine whether the given cursor kind represents a translation unit.
-    @property bool isTranslationUnit() const {
+    @property bool isTranslationUnit() const @trusted {
         return clang_isTranslationUnit(cx.kind) != 0;
     }
 

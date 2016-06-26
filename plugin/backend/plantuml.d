@@ -356,7 +356,7 @@ auto fanOutSorted(T)(T t) pure {
         return classes.byKeyValue
             .map!(a => KeyClass(a.key, a.value))
             .array();
-        // dfmt off
+        // dfmt on
     }
 
     auto nameSortedRange() const pure @trusted {
@@ -481,7 +481,7 @@ auto fanOutSorted(T)(T t) pure {
         return components.byKeyValue
             .map!(a => KeyComponent(a.key, a.value))
             .array();
-        // dfmt off
+        // dfmt on
     }
 
     auto nameSortedRange() const pure @trusted {
@@ -865,7 +865,8 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CppNamespace, CxLocation, CFunction, CxGlobalVariable;
+    CppDtor, CppNamespace, CFunction, CxGlobalVariable;
+import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.utility.conv : str;
 import dsrcgen.plantuml;
@@ -880,9 +881,10 @@ import dsrcgen.plantuml;
 T rawFilter(T)(T input, Controller ctrl, Products prod)
         if (is(T == CppRoot) || is(T == CppNamespace)) {
     import std.algorithm : each, filter, map;
+    import cpptooling.generator.utility : filterAnyLocation;
 
     static if (is(T == CppRoot)) {
-        auto raw = CppRoot(input.lastLocation);
+        auto raw = CppRoot(input.location);
     } else {
         auto raw = CppNamespace.make(input.name);
     }
@@ -894,17 +896,17 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
 
     input.classRange
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         .each!(a => raw.put(a));
 
     input.funcRange()
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         .each!(a => raw.put(a));
 
     input.globalRange()
         // ask controller if the file should be processed
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         .each!(a => raw.put(a));
     // dfmt on
 
@@ -1118,6 +1120,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
     import cpptooling.analyzer.type;
     import cpptooling.data.representation;
     import cpptooling.data.symbol.types;
+    import cpptooling.generator.utility : validLocation;
 
     alias KeyValue = Tuple!(UMLComponentDiagram.Key, "key", string, "display",
             string, "absFilePath");
@@ -1138,7 +1141,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
 
         alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
-        string file_path = buildNormalizedPath(location_file).absolutePath;
+        string file_path = buildNormalizedPath(location_file.absolutePath);
         string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path));
         string rel_path = relativePath(strip_path);
         string display_name = strip_path.baseName;
@@ -1156,15 +1159,18 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         return k;
     }
 
-    static auto lookupType(TypeKindAttr tk, const ref Container container) {
+    static auto lookupType(TypeKindAttr tk, const ref Container container) @safe {
         enum rel_kind = Relate.Kind.None;
 
         auto type_lookup = only(USRType.init).dropOne;
         auto rval = only(PathKind()).dropOne;
 
-        if (tk.attr.isPrimitive) {
+        if (tk.attr.isPrimitive || tk.kind.loc.kind == LocationTag.Kind.noloc) {
             return rval;
         }
+
+        // because of the noloc check it is safe to assume that all locs are
+        // now of type loc
 
         final switch (tk.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:
@@ -1198,8 +1204,9 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
 
         // dfmt off
         foreach (c; type_lookup
-                 .map!(a => container.find!TypeKind(a)).joiner()
-                 ) {
+                          .map!(a => container.find!TypeKind(a))
+                          .joiner()
+                          .filter!(a => a.loc.kind != LocationTag.Kind.noloc)) {
             rval = only(PathKind(c.loc.file, rel_kind));
         }
         // dfmt on
@@ -1207,14 +1214,15 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         return rval;
     }
 
-    static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) {
+    static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) @safe {
         return lookupType(tkv.type, container).map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
-    static auto getInheritRelation(CppInherit inherit, const ref Container container) {
+    static auto getInheritRelation(CppInherit inherit, const ref Container container) @safe {
         auto rval = only(PathKind()).dropOne;
 
-        foreach (c; container.find!TypeKind(inherit.usr)) {
+        foreach (c; container.find!TypeKind(inherit.usr)
+                .filter!(a => a.loc.kind != LocationTag.Kind.noloc)) {
             rval = only(PathKind(c.loc.file, Relate.Kind.Associate));
         }
 
@@ -1236,7 +1244,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         // dfmt on
     }
 
-    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, const ref Container container) {
+    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, const ref Container container) @safe {
         static auto genMethod(T)(T f, const ref Container container) {
             import std.typecons : TypedefType;
 
@@ -1267,7 +1275,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
                 Relate.Kind.Associate)).array();
     }
 
-    static auto getFreeFuncRelation(ref CFunction f, const ref Container container) {
+    static auto getFreeFuncRelation(ref CFunction f, const ref Container container) @safe {
         import std.typecons : TypedefType;
 
         // dfmt off
@@ -1277,8 +1285,9 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         // dfmt on
     }
 
-    auto key = makeKey(input.lastLocation.file, ctrl);
-    uml.put(key.key, key.display);
+    if (input.location.kind == LocationTag.Kind.noloc) {
+        return;
+    }
 
     // dfmt off
     static if (is(T == CppClass)) {
@@ -1295,7 +1304,11 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
             .map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
+    auto key = makeKey(input.location.file, ctrl);
+    uml.put(key.key, key.display);
+
     foreach (a; path_kind_range
+        .filter!(a => a.kind != LocationTag.Kind.noloc)
         // ask controller if the file should be processed
         .filter!(a => ctrl.doFile(a.file, cast(string) a.file))
         .map!(a => KeyRelate(a.file, makeKey(a.file, ctrl), a.kind))

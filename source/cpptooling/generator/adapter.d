@@ -13,11 +13,14 @@ import dsrcgen.cpp : CppModule;
 
 import application.types : MainNs, MainInterface;
 import cpptooling.analyzer.type;
-import cpptooling.data.representation : CppClass, CppNamespace, CxLocation;
+import cpptooling.data.representation : CppClass, CppNamespace;
+import cpptooling.data.type : LocationTag, Location;
 
 @safe:
 
-enum dummyLoc = CxLocation("<test double>", 0, 0);
+auto dummyLoc() {
+    return LocationTag(Location("<test double>", 0, 0));
+}
 
 /// Make a C++ adapter for an interface.
 CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {

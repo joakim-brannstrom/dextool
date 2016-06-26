@@ -15,7 +15,7 @@ import std.typecons : Tuple, Nullable, Flag;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.data.type : Location;
+import cpptooling.data.type : LocationTag;
 
 alias ArrayInfoIndex = Nullable!long;
 alias FuncInfoParam = Tuple!(USRType, "usr", TypeAttr, "attr", string, "id",
@@ -171,8 +171,8 @@ pure @safe nothrow @nogc struct TypeKind {
     alias Info = TaggedAlgebraic!InternalInfo;
 
     Info info;
+    LocationTag loc;
     USRType usr;
-    Location loc;
 
     invariant {
         final switch (this.info.kind) with (TypeKind.Info) {

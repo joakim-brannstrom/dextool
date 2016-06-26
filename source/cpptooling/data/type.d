@@ -15,6 +15,7 @@ import std.variant : Algebraic;
 
 import cpptooling.analyzer.type : TypeKind, TypeKindAttr, TypeResult;
 import cpptooling.data.symbol.types : USRType;
+import cpptooling.utility.taggedalgebraic;
 
 /// Name of a C++ namespace.
 alias CppNs = Typedef!(string, null, "CppNs");
@@ -49,7 +50,74 @@ alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
 alias VariadicType = Flag!"isVariadic";
 alias CxParam = Algebraic!(TypeKindVariable, TypeKindAttr, VariadicType);
 alias CxReturnType = Typedef!(TypeKindAttr, TypeKindAttr.init, "CxReturnType");
-alias Location = Tuple!(string, "file", uint, "line", uint, "column");
+
+/// A valid location.
+struct Location {
+    string file;
+    uint line;
+    uint column;
+
+    this(string file) @safe {
+        this(file, 0, 0);
+    }
+
+    this(string file, uint line, uint column) @safe {
+        //TODO remove idup if it isn't needed
+        this.file = file;
+        this.line = line;
+        this.column = column;
+    }
+
+    auto toString() const @safe pure {
+        import std.format;
+
+        return format("File:%s Line:%s Column:%s", file, line, column);
+    }
+
+    T opCast(T : string)() @safe pure const nothrow {
+        return toString();
+    }
+}
+
+/** Represent a location.
+ *
+ * Either a:
+ *  - no location.
+ *  - location with data.
+ *
+ * Using a TaggedAlgebraic to allow adding more types in the future.
+ */
+struct LocationTag {
+    enum Kind {
+        noloc,
+        loc
+    }
+
+    Kind kind;
+
+    Location payload;
+    alias payload this;
+
+    this(T)(T t) @safe pure {
+        static if (is(T == typeof(null))) {
+            this.kind = Kind.noloc;
+        } else {
+            this.kind = Kind.loc;
+            this.payload = t;
+        }
+    }
+}
+
+auto toString(const ref LocationTag data) @safe pure {
+    static import std.format;
+
+    final switch (data.kind) {
+    case LocationTag.Kind.noloc:
+        return "noloc";
+    case LocationTag.Kind.loc:
+        return data.toString;
+    }
+}
 
 enum MemberVirtualType {
     Unknown,

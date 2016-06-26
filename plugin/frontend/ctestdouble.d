@@ -109,7 +109,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
 
-    private TdIncludes td_includes;
+    private TestDoubleIncludes td_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         import std.array : array;
@@ -169,7 +169,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.gmock = gmock;
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
-        this.td_includes = TdIncludes(strip_incl);
+        this.td_includes = TestDoubleIncludes(strip_incl);
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -309,7 +309,8 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
-    import cpptooling.data.representation : CppRoot, CxLocation;
+    import cpptooling.data.representation : CppRoot;
+    import cpptooling.data.type : LocationTag, Location;
 
     const auto default_cflags = prependDefaultFlags(in_cflags, "-xc");
 
@@ -332,7 +333,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             use_cflags = default_cflags.dup;
         }
 
-        auto root = CppRoot(CxLocation(in_file, 0, 0));
+        auto root = CppRoot(LocationTag(Location(in_file, 0, 0)));
         if (analyzeFile(in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }

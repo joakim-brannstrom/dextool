@@ -1,7 +1,5 @@
 @startuml
 component "include" as Li4vLi4vLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGU
 component "bits" as Li4vLi4vLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGUveDg2XzY0LWxpbnV4LWdudS9iaXRz
-component "test" as Lg
-Li4vLi4vLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGU --> Lg
 Li4vLi4vLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGU --> Li4vLi4vLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGUveDg2XzY0LWxpbnV4LWdudS9iaXRz
 @enduml

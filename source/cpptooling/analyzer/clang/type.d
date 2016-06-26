@@ -27,14 +27,35 @@ import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
-import cpptooling.data.type : Location;
+import cpptooling.data.type : Location, LocationTag;
+
+private long _nextSequence;
+
+static this() {
+    import std.random : uniform;
+
+    _nextSequence = uniform(1, 10_000_000);
+}
+
+string nextSequence() @safe {
+    import std.conv : text;
+
+    if (_nextSequence == long.max) {
+        _nextSequence = 1;
+    }
+
+    _nextSequence += 1;
+
+    return text(_nextSequence);
+}
 
 /// Find the first typeref node, if any.
 auto takeOneTypeRef(T)(auto ref T in_) {
     import std.range : takeOne;
     import std.algorithm : filter, among;
 
-    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef && a.kind <= CXCursorKind.CXCursor_LastRef);
+    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
+            && a.kind <= CXCursorKind.CXCursor_LastRef);
 }
 
 /** Iteratively try to construct a USR that is reproducable from the cursor.
@@ -62,9 +83,9 @@ body {
     // Problem with this is that it isn't possible to reverse engineer.
     //TODO fix the magic number 100. Coming from an internal state of backtrackLocation. NOT GOOD
     // Checking if it is null_ should have been enough
-    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_ || loc_.backtracked == 100) {
+    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
         loc_.backtracked = 1;
-        loc_.tag = c.toHash.to!string;
+        loc_.tag = nextSequence;
     }
 
     auto app = appender!string();
@@ -112,7 +133,7 @@ void assertTypeResult(const ref TypeResult result) {
     foreach (const ref tka; chain(only(result.primary), result.extra)) {
         assert(tka.toStringDecl("x").length > 0);
         assert(tka.kind.usr.length > 0);
-        if (!tka.attr.isPrimitive) {
+        if (!tka.attr.isPrimitive && tka.kind.loc.kind != LocationTag.Kind.noloc) {
             assert(tka.kind.loc.file.length > 0);
         }
     }
@@ -121,10 +142,11 @@ void assertTypeResult(const ref TypeResult result) {
 struct BacktrackLocation {
     static import clang.SourceLocation;
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import cpptooling.data.type : Location;
 
     union TagType {
         typeof(null) null_;
-        clang.SourceLocation.SourceLocation.Location loc;
+        cpptooling.data.type.Location loc;
         string spelling;
     }
 
@@ -145,8 +167,9 @@ struct BacktrackLocation {
  *
  * Return: Location and nr of backtracks needed.
  */
-private BacktrackLocation backtrackLocation(ref Cursor c) {
+private BacktrackLocation backtrackLocation(ref Cursor c) @safe {
     import clang.SourceLocation : toString;
+    import cpptooling.data.type : Location;
 
     BacktrackLocation rval;
 
@@ -154,16 +177,17 @@ private BacktrackLocation backtrackLocation(ref Cursor c) {
     for (rval.backtracked = 0; rval.tag.kind == BacktrackLocation.Tag.Kind.null_
             && rval.backtracked < 100; ++rval.backtracked) {
         auto loc = parent.location;
-        if (loc.spelling.file is null) {
+        auto spell = loc.spelling;
+        if (spell.file is null) {
             // do nothing
-        } else if (loc.toString.length != 0) {
-            rval.tag = loc.toString;
+        } else if (spell.file.name.length != 0) {
+            rval.tag = Location(spell.file.name, spell.line, spell.column);
         } else if (parent.isTranslationUnit) {
-            rval.tag = loc.toString;
+            rval.tag = Location(spell.file.name, spell.line, spell.column);
             break;
         }
 
-        parent = parent.lexicalParent;
+        parent = () @trusted{ return parent.lexicalParent; }();
     }
 
     return rval;
@@ -171,14 +195,17 @@ private BacktrackLocation backtrackLocation(ref Cursor c) {
 
 /// TODO consider if .offset should be used too. But may make it harder to
 /// reverse engineer a location.
-private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, ref T app) {
+private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, ref T app) @safe {
+    static import cpptooling.data.type;
+
     // using a suffix that do NOT exist in the clang USR standard.
     // TODO lookup the algorithm for clang USR to see if $ is valid.
     enum marker = '$';
 
     final switch (back_loc.tag.kind) with (BacktrackLocation.Tag) {
     case Kind.loc:
-        app.put(back_loc.tag.toString);
+        auto loc = cast(cpptooling.data.type.Location) back_loc.tag;
+        app.put(loc.toString);
         break;
     case Kind.spelling:
         app.put(to!string(back_loc.tag));
@@ -186,28 +213,42 @@ private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, r
     case Kind.null_:
         break;
     }
+
     app.put(marker);
     app.put(back_loc.backtracked.to!string);
-    app.put(c.spelling);
+    if (c.isValid) {
+        app.put(() @trusted{ return c.spelling; }());
+    }
 }
 
-private Location makeLocation(ref Cursor c) {
+private LocationTag makeLocation(ref Cursor c) @safe
+out (result) {
+    import std.utf : validate;
+
+    validate(result.file);
+}
+body {
     import std.array : appender;
 
     auto loc = c.location.spelling;
     auto rval = Location(loc.file.name, loc.line, loc.column);
 
     if (rval.file.length > 0) {
-        return rval;
+        return LocationTag(rval);
     }
 
-    auto back_loc = backtrackLocation(c);
+    auto loc_ = backtrackLocation(c);
+
+    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
+        return LocationTag(null);
+    }
 
     auto app = appender!string();
-    putBacktrackLocation(c, back_loc, app);
+    putBacktrackLocation(c, loc_, app);
 
-    rval.file = app.data;
-    return rval;
+    rval = Location(app.data, loc.line, loc.column);
+
+    return LocationTag(rval);
 }
 
 TypeAttr makeTypeAttr(ref Type type) {
@@ -704,15 +745,15 @@ body {
         if (rval.kind.usr.length == 0) {
             rval.kind.usr = makeFallbackUSR(c, this_indent + 1);
         }
+        rval.kind.loc = makeLocation(c);
     } else {
         string spell = maybe_primitive.get;
         rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
         rval.attr.isPrimitive = Yes.isPrimitive;
 
         rval.kind.usr = makeUSR(maybe_primitive.get);
+        rval.kind.loc = LocationTag(null);
     }
-
-    rval.kind.loc = makeLocation(c);
 
     return TypeResult(rval, null);
 }
@@ -818,6 +859,10 @@ in {
 }
 out (result) {
     logTypeResult(result, this_indent);
+    with (TypeKind.Info.Kind) {
+        // allow catching the logical error in debug build
+        assert(!result.primary.kind.info.kind.among(ctor, dtor, record, simple, array));
+    }
 }
 body {
     import std.array;
@@ -965,10 +1010,9 @@ body {
     import std.algorithm : map;
     import std.string : strip;
 
-    // append extra types directly to referenced TypeResult
-    TypeKindAttr retrieveReturn(ref TypeResult tr) {
-        TypeResult rval;
-
+    // TODO redesign. This is brittle and ugly.
+    // return by value instead of splitting two ways like this.
+    TypeKindAttr retrieveReturn(ref TypeResult rval) {
         auto result_type = type.func.resultType;
         auto result_decl = result_type.declaration;
         debug {
@@ -982,16 +1026,13 @@ body {
             rval = retrieveType(result_decl, container, indent + 1).get;
         }
 
-        tr.extra ~= [rval.primary] ~ rval.extra;
-
         return rval.primary;
     }
 
     TypeResult rval;
+    TypeResult return_rval;
 
-    // writing to rval
-    auto return_t = retrieveReturn(rval);
-
+    auto return_t = retrieveReturn(return_rval);
     auto params = extractParams2(c, type, container, indent);
     auto primary = makeTypeKindAttr(type);
 
@@ -1011,6 +1052,8 @@ body {
 
     rval.primary = primary;
     rval.extra ~= params.map!(a => a.tka).array();
+    rval.extra ~= return_rval.primary;
+    rval.extra ~= return_rval.extra;
 
     return rval;
 }
@@ -1127,6 +1170,7 @@ out (result) {
 }
 body {
     import std.format : format;
+    import cpptooling.data.type : LocationTag, Location;
 
     ArrayInfoIndex[] index_nr;
 
@@ -1152,7 +1196,7 @@ body {
 
     TypeResult element;
     USRType primary_usr;
-    Location primary_loc;
+    LocationTag primary_loc;
 
     auto index_decl = index.declaration;
 
@@ -1170,12 +1214,15 @@ body {
         primary_loc = element.primary.kind.loc;
     }
 
-    if (primary_loc.file.length == 0) {
+    switch (primary_loc.kind) {
+    case LocationTag.Kind.noloc:
         // TODO this is stupid ... fix it. Shouldn't be needed but happens
         // when it is an array of primary types.
         // Probably the correct fix is the contract in retrieveType to check
         // that if it is an array at primary types it do NOT check for length.
         primary_loc = makeLocation(c);
+        break;
+    default:
     }
 
     TypeKind.ArrayInfo info;
@@ -1396,8 +1443,10 @@ body {
         if (!isFuncProtoTypedef(c)) {
             return;
         }
+
         auto type = c.type;
         auto func = typeToFuncProto(c, type, container, indent);
+
         // a USR for the function do not exist because the only sensible would
         // be the typedef... but it is used by the typedef _for this function_
         func.primary.kind.usr = makeFallbackUSR(c, indent);
