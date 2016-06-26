@@ -29,6 +29,14 @@ import clang.Type : Type;
 public import cpptooling.analyzer.type;
 import cpptooling.data.type : Location;
 
+/// Find the first typeref node, if any.
+auto takeOneTypeRef(T)(auto ref T in_) {
+    import std.range : takeOne;
+    import std.algorithm : filter, among;
+
+    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef && a.kind <= CXCursorKind.CXCursor_LastRef);
+}
+
 /** Iteratively try to construct a USR that is reproducable from the cursor.
  *
  * Only use when c.usr may return the empty string.
@@ -1302,7 +1310,7 @@ body {
         }
 
         // any TypeRef children and thus need to traverse the tree?
-        foreach (child; c.children.takeOne) {
+        foreach (child; c.children.takeOneTypeRef) {
             if (!child.kind.among(CXCursorKind.CXCursor_TypeRef)) {
                 break;
             }
@@ -1470,7 +1478,7 @@ body {
     const uint indent = this_indent + 1;
     typeof(return) rval;
 
-    foreach (child; c.children.takeOne) {
+    foreach (child; c.children.takeOneTypeRef) {
         if (child.kind != CXCursorKind.CXCursor_TypeRef) {
             break;
         }

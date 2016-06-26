@@ -84,6 +84,13 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 }
 
 // --- Stage 1 ---
+@Name(testId ~ "Should detect as func")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_1/bug_func_attr.h", testEnv);
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Should detect as func and not as param when parsed as C")
 unittest {
     mixin(EnvSetup(globalTestdir));
