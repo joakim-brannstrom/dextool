@@ -202,23 +202,18 @@ void compare(in Path gold, in Path result) {
     }
 }
 
-/// Check if the logged stdout contains the golden block.
-///TODO refactor function. It is unnecessarily complex.
-void stdoutContains(in Path gold) {
+bool stdoutContains(in string txt) {
+    import std.string : indexOf;
+
+    return getYapLog().joiner().array().indexOf(txt) != -1;
+}
+
+import std.range : isInputRange;
+
+bool stdoutContains(T)(in T gold_lines) if (isInputRange!T) {
     import std.array : array;
     import std.range : enumerate;
-    import std.stdio : File;
-
-    yap("Contains gold:", gold.toRawString);
-
-    File goldf;
-
-    try {
-        goldf = File(gold.escapePath);
-    }
-    catch (ErrnoException ex) {
-        throw new ErrorLevelException(-1, ex.msg);
-    }
+    import std.traits : isArray;
 
     enum ContainState {
         NotFoundFirstLine,
@@ -229,7 +224,6 @@ void stdoutContains(in Path gold) {
 
     ContainState state;
 
-    auto gold_lines = goldf.byLine().array();
     auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
     size_t gold_idx, result_idx;
     while (!state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
@@ -277,11 +271,36 @@ void stdoutContains(in Path gold) {
         ++result_idx;
     }
 
-    if (state != ContainState.BlockFound) {
-        yap("Output do not contain the reference file (gold): " ~ gold.escapePath);
-        throw new ErrorLevelException(-1,
-                "Output do not contain the reference file (gold): " ~ gold.escapePath);
+    return state == ContainState.BlockFound;
+}
+
+/// Check if the logged stdout contains the golden block.
+///TODO refactor function. It is unnecessarily complex.
+bool stdoutContains(in Path gold) {
+    import std.array : array;
+    import std.range : enumerate;
+    import std.stdio : File;
+
+    yap("Contains gold:", gold.toRawString);
+
+    File goldf;
+
+    try {
+        goldf = File(gold.escapePath);
     }
+    catch (ErrnoException ex) {
+        yap(ex.msg);
+        return false;
+    }
+
+    bool status = stdoutContains(goldf.byLine.array());
+
+    if (!status) {
+        yap("Output do not contain the reference file (gold): " ~ gold.escapePath);
+        return false;
+    }
+
+    return true;
 }
 
 /** Run dextool.
