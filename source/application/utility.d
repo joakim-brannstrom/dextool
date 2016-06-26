@@ -207,7 +207,13 @@ struct TestDoubleIncludes {
         }
     }
 
-    void put(FileName fname, LocationType type) @safe {
+    void put(FileName fname, LocationType type) @safe
+    in {
+        import std.utf : validate;
+
+        validate((cast(string) fname));
+    }
+    body {
         final switch (st) with (State) {
         case Normal:
             if (type == LocationType.Root) {

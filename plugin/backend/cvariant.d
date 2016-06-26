@@ -158,7 +158,7 @@ struct StubGenerator {
         logger.trace("Raw:\n", root.toString());
 
         rawFilter(root, ctrl, products, raw);
-        logger.trace("Filtered:\n", raw.toString());
+        logger.tracef("Filtered:\n%s\n", raw.toString());
     }
 
     /** Process structural data to a test double.
@@ -244,10 +244,13 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, CxLocation, CxGlobalVariable;
+    CppDtor, CFunction, CppNamespace, CxGlobalVariable;
+import cpptooling.data.type : LocationTag, Location;
 import dsrcgen.cpp : E;
 
-enum dummyLoc = CxLocation("<test double>", 0, 0);
+auto dummyLoc() {
+    return LocationTag(Location("<test double>", 0, 0));
+}
 
 enum ClassType {
     Normal,
@@ -270,27 +273,29 @@ enum NamespaceType {
 void rawFilter(ref CppRoot input, StubController ctrl, StubProducts prod, ref CppRoot raw) {
     import std.algorithm : filter, each, map, cache;
     import std.range : tee;
-    import cpptooling.data.representation : dedup, StorageClass;
-
-    if (ctrl.doFile(input.lastLocation.file, "root " ~ input.lastLocation.toString)) {
-        prod.putLocation(FileName(input.lastLocation.file), LocationType.Root);
-    }
+    import cpptooling.data.representation : StorageClass;
+    import cpptooling.generator.utility : validLocation, storeValidLocations,
+        filterAnyLocation;
 
     // dfmt off
+    foreach (loc; input.location.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
+        prod.putLocation(FileName(loc.file), LocationType.Root);
+    }
+
     input.funcRange
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
         // ask controller if to generate a test double for the function
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+        .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
         .each!(a => raw.put(a));
 
     input.globalRange()
         // ask controller if to generate a definitions
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+        .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
         .each!(a => raw.put(a));
     // dfmt on
 }

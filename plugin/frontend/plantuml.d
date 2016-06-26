@@ -333,7 +333,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import cpptooling.analyzer.clang.context;
     import cpptooling.analyzer.clang.visitor;
     import cpptooling.data.symbol.container;
-    import cpptooling.data.representation : CxLocation;
+    import cpptooling.data.type : Location, LocationTag;
     import plugin.backend.plantuml : Generator;
 
     final switch (file_process.directive) {
@@ -349,7 +349,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.trace("Input file: ", cast(string) entry.absoluteFile);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
-            auto partial_root = CppRoot(CxLocation(cast(string) entry.absoluteFile, 0, 0));
+            auto partial_root = CppRoot(LocationTag(Location(cast(string) entry.absoluteFile, 0, 0)));
             auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
                     entry_cflags, symbol_container, partial_root);
 
@@ -395,7 +395,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         Container symbol_container;
-        auto root = CppRoot(CxLocation(input_file, 0, 0));
+        auto root = CppRoot(LocationTag(Location(input_file, 0, 0)));
         if (analyzeFile(input_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }

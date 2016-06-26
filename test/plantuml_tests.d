@@ -9,7 +9,8 @@ module plantuml_tests;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import unit_threaded : Name, shouldEqual, ShouldFail, shouldBeTrue;
+import unit_threaded : Name, shouldEqual, ShouldFail, shouldBeTrue,
+    shouldBeFalse;
 import utils;
 
 enum globalTestdir = "plantuml_tests";
@@ -399,6 +400,18 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
     runTestFile(p, testEnv);
+
+    stdoutContains("$100").shouldBeFalse;
+}
+
+@Name(testId ~ "Should always be able to backtrack")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
+    p.skipCompare = Yes.skipCompare;
+    runTestFile(p, testEnv);
+
+    stdoutContains("$100").shouldBeFalse;
 }
 
 @Name(testId ~ "Should be a component diagram of two component related by class members")

@@ -113,7 +113,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] file_data;
 
-    private TdIncludes td_includes;
+    private TestDoubleIncludes td_includes;
 
     static auto makeVariant(ref ArgValue[string] parsed) {
         import std.array : array;
@@ -174,7 +174,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         this.gmock = gmock;
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
-        this.td_includes = TdIncludes(strip_incl);
+        this.td_includes = TestDoubleIncludes(strip_incl);
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -333,7 +333,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     }
 
     Container symbol_container;
-    auto root = CppRoot(CxLocation(in_file, 0, 0));
+    auto root = CppRoot(LocationTag(Location(in_file, 0, 0)));
     if (analyzeFile(in_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }

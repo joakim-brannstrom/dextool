@@ -15,7 +15,7 @@ import std.typecons : Tuple, Nullable, Flag;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.data.type : Location;
+import cpptooling.data.type : LocationTag;
 
 public import cpptooling.analyzer.kind;
 
@@ -95,7 +95,7 @@ void logTypeResult(const ref TypeResult result, in uint indent = 0,
                  to!string(tka.kind.info.kind),
                  tka.kind.internalGetFmt,
                  tka.toStringDecl("x"),
-                 tka.kind.loc.file.length == 0 ? "no" : "yes",
+                 (tka.kind.loc.kind == LocationTag.Kind.loc) ? (tka.kind.loc.file.length == 0 ? "no" : "yes") : "noloc",
                  cast(string) tka.kind.usr,
                  tka.attr,
                  extra,

@@ -79,10 +79,13 @@ version (unittest) {
         debug {
             import std.conv : to;
             import cpptooling.analyzer.type;
+            import cpptooling.data.type : LocationTag, Location;
 
-            logger.tracef("Stored kind:%s usr:%s repr:%s", (*typekind[$ - 1])
-                    .info.kind.to!string, cast(string)(*typekind[$ - 1]).usr,
-                    (*typekind[$ - 1]).toStringDecl(TypeAttr.init, "x"));
+            auto latest = *typekind[$ - 1];
+
+            logger.tracef("Stored kind:%s usr:%s repr:%s loc:%s", latest.info.kind.to!string,
+                    cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"),
+                    latest.loc.kind == LocationTag.Kind.loc ? latest.loc.file : "noloc");
         }
     }
 
@@ -175,6 +178,7 @@ version (unittest) {
         import std.format : format;
         import std.range : only, chain, takeOne;
         import cpptooling.analyzer.type;
+        import cpptooling.data.type : LocationTag;
 
         // dfmt off
         return chain(
@@ -183,7 +187,7 @@ version (unittest) {
                         t_cppclass.map!(a => "  " ~ a.fullyQualifiedName ~ newline).joiner,
                      only("} // classes" ~ newline).joiner,
                      only("types {" ~ newline).joiner,
-                        typeRange.map!(a => format("  %s %s -> %s%s", a.info.kind.to!string(), cast(string) a.usr, (*a).internalGetFmt, newline)).joiner,
+                        typeRange.map!(a => format("  %s %s -> %s %s%s", a.info.kind.to!string(), cast(string) a.usr, (*a).internalGetFmt, a.loc.kind == LocationTag.Kind.loc ? a.loc.file : "noloc", newline)).joiner,
                      only("} // types" ~ newline).joiner,
                      only("} //Container").joiner,
                     ).text;

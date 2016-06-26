@@ -14,22 +14,28 @@ Therefor the default c'tor is disabled.
 Structs was chosen instead of classes to:
  * ensure allocation on the stack.
  * lower the GC pressure.
+ * dynamic dispatch isn't needed.
+ * value semantics.
 
 Design rules for Structural representation.
- * default c'tor disabled.
+shall:
+ * toString functions shall never append a newline as the last character.
+ * all c'tor parameters shall be const.
+ * members are declared at the top.
+    Rationale const: (The ':' is not a typo) can affect var members thus all
+    member shall be defined after imports.
+when applicable:
+ * default c'tor disabled when possible
  * attributes "pure @safe nothrow" for the struct.
- * All c'tor parameters shall be const.
- * After c'tor "const:" shall be used.
- * Ranges for arrays shall use the ArrayRange struct.
  * Add mixin for Id and Location when the need arise.
- * const: (The ':' is not a typo) can affect var members thus all member
-   shall be defined after imports.
+ * After c'tor "const:" is used.
 
 TODO replace all dynamic array's with RedBlackTree's
 */
 module cpptooling.data.representation;
 
 import std.array : Appender;
+import std.format : format;
 import std.range : isInputRange;
 import std.typecons : Typedef, Tuple, Flag, Yes, No;
 import std.variant : Algebraic;
@@ -45,16 +51,22 @@ version (unittest) {
     import test.helpers : shouldEqualPretty;
     import unit_threaded : Name;
     import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
+    import unit_threaded : writelnUt;
 
-    enum dummyLoc = CxLocation("a.h", 123, 45);
-    enum dummyLoc2 = CxLocation("a.h", 456, 12);
+    auto dummyLoc() {
+        return LocationTag(Location("a.h", 123, 45));
+    }
+
+    auto dummyLoc2() {
+        return LocationTag(Location("a.h", 456, 12));
+    }
 } else {
     struct Name {
         string name_;
     }
 }
 
-enum unknownLocation = CxLocation("", 0, 0);
+const LocationTag unknownLocation;
 
 string funcToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
@@ -99,6 +111,8 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 
     private IDType id_;
 
+@safe:
+
     static if (is(IDType == size_t)) {
         private void setUniqueId(string identifier) {
             this.id_ = makeHash(identifier);
@@ -128,25 +142,14 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 private template mixinKind() {
     private int kind_;
 
+@safe:
+
     void setKind(int kind) {
         this.kind_ = kind;
     }
 
     auto kind() const {
         return kind_;
-    }
-}
-
-///TODO change to a algebraic with two kinds, Location and None.
-pure @safe nothrow struct CxLocation {
-    string file;
-    uint line;
-    uint column;
-
-    auto toString() const {
-        import std.format : format;
-
-        return format("File:%s Line:%s Column:%s", file, line, column);
     }
 }
 
@@ -157,22 +160,16 @@ pure @safe nothrow struct CxLocation {
  * suffix.
  */
 private template mixinSourceLocation() {
-    private CxLocation[] loc_;
+    private LocationTag loc_;
 
-    private void setLocation(CxLocation loc) {
-        this.loc_ = [loc];
+@safe:
+
+    public void setLocation(LocationTag loc) {
+        this.loc_ = loc;
     }
 
-    auto locations() const {
+    public auto location() const {
         return loc_;
-    }
-
-    auto lastLocation() const {
-        return this.loc_[$ - 1];
-    }
-
-    void putLocation(CxLocation loc) {
-        this.loc_ ~= loc;
     }
 }
 
@@ -302,39 +299,55 @@ private void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
     // dfmt on
 }
 
-pure @safe nothrow struct CxGlobalVariable {
+pure nothrow struct CxGlobalVariable {
     mixin mixinUniqueId!string;
     mixin mixinSourceLocation;
 
     private TypeKindVariable variable;
 
-    this(TypeKindVariable tk, CxLocation loc) {
+    this(TypeKindVariable tk, LocationTag loc) @safe {
         this.variable = tk;
         setLocation(loc);
         setUniqueId(variable.name.str);
     }
 
-    this(TypeKindAttr type, CppVariable name, CxLocation loc) {
+    this(TypeKindAttr type, CppVariable name, LocationTag loc) @safe {
         this(TypeKindVariable(type, name), loc);
     }
 
 const:
 
-    string toString()
+    string toString() @safe {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    auto toString(Writer)(scope Writer sink)
     in {
         import std.algorithm : among;
 
-        // see switch stmt for explanation.
+        // see switch stmt in body for explanation.
         assert(!variable.type.kind.info.kind.among(TypeKind.Info.Kind.ctor,
                 TypeKind.Info.Kind.dtor));
     }
     body {
-        import std.array : Appender, appender;
+        import std.algorithm : map, copy;
         import std.ascii : newline;
         import std.format : formattedWrite;
         import cpptooling.analyzer.type : TypeKind;
 
-        auto app = appender!string();
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(sink, "// %s%s", location.toString, newline);
+        }
+
         final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:
         case Kind.func:
@@ -343,7 +356,8 @@ const:
         case Kind.typeRef:
         case Kind.array:
         case Kind.pointer:
-            app.put(variable.type.toStringDecl(variable.name.str));
+            formattedWrite(sink,
+                    "%s;", variable.type.toStringDecl(variable.name.str));
             break;
         case Kind.ctor:
             logger.error("Assumption broken. A global variable with the type of a Constructor");
@@ -356,9 +370,6 @@ const:
                     variable.name.str);
             break;
         }
-        formattedWrite(app, "; // %(%s%)", locations());
-
-        return app.data;
     }
 
     auto type() {
@@ -480,7 +491,7 @@ struct CppMethodGeneric {
 
 /// Information about free functions.
 /// TODO: rename to CxFreeFunction
-pure @safe nothrow struct CFunction {
+pure nothrow struct CFunction {
     mixin mixinUniqueId!string;
     mixin mixinSourceLocation;
 
@@ -497,7 +508,7 @@ pure @safe nothrow struct CFunction {
 
     /// C function representation.
     this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
-            const VariadicType is_variadic, const StorageClass storage_class, const CxLocation loc) {
+            const VariadicType is_variadic, const StorageClass storage_class, const LocationTag loc) @safe {
         this.name_ = name;
         this.returnType_ = return_type;
         this.isVariadic_ = is_variadic;
@@ -506,23 +517,36 @@ pure @safe nothrow struct CFunction {
         this.params = params_.dup;
 
         setLocation(loc);
-        setUniqueId(internalToString);
+        setUniqueId(signatureToString);
 
         isInitialized = true;
     }
 
     /// Function with no parameters.
-    this(const CFunctionName name, const CxReturnType return_type, const CxLocation loc) {
+    this(const CFunctionName name, const CxReturnType return_type, const LocationTag loc) @safe {
         this(name, CxParam[].init, return_type, VariadicType.no, StorageClass.None, loc);
     }
 
     /// Function with no parameters and returning void.
-    this(const CFunctionName name, const CxLocation loc) {
+    this(const CFunctionName name, const LocationTag loc) @safe {
         CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, VariadicType.no, StorageClass.None, loc);
     }
 
-const:
+    void toString(Writer)(scope Writer sink) const {
+        import std.algorithm : copy, map, joiner;
+        import std.ascii : newline;
+        import std.conv : to;
+        import std.format : formattedWrite;
+        import std.range : put, takeOne;
+
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(sink, "// %s%s", location.toString, newline);
+        }
+        formattedWrite(sink, "%s // %s", signatureToString(), to!string(storageClass));
+    }
+
+@safe const:
 
     /// A range over the parameters of the function.
     auto paramRange() @nogc @safe pure nothrow {
@@ -549,7 +573,7 @@ const:
     }
 
     // Separating file location from the rest
-    private string internalToString() {
+    private string signatureToString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
 
@@ -559,16 +583,17 @@ const:
         return rval.data;
     }
 
-    string toString() {
-        import std.array : Appender, appender;
-        import std.conv : to;
-        import std.format : formattedWrite;
+    string toString() @safe const {
+        import std.exception : assumeUnique;
 
-        auto rval = appender!string();
-        formattedWrite(rval, "%s // %s %(%s%)", internalToString(),
-                to!string(storageClass), locations);
+        char[] buf;
+        buf.reserve(100);
+        toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
 
-        return rval.data;
+        return trustedUnique(buf);
     }
 
     invariant() {
@@ -951,10 +976,10 @@ const:
     }
 }
 
-pure @safe nothrow struct CppClass {
-    mixin mixinUniqueId!size_t;
+pure nothrow struct CppClass {
     mixin mixinKind;
     mixin mixinSourceLocation;
+    mixin mixinUniqueId!size_t;
 
     import std.variant : Algebraic, visit;
     import std.typecons : TypedefType;
@@ -994,12 +1019,12 @@ pure @safe nothrow struct CppClass {
      * Params:
      *  other = class to duplicate.
      */
-    this(CppClass other) {
+    this(CppClass other) @safe {
         this = other;
     }
 
-    this(const CppClassName name, const CxLocation loc,
-            const CppInherit[] inherits, const CppNsStack ns)
+    this(const CppClassName name, const LocationTag loc,
+            const CppInherit[] inherits, const CppNsStack ns) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1009,14 +1034,14 @@ pure @safe nothrow struct CppClass {
 
         () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
 
-        setLocation(loc);
+        this.setLocation(loc);
 
         ///TODO consider update so the identifier also depend on the namespace.
         setUniqueId(this.name_.str);
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc, const CppInherit[] inherits)
+    this(const CppClassName name, const LocationTag loc, const CppInherit[] inherits) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1025,7 +1050,7 @@ pure @safe nothrow struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name, const CxLocation loc)
+    this(const CppClassName name, const LocationTag loc) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1034,13 +1059,72 @@ pure @safe nothrow struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name)
+    this(const CppClassName name) @safe
     out {
         assert(name_.length > 0);
     }
     body {
-        this(name, CxLocation("noloc", 0, 0), CppInherit[].init, CppNsStack.init);
+        this(name, LocationTag(null), CppInherit[].init, CppNsStack.init);
     }
+
+    void toString(Writer)(scope Writer sink) const {
+        import std.algorithm : copy, filter, joiner, map;
+        import std.ascii : newline;
+        import std.conv : to, text;
+        import std.format : format, formattedWrite;
+        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin,
+            take;
+        import std.string : toLower;
+
+        comments.map!(a => format("// %s", a)).joiner(newline).copy(sink);
+        comments.takeOne.map!(a => newline).copy(sink);
+
+        formattedWrite(sink, "class %s", name_.str);
+
+        // inheritance
+        inherits.takeOne.map!(a => " : ").copy(sink);
+        inherits.map!(a => a.toString).joiner(", ").copy(sink);
+        formattedWrite(sink, " { // %s%s", to!string(classification_), newline);
+
+        // location information
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(sink, "  // Class %s%s", location.toString, newline);
+        }
+
+        // content
+        // methods
+        methods_pub.takeOne.map!(a => "public:" ~ newline).copy(sink);
+        methods_pub.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+                .repeat.take(methods_pub.length)).copy(sink);
+        methods_prot.takeOne.map!(a => "protected:" ~ newline).copy(sink);
+        methods_prot.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+                .repeat.take(methods_prot.length)).copy(sink);
+        methods_priv.takeOne.map!(a => "private:" ~ newline).copy(sink);
+        methods_priv.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+                .repeat.take(methods_priv.length)).copy(sink);
+
+        // inner classes
+        classes_pub.takeOne.map!(a => "public:" ~ newline).copy(sink);
+        classes_pub.map!(a => a.toString)
+            .roundRobin(newline.repeat.take(classes_pub.length)).copy(sink);
+        classes_prot.takeOne.map!(a => "protected:" ~ newline).copy(sink);
+        classes_prot.map!(a => a.toString)
+            .roundRobin(newline.repeat.take(classes_prot.length)).copy(sink);
+        classes_priv.takeOne.map!(a => "private:" ~ newline).copy(sink);
+        classes_priv.map!(a => a.toString)
+            .roundRobin(newline.repeat.take(classes_priv.length)).copy(sink);
+        members_pub.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).copy(sink);
+        members_prot.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).copy(sink);
+        members_priv.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).copy(sink);
+
+        // end
+        sink("}; //Class:");
+        reside_in_ns.map!(a => cast(string) a).joiner("::").copy(sink);
+        reside_in_ns.takeOne.map!(a => "::").copy(sink);
+        sink(name_.str);
+    }
+
+@safe:
 
     void put(T)(T func) @trusted 
             if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
@@ -1195,55 +1279,16 @@ pure @safe nothrow struct CppClass {
 const:
 
     string toString() {
-        import std.algorithm : map, joiner;
-        import std.ascii : newline;
-        import std.conv : to, text;
-        import std.format : format;
-        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin,
-            take;
-        import std.string : toLower;
+        import std.exception : assumeUnique;
 
-        // dfmt off
-        auto begin_class =
-            chain(
-                  only("class", name_.str).joiner(" "),
-                  inherits.takeOne.map!(a => " : ").joiner(),
-                  inherits.map!(a => a.toString).joiner(", "), // separate inherit statements
-                  only(" { //", to!string(classification_), format("%(%s%)", locations)).joiner(" ")
-                 );
-        auto end_class =
-            chain(
-                  only("}; //Class:").joiner(),
-                  reside_in_ns.map!(a => cast(string) a).joiner("::"),
-                  reside_in_ns.takeOne.map!(a => "::").joiner(),
-                  only(name_.str).joiner()
-                 );
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
 
-        return
-            chain(
-                  comments.map!(a => format("// %s", a)).joiner(newline),
-                  begin_class, newline, // <- not a typo, easier to see newline
-                  // methods
-                  methods_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
-                  methods_pub.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_pub.length)).joiner(),
-                  methods_prot.takeOne.map!(a => "protected:" ~ newline).joiner(),
-                  methods_prot.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_prot.length)).joiner(),
-                  methods_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
-                  methods_priv.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline).repeat.take(methods_priv.length)).joiner(),
-                  // classes
-                  classes_pub.takeOne.map!(a => "public:" ~ newline).joiner(),
-                  classes_pub.map!(a => a.toString).roundRobin(newline.repeat.take(classes_pub.length)).joiner(),
-                  classes_prot.takeOne.map!(a => "protected:" ~ newline).joiner(),
-                  classes_prot.map!(a => a.toString).roundRobin(newline.repeat.take(classes_prot.length)).joiner(),
-                  classes_priv.takeOne.map!(a => "private:" ~ newline).joiner(),
-                  classes_priv.map!(a => a.toString).roundRobin(newline.repeat.take(classes_priv.length)).joiner(),
-                  members_pub.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
-                  members_prot.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
-                  members_priv.map!(a => "  " ~ toInternal(a) ~ ";" ~ newline).joiner(),
-                  end_class
-                 )
-            .text;
-        // dfmt on
+        return trustedUnique(buf);
     }
 
     invariant() {
@@ -1413,7 +1458,7 @@ private ClassVirtualType classifyClass(T)(in ClassVirtualType current, T p,
     return r;
 }
 
-pure @safe nothrow struct CppNamespace {
+pure nothrow struct CppNamespace {
     mixin mixinKind;
 
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -1430,21 +1475,53 @@ pure @safe nothrow struct CppNamespace {
 
     @disable this();
 
-    static auto makeAnonymous() {
+    static auto makeAnonymous() @safe {
         return CppNamespace(CppNsStack.init);
     }
 
     /// A namespace without any nesting.
-    static auto make(CppNs name) {
+    static auto make(CppNs name) @safe {
         return CppNamespace([name]);
     }
 
-    this(const CppNsStack stack) {
+    this(const CppNsStack stack) @safe {
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
         }
         this.stack = stack.dup;
     }
+
+    void toString(Writer)(scope Writer sink) const {
+        import std.algorithm : map, joiner, copy, filter, cache;
+        import std.ascii : newline;
+        import std.range : takeOne, chain, retro, put;
+        import std.format : formattedWrite;
+
+        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner();
+        auto ns_full_name = stack.map!(a => cast(string) a).joiner("::");
+
+        formattedWrite(sink, "namespace %s { //%s", ns_top_name, ns_full_name);
+        sink.put(newline);
+
+        //TODO refactor this part so cache and save isn't needed to ensure that
+        // a newline is only added when the namespace is NOT empty
+        // dfmt off
+        auto content = chain(
+              globals.map!(a => a.toString),
+              funcs.map!(a => a.toString),
+              classes.map!(a => a.toString),
+              namespaces.map!(a => a.toString)
+              )
+            .filter!(a => a.length != 0)
+            .cache;
+        content.save.joiner(newline).copy(sink);
+        content.takeOne.map!(a => newline).copy(sink);
+        // dfmt on
+
+        formattedWrite(sink, "} //NS:%s", ns_top_name);
+    }
+
+@safe:
 
     void put(CFunction f) {
         funcs ~= f;
@@ -1463,6 +1540,7 @@ pure @safe nothrow struct CppNamespace {
     }
 
     /** Traverse stack from top to bottom.
+     *
      * The implementation of the stack is such that new elements are appended
      * to the end. Therefor the range normal direction is from the end of the
      * array to the beginning.
@@ -1491,28 +1569,17 @@ pure @safe nothrow struct CppNamespace {
 
 const:
 
-    string toString() {
-        import std.algorithm : map, joiner;
-        import std.ascii : newline;
-        import std.range : takeOne, only, chain, retro;
-        import std.conv : text;
-        import std.format : format;
+    string toString() @safe const {
+        import std.exception : assumeUnique;
 
-        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner();
-        auto ns_full_name = stack.map!(a => cast(string) a).joiner("::");
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
 
-        // dfmt off
-        return chain(
-                     only(format("namespace %s { //%s", ns_top_name, ns_full_name)),
-                     globals.map!(a => a.toString),
-                     funcs.map!(a => a.toString),
-                     classes.map!(a => a.toString),
-                     namespaces.map!(a => a.toString),
-                     only(format("} //NS:%s", ns_top_name))
-                     )
-            .joiner(newline)
-            .text;
-        // dfmt on
+        return trustedUnique(buf);
     }
 
     auto isAnonymous() {
@@ -1543,7 +1610,7 @@ const:
     }
 }
 
-pure @safe nothrow struct CppRoot {
+pure nothrow struct CppRoot {
     mixin mixinSourceLocation;
 
     import std.container : RedBlackTree;
@@ -1555,7 +1622,7 @@ pure @safe nothrow struct CppRoot {
         RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
-    static auto make() {
+    static auto make() @safe {
         auto r = CppRoot(unknownLocation);
         return r;
     }
@@ -1563,13 +1630,43 @@ pure @safe nothrow struct CppRoot {
     /// TODO activate
     //@disable this();
 
-    this(in CxLocation loc) {
+    this(in Location loc) @safe {
+        this(LocationTag(loc));
+    }
+
+    this(in LocationTag loc) @safe {
         import std.container : make;
 
-        setLocation(loc);
         this.globals = make!(typeof(this.globals));
         this.funcs = make!(typeof(this.funcs));
+
+        setLocation(loc);
     }
+
+    void toString(Writer)(scope Writer sink) const {
+        import std.ascii : newline;
+        import std.algorithm : map, joiner, copy;
+        import std.format : formattedWrite;
+        import std.range : takeOne;
+
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(sink, "// Root %s%s", location.toString, newline);
+        }
+
+        globals[].takeOne.map!(a => newline).copy(sink);
+        globals[].map!(a => a.toString).joiner(newline).copy(sink);
+
+        funcs[].takeOne.map!(a => newline).copy(sink);
+        funcs[].map!(a => a.toString).joiner(newline).copy(sink);
+
+        classes.takeOne.map!(a => newline).copy(sink);
+        classes.map!(a => a.toString).joiner(newline).copy(sink);
+
+        ns.takeOne.map!(a => newline).copy(sink);
+        ns.map!(a => a.toString).joiner(newline).copy(sink);
+    }
+
+@safe:
 
     void put(CFunction f) {
         () @trusted{ funcs.insert(f); }();
@@ -1605,24 +1702,31 @@ pure @safe nothrow struct CppRoot {
 
 const:
 
-    string toString() {
-        import std.ascii : newline;
-        import std.algorithm : map, joiner;
-        import std.conv : text;
-        import std.format : format;
-        import std.range : takeOne, only, chain, retro;
+    T opCast(T : string)() const {
+        return this.toString;
+    }
 
-        // dfmt off
-        return chain(only(format("%(// %s\n%)", locations)),
-                globals[].takeOne.map!(a => ""), // newline
-                globals[].map!(a => a.toString),
-                funcs[].takeOne.map!(a => ""), // newline
-                funcs[].map!(a => a.toString),
-                classes.takeOne.map!(a => ""), // newline
-                classes.map!(a => a.toString),
-                ns.takeOne.map!(a => ""), // newline
-                ns.map!(a => a.toString), only("")).joiner(newline).text;
-        // dfmt on
+    auto toString() const {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    invariant {
+        final switch (loc_.kind) {
+        case LocationTag.Kind.loc:
+            assert(loc_.file.length > 0);
+            break;
+        case LocationTag.Kind.noloc:
+            break;
+        }
     }
 }
 
@@ -1631,19 +1735,22 @@ unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(CFunctionName("nothing"), dummyLoc);
         shouldEqual(f.returnType.toStringDecl("x"), "void x");
-        shouldEqual(f.toString, "void nothing(); // None File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
+void nothing(); // None");
     }
 
     { // extern storage.
         auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(makeSimple("void")),
                 VariadicType.no, StorageClass.Extern, dummyLoc);
         shouldEqual(f.returnType.toStringDecl("x"), "void x");
-        shouldEqual(f.toString, "void nothing(); // Extern File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
+void nothing(); // Extern");
     }
 
     { // a return type.
         auto f = CFunction(CFunctionName("nothing"), CxReturnType(makeSimple("int")), dummyLoc);
-        shouldEqual(f.toString, "int nothing(); // None File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
+int nothing(); // None");
     }
 
     { // return type and parameters.
@@ -1651,7 +1758,8 @@ unittest {
         auto p1 = makeCxParam(TypeKindVariable(makeSimple("char"), CppVariable("y")));
         auto f = CFunction(CFunctionName("nothing"), [p0, p1],
                 CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None, dummyLoc);
-        shouldEqual(f.toString, "int nothing(int x, char y); // None File:a.h Line:123 Column:45");
+        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
+int nothing(int x, char y); // None");
     }
 }
 
@@ -1699,7 +1807,7 @@ unittest {
     auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
-    shouldEqualPretty(c.toString, "class Foo { // Normal File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Normal
 public:
   void voider();
 }; //Class:Foo");
@@ -1711,7 +1819,7 @@ unittest {
     auto op = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
     c.put(op);
 
-    shouldEqualPretty(c.toString, "class Foo { // Normal File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Normal
 public:
   void operator=() /* operator */;
 }; //Class:Foo");
@@ -1757,8 +1865,8 @@ unittest {
             CppVariable("x"))), makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
             CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
 
-    shouldEqualPretty(f.toString,
-            "int nothing(char* x, char* y); // None File:a.h Line:123 Column:45");
+    shouldEqualPretty(f.toString, "// File:a.h Line:123 Column:45
+int nothing(char* x, char* y); // None");
 }
 
 @Name("Test of Ctor's")
@@ -1814,7 +1922,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // Abstract File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Abstract
 public:
   void voider();
   Foo();
@@ -1831,7 +1939,8 @@ unittest {
     CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
     auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
 
-    shouldEqualPretty(c.toString, "class A_Class { // Unknown File:a.h Line:123 Column:45
+    shouldEqualPretty(c.toString, "class A_Class { // Unknown
+  // Class File:a.h Line:123 Column:45
 }; //Class:a_ns::another_ns::A_Class");
 
 }
@@ -1846,7 +1955,8 @@ unittest {
     auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
 
     shouldEqualPretty(c.toString,
-            "class Foo : public pub, protected prot, private priv { // Unknown File:a.h Line:123 Column:45
+            "class Foo : public pub, protected prot, private priv { // Unknown
+  // Class File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1858,15 +1968,15 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // Unknown File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Unknown
 public:
-class Pub { // Unknown File:noloc Line:0 Column:0
+class Pub { // Unknown
 }; //Class:Pub
 protected:
-class Prot { // Unknown File:noloc Line:0 Column:0
+class Prot { // Unknown
 }; //Class:Prot
 private:
-class Priv { // Unknown File:noloc Line:0 Column:0
+class Priv { // Unknown
 }; //Class:Priv
 }; //Class:Foo");
 }
@@ -1891,7 +2001,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // Virtual File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Virtual
 public:
   Foo();
   virtual ~Foo();
@@ -1919,7 +2029,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // Pure File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Pure
 public:
   Foo();
   virtual ~Foo();
@@ -1936,7 +2046,7 @@ unittest {
     ns.put(c);
 
     shouldEqualPretty(ns.toString, "namespace simple { //simple
-class Foo { // Normal File:noloc Line:0 Column:0
+class Foo { // Normal
 public:
   void voider();
 }; //Class:Foo
@@ -1967,18 +2077,15 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    shouldEqualPretty(root.toString, "// File: Line:0 Column:0
-
-void nothing(); // None File:a.h Line:123 Column:45
-
-class Foo { // Normal File:noloc Line:0 Column:0
+    shouldEqualPretty(root.toString, "
+// File:a.h Line:123 Column:45
+void nothing(); // None
+class Foo { // Normal
 public:
   void voider();
 }; //Class:Foo
-
 namespace simple { //simple
-} //NS:simple
-");
+} //NS:simple");
 }
 
 @Name("CppNamespace.toString should return nested namespace")
@@ -2014,7 +2121,8 @@ unittest {
     n.put(f);
 
     shouldEqualPretty(n.toString, "namespace  { //
-void nothing(); // None File:a.h Line:123 Column:45
+// File:a.h Line:123 Column:45
+void nothing(); // None
 } //NS:");
 }
 
@@ -2039,11 +2147,13 @@ unittest {
     auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
     auto v1 = CxGlobalVariable(makeSimple("int"), CppVariable("y"), dummyLoc);
 
-    shouldEqualPretty(v0.toString, "int x; // File:a.h Line:123 Column:45");
-    shouldEqualPretty(v1.toString, "int y; // File:a.h Line:123 Column:45");
+    shouldEqualPretty(v0.toString, "// File:a.h Line:123 Column:45
+int x;");
+    shouldEqualPretty(v1.toString, "// File:a.h Line:123 Column:45
+int y;");
 }
 
-@Name("globals in root")
+@Name("Should be globals stored in the root object")
 unittest {
     auto v = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
     auto n = CppNamespace.makeAnonymous();
@@ -2052,21 +2162,20 @@ unittest {
     r.put(v);
     r.put(n);
 
-    shouldEqualPretty(r.toString, "// File: Line:0 Column:0
-
-int x; // File:a.h Line:123 Column:45
-
+    shouldEqualPretty(r.toString, "
+// File:a.h Line:123 Column:45
+int x;
 namespace  { //
-int x; // File:a.h Line:123 Column:45
-} //NS:
-");
+// File:a.h Line:123 Column:45
+int x;
+} //NS:");
 }
 
-@Name("Root with location")
+@Name("Should be a root with a location")
 unittest {
     auto r = CppRoot(dummyLoc);
 
-    shouldEqualPretty(r.toString, "// File:a.h Line:123 Column:45
+    shouldEqualPretty(r.toString, "// Root File:a.h Line:123 Column:45
 ");
 }
 
@@ -2118,8 +2227,7 @@ unittest {
     auto c = CppClass(CppClassName("A"));
     c.put(ih);
 
-    c.toString.shouldEqualPretty(
-            "class A : public ns1::Class { // Unknown File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class A : public ns1::Class { // Unknown
 }; //Class:A");
 }
 
@@ -2129,14 +2237,13 @@ unittest {
     auto tk = makeSimple("int");
     c.put(TypeKindVariable(tk, CppVariable("x")), AccessType.Public);
 
-    shouldEqualPretty(c.toString, "class Foo { // Unknown File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Unknown
   int x;
 }; //Class:Foo");
 }
 
 @Name("Should be an abstract class")
 unittest {
-    logger.trace("aaaaaaaaaaaaaaaaaaaa");
     auto c = CppClass(CppClassName("Foo"));
 
     {
@@ -2155,11 +2262,21 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(c.toString, "class Foo { // Abstract File:noloc Line:0 Column:0
+    shouldEqualPretty(c.toString, "class Foo { // Abstract
 public:
   ~Foo();
   virtual void wun() = 0;
   virtual void gun();
 }; //Class:Foo");
 
+}
+
+@Name("Should be a class with comments")
+unittest {
+    auto c = CppClass(CppClassName("Foo"));
+    c.put("A comment");
+
+    shouldEqualPretty(c.toString, "// A comment
+class Foo { // Unknown
+}; //Class:Foo");
 }

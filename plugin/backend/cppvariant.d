@@ -228,11 +228,14 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, CxLocation;
+    CppDtor, CFunction, CppNamespace;
+import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
-enum dummyLoc = CxLocation("<test double>", 0, 0);
+auto dummyLoc() {
+    return LocationTag(Location("<test double>", 0, 0));
+}
 
 enum ClassType {
     Normal,
@@ -248,6 +251,8 @@ enum NamespaceType {
 
 /** Structurally transform the input to a stub implementation.
  *
+ * TODO should handle StorageClass like cvariant do.
+ *
  * Ignoring C functions and globals by ignoring the root ranges funcRange and
  * globalRange.
  *
@@ -257,11 +262,13 @@ enum NamespaceType {
 CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     import std.algorithm : among, each, filter;
     import std.range : tee;
+    import cpptooling.generator.utility : validLocation, storeValidLocations,
+        filterAnyLocation;
 
-    auto raw = CppRoot(input.lastLocation);
+    auto raw = CppRoot(input.location);
 
-    if (ctrl.doFile(input.lastLocation.file, "root " ~ input.lastLocation.toString)) {
-        prod.putLocation(FileName(input.lastLocation.file), LocationType.Root);
+    foreach (loc; input.location.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
+        prod.putLocation(FileName(loc.file), LocationType.Root);
     }
 
     // Assuming that namespaces are never duplicated at this stage.
@@ -277,9 +284,9 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
             // only classes with virtual functions are mocked
             .filter!(a => a.isVirtual)
             // ask controller if the file should be mocked, and thus the node
-            .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+            .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
             // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+            .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
             // the class shall be further processed
             .each!(a => raw.put(a));
     }
@@ -299,6 +306,8 @@ body {
     import std.range : tee;
     import application.types : FileName;
     import cpptooling.data.representation : dedup, StorageClass;
+    import cpptooling.generator.utility : storeValidLocations,
+        filterAnyLocation;
 
     auto ns = CppNamespace.make(input.name);
 
@@ -307,8 +316,10 @@ body {
         .dedup
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
-        .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
-        .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+        // ask controller if the file should be mocked, and thus the node
+        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
+        // pass on location as a product to be used to calculate #include
+        .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
         .each!(a => ns.put(a));
 
     input.namespaceRange
@@ -319,9 +330,10 @@ body {
     if (ctrl.doGoogleMock) {
         input.classRange
             .filter!(a => a.isVirtual)
-            .filter!(a => ctrl.doFile(a.lastLocation.file, cast(string) a.name ~ " " ~ a.lastLocation.toString))
+            // ask controller if the file should be mocked, and thus the node
+            .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
             // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.lastLocation.file), LocationType.Leaf))
+            .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
             .each!(a => ns.put(a));
     }
     //dfmt on
@@ -333,7 +345,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
     import std.array;
     import std.algorithm : map, filter, each, among;
 
-    auto r = CppRoot(root.lastLocation);
+    auto r = CppRoot(root.location);
 
     // dfmt off
     root.namespaceRange
@@ -597,7 +609,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
     auto methods = dedup(getMethods(class_, container));
 
-    auto c = CppClass(class_.name, class_.lastLocation, class_.inherits, class_.resideInNs);
+    auto c = CppClass(class_.name, class_.location, class_.inherits, class_.resideInNs);
     // dfmt off
     () @trusted {
         import std.algorithm : each;
