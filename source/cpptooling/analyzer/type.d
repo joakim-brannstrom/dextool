@@ -27,7 +27,7 @@ ref TypeResult mergeExtra(ref return TypeResult lhs, const ref TypeResult rhs) {
     return lhs;
 }
 
-void logTypeAttr(const ref TypeAttr attr, in uint indent = 0,
+void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_space = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     import std.array : array;
     import std.range : repeat;
@@ -36,7 +36,7 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0,
 
     // dfmt off
     debug {
-        string indent_ = repeat(' ', indent).array();
+        string indent_ = repeat(' ', indent + extra_space).array();
         logger.logf!(-1, "", "", "", "")
             (logger.LogLevel.trace,
              "%d%s const:%s|ref:%s|ptr:%s|arr:%s|rec:%s|prim:%s|fptr:%s [%s:%d]",
@@ -105,12 +105,12 @@ void logTypeResult(const ref TypeResult result, in uint indent = 0,
             switch (tka.kind.info.kind) with (TypeKind.Info) {
             case Kind.func:
                 foreach (r; tka.kind.info.params) {
-                    logTypeAttr(r.attr, indent + 1);
+                    logTypeAttr(r.attr, indent, 1);
                 }
                 break;
             case Kind.pointer:
                 foreach (r; tka.kind.info.attrs) {
-                    logTypeAttr(r, indent + 1);
+                    logTypeAttr(r, indent, 1);
                 }
                 break;
             default:
