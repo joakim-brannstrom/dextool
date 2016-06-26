@@ -194,8 +194,15 @@ struct TdIncludes {
         }
     }
 
+    /// Assuming user defined includes are good as they are so no stripping.
     void doStrip() @safe {
-        incls ~= stripIncl(unstripped_incls, strip_incl);
+        switch (st) with (State) {
+        case Normal:
+        case HaveRoot:
+            incls = stripIncl(unstripped_incls, strip_incl);
+            break;
+        default:
+        }
     }
 
     void put(FileName fname, LocationType type) @safe {
