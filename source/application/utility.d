@@ -146,9 +146,11 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
 
 }
 
-/** Includes intended for the test double. Filtered according to the user.
+/** Includes intended for the test double.
  *
- * TODO must handle many roots, unsure if it does atm.
+ * Filtered according to the user.
+ *
+ * TODO change to using a RedBlackTree to avoid duplications of files.
  *
  * States:
  *  - Normal.
@@ -163,7 +165,7 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
  *  - UserDefined.
  *      The user have supplied a list of includes which override any detected.
  */
-struct TdIncludes {
+struct TestDoubleIncludes {
     import std.regex;
 
     enum State {
@@ -222,9 +224,33 @@ struct TdIncludes {
             }
             break;
         case UserDefined:
-            // ignoring new includes
+            // ignoring includes
             break;
         }
+    }
+
+    string toString() @safe const {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    void toString(Writer)(scope Writer w) const {
+        import std.algorithm : copy, joiner, map;
+        import std.ascii : newline;
+        import std.conv : to;
+        import std.range : chain, only;
+        import std.range.primitives : put;
+
+        chain(only(st.to!string()), incls.map!(a => cast(string) a),
+                unstripped_incls.map!(a => cast(string) a)).joiner(newline).copy(w);
     }
 }
 
