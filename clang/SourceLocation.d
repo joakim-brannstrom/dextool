@@ -20,9 +20,9 @@ import clang.File;
 import clang.TranslationUnit;
 import clang.Util;
 
-string toString(SourceLocation.Location value) {
+string toString(SourceLocation.Location value) @safe {
     import std.string;
-    import std.conv;
+    import std.conv : text;
 
     return format("[file=%s line=%d column=%d offset=%d]", text(value.file),
             value.line, value.column, value.offset);

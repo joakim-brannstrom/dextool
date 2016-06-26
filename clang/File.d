@@ -33,7 +33,7 @@ struct File {
         return clang_getFileTime(cx);
     }
 
-    string toString() {
+    string toString() @safe {
         return name;
     }
 }
