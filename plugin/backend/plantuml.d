@@ -949,6 +949,8 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
     }
 
     static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) {
+        //TODO code duplication with getMethodRelation
+        // .. fix it. This function is ugly.
         import std.typecons : tuple;
         import cpptooling.analyzer.type;
 
@@ -956,26 +958,43 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
 
         final switch (tkv.type.kind.info.kind) with (TypeKind.Info) {
         case Kind.typeRef:
-            r = Rtuple(Relate.Kind.Aggregate, tkv.type.kind.usr,
-                    cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init, ""));
+            auto tref = container.find!TypeKind(tkv.type.kind.info.canonicalRef);
+            foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
+                auto rel_type = Relate.Kind.Aggregate;
+                if (tkv.type.attr.isPtr || tkv.type.attr.isRef) {
+                    rel_type = Relate.Kind.Compose;
+                }
+                r = Rtuple(rel_type, t.usr,
+                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
+                            ""));
+            }
             break;
         case Kind.record:
             r = Rtuple(Relate.Kind.Aggregate, tkv.type.kind.usr,
                     cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init, ""));
             break;
+        case Kind.array:
+            auto element = container.find!TypeKind(tkv.type.kind.info.element);
+            foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
+                auto rel_type = Relate.Kind.Aggregate;
+                if (tkv.type.kind.info.elementAttr.isPtr || tkv.type.kind.info.elementAttr.isRef) {
+                    rel_type = Relate.Kind.Compose;
+                }
+                r = Rtuple(rel_type, e.usr,
+                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
+                            ""));
+            }
+            break;
         case Kind.pointer:
             auto pointee = container.find!TypeKind(tkv.type.kind.info.pointee);
-            foreach (p; pointee) {
-                if (p.info.kind == Kind.record) {
-                    r = Rtuple(Relate.Kind.Compose, p.usr,
-                            cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
-                                ""));
-                }
+            foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
+                r = Rtuple(Relate.Kind.Compose, p.usr,
+                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
+                            ""));
             }
             break;
         case Kind.simple:
         case Kind.func:
-        case Kind.array:
         case Kind.funcPtr:
         case Kind.ctor:
         case Kind.dtor:
@@ -1000,12 +1019,10 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
             final switch (tk.kind.info.kind) with (TypeKind.Info) {
             case Kind.typeRef:
                 auto tref = container.find!TypeKind(tk.kind.info.canonicalRef);
-                foreach (t; tref) {
-                    if (t.info.kind == Kind.record) {
-                        r = Rtuple(Relate.Kind.Associate, Relate.Key(t.usr),
-                                cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
-                                    ""));
-                    }
+                foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
+                    r = Rtuple(Relate.Kind.Associate, Relate.Key(t.usr),
+                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
+                                ""));
                 }
                 break;
             case Kind.record:
@@ -1013,8 +1030,9 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
                         cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init, ""));
                 break;
             case Kind.array:
-                if (!tk.kind.info.elementAttr.isPrimitive) {
-                    r = Rtuple(Relate.Kind.Associate, tk.kind.info.element,
+                auto element = container.find!TypeKind(tk.kind.info.element);
+                foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
+                    r = Rtuple(Relate.Kind.Associate, e.usr,
                             cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
                                 ""));
                 }
