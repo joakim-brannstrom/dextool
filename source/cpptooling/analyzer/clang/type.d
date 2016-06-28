@@ -32,9 +32,14 @@ import cpptooling.data.type : Location, LocationTag;
 private long _nextSequence;
 
 static this() {
-    import std.random : uniform;
-
-    _nextSequence = uniform(1, 10_000_000);
+    // Use a fixed number to minimize the difference between two generated
+    // diagrams. For example makes it possible to diff the generated data.
+    //
+    // It is extremly important to minimize differences.
+    // Diffs are used as the basis to evaluate changes.
+    // No diff, no evaluation needed from an architectural point of view.
+    // A change? Further inspection needed.
+    _nextSequence = 42;
 }
 
 string nextSequence() @safe {
