@@ -40,6 +40,14 @@ int func_variadic_one_unnamed(char *x0, ...) {
     return test_double_inst->func_variadic_one_unnamed(x0);
 }
 
+void array_func(int x, int *y, int z[16]) {
+    test_double_inst->array_func(x, y, z);
+}
+
+void array_func_param_typedef(MyIntType x0[16]) {
+    test_double_inst->array_func_param_typedef(z);
+}
+
 void c_func_three_named(const int a, const int b, const int c) {
     test_double_inst->c_func_three_named(a, b, c);
 }

@@ -16,6 +16,8 @@ public:
     MOCK_METHOD1(func_one_named, int(int a));
     MOCK_METHOD0(func_return, int());
     MOCK_METHOD1(func_variadic_one_unnamed, int(char *x0));
+    MOCK_METHOD2(typedef_array_func, int(int *x, int z[16]));
+    MOCK_METHOD3(array_func, void(int x, int *y, int z[16]));
     MOCK_METHOD3(c_func_three_named, void(const int a, const int b, const int c));
     MOCK_METHOD2(c_func_two_named, void(const int a, const int b));
     MOCK_METHOD1(c_func_with_struct, void(const struct A *a));
