@@ -19,6 +19,7 @@ extern void (*const e_d)(void);
 extern int (*e_e)(int, int);
 extern int (*e_f)(int pa, int pb);
 extern int (*e_g)(int pa, int pb, ...);
+extern int (*e_array_func)(int x, int* y, int z[16]);
 
 /* subtle difference between a function prototype that is reused via a typedef
  * and a function pointer.
@@ -37,4 +38,7 @@ extern func_ptr hest;
 extern func_type tiger;
 extern func_param_type leopard;
 extern ref_param_type cyber;
+
+typedef int (array_func_type)(int* x, int z[16]);
+extern array_func_type typedef_array_func;
 #endif // FUNCTION_POINTERS_H
