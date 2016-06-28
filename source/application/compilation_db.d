@@ -12,7 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module application.compilation_db;
 
-import std.typecons : Nullable, Typedef;
+import std.typecons : Nullable, Typedef, Tuple;
 import logger = std.experimental.logger;
 
 import application.types;
@@ -140,49 +140,57 @@ CompileDbJsonPath[] orDefaultDb(string[] cli_path) @safe pure nothrow {
 
 /** Contains the results of a search in the compilation database.
  *
- * Separated search and reduce to optimize and simplify implementation.
- * The find can be kept nothrow, nogc and only applied in those cases of >1
- * match.
- *
  * When searching for the compile command for a file, the compilation db can
  * return several commands, as the file may have been compiled with different
- * options in different places of the project.
+ * options in different parts of the project.
  *
  * Params:
- *  abs_filename = absolute filename to use as key when searching in the db
+ *  filename = either relative or absolute filename to use as key when searching in the db.
  */
-CompileCommandSearch find(CompileCommandDB db, string abs_filename) @safe /*pure nothrow @nogc*/
-
-
-
+CompileCommandSearch find(CompileCommandDB db, string filename) @safe pure
 in {
+    import std.path : isAbsolute;
     import cpptooling.utility.logger;
 
-    trace("Looking for " ~ abs_filename);
+    debug trace("Looking for " ~ (filename.isAbsolute ? "absolute" : "relative") ~ " " ~ filename);
 }
 out (result) {
     import std.conv : to;
     import cpptooling.utility.logger;
 
-    trace("Found " ~ to!string(result));
+    debug trace("Found " ~ to!string(result));
 }
 body {
     import std.algorithm : find;
+    import std.path : isAbsolute;
     import std.range : takeOne;
 
-    auto found = find!((a, b) => (a.absoluteFile.length == b.length && a.absoluteFile == b))(
-            cast(CompileCommand[]) db, abs_filename).takeOne;
+    @safe pure bool function(CompileCommand a, string b) comparer;
+
+    if (filename.isAbsolute) {
+        comparer = (a, b) @safe pure{
+            return a.absoluteFile.length == b.length && a.absoluteFile == b;
+        };
+    } else {
+        comparer = (a, b) @safe pure{
+            return a.file.length == b.length && a.file == b;
+        };
+    }
+
+    auto found = find!(comparer)(cast(CompileCommand[]) db, filename).takeOne;
 
     return CompileCommandSearch(found);
 }
 
+private alias SearchResult = Tuple!(string[], "cflags", string, "absoluteFile");
+
 /** Append the compiler flags if a match is found in the DB or error out.
  */
-Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflags,
-        in string input_file) @safe {
+Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
+        in string[] cflags, in string input_file) @safe {
     import application.compilation_db : find, toString;
 
-    auto compile_commands = compile_db.find(input_file);
+    auto compile_commands = compile_db.find(input_file.idup);
     debug {
         logger.trace(compile_commands.length > 0,
                 "CompilationDatabase match (by filename):\n", compile_commands.toString);
@@ -196,7 +204,9 @@ Nullable!(string[]) appendOrError(CompileCommandDB compile_db, in string[] cflag
         logger.error("File not found in compilation database\n  ", input_file);
         return rval;
     } else {
-        rval = cflags ~ compile_commands[0].parseFlag;
+        rval = SearchResult.init;
+        rval.cflags = cflags ~ compile_commands[0].parseFlag;
+        rval.absoluteFile = cast(string) compile_commands[0].absoluteFile;
     }
 
     return rval;

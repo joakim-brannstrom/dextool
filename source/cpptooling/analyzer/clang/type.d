@@ -1476,11 +1476,6 @@ body {
         rval.extra = [func.primary] ~ func.extra;
     }
 
-    auto handleArray(ref Nullable!TypeResult rval) {
-        auto type = c.type;
-        logType(type, this_indent);
-    }
-
     auto underlying(ref Nullable!TypeResult rval) {
         auto underlying = c.typedefUnderlyingType;
         auto tref = passType(c, underlying, container, indent);
@@ -1500,7 +1495,7 @@ body {
 
     typeof(return) rval;
     foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleTyperef,
-            &handleFuncProto, &handleDecl, &handleArray, &underlying, &fallback]) {
+            &handleFuncProto, &handleDecl, &underlying, &fallback]) {
         debug {
             import std.conv : to;
             import cpptooling.utility.logger : trace;

@@ -312,29 +312,31 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.type : LocationTag, Location;
 
-    const auto default_cflags = prependDefaultFlags(in_cflags, "-xc");
+    const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
 
     auto generator = StubGenerator(variant, variant, variant);
     Container symbol_container;
 
-    foreach (in_file; (cast(TypedefType!InFiles) in_files).map!(a => buildNormalizedPath(a)
-            .asAbsolutePath.text)) {
+    foreach (in_file; (cast(TypedefType!InFiles) in_files)) {
         logger.trace("Input: ", in_file);
         string[] use_cflags;
+        string abs_in_file;
 
         // TODO duplicate code in c, c++ and plantuml. Fix it.
         if (compile_db.length > 0) {
-            auto db_cflags = compile_db.appendOrError(default_cflags, in_file);
-            if (db_cflags.isNull) {
+            auto db_search_result = compile_db.appendOrError(user_cflags, in_file);
+            if (db_search_result.isNull) {
                 return ExitStatusType.Errors;
             }
-            use_cflags = db_cflags.get;
+            use_cflags = db_search_result.get.cflags;
+            abs_in_file = db_search_result.get.absoluteFile;
         } else {
-            use_cflags = default_cflags.dup;
+            use_cflags = user_cflags.dup;
+            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
         }
 
-        auto root = CppRoot(LocationTag(Location(in_file, 0, 0)));
-        if (analyzeFile(in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
+        auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
+        if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
