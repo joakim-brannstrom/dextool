@@ -18,6 +18,9 @@
 #ifndef TEST_INIT_extern_incmpl
 #define TEST_INIT_extern_incmpl char extern_incmpl[]
 #endif // TEST_INIT_extern_incmpl
+#ifndef TEST_INIT_extern_typedef_array
+#define TEST_INIT_extern_typedef_array MyIntType extern_typedef_array[16]
+#endif // TEST_INIT_extern_typedef_array
 
 TEST_INIT_expect_const_ptr_array;
 TEST_INIT_extern_a;
@@ -25,3 +28,4 @@ TEST_INIT_extern_b;
 TEST_INIT_extern_c;
 TEST_INIT_extern_const_incmpl;
 TEST_INIT_extern_incmpl;
+TEST_INIT_extern_typedef_array;

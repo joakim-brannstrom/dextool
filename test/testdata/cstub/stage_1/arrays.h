@@ -13,4 +13,7 @@ extern char extern_incmpl[];
 extern const char* const extern_const_incmpl[];
 
 extern int* const expect_const_ptr_array[10];
+
+typedef unsigned int MyIntType;
+extern MyIntType extern_typedef_array[16];
 #endif // ARRAYS_H

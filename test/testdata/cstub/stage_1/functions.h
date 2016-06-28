@@ -43,4 +43,10 @@ void c_func_with_struct(const struct A* a);
 
 // expecting static functions to be ignored
 static void ignore();
+
+// expecting the array parameter to be preserved
+void array_func(int x, int* y, int z[16]);
+
+typedef unsigned int MyIntType;
+void array_func_param_typedef(MyIntType [16]);
 #endif // FUNCTIONS_H
