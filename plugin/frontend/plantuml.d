@@ -336,11 +336,12 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import cpptooling.data.type : Location, LocationTag;
     import plugin.backend.plantuml : Generator;
 
+    Container symbol_container;
+
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
         const auto cflags = prependDefaultFlags(in_cflags, "");
         auto generator = Generator(variant, variant, variant);
-        Container symbol_container;
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         logger.trace("Number of files to process: ", compile_db.length);
@@ -379,24 +380,28 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         break;
 
     case FileProcess.Directive.Single:
-        auto cflags = prependDefaultFlags(in_cflags, "");
+        const auto user_cflags = prependDefaultFlags(in_cflags, "");
 
-        //TODO refactor when All is finished. This is a special case of All.
-        auto input_file = buildNormalizedPath(cast(string) file_process.inputFile)
-            .asAbsolutePath.text;
+        string[] use_cflags;
+        string abs_in_file;
+        string input_file = cast(string) file_process.inputFile;
+
         logger.trace("Input file: ", input_file);
 
         if (compile_db.length > 0) {
-            auto db_cflags = compile_db.appendOrError(cflags, input_file);
-            if (db_cflags.isNull) {
+            auto db_search_result = compile_db.appendOrError(user_cflags, input_file);
+            if (db_search_result.isNull) {
                 return ExitStatusType.Errors;
             }
-            cflags = db_cflags.get;
+            use_cflags = db_search_result.get.cflags;
+            abs_in_file = db_search_result.get.absoluteFile;
+        } else {
+            use_cflags = user_cflags.dup;
+            abs_in_file = buildNormalizedPath(input_file).asAbsolutePath.text;
         }
 
-        Container symbol_container;
-        auto root = CppRoot(LocationTag(Location(input_file, 0, 0)));
-        if (analyzeFile(input_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
+        auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
+        if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 

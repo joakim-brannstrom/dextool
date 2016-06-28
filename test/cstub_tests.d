@@ -262,6 +262,22 @@ unittest {
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
+
+@Name(testId ~ "Should use the exact supplied --in=... as key when looking in compile db")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    TestParams p;
+    p.root = Path("testdata/compile_db").absolutePath;
+    p.input_ext = p.root ~ Path("file2.h");
+    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
+
+    p.dexParams = ["ctestdouble", "--debug",
+        "--compile-db=" ~ (p.root ~ "db2.json").toString, "--in=file2.h"];
+
+    p.skipCompile = Yes.skipCompile;
+    p.skipCompare = Yes.skipCompare;
+    runTestFile(p, testEnv);
+}
 // END   Compilation Database Tests ##########################################
 
 // BEGIN CLI Tests ###########################################################
@@ -378,9 +394,8 @@ unittest {
     auto p = genTestParams("compile_db/param_many_in.h", testEnv);
 
     p.input_ext = Path("");
-    p.dexParams ~= ["--gmock", "--in=testdata/cstub/compile_db/dir1/file1.h",
-        "--in=testdata/cstub/compile_db/dir1/file2.h", "--compile-db",
-        (p.root ~ "compile_db/db.json").toString];
+    p.dexParams ~= ["--gmock", "--in=dir1/file1.h", "--in=dir1/file2.h",
+        "--compile-db", (p.root ~ "compile_db/db.json").toString];
     p.compileIncls.length = 0;
 
     p.skipCompile = Yes.skipCompile;

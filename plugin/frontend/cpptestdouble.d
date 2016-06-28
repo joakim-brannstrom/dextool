@@ -320,21 +320,27 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import cpptooling.data.symbol.container;
     import plugin.backend.cppvariant : Generator;
 
-    auto cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto in_file = buildNormalizedPath(cast(string) variant.getInputFile[0]).asAbsolutePath.text;
+    const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
+    auto in_file = cast(string) variant.getInputFile[0];
     logger.trace("Input file: ", in_file);
+    string[] use_cflags;
+    string abs_in_file;
 
     if (compile_db.length > 0) {
-        auto db_cflags = compile_db.appendOrError(cflags, in_file);
-        if (db_cflags.isNull) {
+        auto db_search_result = compile_db.appendOrError(user_cflags, in_file);
+        if (db_search_result.isNull) {
             return ExitStatusType.Errors;
         }
-        cflags = db_cflags.get;
+        use_cflags = db_search_result.get.cflags;
+        abs_in_file = db_search_result.get.absoluteFile;
+    } else {
+        use_cflags = user_cflags.dup;
+        abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
     }
 
     Container symbol_container;
-    auto root = CppRoot(LocationTag(Location(in_file, 0, 0)));
-    if (analyzeFile(in_file, cflags, symbol_container, root) == ExitStatusType.Errors) {
+    auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
+    if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }
 
