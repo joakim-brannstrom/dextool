@@ -6,6 +6,9 @@
 #ifndef TEST_INIT_extern_a
 #define TEST_INIT_extern_a int extern_a[4]
 #endif // TEST_INIT_extern_a
+#ifndef TEST_INIT_extern_array
+#define TEST_INIT_extern_array MyArrayType extern_array
+#endif // TEST_INIT_extern_array
 #ifndef TEST_INIT_extern_b
 #define TEST_INIT_extern_b int extern_b[2][3]
 #endif // TEST_INIT_extern_b
@@ -18,10 +21,15 @@
 #ifndef TEST_INIT_extern_incmpl
 #define TEST_INIT_extern_incmpl char extern_incmpl[]
 #endif // TEST_INIT_extern_incmpl
+#ifndef TEST_INIT_extern_typedef_array
+#define TEST_INIT_extern_typedef_array MyIntType extern_typedef_array[16]
+#endif // TEST_INIT_extern_typedef_array
 
 TEST_INIT_expect_const_ptr_array;
 TEST_INIT_extern_a;
+TEST_INIT_extern_array;
 TEST_INIT_extern_b;
 TEST_INIT_extern_c;
 TEST_INIT_extern_const_incmpl;
 TEST_INIT_extern_incmpl;
+TEST_INIT_extern_typedef_array;

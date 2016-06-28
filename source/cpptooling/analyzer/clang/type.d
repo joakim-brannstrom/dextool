@@ -1313,6 +1313,14 @@ body {
         }
     }
 
+    auto handleArray(ref Nullable!TypeResult rval) {
+        // must check for array:nes before Typedef because of the case when it
+        // is an array of typedef's
+        if (c_type.isArray) {
+            rval = typeToArray(c, c_type, container, indent);
+        }
+    }
+
     auto fallback(ref Nullable!TypeResult rval) {
         rval = passType(c, c_type, container, indent);
     }
@@ -1324,7 +1332,14 @@ body {
     }
 
     Nullable!TypeResult rval;
-    foreach (f; [&handlePointer, &handleTypedef, &handleTypeWithDecl, &fallback]) {
+    foreach (idx, f; [&handlePointer, &handleArray, &handleTypedef,
+            &handleTypeWithDecl, &fallback]) {
+        debug {
+            import std.conv : to;
+            import cpptooling.utility.logger : trace;
+
+            trace(idx.to!string(), this_indent);
+        }
         f(rval);
         if (!rval.isNull) {
             break;
@@ -1456,6 +1471,11 @@ body {
         rval.extra = [func.primary] ~ func.extra;
     }
 
+    auto handleArray(ref Nullable!TypeResult rval) {
+        auto type = c.type;
+        logType(type, this_indent);
+    }
+
     auto underlying(ref Nullable!TypeResult rval) {
         auto underlying = c.typedefUnderlyingType;
         auto tref = passType(c, underlying, container, indent);
@@ -1475,7 +1495,7 @@ body {
 
     typeof(return) rval;
     foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleTyperef,
-            &handleFuncProto, &handleDecl, &underlying, &fallback]) {
+            &handleFuncProto, &handleDecl, &handleArray, &underlying, &fallback]) {
         debug {
             import std.conv : to;
             import cpptooling.utility.logger : trace;
