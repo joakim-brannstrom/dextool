@@ -7,6 +7,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module utils;
 import scriptlike;
 
+enum dextoolExePath = "../build/dextool-debug";
+
 private void delegate(string) oldYap = null;
 private string[] yapLog;
 
@@ -136,7 +138,7 @@ string EnvSetup(string logdir) {
     auto txt = `
     import scriptlike;
 
-    auto testEnv = TestEnv(Path("../build/dextool-debug"));
+    auto testEnv = TestEnv(Path("%s"));
 
     // Setup and cleanup
     scope (exit) {
@@ -151,7 +153,7 @@ string EnvSetup(string logdir) {
     }
 `;
 
-    return format(txt, logdir);
+    return format(txt, dextoolExePath, logdir);
 }
 
 struct GR {

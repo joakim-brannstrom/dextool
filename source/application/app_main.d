@@ -7,7 +7,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module application.app_main;
 
 import std.stdio;
-import std.typecons : Flag;
+import std.typecons : Flag, Tuple;
 
 import logger = std.experimental.logger;
 
@@ -185,7 +185,7 @@ string cliMergeCategory() {
     // dfmt on
 }
 
-ExitStatusType doTestDouble(string category, string[] args) {
+ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] args) {
     import std.algorithm;
     import std.traits;
 
@@ -196,55 +196,79 @@ ExitStatusType doTestDouble(string category, string[] args) {
     static auto optTo(CliOptionParts opt) {
         import std.format;
 
-        auto r = format("%s
+        const auto r = format("%s
 
 options:%s%s
 
 %s", opt.usage, basic_options, opt.optional, opt.others);
 
-        logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
+        debug logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
         return CliOption(r);
     }
 
     auto exit_status = ExitStatusType.Errors;
 
-    if (category == "help") {
+    final switch (status) with (CliCategoryStatus) {
+    case Help:
         writeln(main_opt, cliMergeCategory(), help_opt);
         exit_status = ExitStatusType.Ok;
-    } else {
+        break;
+    case NoCategory:
+        logger.error("No such main category: " ~ category);
+        logger.error("-h to list accetable categories");
+        exit_status = ExitStatusType.Errors;
+        break;
+    case Category:
         import plugin.register;
         import std.range : takeOne;
+
+        bool match_found;
 
         // dfmt off
         foreach (p; getRegisteredPlugins()
                  .filter!(p => p.category == category)
                  .takeOne) {
             exit_status = p.func(optTo(p.opts), CliArgs(args[1 .. $]));
+            match_found = true;
         }
         // dfmt on
+
+        if (!match_found) {
+            // print error message to user as if no category was found
+            exit_status = doTestDouble(CliCategoryStatus.NoCategory, category, []);
+        }
+
+        break;
     }
 
     return exit_status;
 }
 
+private enum CliCategoryStatus {
+    Help,
+    NoCategory,
+    Category
+}
+
+private alias MainCliReturnType = Tuple!(CliCategoryStatus, "status", string,
+        "category", Flag!"debug", "debug_", string[], "args");
+
 auto parseMainCli(string[] args) {
     import std.algorithm : findAmong, filter, among;
     import std.array : array, empty;
-    import std.typecons : Tuple, Yes, No;
-
-    alias Rval = Tuple!(string, "category", Flag!"debug", "debug_", string[], "args");
+    import std.typecons : Yes, No;
 
     auto debug_ = findAmong(args, ["-d", "--debug"]).empty ? Flag!"debug".no : Flag!"debug".yes;
     // holds the remining arguments after -d/--debug has bee removed
     auto rem = args.filter!(a => !a.among("-d", "--debug")).array();
 
     if (rem.length <= 1) {
-        return Rval("help", debug_, []);
+        return MainCliReturnType(CliCategoryStatus.NoCategory, "", debug_, []);
     } else if (rem.length >= 2 && rem[1].among("help", "-h", "--help")) {
-        return Rval("help", debug_, []);
+        return MainCliReturnType(CliCategoryStatus.Help, "", debug_, []);
     }
 
-    return Rval(rem[1], debug_, rem);
+    return MainCliReturnType(CliCategoryStatus.Category, rem[1], debug_, rem);
 }
 
 int rmain(string[] args) nothrow {
@@ -258,7 +282,7 @@ int rmain(string[] args) nothrow {
         confLogLevel(parsed.debug_);
         logger.trace(parsed);
 
-        exit_status = doTestDouble(parsed.category, parsed.args);
+        exit_status = doTestDouble(parsed.status, parsed.category, parsed.args);
     }
     catch (Exception ex) {
         collectException(logger.trace(text(ex)));
