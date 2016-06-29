@@ -10,7 +10,7 @@ import scriptlike;
 import utils;
 import std.typecons : Flag, Yes, No;
 
-import unit_threaded : Name, shouldEqual, ShouldFail;
+import unit_threaded;
 
 enum globalTestdir = "c_tests";
 
@@ -244,7 +244,7 @@ unittest {
         // do nothing, expecting error status of dextool to be != 0
     }
 
-    stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt"));
+    stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt")).shouldBeTrue;
 }
 
 @Name(testId ~ "Should load compiler settings from the second compilation database")
@@ -403,3 +403,33 @@ unittest {
 }
 
 // END   CLI Tests ###########################################################
+
+// BEGIN Unspecified CLI Test ################################################
+
+// This test could be anywhere. It just happens to be placed in the suite of C
+// tests.
+@Name(testId ~ "Should exit with a help message that no matching category was found")
+@Values(["invalid_category"], [""])
+@Values([""], ["--debug"])
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("", testEnv);
+    p.dexParams = getValue!(string[], 0) ~ getValue!(string[], 1);
+
+    p.skipCompare = Yes.skipCompare;
+    p.skipCompile = Yes.skipCompile;
+
+    bool exit_status_is_failed;
+    try {
+        runTestFile(p, testEnv);
+    }
+    catch (ErrorLevelException) {
+        // do nothing, expecting error status of dextool to be != 0
+        exit_status_is_failed = true;
+    }
+    exit_status_is_failed.shouldBeTrue;
+
+    stdoutContains("No such main category: ").shouldBeTrue;
+}
+
+// END   Unspecified CLI Test ################################################
