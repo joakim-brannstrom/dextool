@@ -1,0 +1,8 @@
+#include "test_double.hpp"
+
+#ifndef TEST_INIT_constant
+#define TEST_INIT_constant int constant
+#endif // TEST_INIT_constant
+
+///
+TEST_INIT_constant;

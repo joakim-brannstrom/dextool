@@ -443,6 +443,8 @@ struct CppMethodGeneric {
      * Expecting them to be set in c'tors.
      */
     template MethodProperties() {
+        mixin mixinSourceLocation;
+
         const pure @nogc nothrow {
             bool isConst() {
                 return isConst_;
@@ -707,17 +709,19 @@ const:
     }
 }
 
-pure @safe nothrow struct CppMethod {
-    mixin mixinUniqueId!string;
-    mixin CppMethodGeneric.Parameters;
-    mixin CppMethodGeneric.StringHelperVirtual;
-    mixin CppMethodGeneric.BaseProperties;
-    mixin CppMethodGeneric.MethodProperties;
+nothrow struct CppMethod {
+    pure @safe {
+        mixin mixinUniqueId!string;
+        mixin CppMethodGeneric.Parameters;
+        mixin CppMethodGeneric.StringHelperVirtual;
+        mixin CppMethodGeneric.BaseProperties;
+        mixin CppMethodGeneric.MethodProperties;
+    }
 
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         import std.typecons : TypedefType;
 
         this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
@@ -733,56 +737,60 @@ pure @safe nothrow struct CppMethod {
 
     /// Function with no parameters.
     this(const CppMethodName name, const CxReturnType return_type, const CppAccess access,
-            const CppConstMethod const_, const CppVirtualMethod virtual) {
+            const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         this(name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
-            const CppVirtualMethod virtual = MemberVirtualType.Normal) {
+            const CppVirtualMethod virtual = MemberVirtualType.Normal) @safe {
         CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
-const:
+    void toString(Writer)(scope Writer w) @safe const {
+        import std.ascii : newline;
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(w, "// Origin %s%s", location.toString, newline);
+        }
+
+        put(w, helperVirtualPre(classification_));
+        put(w, returnType_.toStringDecl);
+        put(w, " ");
+        put(w, signatureToString);
+        put(w, helperVirtualPost(classification_));
+    }
+
+@safe const:
 
     /// Signature of the method.
     private string signatureToString() {
-        import std.algorithm : joiner;
-        import std.conv : text;
         import std.format : format;
-        import std.range : only;
+        import std.array : appender;
 
-        // dfmt off
-        return
-            only(
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst)
-                )
-            .joiner()
-            .text;
-        // dfmt on
+        auto app = appender!(string)();
+
+        app.put(name_.str);
+        app.put(format("(%s)", paramRange.joinParams));
+        app.put(helperConst(isConst));
+
+        return app.data;
     }
 
     string toString() {
-        import std.algorithm : joiner;
-        import std.conv : text;
-        import std.format : format;
-        import std.range : only;
+        import std.exception : assumeUnique;
 
-        // dfmt off
-        return
-            only(
-                 helperVirtualPre(classification_),
-                 returnType_.toStringDecl,
-                 " ",
-                 signatureToString,
-                 helperVirtualPost(classification_)
-                )
-            .joiner()
-            .text;
-        // dfmt on
+        char[] buf;
+        buf.reserve(100);
+        toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
     }
 
     invariant() {
@@ -796,17 +804,19 @@ const:
     }
 }
 
-pure @safe nothrow struct CppMethodOp {
-    mixin mixinUniqueId!string;
-    mixin CppMethodGeneric.Parameters;
-    mixin CppMethodGeneric.StringHelperVirtual;
-    mixin CppMethodGeneric.BaseProperties;
-    mixin CppMethodGeneric.MethodProperties;
+nothrow struct CppMethodOp {
+    pure @safe {
+        mixin mixinUniqueId!string;
+        mixin CppMethodGeneric.Parameters;
+        mixin CppMethodGeneric.StringHelperVirtual;
+        mixin CppMethodGeneric.BaseProperties;
+        mixin CppMethodGeneric.MethodProperties;
+    }
 
     @disable this();
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) {
+            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         import std.typecons : TypedefType;
 
         this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
@@ -820,18 +830,37 @@ pure @safe nothrow struct CppMethodOp {
 
     /// Operator with no parameters.
     this(const CppMethodName name, const CxReturnType return_type, const CppAccess access,
-            const CppConstMethod const_, const CppVirtualMethod virtual) {
+            const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         this(name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Operator with no parameters and returning void.
     this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
-            const CppVirtualMethod virtual = MemberVirtualType.Normal) {
+            const CppVirtualMethod virtual = MemberVirtualType.Normal) @safe {
         CxReturnType void_ = makeSimple("void");
         this(name, CxParam[].init, void_, access, const_, virtual);
     }
 
-const:
+    void toString(Writer)(scope Writer w) @safe const {
+        import std.ascii : newline;
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+
+        if (location.kind == LocationTag.Kind.loc) {
+            formattedWrite(w, "// Origin %s%s", location.toString, newline);
+        }
+
+        put(w, helperVirtualPre(classification_));
+        put(w, returnType_.toStringDecl);
+        put(w, " ");
+        put(w, signatureToString);
+        put(w, helperVirtualPost(classification_));
+
+        // distinguish an operator from a normal method
+        put(w, " /* operator */");
+    }
+
+@safe const:
 
     /// Signature of the method.
     private string signatureToString() {
@@ -853,25 +882,16 @@ const:
     }
 
     string toString() {
-        import std.algorithm : joiner;
-        import std.conv : text;
-        import std.format : format;
-        import std.range : only;
+        import std.exception : assumeUnique;
 
-        // dfmt off
-        return
-            only(
-                 helperVirtualPre(classification_),
-                 returnType_.toStringDecl,
-                 " ",
-                 signatureToString,
-                 helperVirtualPost(classification_),
-                 // distinguish an operator from a normal method
-                 " /* operator */"
-                )
-            .joiner()
-            .text;
-        // dfmt on
+        char[] buf;
+        buf.reserve(100);
+        toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
     }
 
     /// The operator type, aka in C++ the part after "operator"
@@ -2279,4 +2299,14 @@ unittest {
     shouldEqualPretty(c.toString, "// A comment
 class Foo { // Unknown
 }; //Class:Foo");
+}
+
+@Name("Should be a method with a location")
+unittest {
+    auto m = CppMethod(CppMethodName("method"), CppAccess(AccessType.Public),
+            CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Virtual));
+    m.setLocation(dummyLoc);
+
+    shouldEqualPretty(m.toString, "// Origin File:a.h Line:123 Column:45
+virtual void method()");
 }

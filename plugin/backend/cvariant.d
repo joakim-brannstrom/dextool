@@ -9,7 +9,7 @@ representation.
 */
 module plugin.backend.cvariant;
 
-import std.typecons : Typedef;
+import std.typecons : Typedef, Flag;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -17,7 +17,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 import application.types;
 import cpptooling.data.symbol.container;
 
-/// Control variouse aspectes of the analyze and generation like what nodes to
+/// Control various aspects of the analyze and generation like what nodes to
 /// process.
 @safe interface StubController {
     /// Query the controller with the filename of the AST node for a decision
@@ -45,10 +45,13 @@ import cpptooling.data.symbol.container;
 
     /// Generate a #include of the post include header
     bool doIncludeOfPostIncludes();
+
+    /// Generate location of symbols as comments
+    bool doLocationAsComment();
 }
 
 /// Parameters used during generation.
-/// Important aspact that they do NOT change, therefore it is pure.
+/// Important aspect that they do NOT change, therefore it is pure.
 @safe pure interface StubParameters {
     import std.typecons : Tuple;
 
@@ -356,7 +359,8 @@ void generate(ref CppRoot r, StubController ctrl, StubParameters params,
 
     foreach (a; r.globalRange) {
         generateCGlobalPreProcessorDefine(a, params.getArtifactPrefix.str, global_macros);
-        generateCGlobalDefinition(a, params.getArtifactPrefix.str, container, global_definitions);
+        generateCGlobalDefinition(a, cast(Flag!"locationAsComment") ctrl.doLocationAsComment,
+                params.getArtifactPrefix.str, container, global_definitions);
     }
 
     foreach (ns; r.namespaceRange) {
@@ -369,7 +373,8 @@ void generate(ref CppRoot r, StubController ctrl, StubParameters params,
             generateSingleton(ns, impl);
             break;
         case NamespaceType.TestDouble:
-            generateNsTestDoubleHdr(ns, params, hdr, gmock);
+            generateNsTestDoubleHdr(ns,
+                    cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params, hdr, gmock);
             generateNsTestDoubleImpl(ns, params, impl);
             break;
         }
@@ -414,8 +419,8 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable g, string prefix, Cp
     }
 }
 
-void generateCGlobalDefinition(ref CxGlobalVariable g, string prefix,
-        const ref Container container, CppModule code)
+void generateCGlobalDefinition(ref CxGlobalVariable g, Flag!"locationAsComment" loc_as_comment,
+        string prefix, const ref Container container, CppModule code)
 in {
     import std.algorithm : among;
     import cpptooling.analyzer.type : TypeKind;
@@ -429,17 +434,22 @@ body {
     import cpptooling.analyzer.type;
 
     string d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+
+    if (loc_as_comment && g.location.kind == LocationTag.Kind.loc) {
+        code.comment("Origin " ~ g.location.toString)[$.begin = "/// "];
+    }
     code.stmt(d_name);
 }
 
-void generateClassHdr(ref CppClass c, CppModule hdr, CppModule gmock, StubParameters params) {
+void generateClassHdr(ref CppClass c, CppModule hdr, CppModule gmock,
+        Flag!"locationAsComment" loc_as_comment, StubParameters params) {
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
 
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
     case ClassType.Adapter:
-        generateHdr(c, hdr);
+        generateHdr(c, hdr, loc_as_comment);
         break;
     case ClassType.Gmock:
         generateGmock!StubParameters(c, gmock, params);
@@ -461,8 +471,8 @@ void generateClassImpl(ref CppClass c, CppModule impl) {
     }
 }
 
-void generateNsTestDoubleHdr(ref CppNamespace ns, StubParameters params,
-        CppModule hdr, CppModule gmock) {
+void generateNsTestDoubleHdr(ref CppNamespace ns, Flag!"locationAsComment" loc_as_comment,
+        StubParameters params, CppModule hdr, CppModule gmock) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
@@ -470,7 +480,9 @@ void generateNsTestDoubleHdr(ref CppNamespace ns, StubParameters params,
     cpp_ns.suppressIndent(1);
     hdr.sep(2);
 
-    ns.classRange().each!((a) { generateClassHdr(a, cpp_ns, gmock, params); });
+    ns.classRange().each!((a) {
+        generateClassHdr(a, cpp_ns, gmock, loc_as_comment, params);
+    });
 }
 
 void generateNsTestDoubleImpl(ref CppNamespace ns, StubParameters params, CppModule impl) {
