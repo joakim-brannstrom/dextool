@@ -402,6 +402,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId ~ "Should be location comments for globals and functions")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_loc_as_comment.h", testEnv);
+    p.dexParams ~= ["--gmock", "--loc-as-comment"];
+
+    runTestFile(p, testEnv);
+}
+
 // END   CLI Tests ###########################################################
 
 // BEGIN Unspecified CLI Test ################################################

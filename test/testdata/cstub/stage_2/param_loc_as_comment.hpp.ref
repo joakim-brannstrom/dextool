@@ -1,0 +1,24 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "param_loc_as_comment.h"
+}
+
+namespace TestDouble {
+class I_TestDouble {
+public:
+    ///
+    virtual void func() = 0;
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+#endif // test_double_hpp

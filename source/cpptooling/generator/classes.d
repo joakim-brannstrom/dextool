@@ -14,8 +14,17 @@ import cpptooling.data.representation : CppClass;
 
 @safe:
 
+private void genComment(T)(T m, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
+    import std.format : format;
+    import cpptooling.data.type : LocationTag, Location;
+
+    if (loc_as_comment && m.location.kind == LocationTag.Kind.loc) {
+        hdr.comment("Origin " ~ m.location.toString)[$.begin = "/// "];
+    }
+}
+
 /// Generate code for a C++ class from a CppClass specification.
-void generateHdr(CppClass in_c, CppModule hdr) {
+void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
     import std.algorithm : each;
     import std.variant : visit;
     import cpptooling.data.representation;
@@ -30,8 +39,10 @@ void generateHdr(CppClass in_c, CppModule hdr) {
         hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name().str);
     }
 
-    static void genMethod(CppMethod m, CppModule hdr) {
+    static void genMethod(CppMethod m, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
         import cpptooling.analyzer.type;
+
+        m.genComment(hdr, loc_as_comment);
 
         string params = m.paramRange().joinParams();
         auto o = hdr.method(cast(Flag!"isVirtual") m.isVirtual(),
@@ -52,7 +63,7 @@ void generateHdr(CppClass in_c, CppModule hdr) {
     foreach (m; in_c.methodPublicRange()) {
         // dfmt off
         () @trusted {
-        m.visit!((CppMethod m) => genMethod(m, pub),
+        m.visit!((CppMethod m) => genMethod(m, pub, loc_as_comment),
                  (CppMethodOp m) => genOp(m, pub),
                  (CppCtor m) => genCtor(m, pub),
                  (CppDtor m) => genDtor(m, pub));

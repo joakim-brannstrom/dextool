@@ -8,14 +8,160 @@ Generate a google mock implementation of a C++ class with at least one virtual.
 */
 module cpptooling.generator.gmock;
 
-import std.typecons : Yes, No;
+import std.ascii : newline;
+import std.algorithm : each, joiner, map;
+import std.conv : text;
+import std.format : format;
+import std.range : chain, only, retro, takeOne;
+import std.typecons : Yes, No, Flag;
+import std.variant : visit;
+
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import cpptooling.data.representation : CppClass, CppNamespace;
+import cpptooling.data.representation; // : CppClass, CppNamespace, CppMethodOp, CppMethod;
+import cpptooling.utility.conv : str;
+import cpptooling.analyzer.kind;
+import cpptooling.analyzer.type;
 
 @safe:
+
+private string gmockMacro(size_t len, bool isConst)
+in {
+    assert(len <= 10);
+}
+body {
+    if (isConst)
+        return "MOCK_CONST_METHOD" ~ len.text;
+    else
+        return "MOCK_METHOD" ~ len.text;
+}
+
+private void ignore() {
+}
+
+private void genOp(CppMethodOp m, CppModule hdr) {
+    import cpptooling.data.representation : MemberVirtualType;
+
+    static string translateOp(string op) {
+        switch (op) {
+        case "=":
+            return "opAssign";
+        case "==":
+            return "opEquals";
+        default:
+            logger.errorf(
+                    "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
+                    op);
+            return "operator not supported";
+        }
+    }
+
+    static void genMockMethod(CppMethodOp m, CppModule hdr) {
+        string params = m.paramRange().joinParams();
+        string gmock_name = translateOp(m.op().str);
+        string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
+        //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
+        string stmt = format("%s(%s, %s(%s))", gmock_macro, gmock_name,
+                m.returnType.toStringDecl, params);
+        hdr.stmt(stmt);
+    }
+
+    static void genMockCaller(CppMethodOp m, CppModule hdr) {
+        import dsrcgen.cpp : E;
+
+        string gmock_name = translateOp(m.op().str);
+
+        //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
+        CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.toStringDecl,
+                m.name.str, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
+        auto call = E(gmock_name)(m.paramRange().joinParamNames);
+
+        if (m.returnType.toStringDecl == "void") {
+            code.stmt(call);
+        } else {
+            code.return_(call);
+        }
+    }
+
+    genMockMethod(m, hdr);
+    genMockCaller(m, hdr);
+}
+
+private void genMethod(CppMethod m, CppModule hdr) {
+    enum MAX_GMOCK_PARAMS = 10;
+
+    void genMethodWithFewParams(CppMethod m, CppModule hdr) {
+        hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
+                m.isConst), m.name.str(), m.returnType.toStringDecl, m.paramRange().joinParams()));
+        return;
+    }
+
+    void genMethodWithManyParams(CppMethod m, CppModule hdr) {
+        import std.algorithm : each;
+        import std.range : chunks, enumerate, dropBackOne;
+        import dsrcgen.cpp : E;
+
+        static string partName(string name, size_t part_no) {
+            return format("%s_MockPart%s", name, part_no);
+        }
+
+        static void genPart(T)(size_t part_no, T a, CppMethod m, CppModule code,
+                CppModule delegate_mock) {
+            // inject gmock macro
+            code.stmt(format("%s(%s, void(%s))", gmockMacro(a.length,
+                    m.isConst), partName(m.name().str, part_no), a.joinParams));
+            //// inject delegation call to gmock macro
+            delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
+        }
+
+        static void genLastPart(T)(size_t part_no, T p, CppMethod m,
+                CppModule code, CppModule delegate_mock) {
+            auto part_name = partName(m.name().str, part_no);
+            code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
+                    part_name, m.returnType.toStringDecl, p.joinParams));
+
+            auto stmt = E(part_name)(p.joinParamNames);
+
+            if (m.returnType.toStringDecl == "void") {
+                delegate_mock.stmt(stmt);
+            } else {
+                delegate_mock.return_(stmt);
+            }
+        }
+
+        // Code block for gmock macros
+        auto code = hdr.base();
+        code.suppressIndent(1);
+
+        // Generate mock method that delegates to partial mock methods
+        auto delegate_mock = hdr.method_inline(Yes.isVirtual,
+                m.returnType.toStringDecl, m.name().str, m.isConst
+                ? Yes.isConst : No.isConst, m.paramRange().joinParams());
+
+        auto param_chunks = m.paramRange.chunks(MAX_GMOCK_PARAMS);
+
+        // dfmt off
+        param_chunks
+            .save // don't modify the range
+            .dropBackOne // separate last chunk to simply logic,
+            // all methods will thus return void
+            .enumerate(1)
+                .each!(a => genPart(a.index, a.value, m, code, delegate_mock));
+        // dfmt on
+
+        // if the mocked function returns a value it is simulated via the "last
+        // part".
+        genLastPart(param_chunks.length, param_chunks.back, m, code, delegate_mock);
+    }
+
+    if (m.paramRange().length <= MAX_GMOCK_PARAMS) {
+        genMethodWithFewParams(m, hdr);
+    } else {
+        genMethodWithManyParams(m, hdr);
+    }
+}
 
 /** Generate a Google Mock that implements in_c.
  *
@@ -37,152 +183,8 @@ in {
     assert(in_c.isVirtual);
 }
 body {
-    import std.ascii : newline;
-    import std.algorithm : each, joiner, map;
-    import std.conv : text;
-    import std.format : format;
-    import std.range : chain, only, retro, takeOne;
-    import std.variant : visit;
-
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
-    import cpptooling.analyzer.type;
-
-    static string gmockMacro(size_t len, bool isConst)
-    in {
-        assert(len <= 10);
-    }
-    body {
-        if (isConst)
-            return "MOCK_CONST_METHOD" ~ len.text;
-        else
-            return "MOCK_METHOD" ~ len.text;
-    }
-
-    static void ignore() {
-    }
-
-    static void genOp(CppMethodOp m, CppModule hdr) {
-        import cpptooling.data.representation : MemberVirtualType;
-
-        static string translateOp(string op) {
-            switch (op) {
-            case "=":
-                return "opAssign";
-            case "==":
-                return "opEquals";
-            default:
-                logger.errorf("Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
-                        op);
-                return "operator not supported";
-            }
-        }
-
-        static void genMockMethod(CppMethodOp m, CppModule hdr) {
-            string params = m.paramRange().joinParams();
-            string gmock_name = translateOp(m.op().str);
-            string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
-            //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
-            string stmt = format("%s(%s, %s(%s))", gmock_macro, gmock_name,
-                    m.returnType.toStringDecl, params);
-            hdr.stmt(stmt);
-        }
-
-        static void genMockCaller(CppMethodOp m, CppModule hdr) {
-            import dsrcgen.cpp : E;
-
-            string gmock_name = translateOp(m.op().str);
-
-            //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
-            CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.toStringDecl,
-                    m.name.str, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
-            auto call = E(gmock_name)(m.paramRange().joinParamNames);
-
-            if (m.returnType.toStringDecl == "void") {
-                code.stmt(call);
-            } else {
-                code.return_(call);
-            }
-        }
-
-        genMockMethod(m, hdr);
-        genMockCaller(m, hdr);
-    }
-
-    static void genMethod(CppMethod m, CppModule hdr) {
-        enum MAX_GMOCK_PARAMS = 10;
-
-        void genMethodWithFewParams(CppMethod m, CppModule hdr) {
-            hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
-                    m.isConst), m.name.str(), m.returnType.toStringDecl,
-                    m.paramRange().joinParams()));
-            return;
-        }
-
-        void genMethodWithManyParams(CppMethod m, CppModule hdr) {
-            import std.algorithm : each;
-            import std.range : chunks, enumerate, dropBackOne;
-            import dsrcgen.cpp : E;
-
-            static string partName(string name, size_t part_no) {
-                return format("%s_MockPart%s", name, part_no);
-            }
-
-            static void genPart(T)(size_t part_no, T a, CppMethod m,
-                    CppModule code, CppModule delegate_mock) {
-                // inject gmock macro
-                code.stmt(format("%s(%s, void(%s))", gmockMacro(a.length,
-                        m.isConst), partName(m.name().str, part_no), a.joinParams));
-                //// inject delegation call to gmock macro
-                delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
-            }
-
-            static void genLastPart(T)(size_t part_no, T p, CppMethod m,
-                    CppModule code, CppModule delegate_mock) {
-                auto part_name = partName(m.name().str, part_no);
-                code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
-                        part_name, m.returnType.toStringDecl, p.joinParams));
-
-                auto stmt = E(part_name)(p.joinParamNames);
-
-                if (m.returnType.toStringDecl == "void") {
-                    delegate_mock.stmt(stmt);
-                } else {
-                    delegate_mock.return_(stmt);
-                }
-            }
-
-            // Code block for gmock macros
-            auto code = hdr.base();
-            code.suppressIndent(1);
-
-            // Generate mock method that delegates to partial mock methods
-            auto delegate_mock = hdr.method_inline(Yes.isVirtual,
-                    m.returnType.toStringDecl, m.name().str, m.isConst
-                    ? Yes.isConst : No.isConst, m.paramRange().joinParams());
-
-            auto param_chunks = m.paramRange.chunks(MAX_GMOCK_PARAMS);
-
-            // dfmt off
-            param_chunks
-                .save // don't modify the range
-                .dropBackOne // separate last chunk to simply logic,
-                             // all methods will thus return void
-                .enumerate(1)
-                .each!(a => genPart(a.index, a.value, m, code, delegate_mock));
-            // dfmt on
-
-            // if the mocked function returns a value it is simulated via the
-            // "last part".
-            genLastPart(param_chunks.length, param_chunks.back, m, code, delegate_mock);
-        }
-
-        if (m.paramRange().length <= MAX_GMOCK_PARAMS) {
-            genMethodWithFewParams(m, hdr);
-        } else {
-            genMethodWithManyParams(m, hdr);
-        }
-    }
 
     auto ns = hdr.namespace(params.getMainNs().str);
     ns.suppressIndent(1);
@@ -232,14 +234,15 @@ auto makeGmock(ClassT)(CppClass c) {
     import std.variant : visit;
     import cpptooling.data.representation;
 
-    // Make all protected and private public to allow testing, for good and
-    // bad
+    // Make all protected and private public to allow testing, for good and bad
     static auto conv(T)(T m_) if (is(T == CppMethod) || is(T == CppMethodOp)) {
         import std.array : array;
 
         auto params = m_.paramRange.array();
         auto m = CppMethod(m_.name, params, m_.returnType, CppAccess(AccessType.Public),
                 CppConstMethod(m_.isConst), CppVirtualMethod(MemberVirtualType.Pure));
+        m.setLocation(m_.location);
+
         return m;
     }
 

@@ -186,7 +186,8 @@ void compare(in Path gold, in Path result) {
     bool diff_detected = false;
     int max_diff;
     foreach (idx, g, r; lockstep(goldf.byLine(), resultf.byLine())) {
-        if (g.length > 2 && r.length > 2 && g[0 .. 2] == "//" && r[0 .. 2] == "//") {
+        if (g.strip.length > 2 && r.strip.length > 2 && g.strip[0 .. 2] == "//"
+                && r.strip[0 .. 2] == "//") {
             continue;
         } else if (g != r && max_diff < 5) {
             // +1 of index because editors start counting lines from 1

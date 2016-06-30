@@ -55,7 +55,9 @@ static auto ctestdouble_opt = CliOptionParts(
  --strip-incl=r     A regexp used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it
+ --loc-as-comment   Generate a comment containing the location the symbol was derived from.
+                    Makes it easier to correctly define excludes/restricts",
     // -------------
 "others:
  --in=              Input files to parse
@@ -102,6 +104,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     immutable Flag!"Gmock" gmock;
     immutable Flag!"PreInclude" pre_incl;
     immutable Flag!"PostInclude" post_incl;
+    immutable Flag!"locationAsComment" loc_as_comment;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -118,11 +121,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
-        Flag!"Gmock" gmock = parsed["--gmock"].isTrue ? Flag!"Gmock".yes : Flag!"Gmock".no;
-        Flag!"PreInclude" pre_incl = parsed["--gen-pre-incl"].isTrue
-            ? Flag!"PreInclude".yes : Flag!"PreInclude".no;
-        Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue
-            ? Flag!"PostInclude".yes : Flag!"PostInclude".no;
+        auto gmock = cast(Flag!"Gmock") parsed["--gmock"].isTrue;
+        auto pre_incl = cast(Flag!"PreInclude") parsed["--gen-pre-incl"].isTrue;
+        auto post_incl = cast(Flag!"PostInclude") parsed["--gen-post-incl"].isTrue;
+        auto loc_as_comment = cast(Flag!"locationAsComment") parsed["--loc-as-comment"].isTrue;
 
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -135,7 +137,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
                 MainFileName(parsed["--main-fname"].toString), MainName(parsed["--main"].toString),
-                DirName(parsed["--out"].toString), gmock, pre_incl, post_incl, strip_incl);
+                DirName(parsed["--out"].toString), gmock, pre_incl, post_incl,
+                loc_as_comment, strip_incl);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -158,8 +161,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
      * TODO document the parameters.
      */
     this(StubPrefix prefix, StubPrefix file_prefix, MainFileName main_fname, MainName main_name, DirName output_dir,
-            Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
-            Flag!"PostInclude" post_incl, Regex!char strip_incl) {
+            Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl,
+            Flag!"locationAsComment" loc_as_comment, Regex!char strip_incl) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.main_name = main_name;
@@ -169,6 +172,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         this.gmock = gmock;
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
+        this.loc_as_comment = loc_as_comment;
         this.td_includes = TestDoubleIncludes(strip_incl);
 
         import std.path : baseName, buildPath, stripExtension;
@@ -245,6 +249,10 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 
     bool doIncludeOfPostIncludes() {
         return post_incl;
+    }
+
+    bool doLocationAsComment() {
+        return loc_as_comment;
     }
 
     // -- StubParameters --
