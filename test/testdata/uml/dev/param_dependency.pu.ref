@@ -1,13 +1,21 @@
 @startuml
 class "AB_ParamReturn" as YzpAU0BBQl9QYXJhbVJldHVybg
 class "A_ByCtor" as YzpAU0BBX0J5Q3Rvcg
+class "A_ByPtrReturn" as YzpAU0BBX0J5UHRyUmV0dXJu
 class "A_ByReturn" as YzpAU0BBX0J5UmV0dXJu
 class "A_OneParam" as YzpAU0BBX09uZVBhcmFt
+class "Forward_ByNsPtr" as YzpAU0BGb3J3YXJkX0J5TnNQdHI
+class "Forward_ByPtr" as YzpAU0BGb3J3YXJkX0J5UHRy
 class "A" as YzpAU0BB
 class "B" as YzpAU0BC
+class "Forward" as YzpAU0BGb3J3YXJk
+class "ns1::Forward" as YzpATkBuczFAU0BGb3J3YXJk
 "YzpAU0BBQl9QYXJhbVJldHVybg" --> "YzpAU0BC"
 "YzpAU0BBQl9QYXJhbVJldHVybg" --> "YzpAU0BB"
 "YzpAU0BBX0J5Q3Rvcg" --> "YzpAU0BB"
+"YzpAU0BBX0J5UHRyUmV0dXJu" --> "YzpAU0BB"
 "YzpAU0BBX0J5UmV0dXJu" --> "YzpAU0BB"
 "YzpAU0BBX09uZVBhcmFt" --> "YzpAU0BB"
+"YzpAU0BGb3J3YXJkX0J5TnNQdHI" --> "YzpATkBuczFAU0BGb3J3YXJk"
+"YzpAU0BGb3J3YXJkX0J5UHRy" --> "YzpAU0BGb3J3YXJk"
 @enduml

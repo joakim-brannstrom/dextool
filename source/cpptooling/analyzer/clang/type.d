@@ -552,6 +552,21 @@ body {
     return rval;
 }
 
+private bool isUnexposedDeclWithUSR(CXCursorKind kind) {
+    switch (kind) with (CXCursorKind) {
+    case CXCursor_TypedefDecl:
+    case CXCursor_TemplateTypeParameter:
+    case CXCursor_ClassTemplate:
+    case CXCursor_StructDecl:
+    case CXCursor_UnionDecl:
+    case CXCursor_ClassDecl:
+    case CXCursor_EnumDecl:
+        return true;
+    default:
+        return false;
+    }
+}
+
 private bool canConvertNodeDeclToType(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
     case CXCursor_TypedefDecl:
@@ -894,12 +909,31 @@ body {
                 pointee = pointee.pointeeType;
             }
             rval = passType(c, pointee, container, indent).get;
+
+            if (rval.primary.kind.info.kind == TypeKind.Info.Kind.record
+                    && c_pointee.kind.isUnexposedDeclWithUSR) {
+                // if the current pointers type is for a declaration use this
+                // usr instead of the one from pointee.
+                // Solves the case of a forward declared class in a namespace.
+                // The retrieved data is only correct if it is from the
+                // canonical type but the USR is wrong.
+                string usr = c_pointee.usr;
+                rval.primary.kind.usr = usr;
+
+                // TODO investigate if a usr null checking is needed.
+                // I think it is unnecessary but unsure at this point.
+                // It is possible to run a full scan of google mock and all
+                // internal tests without this check.
+                // If this hasn't been changed for 6 month remove this comment.
+                // Written at 2016-07-01, remove by 2017-02-01.
+            }
         } else if (c_pointee.kind == CXCursorKind.CXCursor_NoDeclFound) {
             // primitive types do not have a declaration cursor.
             // find the underlying primitive type.
             while (pointee.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
                 pointee = pointee.pointeeType;
             }
+
             rval = passType(c, pointee, container, indent).get;
         } else {
             rval = retrieveType(c_pointee, container, indent).get;

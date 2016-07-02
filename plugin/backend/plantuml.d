@@ -988,9 +988,10 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
         case Kind.pointer:
             auto pointee = container.find!TypeKind(tkv.type.kind.info.pointee);
             foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
-                r = Rtuple(Relate.Kind.Compose, p.usr,
-                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
-                            ""));
+                import std.string : strip;
+
+                string display = p.toStringDecl(TypeAttr.init, "").strip;
+                r = Rtuple(Relate.Kind.Compose, p.usr, cast(UMLClassDiagram.DisplayName) display);
             }
             break;
         case Kind.simple:
@@ -1040,9 +1041,11 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
             case Kind.pointer:
                 auto pointee = container.find!TypeKind(tk.kind.info.pointee);
                 foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
+                    import std.string : strip;
+
+                    string display = p.toStringDecl(TypeAttr.init, "").strip;
                     r = Rtuple(Relate.Kind.Associate, Relate.Key(p.usr),
-                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
-                                ""));
+                            cast(UMLClassDiagram.DisplayName) display);
                 }
                 break;
             case Kind.simple:
