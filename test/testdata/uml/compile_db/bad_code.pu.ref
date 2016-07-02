@@ -1,5 +1,5 @@
 @startuml
 class "F2" as YzpAU0BGMg
-class "F1 *" as YzpAU0BGMQ
+class "F1" as YzpAU0BGMQ
 "YzpAU0BGMg" o-- "YzpAU0BGMQ"
 @enduml
