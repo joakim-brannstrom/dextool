@@ -399,9 +399,12 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
+    p.skipCompare = Yes.skipCompare;
     runTestFile(p, testEnv);
 
     stdoutContains("$100").shouldBeFalse;
+    stdoutContains(`as include`).shouldBeTrue;
+    stdoutContains(`as bits`).shouldBeTrue;
 }
 
 @Name(testId ~ "Should always be able to backtrack")

@@ -210,7 +210,7 @@ version (unittest) {
     }
 }
 
-size_t[] nameIndexSortedRange(T, alias sortNameBy)(T arr) pure {
+private size_t[] nameIndexSortedRange(T, alias sortNameBy)(T arr) pure {
     import std.algorithm : makeIndex;
 
     auto index = new size_t[arr.length];
@@ -219,7 +219,7 @@ size_t[] nameIndexSortedRange(T, alias sortNameBy)(T arr) pure {
     return index;
 }
 
-auto nameSortedRange(T, alias sortNameBy)(const T t) pure {
+private auto nameSortedRange(T, alias sortNameBy)(const T t) pure {
     import std.algorithm : map;
     import std.array : array;
 
@@ -229,7 +229,7 @@ auto nameSortedRange(T, alias sortNameBy)(const T t) pure {
     return index.map!(i => arr[i]).array();
 }
 
-auto fanOutSorted(T)(T t) pure {
+private auto fanOutSorted(T)(T t) pure {
     import std.algorithm : makeIndex, map;
     import std.array : array;
 
@@ -420,26 +420,40 @@ auto fanOutSorted(T)(T t) pure {
  *
  * The relations are of the kind Fan-out.
  */
-@safe class UMLComponentDiagram {
+class UMLComponentDiagram {
+    import std.container.rbtree : RedBlackTree;
+
     alias Key = Typedef!(string, string.init, "UMLKey");
+    alias Location = Typedef!(string, string.init, "Location");
+    alias DisplayName = Typedef!(string, string.init, "DisplayName");
 
     struct Component {
-        string displayName;
+        DisplayName displayName;
         string[] toFile;
+        RedBlackTree!Location contains;
     }
 
     /// The component is only added if it doesn't already exist in the store.
-    void put(Key key, string display_name) {
+    void put(Key key, DisplayName display_name) @safe {
         if (key !in components) {
-            components[key] = Component(display_name);
+            components[key] = Component(display_name, null, new RedBlackTree!Location);
             relate_to[cast(Relate.Key) key] = Relate.init;
         }
+    }
+
+    /// Add a location that the component encapsulate
+    void put(Key key, Location loc) @trusted
+    out {
+        assert(key in components);
+    }
+    body {
+        components[key].contains.insert(loc);
     }
 
     /** Add a relation between two components and increase the count on the class
      * related TO.
      */
-    void relate(Key from, Key to, string toDisplayName, Relate.Kind kind)
+    void relate(Key from, Key to, DisplayName toDisplayName, Relate.Kind kind) @safe
     out {
         assert(from in components);
         assert(to in components);
@@ -452,7 +466,7 @@ auto fanOutSorted(T)(T t) pure {
         components[from].toFile ~= cast(string) to;
     }
 
-    const(Relate) relateTo(Key k) pure const
+    const(Relate) relateTo(Key k) pure const @safe
     in {
         assert(k in components);
         assert((cast(Relate.Key) k) in relate_to);
@@ -486,18 +500,26 @@ auto fanOutSorted(T)(T t) pure {
 
     auto nameSortedRange() const pure @trusted {
         static string sortComponentNameBy(T)(ref T a) {
-            return a[1].displayName;
+            return cast(string) a[1].displayName;
         }
 
         return .nameSortedRange!(typeof(this), sortComponentNameBy)(this);
     }
 
     private string[] componentsToStringArray() const pure @trusted {
-        import std.algorithm : map;
+        import std.algorithm : map, joiner;
+        import std.ascii : newline;
         import std.array : array;
         import std.format : format;
+        import std.typecons : tuple;
 
-        return nameSortedRange.map!(a => format("%s as %s", a[0].str, a[1].displayName)).array();
+        // dfmt off
+        return nameSortedRange
+            .map!(a => tuple(a[0], a[1].displayName, a[1].contains[].map!(a => newline ~ "  " ~ cast(string) a).joiner))
+            .map!(a => format("%s as %s%s", a[0].str,
+                a[1].str,
+                a[2])).array();
+        // dfmt on
     }
 
     private string[] relateToStringArray() const pure @trusted {
@@ -516,8 +538,14 @@ auto fanOutSorted(T)(T t) pure {
 
         formattedWrite(w, "UML Component Diagram (Total %d) {", components.length);
         put(w, newline);
-        zip(componentsToStringArray, repeat(newline)).each!((a) { put(w, a[0]); put(w, a[1]); });
-        zip(relateToStringArray, repeat(newline)).each!((a) { put(w, a[0]); put(w, a[1]); });
+        zip(componentsToStringArray, repeat(newline)).each!((a) {
+            put(w, a[0]);
+            put(w, a[1]);
+        });
+        zip(relateToStringArray, repeat(newline)).each!((a) {
+            put(w, a[0]);
+            put(w, a[1]);
+        });
         put(w, "} // UML Component Diagram");
     }
 
@@ -627,12 +655,16 @@ unittest {
     auto uml = new UMLComponentDiagram;
     auto ka = UMLComponentDiagram.Key("a");
     auto kb = UMLComponentDiagram.Key("b");
-    uml.put(ka, "A");
+    uml.put(ka, cast(UMLComponentDiagram.DisplayName) "A");
+    // shall be dedupliated
+    uml.put(ka, cast(UMLComponentDiagram.Location) "file.h");
+    uml.put(ka, cast(UMLComponentDiagram.Location) "file.h");
 
-    uml.relate(ka, kb, "B", Relate.Kind.Relate);
+    uml.relate(ka, kb, cast(UMLComponentDiagram.DisplayName) "B", Relate.Kind.Relate);
 
     uml.toString.shouldEqualPretty("UML Component Diagram (Total 2) {
 a as A
+  file.h
 b as B
 a -Relate- [1]b
 } // UML Component Diagram");
@@ -719,6 +751,10 @@ private:
             component.stmt("'skinparam linetype polyline");
             component.stmt("'skinparam linetype ortho");
             component.stmt("set namespaceSeparator none");
+            component.stmt("hide circle");
+            component.stmt("hide methods");
+            component.stmt("'To hide file location");
+            component.stmt("hide members");
 
             return proot;
         }
@@ -873,7 +909,6 @@ private:
 }
 
 private:
-@safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CppNamespace, CFunction, CxGlobalVariable;
@@ -889,7 +924,7 @@ import dsrcgen.plantuml;
  * Params:
  *  ctrl: control what symbols are kept, thus processed further
  */
-T rawFilter(T)(T input, Controller ctrl, Products prod)
+T rawFilter(T)(T input, Controller ctrl, Products prod) @safe 
         if (is(T == CppRoot) || is(T == CppNamespace)) {
     import std.algorithm : each, filter, map;
     import cpptooling.generator.utility : filterAnyLocation;
@@ -927,7 +962,7 @@ T rawFilter(T)(T input, Controller ctrl, Products prod)
 void put(UMLClassDiagram uml, CppClass c, const ref Container container,
         Flag!"genClassMethod" class_method, Flag!"genClassParamDependency" class_param_dep,
         Flag!"genClassInheritDependency" class_inherit_dep,
-        Flag!"genClassMemberDependency" class_member_dep) {
+        Flag!"genClassMemberDependency" class_member_dep) @safe {
     import std.algorithm : each, map, filter, joiner;
     import std.array : array;
     import cpptooling.data.representation;
@@ -1145,7 +1180,7 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
     // dfmt on
 }
 
-void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Container container)
+void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Container container) @safe 
         if (is(T == CppClass) || is(T == CFunction) || is(T == CxGlobalVariable)) {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : only, chain, array, dropOne;
@@ -1337,7 +1372,8 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
     }
 
     auto key = makeKey(input.location.file, ctrl);
-    uml.put(key.key, key.display);
+    uml.put(key.key, cast(UMLComponentDiagram.DisplayName) key.display);
+    uml.put(key.key, cast(UMLComponentDiagram.Location) input.location.file);
 
     foreach (a; path_kind_range
         .filter!(a => a.kind != LocationTag.Kind.noloc)
@@ -1347,13 +1383,14 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         .cache
         // self referencing components are invalid
         .filter!(a => a.key != key)) {
-        uml.relate(key.key, a.key.key, a.key.display, a.kind);
+        uml.relate(key.key, a.key.key, cast(UMLComponentDiagram.DisplayName) a.key.display, a.kind);
     }
     // dfmt on
 }
 
 void translate(T)(T input, UMLClassDiagram uml_class, Parameters params,
-        const ref Container container) if (is(T == CppRoot) || is(T == CppNamespace)) {
+        const ref Container container) @safe 
+        if (is(T == CppRoot) || is(T == CppNamespace)) {
     foreach (ref c; input.classRange) {
         put(uml_class, c, container, params.genClassMethod, params.genClassParamDependency,
                 params.genClassInheritDependency, params.genClassMemberDependency);
@@ -1365,7 +1402,7 @@ void translate(T)(T input, UMLClassDiagram uml_class, Parameters params,
 }
 
 void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
-        Parameters params, const ref Container container)
+        Parameters params, const ref Container container) @safe 
         if (is(T == CppRoot) || is(T == CppNamespace) || is(T == CxGlobalVariable)) {
     void putRange(T)(T r) @safe {
         foreach (ref c; r) {
@@ -1383,7 +1420,7 @@ void translate(T)(T input, UMLComponentDiagram uml_comp, Controller ctrl,
 }
 
 void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
-        Flag!"doGenDot" doGenDot, Generator.Modules modules) {
+        Flag!"doGenDot" doGenDot, Generator.Modules modules) @safe {
     import std.algorithm : each;
     import std.format : format;
     import std.range : enumerate;
@@ -1400,8 +1437,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
         if (doGenDot) {
             auto nodes = modules.classes_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, cast(string) kv[0],
-                    cast(string) kv[1].displayName));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv[0].str, kv[1].displayName.str));
 
             // make a range of all relations from THIS to other components
             auto r = uml_class.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
@@ -1415,7 +1451,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
         if (doGenDot) {
             auto nodes = modules.components_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, cast(string) kv[0], kv[1].displayName));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv[0].str, kv[1].displayName.str));
 
             // make a range of all relations from THIS to other components
             auto r = uml_comp.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
@@ -1432,7 +1468,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
  * definitions it makes it easier for GraphViz to generate a not-so-muddy
  * image.
  */
-void generate(UMLClassDiagram.Key key, const UMLClassDiagram.Class c, PlantumlModule m) {
+void generate(UMLClassDiagram.Key key, const UMLClassDiagram.Class c, PlantumlModule m) @safe {
     import std.algorithm : each;
 
     ClassType pc;
@@ -1464,7 +1500,7 @@ void generate(UMLClassDiagram.Key key, const UMLClassDiagram.Class c, PlantumlMo
     }
 }
 
-void generateClassRelate(T)(T relate_range, PlantumlModule m) {
+void generateClassRelate(T)(T relate_range, PlantumlModule m) @safe {
     static auto convKind(Relate.Kind kind) {
         static import dsrcgen.plantuml;
 
@@ -1489,7 +1525,7 @@ void generateClassRelate(T)(T relate_range, PlantumlModule m) {
     }
 }
 
-void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModule m) {
+void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModule m) @safe {
     import std.format : format;
 
     static import dsrcgen.plantuml;
@@ -1516,12 +1552,24 @@ void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModule m) {
 }
 
 void generate(UMLComponentDiagram.Key key,
-        const UMLComponentDiagram.Component component, PlantumlModule m) {
-    auto comp = m.component(component.displayName);
+        const UMLComponentDiagram.Component component, PlantumlModule m) @safe {
+    import std.algorithm : map;
+    import std.conv : text;
+    import std.path : buildNormalizedPath, relativePath;
+
+    auto comp = m.classBody(cast(string) component.displayName);
     comp.addAs.text(cast(string) key);
+
+    // dfmt off
+    foreach (fname; component.contains[]
+        .map!(a => cast(string) a)
+        .map!(a => () @trusted { return buildNormalizedPath(a).relativePath; }())) {
+        comp.m.stmt(text(fname));
+    }
+    // dfmt on
 }
 
-void generateComponentRelate(T)(T relate_range, PlantumlModule m) {
+void generateComponentRelate(T)(T relate_range, PlantumlModule m) @safe {
     static auto convKind(Relate.Kind kind) {
         static import dsrcgen.plantuml;
 

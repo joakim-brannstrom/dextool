@@ -1,3 +1,6 @@
 @startuml
-component "cli" as dGVzdGRhdGEvdW1sL2NsaQ
+class "cli" as dGVzdGRhdGEvdW1sL2NsaQ {
+    testdata/uml/cli/strip_this/a.hpp
+    testdata/uml/cli/keep_this/b.hpp
+}
 @enduml

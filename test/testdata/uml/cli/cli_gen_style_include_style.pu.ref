@@ -11,4 +11,8 @@ skinparam componentStyle uml2
 'skinparam linetype polyline
 'skinparam linetype ortho
 set namespaceSeparator none
+hide circle
+hide methods
+'To hide file location
+hide members
 @enduml
