@@ -1011,13 +1011,12 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
                     rel_type = Relate.Kind.Compose;
                 }
                 r = Rtuple(rel_type, t.usr,
-                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
-                            ""));
+                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init));
             }
             break;
         case Kind.record:
             r = Rtuple(Relate.Kind.Aggregate, tkv.type.kind.usr,
-                    cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init, ""));
+                    cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init));
             break;
         case Kind.array:
             auto element = container.find!TypeKind(tkv.type.kind.info.element);
@@ -1027,16 +1026,13 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
                     rel_type = Relate.Kind.Compose;
                 }
                 r = Rtuple(rel_type, e.usr,
-                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init,
-                            ""));
+                        cast(UMLClassDiagram.DisplayName) tkv.type.kind.toStringDecl(TypeAttr.init));
             }
             break;
         case Kind.pointer:
             auto pointee = container.find!TypeKind(tkv.type.kind.info.pointee);
             foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
-                import std.string : strip;
-
-                string display = p.toStringDecl(TypeAttr.init, "").strip;
+                string display = p.toStringDecl(TypeAttr.init);
                 r = Rtuple(Relate.Kind.Compose, p.usr, cast(UMLClassDiagram.DisplayName) display);
             }
             break;
@@ -1068,28 +1064,24 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
                 auto tref = container.find!TypeKind(tk.kind.info.canonicalRef);
                 foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
                     r = Rtuple(Relate.Kind.Associate, Relate.Key(t.usr),
-                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
-                                ""));
+                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
                 }
                 break;
             case Kind.record:
                 r = Rtuple(Relate.Kind.Associate, tk.kind.usr,
-                        cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init, ""));
+                        cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
                 break;
             case Kind.array:
                 auto element = container.find!TypeKind(tk.kind.info.element);
                 foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
                     r = Rtuple(Relate.Kind.Associate, e.usr,
-                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init,
-                                ""));
+                            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
                 }
                 break;
             case Kind.pointer:
                 auto pointee = container.find!TypeKind(tk.kind.info.pointee);
                 foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
-                    import std.string : strip;
-
-                    string display = p.toStringDecl(TypeAttr.init, "").strip;
+                    string display = p.toStringDecl(TypeAttr.init);
                     r = Rtuple(Relate.Kind.Associate, Relate.Key(p.usr),
                             cast(UMLClassDiagram.DisplayName) display);
                 }
