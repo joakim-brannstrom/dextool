@@ -107,6 +107,8 @@ alias ComponentNameType = Typedef!(string, string.init, "ComponentNameType");
 alias ComponentType = Tuple!(ComponentNameType, "name", ComponentModuleType,
         "m", ComponentAsType, "as");
 
+alias NoteType = Typedef!(PlantumlModule, null, "NoteType");
+
 alias RelationType = Typedef!(ReturnType!(PlantumlModule.stmt),
         ReturnType!(PlantumlModule.stmt).init, "RelationType");
 
@@ -169,23 +171,6 @@ class PlantumlModule : BaseModule {
                 ClassSpotType(spot), ClassAsType(as));
     }
 
-    ClassType classBody(string name) {
-        import std.format : format;
-
-        auto e = stmt(format(`class "%s"`, name));
-        auto as = e.text("");
-        auto spot = as.text("");
-
-        e.text(" {");
-        e.sep;
-        auto s = e.base;
-        s.suppressIndent(1);
-        e.stmt("}", No.addSep).suppressThisIndent(1);
-
-        return ClassType(ClassNameType(name), ClassModuleType(s),
-                ClassSpotType(spot), ClassAsType(as));
-    }
-
     auto component(string name) {
         import std.format : format;
 
@@ -193,21 +178,6 @@ class PlantumlModule : BaseModule {
         auto as = e.text("");
 
         return ComponentType(ComponentNameType(name), ComponentModuleType(e), ComponentAsType(as));
-    }
-
-    auto componentBody(string name) {
-        import std.format : format;
-
-        auto e = stmt(format(`component "%s"`, name));
-        auto as = e.text("");
-
-        e.text(" {");
-        e.sep;
-        auto s = e.base;
-        s.suppressIndent(1);
-        e.stmt("}", No.addSep).suppressThisIndent(1);
-
-        return ComponentType(ComponentNameType(name), ComponentModuleType(s), ComponentAsType(as));
     }
 
     auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
@@ -237,6 +207,15 @@ class PlantumlModule : BaseModule {
         return RelationType(stmt(format(`%s %s %s`, a, type, b)));
     }
 
+    auto note(string name) {
+        ///TODO only supporting free floating for now
+        auto block = stmt("");
+        auto body_ = block.text(`note "`);
+        block.text(`" as ` ~ name);
+
+        return NoteType(body_);
+    }
+
     // Suites
     Suite suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite(headline);
@@ -255,6 +234,38 @@ class PlantumlModule : BaseModule {
     Suite digraph(string name) {
         auto e = suite("digraph " ~ name);
         return e;
+    }
+
+    ClassType classBody(string name) {
+        import std.format : format;
+
+        auto e = stmt(format(`class "%s"`, name));
+        auto as = e.text("");
+        auto spot = as.text("");
+
+        e.text(" {");
+        e.sep;
+        auto s = e.base;
+        s.suppressIndent(1);
+        e.stmt("}", No.addSep).suppressThisIndent(1);
+
+        return ClassType(ClassNameType(name), ClassModuleType(s),
+                ClassSpotType(spot), ClassAsType(as));
+    }
+
+    auto componentBody(string name) {
+        import std.format : format;
+
+        auto e = stmt(format(`component "%s"`, name));
+        auto as = e.text("");
+
+        e.text(" {");
+        e.sep;
+        auto s = e.base;
+        s.suppressIndent(1);
+        e.stmt("}", No.addSep).suppressThisIndent(1);
+
+        return ComponentType(ComponentNameType(name), ComponentModuleType(s), ComponentAsType(as));
     }
 }
 
