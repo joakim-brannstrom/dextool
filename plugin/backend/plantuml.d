@@ -507,20 +507,31 @@ auto fanOutSorted(T)(T t) pure {
         return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
-    override string toString() @safe pure const {
+    void toString(Writer)(scope Writer w) @safe const {
+        import std.algorithm : joiner, each;
         import std.ascii : newline;
-        import std.algorithm : joiner;
-        import std.conv : text;
-        import std.format : format;
-        import std.range : only, chain;
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+        import std.range : zip, repeat;
 
-        // dfmt off
-        return chain(only(format("UML Component Diagram (Total %d) {", components.length)),
-                     componentsToStringArray,
-                     relateToStringArray,
-                     only("} // UML Component Diagram"),
-                     ).joiner(newline).text;
-        // dfmt on
+        formattedWrite(w, "UML Component Diagram (Total %d) {", components.length);
+        put(w, newline);
+        zip(componentsToStringArray, repeat(newline)).each!((a) { put(w, a[0]); put(w, a[1]); });
+        zip(relateToStringArray, repeat(newline)).each!((a) { put(w, a[0]); put(w, a[1]); });
+        put(w, "} // UML Component Diagram");
+    }
+
+    override string toString() @safe const {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        this.toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
     }
 
     Relate[Relate.Key] relate_to;
@@ -671,7 +682,7 @@ struct Generator {
 
         translate(fl, uml_class, params, container);
         translate(fl, uml_component, ctrl, params, container);
-        logger.trace("Translated:\n", uml_class.toString, newline, uml_component.toString);
+        logger.trace("Translated:\n", uml_class.toString, newline, uml_component);
     }
 
     auto process() {
