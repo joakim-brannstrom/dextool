@@ -14,6 +14,17 @@ module clang.Compiler;
 
 import deimos.clang.index;
 
+private string uniquePathId;
+
+static this() {
+    import std.conv : text;
+    import std.random;
+
+    // Keep the identifier the same while running.
+    // Easier for the user to reason about what it is, where it comes from.
+    uniquePathId = text(uniform(1, 10_000_000));
+}
+
 struct Compiler {
     import std.algorithm : any, map;
     import std.path : buildPath;
@@ -25,6 +36,7 @@ struct Compiler {
 
         else
             enum root = "/";
+        enum root_suffix = "clang_internal";
 
         string virtualPath_;
 
@@ -69,12 +81,9 @@ struct Compiler {
 private:
 
     string virtualPath() {
-        import std.conv : text;
-        import std.random;
-
         if (virtualPath_.any)
             return virtualPath_;
 
-        return virtualPath_ = buildPath(root, text(uniform(1, 10_000_000)));
+        return virtualPath_ = buildPath(root, uniquePathId, root_suffix);
     }
 }
