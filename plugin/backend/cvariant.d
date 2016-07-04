@@ -127,21 +127,14 @@ struct StubGenerator {
     import cpptooling.utility.conv : str;
 
     static struct Modules {
+        import plugin.utility : MakerInitializingClassMembers;
+
+        mixin MakerInitializingClassMembers!Modules;
+
         CppModule hdr;
         CppModule impl;
         CppModule globals;
         CppModule gmock;
-
-        static auto make() {
-            Modules m;
-
-            //TODO how to do this with meta-programming and instrospection fo Modules?
-            m.hdr = new CppModule;
-            m.impl = new CppModule;
-            m.globals = new CppModule;
-            m.gmock = new CppModule;
-            return m;
-        }
     }
 
     this(StubController ctrl, StubParameters params, StubProducts products) {

@@ -123,19 +123,13 @@ struct Generator {
     import cpptooling.utility.conv : str;
 
     static struct Modules {
+        import plugin.utility : MakerInitializingClassMembers;
+
+        mixin MakerInitializingClassMembers!Modules;
+
         CppModule hdr;
         CppModule impl;
         CppModule gmock;
-
-        static auto make() {
-            Modules m;
-
-            //TODO how to do this with meta-programming and instrospection fo Modules?
-            m.hdr = new CppModule;
-            m.impl = new CppModule;
-            m.gmock = new CppModule;
-            return m;
-        }
     }
 
     this(Controller ctrl, Parameters params, Products products) {
