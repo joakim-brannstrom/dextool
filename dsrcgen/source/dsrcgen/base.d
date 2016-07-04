@@ -19,8 +19,6 @@ private struct KV {
 }
 
 package struct AttrSetter {
-    static AttrSetter instance;
-
     template opDispatch(string name) {
         @property auto opDispatch(T)(T v) {
             static if (name.length > 1 && name[$ - 1] == '_') {
@@ -47,7 +45,7 @@ mixin template Attrs() {
     }
 
     auto opDollar(int dim)() {
-        return AttrSetter.instance;
+        return AttrSetter();
     }
 }
 
