@@ -675,24 +675,19 @@ struct Generator {
     import cpptooling.data.symbol.container : Container;
 
     static struct Modules {
+        private static postInit(ref this m) {
+            m.classes_dot.suppressIndent(1);
+            m.components_dot.suppressIndent(1);
+        }
+
+        import plugin.utility : MakerInitializingClassMembers;
+
+        mixin MakerInitializingClassMembers!(Modules, postInit);
+
         PlantumlModule classes;
         PlantumlModule classes_dot;
         PlantumlModule components;
         PlantumlModule components_dot;
-
-        static auto make() {
-            Modules m;
-
-            //TODO how to do this with meta-programming and introspection of Modules?
-            m.classes = new PlantumlModule;
-            m.classes_dot = new PlantumlModule;
-            m.classes_dot.suppressIndent(1);
-            m.components = new PlantumlModule;
-            m.components_dot = new PlantumlModule;
-            m.components_dot.suppressIndent(1);
-
-            return m;
-        }
     }
 
     this(Controller ctrl, Parameters params, Products products) {
