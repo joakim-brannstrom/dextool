@@ -495,6 +495,7 @@ body {
         rval = retrieveTemplateParam(c, container, indent);
         break;
 
+    case CXCursor_ClassTemplatePartialSpecialization:
     case CXCursor_ClassTemplate:
         rval = retrieveClassTemplate(c, container, indent);
         break;
@@ -1661,8 +1662,11 @@ body {
  */
 private TypeResult retrieveClassTemplate(ref Cursor c, const ref Container container, in uint indent)
 in {
+    import std.algorithm : among;
+
     logNode(c, indent);
-    assert(c.kind == CXCursorKind.CXCursor_ClassTemplate);
+    assert(c.kind.among(CXCursorKind.CXCursor_ClassTemplate,
+            CXCursorKind.CXCursor_ClassTemplatePartialSpecialization));
 }
 body {
     TypeResult rval;
