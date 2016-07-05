@@ -211,6 +211,13 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId ~ "Should be a class related to another via a using type alias")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestClassParams("dev/bug_using.hpp", testEnv);
+    runTestFile(p, testEnv);
+}
+
 // END   Test of single file analyze of Class Diagrams #######################
 
 // BEGIN Compilation Database Tests ##########################################
