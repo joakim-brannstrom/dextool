@@ -282,6 +282,8 @@ ExitStatusType analyzeFile(in string input_file, in string[] cflags,
         return ExitStatusType.Errors;
     }
 
+    logger.infof("Analyzing '%s'", input_file);
+
     // Get and ensure the clang context is valid
     auto file_ctx = ClangContext(input_file, cflags);
     if (file_ctx.hasParseErrors) {
