@@ -42,7 +42,7 @@ static this() {
     _nextSequence = 42;
 }
 
-string nextSequence() @safe {
+private string nextSequence() @safe {
     import std.conv : text;
 
     if (_nextSequence == long.max) {
@@ -55,7 +55,7 @@ string nextSequence() @safe {
 }
 
 /// Find the first typeref node, if any.
-auto takeOneTypeRef(T)(auto ref T in_) {
+private auto takeOneTypeRef(T)(auto ref T in_) {
     import std.range : takeOne;
     import std.algorithm : filter, among;
 
