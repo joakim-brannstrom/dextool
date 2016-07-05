@@ -324,9 +324,10 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
     auto generator = StubGenerator(variant, variant, variant);
     Container symbol_container;
+    const auto total_files = in_files.length;
 
-    foreach (in_file; (cast(TypedefType!InFiles) in_files)) {
-        logger.trace("Input: ", in_file);
+    foreach (idx, in_file; (cast(TypedefType!InFiles) in_files)) {
+        logger.infof("File %d/%d ", idx, total_files);
         string[] use_cflags;
         string abs_in_file;
 
