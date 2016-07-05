@@ -319,7 +319,11 @@ struct InheritVisitor {
 
         auto rt = retrieveType(c_ref, container);
         put(rt, container);
-        data.usr = cast(USRType) rt.primary.kind.usr;
+        if (rt.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            data.usr = cast(USRType) rt.primary.kind.info.canonicalRef;
+        } else {
+            data.usr = cast(USRType) rt.primary.kind.usr;
+        }
 
         return data;
     }

@@ -344,10 +344,11 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         auto generator = Generator(variant, variant, variant);
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
-        logger.trace("Number of files to process: ", compile_db.length);
+        const auto total_files = compile_db.length;
+        logger.trace("Number of files to process: ", total_files);
 
-        foreach (entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
-            logger.trace("Input file: ", cast(string) entry.absoluteFile);
+        foreach (idx, entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
+            logger.infof("File %d/%d ", idx, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
             auto partial_root = CppRoot(LocationTag(Location(cast(string) entry.absoluteFile, 0, 0)));

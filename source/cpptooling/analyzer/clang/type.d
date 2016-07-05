@@ -42,7 +42,7 @@ static this() {
     _nextSequence = 42;
 }
 
-string nextSequence() @safe {
+private string nextSequence() @safe {
     import std.conv : text;
 
     if (_nextSequence == long.max) {
@@ -55,7 +55,7 @@ string nextSequence() @safe {
 }
 
 /// Find the first typeref node, if any.
-auto takeOneTypeRef(T)(auto ref T in_) {
+private auto takeOneTypeRef(T)(auto ref T in_) {
     import std.range : takeOne;
     import std.algorithm : filter, among;
 
@@ -478,6 +478,10 @@ body {
         rval = retrieveTypeDef(c, container, indent);
         break;
 
+    case CXCursor_TypeAliasDecl:
+        rval = retrieveTypeAlias(c, container, indent);
+        break;
+
     case CXCursor_FieldDecl:
     case CXCursor_VarDecl:
         rval = retrieveInstanceDecl(c, container, indent);
@@ -491,6 +495,7 @@ body {
         rval = retrieveTemplateParam(c, container, indent);
         break;
 
+    case CXCursor_ClassTemplatePartialSpecialization:
     case CXCursor_ClassTemplate:
         rval = retrieveClassTemplate(c, container, indent);
         break;
@@ -1390,6 +1395,46 @@ body {
     return rval;
 }
 
+private Nullable!TypeResult retrieveTypeAlias(ref Cursor c,
+        const ref Container container, in uint this_indent)
+in {
+    logNode(c, this_indent);
+    assert(c.kind == CXCursorKind.CXCursor_TypeAliasDecl);
+}
+out (result) {
+    logTypeResult(result, this_indent);
+}
+body {
+    const uint indent = this_indent + 1;
+
+    Nullable!TypeResult rval;
+
+    foreach (child; c.children) {
+        if (child.kind != CXCursorKind.CXCursor_TypeRef) {
+            continue;
+        }
+
+        auto tref = pass4(child, container, indent);
+
+        auto type = c.type;
+        // duplicated code from retrieveTypeDef -> handleTyperef
+        // TODO consider if this can be harmonized with Typedef.
+        // Maybe this is a special case?
+        // Shouldn't be per se locked to a TypeDefDecl but rather the concept
+        // of a type that is an alias for another.
+        if (tref.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            rval = typeToTypedef(c, type, tref.primary.kind.usr,
+                    tref.primary.kind.info.canonicalRef, container, indent);
+        } else {
+            rval = typeToTypedef(c, type, tref.primary.kind.usr,
+                    tref.primary.kind.usr, container, indent);
+        }
+        rval.extra = [tref.primary] ~ tref.extra;
+    }
+
+    return rval;
+}
+
 private Nullable!TypeResult retrieveTypeDef(ref Cursor c,
         const ref Container container, in uint this_indent)
 in {
@@ -1617,8 +1662,11 @@ body {
  */
 private TypeResult retrieveClassTemplate(ref Cursor c, const ref Container container, in uint indent)
 in {
+    import std.algorithm : among;
+
     logNode(c, indent);
-    assert(c.kind == CXCursorKind.CXCursor_ClassTemplate);
+    assert(c.kind.among(CXCursorKind.CXCursor_ClassTemplate,
+            CXCursorKind.CXCursor_ClassTemplatePartialSpecialization));
 }
 body {
     TypeResult rval;

@@ -792,8 +792,9 @@ string dump(ref Cursor c) {
         return result.data;
     }
 
-    auto text = "%s \"%s\" [%d..%d] %s %s".format(stripPrefix(to!string(c.kind)),
-            c.spelling, c.extent.start.offset, c.extent.end.offset, prettyTokens(c), c.usr);
+    auto text = "%s \"%s\" [%d:%d..%d:%d] %s %s".format(stripPrefix(to!string(c.kind)),
+            c.spelling, c.extent.start.line, c.extent.start.column,
+            c.extent.end.line, c.extent.end.column, prettyTokens(c), c.usr);
 
     return text;
 }
