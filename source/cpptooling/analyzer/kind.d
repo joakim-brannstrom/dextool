@@ -128,7 +128,7 @@ pure @safe nothrow @nogc struct TypeKind {
      *
      * fmt = tx %s
      * typeRef = usr of the child type
-     * underlyingRef = usr of the canonical type
+     * canonicalRef = usr of the canonical type
      */
     static struct TypeRefInfo {
         string fmt;
