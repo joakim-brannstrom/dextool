@@ -348,7 +348,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         logger.trace("Number of files to process: ", total_files);
 
         foreach (idx, entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
-            logger.infof("File %d/%d ", idx, total_files);
+            logger.infof("File %d/%d ", idx + 1, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
             auto partial_root = CppRoot(LocationTag(Location(cast(string) entry.absoluteFile, 0, 0)));
