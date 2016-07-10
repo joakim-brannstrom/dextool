@@ -240,6 +240,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId ~ "Should track the component relation between dirs even though it is forward declared classes refering via method dependency and the return value")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestComponentParams("compile_db/track_return_via_ptr_ref.hpp", testEnv);
+    p.input_ext = Path("");
+    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/multi_file_db.json").toString];
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Should merge classes in namespaces when processing the compilation DB")
 unittest {
     mixin(EnvSetup(globalTestdir));
