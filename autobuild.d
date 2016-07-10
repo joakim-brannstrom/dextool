@@ -435,9 +435,7 @@ struct Fsm {
         auto r = tryRunCollect(thisExePath.dirName, a.data);
         flagCompileError = cast(Flag!"CompileError")(r.status != 0);
 
-        if (flagCompileError) {
-            writeln(r.output);
-        }
+        writeln(r.output);
 
         printExitStatus(r.status, "Debug build with debug symbols");
     }
