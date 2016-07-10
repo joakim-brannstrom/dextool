@@ -709,7 +709,7 @@ body {
         // unable to represent a typedef as a typedef.
         // Falling back on representing as a Simple.
         // Note: the usr from the cursor is null.
-        rval = typeToFallbackTyperef(c, type, indent);
+        rval = typeToFallBackTypeDef(c, type, indent);
         break;
 
     case CXType_Unexposed:
@@ -729,7 +729,46 @@ body {
     return rval;
 }
 
-private TypeResult typeToFallbackTyperef(ref Cursor c, ref Type type, in uint this_indent)
+/** Create a representation of a typeRef for the cursor.
+*/
+private TypeResult typeToTypeRef(ref Cursor c, ref Type type, USRType type_ref,
+        USRType canonical_ref, in uint this_indent)
+in {
+    logNode(c, this_indent);
+    logType(type, this_indent);
+}
+out (result) {
+    logTypeResult(result, this_indent);
+}
+body {
+    const uint indent = this_indent + 1;
+    string spell = type.spelling;
+
+    // ugly hack
+    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
+        spell = spell[6 .. $];
+    }
+
+    TypeKind.TypeRefInfo info;
+    info.fmt = spell ~ " %s";
+    info.typeRef = type_ref;
+    info.canonicalRef = canonical_ref;
+
+    TypeResult rval;
+    rval.primary.attr = makeTypeAttr(type);
+    rval.primary.kind.info = info;
+
+    // a typedef like __va_list has a null usr
+    if (c.usr.length == 0) {
+        rval.primary.kind.usr = makeFallbackUSR(c, indent);
+    } else {
+        rval.primary.kind.usr = c.usr;
+    }
+
+    rval.primary.kind.loc = makeLocation(c);
+
+    return rval;
+}
 
 /** Use fallback strategy for typedef's via Simple.
  *
@@ -739,6 +778,7 @@ private TypeResult typeToFallbackTyperef(ref Cursor c, ref Type type, in uint th
  * The fall back strategy is in that case to represent the type textually as a Simple.
  * The TypeKind->typeRef then references this simple type.
  */
+private TypeResult typeToFallBackTypeDef(ref Cursor c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
