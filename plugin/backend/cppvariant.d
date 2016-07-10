@@ -552,14 +552,14 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
         import cpptooling.data.representation;
 
         // dfmt off
-        return method.visit!((CppMethod c) => true,
-                        (CppMethodOp c) => true,
-                        (CppCtor c) => false,
-                        (CppDtor c) => false);
+        return method.visit!((const CppMethod c) => true,
+                        (const CppMethodOp c) => true,
+                        (const CppCtor c) => false,
+                        (const CppDtor c) => false);
         // dfmt on
     }
 
-    static CppClass.CppFunc[] getMethods(ref CppClass c, ref Container container) {
+    static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) {
         import std.array : array, appender;
         import std.algorithm : copy, filter, map, each, cache;
         import std.range : chain;
@@ -574,7 +574,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
             .filter!(a => a.length > 0)
             .cache
             .map!(a => a.front)
-            .map!(a => getMethods(a, container));
+            .map!(a => getMethods(a.get, container));
         // dfmt on
 
         auto methods = appender!(CppClass.CppFunc[])();

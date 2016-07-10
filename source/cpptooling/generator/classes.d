@@ -30,16 +30,17 @@ void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_c
     import cpptooling.data.representation;
     import cpptooling.utility.conv : str;
 
-    static void genCtor(CppCtor m, CppModule hdr) {
+    static void genCtor(const ref CppCtor m, CppModule hdr) {
         string params = m.paramRange().joinParams();
         hdr.ctor(m.name().str, params);
     }
 
-    static void genDtor(CppDtor m, CppModule hdr) {
+    static void genDtor(const ref CppDtor m, CppModule hdr) {
         hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name().str);
     }
 
-    static void genMethod(CppMethod m, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
+    static void genMethod(const ref CppMethod m, CppModule hdr,
+            Flag!"locationAsComment" loc_as_comment) {
         import cpptooling.analyzer.type;
 
         m.genComment(hdr, loc_as_comment);
@@ -53,7 +54,7 @@ void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_c
     }
 
     //TODO not implemented
-    static void genOp(CppMethodOp m, CppModule hdr) {
+    static void genOp(const ref CppMethodOp m, CppModule hdr) {
     }
 
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
@@ -63,10 +64,11 @@ void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_c
     foreach (m; in_c.methodPublicRange()) {
         // dfmt off
         () @trusted {
-        m.visit!((CppMethod m) => genMethod(m, pub, loc_as_comment),
-                 (CppMethodOp m) => genOp(m, pub),
-                 (CppCtor m) => genCtor(m, pub),
-                 (CppDtor m) => genDtor(m, pub));
+        m.visit!(
+            (const CppMethod m) => genMethod(m, pub, loc_as_comment),
+            (const CppMethodOp m) => genOp(m, pub),
+            (const CppCtor m) => genCtor(m, pub),
+            (const CppDtor m) => genDtor(m, pub));
         }();
         // dfmt on
     }

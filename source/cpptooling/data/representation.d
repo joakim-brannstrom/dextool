@@ -632,6 +632,10 @@ pure @safe nothrow struct CppCtor {
 
     @disable this();
 
+    this(const this other) {
+        this(other.name, other.params_, other.accessType);
+    }
+
     this(const CppMethodName name, const CxParam[] params, const CppAccess access) {
         this.name_ = name;
         this.accessType_ = access;
@@ -667,12 +671,18 @@ const:
     }
 }
 
-pure @safe nothrow struct CppDtor {
+struct CppDtor {
+pure @safe:
+
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.StringHelperVirtual;
 
     @disable this();
+
+    this(const this other) {
+        this(other.name, other.accessType, CppVirtualMethod(other.classification_));
+    }
 
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
         import std.typecons : TypedefType;
@@ -719,6 +729,13 @@ nothrow struct CppMethod {
     }
 
     @disable this();
+
+    this(const this other) {
+        this(other.name, other.params_, other.returnType, other.accessType,
+                CppConstMethod(other.isConst), CppVirtualMethod(other.classification_));
+        // TODO error prone, fix duplicator to be compile time safe.
+        this.setLocation(other.location);
+    }
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
@@ -814,6 +831,11 @@ nothrow struct CppMethodOp {
     }
 
     @disable this();
+
+    this(const this other) {
+        this(other.name, other.params_, other.returnType, other.accessType,
+                CppConstMethod(other.isConst), CppVirtualMethod(other.classification_));
+    }
 
     this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
@@ -1146,9 +1168,12 @@ pure nothrow struct CppClass {
 
 @safe:
 
-    void put(T)(T func) @trusted 
-            if (is(T == CppMethod) || is(T == CppCtor) || is(T == CppDtor) || is(T == CppMethodOp)) {
-        auto f = CppFunc(func);
+    import std.traits : Unqual;
+
+    void put(T)(T func) @safe 
+            if (is(Unqual!T == CppMethod) || is(Unqual!T == CppCtor)
+                || is(Unqual!T == CppDtor) || is(Unqual!T == CppMethodOp)) {
+        auto f = () @trusted{ return CppFunc(Unqual!T(func)); }();
 
         final switch (cast(TypedefType!CppAccess) func.accessType) {
         case AccessType.Public:
@@ -1223,61 +1248,61 @@ pure nothrow struct CppClass {
         inherits_ ~= inh;
     }
 
-    auto inheritRange() @nogc {
+    auto inheritRange() const @nogc {
         return inherits_;
     }
 
-    auto methodRange() @nogc {
+    auto methodRange() const @nogc {
         import std.range : chain;
 
         return chain(methods_pub, methods_prot, methods_priv);
     }
 
-    auto methodPublicRange() @nogc {
+    auto methodPublicRange() @nogc const {
         return methods_pub;
     }
 
-    auto methodProtectedRange() @nogc {
+    auto methodProtectedRange() @nogc const {
         return methods_prot;
     }
 
-    auto methodPrivateRange() @nogc {
+    auto methodPrivateRange() @nogc const {
         return methods_priv;
     }
 
-    auto classRange() @nogc {
+    auto classRange() @nogc const {
         import std.range : chain;
 
         return chain(classes_pub, classes_prot, classes_priv);
     }
 
-    auto classPublicRange() @nogc {
+    auto classPublicRange() @nogc const {
         return classes_pub;
     }
 
-    auto classProtectedRange() @nogc {
+    auto classProtectedRange() @nogc const {
         return classes_prot;
     }
 
-    auto classPrivateRange() @nogc {
+    auto classPrivateRange() @nogc const {
         return classes_priv;
     }
 
-    auto memberRange() @nogc {
+    auto memberRange() @nogc const {
         import std.range : chain;
 
         return chain(members_pub, members_prot, members_priv);
     }
 
-    auto memberPublicRange() @nogc {
+    auto memberPublicRange() @nogc const {
         return members_pub;
     }
 
-    auto memberProtectedRange() @nogc {
+    auto memberProtectedRange() @nogc const {
         return members_prot;
     }
 
-    auto memberPrivateRange() @nogc {
+    auto memberPrivateRange() @nogc const {
         return members_priv;
     }
 
@@ -1286,13 +1311,13 @@ pure nothrow struct CppClass {
      * to the end. Therefor the range normal direction is from the end of the
      * array to the beginning.
      */
-    auto nsNestingRange() @nogc {
+    auto nsNestingRange() @nogc const {
         import std.range : retro;
 
         return reside_in_ns.retro;
     }
 
-    auto commentRange() @nogc {
+    auto commentRange() @nogc const {
         return comments;
     }
 
@@ -1375,7 +1400,7 @@ const:
 }
 
 // Clang have no property that clasifies a class as virtual/abstract/pure.
-private ClassVirtualType classifyClass(T)(in ClassVirtualType current, T p,
+private ClassVirtualType classifyClass(T)(in ClassVirtualType current, const T p,
         Flag!"hasMember" hasMember) @safe {
     import std.algorithm : among;
 
@@ -1398,10 +1423,11 @@ private ClassVirtualType classifyClass(T)(in ClassVirtualType current, T p,
         import std.variant : visit;
 
         //dfmt off
-        return func.visit!((CppMethod a) => Rval(a.classification(), Rval.Type.Method),
-                           (CppMethodOp a) => Rval(a.classification(), Rval.Type.Method),
-                           (CppCtor a) => Rval(MemberVirtualType.Normal, Rval.Type.Ctor),
-                           (CppDtor a) => Rval(a.classification(), Rval.Type.Dtor));
+        return func.visit!(
+            (const CppMethod a) => Rval(a.classification(), Rval.Type.Method),
+            (const CppMethodOp a) => Rval(a.classification(), Rval.Type.Method),
+            (const CppCtor a) => Rval(MemberVirtualType.Normal, Rval.Type.Ctor),
+            (const CppDtor a) => Rval(a.classification(), Rval.Type.Dtor));
         //dfmt on
     }
 
@@ -1647,9 +1673,6 @@ pure nothrow struct CppRoot {
         return r;
     }
 
-    /// TODO activate
-    //@disable this();
-
     this(in Location loc) @safe {
         this(LocationTag(loc));
     }
@@ -1870,7 +1893,7 @@ unittest {
 
     auto app = appender!string();
     foreach (d; c.methodRange) {
-        app.put(d.toString());
+        app.put(d.funcToString());
     }
 
     shouldEqual(app.data, "void voider()");

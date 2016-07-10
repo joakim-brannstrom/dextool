@@ -75,7 +75,7 @@ void generateImpl(CppClass c, CppModule impl) {
     import dsrcgen.c : E;
 
     // C'tor is expected to have one parameter.
-    static void genCtor(CppClass c, CppCtor m, CppModule impl) {
+    static void genCtor(const ref CppClass c, const ref CppCtor m, CppModule impl) {
         import dsrcgen.cpp;
         import cpptooling.data.representation;
         import cpptooling.analyzer.type : TypeKind;
@@ -101,17 +101,17 @@ void generateImpl(CppClass c, CppModule impl) {
     }
 
     //TODO not implemented generator for operators
-    static void genOp(CppClass c, CppMethodOp m, CppModule impl) {
+    static void genOp(const ref CppClass c, const ref CppMethodOp m, CppModule impl) {
     }
 
-    static void genDtor(CppClass c, CppDtor m, CppModule impl) {
+    static void genDtor(const ref CppClass c, const ref CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name.str)) {
             stmt("test_double_inst = 0");
         }
         impl.sep(2);
     }
 
-    static void genMethod(CppClass c, CppMethod m, CppModule impl) {
+    static void genMethod(const ref CppClass c, const ref CppMethod m, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
@@ -127,10 +127,11 @@ void generateImpl(CppClass c, CppModule impl) {
     foreach (m; c.methodPublicRange()) {
         // dfmt off
         () @trusted{
-            m.visit!((CppMethod m) => genMethod(c, m, impl),
-                    (CppMethodOp m) => genOp(c, m, impl),
-                    (CppCtor m) => genCtor(c, m, impl),
-                    (CppDtor m) => genDtor(c, m, impl));
+            m.visit!(
+                (const CppMethod m) => genMethod(c, m, impl),
+                (const CppMethodOp m) => genOp(c, m, impl),
+                (const CppCtor m) => genCtor(c, m, impl),
+                (const CppDtor m) => genDtor(c, m, impl));
         }();
         // dfmt on
     }

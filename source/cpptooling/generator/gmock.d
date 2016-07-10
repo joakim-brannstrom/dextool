@@ -41,7 +41,7 @@ body {
 private void ignore() {
 }
 
-private void genOp(CppMethodOp m, CppModule hdr) {
+private void genOp(const CppMethodOp m, CppModule hdr) {
     import cpptooling.data.representation : MemberVirtualType;
 
     static string translateOp(string op) {
@@ -58,7 +58,7 @@ private void genOp(CppMethodOp m, CppModule hdr) {
         }
     }
 
-    static void genMockMethod(CppMethodOp m, CppModule hdr) {
+    static void genMockMethod(const CppMethodOp m, CppModule hdr) {
         string params = m.paramRange().joinParams();
         string gmock_name = translateOp(m.op().str);
         string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
@@ -68,7 +68,7 @@ private void genOp(CppMethodOp m, CppModule hdr) {
         hdr.stmt(stmt);
     }
 
-    static void genMockCaller(CppMethodOp m, CppModule hdr) {
+    static void genMockCaller(const CppMethodOp m, CppModule hdr) {
         import dsrcgen.cpp : E;
 
         string gmock_name = translateOp(m.op().str);
@@ -89,16 +89,16 @@ private void genOp(CppMethodOp m, CppModule hdr) {
     genMockCaller(m, hdr);
 }
 
-private void genMethod(CppMethod m, CppModule hdr) {
+private void genMethod(const CppMethod m, CppModule hdr) {
     enum MAX_GMOCK_PARAMS = 10;
 
-    void genMethodWithFewParams(CppMethod m, CppModule hdr) {
+    void genMethodWithFewParams(const CppMethod m, CppModule hdr) {
         hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
                 m.isConst), m.name.str(), m.returnType.toStringDecl, m.paramRange().joinParams()));
         return;
     }
 
-    void genMethodWithManyParams(CppMethod m, CppModule hdr) {
+    void genMethodWithManyParams(const CppMethod m, CppModule hdr) {
         import std.algorithm : each;
         import std.range : chunks, enumerate, dropBackOne;
         import dsrcgen.cpp : E;
@@ -107,8 +107,8 @@ private void genMethod(CppMethod m, CppModule hdr) {
             return format("%s_MockPart%s", name, part_no);
         }
 
-        static void genPart(T)(size_t part_no, T a, CppMethod m, CppModule code,
-                CppModule delegate_mock) {
+        static void genPart(T)(size_t part_no, T a, const CppMethod m,
+                CppModule code, CppModule delegate_mock) {
             // inject gmock macro
             code.stmt(format("%s(%s, void(%s))", gmockMacro(a.length,
                     m.isConst), partName(m.name().str, part_no), a.joinParams));
@@ -116,7 +116,7 @@ private void genMethod(CppMethod m, CppModule hdr) {
             delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
         }
 
-        static void genLastPart(T)(size_t part_no, T p, CppMethod m,
+        static void genLastPart(T)(size_t part_no, T p, const CppMethod m,
                 CppModule code, CppModule delegate_mock) {
             auto part_name = partName(m.name().str, part_no);
             code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
@@ -178,7 +178,7 @@ private void genMethod(CppMethod m, CppModule hdr) {
  *   hdr = Header to generate the code in.
  *   params = tooling parameters that affects namespace the mock is generated in.
  */
-void generateGmock(ParamT)(CppClass in_c, CppModule hdr, ParamT params)
+void generateGmock(ParamT)(const CppClass in_c, CppModule hdr, ParamT params)
 in {
     assert(in_c.isVirtual);
 }
@@ -206,10 +206,10 @@ body {
     foreach (m; in_c.methodRange()) {
         // dfmt off
         () @trusted {
-        m.visit!((CppMethod m) => genMethod(m, pub),
-                 (CppMethodOp m) => genOp(m, pub),
-                 (CppCtor m) => ignore(),
-                 (CppDtor m) => ignore());
+        m.visit!((const CppMethod m) => genMethod(m, pub),
+                 (const CppMethodOp m) => genOp(m, pub),
+                 (const CppCtor m) => ignore(),
+                 (const CppDtor m) => ignore());
         }();
         // dfmt on
     }
@@ -230,12 +230,12 @@ auto generateGmockHdr(FileT)(FileT if_file, FileT incl_guard, CppModule gmock) {
     return o;
 }
 
-auto makeGmock(ClassT)(CppClass c) {
+auto makeGmock(ClassT)(const CppClass c) {
     import std.variant : visit;
     import cpptooling.data.representation;
 
     // Make all protected and private public to allow testing, for good and bad
-    static auto conv(T)(T m_) if (is(T == CppMethod) || is(T == CppMethodOp)) {
+    static auto conv(T)(T m_) {
         import std.array : array;
 
         auto params = m_.paramRange.array();
@@ -251,10 +251,10 @@ auto makeGmock(ClassT)(CppClass c) {
     //dfmt off
     foreach (m_in; c.methodRange) {
         () @trusted{
-            m_in.visit!((CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
-                        (CppMethodOp m) => m.isVirtual ? rclass.put(conv(m)) : false,
-                        (CppCtor m) {},
-                        (CppDtor m) => m.isVirtual ? rclass.put(m) : false);
+            m_in.visit!((const CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
+                        (const CppMethodOp m) => m.isVirtual ? rclass.put(conv(m)) : false,
+                        (const CppCtor m) {},
+                        (const CppDtor m) => m.isVirtual ? rclass.put(m) : false);
         }();
     }
     //dfmt on
