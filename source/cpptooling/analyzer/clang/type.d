@@ -750,7 +750,7 @@ body {
     string spell = type.spelling;
 
     // ugly hack to remove const
-    if (type.isConst) {
+    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
         spell = spell[6 .. $];
     }
 
