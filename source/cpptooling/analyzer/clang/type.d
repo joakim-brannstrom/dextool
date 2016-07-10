@@ -7,11 +7,24 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 Version: Initial created: Jan 30, 2012
 Copyright (c) 2012 Jacob Carlborg. All rights reserved.
 
+# Interaction flow
 Pass1, implicit anonymous struct and unions.
 Pass2, struct or union decl who has no name.
 Pass3, anonymous instantiated types.
 Pass4, generic, last decision point for deriving data from the cursor.
 PassType, derive type from the cursors type.
+
+# Location information
+The "source" location is only, always the definition.
+Declarations are "using" locations.
+
+## CS101 refresher.
+A definition is the information needed to create an instance of the type.
+
+A declaration is a subset of the information that makes it possible to use in most scenarios.
+The most telling example of an useful declaration is a function declaration, "void foo();".
+Useful most everywhere.
+But during linking it must be defined _somewhere_ or a linker error will ensue.
 */
 module cpptooling.analyzer.clang.type;
 
@@ -132,7 +145,7 @@ void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint
     // dfmt on
 }
 
-void assertTypeResult(const ref TypeResult result) {
+private void assertTypeResult(const ref TypeResult result) {
     import std.range : chain, only;
 
     foreach (const ref tka; chain(only(result.primary), result.extra)) {
@@ -696,7 +709,7 @@ body {
         // unable to represent a typedef as a typedef.
         // Falling back on representing as a Simple.
         // Note: the usr from the cursor is null.
-        rval = typeToFallbackTyperef(c, type, indent);
+        rval = typeToFallBackTypeDef(c, type, indent);
         break;
 
     case CXType_Unexposed:
@@ -716,7 +729,56 @@ body {
     return rval;
 }
 
-private TypeResult typeToFallbackTyperef(ref Cursor c, ref Type type, in uint this_indent)
+/** Create a representation of a typeRef for the cursor.
+*/
+private TypeResult typeToTypeRef(ref Cursor c, ref Type type, USRType type_ref,
+        USRType canonical_ref, in uint this_indent)
+in {
+    logNode(c, this_indent);
+    logType(type, this_indent);
+}
+out (result) {
+    logTypeResult(result, this_indent);
+}
+body {
+    const uint indent = this_indent + 1;
+    string spell = type.spelling;
+
+    // ugly hack
+    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
+        spell = spell[6 .. $];
+    }
+
+    TypeKind.TypeRefInfo info;
+    info.fmt = spell ~ " %s";
+    info.typeRef = type_ref;
+    info.canonicalRef = canonical_ref;
+
+    TypeResult rval;
+    rval.primary.attr = makeTypeAttr(type);
+    rval.primary.kind.info = info;
+
+    // a typedef like __va_list has a null usr
+    if (c.usr.length == 0) {
+        rval.primary.kind.usr = makeFallbackUSR(c, indent);
+    } else {
+        rval.primary.kind.usr = c.usr;
+    }
+
+    rval.primary.kind.loc = makeLocation(c);
+
+    return rval;
+}
+
+/** Use fallback strategy for typedef's via Simple.
+ *
+ * A typedef referencing a type that it isn't possible to derive information
+ * from to correctly represent (pointer, record, primitive etc).
+ *
+ * The fall back strategy is in that case to represent the type textually as a Simple.
+ * The TypeKind->typeRef then references this simple type.
+ */
+private TypeResult typeToFallBackTypeDef(ref Cursor c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -728,7 +790,7 @@ body {
     string spell = type.spelling;
 
     // ugly hack to remove const
-    if (type.isConst) {
+    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
         spell = spell[6 .. $];
     }
 
@@ -829,6 +891,8 @@ body {
     return rval;
 }
 
+/** Make a Record from a declaration or definition.
+ */
 private TypeResult typeToRecord(ref Cursor c, ref Type type, in uint indent)
 in {
     logNode(c, indent);

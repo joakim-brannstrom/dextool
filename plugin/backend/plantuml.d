@@ -984,9 +984,13 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
     static string getMethod(T)(T method_, string prefix) @trusted {
         import std.variant : visit;
 
-        return method_.visit!((CppMethod m) => prefix ~ m.toString,
-                (CppMethodOp m) => prefix ~ m.toString,
-                (CppCtor m) => prefix ~ m.toString, (CppDtor m) => prefix ~ m.toString);
+        // dfmt off
+        return method_.visit!(
+            (const CppMethod m) => prefix ~ m.toString,
+            (const CppMethodOp m) => prefix ~ m.toString,
+            (const CppCtor m) => prefix ~ m.toString,
+            (const CppDtor m) => prefix ~ m.toString);
+        // dfmt on
     }
 
     static auto getMemberRelation(TypeKindVariable tkv, const ref Container container) {
@@ -1043,7 +1047,7 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
         return r;
     }
 
-    static auto getMethodRelation(ref CppClass.CppFunc f, const ref Container container) {
+    static auto getMethodRelation(const ref CppClass.CppFunc f, const ref Container container) {
         import std.array : array;
         import std.algorithm : among, map;
         import std.variant : visit;
@@ -1106,14 +1110,18 @@ void put(UMLClassDiagram uml, CppClass c, const ref Container container,
                     only(getTypeRelation(cast(TypedefType!CxReturnType) f.returnType, container))).array();
         }
 
-        static Rtuple[] genCtor(CppCtor f, const ref Container container) {
+        static Rtuple[] genCtor(const CppCtor f, const ref Container container) {
             return f.paramRange.map!(a => genParam(a, container)).array();
         }
 
-        static Rtuple[] internalVisit(ref CppClass.CppFunc f, const ref Container container) @trusted {
-            return f.visit!((CppMethod m) => genMethod(m, container),
-                    (CppMethodOp m) => genMethod(m, container),
-                    (CppCtor m) => genCtor(m, container), (CppDtor m) => [Rtuple.init]);
+        static Rtuple[] internalVisit(const ref CppClass.CppFunc f, const ref Container container) @trusted {
+            // dfmt off
+            return f.visit!(
+                (const CppMethod m) => genMethod(m, container),
+                (const CppMethodOp m) => genMethod(m, container),
+                (const CppCtor m) => genCtor(m, container),
+                (const CppDtor m) => [Rtuple.init]);
+            // dfmt on
         }
 
         return internalVisit(f, container);
@@ -1272,7 +1280,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         return lookupType(tkv.type, container).map!(a => PathKind(a.file, Relate.Kind.Associate));
     }
 
-    static auto getInheritRelation(CppInherit inherit, const ref Container container) @safe {
+    static auto getInheritRelation(const CppInherit inherit, const ref Container container) @safe {
         auto rval = only(PathKind()).dropOne;
 
         foreach (c; container.find!TypeKind(inherit.usr)
@@ -1298,7 +1306,7 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
         // dfmt on
     }
 
-    static PathKind[] getMethodRelation(ref CppClass.CppFunc f, const ref Container container) @safe {
+    static PathKind[] getMethodRelation(const ref CppClass.CppFunc f, const ref Container container) @safe {
         static auto genMethod(T)(T f, const ref Container container) {
             import std.typecons : TypedefType;
 
@@ -1308,18 +1316,19 @@ void put(T)(UMLComponentDiagram uml, T input, Controller ctrl, const ref Contain
             // dfmt on
         }
 
-        static auto genCtor(CppCtor f, const ref Container container) {
+        static auto genCtor(const ref CppCtor f, const ref Container container) {
             return f.paramRange.map!(a => genParam(a, container)).joiner();
         }
 
-        static PathKind[] internalVisit(ref CppClass.CppFunc f, const ref Container container) @trusted {
+        static PathKind[] internalVisit(const ref CppClass.CppFunc f, const ref Container container) @trusted {
             import std.variant : visit;
 
             // dfmt off
-            return f.visit!((CppMethod m) => genMethod(m, container).array(),
-                    (CppMethodOp m) => genMethod(m, container).array(),
-                    (CppCtor m) => genCtor(m, container).array(),
-                    (CppDtor m) => PathKind[].init);
+            return f.visit!(
+                    (const CppMethod m) => genMethod(m, container).array(),
+                    (const CppMethodOp m) => genMethod(m, container).array(),
+                    (const CppCtor m) => genCtor(m, container).array(),
+                    (const CppDtor m) => PathKind[].init);
             // dfmt on
         }
 
