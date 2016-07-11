@@ -1,0 +1,103 @@
+@startuml
+skinparam componentStyle uml2
+
+class Struct {
+    Element[]
+    +accept(Visitor)
+}
+Struct *-- "[*]" Element
+Struct ..> Visitor
+
+class Element {
+ +accept(Visitor)
+}
+Visitor <.. Element
+
+class ConcElement
+ConcElement --|> Element
+
+class Visitor {
+ +visit("Struct node")
+}
+Visitor ..> ConcElement
+
+class ConcVisitor {
+ +visit(ConcElement)
+ +visit("discard other nodes")
+}
+ConcVisitor --|> Visitor
+ConcVisitor ..> ConcElement
+@enduml
+
+@startuml
+actor User
+participant Struct
+participant Element
+participant ConcElement
+participant Visitor
+participant ConcVisitor
+
+== Initialize ==
+User -> Struct : create
+activate Struct
+    loop create structure of Element nodes
+    Struct -> ConcElement : create
+    end loop
+    Struct --> User
+deactivate Struct
+User -> ConcVisitor : create
+User <-- ConcVisitor
+note over User, ConcVisitor
+User has a complete Struct containing nodes derived from Element.
+User has a ConcVisitor that only operates on ConcElement.
+end note
+
+== Running ==
+note over User, Struct
+instance is a ConcVisitor
+end note
+User -> Struct : accept(instance)\nstatic dispatch
+activate Struct
+    loop all Element nodes
+    Struct -> Element : accept(instance)
+    activate Element
+        Element -> ConcElement : accept(instance)\ndynamic dispatch
+    deactivate Element
+
+    activate ConcElement
+        ConcElement -> Visitor : visit(this)\nstatic dispatch\nitself as argument
+
+        activate Visitor
+            Visitor -> ConcVisitor : visit(element)\ndynamic dispatch
+        deactivate Visitor
+
+        activate ConcVisitor
+            ConcVisitor -> ConcVisitor : do_stuff
+            ConcVisitor --> ConcElement
+        deactivate ConcVisitor
+        ConcElement --> Struct
+    deactivate ConcElement
+    end
+deactivate Struct
+@enduml
+
+@startuml
+participant Struct
+participant Cursor
+participant Visitor
+participant ConcElement
+
+== Process Elements ==
+[-> Struct : accept(Visitor: visitor)
+activate Struct
+    Struct -> Cursor : get kind
+    Struct -> Struct : use kind to wrap\nin element
+    activate Struct
+        Struct -> ConcElement : create(Cursor: cursor)
+        Struct <-- ConcElement : element
+    deactivate Struct
+
+    Struct -> Visitor : accept(ConcElement: element)
+    [<-- Struct
+deactivate Struct
+@enduml
