@@ -23,7 +23,10 @@ import cpptooling.data.symbol.container : Container;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.clang : visitAst, logNode;
 
+alias put = cpptooling.analyzer.clang.utility.put;
+
 // Store the derived type information
+// TODO remove
 private void put(ref Cursor c, ref Container container) {
     switch (c.kind) with (CXCursorKind) {
     case CXCursor_CXXAccessSpecifier:
@@ -50,17 +53,7 @@ private void put(ref Cursor c, ref Container container) {
     }
 }
 
-private void put(ref Nullable!TypeResult tr, ref Container container) {
-    if (!tr.isNull) {
-        logTypeResult(tr);
-        container.put(tr.primary.kind);
-        foreach (e; tr.extra) {
-            container.put(e.kind);
-        }
-    }
-}
-
-private CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
+CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
     import std.array;
     import std.algorithm : map;
     import std.range : chain, zip, tee;
@@ -96,7 +89,7 @@ private CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
     return params;
 }
 
-private auto toInternal(SourceLocation c_loc) {
+auto toInternal(SourceLocation c_loc) {
     auto l = c_loc.expansion();
     auto into = LocationTag(Location(l.file.name(), l.line, l.column));
 
