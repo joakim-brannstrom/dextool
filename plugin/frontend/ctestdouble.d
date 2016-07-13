@@ -10,11 +10,11 @@ import logger = std.experimental.logger;
 
 import application.types;
 import application.utility;
+import application.compilation_db;
 
 import plugin.types;
 import plugin.backend.cvariant : StubGenerator, StubController, StubParameters,
     StubProducts;
-import application.compilation_db;
 
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
@@ -309,22 +309,17 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
 /// TODO refactor, doing too many things.
 ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
-    import std.algorithm : map;
     import std.conv : text;
-    import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : Nullable, TypedefType;
+    import std.typecons : TypedefType;
     import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.visitor;
-    import cpptooling.data.symbol.container;
-    import cpptooling.data.representation : CppRoot;
-    import cpptooling.data.type : LocationTag, Location;
+    import plugin.backend.cvariant : CVisitor;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
 
     auto generator = StubGenerator(variant, variant, variant);
-    Container symbol_container;
     const auto total_files = in_files.length;
+    auto visitor = new CVisitor(variant, variant);
 
     foreach (idx, in_file; (cast(TypedefType!InFiles) in_files)) {
         logger.infof("File %d/%d ", idx + 1, total_files);
@@ -344,17 +339,14 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
         }
 
-        auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
-        if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
+        if (analyzeFile2!CVisitor(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-
-        // process and put the data in variant.
-        generator.analyse(root, symbol_container);
     }
 
-    // Generate test double from the analysed data that has been stored
-    generator.process(symbol_container);
+    // Analyse and generate test double
+    generator.analyse(visitor.root, visitor.container);
+    generator.process(visitor.container);
 
     return writeFileData(variant.file_data);
 }
