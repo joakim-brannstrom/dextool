@@ -12,8 +12,7 @@ module plugin.docopt_util;
 
 import logger = std.experimental.logger;
 
-import docopt;
-import argvalue;
+import docopt : ArgValue;
 
 /** Correctly log all type of messages via logger.
  *

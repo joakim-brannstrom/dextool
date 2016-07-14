@@ -19,9 +19,9 @@ import application.compilation_db;
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
     import docopt;
-    import argvalue;
 
-    auto parsed = docopt.docopt(cast(TypedefType!CliOption) opt, cast(TypedefType!CliArgs) args);
+    auto parsed = docopt.docoptParse(cast(TypedefType!CliOption) opt,
+            cast(TypedefType!CliArgs) args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -77,7 +77,7 @@ static auto ctestdouble_opt = CliOptionParts(
 class CTestDoubleVariant : StubController, StubParameters, StubProducts {
     import std.regex : regex, Regex;
     import std.typecons : Tuple, Flag;
-    import argvalue; // from docopt
+    import docopt : ArgValue;
     import application.types : StubPrefix, FileName, DirName;
     import application.utility;
     import dsrcgen.cpp;

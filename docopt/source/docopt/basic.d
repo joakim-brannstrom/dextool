@@ -6,6 +6,7 @@
 //
 //  Ported from Python to D based on:
 //   - http://docopt.org
+module docopt.basic;
 
 import std.stdio;
 import std.regex;
@@ -19,9 +20,9 @@ import std.conv;
 import core.stdc.stdlib;
 import std.json;
 
-import argvalue;
-import patterns;
-import tokens;
+import docopt.argvalue;
+import docopt.patterns;
+import docopt.tokens;
 
 class DocoptLanguageError : Exception {
     this(string message, string file = __FILE__, size_t line = __LINE__) {
@@ -444,7 +445,7 @@ public ArgValue[string] parse(string doc, string[] argv,
     throw new DocoptArgumentError(usageMsg);
 }
 
-public ArgValue[string] docopt(string doc, string[] argv,
+public ArgValue[string] docoptParse(string doc, string[] argv,
                                bool help = true,
                                string vers = "",
                                bool optionsFirst = false)

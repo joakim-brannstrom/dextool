@@ -6,7 +6,7 @@
 //
 //  Ported from Python to D based on:
 //   - http://docopt.org
-
+module docopt.patterns;
 
 import std.stdio;
 import std.regex;
@@ -19,7 +19,7 @@ import std.ascii;
 import std.conv;
 import core.stdc.stdlib;
 
-import argvalue;
+import docopt.argvalue;
 
 package struct PatternMatch {
     bool status;
@@ -394,7 +394,7 @@ package class BranchPattern : Pattern {
     }
 }
 
-protected Pattern[] removeChild(Pattern[] arr, Pattern child) {
+package Pattern[] removeChild(Pattern[] arr, Pattern child) {
     Pattern[] result;
     bool found = false;
     foreach(pat; arr) {
@@ -633,7 +633,7 @@ package class Either : BranchPattern {
     }
 }
 
-protected Option parseOption(string optionDescription) {
+package Option parseOption(string optionDescription) {
     string shortArg = null;
     string longArg = null;
     uint argCount = 0;

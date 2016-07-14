@@ -6,7 +6,7 @@
 //
 //  Ported from Python to D based on:
 //   - http://docopt.org
-
+module docopt.argvalue;
 
 import std.stdio;
 import std.string;
