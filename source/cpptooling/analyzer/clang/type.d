@@ -185,13 +185,13 @@ struct BacktrackLocation {
  *
  * Return: Location and nr of backtracks needed.
  */
-private BacktrackLocation backtrackLocation(ref Cursor c) @safe {
+private BacktrackLocation backtrackLocation(ref const(Cursor) c) @safe {
     import clang.SourceLocation : toString;
     import cpptooling.data.type : Location;
 
     BacktrackLocation rval;
 
-    auto parent = c;
+    Cursor parent = c;
     for (rval.backtracked = 0; rval.tag.kind == BacktrackLocation.Tag.Kind.null_
             && rval.backtracked < 100; ++rval.backtracked) {
         auto loc = parent.location;
@@ -213,7 +213,7 @@ private BacktrackLocation backtrackLocation(ref Cursor c) @safe {
 
 /// TODO consider if .offset should be used too. But may make it harder to
 /// reverse engineer a location.
-private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, ref T app) @safe {
+private void putBacktrackLocation(T)(ref const(Cursor) c, BacktrackLocation back_loc, ref T app) @safe {
     static import cpptooling.data.type;
 
     // using a suffix that do NOT exist in the clang USR standard.
@@ -239,7 +239,7 @@ private void putBacktrackLocation(T)(ref Cursor c, BacktrackLocation back_loc, r
     }
 }
 
-private LocationTag makeLocation(ref Cursor c) @safe
+LocationTag makeLocation(ref const(Cursor) c) @safe
 out (result) {
     import std.utf : validate;
 
