@@ -55,7 +55,7 @@ void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v)
     helperVisitAst!(NodeType.Root)(cursor, cursor, v);
 }
 
-void logNode(ref Cursor c, in int indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
+void logNode(ref const(Cursor) c, in int indent = 0, string func = __FUNCTION__, uint line = __LINE__) @trusted {
     import std.array : array;
     import std.range : repeat;
     import logger = std.experimental.logger;
@@ -85,3 +85,13 @@ void logNode(ref Cursor c, in int indent = 0, string func = __FUNCTION__, uint l
 private:
 enum hasApply(T) = __traits(hasMember, T, "apply") && is(ReturnType!(T.apply) == bool);
 enum hasApplyRoot(T) = __traits(hasMember, T, "applyRoot") && is(ReturnType!(T.applyRoot) == void);
+
+template mixinNodeLog() {
+    enum mixinNodeLog = q{debug {
+            {
+                auto c = v.cursor;
+                logNode(c, indent);
+            }
+        }
+    };
+}
