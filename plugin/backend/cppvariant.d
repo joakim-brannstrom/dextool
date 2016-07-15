@@ -289,8 +289,10 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
 
         mixin(mixinNodeLog!());
 
-        //TODO ugly hack. Move this information to the representation. But for
-        //now skipping all definitions
+        // TODO ugly hack. Move this information to the representation. But for
+        // now skipping all definitions
+        // TODO investigate if linkage() == CXLinkage_External should be used
+        // instead.
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
             root.put(result);
