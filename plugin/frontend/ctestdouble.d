@@ -337,7 +337,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
         }
 
-        if (analyzeFile2(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+        if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
     }

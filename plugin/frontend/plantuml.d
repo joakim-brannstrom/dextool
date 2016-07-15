@@ -351,7 +351,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.infof("File %d/%d ", idx + 1, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
-            auto analyze_status = analyzeFile2(cast(string) entry.absoluteFile,
+            auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
                     entry_cflags, visitor);
 
             // compile error, let user decide how to proceed.
@@ -399,7 +399,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             abs_in_file = buildNormalizedPath(input_file).asAbsolutePath.text;
         }
 
-        if (analyzeFile2(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+        if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 

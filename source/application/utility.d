@@ -11,9 +11,6 @@ import std.stdio : File;
 import std.typecons : Unique, Nullable, NullableRef;
 import logger = std.experimental.logger;
 
-import cpptooling.data.symbol.container;
-import cpptooling.data.representation : CppRoot;
-
 import application.types;
 import application.compilation_db;
 
@@ -259,45 +256,16 @@ struct TestDoubleIncludes {
     }
 }
 
-/** Analyze the input and store result in container and root.
+/** Apply the visitor on the clang AST derived from the input_file.
  *
  * Params:
  *  input_file = path to a file to analyze
  *  cflags = compiler flags to pass on to clang
- *  container = container to store symbols and classes in
- *  out_ = push the structural representation into
+ *  visitor = to apply on the clang AST
  *
  * Returns: if the analyze was performed ok or errors occured
  */
-ExitStatusType analyzeFile(in string input_file, in string[] cflags,
-        ref Container container, ref CppRoot out_) {
-    import std.file : exists;
-
-    import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.visitor;
-
-    if (!exists(input_file)) {
-        logger.errorf("File '%s' do not exist", input_file);
-        return ExitStatusType.Errors;
-    }
-
-    logger.infof("Analyzing '%s'", input_file);
-
-    // Get and ensure the clang context is valid
-    auto file_ctx = ClangContext(input_file, cflags);
-    if (file_ctx.hasParseErrors) {
-        logDiagnostic(file_ctx);
-        logger.error("Compile error...");
-        return ExitStatusType.Errors;
-    }
-
-    auto ctx = ParseContext(out_, container);
-    ctx.visit(file_ctx.cursor);
-
-    return ExitStatusType.Ok;
-}
-
-ExitStatusType analyzeFile2(VisitorT)(in string input_file, in string[] cflags, ref VisitorT visitor) {
+ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, ref VisitorT visitor) {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.context;
