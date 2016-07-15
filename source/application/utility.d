@@ -298,6 +298,33 @@ ExitStatusType analyzeFile(in string input_file, in string[] cflags,
     return ExitStatusType.Ok;
 }
 
+ExitStatusType analyzeFile2(VisitorT)(in string input_file, in string[] cflags, ref VisitorT visitor) {
+    import std.file : exists;
+
+    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.ast : ClangAST;
+
+    if (!exists(input_file)) {
+        logger.errorf("File '%s' do not exist", input_file);
+        return ExitStatusType.Errors;
+    }
+
+    logger.infof("Analyzing '%s'", input_file);
+
+    // Get and ensure the clang context is valid
+    auto file_ctx = ClangContext(input_file, cflags);
+    if (file_ctx.hasParseErrors) {
+        logDiagnostic(file_ctx);
+        logger.error("Compile error...");
+        return ExitStatusType.Errors;
+    }
+
+    auto ast = ClangAST!VisitorT(file_ctx.cursor);
+    ast.accept(visitor);
+
+    return ExitStatusType.Ok;
+}
+
 ExitStatusType writeFileData(T)(ref T data) {
     foreach (p; data) {
         auto status = tryWriting(cast(string) p.filename, p.data);

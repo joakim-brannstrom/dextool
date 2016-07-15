@@ -16,6 +16,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
 import cpptooling.data.symbol.container;
+import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
 /// Control various aspects of the analyze and generation like what nodes to
 /// process.
@@ -150,7 +151,7 @@ struct StubGenerator {
      * filters the structural data.
      * Controller is involved to allow filtering of identifiers in files.
      */
-    void analyse(ref CppRoot root, ref Container container) {
+    void analyse(ref CppRoot root, ref const(Container) container) {
         logger.trace("Raw:\n", root.toString());
 
         rawFilter(root, ctrl, products, raw);
@@ -170,7 +171,7 @@ struct StubGenerator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(ref Container container) {
+    auto process(ref const(Container) container) {
         makeImplStuff(raw, ctrl, params);
 
         logger.trace("Post processed:\n", raw.toString());
@@ -236,6 +237,98 @@ private:
     }
 }
 
+final class CVisitor : Visitor {
+    import std.typecons : scoped;
+
+    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.ast.visitor;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
+        analyzeVarDecl;
+    import cpptooling.data.representation : CppRoot;
+    import cpptooling.data.symbol.container : Container;
+    import cpptooling.utility.clang : logNode, mixinNodeLog;
+
+    alias visit = Visitor.visit;
+
+    CppRoot root;
+    Container container;
+
+    private {
+        StubController ctrl;
+        StubProducts prod;
+        int indent;
+    }
+
+    this(StubController ctrl, StubProducts prod) {
+        this.ctrl = ctrl;
+        this.prod = prod;
+        this.root = CppRoot(LocationTag(null));
+    }
+
+    override void incr() @safe {
+        ++indent;
+    }
+
+    override void decr() @safe {
+        --indent;
+    }
+
+    override void visit(const(VarDecl) v) @trusted {
+        import deimos.clang.index : CX_StorageClass;
+
+        mixin(mixinNodeLog!());
+
+        //TODO ugly hack. Move this information to the representation. But for
+        //now skipping all definitions
+        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
+            auto result = analyzeVarDecl(v, container);
+            root.put(result);
+        }
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        auto result = analyzeFunctionDecl(v, container);
+        if (!result.isNull) {
+            root.put(result);
+        }
+    }
+
+    override void visit(const(TranslationUnit) v) {
+        import cpptooling.generator.utility : validLocation;
+        import cpptooling.analyzer.clang.type : makeLocation;
+
+        mixin(mixinNodeLog!());
+
+        LocationTag tu_loc;
+        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
+
+        foreach (loc; tu_loc.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
+            prod.putLocation(FileName(loc.file), LocationType.Root);
+        }
+
+        v.accept(this);
+    }
+
+    void toString(Writer)(scope Writer w) @safe const {
+        root.toString(w);
+    }
+
+    override string toString() const {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+}
+
 private:
 @safe:
 
@@ -267,17 +360,12 @@ enum NamespaceType {
  *  - removes according to directives via ctrl.
  */
 void rawFilter(ref CppRoot input, StubController ctrl, StubProducts prod, ref CppRoot raw) {
-    import std.algorithm : filter, each, map, cache;
-    import std.range : tee;
+    import std.algorithm : filter, each;
     import cpptooling.data.representation : StorageClass;
-    import cpptooling.generator.utility : validLocation, storeValidLocations,
+    import cpptooling.generator.utility : storeValidLocations,
         filterAnyLocation;
 
     // dfmt off
-    foreach (loc; input.location.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
-        prod.putLocation(FileName(loc.file), LocationType.Root);
-    }
-
     input.funcRange
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
