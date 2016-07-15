@@ -20,7 +20,6 @@ int main(string[] args) {
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.utility",
-                          "cpptooling.analyzer.clang.visitor",
                           "cpptooling.analyzer.type",
                           "cpptooling.data.representation",
                           "cpptooling.data.symbol.container",

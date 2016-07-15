@@ -11,7 +11,6 @@ import std.stdio : File;
 import std.typecons : Unique, Nullable, NullableRef;
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.clang.visitor : ParseContext;
 import cpptooling.data.symbol.container;
 import cpptooling.data.representation : CppRoot;
 
