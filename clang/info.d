@@ -27,7 +27,7 @@ import std.format : format;
  * v = isVirtualBase
  * V = isValid
  */
-string abilities(Cursor c) {
+string abilities(Cursor c) @trusted {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
             c.isAnonymous ? "A" : "", c.isDeclaration ? "d" : "", c.isDefinition
             ? "D" : "", c.isExpression ? "e" : "", c.isEmpty ? "n" : "",
@@ -45,7 +45,7 @@ string abilities(Cursor c) {
  * s = isStatic
  * V = isVirtual
  */
-string abilities(FunctionCursor c) {
+string abilities(FunctionCursor c) @trusted {
     string s = abilities(c.cursor);
     s ~= format(" %s%s%s%s", c.isConst ? "c" : "", c.isPureVirtual ? "p" : "",
             c.isStatic ? "s" : "", c.isVirtual ? "V" : "");
@@ -58,7 +58,7 @@ string abilities(FunctionCursor c) {
  * s = isSigned
  * u = isUnderlyingTypeEnum
  */
-string abilities(EnumCursor c) {
+string abilities(EnumCursor c) @trusted {
     string s = abilities(c.cursor);
     s ~= format(" %s%s", c.isSigned ? "s" : "", c.isUnderlyingTypeEnum ? "u" : "");
 
@@ -82,7 +82,7 @@ string abilities(EnumCursor c) {
  * V = isVolatile
  * w = isWideCharType
  */
-string abilities(Type t) {
+string abilities(Type t) @trusted {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s%s", t.isAnonymous ? "a" : "",
             t.isArray ? "A" : "", t.isConst ? "c" : "", t.isEnum ? "e" : "",
             t.isExposed ? "E" : "", t.isFunctionType ? "f" : "",
@@ -97,7 +97,7 @@ string abilities(Type t) {
  *
  * v = isVariadic
  */
-string abilities(ref FuncType t) {
+string abilities(ref FuncType t) @trusted {
     string s = format("%s %s", abilities(t.type), t.isVariadic ? "v" : "",);
     return s;
 }

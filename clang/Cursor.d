@@ -751,7 +751,7 @@ struct EnumCursor {
 
 import std.array : appender, Appender;
 
-string dump(ref Cursor c) {
+string dump(ref const(Cursor) c) @trusted {
     import std.conv : to;
     import std.string;
 
@@ -761,7 +761,7 @@ string dump(ref Cursor c) {
         return x.startsWith(prefix) ? x[prefixSize .. $] : x;
     }
 
-    static string prettyTokens(ref Cursor c, size_t limit = 5) {
+    static string prettyTokens(ref const(Cursor) c, size_t limit = 5) {
         import std.algorithm.comparison : min;
 
         TokenRange tokens = c.tokens;
@@ -799,7 +799,7 @@ string dump(ref Cursor c) {
     return text;
 }
 
-void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file) {
+void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent, File* file) @trusted {
     import std.ascii : newline;
     import std.format;
     import std.array : replicate;
@@ -825,7 +825,7 @@ void dumpAST(ref Cursor c, ref Appender!string result, size_t indent, File* file
     }
 }
 
-void dumpAST(ref Cursor c, ref Appender!string result, size_t indent) {
+void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent) @safe {
     dumpAST(c, result, indent, null);
 }
 

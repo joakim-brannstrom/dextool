@@ -6,11 +6,21 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.analyzer.clang.utility;
 
-import std.typecons : Flag, Yes, No;
+import std.typecons : Flag, Yes, No, Nullable;
 import logger = std.experimental.logger;
 
-import clang.Cursor;
-import cpptooling.data.symbol.container;
+import clang.Cursor : Cursor;
+import cpptooling.analyzer.clang.ast.visitor;
+import cpptooling.analyzer.clang.type : TypeResult;
+import cpptooling.data.symbol.container : Container;
+
+version (unittest) {
+    import unit_threaded : Name, shouldEqual;
+} else {
+    struct Name {
+        string name_;
+    }
+}
 
 /** Travers a node tree and gather all paramdecl to an array.
  * Params:
@@ -66,5 +76,17 @@ void backtrackNode(T)(ref Cursor c, ref T callback, int depth = 0) {
         callback.apply(curr, depth);
         curr = curr.semanticParent;
         ++depth;
+    }
+}
+
+void put(ref Nullable!TypeResult tr, ref Container container) {
+    import cpptooling.analyzer.clang.type : logTypeResult;
+
+    if (!tr.isNull) {
+        logTypeResult(tr);
+        container.put(tr.primary.kind);
+        foreach (e; tr.extra) {
+            container.put(e.kind);
+        }
     }
 }

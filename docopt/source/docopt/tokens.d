@@ -6,7 +6,7 @@
 //
 //  Ported from Python to D based on:
 //   - http://docopt.org
-
+module docopt.tokens;
 
 import std.string;
 import std.regex;

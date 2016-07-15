@@ -8,16 +8,15 @@ import std.stdio;
 import unit_threaded.runner;
 
 int main(string[] args) {
-    //import unit_threaded : enableStackTrace;
-    //
-    //enableStackTrace();
-
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
                           "application.types",
                           "application.utility",
                           "application.compilation_db",
+                          "cpptooling.analyzer.clang.ast",
+                          "cpptooling.analyzer.clang.ast.node",
+                          "cpptooling.analyzer.clang.ast.visitor",
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.utility",

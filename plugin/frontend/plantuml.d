@@ -52,9 +52,9 @@ struct FileProcess {
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
     import docopt;
-    import argvalue;
 
-    auto parsed = docopt.docopt(cast(TypedefType!CliOption) opt, cast(TypedefType!CliArgs) args);
+    auto parsed = docopt.docoptParse(cast(TypedefType!CliOption) opt,
+            cast(TypedefType!CliArgs) args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -124,7 +124,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import application.types : FileName, DirName, FilePrefix;
     import application.utility;
 
-    import argvalue; // from docopt
+    import docopt : ArgValue;
     import dsrcgen.plantuml;
 
     alias FileData = Tuple!(FileName, "filename", string, "data");
