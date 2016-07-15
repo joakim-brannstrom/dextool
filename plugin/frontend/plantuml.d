@@ -326,17 +326,17 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         CompileCommandDB compile_db, FileProcess file_process, Flag!"skipFileError" skipFileError) {
     import std.algorithm : map, joiner;
     import std.conv : text;
-    import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : TypedefType, Nullable;
-
-    import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.visitor;
-    import cpptooling.data.symbol.container;
     import cpptooling.data.type : Location, LocationTag;
+    import cpptooling.data.representation : CppRoot;
     import plugin.backend.plantuml : Generator;
 
-    Container symbol_container;
+    // lazy man, same data as used for C++ test double generator is for now used here.
+    // In the future construct a specific visitor for plantuml
+    import plugin.backend.cppvariant : CppVisitor;
+
+    auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
@@ -351,9 +351,8 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.infof("File %d/%d ", idx + 1, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry);
 
-            auto partial_root = CppRoot(LocationTag(Location(cast(string) entry.absoluteFile, 0, 0)));
-            auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
-                    entry_cflags, symbol_container, partial_root);
+            auto analyze_status = analyzeFile2(cast(string) entry.absoluteFile,
+                    entry_cflags, visitor);
 
             // compile error, let user decide how to proceed.
             if (analyze_status == ExitStatusType.Errors && skipFileError) {
@@ -361,8 +360,6 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
                 unable_to_parse ~= entry.absoluteFile;
             } else if (analyze_status == ExitStatusType.Errors) {
                 return ExitStatusType.Errors;
-            } else {
-                generator.analyze(partial_root, symbol_container);
             }
         }
 
@@ -377,6 +374,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         }
 
         // process and put the data in variant.
+        generator.analyze(visitor.root, visitor.container);
         generator.process();
         break;
 
@@ -401,14 +399,13 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             abs_in_file = buildNormalizedPath(input_file).asAbsolutePath.text;
         }
 
-        auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
-        if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
+        if (analyzeFile2(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
         // process and put the data in variant.
         auto generator = Generator(variant, variant, variant);
-        generator.analyze(root, symbol_container);
+        generator.analyze(visitor.root, visitor.container);
         generator.process();
         break;
     }
