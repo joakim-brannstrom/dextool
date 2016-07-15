@@ -53,7 +53,7 @@ private void put(ref Cursor c, ref Container container) {
     }
 }
 
-CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
+private CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
     import std.array;
     import std.algorithm : map;
     import std.range : chain, zip, tee;
@@ -89,7 +89,7 @@ CxParam[] toCxParam(ref TypeResult tr, ref Container container) {
     return params;
 }
 
-auto toInternal(SourceLocation c_loc) {
+private auto toInternal(SourceLocation c_loc) {
     auto l = c_loc.expansion();
     auto into = LocationTag(Location(l.file.name(), l.line, l.column));
 

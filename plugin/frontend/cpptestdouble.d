@@ -311,15 +311,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 /// TODO refactor, doing too many things.
 ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileCommandDB compile_db) {
     import std.conv : text;
-    import std.file : exists;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : Nullable;
-    import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.visitor;
-    import cpptooling.data.representation;
-    import cpptooling.data.symbol.container;
-    import plugin.backend.cppvariant : Generator;
+    import cpptooling.data.representation : CppRoot;
+    import plugin.backend.cppvariant : Generator, CppVisitor;
 
+    auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
     auto in_file = cast(string) variant.getInputFile[0];
     logger.trace("Input file: ", in_file);
@@ -338,14 +334,12 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
         abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
     }
 
-    Container symbol_container;
-    auto root = CppRoot(LocationTag(Location(abs_in_file, 0, 0)));
-    if (analyzeFile(abs_in_file, use_cflags, symbol_container, root) == ExitStatusType.Errors) {
+    if (analyzeFile2(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }
 
     // process and put the data in variant.
-    Generator(variant, variant, variant).process(root, symbol_container);
+    Generator(variant, variant, variant).process(visitor.root, visitor.container);
 
     return writeFileData(variant.file_data);
 }
