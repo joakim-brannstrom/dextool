@@ -17,7 +17,7 @@ import cpptooling.analyzer.clang.ast : FunctionDecl, VarDecl;
 import cpptooling.data.representation : CFunction, CxGlobalVariable;
 import cpptooling.data.symbol.container : Container;
 
-Nullable!CFunction analyzeFunctionDecl(const(FunctionDecl) v, ref Container container) @trusted
+Nullable!CFunction analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @trusted
 out (result) {
     logger.info(!result.isNull, "function: ", result.get.toString);
 }
@@ -39,14 +39,14 @@ body {
     // design is pipe and data transformation
 
     Nullable!TypeResult extractAndStoreRawType(Cursor c) {
-        auto tr = retrieveType(c, container);
+        auto tr = retrieveType(c, container, indent);
         if (tr.isNull) {
             return tr;
         }
 
         assert(tr.primary.kind.info.kind.among(TypeKind.Info.Kind.func,
                 TypeKind.Info.Kind.typeRef, TypeKind.Info.Kind.simple));
-        put(tr, container);
+        put(tr, container, indent);
 
         return tr;
     }
@@ -62,7 +62,7 @@ body {
             tr.primary.kind = kind;
         }
 
-        logTypeResult(tr);
+        logTypeResult(tr, indent);
         assert(tr.primary.kind.info.kind == TypeKind.Info.Kind.func);
 
         return tr;
@@ -143,7 +143,7 @@ body {
     return rval;
 }
 
-CxGlobalVariable analyzeVarDecl(const(VarDecl) v, ref Container container)
+CxGlobalVariable analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent)
 out (result) {
     logger.info("variable:", result.toString);
 }
@@ -155,8 +155,8 @@ body {
     import cpptooling.data.representation : CppVariable;
 
     Cursor c = v.cursor;
-    auto type = retrieveType(c, container);
-    put(type, container);
+    auto type = retrieveType(c, container, indent);
+    put(type, container, indent);
 
     auto name = CppVariable(v.cursor.spelling);
     auto loc = toInternal(v.cursor.location());

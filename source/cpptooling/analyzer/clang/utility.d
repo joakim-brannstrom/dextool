@@ -79,11 +79,11 @@ void backtrackNode(T)(ref Cursor c, ref T callback, int depth = 0) {
     }
 }
 
-void put(ref Nullable!TypeResult tr, ref Container container) {
+void put(ref Nullable!TypeResult tr, ref Container container, in uint indent = 0) {
     import cpptooling.analyzer.clang.type : logTypeResult;
 
     if (!tr.isNull) {
-        logTypeResult(tr);
+        logTypeResult(tr, indent);
         container.put(tr.primary.kind);
         foreach (e; tr.extra) {
             container.put(e.kind);

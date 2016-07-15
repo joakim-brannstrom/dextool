@@ -256,7 +256,7 @@ final class CVisitor : Visitor {
     private {
         StubController ctrl;
         StubProducts prod;
-        int indent;
+        uint indent;
     }
 
     this(StubController ctrl, StubProducts prod) {
@@ -281,7 +281,7 @@ final class CVisitor : Visitor {
         //TODO ugly hack. Move this information to the representation. But for
         //now skipping all definitions
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
-            auto result = analyzeVarDecl(v, container);
+            auto result = analyzeVarDecl(v, container, indent);
             root.put(result);
         }
     }
@@ -289,7 +289,7 @@ final class CVisitor : Visitor {
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
 
-        auto result = analyzeFunctionDecl(v, container);
+        auto result = analyzeFunctionDecl(v, container, indent);
         if (!result.isNull) {
             root.put(result);
         }
