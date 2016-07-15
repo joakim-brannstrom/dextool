@@ -311,7 +311,6 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : TypedefType;
-    import cpptooling.analyzer.clang.context;
     import plugin.backend.cvariant : CVisitor, StubGenerator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
@@ -338,7 +337,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
         }
 
-        if (analyzeFile2!CVisitor(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+        if (analyzeFile2(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
     }
