@@ -274,6 +274,8 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
     }
 
     override void visit(const(UnexposedDecl) v) {
+        mixin(mixinNodeLog!());
+
         // An unexposed may be:
 
         // an extern "C"
