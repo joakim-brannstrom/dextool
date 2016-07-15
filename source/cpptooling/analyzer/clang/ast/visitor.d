@@ -38,6 +38,17 @@ version (unittest) {
 
 enum CXCursorKind_PrefixLen = "CXCursor_".length;
 
+mixin template generateIndentIncrDecr() {
+    uint indent;
+    override void incr() @safe {
+        ++indent;
+    }
+
+    override void decr() @safe {
+        --indent;
+    }
+}
+
 private template generateVisitRecursive(alias Base, E...) {
     import std.format : format;
 

@@ -232,13 +232,14 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
 
     alias visit = Visitor.visit;
 
+    mixin generateIndentIncrDecr;
+
     CppT root;
     NullableRef!Container container;
 
     private {
         ControllerT ctrl;
         ProductT prod;
-        uint indent;
         CppNsStack ns_stack;
     }
 
@@ -265,15 +266,9 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
         }
     }
 
-    override void incr() @safe {
-        ++indent;
-    }
-
-    override void decr() @safe {
-        --indent;
-    }
-
     override void visit(const(UnexposedDecl) v) {
+        mixin(mixinNodeLog!());
+
         // An unexposed may be:
 
         // an extern "C"
@@ -287,8 +282,10 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
 
         mixin(mixinNodeLog!());
 
-        //TODO ugly hack. Move this information to the representation. But for
-        //now skipping all definitions
+        // TODO ugly hack. Move this information to the representation. But for
+        // now skipping all definitions
+        // TODO investigate if linkage() == CXLinkage_External should be used
+        // instead.
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
             root.put(result);
@@ -304,23 +301,30 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
         }
     }
 
-    override void visit(const(ClassDecl) v) {
+    override void visit(const(ClassDecl) v) @trusted {
+        import std.typecons : TypedefType, scoped;
         import clang.Cursor : Cursor;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
+        import cpptooling.analyzer.clang.type : retrieveType;
+        import cpptooling.analyzer.clang.utility : put;
+
+        ///TODO add information if it is a public/protected/private class.
+        ///TODO add metadata to the class if it is a definition or declaration
 
         mixin(mixinNodeLog!());
+        logger.info("class: ", v.cursor.spelling);
 
-        // TODO make a proper visitor for the class analyze
-        // BUG it doesn't properly store the nested classes in the container
-        // for later lookup
-        Cursor cursor = v.cursor;
-        () @trusted{
-            auto class_ = ClassVisitor.make(cursor, ns_stack.dup).visit(cursor, container);
-            if (!class_.isNull) {
-                container.put(class_, class_.fullyQualifiedName);
-                root.put(class_);
-            }
-        }();
+        if (v.cursor.isDefinition) {
+            auto visitor = scoped!ClassVisitor(v, ns_stack, container, indent + 1);
+            v.accept(visitor);
+
+            root.put(visitor.root);
+            container.put(visitor.root, visitor.root.fullyQualifiedName);
+        } else {
+            Cursor c = v.cursor;
+            auto type = retrieveType(c, container, indent);
+            put(type, container, indent);
+        }
     }
 
     override void visit(const(Namespace) v) @trusted {
