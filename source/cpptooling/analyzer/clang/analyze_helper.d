@@ -139,7 +139,6 @@ body {
                       )
         (v.cursor);
     // dfmt on
-    logger.info(!rval.isNull, "function: ", rval.get.toString);
 
     return rval;
 }
