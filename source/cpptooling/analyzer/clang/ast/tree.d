@@ -42,6 +42,10 @@ version (unittest) {
  *  - call Visitor's visit(...) with wrapped cursor.
  *
  * Starts traversing the AST from the root.
+ *
+ * Optional functions:
+ *   void incr(). Called before descending a node.
+ *   void decr(). Called after ascending a node.
  */
 struct ClangAST(VisitorT) {
     @disable this();

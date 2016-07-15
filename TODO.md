@@ -4,6 +4,8 @@ Feature requests, todos etc that aren't covered by code comments.
 ## Performance
  - Investigate why runtime of "cpp_tests.__unittestL235_107 /home/joker/src/dlang/clang_fun/test/testdata/cpp/dev/bug_class_not_in_ast.hpp"
    increased to ~16s from less than 1s
+ - After the migration to the new API for visitors it has been improved performance.
+   It now takes ~6.5s.
 
 ## Documentation
  - Add a STYLE.md

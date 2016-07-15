@@ -15,6 +15,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
 import cpptooling.utility.nullvoid;
+import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
 /// Control various aspectes of the analyze and generation like what nodes to
 /// process.
@@ -218,6 +219,161 @@ private:
     }
 }
 
+final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
+    import std.typecons : scoped, NullableRef;
+
+    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.ast.visitor;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
+        analyzeVarDecl;
+    import cpptooling.data.representation;
+    import cpptooling.data.symbol.container : Container;
+    import cpptooling.utility.clang : logNode, mixinNodeLog;
+
+    alias visit = Visitor.visit;
+
+    CppT root;
+    NullableRef!Container container;
+
+    private {
+        ControllerT ctrl;
+        ProductT prod;
+        uint indent;
+        CppNsStack ns_stack;
+    }
+
+    static if (is(CppT == CppRoot)) {
+        // The container used is stored in the root.
+        // All other visitors references the roots container.
+        Container container_;
+
+        this(ControllerT ctrl, ProductT prod) {
+            this.ctrl = ctrl;
+            this.prod = prod;
+            this.root = CppRoot(LocationTag(null));
+            this.container = &container_;
+        }
+    } else {
+        this(ControllerT ctrl, ProductT prod, uint indent, CppNsStack ns_stack,
+                NullableRef!Container container) {
+            this.root = CppNamespace(ns_stack);
+            this.ctrl = ctrl;
+            this.prod = prod;
+            this.indent = indent;
+            this.ns_stack = ns_stack;
+            this.container = container;
+        }
+    }
+
+    override void incr() @safe {
+        ++indent;
+    }
+
+    override void decr() @safe {
+        --indent;
+    }
+
+    override void visit(const(UnexposedDecl) v) {
+        // An unexposed may be:
+
+        // an extern "C"
+        // UnexposedDecl "" extern "C" {...
+        //   FunctionDecl "fun_c_linkage" void func_c_linkage
+        v.accept(this);
+    }
+
+    override void visit(const(VarDecl) v) @trusted {
+        import deimos.clang.index : CX_StorageClass;
+
+        mixin(mixinNodeLog!());
+
+        //TODO ugly hack. Move this information to the representation. But for
+        //now skipping all definitions
+        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
+            auto result = analyzeVarDecl(v, container, indent);
+            root.put(result);
+        }
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        auto result = analyzeFunctionDecl(v, container, indent);
+        if (!result.isNull) {
+            root.put(result);
+        }
+    }
+
+    override void visit(const(ClassDecl) v) {
+        import clang.Cursor : Cursor;
+        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
+
+        mixin(mixinNodeLog!());
+
+        // TODO make a proper visitor for the class analyze
+        // BUG it doesn't properly store the nested classes in the container
+        // for later lookup
+        Cursor cursor = v.cursor;
+        () @trusted{
+            auto class_ = ClassVisitor.make(cursor, ns_stack.dup).visit(cursor, container);
+            if (!class_.isNull) {
+                container.put(class_, class_.fullyQualifiedName);
+                root.put(class_);
+            }
+        }();
+    }
+
+    override void visit(const(Namespace) v) @trusted {
+        mixin(mixinNodeLog!());
+
+        () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
+        // pop the stack when done
+        scope (exit)
+            ns_stack.length = ns_stack.length - 1;
+
+        auto ns_visitor = scoped!(CppVisitor!(CppNamespace, ControllerT, ProductT))(ctrl,
+                prod, indent, ns_stack, container);
+
+        // fill the namespace with content from the analyse
+        v.accept(ns_visitor);
+
+        root.put(ns_visitor.root);
+    }
+
+    override void visit(const(TranslationUnit) v) {
+        import cpptooling.generator.utility : validLocation;
+        import cpptooling.analyzer.clang.type : makeLocation;
+
+        mixin(mixinNodeLog!());
+
+        LocationTag tu_loc;
+        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
+
+        foreach (loc; tu_loc.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
+            prod.putLocation(FileName(loc.file), LocationType.Root);
+        }
+
+        v.accept(this);
+    }
+
+    void toString(Writer)(scope Writer w) @safe const {
+        root.toString(w);
+    }
+
+    override string toString() const {
+        import std.exception : assumeUnique;
+
+        char[] buf;
+        buf.reserve(100);
+        toString((const(char)[] s) { buf ~= s; });
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+}
+
 private:
 @safe:
 
@@ -260,10 +416,6 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
         filterAnyLocation;
 
     auto raw = CppRoot(input.location);
-
-    foreach (loc; input.location.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
-        prod.putLocation(FileName(loc.file), LocationType.Root);
-    }
 
     // Assuming that namespaces are never duplicated at this stage.
     // The assumption comes from the structure of the clang AST.
