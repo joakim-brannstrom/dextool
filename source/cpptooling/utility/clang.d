@@ -8,7 +8,7 @@ module cpptooling.utility.clang;
 
 import std.traits : ReturnType;
 
-import clang.Cursor;
+import clang.Cursor : Cursor;
 import clang.Visitor : Visitor;
 
 /** Traverses a clang AST.

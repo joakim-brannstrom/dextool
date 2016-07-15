@@ -6,19 +6,12 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module application.app_main;
 
-import std.stdio;
+import std.stdio : writeln, writefln, stderr;
 import std.typecons : Flag, Tuple;
 
 import logger = std.experimental.logger;
 
-import dsrcgen.cpp;
-
 import application.types;
-
-import cpptooling.analyzer.clang.context;
-import cpptooling.analyzer.clang.visitor;
-import cpptooling.data.representation : AccessType;
-import cpptooling.utility.clang : visitAst, logNode;
 
 static string main_opt = "usage:
  dextool <command> [options] [<args>...]
