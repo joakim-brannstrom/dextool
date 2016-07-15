@@ -11,6 +11,7 @@ module cpptooling.analyzer.clang.analyze_helper;
 
 import logger = std.experimental.logger;
 
+import std.traits : ReturnType;
 import std.typecons : Nullable;
 
 import deimos.clang.index : CXCursorKind, CX_CXXAccessSpecifier;
@@ -26,6 +27,58 @@ import cpptooling.data.type : AccessType, VariadicType, CxParam,
 import cpptooling.data.representation : CFunction, CxGlobalVariable,
     CppMethodName;
 import cpptooling.data.symbol.container : Container;
+
+//TODO remove this when ClassVisitor has been converted to using the new
+// Visitor interface.
+/** Traverses a clang AST.
+ * Required functions of VisitorType:
+ *   void applyRoot(ref Cursor root). Called with the root node.
+ *   bool apply(ref Cursor child, ref Cursor parent). Called for all nodes under root.
+ * Optional functions:
+ *   void incr(). Called before descending a node.
+ *   void decr(). Called after ascending a node.
+ */
+private void visitAst(VisitorT)(ref Cursor cursor, ref VisitorT v)
+        if (hasApply!VisitorT && hasApplyRoot!VisitorT) {
+    enum NodeType {
+        Root,
+        Child
+    }
+
+    static void helperVisitAst(NodeType NodeT)(ref Cursor child, ref Cursor parent, ref VisitorT v) {
+        import clang.Visitor : Visitor;
+
+        static if (__traits(hasMember, VisitorT, "incr")) {
+            v.incr();
+        }
+
+        bool descend;
+
+        // Root has no parent.
+        static if (NodeT == NodeType.Root) {
+            v.applyRoot(child);
+            descend = true;
+        } else {
+            descend = v.apply(child, parent);
+        }
+
+        if (!child.isEmpty && descend) {
+            foreach (child_, parent_; Visitor(child)) {
+                helperVisitAst!(NodeType.Child)(child_, parent_, v);
+            }
+        }
+
+        static if (__traits(hasMember, VisitorT, "decr")) {
+            v.decr();
+        }
+    }
+
+    helperVisitAst!(NodeType.Root)(cursor, cursor, v);
+}
+
+private enum hasApply(T) = __traits(hasMember, T, "apply") && is(ReturnType!(T.apply) == bool);
+private enum hasApplyRoot(T) = __traits(hasMember, T, "applyRoot")
+        && is(ReturnType!(T.applyRoot) == void);
 
 private AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) {
     final switch (accessSpec) with (CX_CXXAccessSpecifier) {
@@ -343,7 +396,7 @@ private:
 struct ClassDescendVisitor {
     import cpptooling.data.representation;
     import cpptooling.data.symbol.container;
-    import cpptooling.utility.clang : visitAst, logNode;
+    import cpptooling.utility.clang : logNode;
 
     @disable this();
 
