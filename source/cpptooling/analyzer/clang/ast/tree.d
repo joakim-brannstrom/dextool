@@ -57,23 +57,23 @@ struct ClangAST(VisitorT) {
     }
 
     void accept(ref VisitorT visitor) @safe {
-        static if (__traits(hasMember, VisitorT, "incr")) {
+        static if (__traits(hasMember, VisitorT, "incr") && __traits(hasMember, VisitorT, "decr")) {
             visitor.incr();
+            scope (success)
+                visitor.decr();
         }
 
         dispatch(root, visitor);
-
-        static if (__traits(hasMember, VisitorT, "decr")) {
-            visitor.decr();
-        }
     }
 }
 
 void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
 
-    static if (__traits(hasMember, VisitorT, "incr")) {
+    static if (__traits(hasMember, VisitorT, "incr") && __traits(hasMember, VisitorT, "decr")) {
         visitor.incr();
+        scope (success)
+            visitor.decr();
     }
 
     () @trusted{
@@ -81,10 +81,6 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
             dispatch(child, visitor);
         }
     }();
-
-    static if (__traits(hasMember, VisitorT, "decr")) {
-        visitor.decr();
-    }
 }
 
 void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
