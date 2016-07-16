@@ -53,6 +53,8 @@ alias CxReturnType = Typedef!(TypeKindAttr, TypeKindAttr.init, "CxReturnType");
 
 /// A valid location.
 struct Location {
+    import std.format : FormatSpec;
+
     string file;
     uint line;
     uint column;
@@ -68,10 +70,33 @@ struct Location {
         this.column = column;
     }
 
-    auto toString() const @safe pure {
-        import std.format;
+    /// Location as File Line Column
+    string toString() @safe pure const {
+        import std.exception : assumeUnique;
+        import std.format : FormatSpec;
 
-        return format("File:%s Line:%s Column:%s", file, line, column);
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    /// ditto
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) const {
+        import std.format : formatValue;
+        import std.range.primitives : put;
+
+        put(w, "File:");
+        formatValue(w, file, formatSpec);
+        put(w, " Line:");
+        formatValue(w, line, formatSpec);
+        put(w, " Column:");
+        formatValue(w, column, formatSpec);
     }
 
     T opCast(T : string)() @safe pure const nothrow {
