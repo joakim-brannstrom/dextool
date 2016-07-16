@@ -23,7 +23,7 @@ version (unittest) {
     import test.helpers : shouldEqualPretty;
     import unit_threaded : Name, shouldEqual;
 } else {
-    struct Name {
+    private struct Name {
         string name_;
     }
 }

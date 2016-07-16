@@ -17,7 +17,7 @@ import cpptooling.data.symbol.container : Container;
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
 } else {
-    struct Name {
+    private struct Name {
         string name_;
     }
 }
