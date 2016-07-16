@@ -219,7 +219,7 @@ private:
     }
 }
 
-final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
+final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast;
@@ -234,7 +234,7 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
 
     mixin generateIndentIncrDecr;
 
-    CppT root;
+    RootT root;
     NullableRef!Container container;
 
     private {
@@ -243,7 +243,7 @@ final class CppVisitor(CppT, ControllerT, ProductT) : Visitor {
         CppNsStack ns_stack;
     }
 
-    static if (is(CppT == CppRoot)) {
+    static if (is(RootT == CppRoot)) {
         // The container used is stored in the root.
         // All other visitors references the roots container.
         Container container_;
