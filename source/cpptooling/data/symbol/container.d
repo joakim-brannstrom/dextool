@@ -93,6 +93,13 @@ struct Container {
         FastLookup!(TypeKind, USRType) types;
     }
 
+    /** Find the symbol corresponding to the key.
+     *
+     * Unified Symbol Resolution (USR).
+     *
+     * Params:
+     *   usr = key to look for.
+     */
     auto find(T)(USRType usr) const if (is(T == TypeKind))
     out (result) {
         logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
@@ -101,6 +108,7 @@ struct Container {
         return types.find(usr);
     }
 
+    /// Find the class with the fully qualified name as key.
     auto find(T)(FullyQualifiedNameType fqn) if (is(T == CppClass))
     out (result) {
         logger.tracef(result.length == 0, "No symbol found for '%s'", cast(string) fqn);
@@ -115,7 +123,7 @@ struct Container {
         import std.conv : to, text;
         import std.format : format;
         import std.range : only, chain;
-        import cpptooling.analyzer.type;
+        import cpptooling.analyzer.type : internalGetFmt;
         import cpptooling.data.type : LocationTag;
 
         // dfmt off
@@ -125,13 +133,22 @@ struct Container {
                         classes[].map!(a => "  " ~ a.fullyQualifiedName ~ newline).joiner,
                      only("} // classes\n").joiner,
                      only("types {\n").joiner,
-                        types[].map!(a => format("  %s %s -> %s %s\n", a.info.kind.to!string(), cast(string) a.usr, a.internalGetFmt, a.loc.kind == LocationTag.Kind.loc ? a.loc.file : "noloc")).joiner,
+                        types[].map!(a => format("  %s %s -> %s %s\n",
+                                                 a.info.kind.to!string(),
+                                                 cast(string) a.usr,
+                                                 a.internalGetFmt,
+                                                 a.loc.kind == LocationTag.Kind.loc ? a.loc.file : "noloc")
+                                     ).joiner,
                      only("} // types\n").joiner,
                      only("} //Container").joiner,
                     ).text;
         // dfmt on
     }
 
+    /** Store the TypeKind.
+     *
+     * The TypeKind's usr is used as key.
+     */
     void put(TypeKind value)
     in {
         assert(value.usr.length > 0);
@@ -145,7 +162,7 @@ struct Container {
 
         debug {
             import std.conv : to;
-            import cpptooling.analyzer.type;
+            import cpptooling.analyzer.type : TypeKind, toStringDecl, TypeAttr;
             import cpptooling.data.type : LocationTag, Location;
 
             logger.tracef("Stored kind:%s usr:%s repr:%s loc:%s", latest.info.kind.to!string,
@@ -154,6 +171,10 @@ struct Container {
         }
     }
 
+    /** Store the CppClass.
+     *
+     * Using the fully qualified name as key
+     */
     void put(T)(ref T cl, FullyQualifiedNameType fqn) if (is(T : CppClass)) {
         if (fqn in classes.lookup) {
             return;

@@ -333,7 +333,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
         // pop the stack when done
         scope (exit)
-            ns_stack.length = ns_stack.length - 1;
+            ns_stack = ns_stack[0 .. $ - 1];
 
         auto ns_visitor = scoped!(CppVisitor!(CppNamespace, ControllerT, ProductT))(ctrl,
                 prod, indent, ns_stack, container);

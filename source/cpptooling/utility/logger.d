@@ -15,6 +15,7 @@ module cpptooling.utility.logger;
 
 static import std.experimental.logger;
 
+/// Only use via the aliases
 auto internalLog(alias level)(const(char)[] txt, in uint indent = 0,
         string func = __FUNCTION__, uint line = __LINE__) nothrow {
     import std.array : array;

@@ -1636,11 +1636,18 @@ const:
         return name_;
     }
 
+    /** Range representation of the fully qualified name.
+     *
+     * TODO change name, it is the full stack. So fully qualified name.
+     */
     auto resideInNs() {
-        //TODO change name, it is the full stack. So fully qualified name.
         return stack;
     }
 
+    /** The fully qualified name of where the namespace reside.
+     *
+     * Example of FQN for C could be A::B::C.
+     */
     auto fullyQualifiedName() {
         //TODO optimize by only calculating once.
 
@@ -1656,6 +1663,9 @@ const:
     }
 }
 
+/** The root of the data structure of the semantic representation of the
+ * analyzed C++ source.
+ */
 pure nothrow struct CppRoot {
     mixin mixinSourceLocation;
 
@@ -1668,15 +1678,18 @@ pure nothrow struct CppRoot {
         RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
+    /// Make a root with a "noloc" location.
     static auto make() @safe {
         auto r = CppRoot(unknownLocation);
         return r;
     }
 
+    /// Construct a root container with a location.
     this(in Location loc) @safe {
         this(LocationTag(loc));
     }
 
+    /// ditto
     this(in LocationTag loc) @safe {
         import std.container : make;
 
@@ -1711,40 +1724,49 @@ pure nothrow struct CppRoot {
 
 @safe:
 
+    /// Put item in storage.
     void put(CFunction f) {
         () @trusted{ funcs.insert(f); }();
     }
 
+    /// ditto
     void put(CppClass s) {
         classes ~= s;
     }
 
+    /// ditto
     void put(CppNamespace ns) {
         this.ns ~= ns;
     }
 
+    /// ditto
     void put(CxGlobalVariable g) {
         () @trusted{ globals.insert(g); }();
     }
 
+    /// Range of contained data.
     auto namespaceRange() @nogc {
         return ns;
     }
 
+    /// ditto
     auto classRange() @nogc {
         return classes;
     }
 
+    /// ditto
     auto funcRange() @nogc {
         return funcs[];
     }
 
+    /// ditto
     auto globalRange() @nogc {
         return globals[];
     }
 
 const:
 
+    /// Cast to string representation
     T opCast(T : string)() const {
         return this.toString;
     }

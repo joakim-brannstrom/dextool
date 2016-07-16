@@ -51,18 +51,23 @@ alias VariadicType = Flag!"isVariadic";
 alias CxParam = Algebraic!(TypeKindVariable, TypeKindAttr, VariadicType);
 alias CxReturnType = Typedef!(TypeKindAttr, TypeKindAttr.init, "CxReturnType");
 
-/// A valid location.
+/// Locaiton of a symbol.
 struct Location {
     import std.format : FormatSpec;
 
+    ///
     string file;
+    ///
     uint line;
+    ///
     uint column;
 
+    /// Create a file with default line and column
     this(string file) @safe {
         this(file, 0, 0);
     }
 
+    ///
     this(string file, uint line, uint column) @safe {
         //TODO remove idup if it isn't needed
         this.file = file;
@@ -99,6 +104,7 @@ struct Location {
         formatValue(w, column, formatSpec);
     }
 
+    ///
     T opCast(T : string)() @safe pure const nothrow {
         return toString();
     }
@@ -118,11 +124,14 @@ struct LocationTag {
         loc
     }
 
+    /// Kind stored. Only use the payload when kind is "loc".
     Kind kind;
 
+    ///
     Location payload;
     alias payload this;
 
+    /// Create either a noloc instance when passed null or a location.
     this(T)(T t) @safe pure {
         static if (is(T == typeof(null))) {
             this.kind = Kind.noloc;

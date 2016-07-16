@@ -268,7 +268,8 @@ struct TestDoubleIncludes {
 ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, VisitorT visitor) {
     import std.file : exists;
 
-    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.context : ClangContext, hasParseErrors,
+        logDiagnostic;
     import cpptooling.analyzer.clang.ast : ClangAST;
 
     if (!exists(input_file)) {

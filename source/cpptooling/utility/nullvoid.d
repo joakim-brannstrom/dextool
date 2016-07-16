@@ -12,6 +12,7 @@ struct NullableVoid(T) {
     private bool _isNull = true;
     private T _value = void;
 
+    /// Stored value is initialized to value.
     this(inout T value) inout {
         _value = value;
         _isNull = false;
