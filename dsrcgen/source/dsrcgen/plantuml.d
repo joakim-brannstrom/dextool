@@ -14,7 +14,7 @@ import dsrcgen.base;
 version (Have_unit_threaded) {
     import unit_threaded : Name, shouldEqual;
 } else {
-    struct Name {
+    private struct Name {
         string n;
     }
 
