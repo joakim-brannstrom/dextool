@@ -34,6 +34,9 @@ version (unittest) {
     }
 }
 
+private enum hasIncrDecr(VisitorT) = __traits(hasMember, VisitorT, "incr")
+        && __traits(hasMember, VisitorT, "decr");
+
 /**
  * Wrap a clang cursor. No restrictions on what type of cursor it is.
  * Accept a Visitor.
@@ -48,6 +51,9 @@ version (unittest) {
  *   void decr(). Called after ascending a node.
  */
 struct ClangAST(VisitorT) {
+    import std.traits : isArray;
+    import clang.Cursor : Cursor;
+
     @disable this();
 
     private Cursor root;
@@ -57,7 +63,18 @@ struct ClangAST(VisitorT) {
     }
 
     void accept(ref VisitorT visitor) @safe {
-        static if (__traits(hasMember, VisitorT, "incr") && __traits(hasMember, VisitorT, "decr")) {
+        static if (isArray!VisitorT && hasIncrDecr!(typeof(VisitorT.init[0]))) {
+            foreach (v; visitor) {
+                v.incr();
+            }
+
+            scope (success) {
+                foreach (v; visitor) {
+                    v.decr();
+                }
+            }
+
+        } else if (hasIncrDecr!VisitorT) {
             visitor.incr();
             scope (success)
                 visitor.decr();
@@ -68,9 +85,21 @@ struct ClangAST(VisitorT) {
 }
 
 void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
+    import std.traits : isArray;
     import clang.Visitor : Visitor;
 
-    static if (__traits(hasMember, VisitorT, "incr") && __traits(hasMember, VisitorT, "decr")) {
+    static if (isArray!VisitorT && hasIncrDecr!(typeof(VisitorT.init[0]))) {
+        foreach (v; visitor) {
+            v.incr();
+        }
+
+        scope (success) {
+            foreach (v; visitor) {
+                v.decr();
+            }
+        }
+
+    } else if (hasIncrDecr!VisitorT) {
         visitor.incr();
         scope (success)
             visitor.decr();
@@ -110,11 +139,18 @@ template wrapCursor(ulong skipBeginLen, alias visitor, alias cursor, cases...) {
     } else {
         import std.format : format;
 
+        static if (is(typeof(visitor) : T[], T)) {
+            // is an array
+            enum visit = "foreach (v; " ~ visitor.stringof ~ ") { v.visit(wrapped); }";
+        } else {
+            enum visit = visitor.stringof ~ ".visit(wrapped);";
+        }
+
         enum parent = __traits(parent, cases[0]).stringof;
         enum case0_skip = cases[0].stringof[skipBeginLen .. $];
         //TODO allocate in an allocator, not GC with "new"
-        enum wrapCursor = format("case %s.%s: auto wrapped = new %s(%s); %s.visit(wrapped); break;\n",
-                    parent, cases[0].stringof, case0_skip, cursor.stringof, visitor.stringof);
+        enum wrapCursor = format("case %s.%s: auto wrapped = new %s(%s); %s break;\n",
+                    parent, cases[0].stringof, case0_skip, cursor.stringof, visit);
     }
 }
 
