@@ -345,7 +345,7 @@ const:
         import cpptooling.analyzer.type : TypeKind;
 
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// %s%s", location.toString, newline);
+            formattedWrite(sink, "// %s\n", location);
         }
 
         final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
@@ -543,7 +543,7 @@ pure nothrow struct CFunction {
         import std.range : put, takeOne;
 
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// %s%s", location.toString, newline);
+            formattedWrite(sink, "// %s\n", location);
         }
         formattedWrite(sink, "%s // %s", signatureToString(), to!string(storageClass));
     }
@@ -771,7 +771,7 @@ nothrow struct CppMethod {
         import std.range.primitives : put;
 
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(w, "// Origin %s%s", location.toString, newline);
+            formattedWrite(w, "// Origin %s\n", location);
         }
 
         put(w, helperVirtualPre(classification_));
@@ -869,7 +869,7 @@ nothrow struct CppMethodOp {
         import std.range.primitives : put;
 
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(w, "// Origin %s%s", location.toString, newline);
+            formattedWrite(w, "// Origin %s\n", location);
         }
 
         put(w, helperVirtualPre(classification_));
@@ -1130,7 +1130,7 @@ pure nothrow struct CppClass {
 
         // location information
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "  // Class %s%s", location.toString, newline);
+            formattedWrite(sink, "  // Class %s\n", location);
         }
 
         // content
@@ -1693,7 +1693,7 @@ pure nothrow struct CppRoot {
         import std.range : takeOne;
 
         if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// Root %s%s", location.toString, newline);
+            formattedWrite(sink, "// Root %s\n", location);
         }
 
         globals[].takeOne.map!(a => newline).copy(sink);

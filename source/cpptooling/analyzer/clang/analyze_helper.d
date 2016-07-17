@@ -222,7 +222,7 @@ body {
 
 CxGlobalVariable analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent)
 out (result) {
-    logger.info("variable:", result.toString);
+    logger.info("variable: ", result.toString);
 }
 body {
     import clang.Cursor : Cursor;
