@@ -68,10 +68,10 @@ auto paramDeclTo(ref Cursor cursor, const ref Container container) {
     return params;
 }
 
-void backtrackNode(T)(ref Cursor c, ref T callback, int depth = 0) {
+void backtrackNode(T)(ref const(Cursor) c, ref T callback, int depth = 0) {
     import std.range : repeat;
 
-    auto curr = c;
+    Cursor curr = c;
     while (curr.isValid) {
         callback.apply(curr, depth);
         curr = curr.semanticParent;
@@ -79,7 +79,7 @@ void backtrackNode(T)(ref Cursor c, ref T callback, int depth = 0) {
     }
 }
 
-void put(ref Nullable!TypeResult tr, ref Container container, in uint indent = 0) {
+void put(ref Nullable!TypeResult tr, ref Container container, in uint indent = 0) @safe {
     import cpptooling.analyzer.clang.type : logTypeResult;
 
     if (!tr.isNull) {

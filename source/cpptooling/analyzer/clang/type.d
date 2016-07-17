@@ -82,7 +82,7 @@ private auto takeOneTypeRef(T)(auto ref T in_) {
  *
  * Fallback case, using location to make it unique.
  */
-private USRType makeFallbackUSR(ref Cursor c, in uint this_indent)
+private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent)
 out (result) {
     import cpptooling.utility.logger;
 
@@ -315,7 +315,8 @@ import cpptooling.utility.clang : logNode;
  *  container = container holding type symbols.
  *  indent = ?
  */
-Nullable!TypeResult retrieveType(ref Cursor c, ref const Container container, in uint indent = 0)
+Nullable!TypeResult retrieveType(ref const(Cursor) c, ref const(Container) container,
+        in uint indent = 0)
 in {
     logNode(c, indent);
 
@@ -360,7 +361,7 @@ body {
 
 /** Pass 1, implicit anonymous types for struct and union.
  */
-private Nullable!TypeKindAttr pass1(ref Cursor c, uint indent)
+private Nullable!TypeKindAttr pass1(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
@@ -409,7 +410,7 @@ body {
  * } Enum; <--- not this one, covered by "other" pass
  * ---
  */
-private Nullable!TypeKindAttr pass2(ref Cursor c, uint indent)
+private Nullable!TypeKindAttr pass2(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
@@ -450,7 +451,7 @@ body {
  * } Struct;
  * ---
  */
-private Nullable!TypeKindAttr pass3(ref Cursor c, uint indent)
+private Nullable!TypeKindAttr pass3(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
@@ -475,7 +476,8 @@ body {
 
 /**
  */
-private Nullable!TypeResult pass4(ref Cursor c, ref const Container container, in uint this_indent)
+private Nullable!TypeResult pass4(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
 }
@@ -619,8 +621,8 @@ private bool isRefNode(CXCursorKind kind) {
     }
 }
 
-private Nullable!TypeResult retrieveUnexposed(ref Cursor c,
-        ref const Container container, in uint this_indent)
+private Nullable!TypeResult retrieveUnexposed(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     assert(c.kind == CXCursorKind.CXCursor_UnexposedDecl);
@@ -653,8 +655,8 @@ body {
     return rval;
 }
 
-private Nullable!TypeResult passType(ref Cursor c, ref Type type,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult passType(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -731,8 +733,8 @@ body {
 
 /** Create a representation of a typeRef for the cursor.
 */
-private TypeResult typeToTypeRef(ref Cursor c, ref Type type, USRType type_ref,
-        USRType canonical_ref, in uint this_indent)
+private TypeResult typeToTypeRef(ref const(Cursor) c, ref Type type,
+        USRType type_ref, USRType canonical_ref, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -778,7 +780,7 @@ body {
  * The fall back strategy is in that case to represent the type textually as a Simple.
  * The TypeKind->typeRef then references this simple type.
  */
-private TypeResult typeToFallBackTypeDef(ref Cursor c, ref Type type, in uint this_indent)
+private TypeResult typeToFallBackTypeDef(ref const(Cursor) c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -811,7 +813,7 @@ body {
     return TypeResult(rval, null);
 }
 
-private TypeResult typeToSimple(ref Cursor c, ref Type type, in uint this_indent)
+private TypeResult typeToSimple(ref const(Cursor) c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -847,13 +849,13 @@ body {
 
 /// A function proto signature?
 /// Workaround by checking if the return type is valid.
-private bool isFuncProtoTypedef(ref Cursor c) {
+private bool isFuncProtoTypedef(ref const(Cursor) c) {
     auto result_t = c.type.func.resultType;
     return result_t.isValid;
 }
 
-private TypeResult typeToTypedef(ref Cursor c, ref Type type, USRType typeRef,
-        USRType canonicalRef, const ref Container container, in uint this_indent)
+private TypeResult typeToTypedef(ref const(Cursor) c, ref Type type, USRType typeRef,
+        USRType canonicalRef, ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -893,7 +895,7 @@ body {
 
 /** Make a Record from a declaration or definition.
  */
-private TypeResult typeToRecord(ref Cursor c, ref Type type, in uint indent)
+private TypeResult typeToRecord(ref const(Cursor) c, ref Type type, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -939,8 +941,8 @@ body {
  *
  * TypeResult.primary.attr is the pointed at attribute.
  */
-private TypeResult typeToPointer(ref Cursor c, ref Type type,
-        const ref Container container, in uint this_indent)
+private TypeResult typeToPointer(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -1055,8 +1057,8 @@ body {
  *
  * Return: correct formatting and attributes for a function pointer.
  */
-private TypeResult typeToFuncPtr(ref Cursor c, ref Type type,
-        const ref Container container, in uint this_indent)
+private TypeResult typeToFuncPtr(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -1103,8 +1105,8 @@ body {
     return rval;
 }
 
-private TypeResult typeToFuncProto(ref Cursor c, ref Type type,
-        const ref Container container, in uint indent)
+private TypeResult typeToFuncProto(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1166,8 +1168,8 @@ body {
     return rval;
 }
 
-private TypeResult typeToCtor(ref Cursor c, ref Type type, const ref Container container,
-        in uint indent)
+private TypeResult typeToCtor(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1199,7 +1201,7 @@ body {
     return rval;
 }
 
-private TypeResult typeToDtor(ref Cursor c, ref Type type, in uint indent)
+private TypeResult typeToDtor(ref const(Cursor) c, ref Type type, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1266,8 +1268,8 @@ body {
     return rval;
 }
 
-private TypeResult typeToArray(ref Cursor c, ref Type type,
-        const ref Container container, in uint indent)
+private TypeResult typeToArray(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1358,8 +1360,8 @@ body {
  *  - Is it a function pointer?
  *  - Is the type a primitive type?
  */
-private Nullable!TypeResult retrieveInstanceDecl(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveInstanceDecl(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     with (CXCursorKind) {
@@ -1459,8 +1461,8 @@ body {
     return rval;
 }
 
-private Nullable!TypeResult retrieveTypeAlias(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveTypeAlias(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     assert(c.kind == CXCursorKind.CXCursor_TypeAliasDecl);
@@ -1499,8 +1501,8 @@ body {
     return rval;
 }
 
-private Nullable!TypeResult retrieveTypeDef(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveTypeDef(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     assert(c.kind == CXCursorKind.CXCursor_TypedefDecl);
@@ -1560,7 +1562,7 @@ body {
     }
 
     auto handleTypeRefToTypeDeclFuncProto(ref Nullable!TypeResult rval) {
-        static bool isFuncProto(ref Cursor c) {
+        static bool isFuncProto(ref const(Cursor) c) {
             //TODO consider merging or improving isFuncProtoTypedef with this
             if (!isFuncProtoTypedef(c)) {
                 return false;
@@ -1675,8 +1677,8 @@ body {
  * If the canonical type is a function, good. Case a.
  * Otherwise case b and c.
  */
-private Nullable!TypeResult retrieveFunc(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveFunc(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     assert(c.kind.among(CXCursorKind.CXCursor_FunctionDecl, CXCursorKind.CXCursor_CXXMethod));
@@ -1724,7 +1726,8 @@ body {
  *
  * TODO Unable to instansiate.
  */
-private TypeResult retrieveClassTemplate(ref Cursor c, const ref Container container, in uint indent)
+private TypeResult retrieveClassTemplate(ref const(Cursor) c,
+        ref const(Container) container, in uint indent)
 in {
     import std.algorithm : among;
 
@@ -1749,8 +1752,8 @@ body {
  * TODO if nothing changes remove either retrieveParam or retrieveInstanceDecl,
  * code duplication.
  */
-private Nullable!TypeResult retrieveParam(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveParam(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     // TODO add assert for the types allowed
@@ -1766,8 +1769,8 @@ body {
  *
  * TODO Unable to instansiate.
  */
-private Nullable!TypeResult retrieveTemplateParam(ref Cursor c,
-        const ref Container container, in uint this_indent)
+private Nullable!TypeResult retrieveTemplateParam(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     // TODO add assert for the types allowed
@@ -1793,7 +1796,7 @@ body {
 
 //TODO handle anonymous namespace
 //TODO maybe merge with backtrackNode in clang/utility.d?
-private string[] backtrackScope(ref Cursor c) {
+private string[] backtrackScope(ref const(Cursor) c) {
     import cpptooling.analyzer.clang.utility;
 
     static struct GatherScope {
@@ -1801,7 +1804,7 @@ private string[] backtrackScope(ref Cursor c) {
 
         Appender!(string[]) app;
 
-        void apply(ref Cursor c, int depth)
+        void apply(ref const(Cursor) c, int depth)
         in {
             logNode(c, depth);
         }
@@ -1822,8 +1825,8 @@ private string[] backtrackScope(ref Cursor c) {
 private alias PTuple2 = Tuple!(TypeKindAttr, "tka", string, "id",
         Flag!"isVariadic", "isVariadic");
 
-PTuple2[] extractParams2(ref Cursor c, ref Type type, const ref Container container,
-        in uint this_indent)
+PTuple2[] extractParams2(ref const(Cursor) c, ref Type type,
+        ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -1839,7 +1842,7 @@ out (result) {
 body {
     auto indent = this_indent + 1;
 
-    void appendParams(ref Cursor c, ref PTuple2[] params) {
+    void appendParams(ref const(Cursor) c, ref PTuple2[] params) {
         import std.range : enumerate;
 
         foreach (idx, p; c.children.enumerate) {
