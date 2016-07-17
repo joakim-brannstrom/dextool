@@ -4,6 +4,10 @@ class "InheritDep" as YzpAU0BJbmhlcml0RGVw
 class "MemberDep" as YzpAU0BNZW1iZXJEZXA
 class "Method" as YzpAU0BNZXRob2Q {
     +virtual void a_pub()
+    #void a_prot()
+    -void a_priv()
 }
-class "ParamDep" as YzpAU0BQYXJhbURlcA
+class "ParamDep" as YzpAU0BQYXJhbURlcA {
+    -void one(A a)
+}
 @enduml

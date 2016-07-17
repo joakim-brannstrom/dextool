@@ -17,6 +17,8 @@ import cpptooling.analyzer.type : TypeKind, TypeKindAttr, TypeResult;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.taggedalgebraic;
 
+static import cpptooling.data.class_classification;
+
 /// Name of a C++ namespace.
 alias CppNs = Typedef!(string, null, "CppNs");
 /// Stack of nested C++ namespaces.
@@ -34,8 +36,6 @@ alias CppClassName = Typedef!(string, null, "CppClassName");
 ///TODO should be Optional type, either it has a nesting or it is "global".
 /// Don't check the length and use that as an insidential "no nesting".
 alias CppClassNesting = Typedef!(string, null, "CppNesting");
-
-alias CppClassVirtual = Typedef!(ClassVirtualType, ClassVirtualType.Unknown, "CppClassVirtual");
 
 // Types for methods
 alias CppMethodName = Typedef!(string, null, "CppMethodName");
@@ -153,20 +153,11 @@ auto toString(const ref LocationTag data) @safe pure {
     }
 }
 
+//TODO change name to MethodVirtualType
 enum MemberVirtualType {
     Unknown,
     Normal,
     Virtual,
-    Pure
-}
-
-///TODO is ClassClassificationType better?
-enum ClassVirtualType {
-    Unknown,
-    Normal,
-    Virtual,
-    VirtualDtor, // only one method, a d'tor and it is virtual
-    Abstract,
     Pure
 }
 
