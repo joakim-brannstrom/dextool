@@ -265,7 +265,7 @@ struct TestDoubleIncludes {
  *
  * Returns: if the analyze was performed ok or errors occured
  */
-ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, ref VisitorT visitor) {
+ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, VisitorT visitor) {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.context;
