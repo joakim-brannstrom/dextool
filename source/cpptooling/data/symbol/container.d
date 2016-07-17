@@ -15,7 +15,6 @@ import logger = std.experimental.logger;
 import cpptooling.analyzer.type : TypeKind;
 
 import cpptooling.data.representation : CppClass;
-import cpptooling.data.symbol.typesymbol;
 import cpptooling.data.symbol.types;
 
 version (unittest) {
