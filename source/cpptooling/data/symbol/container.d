@@ -149,7 +149,7 @@ struct Container {
      *
      * The TypeKind's usr is used as key.
      */
-    void put(TypeKind value)
+    void put(TypeKind value) @safe
     in {
         assert(value.usr.length > 0);
     }
