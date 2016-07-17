@@ -68,6 +68,23 @@ auto sourceAsInclude() {
     // dfmt on
 }
 
+auto consoleStaticAnalyse(R)(R lines) {
+    import std.algorithm;
+    import std.string;
+
+    // dfmt off
+    auto needles = [
+        "taggedalgebraic",
+         "Could not resolve location of module"];
+
+    return lines
+        // remove those that contains the substrings
+        .filter!((string line) => !any!(a => indexOf(line, a) != -1)(needles))
+        // 15 is arbitrarily chosen
+        .take(15);
+    // dfmt on
+}
+
 void print(T...)(Color c, T args) {
     static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
     write(escCodes[c], args, escCodes[Color.cancel]);
@@ -233,6 +250,8 @@ struct Fsm {
     Flag!"CompileError" flagCompileError;
     Flag!"TotalTestPassed" flagTotalTestPassed;
     uint docCount;
+    // Lowest number of dscanner issues since started
+    ulong lowestDscannerAnalyzeCount = ulong.max;
 
     alias ErrorMsg = Tuple!(Path, "fname", string, "msg");
     ErrorMsg[] testErrorLog;
@@ -588,17 +607,42 @@ struct Fsm {
             println(Color.red, "Missing env variable DLANG_PHOBOS_PATH and/or DLANG_DRUNTIME_PATH");
         }
 
-        a ~= sourcePath;
         a ~= sourceAsInclude;
+        a ~= sourcePath;
 
         writeln(a.data);
         auto r = tryRunCollect(thisExePath.dirName, a.data);
 
+        string reportFile = (thisExePath.dirName ~ "dscanner_report.txt").toString;
         if (r.status != 0) {
-            writeln(r.output);
-            printStatus(Status.Fail, "Static analyse");
+            auto lines = r.output.splitter("\n");
+            const auto dscanner_count = lines.save.count;
+
+            // console dump
+            consoleStaticAnalyse(lines.save).each!writeln;
+
+            // dump to file
+            auto fout = File(reportFile, "w");
+            fout.write(a.data ~ "\n" ~ r.output);
+
+            // nudge the user with actionable information if the errors have
+            // increase
+            if (dscanner_count > lowestDscannerAnalyzeCount) {
+                printStatus(Status.Warn, "Error(s) increased by ",
+                        dscanner_count - lowestDscannerAnalyzeCount);
+            } else if (dscanner_count < lowestDscannerAnalyzeCount) {
+                auto diff = lowestDscannerAnalyzeCount - dscanner_count;
+                if (lowestDscannerAnalyzeCount != ulong.max) {
+                    printStatus(Status.Ok, "Fixed ", diff, " error(s)");
+                }
+                lowestDscannerAnalyzeCount = dscanner_count;
+            }
+
+            printStatus(Status.Fail, "Static analyze failed. Found ",
+                    dscanner_count, " error(s). See report ", reportFile);
         } else {
-            printStatus(Status.Ok, "Static analyse");
+            tryRemove(reportFile);
+            printStatus(Status.Ok, "Static analysis");
         }
     }
 
