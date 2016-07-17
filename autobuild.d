@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module autobuild;
 
-import std.path : asAbsolutePath, asNormalizedPath;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
@@ -35,6 +34,38 @@ enum Status {
     Warn,
     Ok,
     Run
+}
+
+auto sourcePath() {
+    // dfmt off
+    return only(
+                "dsrcgen/source",
+                "plugin",
+                "source"
+               )
+        .map!(a => thisExePath.dirName ~ a)
+        .map!(a => a.toString)
+        .array();
+    // dfmt on
+}
+
+auto sourceAsInclude() {
+    // dfmt off
+    return only(
+                "dsrcgen/source",
+                "",
+                "source",
+                "clang",
+                "libclang",
+                "unit-threaded/source",
+                "docopt/source",
+                "test",
+                "test/scriptlike/src"
+               )
+        .map!(a => thisExePath.dirName ~ a)
+        .map!(a => "-I" ~ a.toString)
+        .array();
+    // dfmt on
 }
 
 void print(T...)(Color c, T args) {
@@ -183,6 +214,7 @@ struct Fsm {
         Debug_test,
         Test_passed,
         Test_failed,
+        StaticAnalyse,
         Doc_check_counter,
         Doc_build,
         Slocs,
@@ -263,13 +295,20 @@ struct Fsm {
             break;
         case State.Ut_run:
             next_ = State.ExitOrRestart;
-            if (flagUtTestPassed)
+            if (flagUtTestPassed && !travis)
                 next_ = State.Ut_cov;
+            else if (flagUtTestPassed && travis) {
+                // skip statick analysis
+                next_ = State.Debug_build;
+            }
             break;
         case State.Ut_cov:
-            next_ = State.Debug_build;
+            next_ = State.StaticAnalyse;
             break;
         case State.Ut_skip:
+            next_ = State.StaticAnalyse;
+            break;
+        case State.StaticAnalyse:
             next_ = State.Debug_build;
             break;
         case State.Debug_build:
@@ -510,26 +549,56 @@ struct Fsm {
         scope (exit)
             printStatus(Status.Ok, "Code statistics");
 
-        // dfmt off
-        auto src_paths = only(
-                              "clang/*.d",
-                              "dsrcgen/source/dsrcgen/*",
-                              "plugin",
-                              "source"
-                             )
-            .map!(a => thisExePath.dirName ~ a)
-            .map!(a => a.toString)
-            .array;
-        // dfmt on
-
         Args a;
         a ~= "dscanner";
         a ~= "--sloc";
-        a ~= src_paths;
+        a ~= sourcePath.array();
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
         if (r.status == 0) {
             writeln(r.output);
+        }
+    }
+
+    void stateStaticAnalyse() {
+        static import std.file;
+
+        static import std.stdio;
+
+        static import core.stdc.stdlib;
+
+        printStatus(Status.Run, "Static analyse");
+
+        string phobos_path = core.stdc.stdlib.getenv("DLANG_PHOBOS_PATH".toStringz)
+            .fromStringz.idup;
+        string druntime_path = core.stdc.stdlib.getenv("DLANG_DRUNTIME_PATH".toStringz)
+            .fromStringz.idup;
+
+        Args a;
+        a ~= "dscanner";
+        a ~= ["--config", (thisExePath.dirName ~ ".dscanner.ini").toString];
+        a ~= "--styleCheck";
+        a ~= "--skipTests";
+
+        if (phobos_path.length > 0 && druntime_path.length > 0) {
+            a ~= ["-I", phobos_path];
+            a ~= ["-I", druntime_path];
+        } else {
+            println(Color.red, "Extra errors during static analyze");
+            println(Color.red, "Missing env variable DLANG_PHOBOS_PATH and/or DLANG_DRUNTIME_PATH");
+        }
+
+        a ~= sourcePath;
+        a ~= sourceAsInclude;
+
+        writeln(a.data);
+        auto r = tryRunCollect(thisExePath.dirName, a.data);
+
+        if (r.status != 0) {
+            writeln(r.output);
+            printStatus(Status.Fail, "Static analyse");
+        } else {
+            printStatus(Status.Ok, "Static analyse");
         }
     }
 
