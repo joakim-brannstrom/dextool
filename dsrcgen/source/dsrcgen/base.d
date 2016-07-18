@@ -50,10 +50,10 @@ mixin template Attrs() {
 }
 
 interface BaseElement {
-    abstract string render();
-    abstract string renderIndent(int parent_level, int level);
-    abstract string renderRecursive(int parent_level, int level);
-    abstract string renderPostRecursive(int parent_level, int level);
+    string render();
+    string renderIndent(int parent_level, int level);
+    string renderRecursive(int parent_level, int level);
+    string renderPostRecursive(int parent_level, int level);
 }
 
 class Text(T) : T {
