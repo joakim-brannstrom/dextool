@@ -12,6 +12,7 @@ public import dsrcgen.c;
 
 @safe:
 
+/// Mixin of methods for semantic representation of C++ in D.
 mixin template CppModuleX() {
     // Statements
     auto friend(string expr) {
@@ -230,17 +231,35 @@ mixin template CppModuleX() {
     }
 }
 
+/// Represent a semantic item in C++ source.
 class CppModule : BaseModule {
     mixin CModuleX;
     mixin CppModuleX;
 }
 
-/// Code generation for C++ header.
+/** Code structure for generation of a C++ header.
+ *
+ * The content is structed as:
+ *  doc
+ *      header
+ *          ifdef_guardbegin
+ *              content
+ *          ifdef_guard end
+ *
+ * Note that the indent is suppressed.
+ */
 struct CppHModule {
+    /// Document root.
     CppModule doc;
+    /// Usually a copyright header.
     CppModule header;
+    /// Main code content.
     CppModule content;
 
+    /**
+     * Params:
+     *   ifdef_guard = guard statement.
+     */
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
         doc = new CppModule;
@@ -259,6 +278,7 @@ struct CppHModule {
         }
     }
 
+    /// Render the content as a string.
     auto render() {
         return doc.render();
     }
@@ -285,31 +305,44 @@ struct Et {
 pure:
     private string tmpl;
 
-    struct Ett {
+    /** Template with parameters parameters.
+     * Example:
+     * 'static_cast'<int>'
+     * | ----------|-----
+     * |tmpl       |params
+     */
+    static struct Ett {
         private string tmpl;
         private string params;
 
+        /// Represent a template with parameters.
         this(string tmpl, string params) pure nothrow {
             this.tmpl = tmpl;
             this.params = params;
         }
 
+        /// Represent the semantic meaning of Identifier(..) as text.
         auto opCall(T)(T value) pure const nothrow {
             return E(this.toString)(value);
         }
 
-        // implicit
+        /** String representation.
+         * Implicit.
+         */
         @property string toString() pure const nothrow {
             return tmpl ~ "<" ~ params ~ ">";
         }
 
         alias toString this;
 
-        // explicit
+        /** String representation.
+         * Explicit.
+         */
         T opCast(T : string)() pure const nothrow {
             return tmpl ~ "<" ~ params ~ ">";
         }
 
+        /// Only handles the concatenation operator "~".
         auto opBinary(string op, T)(in T rhs) pure const nothrow {
             static if (op == "~" && is(T == E)) {
                 return E(toString() ~ " " ~ rhs.toString);
@@ -321,14 +354,17 @@ pure:
         }
     }
 
+    /// Straight copy of parameter tmpl.
     this(T)(T tmpl) pure nothrow if (isSomeString!T) {
         this.tmpl = tmpl;
     }
 
+    /// Convert parameter tmpl to string representation.
     this(T)(T tmpl) pure nothrow if (!isSomeString!T) {
         this.tmpl = to!string(tmpl);
     }
 
+    /// Represent the semantic meaning of "template name"("params").
     auto opCall(T)(T params) pure const nothrow {
         return Ett(tmpl, to!string(params));
     }
