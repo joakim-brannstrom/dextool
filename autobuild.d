@@ -610,7 +610,6 @@ struct Fsm {
         a ~= sourceAsInclude;
         a ~= sourcePath;
 
-        writeln(a.data);
         auto r = tryRunCollect(thisExePath.dirName, a.data);
 
         string reportFile = (thisExePath.dirName ~ "dscanner_report.txt").toString;
