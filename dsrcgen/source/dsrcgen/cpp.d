@@ -240,7 +240,6 @@ struct CppHModule {
     CppModule doc;
     CppModule header;
     CppModule content;
-    CppModule footer;
 
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
@@ -257,8 +256,6 @@ struct CppHModule {
                 content = base;
                 content.suppressIndent(1);
             }
-            footer = base;
-            footer.suppressIndent(1);
         }
     }
 
