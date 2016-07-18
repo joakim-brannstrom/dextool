@@ -449,7 +449,6 @@ struct CHModule {
     CModule doc;
     CModule header;
     CModule content;
-    CModule footer;
 
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
@@ -467,8 +466,6 @@ struct CHModule {
                 content = base;
                 content.suppressIndent(1);
             }
-            footer = base;
-            footer.suppressIndent(1);
         }
     }
 
