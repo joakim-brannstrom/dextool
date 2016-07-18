@@ -276,12 +276,13 @@ struct CppHModule {
  * v0 = v ~ E("foo"); // vector<int> foo;
  * v1 = v("bar"); // vector<int>(bar);
  */
-pure struct Et {
+struct Et {
     import dsrcgen.c : E;
     import std.conv : to;
     import std.string : format;
     import std.traits : isSomeString;
 
+pure:
     private string tmpl;
 
     struct Ett {
