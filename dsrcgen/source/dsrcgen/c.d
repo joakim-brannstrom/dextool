@@ -18,10 +18,13 @@ class Comment : BaseModule {
     mixin Attrs;
 
     private string contents;
+
+    /// Create a one liner comment.
     this(string contents) {
         this.contents = contents;
     }
 
+    ///
     override string renderIndent(int parent_level, int level) {
         if ("begin" in attrs) {
             return indent(attrs["begin"] ~ contents, parent_level, level);
@@ -31,6 +34,7 @@ class Comment : BaseModule {
     }
 }
 
+/// Mixin of methods for creating semantic C content.
 mixin template CModuleX() {
     mixin Attrs;
 
@@ -276,6 +280,7 @@ private:
     }
 }
 
+/// Represent a semantic item in C source.
 class CModule : BaseModule {
     mixin CModuleX;
 }
@@ -320,6 +325,7 @@ private string stmt_append_end(string s, in ref string[string] attrs) pure nothr
 class Stmt(T) : T {
     private string headline;
 
+    /// Content of the statement.
     this(string headline) {
         this.headline = headline;
     }
@@ -345,6 +351,7 @@ class Stmt(T) : T {
 class Suite(T) : T {
     private string headline;
 
+    /// Content of the suite/block.
     this(string headline) {
         this.headline = headline;
     }
@@ -376,31 +383,39 @@ class Suite(T) : T {
     }
 }
 
-pure struct E {
+/// An expressioin in C.
+struct E {
+@safe pure:
     import std.conv : to;
 
     private string content;
 
+    /// Content of the expression.
     this(string content) nothrow pure {
         this.content = content;
     }
 
+    /// Convert argument via std.conv.to!string.
     this(T)(T content) nothrow pure {
         this.content = to!string(content);
     }
 
+    /// Concatenate two expressions with ".".
     this(E lhs, string rhs) nothrow pure {
         this.content = lhs.content ~ "." ~ rhs;
     }
 
+    /// ditto
     auto e(string lhs) nothrow pure const {
         return E(content ~ "." ~ lhs);
     }
 
+    /// ditto
     auto e(E lhs) nothrow pure const {
         return E(content ~ "." ~ lhs.content);
     }
 
+    /// Represent the semantic function call.
     auto opCall(T)(T value) pure const {
         return E(content ~ "(" ~ to!string(value) ~ ")");
     }
@@ -412,11 +427,12 @@ pure struct E {
 
     alias toString this;
 
-    // explicit
+    /// String representation of the content. Explicit cast.
     T opCast(T : string)() pure const nothrow {
         return content;
     }
 
+    /// Preprend the textual representation of the operator to the content.
     auto opUnary(string op)() pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "++" || op == "--") {
             return E(mixin("\"" ~ op ~ "\"~content"));
@@ -425,6 +441,10 @@ pure struct E {
         }
     }
 
+    /** Represent the semantic meaning of binary operators.
+     *
+     * ~ is special cased but OK for it doesn't exist in C/C++.
+     */
     auto opBinary(string op, T)(in T rhs) pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "&") {
             return E(mixin("content~\" " ~ op ~ " \"~to!string(rhs)"));
@@ -437,19 +457,42 @@ pure struct E {
         }
     }
 
+    /** Reconstruct the semantic "=" as affecting the content.
+     *
+     * Example:
+     *   E("int x") = E(1) -> "x = 1"
+     */
     auto opAssign(T)(T rhs) pure nothrow {
         this.content ~= " = " ~ to!string(rhs);
         return this;
     }
 }
 
-/// Code generation for C header.
+/** Code structure for generation of a C header.
+ *
+ * The content is structed as:
+ *  doc
+ *      header
+ *          ifdef_guardbegin
+ *              content
+ *          ifdef_guard end
+ *
+ * Note that the indent is suppressed.
+ */
 struct CHModule {
-    string ifdef_guard;
+    private string ifdef_guard;
+
+    /// Document root.
     CModule doc;
+    /// Usually a copyright header.
     CModule header;
+    /// Main code content.
     CModule content;
 
+    /**
+     * Params:
+     *   ifdef_guard = guard statement.
+     */
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
         this.ifdef_guard = ifdef_guard;
@@ -469,7 +512,8 @@ struct CHModule {
         }
     }
 
-    auto render() {
+    /// Render the content as a string.
+    string render() {
         return doc.render();
     }
 }
