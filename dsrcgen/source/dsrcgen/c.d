@@ -480,8 +480,6 @@ struct E {
  * Note that the indent is suppressed.
  */
 struct CHModule {
-    private string ifdef_guard;
-
     /// Document root.
     CModule doc;
     /// Usually a copyright header.
@@ -495,7 +493,6 @@ struct CHModule {
      */
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
-        this.ifdef_guard = ifdef_guard;
         doc = new CModule;
         with (doc) {
             // doc is a container of the modules so should not affect indent.
