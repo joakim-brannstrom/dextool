@@ -117,7 +117,7 @@ struct Container {
         return classes.find(fqn);
     }
 
-    string toString() const {
+    string toString() const @safe {
         import std.algorithm : joiner, map;
         import std.ascii : newline;
         import std.conv : to, text;
