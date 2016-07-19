@@ -1585,11 +1585,10 @@ pure nothrow struct CppNamespace {
         globals ~= g;
     }
 
-    /** Traverse stack from top to bottom.
+    /** Range of the fully qualified name starting from the top.
      *
-     * The implementation of the stack is such that new elements are appended
-     * to the end. Therefor the range normal direction is from the end of the
-     * array to the beginning.
+     * The top is THIS namespace.
+     * So A::B::C would be a range of [C, B, A].
      */
     auto nsNestingRange() @nogc {
         import std.range : retro;
@@ -1597,18 +1596,22 @@ pure nothrow struct CppNamespace {
         return stack.retro;
     }
 
+    /// Range data of symbols residing in this namespace.
     auto classRange() @nogc {
         return classes;
     }
 
+    /// Range of free functions residing in this namespace.
     auto funcRange() @nogc {
         return funcs;
     }
 
+    /// Range of namespaces residing in this namespace.
     auto namespaceRange() @nogc {
         return namespaces;
     }
 
+    /// Global variables residing in this namespace.
     auto globalRange() @nogc {
         return globals;
     }
@@ -1628,17 +1631,20 @@ const:
         return trustedUnique(buf);
     }
 
+    /// If the namespace is anonymous, aka has no name.
     auto isAnonymous() {
         return name_.length == 0;
     }
 
+    /// Name of the namespace
     auto name() {
         return name_;
     }
 
     /** Range representation of the fully qualified name.
      *
-     * TODO change name, it is the full stack. So fully qualified name.
+     * TODO change function name, it is the full stack. So fully qualified
+     * name.
      */
     auto resideInNs() {
         return stack;
