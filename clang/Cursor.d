@@ -42,7 +42,7 @@ struct Cursor {
     }
 
     /// Retrieve the NULL cursor, which represents no entity.
-    @property static Cursor empty() {
+    @property static Cursor empty() @trusted {
         auto r = clang_getNullCursor();
         return Cursor(r);
     }
@@ -56,12 +56,12 @@ struct Cursor {
      * references in one translation refer to an entity defined in another
      * translation unit.
      */
-    @property string usr() const {
+    @property string usr() const @trusted {
         return toD(clang_getCursorUSR(cx));
     }
 
     /// Return: Retrieve a name for the entity referenced by this cursor.
-    @property string spelling() const {
+    @property string spelling() const @trusted {
         return toD(clang_getCursorSpelling(cx));
     }
 
@@ -71,7 +71,7 @@ struct Cursor {
      * If the passed in Cursor is not a function or variable declaration,
      * CX_SC_Invalid is returned else the storage class.
      */
-    @property CX_StorageClass storageClass() const {
+    @property CX_StorageClass storageClass() const @trusted {
         return clang_Cursor_getStorageClass(cx);
     }
 
@@ -95,7 +95,7 @@ struct Cursor {
      * This is the linkage for entities with true, external linkage.
      * CXLinkage_External
      */
-    @property CXLinkageKind linkage() const {
+    @property CXLinkageKind linkage() const @trusted {
         return clang_getCursorLinkage(cx);
     }
 
@@ -108,7 +108,7 @@ struct Cursor {
      * If it is NOT a declaration then the return value is the same as
      * spelling.
      */
-    @property string displayName() const {
+    @property string displayName() const @trusted {
         return toD(clang_getCursorDisplayName(cx));
     }
 
@@ -116,7 +116,7 @@ struct Cursor {
      *
      * Only useful for cursors that are NOT declarations.
      */
-    @property string mangling() const {
+    @property string mangling() const @trusted {
         return toD(clang_Cursor_getMangling(cx));
     }
 
@@ -175,7 +175,7 @@ struct Cursor {
      *  some entity, return a cursor that points to the definition of that
      *  entity.
      */
-    @property Cursor definition() const {
+    @property Cursor definition() const @trusted {
         auto r = clang_getCursorDefinition(cx);
         return Cursor(r);
     }
@@ -213,7 +213,7 @@ struct Cursor {
      *
      * For global declarations, the semantic parent is the translation unit.
      */
-    @property Cursor semanticParent() const {
+    @property Cursor semanticParent() const @trusted {
         auto r = clang_getCursorSemanticParent(cx);
         return Cursor(r);
     }
@@ -252,7 +252,7 @@ struct Cursor {
      * For declarations written in the global scope, the lexical parent is
      * the translation unit.
      */
-    @property Cursor lexicalParent() const {
+    @property Cursor lexicalParent() const @trusted {
         auto r = clang_getCursorLexicalParent(cx);
         return Cursor(r);
     }
@@ -267,7 +267,7 @@ struct Cursor {
      * declaration or definition, it returns that declaration or definition
      * unchanged.  Otherwise, returns the NULL cursor.
      */
-    @property Cursor referenced() const {
+    @property Cursor referenced() const @trusted {
         auto r = clang_getCursorReferenced(cx);
         return Cursor(r);
     }
@@ -321,7 +321,7 @@ struct Cursor {
     }
 
     /// Determine the "language" of the entity referred to by a given cursor.
-    @property CXLanguageKind language() const {
+    @property CXLanguageKind language() const @trusted {
         return clang_getCursorLanguage(cx);
     }
 
@@ -369,7 +369,7 @@ struct Cursor {
         return IncludeCursor(this);
     }
 
-    string includedPath() {
+    string includedPath() @trusted {
         auto file = clang_getIncludedFile(cx);
         return toD(clang_getFileName(file));
     }
@@ -430,7 +430,7 @@ struct Cursor {
     }
 
     /// Determine whether the given cursor kind represents a declaration.
-    @property bool isDeclaration() const {
+    @property bool isDeclaration() const @trusted {
         return clang_isDeclaration(cx.kind) != 0;
     }
 
@@ -441,17 +441,17 @@ struct Cursor {
      * other cursors. Use clang_getCursorReferenced() to determine whether a
      * particular cursor refers to another entity.
      */
-    @property bool isReference() const {
+    @property bool isReference() const @trusted {
         return clang_isReference(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents an expression.
-    @property bool isExpression() const {
+    @property bool isExpression() const @trusted {
         return clang_isExpression(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents a statement.
-    @property bool isStatement() const {
+    @property bool isStatement() const @trusted {
         return clang_isStatement(cx.kind) != 0;
     }
 
@@ -474,12 +474,12 @@ struct Cursor {
      * };
      * ---
      */
-    @property bool isAnonymous() const {
+    @property bool isAnonymous() const @trusted {
         return clang_Cursor_isAnonymous(cx) != 0;
     }
 
     /// Determine whether the given cursor kind represents an attribute.
-    @property bool isAttribute() const {
+    @property bool isAttribute() const @trusted {
         return clang_isAttribute(cx.kind) != 0;
     }
 
@@ -498,7 +498,7 @@ struct Cursor {
     /** Determine whether the given cursor represents a preprocessing
      * element, such as a preprocessor directive or macro instantiation.
      */
-    @property bool isPreprocessing() const {
+    @property bool isPreprocessing() const @trusted {
         return clang_isPreprocessing(cx.kind) != 0;
 
         // If clang_isPreprocessing isn't working out this is the
@@ -512,28 +512,28 @@ struct Cursor {
     /** Determine whether the given cursor represents a currently unexposed
      * piece of the AST (e.g., CXCursor_UnexposedStmt).
      */
-    @property bool isUnexposed() const {
+    @property bool isUnexposed() const @trusted {
         return clang_isUnexposed(cx.kind) != 0;
     }
 
     /// Return: if cursor is null/empty.
-    @property bool isEmpty() const {
+    @property bool isEmpty() const @trusted {
         return clang_Cursor_isNull(cx) != 0;
     }
 
     /** Returns true if the declaration pointed at by the cursor is also a
      * definition of that entity.
      */
-    bool isDefinition() const {
+    bool isDefinition() const @trusted {
         return clang_isCursorDefinition(cast(CXCursor) cx) != 0;
     }
 
     /// Returns: if the base class specified by the cursor with kind CX_CXXBaseSpecifier is virtual.
-    @property bool isVirtualBase() const {
+    @property bool isVirtualBase() const @trusted {
         return clang_isVirtualBase(cx) != 0;
     }
 
-    bool isPredefined() const {
+    bool isPredefined() const @trusted {
         auto xkind = usr in predefined;
         return xkind !is null && *xkind == kind;
     }
@@ -606,7 +606,7 @@ struct FunctionCursor {
     alias cursor this;
 
     /// Return: Retrieve the Type of the result for this Cursor.
-    @property Type resultType() {
+    @property Type resultType() @trusted {
         auto r = clang_getCursorResultType(cx);
         return Type(cursor, r);
     }
@@ -615,15 +615,10 @@ struct FunctionCursor {
         return ParamVisitor(cursor);
     }
 
-    //TODO remove
-    @property bool isVariadic() {
-        return type.func.isVariadic;
-    }
-
     /** Determine if a C++ member function or member function template is
      * pure virtual.
      */
-    @property bool isPureVirtual() {
+    @property bool isPureVirtual() @trusted {
         return clang_CXXMethod_isPureVirtual(cx) != 0;
     }
 
@@ -638,14 +633,14 @@ struct FunctionCursor {
      * explicitly declared 'virtual' or if it overrides a virtual method from
      * one of the base classes.
      */
-    @property bool isVirtual() {
+    @property bool isVirtual() @trusted {
         return clang_CXXMethod_isVirtual(cx) != 0;
     }
 
     /** Determine if a C++ member function or member function template is
      * declared 'const'.
      */
-    @property bool isConst() {
+    @property bool isConst() @trusted {
         return clang_CXXMethod_isConst(cx) != 0;
     }
 
@@ -659,7 +654,7 @@ struct FunctionCursor {
      * If the method/message is "static" or the cursor does not point to a
      * method/message, it will return zero.
      */
-    @property bool isDynamicCall() {
+    @property bool isDynamicCall() @trusted {
         return clang_Cursor_isDynamicCall(cx) != 0;
     }
 }
@@ -672,7 +667,7 @@ struct AccessCursor {
      * by a cursor with kind CXCursor_CXXBaseSpecifier or
      * CXCursor_AccessSpecifier.
      */
-    @property auto accessSpecifier() {
+    @property auto accessSpecifier() @trusted {
         return clang_getCXXAccessSpecifier(cx);
     }
 }
@@ -689,7 +684,7 @@ struct IncludeCursor {
     /** Retrieve the file that is included by the given inclusion directive
      * cursor.
      */
-    @property auto file() {
+    @property auto file() @trusted {
         auto r = clang_getIncludedFile(cx);
         return File(r);
     }
@@ -741,9 +736,18 @@ struct EnumCursor {
     }
 
     /// Return: if the underlying type is an enum.
-    @property bool isUnderlyingTypeEnum() {
-        auto t = typedefUnderlyingType.declaration.enum_;
-        return t.kind == CXTypeKind.CXType_Enum;
+    @property bool isUnderlyingTypeEnum() @trusted {
+        auto underlying = typedefUnderlyingType;
+        if (!underlying.isValid) {
+            return false;
+        }
+
+        auto decl = underlying.declaration;
+        if (!decl.isValid) {
+            return false;
+        }
+
+        return decl.enum_.kind == CXTypeKind.CXType_Enum;
     }
 
     /// Return: if the type of the enum is signed.
