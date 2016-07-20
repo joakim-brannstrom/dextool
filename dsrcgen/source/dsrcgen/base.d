@@ -1,7 +1,14 @@
-/// Written in the D programming language.
-/// Date: 2015, Joakim Brännström
-/// License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
-/// Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+/**
+Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+Basic support structure for enabling semantic representation in D of languages.
+Assuming that submodules need:
+ - indentation.
+ - key/value store.
+ - recursing rendering.
+*/
 module dsrcgen.base;
 
 @safe:
@@ -32,6 +39,7 @@ package struct AttrSetter {
 
 public:
 
+/// Methods for setting attributes inside slice operator via $.x.
 mixin template Attrs() {
     import std.string;
 
@@ -49,29 +57,60 @@ mixin template Attrs() {
     }
 }
 
+/** Interface for rendering functionality.
+ *
+ * After the semantic representation is finished the BaseElement interface is
+ * used to recursively render the representation.
+ */
 interface BaseElement {
+    /// Recursively render the modules.
     string render();
+
+    /// Query the module for an indented string representation.
     string renderIndent(int parent_level, int level);
+
+    /// Query the module for a concatenated string of the childrens representation.
     string renderRecursive(int parent_level, int level);
+
+    /// Query the module for post recursive data.
     string renderPostRecursive(int parent_level, int level);
 }
 
+/// Raw text representation without indentation.
 class Text(T) : T {
     private string contents;
 
+    /// Use content as is.
     this(string contents) {
         this.contents = contents;
     }
 
+    /// Render content without indentation.
     override string renderIndent(int parent_level, int level) {
         return contents;
     }
 }
 
+/** Common functionality for modules.
+ *
+ * Support indentation.
+ * Children structure.
+ * Recursive rendering of content + children.
+ * Line separation independent of accidental sep().
+ *
+ * TODO refactor, lessen the coupling by moving functionality to pure, free functions.
+ * TODO refactor, use a GC-less allocator like Array.
+ * TODO refactor, toString to support the range versions with a sink.
+ */
 class BaseModule : BaseElement {
+    /// Empty with defaults.
     this() {
     }
 
+    /** Module with a indent different fro default
+     * Params:
+     *  indent_width = number of whitespaces to use as indent for each level
+     */
     this(int indent_width) {
         this.indent_width = indent_width;
     }
@@ -125,21 +164,43 @@ class BaseModule : BaseElement {
         sep_lines += count;
     }
 
+    /** Insert element at the front.
+     *
+     * Resets line separation.
+     *
+     * TODO change to insertFront to be consistent with std.container API.
+     */
     void prepend(BaseElement e) {
         children = e ~ children;
         sep_lines = 0;
     }
 
+    /** Insert element at the back.
+     *
+     * Resets line separation.
+     *
+     * TODO change to insertBack to be consistent with std.container API.
+     */
     void append(BaseElement e) {
         children ~= e;
         sep_lines = 0;
     }
 
+    /** Remove all children and clear line separation.
+     *
+     * Resets line separation.
+     * Why?
+     * Conceptually restarts the container so no children then nothing to
+     * separate with empty lines.
+     */
     void clearChildren() {
         children.length = 0;
         sep_lines = 0;
     }
 
+    /** Render content with an indentation that takes the parent in
+     * consideration.
+     */
     string indent(string s, int parent_level, int level) const {
         import std.algorithm : max;
 
