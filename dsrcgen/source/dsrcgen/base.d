@@ -142,14 +142,13 @@ class BaseModule : BaseElement {
 
     string indent(string s, int parent_level, int level) const {
         import std.algorithm : max;
-        import std.conv : to;
 
         level = max(0, parent_level, level);
         char[] indent;
         indent.length = indent_width * level;
         indent[] = ' ';
 
-        return to!string(indent) ~ s;
+        return indent.idup ~ s;
     }
 
     override string renderIndent(int parent_level, int level) {
