@@ -228,6 +228,9 @@ class PlantumlModule : BaseModule {
 
     auto namespace(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("namespace " ~ name);
+        if (separator) {
+            sep();
+        }
         return e;
     }
 
