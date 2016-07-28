@@ -7,7 +7,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.plantuml;
 
 import std.meta : AliasSeq, staticIndexOf;
-import std.typecons : Flag, Yes, No;
+import std.traits : ReturnType;
+import std.typecons : Flag, Yes, No, Typedef, Tuple;
 
 import dsrcgen.base;
 
@@ -90,9 +91,6 @@ enum LabelPos {
     Right,
     OnRelation
 }
-
-import std.traits : ReturnType;
-import std.typecons : Typedef, Tuple;
 
 alias ClassModuleType = Typedef!(PlantumlModule, null, "ClassModuleType");
 alias ClassAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
