@@ -331,7 +331,7 @@ auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
     return e;
 }
 
-auto ctor_body(T0, T...)(T0 m, string class_name, auto ref T args)
+auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
         if (CanHaveMethod!T) {
     import std.format : format;
 
