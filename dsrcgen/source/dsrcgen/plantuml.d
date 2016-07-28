@@ -19,7 +19,8 @@ version (Have_unit_threaded) {
         string n;
     }
 
-    void shouldEqual(T0, T1)(T0 value, T1 expect) {
+    /// Fallback when unit_threaded doon't exist.
+    private void shouldEqual(T0, T1)(T0 value, T1 expect) {
         assert(value == expect, value);
     }
 }
