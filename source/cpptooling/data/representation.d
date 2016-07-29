@@ -47,6 +47,8 @@ import cpptooling.analyzer.type;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.conv : str;
 
+static import cpptooling.data.class_classification;
+
 version (unittest) {
     import test.helpers : shouldEqualPretty;
     import unit_threaded : Name;
@@ -1027,6 +1029,8 @@ pure nothrow struct CppClass {
     import std.typecons : TypedefType;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
+    static import cpptooling.data.class_classification;
+
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
     USRType usr;
@@ -1036,7 +1040,7 @@ pure nothrow struct CppClass {
         CppInherit[] inherits_;
         CppNsStack reside_in_ns;
 
-        ClassVirtualType classification_;
+        cpptooling.data.class_classification.State classification_;
 
         CppFunc[] methods_pub;
         CppFunc[] methods_prot;
@@ -1187,8 +1191,8 @@ pure nothrow struct CppClass {
             break;
         }
 
-        classification_ = classifyClass(classification_, f,
-                cast(Flag!"hasMember")(memberRange.length > 0));
+        classification_ = cpptooling.data.class_classification.classifyClass(classification_,
+                f, cast(Flag!"hasMember")(memberRange.length > 0));
     }
 
     void put(CppFunc f) {
@@ -1345,13 +1349,13 @@ const:
     bool isVirtual() {
         import std.algorithm : among;
 
-        with (ClassVirtualType) {
+        with (cpptooling.data.class_classification.State) {
             return classification_.among(Virtual, VirtualDtor, Abstract, Pure) != 0;
         }
     }
 
     bool isAbstract() {
-        with (ClassVirtualType) {
+        with (cpptooling.data.class_classification.State) {
             return classification_ == Abstract;
         }
     }
@@ -1359,7 +1363,7 @@ const:
     bool isPure() {
         import std.algorithm : among;
 
-        with (ClassVirtualType) {
+        with (cpptooling.data.class_classification.State) {
             return classification_.among(VirtualDtor, Pure) != 0;
         }
     }
@@ -1399,112 +1403,8 @@ const:
     }
 }
 
-// Clang have no property that clasifies a class as virtual/abstract/pure.
-private ClassVirtualType classifyClass(T)(in ClassVirtualType current, const T p,
-        Flag!"hasMember" hasMember) @safe {
-    import std.algorithm : among;
-
-    struct Rval {
-        enum Type {
-            Method,
-            Ctor,
-            Dtor
-        }
-
-        MemberVirtualType value;
-        Type t;
-    }
-
-    static Rval getMethodClassification(T func) @trusted
-    out (result) {
-        assert(result.value != MemberVirtualType.Unknown);
-    }
-    body {
-        import std.variant : visit;
-
-        //dfmt off
-        return func.visit!(
-            (const CppMethod a) => Rval(a.classification(), Rval.Type.Method),
-            (const CppMethodOp a) => Rval(a.classification(), Rval.Type.Method),
-            (const CppCtor a) => Rval(MemberVirtualType.Normal, Rval.Type.Ctor),
-            (const CppDtor a) => Rval(a.classification(), Rval.Type.Dtor));
-        //dfmt on
-    }
-
-    ClassVirtualType r = current;
-    auto mVirt = getMethodClassification(p);
-
-    final switch (current) {
-    case ClassVirtualType.Pure:
-        // a pure interface can't have members
-        if (hasMember) {
-            r = ClassVirtualType.Abstract;
-        }  // a non-virtual destructor lowers purity
-        else if (mVirt.t == Rval.Type.Dtor && mVirt.value == MemberVirtualType.Normal) {
-            r = ClassVirtualType.Abstract;
-        } else if (mVirt.t == Rval.Type.Method && mVirt.value == MemberVirtualType.Virtual) {
-            r = ClassVirtualType.Abstract;
-        }
-        break;
-    case ClassVirtualType.Abstract:
-        // one or more methods are pure, stay at this state
-        break;
-    case ClassVirtualType.Virtual:
-        if (mVirt.value == MemberVirtualType.Pure) {
-            r = ClassVirtualType.Abstract;
-        }
-        break;
-    case ClassVirtualType.VirtualDtor:
-        if (mVirt.value == MemberVirtualType.Pure) {
-            r = ClassVirtualType.Pure;
-        } else {
-            r = ClassVirtualType.Virtual;
-        }
-        break;
-    case ClassVirtualType.Normal:
-        if (mVirt.t.among(Rval.Type.Method,
-                Rval.Type.Dtor) && mVirt.value == MemberVirtualType.Pure) {
-            r = ClassVirtualType.Abstract;
-        } else if (mVirt.t.among(Rval.Type.Method, Rval.Type.Dtor)
-                && mVirt.value == MemberVirtualType.Virtual) {
-            r = ClassVirtualType.Virtual;
-        }
-        break;
-    case ClassVirtualType.Unknown:
-        // ctor cannot affect purity evaluation
-        if (mVirt.t == Rval.Type.Dtor
-                && mVirt.value.among(MemberVirtualType.Pure, MemberVirtualType.Virtual)) {
-            r = ClassVirtualType.VirtualDtor;
-        } else if (mVirt.t != Rval.Type.Ctor) {
-            final switch (mVirt.value) {
-            case MemberVirtualType.Unknown:
-                r = ClassVirtualType.Unknown;
-                break;
-            case MemberVirtualType.Normal:
-                r = ClassVirtualType.Normal;
-                break;
-            case MemberVirtualType.Virtual:
-                r = ClassVirtualType.Virtual;
-                break;
-            case MemberVirtualType.Pure:
-                r = ClassVirtualType.Pure;
-                break;
-            }
-        }
-        break;
-    }
-
-    debug {
-        import std.conv : to;
-
-        logger.trace(p.type, ":", to!string(mVirt), ":",
-                to!string(current), "->", to!string(r));
-    }
-
-    return r;
-}
-
-pure nothrow struct CppNamespace {
+struct CppNamespace {
+@safe:
     mixin mixinKind;
 
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -1521,16 +1421,16 @@ pure nothrow struct CppNamespace {
 
     @disable this();
 
-    static auto makeAnonymous() @safe {
+    static auto makeAnonymous() pure nothrow {
         return CppNamespace(CppNsStack.init);
     }
 
     /// A namespace without any nesting.
-    static auto make(CppNs name) @safe {
+    static auto make(CppNs name) pure nothrow {
         return CppNamespace([name]);
     }
 
-    this(const CppNsStack stack) @safe {
+    this(const CppNsStack stack) pure nothrow {
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
         }
@@ -1558,8 +1458,7 @@ pure nothrow struct CppNamespace {
               classes.map!(a => a.toString),
               namespaces.map!(a => a.toString)
               )
-            .filter!(a => a.length != 0)
-            .cache;
+            .filter!(a => a.length != 0);
         content.save.joiner(newline).copy(sink);
         content.takeOne.map!(a => newline).copy(sink);
         // dfmt on
@@ -1567,21 +1466,19 @@ pure nothrow struct CppNamespace {
         formattedWrite(sink, "} //NS:%s", ns_top_name);
     }
 
-@safe:
-
-    void put(CFunction f) {
+    void put(CFunction f) pure nothrow {
         funcs ~= f;
     }
 
-    void put(CppClass s) {
+    void put(CppClass s) pure nothrow {
         classes ~= s;
     }
 
-    void put(CppNamespace ns) {
+    void put(CppNamespace ns) pure nothrow {
         namespaces ~= ns;
     }
 
-    void put(CxGlobalVariable g) {
+    void put(CxGlobalVariable g) pure nothrow {
         globals ~= g;
     }
 
@@ -1590,40 +1487,40 @@ pure nothrow struct CppNamespace {
      * The top is THIS namespace.
      * So A::B::C would be a range of [C, B, A].
      */
-    auto nsNestingRange() @nogc {
+    auto nsNestingRange() @nogc pure nothrow {
         import std.range : retro;
 
         return stack.retro;
     }
 
     /// Range data of symbols residing in this namespace.
-    auto classRange() @nogc {
+    auto classRange() @nogc pure nothrow {
         return classes;
     }
 
     /// Range of free functions residing in this namespace.
-    auto funcRange() @nogc {
+    auto funcRange() @nogc pure nothrow {
         return funcs;
     }
 
     /// Range of namespaces residing in this namespace.
-    auto namespaceRange() @nogc {
+    auto namespaceRange() @nogc pure nothrow {
         return namespaces;
     }
 
     /// Global variables residing in this namespace.
-    auto globalRange() @nogc {
+    auto globalRange() @nogc pure nothrow {
         return globals;
     }
 
 const:
 
-    string toString() @safe const {
+    string toString() const {
         import std.exception : assumeUnique;
 
         char[] buf;
         buf.reserve(100);
-        this.toString((const(char)[] s) { buf ~= s; });
+        this.toString((const(char)[] s) pure{ buf ~= s; });
         auto trustedUnique(T)(T t) @trusted {
             return assumeUnique(t);
         }
@@ -1632,12 +1529,12 @@ const:
     }
 
     /// If the namespace is anonymous, aka has no name.
-    auto isAnonymous() {
+    auto isAnonymous() pure nothrow {
         return name_.length == 0;
     }
 
     /// Name of the namespace
-    auto name() {
+    auto name() pure nothrow {
         return name_;
     }
 
@@ -1646,7 +1543,7 @@ const:
      * TODO change function name, it is the full stack. So fully qualified
      * name.
      */
-    auto resideInNs() {
+    auto resideInNs() pure nothrow {
         return stack;
     }
 
@@ -1654,7 +1551,7 @@ const:
      *
      * Example of FQN for C could be A::B::C.
      */
-    auto fullyQualifiedName() {
+    auto fullyQualifiedName() pure {
         //TODO optimize by only calculating once.
 
         import std.array : array;
@@ -1663,9 +1560,9 @@ const:
         import std.utf : byChar, toUTF8;
 
         // dfmt off
-            auto fqn = stack.map!(a => cast(string) a).joiner("::");
-            return FullyQualifiedNameType(fqn.array().toUTF8);
-            // dfmt on
+        auto fqn = stack.map!(a => cast(string) a).joiner("::");
+        return FullyQualifiedNameType(fqn.array().toUTF8);
+        // dfmt on
     }
 }
 

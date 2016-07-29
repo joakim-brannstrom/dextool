@@ -327,21 +327,33 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import std.algorithm : map, joiner;
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType, Nullable;
+    import std.typecons : TypedefType;
+    import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.type : Location, LocationTag;
     import cpptooling.data.representation : CppRoot;
-    import plugin.backend.plantuml : Generator;
+    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol.types : USRType;
+    import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
+        UMLComponentDiagram, TransformToDiagram;
 
     // lazy man, same data as used for C++ test double generator is for now used here.
     // In the future construct a specific visitor for plantuml
     import plugin.backend.cppvariant : CppVisitor;
 
-    auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
+    Container container;
+    auto generator = Generator(variant, variant, variant);
+
+    auto transform = TransformToDiagram!(Controller, Parameters)(variant,
+            variant, (USRType usr) @safe{ return container.find!TypeKind(usr); },
+            // connect the transform with a destination
+            generator.uml_component, generator.uml_class);
+
+    auto visitor = new UMLVisitor!(Controller, TransformToDiagram!(Controller, Parameters))(variant,
+            transform, container);
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
         const auto cflags = prependDefaultFlags(in_cflags, "");
-        auto generator = Generator(variant, variant, variant);
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         const auto total_files = compile_db.length;
@@ -372,10 +384,6 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
                     unable_to_parse.map!(a => (cast(string) a))
                     .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
         }
-
-        // process and put the data in variant.
-        generator.analyze(visitor.root, visitor.container);
-        generator.process();
         break;
 
     case FileProcess.Directive.Single:
@@ -402,12 +410,15 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-
-        // process and put the data in variant.
-        auto generator = Generator(variant, variant, variant);
-        generator.analyze(visitor.root, visitor.container);
-        generator.process();
         break;
+    }
+
+    generator.process();
+
+    debug {
+        logger.trace(container.toString);
+        logger.trace(generator.uml_component.toString);
+        logger.trace(generator.uml_class.toString);
     }
 
     return writeFileData(variant.fileData);

@@ -288,7 +288,8 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         // instead.
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
-            root.put(result);
+            auto var = CxGlobalVariable(TypeKindVariable(result.type, result.name), result.location);
+            root.put(var);
         }
     }
 
@@ -296,14 +297,15 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
-        if (!result.isNull) {
-            root.put(result);
+        if (result.isValid) {
+            auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
+                    result.isVariadic, result.storageClass, result.location);
+            root.put(func);
         }
     }
 
     override void visit(const(ClassDecl) v) @trusted {
-        import std.typecons : TypedefType, scoped;
-        import clang.Cursor : Cursor;
+        import std.typecons : scoped;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.utility : put;
@@ -321,8 +323,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
             root.put(visitor.root);
             container.put(visitor.root, visitor.root.fullyQualifiedName);
         } else {
-            Cursor c = v.cursor;
-            auto type = retrieveType(c, container, indent);
+            auto type = retrieveType(v.cursor, container, indent);
             put(type, container, indent);
         }
     }

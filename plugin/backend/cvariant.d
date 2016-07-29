@@ -266,6 +266,7 @@ final class CVisitor : Visitor {
     }
 
     override void visit(const(VarDecl) v) @trusted {
+        import cpptooling.data.type : TypeKindVariable;
         import deimos.clang.index : CX_StorageClass;
 
         mixin(mixinNodeLog!());
@@ -274,16 +275,21 @@ final class CVisitor : Visitor {
         //now skipping all definitions
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
-            root.put(result);
+            auto var = CxGlobalVariable(TypeKindVariable(result.type, result.name), result.location);
+            root.put(var);
         }
     }
 
     override void visit(const(FunctionDecl) v) {
+        import cpptooling.data.type : CxReturnType;
+
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
-        if (!result.isNull) {
-            root.put(result);
+        if (result.isValid) {
+            auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
+                    result.isVariadic, result.storageClass, result.location);
+            root.put(func);
         }
     }
 
