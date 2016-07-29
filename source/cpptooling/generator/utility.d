@@ -40,15 +40,11 @@ template storeValidLocations(alias storeFun) if (is(typeof(unaryFun!storeFun))) 
         import std.range : tee;
         import cpptooling.data.type : LocationTag, Location;
 
-        static if (hasMember!(ElementType!(Range), "locations")) {
-            return range.tee!(a => a.locations.validLocations!(a => true).each!(a => storeFun(a)));
-        } else {
-            return range.tee!((a) {
-                if (a.location.kind != LocationTag.Kind.noloc) {
-                    storeFun(a.location);
-                }
-            });
-        }
+        return range.tee!((a) {
+            if (a.location.kind != LocationTag.Kind.noloc) {
+                storeFun(a.location);
+            }
+        });
     }
 }
 
@@ -66,10 +62,6 @@ template filterAnyLocation(alias predicate) if (is(typeof(unaryFun!predicate))) 
             }
         }
 
-        static if (hasMember!(ElementType!(Range), "locations")) {
-            return range.filter!(a => a.locations.any!(loc => anyLocation(a, loc)));
-        } else {
-            return range.filter!(a => anyLocation(a, a.location));
-        }
+        return range.filter!(a => anyLocation(a, a.location));
     }
 }

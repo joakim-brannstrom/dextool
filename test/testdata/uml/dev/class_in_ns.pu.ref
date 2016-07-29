@@ -1,3 +1,4 @@
 @startuml
 class "ns1::A" as YzpATkBuczFAU0BB
+class "ns1::ns2::B" as YzpATkBuczFATkBuczJAU0BC
 @enduml

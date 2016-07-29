@@ -6,6 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.utility.conv;
 
+/// Cast to a string.
 string str(T)(const T value) @safe pure nothrow {
     return cast(string) value;
 }

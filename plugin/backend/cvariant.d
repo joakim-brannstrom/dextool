@@ -249,6 +249,7 @@ final class CVisitor : Visitor {
     import cpptooling.utility.clang : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
 
     CppRoot root;
     Container container;
@@ -256,21 +257,12 @@ final class CVisitor : Visitor {
     private {
         StubController ctrl;
         StubProducts prod;
-        uint indent;
     }
 
     this(StubController ctrl, StubProducts prod) {
         this.ctrl = ctrl;
         this.prod = prod;
         this.root = CppRoot(LocationTag(null));
-    }
-
-    override void incr() @safe {
-        ++indent;
-    }
-
-    override void decr() @safe {
-        --indent;
     }
 
     override void visit(const(VarDecl) v) @trusted {

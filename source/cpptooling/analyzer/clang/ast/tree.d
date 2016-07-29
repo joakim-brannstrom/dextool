@@ -84,6 +84,12 @@ struct ClangAST(VisitorT) {
     }
 }
 
+/** Apply the visitor to the children of the cursor.
+ *
+ * Optional functions:
+ *   void incr(). Called before descending a node.
+ *   void decr(). Called after ascending a node.
+ */
 void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
     import std.traits : isArray;
     import clang.Visitor : Visitor;
@@ -112,6 +118,13 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
     }();
 }
 
+/** Static wrapping of the cursor followed by a passing it to the visitor.
+ *
+ * The cursor is wrapped in the class that corresponds to the kind of the
+ * cursor.
+ *
+ * Note that the mixins shall be ordered alphabetically.
+ */
 void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
     import std.conv : to;
 

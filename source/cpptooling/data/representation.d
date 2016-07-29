@@ -1585,11 +1585,10 @@ pure nothrow struct CppNamespace {
         globals ~= g;
     }
 
-    /** Traverse stack from top to bottom.
+    /** Range of the fully qualified name starting from the top.
      *
-     * The implementation of the stack is such that new elements are appended
-     * to the end. Therefor the range normal direction is from the end of the
-     * array to the beginning.
+     * The top is THIS namespace.
+     * So A::B::C would be a range of [C, B, A].
      */
     auto nsNestingRange() @nogc {
         import std.range : retro;
@@ -1597,18 +1596,22 @@ pure nothrow struct CppNamespace {
         return stack.retro;
     }
 
+    /// Range data of symbols residing in this namespace.
     auto classRange() @nogc {
         return classes;
     }
 
+    /// Range of free functions residing in this namespace.
     auto funcRange() @nogc {
         return funcs;
     }
 
+    /// Range of namespaces residing in this namespace.
     auto namespaceRange() @nogc {
         return namespaces;
     }
 
+    /// Global variables residing in this namespace.
     auto globalRange() @nogc {
         return globals;
     }
@@ -1628,19 +1631,29 @@ const:
         return trustedUnique(buf);
     }
 
+    /// If the namespace is anonymous, aka has no name.
     auto isAnonymous() {
         return name_.length == 0;
     }
 
+    /// Name of the namespace
     auto name() {
         return name_;
     }
 
+    /** Range representation of the fully qualified name.
+     *
+     * TODO change function name, it is the full stack. So fully qualified
+     * name.
+     */
     auto resideInNs() {
-        //TODO change name, it is the full stack. So fully qualified name.
         return stack;
     }
 
+    /** The fully qualified name of where the namespace reside.
+     *
+     * Example of FQN for C could be A::B::C.
+     */
     auto fullyQualifiedName() {
         //TODO optimize by only calculating once.
 
@@ -1656,6 +1669,9 @@ const:
     }
 }
 
+/** The root of the data structure of the semantic representation of the
+ * analyzed C++ source.
+ */
 pure nothrow struct CppRoot {
     mixin mixinSourceLocation;
 
@@ -1668,15 +1684,18 @@ pure nothrow struct CppRoot {
         RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
+    /// Make a root with a "noloc" location.
     static auto make() @safe {
         auto r = CppRoot(unknownLocation);
         return r;
     }
 
+    /// Construct a root container with a location.
     this(in Location loc) @safe {
         this(LocationTag(loc));
     }
 
+    /// ditto
     this(in LocationTag loc) @safe {
         import std.container : make;
 
@@ -1711,40 +1730,49 @@ pure nothrow struct CppRoot {
 
 @safe:
 
+    /// Put item in storage.
     void put(CFunction f) {
         () @trusted{ funcs.insert(f); }();
     }
 
+    /// ditto
     void put(CppClass s) {
         classes ~= s;
     }
 
+    /// ditto
     void put(CppNamespace ns) {
         this.ns ~= ns;
     }
 
+    /// ditto
     void put(CxGlobalVariable g) {
         () @trusted{ globals.insert(g); }();
     }
 
+    /// Range of contained data.
     auto namespaceRange() @nogc {
         return ns;
     }
 
+    /// ditto
     auto classRange() @nogc {
         return classes;
     }
 
+    /// ditto
     auto funcRange() @nogc {
         return funcs[];
     }
 
+    /// ditto
     auto globalRange() @nogc {
         return globals[];
     }
 
 const:
 
+    /// Cast to string representation
     T opCast(T : string)() const {
         return this.toString;
     }
