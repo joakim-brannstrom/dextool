@@ -305,6 +305,13 @@ auto method(T)(T m, string txt) if (CanHaveMethod!T) {
     return e;
 }
 
+///
+unittest {
+    auto m = new PlantumlModule;
+    auto class_ = m.classBody("A");
+    class_.method("void fun();");
+}
+
 auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
         Flag!"isConst" isConst) if (CanHaveMethod!T) {
     import std.format : format;
@@ -345,10 +352,6 @@ auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
  *  m = ?
  *  isVirtual = if evaluated to true prepend with virtual.
  *  class_name = name of the class to create a d'tor for.
- * Example:
- * ----
- * dtor(Yes.isVirtual, "Foo");
- * ----
  */
 auto dtor(T)(T m, Flag!"isVirtual" isVirtual, string class_name)
         if (CanHaveMethod!T) {
@@ -357,6 +360,13 @@ auto dtor(T)(T m, Flag!"isVirtual" isVirtual, string class_name)
     auto e = m.getM.stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
             class_name[0] == '~' ? "" : "~", class_name));
     return e;
+}
+
+///
+unittest {
+    auto m = new PlantumlModule;
+    auto class_ = m.classBody("Foo");
+    class_.dtor(Yes.isVirtual, "Foo");
 }
 
 auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
@@ -368,12 +378,24 @@ auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
 
 auto addSpot(T)(ref T m, string spot) if (is(T == ClassType)) {
     m.spot.clearChildren;
-
-    auto spot_ = m.as.text(" " ~ spot);
-    m.spot = spot_;
+    m.spot = m.as.text(" " ~ spot);
 
     return m.spot;
 }
+
+/// Creating a plantuml spot.
+/// Output:
+/// class A << I, #123456 >>
+///         '--the spot----'
+unittest {
+    auto m = new PlantumlModule;
+    auto class_ = m.class_("A");
+    class_.addSpot("<< I, #123456 >>");
+
+    m.render.shouldEqual(`    class "A" << I, #123456 >>
+`);
+}
+
 // End: Class Diagram functions
 
 // Begin: Component Diagram functions
@@ -387,10 +409,13 @@ auto addAs(T)(ref T m) if (is(T == ComponentType) || is(T == ClassType)) {
 }
 // End: Component Diagram functions
 
+/** Add a label to an existing relation.
+ *
+ * The meaning of LabelPos.
+ * A "Left" -- "Right" B : "OnRelation"
+ */
 auto label(Relation m, string txt, LabelPos pos) {
     import std.format : format;
-
-    // A "Left" -- "Right" B : "OnRelation"
 
     final switch (pos) with (LabelPos) {
     case Left:
@@ -406,6 +431,15 @@ auto label(Relation m, string txt, LabelPos pos) {
     }
 
     return m;
+}
+
+///
+unittest {
+    auto m = new PlantumlModule;
+    auto c0 = m.class_("A");
+    auto c1 = m.class_("B");
+    auto r0 = m.relate(c0.name, c1.name, Relate.Compose);
+    r0.label("foo", LabelPos.Right);
 }
 
 auto label(Relation m, string txt) {
