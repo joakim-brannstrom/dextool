@@ -21,7 +21,7 @@ version (unittest) {
     import unit_threaded : Name;
     import unit_threaded : shouldEqual;
 } else {
-    struct Name {
+    private struct Name {
         string name_;
     }
 }

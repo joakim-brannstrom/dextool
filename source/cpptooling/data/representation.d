@@ -61,7 +61,7 @@ version (unittest) {
         return LocationTag(Location("a.h", 456, 12));
     }
 } else {
-    struct Name {
+    private struct Name {
         string name_;
     }
 }

@@ -29,7 +29,7 @@ import cpptooling.analyzer.clang.ast.visitor : CXCursorKind_PrefixLen;
 version (unittest) {
     import unit_threaded : Name, shouldEqual, shouldBeTrue;
 } else {
-    struct Name {
+    private struct Name {
         string name_;
     }
 }
