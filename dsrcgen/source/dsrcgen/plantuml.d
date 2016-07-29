@@ -7,18 +7,20 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dsrcgen.plantuml;
 
 import std.meta : AliasSeq, staticIndexOf;
-import std.typecons : Flag, Yes, No;
+import std.traits : ReturnType;
+import std.typecons : Flag, Yes, No, Typedef, Tuple;
 
 import dsrcgen.base;
 
 version (Have_unit_threaded) {
     import unit_threaded : Name, shouldEqual;
 } else {
-    struct Name {
+    private struct Name {
         string n;
     }
 
-    void shouldEqual(T0, T1)(T0 value, T1 expect) {
+    /// Fallback when unit_threaded doon't exist.
+    private void shouldEqual(T0, T1)(T0 value, T1 expect) {
         assert(value == expect, value);
     }
 }
@@ -90,9 +92,6 @@ enum LabelPos {
     Right,
     OnRelation
 }
-
-import std.traits : ReturnType;
-import std.typecons : Typedef, Tuple;
 
 alias ClassModuleType = Typedef!(PlantumlModule, null, "ClassModuleType");
 alias ClassAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
@@ -228,6 +227,9 @@ class PlantumlModule : BaseModule {
 
     auto namespace(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("namespace " ~ name);
+        if (separator) {
+            sep();
+        }
         return e;
     }
 
@@ -328,7 +330,7 @@ auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
     return e;
 }
 
-auto ctor_body(T0, T...)(T0 m, string class_name, auto ref T args)
+auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
         if (CanHaveMethod!T) {
     import std.format : format;
 
