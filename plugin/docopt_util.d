@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2
@@ -22,7 +21,7 @@ import docopt : ArgValue;
 void printArgs(ref ArgValue[string] parsed) nothrow {
     import std.algorithm : map, joiner;
     import std.ascii : newline;
-    import std.conv;
+    import std.conv : text;
     import std.format : format;
     import std.string : leftJustifier;
 
