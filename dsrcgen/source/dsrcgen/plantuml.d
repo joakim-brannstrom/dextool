@@ -27,10 +27,16 @@ version (Have_unit_threaded) {
 
 @safe:
 
+/** A plantuml comment using ''' as is.
+ *
+ * Compared to Text a comment is affected by indentation.
+ */
 class Comment : BaseModule {
     mixin Attrs;
 
     private string contents;
+
+    /// Construct a one-liner comment from contents.
     this(string contents) {
         this.contents = contents;
     }
@@ -55,7 +61,8 @@ enum Relate {
     DotArrowTo
 }
 
-string relateToString(Relate relate) {
+/// Converter for enum Relate to plantuml syntax.
+private string relateToString(Relate relate) {
     string r_type;
     final switch (relate) with (Relate) {
     case WeakRelate:
@@ -111,7 +118,12 @@ alias NoteType = Typedef!(PlantumlModule, null, "NoteType");
 alias RelationType = Typedef!(ReturnType!(PlantumlModule.stmt),
         ReturnType!(PlantumlModule.stmt).init, "RelationType");
 
-mixin template RelateTypes(Tleft, Tright, Trel, Tblock) {
+/** A relation in plantuml has three main positions that can be modified.
+ *
+ * Block
+ *  left middle right
+ */
+private mixin template RelateTypes(Tleft, Tright, Trel, Tblock) {
     alias RelateLeft = Typedef!(Tleft, Tleft.init, "RelateLeft");
     alias RelateRight = Typedef!(Tright, Tright.init, "RelateRight");
     alias RelateMiddle = Typedef!(Trel, Trel.init, "RelateMiddle");
@@ -127,9 +139,21 @@ mixin RelateTypes!(Text!PlantumlModule, Text!PlantumlModule,
 alias CanRelateSeq = AliasSeq!(ClassNameType, ComponentNameType);
 enum CanRelate(T) = staticIndexOf!(T, CanRelateSeq) >= 0;
 
+/** Semantic representation in D of PlantUML elements.
+ *
+ * All created instances are stored internally.
+ * The returned instances is thus to allow the user to further manipulate or
+ * add nesting content.
+ */
 class PlantumlModule : BaseModule {
     mixin Attrs;
 
+    /** Make a Comment followed by a separator.
+     *
+     * Affected by indentation.
+     *
+     * TODO should have an addSep like stmt have.
+     */
     auto comment(string comment) {
         auto e = new Comment(comment);
         e.sep;
@@ -137,19 +161,39 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
+    /** Make a raw Text.
+     *
+     * Note it is intentional that the text object do NOT have a separator. It
+     * is to allow detailed "surgical" insertion of raw text/data when no
+     * semantical "helpers" exist for a specific use case.
+     */
     auto text(string content) {
         auto e = new Text!(typeof(this))(content);
         append(e);
         return e;
     }
 
+    /** A basic building block with no content.
+     *
+     * Useful when a "node" is needed to add further content in.
+     * The node is affected by indentation.
+     */
     auto base() {
         auto e = new typeof(this);
         append(e);
         return e;
     }
 
-    // Statements
+    /** Make a statement with an optional separator.
+     *
+     * A statement is commonly an individual item or at the most a line.
+     *
+     * Params:
+     *   stmt_ = raw text to use as the statement
+     *   separator = flag determining if a separator is added
+     *
+     * Returns: Stmt instance stored in this.
+     */
     Stmt stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Stmt(stmt_);
         append(e);
@@ -159,6 +203,10 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
+    /** Make a UML class without any content.
+     *
+     * Return: A tuple allowing further modification.
+     */
     ClassType class_(string name) {
         import std.format : format;
 
@@ -170,6 +218,10 @@ class PlantumlModule : BaseModule {
                 ClassSpotType(spot), ClassAsType(as));
     }
 
+    /** Make a UML component without any content.
+     *
+     * Return: A tuple allowing further modification.
+     */
     auto component(string name) {
         import std.format : format;
 
@@ -179,6 +231,17 @@ class PlantumlModule : BaseModule {
         return ComponentType(ComponentNameType(name), ComponentModuleType(e), ComponentAsType(as));
     }
 
+    /** Make a relation between two things in plantuml.
+     *
+     * Ensured that the relation is well formed at compile time.
+     * Allows further manipulation of the relation and still ensuring
+     * correctness at compile time.
+     *
+     * Params:
+     *  a = left relation
+     *  b = right relation
+     *  relate = type of relation between a/b
+     */
     auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
         import std.format : format;
 
@@ -200,12 +263,18 @@ class PlantumlModule : BaseModule {
         return rl;
     }
 
+    /** Raw relate of a "type" b.
+     */
     auto unsafeRelate(string a, string b, string type) {
         import std.format : format;
 
         return RelationType(stmt(format(`%s %s %s`, a, type, b)));
     }
 
+    /** Make a floating note.
+     *
+     * It will need to be related to an object.
+     */
     auto note(string name) {
         ///TODO only supporting free floating for now
         auto block = stmt("");
@@ -216,6 +285,13 @@ class PlantumlModule : BaseModule {
     }
 
     // Suites
+
+    /** Make a suite/block as a child of "this" with an optional separator.
+     *
+     * The separator is inserted after the block.
+     *
+     * Returns: Suite instance stored in this.
+     */
     Suite suite(string headline, Flag!"addSep" separator = Yes.addSep) {
         auto e = new Suite(headline);
         append(e);
@@ -225,6 +301,9 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
+    /** Make a UML namespace with an optional separator.
+     * The separator is inserted after the block.
+     */
     auto namespace(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("namespace " ~ name);
         if (separator) {
@@ -233,11 +312,22 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
-    Suite digraph(string name) {
+    /** Make a PlantUML block for an inline Graphviz graph with an optional
+     * separator.
+     * The separator is inserted after the block.
+     */
+    Suite digraph(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("digraph " ~ name);
+        if (separator) {
+            sep();
+        }
         return e;
     }
 
+    /** Make a UML class with content (methods, members).
+     *
+     * Return: A tuple allowing further modification.
+     */
     ClassType classBody(string name) {
         import std.format : format;
 
@@ -255,6 +345,10 @@ class PlantumlModule : BaseModule {
                 ClassSpotType(spot), ClassAsType(as));
     }
 
+    /** Make a UML component with content.
+     *
+     * Return: A tuple allowing further modification.
+     */
     auto componentBody(string name) {
         import std.format : format;
 
@@ -300,6 +394,21 @@ private auto getM(T)(T m) {
     }
 }
 
+/** Make a method in a UML class diagram.
+ *
+ * Only possible for those that it makes sense such as class diagrams.
+ *
+ * Params:
+ *  m = ?
+ *  txt = raw text representing the method.
+ *
+ * Example:
+ * ---
+ * auto m = new PlantumlModule;
+ * class_ = m.classBody("A");
+ * class_.method("void fun();");
+ * ---
+ */
 auto method(T)(T m, string txt) if (CanHaveMethod!T) {
     auto e = m.getM.stmt(txt);
     return e;
@@ -312,6 +421,16 @@ unittest {
     class_.method("void fun();");
 }
 
+/** Make a method that takes no parameters in a UML class diagram.
+ *
+ * A helper function to get the representation of virtual, const etc correct.
+ *
+ * Params:
+ *  m = ?
+ *  return_type = ?
+ *  name = name of the class to create a d'tor for
+ *  isConst = ?
+ */
 auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
         Flag!"isConst" isConst) if (CanHaveMethod!T) {
     import std.format : format;
@@ -321,6 +440,16 @@ auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
     return e;
 }
 
+/** Make a method that takes arbitrary parameters in a UML class diagram.
+ *
+ * The parameters are iteratively converted to strings.
+ *
+ * Params:
+ *  m = ?
+ *  return_type = ?
+ *  name = name of the class to create a d'tor for
+ *  isConst = ?
+ */
 auto method(T0, T...)(T m, Flag!"isVirtual" isVirtual, string return_type,
         string name, Flag!"isConst" isConst, auto ref T args) if (CanHaveMethod!T) {
     import std.format : format;
@@ -332,11 +461,27 @@ auto method(T0, T...)(T m, Flag!"isVirtual" isVirtual, string return_type,
     return e;
 }
 
+/** Make a constructor without any parameters in a UML class diagram.
+ *
+ * Params:
+ *  m = ?
+ *  class_name = name of the class to create a d'tor for.
+ */
 auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
     auto e = m.getM.stmt(class_name ~ "()");
     return e;
 }
 
+/** Make a constructor that takes arbitrary number of parameters.
+ *
+ * Only applicable for UML class diagram.
+ *
+ * The parameters are iteratively converted to strings.
+ *
+ * Params:
+ *  m = ?
+ *  class_name = name of the class to create a d'tor for.
+ */
 auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
         if (CanHaveMethod!T) {
     import std.format : format;
@@ -347,7 +492,7 @@ auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
     return e;
 }
 
-/** Virtual d'tor.
+/** Make a destructor in a UML class diagram.
  * Params:
  *  m = ?
  *  isVirtual = if evaluated to true prepend with virtual.
@@ -369,6 +514,11 @@ unittest {
     class_.dtor(Yes.isVirtual, "Foo");
 }
 
+/** Make a destructor in a UML class diagram.
+ * Params:
+ *  m = ?
+ *  class_name = name of the class to create a d'tor for.
+ */
 auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
     import std.format : format;
 
@@ -376,6 +526,24 @@ auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
     return e;
 }
 
+/** Add a "spot" to a class in a class diagram.
+ *
+ * TODO i think there is a bug here. There is an order dependency of who is
+ * called first, addSpot or addAs.  Both extend "as" which means that if
+ * addSpot is called before addAs it will be "interesting".
+ *
+ * The documentation for PlantUML describes what it is.
+ * Example of a spot:
+ * class A << I, #123456 >>
+ *         '--the spot----'
+ *
+ * Example:
+ * ---
+ * auto m = new PlantumlModule;
+ * auto class_ = m.class_("A");
+ * class_.addSpot("<< I, #123456 >>");
+ * ---
+ */
 auto addSpot(T)(ref T m, string spot) if (is(T == ClassType)) {
     m.spot.clearChildren;
     m.spot = m.as.text(" " ~ spot);
@@ -399,6 +567,9 @@ unittest {
 // End: Class Diagram functions
 
 // Begin: Component Diagram functions
+
+/** Add a PlantUML renaming of a class or component.
+ */
 auto addAs(T)(ref T m) if (is(T == ComponentType) || is(T == ClassType)) {
     m.as.clearChildren;
 
@@ -442,6 +613,8 @@ unittest {
     r0.label("foo", LabelPos.Right);
 }
 
+/** Add a raw label "on" the relationship line.
+ */
 auto label(Relation m, string txt) {
     import std.format : format;
 
@@ -456,15 +629,17 @@ auto label(Relation m, string txt) {
 class Stmt : PlantumlModule {
     private string headline;
 
+    ///
     this(string headline) {
         this.headline = headline;
     }
 
+    /// See_Also: BaseModule
     override string renderIndent(int parent_level, int level) {
-        string end = ("end" in attrs) ? attrs["end"] : "";
-        string r = headline ~ end;
+        auto end = "end" in attrs;
+        string r = headline ~ (end is null ? "" : *end);
 
-        if (!("noindent" in attrs)) {
+        if ("noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
 
@@ -472,7 +647,9 @@ class Stmt : PlantumlModule {
     }
 }
 
-/** Affected by attribute begin, end, noindent.
+/** A plantuml block.
+ *
+ * Affected by attribute begin, end, noindent.
  * headline ~ begin
  *     <recursive>
  * end
@@ -482,6 +659,7 @@ class Stmt : PlantumlModule {
 class Suite : PlantumlModule {
     private string headline;
 
+    ///
     this(string headline) {
         this.headline = headline;
     }
@@ -489,10 +667,14 @@ class Suite : PlantumlModule {
     override string renderIndent(int parent_level, int level) {
         import std.ascii : newline;
 
-        string begin = ("begin" in attrs) ? attrs["begin"] : " {" ~ newline;
-        string r = headline ~ begin;
+        string r;
+        if (auto begin = "begin" in attrs) {
+            r = headline ~ *begin;
+        } else {
+            r = headline ~ " {" ~ newline;
+        }
 
-        if (r.length > 0 && !("noindent" in attrs)) {
+        if (r.length > 0 && "noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
         return r;
@@ -500,11 +682,11 @@ class Suite : PlantumlModule {
 
     override string renderPostRecursive(int parent_level, int level) {
         string r = "}";
-        if ("end" in attrs) {
-            r = attrs["end"];
+        if (auto end = "end" in attrs) {
+            r = *end;
         }
 
-        if (r.length > 0 && !("noindent" in attrs)) {
+        if (r.length > 0 && "noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
         return r;
@@ -516,6 +698,7 @@ class Suite : PlantumlModule {
 struct PlantumlRootModule {
     private PlantumlModule root;
 
+    /// Make a root module with suppressed indent of the first level.
     static auto make() {
         typeof(this) r;
         r.root = new PlantumlModule;
@@ -524,6 +707,7 @@ struct PlantumlRootModule {
         return r;
     }
 
+    /// Make a module contained in the root suitable for plantuml diagrams.
     PlantumlModule makeUml() {
         import std.ascii : newline;
 
@@ -531,6 +715,7 @@ struct PlantumlRootModule {
         return e;
     }
 
+    /// Make a module contained in the root suitable for grahviz dot diagrams.
     PlantumlModule makeDot() {
         import std.ascii : newline;
 
@@ -538,6 +723,7 @@ struct PlantumlRootModule {
         return dot;
     }
 
+    /// Textually render the module tree.
     auto render()
     in {
         assert(root !is null);
