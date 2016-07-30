@@ -14,7 +14,7 @@ import dsrcgen.cpp : CppModule;
 import application.types : MainNs, MainInterface;
 import cpptooling.analyzer.type;
 import cpptooling.data.representation : CppClass, CppNamespace;
-import cpptooling.data.type : LocationTag, Location;
+import cpptooling.data.type : LocationTag, Location, USRType;
 
 @safe:
 
@@ -32,9 +32,12 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     auto c = CppClass(CppClassName(c_name));
     c.setKind(KindT.Adapter);
 
-    auto tk = makeSimple(c_if ~ "&", TypeAttr(No.isConst, Yes.isRef, No.isPtr,
-            No.isFuncPtr, No.isArray, Yes.isRecord, No.isPrimitive));
-    auto param = makeCxParam(TypeKindVariable(tk, CppVariable("inst")));
+    auto attr = TypeAttr.init;
+    attr.isRef = Yes.isRef;
+    auto kind = TypeKind(TypeKind.PointerInfo(c_if ~ "%s %s", USRType(c_if ~ "&"), [attr]));
+
+    auto param = makeCxParam(TypeKindVariable(TypeKindAttr(kind,
+            TypeAttr.init), CppVariable("inst")));
 
     c.put("Adapter connecting an interface with an implementation.");
     c.put("The lifetime of the connection is the same as the instance of the adapter.");
@@ -52,10 +55,13 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data.representation : CppVariable, CxGlobalVariable;
     import cpptooling.utility.conv : str;
 
-    auto type = makeSimple(main_ns.str ~ "::" ~ main_if.str ~ "*",
-            TypeAttr(No.isConst, No.isRef, Yes.isPtr, No.isFuncPtr, No.isArray,
-                Yes.isRecord, No.isPrimitive));
-    auto v = CxGlobalVariable(type, CppVariable("test_double_inst"), dummyLoc);
+    auto attr = TypeAttr.init;
+    attr.isPtr = Yes.isPtr;
+    auto kind = TypeKind(TypeKind.PointerInfo(main_ns.str ~ "::" ~ main_if.str ~ "%s %s",
+            USRType(main_ns.str ~ "::" ~ main_if.str ~ "*"), [attr]));
+
+    auto v = CxGlobalVariable(TypeKindAttr(kind, TypeAttr.init),
+            CppVariable("test_double_inst"), dummyLoc);
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(KindT.TestDoubleSingleton);
     ns.put(v);
@@ -150,7 +156,7 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
 
     foreach (g; in_ns.globalRange()) {
         auto stmt = E(g.type.toStringDecl(g.name().str));
-        if (g.type.attr.isPtr) {
+        if (g.type.kind.info.kind == TypeKind.Info.Kind.pointer) {
             stmt = E("0");
         }
         ns.stmt(stmt);
