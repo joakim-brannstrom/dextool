@@ -1143,7 +1143,7 @@ body {
     TypeResult return_rval;
 
     auto return_t = retrieveReturn(return_rval);
-    auto params = extractParams2(c, type, container, indent);
+    auto params = extractParams(c, type, container, indent);
     auto primary = makeTypeKindAttr(type);
 
     // a C++ member function must be queried for constness via a different API
@@ -1183,7 +1183,7 @@ body {
     import std.array;
 
     TypeResult rval;
-    auto params = extractParams2(c, type, container, indent);
+    auto params = extractParams(c, type, container, indent);
     auto primary = makeTypeKindAttr(type);
 
     TypeKind.CtorInfo info;
@@ -1794,10 +1794,10 @@ body {
     return rval;
 }
 
-private alias PTuple2 = Tuple!(TypeKindAttr, "tka", string, "id",
+private alias ExtractParamsResult = Tuple!(TypeKindAttr, "tka", string, "id",
         Flag!"isVariadic", "isVariadic");
 
-PTuple2[] extractParams2(ref const(Cursor) c, ref Type type,
+ExtractParamsResult[] extractParams(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1814,7 +1814,7 @@ out (result) {
 body {
     auto indent = this_indent + 1;
 
-    void appendParams(ref const(Cursor) c, ref PTuple2[] params) {
+    void appendParams(ref const(Cursor) c, ref ExtractParamsResult[] params) {
         import std.range : enumerate;
 
         foreach (idx, p; c.children.enumerate) {
@@ -1825,7 +1825,7 @@ body {
 
             auto tka = retrieveType(p, container, indent);
             auto id = p.spelling;
-            params ~= PTuple2(tka.primary, id, No.isVariadic);
+            params ~= ExtractParamsResult(tka.primary, id, No.isVariadic);
         }
 
         if (type.func.isVariadic) {
@@ -1840,11 +1840,11 @@ body {
 
             // TODO remove this ugly hack
             // space as id to indicate it is empty
-            params ~= PTuple2(tka, " ", Yes.isVariadic);
+            params ~= ExtractParamsResult(tka, " ", Yes.isVariadic);
         }
     }
 
-    PTuple2[] params;
+    ExtractParamsResult[] params;
 
     if (c.kind == CXCursorKind.CXCursor_TypeRef) {
         auto cref = c.referenced;
@@ -1857,12 +1857,12 @@ body {
 }
 
 /// Join an array slice of PTuples to a parameter string of "type" "id"
-private string joinParamId(PTuple2[] r) {
+private string joinParamId(ExtractParamsResult[] r) {
     import std.algorithm : joiner, map, filter;
     import std.conv : text;
     import std.range : enumerate;
 
-    static string getTypeId(ref PTuple2 p, ulong uid) {
+    static string getTypeId(ref ExtractParamsResult p, ulong uid) {
         if (p.id.length == 0) {
             //TODO decide if to autogenerate for unnamed parameters here or later
             //return p.tka.toStringDecl("x" ~ text(uid));
