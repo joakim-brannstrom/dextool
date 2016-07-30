@@ -1561,24 +1561,6 @@ struct TransformToDiagram(ControllerT, ParametersT) {
     void put(ref const(FunctionDeclResult) result) {
         toComponent.put(result);
     }
-
-    //void putSrc(ref const(TypeKindAttr) src) {
-    //    toComponent.putSrc(src);
-    //}
-    //
-    //void putSrc(ref const(LocationTag) src) {
-    //    toComponent.putSrc(src);
-    //}
-    //
-    //void putDest(ref const(TypeKindAttr) dest, ref const(TypeKindAttr) src) {
-    //    toComponent.putDest(dest, src);
-    //}
-    //
-    //void putDest(Range, SrcT)(ref Range dests, ref const(SrcT) src) @safe 
-    //        if (is(ElementType!Range == PathKind) && (is(SrcT == TypeKindAttr)
-    //            || is(SrcT == LocationTag))) {
-    //    toComponent.putDest(dests, src);
-    //}
 }
 
 // visualize where the module private starts
