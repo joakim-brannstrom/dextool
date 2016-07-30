@@ -558,9 +558,17 @@ struct Fsm {
         a ~= thisExePath.dirName ~ "build.sh";
         a ~= "build";
         a ~= ["-c", "debug"];
-        a ~= ["-b", "docs"];
 
-        tryRun(thisExePath.dirName, a.data);
+        auto ddox_a = a;
+        ddox_a ~= ["-b", "ddox"];
+
+        auto status = tryRun(thisExePath.dirName, ddox_a.data);
+        if (status != 0) {
+            // fallback to basic documentation generator
+            auto docs_a = a;
+            docs_a ~= ["-b", "docs"];
+            tryRun(thisExePath.dirName, docs_a.data);
+        }
     }
 
     void stateSlocs() {

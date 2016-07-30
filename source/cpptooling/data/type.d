@@ -119,6 +119,8 @@ struct Location {
  * Using a TaggedAlgebraic to allow adding more types in the future.
  */
 struct LocationTag {
+    import std.format : FormatSpec;
+
     enum Kind {
         noloc,
         loc
@@ -138,6 +140,35 @@ struct LocationTag {
         } else {
             this.kind = Kind.loc;
             this.payload = t;
+        }
+    }
+
+    string toString() @safe pure const {
+        import std.exception : assumeUnique;
+        import std.format : FormatSpec;
+
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) const {
+        import std.format : formatValue;
+        import std.range.primitives : put;
+
+        final switch (kind) {
+        case Kind.noloc:
+            put(w, "noloc");
+            break;
+        case Kind.loc:
+            put(w, this.payload.toString);
+            break;
         }
     }
 }

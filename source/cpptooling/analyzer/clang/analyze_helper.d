@@ -347,6 +347,7 @@ alias CXXBaseSpecifierResult = Tuple!(TypeKindAttr, "type", CppClassName,
 auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container, in uint indent) @safe {
     import std.array : appender;
     import cpptooling.data.type : CppAccess;
+    import cpptooling.analyzer.clang.utility : backtrackScope;
 
     auto c_ref = v.cursor.referenced;
 
@@ -354,7 +355,7 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     put(type, container, indent);
 
     auto namespace = appender!(CppNs[])();
-    analyzeScope(c_ref, (string s) { namespace.put(CppNs(s)); });
+    backtrackScope(c_ref, (string s) { namespace.put(CppNs(s)); });
 
     auto name = CppClassName(c_ref.spelling);
     auto access = CppAccess(toAccessType(() @trusted{ return c_ref.access; }().accessSpecifier));
@@ -364,7 +365,8 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
         usr = type.primary.kind.info.canonicalRef;
     }
 
-    return CXXBaseSpecifierResult(type.primary, name, namespace.data, usr, access);
+    // namespace has the class itself so must remove
+    return CXXBaseSpecifierResult(type.primary, name, namespace.data[1 .. $], usr, access);
 }
 
 alias ClassDeclResult = Tuple!(TypeKindAttr, "type", CppClassName, "name",
@@ -380,30 +382,6 @@ auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint in
     auto name = CppClassName(decl.cursor.spelling);
 
     return ClassDeclResult(type.primary, name, loc);
-}
-
-/** Analyze the scope the declaration/definition reside in by backtracking to
- * the root.
- *
- * TODO allow the caller to determine what cursor kind's are sent to the sink.
- */
-void analyzeScope(NodeT, SinkT)(const(NodeT) decl, scope SinkT sink) {
-    import std.range.primitives : put;
-    import deimos.clang.index : CXCursorKind;
-
-    static if (is(NodeT == Cursor)) {
-        Cursor curr = decl;
-    } else {
-        Cursor curr = decl.cursor;
-    }
-
-    // backtrack
-    while (curr.isValid) {
-        if (curr.kind == CXCursorKind.CXCursor_Namespace) {
-            put(sink, curr.spelling);
-        }
-        curr = curr.semanticParent;
-    }
 }
 
 /** Reconstruct the semantic clang AST with dextool data structures suitable

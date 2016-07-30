@@ -73,7 +73,8 @@ body {
  *
  * Params:
  *  current = current state of the classification.
- *  data = indata to be used to determine next state
+ *  method_kind = indata, kind of method
+ *  method_virtual_type = indata, kind of "virtuality" the function is
  *  hasMember = a class with any members can at the most be virtual
  *
  * Returns: new classification state.

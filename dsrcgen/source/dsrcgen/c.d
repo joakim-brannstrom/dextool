@@ -768,11 +768,6 @@ unittest {
         sep();
         comment("content comment");
     }
-    with (hdr.footer) {
-        text("footer text");
-        sep();
-        comment("footer comment");
-    }
 
     assert(hdr.render == "header text
 // header comment
@@ -781,8 +776,6 @@ unittest {
 content text
 // content comment
 #endif // somefile_hpp
-footer text
-// footer comment
 ", hdr.render);
 }
 
