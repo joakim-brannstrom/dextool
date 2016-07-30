@@ -22,11 +22,17 @@ alias FuncInfoParam = Tuple!(USRType, "usr", TypeAttr, "attr", string, "id",
         Flag!"isVariadic", "isVariadic");
 
 /// Convert an array of indexes to a string representation
-string toRepr(const(ArrayInfoIndex[]) index_nr) @safe pure {
+string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
     import std.algorithm : map, joiner;
     import std.conv : text;
 
-    return index_nr.map!(a => a.isNull ? "[]" : "[" ~ text(a.get) ~ "]").joiner.text;
+    // dfmt off
+    return indexes
+        // a null is a dynamic index
+        .map!(a => a.isNull ? "[]" : "[" ~ text(a.get) ~ "]")
+        .joiner
+        .text;
+    // dfmt on
 }
 
 /** Type representation and information.
