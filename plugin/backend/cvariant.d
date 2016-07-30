@@ -20,7 +20,7 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
 /// Control various aspects of the analyze and generation like what nodes to
 /// process.
-@safe interface StubController {
+@safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
@@ -53,7 +53,7 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
 /// Parameters used during generation.
 /// Important aspect that they do NOT change, therefore it is pure.
-@safe pure interface StubParameters {
+@safe pure interface Parameters {
     import std.typecons : Tuple;
 
     alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals",
@@ -94,11 +94,11 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 }
 
 /// Data produced by the generator like files.
-@safe interface StubProducts {
+@safe interface Products {
     /** Data pushed from the stub generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
-     * StubGenerator to inject more data in the tree before writing. For
+     * Generator to inject more data in the tree before writing. For
      * example a custom header.
      *
      * Params:
@@ -120,8 +120,10 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
     void putLocation(FileName loc, LocationType type);
 }
 
-//TODO rename to Generator
-struct StubGenerator {
+/**
+ *
+ */
+struct Generator {
     import std.typecons : Typedef;
 
     import cpptooling.data.representation : CppRoot;
@@ -138,7 +140,7 @@ struct StubGenerator {
         CppModule gmock;
     }
 
-    this(StubController ctrl, StubParameters params, StubProducts products) {
+    this(Controller ctrl, Parameters params, Products products) {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
@@ -184,12 +186,11 @@ struct StubGenerator {
 private:
     CppRoot raw;
 
-    StubController ctrl;
-    StubParameters params;
-    StubProducts products;
+    Controller ctrl;
+    Parameters params;
+    Products products;
 
-    static void postProcess(Modules modules, StubController ctrl,
-            StubParameters params, StubProducts prod) {
+    static void postProcess(Modules modules, Controller ctrl, Parameters params, Products prod) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatetPreInclude, generatePostInclude;
 
@@ -255,11 +256,11 @@ final class CVisitor : Visitor {
     Container container;
 
     private {
-        StubController ctrl;
-        StubProducts prod;
+        Controller ctrl;
+        Products prod;
     }
 
-    this(StubController ctrl, StubProducts prod) {
+    this(Controller ctrl, Products prod) {
         this.ctrl = ctrl;
         this.prod = prod;
         this.root = CppRoot(LocationTag(null));
@@ -357,7 +358,7 @@ enum NamespaceType {
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
  */
-void rawFilter(ref CppRoot input, StubController ctrl, StubProducts prod, ref CppRoot raw) {
+void rawFilter(ref CppRoot input, Controller ctrl, Products prod, ref CppRoot raw) {
     import std.algorithm : filter, each;
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : storeValidLocations,
@@ -388,7 +389,7 @@ void rawFilter(ref CppRoot input, StubController ctrl, StubProducts prod, ref Cp
  * Make a namespace holding the test double.
  * Make a google mock if asked by the user.
  */
-void makeImplStuff(ref CppRoot root, StubController ctrl, StubParameters params) {
+void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
     import cpptooling.data.representation : CppNamespace, CppNs;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.adapter : makeSingleton;
@@ -419,9 +420,8 @@ void makeImplStuff(ref CppRoot root, StubController ctrl, StubParameters params)
     root.put(ns);
 }
 
-void generate(ref CppRoot r, StubController ctrl, StubParameters params,
-        const ref Container container, CppModule hdr, CppModule impl,
-        CppModule globals, CppModule gmock) {
+void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Container container,
+        CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
     import std.algorithm : each;
     import std.array;
     import cpptooling.utility.conv : str;
@@ -521,7 +521,7 @@ body {
 }
 
 void generateClassHdr(ref CppClass c, CppModule hdr, CppModule gmock,
-        Flag!"locationAsComment" loc_as_comment, StubParameters params) {
+        Flag!"locationAsComment" loc_as_comment, Parameters params) {
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
 
@@ -531,7 +531,7 @@ void generateClassHdr(ref CppClass c, CppModule hdr, CppModule gmock,
         generateHdr(c, hdr, loc_as_comment);
         break;
     case ClassType.Gmock:
-        generateGmock!StubParameters(c, gmock, params);
+        generateGmock!Parameters(c, gmock, params);
         break;
     }
 }
@@ -551,7 +551,7 @@ void generateClassImpl(ref CppClass c, CppModule impl) {
 }
 
 void generateNsTestDoubleHdr(ref CppNamespace ns, Flag!"locationAsComment" loc_as_comment,
-        StubParameters params, CppModule hdr, CppModule gmock) {
+        Parameters params, CppModule hdr, CppModule gmock) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
@@ -564,7 +564,7 @@ void generateNsTestDoubleHdr(ref CppNamespace ns, Flag!"locationAsComment" loc_a
     });
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, StubParameters params, CppModule impl) {
+void generateNsTestDoubleImpl(ref CppNamespace ns, Parameters params, CppModule impl) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
