@@ -1794,34 +1794,6 @@ body {
     return rval;
 }
 
-//TODO handle anonymous namespace
-//TODO maybe merge with backtrackNode in clang/utility.d?
-private string[] backtrackScope(ref const(Cursor) c) {
-    import cpptooling.analyzer.clang.utility;
-
-    static struct GatherScope {
-        import std.array : Appender;
-
-        Appender!(string[]) app;
-
-        void apply(ref const(Cursor) c, int depth)
-        in {
-            logNode(c, depth);
-        }
-        body {
-            if (c.kind.among(CXCursorKind.CXCursor_UnionDecl, CXCursorKind.CXCursor_StructDecl,
-                    CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_Namespace)) {
-                app.put(c.spelling);
-            }
-        }
-    }
-
-    GatherScope gs;
-    backtrackNode(c, gs);
-
-    return gs.app.data;
-}
-
 private alias PTuple2 = Tuple!(TypeKindAttr, "tka", string, "id",
         Flag!"isVariadic", "isVariadic");
 
