@@ -176,17 +176,19 @@ extern (C) void handleSIGINT(int sig) nothrow @nogc @system {
     .signalInterrupt = Yes.SignalInterrupt;
 }
 
-void cleanup() {
+void cleanup(Flag!"keepCoverage" keep_cov) {
+    import std.algorithm : predSwitch;
+
     printStatus(Status.Run, "Cleanup");
     scope (failure)
         printStatus(Status.Fail, "Cleanup");
 
     // dfmt off
     chain(
-          dirEntries(".", "trace.*", SpanMode.shallow),
-          dirEntries(".", "*.lst", SpanMode.shallow)
-          )
-        .map!(a => Path(a))
+          dirEntries(".", "trace.*", SpanMode.shallow).map!(a => Path(a)).array(),
+          keep_cov.predSwitch(Yes.keepCoverage, string[].init.map!(a => Path(a)).array(),
+                              No.keepCoverage, dirEntries(".", "*.lst", SpanMode.shallow).map!(a => Path(a)).array())
+         )
         .each!(a => tryRemove(a));
     // dfmt on
 
@@ -350,7 +352,7 @@ struct Fsm {
             break;
         case State.Doc_check_counter:
             next_ = State.ExitOrRestart;
-            if (docCount >= 10)
+            if (docCount >= 10 && !travis)
                 next_ = State.Doc_build;
             break;
         case State.Doc_build:
@@ -657,7 +659,6 @@ struct Fsm {
     }
 
     void stateExit() {
-        //.signalExitStatus = flagTotalTestPassed;
         if (flagTotalTestPassed) {
             .signalExitStatus = Yes.TestsPassed;
         } else {
@@ -668,9 +669,11 @@ struct Fsm {
 }
 
 int main(string[] args) {
+    Flag!"keepCoverage" keep_cov;
+
     chdir(thisExePath.dirName);
     scope (exit)
-        cleanup();
+        cleanup(keep_cov);
 
     if (!sanityCheck) {
         writeln("error: Sanity check failed");
@@ -707,6 +710,8 @@ int main(string[] args) {
     // dfmt on
 
     import std.stdio;
+
+    keep_cov = cast(Flag!"keepCoverage") run_and_exit;
 
     (Fsm()).run(inotify_paths, cast(Flag!"Travis") run_and_exit,
             cast(Flag!"utDebug") ut_debug, cast(Flag!"utSkip") ut_skip);
