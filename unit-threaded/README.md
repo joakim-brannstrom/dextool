@@ -2,8 +2,7 @@ unit-threaded
 =============
 [![Build Status](https://travis-ci.org/atilaneves/unit-threaded.png?branch=master)](https://travis-ci.org/atilaneves/unit-threaded)
 
-Multi-threaded unit test framework for D. Based on similar work for
-[C++11](https://bitbucket.org/atilaneves/unit-thread).
+Multi-threaded unit test framework for D
 
 Reasoning
 ---------
@@ -32,7 +31,7 @@ reflection
 when running in multiple threads).
 6. Have a special mode that only works when using a single thread
 under which tested code output is turned back on, as well as special
-writelnUt debug messages.
+`writelnUt` debug messages.
 7. Ability to temporarily hide tests from being run by default whilst
 still being able to run them
 
@@ -128,7 +127,7 @@ int adder(int i, int j) { return i + j; }
 If using a custom dub configuration for unit-threaded as shown above, a version
 block can be used on `Have_unit_threaded` (this is added by dub to the build).
 
-Advanced Usage, Attributes
+Advanced Usage: Attributes
 --------------------------
 
 `@ShouldFail` is used to decorate a test that is
@@ -236,6 +235,81 @@ give each sub-test a tag corresponding to their parameter:
 unittest {
    // ...
 }
+```
+
+Property-based testing
+----------------------
+
+There is preliminary and experimental support for property-based testing.
+The current types supported are all primitive types, all 3 string types,
+and arrays of these types. To check a property use the `check` function
+from `unit_threaded.property` with a function returning `bool`:
+
+```d
+check!((int a) => a % 2 == 0);
+```
+
+The above example will obviously fail. By default `check` runs the property
+function with 100 random values, pass it a different runtime parameter
+to change that:
+
+```d
+check!((int a) => a % 2 == 0)(10_000); // will still fail
+```
+
+If using compile-time delegates as above, the types of the input parameters
+must be explicitly stated. Multiple parameters can be used as long as
+each one is of one of the currently supported types.
+
+Mocking
+--------
+
+Classes and interfaces can be mocked like so:
+
+
+```d
+interface Foo { int foo(int, string); }
+int fun(Foo f, int i, string s) { return f.foo(i * 2, s ~ "stuff"); }
+
+auto m = mock!Foo;
+m.expect!"foo";
+fun(m, 3, "bar");
+m.verify; // throws if not called
+```
+
+To check the values passed in, pass them to `expect`:
+
+
+```d
+m.expect!"foo"(6, "barstuff");
+fun(m , 3, "bar");
+m.verify;
+```
+
+Either call `expect` then `verify` or call `expectCalled` at the end:
+
+```d
+fun(m, 3, "bar");
+m.expectCalled!"foo"(6, "barstuff");
+```
+
+The return value is `T.init` unless `returnValue` is called (it's variadic):
+
+```d
+m.returnValue!"foo"(2, 3, 4);
+assert(fun(m, 3, "bar") == 2);
+assert(fun(m, 3, "bar") == 3);
+assert(fun(m, 3, "bar") == 4);
+assert(fun(m, 3, "bar") == 0);
+```
+
+Structs can also be mocked:
+
+```d
+int fun(T)(T f, int i, string s) { return f.foo(i * 2, s ~ "stuff"); }
+auto m = mockStruct(2, 3, 4); // the ints are return values
+assert(fun(m, 3, "bar") == 2);
+m.expectCalled!"foo"(6, "barstuff");
 ```
 
 Command-line Parameters

@@ -4,7 +4,7 @@ import unit_threaded.attrs;
 import unit_threaded.uda;
 import unit_threaded.meta;
 import std.traits;
-import std.typetuple;
+import std.meta;
 
 /**
  * Common data for test functions and test classes
@@ -60,7 +60,7 @@ const(TestData)[] allTestData(MOD_SYMBOLS...)() if(!anySatisfy!(isSomeString, ty
     auto allTestsWithFunc(string expr, MOD_SYMBOLS...)() pure {
         //tests is whatever type expr returns
         ReturnType!(mixin(expr ~ q{!(MOD_SYMBOLS[0])})) tests;
-        foreach(module_; TypeTuple!MOD_SYMBOLS) {
+        foreach(module_; AliasSeq!MOD_SYMBOLS) {
             tests ~= mixin(expr ~ q{!module_()}); //e.g. tests ~= moduleTestClasses!module_
         }
         return tests;
@@ -314,12 +314,8 @@ TestData[] moduleTestFunctions(alias module_)() pure {
             // in this case we handle the possibility of a template function with
             // the @Types UDA attached to it
             alias types = GetTypes!(mixin(moduleMember));
-
             enum isTestFunction = hasTestPrefix!(module_, moduleMember) &&
-                                  types.length > 0 &&
-                                  is(typeof(() {
-                                      mixin(moduleMember ~ `!` ~ types[0].stringof ~ `;`);
-                                  }));
+                                  types.length > 0;
         } else {
             enum isTestFunction = false;
         }
@@ -341,7 +337,6 @@ TestData[] moduleTestFunctions(alias module_)() pure {
         }
     }
 
-
     return moduleTestData!(module_, isTestFunction, createFuncTestData);
 }
 
@@ -359,7 +354,7 @@ private TestData[] createFuncTestData(alias module_, string moduleMember)() {
       ------
     */
     // if the predicate returned true (which is always the case here), then it's either
-    // a regular function or a templated one. If regular is has a pointer to it
+    // a regular function or a templated one. If regular we can get a pointer to it
     enum isRegularFunction = __traits(compiles, &__traits(getMember, module_, moduleMember));
 
     static if(isRegularFunction) {
@@ -376,42 +371,74 @@ private TestData[] createFuncTestData(alias module_, string moduleMember)() {
             // the function has parameters, check if it has UDAs for value parameters to be passed to it
             alias params = Parameters!func;
 
-            static if(arity == 1) {
-                import std.typecons;
-                // bind a range of tuples to prod just as cartesianProduct returns
-                enum prod = [GetAttributes!(module_, moduleMember, params[0])].map!(a => tuple(a));
+            import std.range: iota;
+            import std.algorithm: any;
+            import std.typecons: tuple, Tuple;
+
+            bool hasAttributesForAllParams() {
+                auto ret = true;
+                foreach(p; params) {
+                    if(tuple(GetAttributes!(module_, moduleMember, p)).length == 0) {
+                        ret = false;
+                    }
+                }
+                return ret;
+            }
+
+            static if(!hasAttributesForAllParams) {
+                import std.conv: text;
+                pragma(msg, text("Warning: ", moduleMember, " passes the criteria for a value-parameterized test function",
+                                 " but doesn't have the appropriate value UDAs.\n",
+                                 "         Consider changing its name or annotating it with @DontTest"));
+                return [];
             } else {
-                import std.range;
-                mixin(`enum prod = cartesianProduct(` ~ params.length.iota.map!
-                      (a => `[GetAttributes!(module_, moduleMember, params[` ~ guaranteedToString(a) ~ `])]`).join(", ") ~ `);`);
+
+                static if(arity == 1) {
+                    // bind a range of tuples to prod just as cartesianProduct returns
+                    enum prod = [GetAttributes!(module_, moduleMember, params[0])].map!(a => tuple(a));
+                } else {
+                    import std.conv: text;
+
+                    mixin(`enum prod = cartesianProduct(` ~ params.length.iota.map!
+                          (a => `[GetAttributes!(module_, moduleMember, params[` ~ guaranteedToString(a) ~ `])]`).join(", ") ~ `);`);
+                }
+
+                TestData[] testData;
+                foreach(comb; aliasSeqOf!prod) {
+                    enum valuesName = valuesName(comb);
+
+                    static if(HasAttribute!(module_, moduleMember, AutoTags))
+                        enum extraTags = valuesName.split(".").array;
+                    else
+                        enum string[] extraTags = [];
+
+
+                    testData ~= memberTestData!(module_, moduleMember, extraTags)(
+                        // func(value0, value1, ...)
+                        () { func(comb.expand); },
+                        valuesName);
+                }
+
+                return testData;
             }
-
-            TestData[] testData;
-            foreach(comb; aliasSeqOf!prod) {
-                enum valuesName = valuesName(comb);
-
-                static if(HasAttribute!(module_, moduleMember, AutoTags))
-                    enum extraTags = valuesName.split(".").array;
-                else
-                    enum string[] extraTags = [];
-
-
-                testData ~= memberTestData!(module_, moduleMember, extraTags)(
-                    // func(value0, value1, ...)
-                    () { func(comb.expand); },
-                    valuesName);
-            }
-
-            return testData;
         }
     } else static if(HasTypes!(mixin(moduleMember))) { //template function with @Types
         alias types = GetTypes!(mixin(moduleMember));
         TestData[] testData;
         foreach(type; types) {
+
             static if(HasAttribute!(module_, moduleMember, AutoTags))
                 enum extraTags = [type.stringof];
             else
                 enum string[] extraTags = [];
+
+            static if(!__traits(compiles, mixin(moduleMember ~ `!(` ~ type.stringof ~ `)()`))) {
+                pragma(msg, "Could not compile Type-parameterized test for T = ", type);
+                void _failFunc() {
+                    mixin(moduleMember ~ `!(` ~ type.stringof ~ `)();`);
+                }
+                static assert(false);
+            }
 
             testData ~= memberTestData!(module_, moduleMember, extraTags)(
                 () {
@@ -715,4 +742,17 @@ unittest {
     assertEqual(testData.find!(a => a.getPath.canFind("2.bar")).front.tags,
                 ["2", "bar"]);
 
+}
+
+unittest {
+    import unit_threaded.testcase;
+    import unit_threaded.factory;
+
+	import unit_threaded.randomized.gen;
+
+	auto testData = allTestData!(unit_threaded.randomized.gen).array;
+    auto tests = createTestCases(testData);
+	foreach(test; tests) {
+
+	}
 }
