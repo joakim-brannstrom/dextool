@@ -1,5 +1,5 @@
 name "dextool"
-description "Suite of C/C++ tooling built on LLVM/Clang written in D"
+description "C/C++ tooling for testing and visualisation. Test doubles via static analyze. Class and component diagrams for PlantUML and GraphViz."
 copyright "Copyright © 2014-2016, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
@@ -16,7 +16,16 @@ subPackage "./docopt/"
 subPackage "./dsrcgen/"
 subPackage "./clang/"
 subPackage "./libclang/"
-subPackage "./unit-threaded/"
+
+// use a local configuration of unit-threaded to exclude the builtin unittests
+subPackage {
+    name "unit-threaded"
+    targetType "library"
+
+    sourcePaths "unit-threaded/source"
+    importPaths "unit-threaded/source"
+    excludedSourceFiles "unit-threaded/source/unit_threaded/tests/*"
+}
 
 targetPath "build"
 
@@ -32,32 +41,11 @@ libs "$LFLAG_CLANG_LIB"
 
 dflags "-dip25"
 
-buildType "unittest-cov" {
-    buildOptions "unittests" "debugMode" "debugInfo" "coverage"
-}
-
-buildType "unittest-local" {
-    buildOptions "unittests" "debugMode" "debugInfo"
-}
-
-buildType "release-profile" {
-    // adding releaseMode to disable asserts, debug blocks etc
-    buildOptions "profile" "releaseMode" "inline" "optimize"
-}
-
-configuration "release" {
+// configurations
+// first one is the primary built
+configuration "application" {
     targetName "dextool"
     targetType "executable"
-    buildType "release"
-
-    mainSourceFile "source/application/app.d"
-    excludedSourceFiles "source/test/*.d"
-}
-
-configuration "profile" {
-    targetName "dextool-profile"
-    targetType "executable"
-    buildType "release-profile"
 
     mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*.d"
@@ -66,7 +54,6 @@ configuration "profile" {
 configuration "debug" {
     targetName "dextool-debug"
     targetType "executable"
-    buildType "debugInfo"
 
     mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*.d"
@@ -80,7 +67,6 @@ configuration "debug" {
 configuration "devtool" {
     targetName "devtool"
     targetType "executable"
-    buildType "debugInfo"
 
     mainSourceFile "source/test/tok_main.d"
     excludedSourceFiles "source/application/app*.d" "source/test/helpers.d"
@@ -92,7 +78,6 @@ configuration "unittest" {
 
     targetName "unittest"
     targetType "executable"
-    buildType "unittest-cov"
 
     mainSourceFile "test/ut_main.d"
     excludedSourceFiles "source/test/tok_main.d"

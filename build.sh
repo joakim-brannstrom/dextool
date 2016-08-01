@@ -12,9 +12,8 @@ if [[ -n "$DC" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-    dub build $COMPILER -c debug -b debug
-    dub build $COMPILER -c profile -b profile
-    dub build $COMPILER -c devtool -b debug
+    dub build $COMPILER --parallel -c debug -b debug
+    dub build $COMPILER --parallel -c devtool -b debug
 
     # release build is always from makefile
     make $DC
