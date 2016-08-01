@@ -45,7 +45,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         auto sb = Sandbox();
         assert(sb.testPath != "");
     }
@@ -57,7 +57,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         import std.file;
         import std.path;
 
@@ -97,7 +97,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         import std.file;
         import std.path;
 
@@ -118,7 +118,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         with(immutable Sandbox()) {
             shouldExist("bar.txt").shouldThrow;
             writeFile("bar.txt");
@@ -136,7 +136,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         with(immutable Sandbox()) {
             shouldNotExist("baz.txt");
             writeFile("baz.txt");
@@ -146,7 +146,7 @@ struct Sandbox {
 
     /// read a file in the test sandbox and verify its contents
     void shouldEqualLines(in string fileName, in string[] lines,
-                          string file = __FILE__, size_t line = __LINE__) const {
+                          string file = __FILE__, size_t line = __LINE__) const @trusted {
         import std.file;
         import std.string;
 
@@ -155,7 +155,7 @@ struct Sandbox {
     }
 
     ///
-    unittest {
+    @safe unittest {
         with(immutable Sandbox()) {
             writeFile("lines.txt", ["foo", "toto"]);
             shouldEqualLines("lines.txt", ["foo", "bar"]).shouldThrow;
