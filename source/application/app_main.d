@@ -17,7 +17,16 @@ import application.types;
 // The problem is probably in ast.visitor or ast.node but I don't know why.
 import cpptooling.analyzer.clang.ast.visitor;
 
-static string main_opt = "usage:
+version (unittest) {
+    import unit_threaded;
+}
+
+/// Version derived from the git archive.
+enum app_version = import("version.txt");
+
+static assert(app_version.length > 0, "Failed to import version.txt at compile time");
+
+enum string main_opt = "usage:
  dextool <command> [options] [<args>...]
 
 options:
@@ -29,12 +38,12 @@ commands:
   help
 ";
 
-static string basic_options = "
+enum string basic_options = "
  -h, --help         show this help
  -d, --debug        turn on debug output for tracing of generator flow
 ";
 
-static string help_opt = "
+enum string help_opt = "
 REGEX
 
 The regex syntax is found at http://dlang.org/phobos/std_regex.html
@@ -69,7 +78,7 @@ Generate a simple C test double.
   The name of the interface is Test_Double.
 
 Generate a C test double excluding data from specified files.
-  dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.[h,c] --out=outdata/ functions.h -- -DBAR -I/some/path
+  dextool ctestdouble --file-exclude=/foo.h --file-exclude='functions.[h,c]' --out=outdata/ functions.h -- -DBAR -I/some/path
 
   The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
   During generation declarations found in foo.h or functions.h will be excluded.
@@ -210,6 +219,10 @@ options:%s%s
         writeln(main_opt, cliMergeCategory(), help_opt);
         exit_status = ExitStatusType.Ok;
         break;
+    case Version:
+        writeln("dextool version ", app_version);
+        exit_status = ExitStatusType.Ok;
+        break;
     case NoCategory:
         logger.error("No such main category: " ~ category);
         logger.error("-h to list accetable categories");
@@ -243,6 +256,7 @@ options:%s%s
 
 private enum CliCategoryStatus {
     Help,
+    Version,
     NoCategory,
     Category
 }
@@ -250,22 +264,72 @@ private enum CliCategoryStatus {
 private alias MainCliReturnType = Tuple!(CliCategoryStatus, "status", string,
         "category", Flag!"debug", "debug_", string[], "args");
 
+/** Parse the raw command line.
+ *
+ * Flags handled by parseMainCli are removed from the reminding args in the
+ * return value.
+ */
 auto parseMainCli(string[] args) {
     import std.algorithm : findAmong, filter, among;
     import std.array : array, empty;
     import std.typecons : Yes, No;
 
-    auto debug_ = findAmong(args, ["-d", "--debug"]).empty ? Flag!"debug".no : Flag!"debug".yes;
+    auto debug_ = cast(Flag!"debug") !findAmong(args, ["-d", "--debug"]).empty;
     // holds the remining arguments after -d/--debug has bee removed
-    auto rem = args.filter!(a => !a.among("-d", "--debug")).array();
+    auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
 
-    if (rem.length <= 1) {
-        return MainCliReturnType(CliCategoryStatus.NoCategory, "", debug_, []);
-    } else if (rem.length >= 2 && rem[1].among("help", "-h", "--help")) {
-        return MainCliReturnType(CliCategoryStatus.Help, "", debug_, []);
+    string category = remining_args.length >= 2 ? remining_args[1] : "";
+    auto state = CliCategoryStatus.Category;
+    if (remining_args.length <= 1) {
+        state = CliCategoryStatus.NoCategory;
+        remining_args = [];
+    } else if (remining_args.length >= 2 && remining_args[1].among("help", "-h", "--help")) {
+        state = CliCategoryStatus.Help;
+        remining_args = [];
+    } else if (remining_args.length >= 2 && remining_args[1].among("--version")) {
+        state = CliCategoryStatus.Version;
+        remining_args = [];
     }
 
-    return MainCliReturnType(CliCategoryStatus.Category, rem[1], debug_, rem);
+    return MainCliReturnType(state, category, debug_, remining_args);
+}
+
+version (unittest) {
+    import std.algorithm : findAmong;
+    import std.array : empty;
+
+    // May seem unnecessary testing to test the CLI but bugs have been
+    // introduced accidentaly in parseMainCli.
+    // It is also easier to test "main CLI" here because it takes the least
+    // setup and has no side effects.
+
+    @Name("Should be no category")
+    unittest {
+        parseMainCli(["dextool"]).status.shouldEqual(CliCategoryStatus.NoCategory);
+    }
+
+    @Name("Should flag that debug mode is to be activated")
+    @Values("-d", "--debug")
+    unittest {
+        auto result = parseMainCli(["dextool", getValue!string]);
+        result.debug_.shouldBeTrue;
+        findAmong(result.args, ["-d", "--debug"]).empty.shouldBeTrue;
+    }
+
+    @Name("Should be the version category")
+    unittest {
+        auto result = parseMainCli(["dextool", "--version"]);
+        result.status.shouldEqual(CliCategoryStatus.Version);
+        result.args.length.shouldEqual(0);
+    }
+
+    @Name("Should be the help category")
+    @Values("help", "-h", "--help")
+    unittest {
+        auto result = parseMainCli(["dextool", getValue!string]);
+        result.status.shouldEqual(CliCategoryStatus.Help);
+        result.args.length.shouldEqual(0);
+    }
 }
 
 int rmain(string[] args) nothrow {
