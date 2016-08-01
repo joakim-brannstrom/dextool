@@ -42,6 +42,15 @@ pure @safe nothrow @nogc struct TypeKind {
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
     import std.typecons : Flag, Yes, No;
 
+    this(T)(T info, USRType usr) if (!is(T == TypeKind)) {
+        this.info = info;
+        this.usr = usr;
+    }
+
+    this(T)(T info) if (!is(T == TypeKind)) {
+        this(info, USRType(""));
+    }
+
     this(TypeKind t) {
         this = t;
     }
@@ -177,8 +186,8 @@ pure @safe nothrow @nogc struct TypeKind {
     alias Info = TaggedAlgebraic!InternalInfo;
 
     Info info;
-    LocationTag loc;
     USRType usr;
+    LocationTag loc;
 
     invariant {
         final switch (this.info.kind) with (TypeKind.Info) {
@@ -219,8 +228,6 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isPtr" isPtr;
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
-    // TODO remove, redundant. Covered by the Algebraic type.
-    Flag!"isRecord" isRecord;
     Flag!"isPrimitive" isPrimitive;
 }
 

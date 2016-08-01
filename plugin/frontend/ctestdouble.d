@@ -13,7 +13,7 @@ import application.utility;
 import application.compilation_db;
 
 import plugin.types;
-import plugin.backend.cvariant : StubController, StubParameters, StubProducts;
+import plugin.backend.cvariant : Controller, Parameters, Products;
 
 auto runPlugin(CliOption opt, CliArgs args) {
     import std.typecons : TypedefType;
@@ -73,7 +73,7 @@ static auto ctestdouble_opt = CliOptionParts(
  *
  * TODO Describe the options.
  */
-class CTestDoubleVariant : StubController, StubParameters, StubProducts {
+class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Tuple, Flag;
     import docopt : ArgValue;
@@ -195,7 +195,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         td_includes.forceIncludes(incls);
     }
 
-    // -- StubController --
+    // -- Controller --
 
     bool doFile(in string filename, in string info) {
         import std.algorithm : canFind;
@@ -254,7 +254,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return loc_as_comment;
     }
 
-    // -- StubParameters --
+    // -- Parameters --
 
     FileName[] getIncludes() {
         td_includes.doStrip();
@@ -265,8 +265,8 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return output_dir;
     }
 
-    StubParameters.Files getFiles() {
-        return StubParameters.Files(main_file_hdr, main_file_impl,
+    Parameters.Files getFiles() {
+        return Parameters.Files(main_file_hdr, main_file_impl,
                 main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
@@ -290,7 +290,7 @@ class CTestDoubleVariant : StubController, StubParameters, StubProducts {
         return prefix;
     }
 
-    // -- StubProducts --
+    // -- Products --
 
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
@@ -311,11 +311,11 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : TypedefType;
-    import plugin.backend.cvariant : CVisitor, StubGenerator;
+    import plugin.backend.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
 
-    auto generator = StubGenerator(variant, variant, variant);
+    auto generator = Generator(variant, variant, variant);
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
 

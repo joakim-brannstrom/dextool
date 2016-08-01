@@ -276,7 +276,6 @@ TypeAttr makeTypeAttr(ref Type type) {
     attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
     attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
     attr.isArray = cast(Flag!"isArray") type.isArray;
-    attr.isRecord = cast(Flag!"isRecord")(type.kind == CXTypeKind.CXType_Record);
 
     return attr;
 }
