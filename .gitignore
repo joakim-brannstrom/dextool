@@ -4,12 +4,15 @@ tags
 *.[oa]
 results.json
 *.dub
-build/
 *.so
 *.lst
+
+build/
 docs/
 test/outdata/
 test/trace.*
+resources/version.txt
+
 binary_size.txt
 dub.selections.json
 autobuild

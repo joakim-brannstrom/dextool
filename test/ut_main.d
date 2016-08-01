@@ -11,6 +11,7 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
+                          "application.app_main",
                           "application.types",
                           "application.utility",
                           "application.compilation_db",

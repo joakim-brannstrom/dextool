@@ -10,7 +10,7 @@ SRC := $(shell find source/application -name "*.d") \
 	$(shell find docopt/source -name "*.d") \
 	$(shell find dsrcgen/source -name "*.d")
 
-INCLUDE_PATHS := -Isource -Iclang -Ilibclang -Idsrcgen/source -Idocopt/source -Jclang/resources
+INCLUDE_PATHS := -Isource -Iclang -Ilibclang -Idsrcgen/source -Idocopt/source -Jclang/resources -Jresources
 VERSION_FLAGS := -version=Have_dextool -version=Have_docopt
 COMMON_FLAGS := -dip25 -w $(INCLUDE_PATHS) $(VERSION_FLAGS)
 DEBUG_FLAGS := -g
@@ -25,22 +25,29 @@ LINK_DMD_CLANG := -L-no-as-needed -L--enable-new-dtags -L-rpath=. -L${LFLAG_CLAN
 DC ?= dmd
 LDC ?= ldmd2
 
-.PHONY: dmd ldc2 clean
+.PHONY: dmd ldc2 clean version
 
 all: dmd
 
 ldc2: $(SRC)
+	./gen_version_from_git.sh
 	$(LDC) $(LDC_FLAGS) $(LDC_OPTIMIZE_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool
 	strip build/dextool
 	-rm -f *.o
 
-ldc-debug: $(SRC)
+ldc2-debug: $(SRC)
+	./gen_version_from_git.sh
 	$(LDC) $(DEBUG_FLAGS) $(LDC_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-debug
-	strip build/dextool
 	-rm -f *.o
 
 dmd: $(SRC)
+	./gen_version_from_git.sh
 	$(DC) $(DMD_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool
+	strip build/dextool
+
+dmd-debug: $(SRC)
+	./gen_version_from_git.sh
+	$(DC) $(DEBUG_FLAGS) $(DMD_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-debug
 
 clean:
 	-rm build/dextool
