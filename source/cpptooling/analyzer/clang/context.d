@@ -26,12 +26,13 @@ struct ClangContext {
      *
      * Returns: ClangContext
      */
-    static auto fromString(string content, const(string[]) args = null) {
+    static auto fromString(T...)(string content, const(string[]) args = null) {
         return ClangContext((ref ClangContext ctx) {
             auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
-            return TranslationUnit.parseString(ctx.index, content, use_args,
-                ctx.compiler.extraHeaders);
+            return TranslationUnit.parseString!(T)(ctx.index, content,
+                use_args, ctx.compiler.extraHeaders);
         });
+
     }
 
     /** Initialize context from file.
