@@ -80,7 +80,7 @@ auto runPlugin(CliOption opt, CliArgs args) {
         file_process = FileProcess.make(FileName(parsed["--in"].asList[0]));
     }
 
-    auto skipFileError = parsed["--skip-file-error"].isTrue ? Yes.skipFileError : No.skipFileError;
+    auto skipFileError = cast(Flag!"skipFileError") parsed["--skip-file-error"].isTrue;
 
     return genUml(variant, cflags, compile_db, file_process, skipFileError);
 }
