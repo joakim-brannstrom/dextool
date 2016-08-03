@@ -6,6 +6,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.analyzer.clang.context;
 
+import std.typecons : Flag, Yes;
+
 import logger = std.experimental.logger;
 
 /// Holds the context of the file.
@@ -15,47 +17,86 @@ struct ClangContext {
     import clang.Index;
     import clang.TranslationUnit;
 
-    /** Initialize context from file
+    alias MakeTU = TranslationUnit delegate(ref ClangContext ctx);
+
+    /** Initialize context from in-memory source code.
      * Params:
-     *  input_file = filename of code to parse
+     *  content = in-memory content that is handed over to clang for parsing
      *  args = extra arguments to pass to libclang
-     *  internal_hdr = use internal headers
+     *
+     * Returns: ClangContext
      */
-    this(string input_file, const string[] args = null, bool internal_hdr = true) {
-        import std.array : join;
+    static auto fromString(string content, const(string[]) args = null) {
+        return ClangContext((ref ClangContext ctx) {
+            auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
+            return TranslationUnit.parseString(ctx.index, content, use_args,
+                ctx.compiler.extraHeaders);
+        });
+    }
 
-        string[] user_args;
+    /** Initialize context from file.
+     * Params:
+     *  input_file = filename of the source code that is handed over to clang for parsing
+     *  args = extra arguments to pass to libclang
+     *
+     * Returns: ClangContext
+     */
+    static auto fromFile(string input_file, const(string[]) args = null) {
+        return ClangContext((ref ClangContext ctx) {
+            auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
+            return TranslationUnit.parse(ctx.index, input_file, use_args,
+                ctx.compiler.extraHeaders);
+        });
+    }
+
+    /** Deferred construction of the context.
+     *
+     * The logic for constructing the translation unit is split to a delegate.
+     *
+     * The split is to enables a design where the context initializes the basic
+     * memory structure like Compiler and Index without handling the logic of
+     * constructing the translation unit.
+     *
+     * Params:
+     *   makeTranslationUnit = construct a translation unit
+     */
+    private this(MakeTU makeTranslationUnit) {
         index = Index(false, false);
-
-        if (internal_hdr) {
-            user_args = compilerArgs();
-        }
-
-        if (args !is null) {
-            user_args = args.dup ~ user_args;
-        }
-
-        logger.info("Compiler flags: ", args.join(" "));
-        logger.trace("Internal compiler flags: ", user_args);
-
-        // the last argument determines if comments are parsed and therefor
-        // accessible in the AST. Default is not.
-        translation_unit = TranslationUnit.parse(index, input_file, user_args,
-                compiler.extraHeaders);
+        translation_unit = makeTranslationUnit(this);
     }
 
     /** Top cursor to travers the AST.
-     * Return: Cursor of the translation unit
+     * Returns: Cursor of the translation unit
      */
     @property Cursor cursor() {
         return translation_unit.cursor;
     }
 
+    /// Returns: The translation unit for the context
     TranslationUnit translationUnit() {
         return translation_unit;
     }
 
 private:
+    string[] makeArgs(const(string[]) args, Flag!"useInternalHeaders" internal_hdr) {
+        import std.array : join;
+
+        string[] use_args;
+
+        if (internal_hdr) {
+            use_args = compilerArgs();
+        }
+
+        if (args !is null) {
+            use_args = args.dup ~ use_args;
+        }
+
+        logger.info("Compiler flags: ", args.join(" "));
+        logger.trace("Internal compiler flags: ", use_args.join(" "));
+
+        return use_args;
+    }
+
     string[] compilerArgs() {
         import std.array : array, join;
         import std.algorithm : map;

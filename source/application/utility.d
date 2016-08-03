@@ -280,7 +280,7 @@ ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, V
     logger.infof("Analyzing '%s'", input_file);
 
     // Get and ensure the clang context is valid
-    auto file_ctx = ClangContext(input_file, cflags);
+    auto file_ctx = ClangContext.fromFile(input_file, cflags);
     if (file_ctx.hasParseErrors) {
         logDiagnostic(file_ctx);
         logger.error("Compile error...");

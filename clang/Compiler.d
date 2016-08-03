@@ -31,14 +31,14 @@ struct Compiler {
     import std.meta : staticMap;
 
     private {
-        version (Windows)
+        version (Windows) {
             enum root = `C:\`;
-
-        else
+        } else {
             enum root = "/";
-        enum root_suffix = "clang_internal";
+        }
+        enum root_suffix = "dextool_clang";
 
-        string virtualPath_;
+        string virtual_path;
 
         static template toInternalHeader(string file) {
             enum toInternalHeader = InternalHeader(file, import(file));
@@ -81,9 +81,9 @@ struct Compiler {
 private:
 
     string virtualPath() {
-        if (virtualPath_.any)
-            return virtualPath_;
+        if (virtual_path.any)
+            return virtual_path;
 
-        return virtualPath_ = buildPath(root, uniquePathId, root_suffix);
+        return virtual_path = buildPath(root, uniquePathId, root_suffix);
     }
 }
