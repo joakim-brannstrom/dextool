@@ -2,7 +2,10 @@
 external_tests
 .external_tests.bin
 *.log
+trace.*
+
 c_tests/
 cpp_tests/
 plantuml_tests/
+
 dub.selections.json

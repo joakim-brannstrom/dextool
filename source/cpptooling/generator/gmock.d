@@ -9,7 +9,7 @@ Generate a google mock implementation of a C++ class with at least one virtual.
 module cpptooling.generator.gmock;
 
 import std.ascii : newline;
-import std.algorithm : each, joiner, map;
+import std.algorithm : joiner, map;
 import std.conv : text;
 import std.format : format;
 import std.range : chain, only, retro, takeOne;
@@ -99,9 +99,7 @@ private void genMethod(const CppMethod m, CppModule hdr) {
     }
 
     void genMethodWithManyParams(const CppMethod m, CppModule hdr) {
-        import std.algorithm : each;
         import std.range : chunks, enumerate, dropBackOne;
-        import dsrcgen.cpp : E;
 
         static string partName(string name, size_t part_no) {
             return format("%s_MockPart%s", name, part_no);
@@ -109,15 +107,23 @@ private void genMethod(const CppMethod m, CppModule hdr) {
 
         static void genPart(T)(size_t part_no, T a, const CppMethod m,
                 CppModule code, CppModule delegate_mock) {
+            import dsrcgen.cpp : E;
+
+            // dfmt off
             // inject gmock macro
-            code.stmt(format("%s(%s, void(%s))", gmockMacro(a.length,
-                    m.isConst), partName(m.name().str, part_no), a.joinParams));
-            //// inject delegation call to gmock macro
+            code.stmt(format("%s(%s, void(%s))",
+                             gmockMacro(a.length, m.isConst),
+                             partName(m.name().str, part_no),
+                             a.joinParams));
+            // inject delegation call to gmock macro
             delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
+            // dfmt on
         }
 
         static void genLastPart(T)(size_t part_no, T p, const CppMethod m,
                 CppModule code, CppModule delegate_mock) {
+            import dsrcgen.cpp : E;
+
             auto part_name = partName(m.name().str, part_no);
             code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
                     part_name, m.returnType.toStringDecl, p.joinParams));
@@ -137,18 +143,19 @@ private void genMethod(const CppMethod m, CppModule hdr) {
 
         // Generate mock method that delegates to partial mock methods
         auto delegate_mock = hdr.method_inline(Yes.isVirtual,
-                m.returnType.toStringDecl, m.name().str, m.isConst
-                ? Yes.isConst : No.isConst, m.paramRange().joinParams());
+                m.returnType.toStringDecl, m.name().str,
+                cast(Flag!"isConst") m.isConst, m.paramRange().joinParams());
 
         auto param_chunks = m.paramRange.chunks(MAX_GMOCK_PARAMS);
 
         // dfmt off
-        param_chunks
-            .save // don't modify the range
-            .dropBackOne // separate last chunk to simply logic,
-            // all methods will thus return void
-            .enumerate(1)
-                .each!(a => genPart(a.index, a.value, m, code, delegate_mock));
+        foreach (a; param_chunks
+                 .save // don't modify the range
+                 .dropBackOne // separate last chunk to simply logic,
+                 // all methods will thus return void
+                 .enumerate(1)) {
+            genPart(a.index, a.value, m, code, delegate_mock);
+        }
         // dfmt on
 
         // if the mocked function returns a value it is simulated via the "last

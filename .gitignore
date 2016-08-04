@@ -9,8 +9,6 @@ results.json
 
 build/
 docs/
-test/outdata/
-test/trace.*
 resources/version.txt
 
 binary_size.txt

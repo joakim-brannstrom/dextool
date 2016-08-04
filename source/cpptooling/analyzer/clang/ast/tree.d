@@ -54,13 +54,7 @@ struct ClangAST(VisitorT) {
     import std.traits : isArray;
     import clang.Cursor : Cursor;
 
-    @disable this();
-
-    private Cursor root;
-
-    this(Cursor cursor) {
-        this.root = cursor;
-    }
+    Cursor root;
 
     void accept(ref VisitorT visitor) @safe {
         static if (isArray!VisitorT && hasIncrDecr!(typeof(VisitorT.init[0]))) {

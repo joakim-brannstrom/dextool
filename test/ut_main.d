@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -34,6 +33,9 @@ int main(string[] args) {
                           "cpptooling.utility.taggedalgebraic",
                           "plugin.loader",
                           "plugin.backend.plantuml",
+                          // component tests
+                          "test.component.scratch",
+                          "test.component.plantuml",
                           );
     //dfmt on
 }

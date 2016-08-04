@@ -118,6 +118,16 @@ interface Products {
     void putLocation(FileName loc, LocationType type);
 }
 
+/// Different kinds of relations between entities.
+enum RelateKind {
+    None,
+    Extend,
+    Compose,
+    Aggregate,
+    Associate,
+    Relate
+}
+
 /** Relations to targets with count and kind.
  *
  * Intented to be used in a hashmap with the key as the "from".
@@ -125,15 +135,7 @@ interface Products {
 private struct Relate {
 @safe:
     alias Key = USRType;
-
-    enum Kind {
-        None,
-        Extend,
-        Compose,
-        Aggregate,
-        Associate,
-        Relate
-    }
+    alias Kind = RelateKind;
 
     private alias Inner = Tuple!(uint, "count", Kind, "kind");
     private Inner[][Key] to;

@@ -80,7 +80,7 @@ auto runPlugin(CliOption opt, CliArgs args) {
         file_process = FileProcess.make(FileName(parsed["--in"].asList[0]));
     }
 
-    auto skipFileError = parsed["--skip-file-error"].isTrue ? Yes.skipFileError : No.skipFileError;
+    auto skipFileError = cast(Flag!"skipFileError") parsed["--skip-file-error"].isTrue;
 
     return genUml(variant, cflags, compile_db, file_process, skipFileError);
 }
@@ -336,16 +336,11 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
         UMLComponentDiagram, TransformToDiagram;
 
-    // lazy man, same data as used for C++ test double generator is for now used here.
-    // In the future construct a specific visitor for plantuml
-    import plugin.backend.cppvariant : CppVisitor;
-
     Container container;
     auto generator = Generator(variant, variant, variant);
 
     auto transform = TransformToDiagram!(Controller, Parameters)(variant,
             variant, (USRType usr) @safe{ return container.find!TypeKind(usr); },
-            // connect the transform with a destination
             generator.uml_component, generator.uml_class);
 
     auto visitor = new UMLVisitor!(Controller, TransformToDiagram!(Controller, Parameters))(variant,

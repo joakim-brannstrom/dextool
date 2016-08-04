@@ -55,10 +55,24 @@ struct TranslationUnit {
         return r;
     }
 
-    static TranslationUnit parseString(Index index, string source,
-            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
+    static TranslationUnit parseString(alias makeSourceFileName = randomSourceFileName)(
+            Index index, string source, string[] commandLineArgs,
+            CXUnsavedFile[] unsavedFiles = null,
             uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
         import std.string : toStringz;
+
+        string path = makeSourceFileName;
+
+        // in-memory file
+        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
+
+        auto translationUnit = TranslationUnit.parse(index, path,
+                commandLineArgs, [file] ~ unsavedFiles, options);
+
+        return translationUnit;
+    }
+
+    private static string randomSourceFileName() {
         import std.traits : fullyQualifiedName;
         import std.path : buildPath;
 
@@ -76,15 +90,7 @@ struct TranslationUnit {
         }
 
         auto s = fullyQualifiedName!(typeof(this)) ~ ".h";
-        auto path = buildPath(virtualPath, s);
-
-        // in-memory file
-        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
-
-        auto translationUnit = TranslationUnit.parse(index, path,
-                commandLineArgs, [file] ~ unsavedFiles, options);
-
-        return translationUnit;
+        return buildPath(virtualPath, s);
     }
 
     package this(CXTranslationUnit cx) {

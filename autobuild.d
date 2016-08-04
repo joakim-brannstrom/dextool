@@ -159,6 +159,13 @@ bool sanityCheck() {
     return true;
 }
 
+void consoleToFile(Path fname, string console) {
+    writeln("console log written to -> ", fname);
+
+    auto f = File(fname.toString, "w");
+    f.write(console);
+}
+
 void setup() {
     //echoOn;
 
@@ -458,6 +465,7 @@ struct Fsm {
             writeln(r.output);
         }
 
+        consoleToFile(thisExePath.dirName ~ "test" ~ "unittest" ~ Ext(".log"), r.output);
         printExitStatus(r.status, "Compile and run unittest");
     }
 
@@ -501,13 +509,6 @@ struct Fsm {
     }
 
     void stateDebug_test() {
-        static void consoleToFile(Path fname, string console) {
-            writeln("console log written to -> ", fname);
-
-            auto f = File(fname.toString, "w");
-            f.write(console);
-        }
-
         void runTest(string name) {
             Args a;
             a ~= "./" ~ name;

@@ -4,7 +4,7 @@ Date: 2015-2016, Joakim Brännström
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module test.tokenizer.main;
+module devtool.tok_main;
 
 import std.conv;
 import std.stdio;
@@ -124,7 +124,7 @@ int dump_ast(string filename, string[] flags) {
     import cpptooling.analyzer.clang.context;
     import clang.TranslationUnit : dumpAST;
 
-    auto file_ctx = ClangContext(filename, flags);
+    auto file_ctx = ClangContext.fromFile(filename, flags);
     auto tu = file_ctx.translationUnit;
     writeln(dumpAST(tu));
 

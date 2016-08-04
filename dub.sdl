@@ -48,7 +48,7 @@ configuration "application" {
     targetType "executable"
 
     mainSourceFile "source/application/app.d"
-    excludedSourceFiles "source/test/*.d"
+    excludedSourceFiles "source/test/*" "source/devtool/*"
 }
 
 configuration "debug" {
@@ -56,7 +56,7 @@ configuration "debug" {
     targetType "executable"
 
     mainSourceFile "source/application/app.d"
-    excludedSourceFiles "source/test/*.d"
+    excludedSourceFiles "source/test/*" "source/devtool/*"
 
     buildRequirements {
         "requireBoundsCheck"
@@ -68,8 +68,8 @@ configuration "devtool" {
     targetName "devtool"
     targetType "executable"
 
-    mainSourceFile "source/test/tok_main.d"
-    excludedSourceFiles "source/application/app*.d" "source/test/helpers.d"
+    mainSourceFile "source/devtool/tok_main.d"
+    excludedSourceFiles "source/application/app*.d" "source/test/*"
 }
 
 configuration "unittest" {
@@ -80,7 +80,7 @@ configuration "unittest" {
     targetType "executable"
 
     mainSourceFile "test/ut_main.d"
-    excludedSourceFiles "source/test/tok_main.d"
+    excludedSourceFiles "source/devtool/*"
 
     buildRequirements {
         "requireBoundsCheck"
