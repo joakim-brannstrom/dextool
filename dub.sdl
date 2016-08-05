@@ -33,8 +33,6 @@ sourcePaths "source" "plugin"
 importPaths "source" "plugin"
 stringImportPaths "resources"
 
-preBuildCommands "$ROOT_PACKAGE_DIR/gen_version_from_git.sh"
-
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH"
 libs "$LFLAG_CLANG_LIB"
@@ -47,6 +45,8 @@ configuration "application" {
     targetName "dextool"
     targetType "executable"
 
+    preBuildCommands "$ROOT_PACKAGE_DIR/gen_version_from_git.sh"
+
     mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*" "source/devtool/*"
 }
@@ -54,6 +54,12 @@ configuration "application" {
 configuration "debug" {
     targetName "dextool-debug"
     targetType "executable"
+
+    // the preBuildCommands is NOT in this configuration because it forces a
+    // recompilation every time dub is ran even though. It slows down
+    // development time when updating tests.
+    // To build this configuration either run "./autobuild.sh --run_and_exit" or
+    // run "touch resources/version.txt && dub build -c debug"
 
     mainSourceFile "source/application/app.d"
     excludedSourceFiles "source/test/*" "source/devtool/*"

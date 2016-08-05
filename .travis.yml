@@ -16,6 +16,10 @@ notifications:
 git:
     depth: 1
 
+branches:
+    only:
+        - master
+
 script: ./travis.sh
 after_success:
   # restrict what compiler coverage so it is possible to know what compiler

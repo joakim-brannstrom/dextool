@@ -394,6 +394,13 @@ struct Fsm {
 
         writeln("Watching the following paths for changes:");
         inotify_paths.each!writeln;
+
+        enum version_txt = "resources/version.txt";
+        if (!exists(version_txt)) {
+            auto f = File(version_txt, "w");
+            f.write("test");
+            writeln("Creating dummy resources/version.txt");
+        }
     }
 
     void stateAudioStatus() {
