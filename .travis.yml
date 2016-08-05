@@ -10,14 +10,13 @@ os:
 sudo: required
 dist: trusty
 
-script: ./travis.sh
-
 notifications:
     email: false
 
 git:
     depth: 1
 
+script: ./travis.sh
 after_success:
   # restrict what compiler coverage so it is possible to know what compiler
   # reported the coverage statistics on github PR
