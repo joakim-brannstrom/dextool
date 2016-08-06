@@ -18,24 +18,39 @@ struct ClangContext {
     import clang.TranslationUnit;
 
     alias MakeTU = TranslationUnit delegate(ref ClangContext ctx);
+    static struct InMemoryFile {
+        /// Simulated in-memory filename. How it is accessed.
+        string filename;
+
+        ///
+        string content;
+    }
 
     /** Initialize context from in-memory source code.
+     *
      * Params:
+     *  T = symbol to generate the simulated filename for content
      *  content = in-memory content that is handed over to clang for parsing
      *  args = extra arguments to pass to libclang
      *
-     * Returns: ClangContext
+     * Returns:
      */
-    static auto fromString(T...)(string content, const(string[]) args = null) {
+    static auto fromString(T...)(string content, const(string[]) args = null,
+            InMemoryFile[] files = null) if (T.length <= 1) {
         return ClangContext((ref ClangContext ctx) {
             auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
-            return TranslationUnit.parseString!(T)(ctx.index, content,
-                use_args, ctx.compiler.extraHeaders);
-        });
 
+            foreach (file; files) {
+                ctx.compiler.addInMemorySource(file.filename, file.content);
+            }
+
+            return TranslationUnit.parseString!(T)(ctx.index, content,
+                use_args, ctx.compiler.extraHeaders ~ ctx.compiler.extraFiles);
+        });
     }
 
     /** Initialize context from file.
+     *
      * Params:
      *  input_file = filename of the source code that is handed over to clang for parsing
      *  args = extra arguments to pass to libclang
