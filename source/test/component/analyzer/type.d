@@ -87,3 +87,67 @@ namespace dextool__gnu_cxx {
     visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
     (cast(string) visitor.result.name).shouldEqual("__uselocale");
 }
+
+@Name("Should be parameters and return type that are of primitive type")
+// dfmt off
+@Values("int",
+        "signed int",
+        "unsigned int",
+        "unsigned",
+        "char",
+        "signed char",
+        "unsigned char",
+        "short",
+        "signed short",
+        "unsigned short",
+        "long",
+        "signed long",
+        "unsigned long",
+        "long long",
+        "signed long long",
+        "unsigned long long",
+        "float",
+        "double",
+        "long double",
+        "wchar_t",
+        "bool",
+        )
+@Tags("slow") // execution time is >500ms
+// dfmt on
+unittest {
+    enum code = "%s fun(%s);";
+
+    // arrange
+    auto visitor = new FindFunctionDeclVisitor;
+    auto ctx = ClangContext.fromString!"issue.hpp"(format(code,
+            getValue!string, getValue!string));
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(ctx.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(ctx).shouldBeFalse;
+    visitor.found.shouldBeTrue;
+    visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+    (cast(string) visitor.result.name).shouldEqual("fun");
+
+    foreach (param; visitor.result.params) {
+        TypeKindAttr type;
+        // dfmt off
+        param.visit!(
+                     (TypeKindVariable v) => type = v.type,
+                     (TypeKindAttr v) => type = v,
+                     (VariadicType v) {});
+        // dfmt on
+
+        writelnUt(type.toStringDecl);
+        type.attr.isPrimitive.shouldBeTrue;
+    }
+
+    // do not try and verify the string representation of the type.
+    // It may be platform and compiler specific.
+    // For example is signed char -> char.
+    writelnUt(visitor.result.returnType.toStringDecl);
+    visitor.result.returnType.attr.isPrimitive.shouldBeTrue;
+}
