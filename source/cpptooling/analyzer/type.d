@@ -22,11 +22,14 @@ public import cpptooling.analyzer.kind;
 alias TypeKindAttr = Tuple!(TypeKind, "kind", TypeAttr, "attr");
 alias TypeResult = Tuple!(TypeKindAttr, "primary", TypeKindAttr[], "extra");
 
+/** Merge rhs into lhs.
+ */
 ref TypeResult mergeExtra(ref return TypeResult lhs, const ref TypeResult rhs) {
     lhs.extra ~= rhs.extra;
     return lhs;
 }
 
+/// Pretty loggning with indentation.
 void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_space = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     import std.array : array;
@@ -54,6 +57,7 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_spac
     // dfmt on
 }
 
+/// Pretty loggning with indentation.
 void logTypeResult(const ref Nullable!TypeResult result, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     debug {
@@ -63,6 +67,7 @@ void logTypeResult(const ref Nullable!TypeResult result, in uint indent = 0,
     }
 }
 
+/// Pretty loggning with indentation.
 void logTypeResult(const ref TypeResult result, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     import std.array : array;
