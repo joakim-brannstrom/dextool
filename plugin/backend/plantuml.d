@@ -1593,8 +1593,12 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @safe 
             if (is(ElementType!Range == TypeKindAttr)
                 || is(ElementType!Range == const(TypeKindAttr))) {
+        import std.algorithm : filter;
+
         // dfmt off
         foreach(a; range
+            // remove primitive types
+            .filter!(a => !a.attr.isPrimitive)
             .map!(a => resolveTypeRef(a.kind, lookup))
             .joiner
             .map!(a => a.usr)
