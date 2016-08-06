@@ -27,7 +27,7 @@ shall:
 when applicable:
  * default c'tor disabled when possible
  * attributes "pure @safe nothrow" for the struct.
- * Add mixin for Id and Location when the need arise.
+ * Add mixin for Id when the need arise.
  * After c'tor "const:" is used.
 
 TODO replace all dynamic array's with RedBlackTree's
@@ -37,7 +37,7 @@ module cpptooling.data.representation;
 import std.array : Appender;
 import std.format : format;
 import std.range : isInputRange;
-import std.typecons : Typedef, Tuple, Flag, Yes, No;
+import std.typecons : Typedef, Tuple, Flag, Yes, No, Nullable;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
@@ -55,20 +55,38 @@ version (unittest) {
     import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
     import unit_threaded : writelnUt;
 
-    auto dummyLoc() {
-        return LocationTag(Location("a.h", 123, 45));
-    }
-
-    auto dummyLoc2() {
-        return LocationTag(Location("a.h", 456, 12));
-    }
+    private enum dummyUSR = USRType("dummyUSR");
 } else {
     private struct Name {
         string name_;
     }
 }
 
-const LocationTag unknownLocation;
+private size_t _nextUSR;
+
+static this() {
+    // Keeping it fixed to make it easier to debug, read the logs. Aka
+    // reproduce the result.
+    _nextUSR = 42;
+}
+
+/** Construct a USR that is ensured to be unique.
+ *
+ * The USR start with a number which is an illegal symbol in C/C++.
+ * Which should result in them never clashing with those from sources derived
+ * from source code.
+ */
+USRType makeUniqueUSR() @safe nothrow {
+    import std.conv : text;
+
+    if (_nextUSR == size_t.max) {
+        _nextUSR = size_t.min;
+    }
+
+    _nextUSR += 1;
+
+    return USRType(text(_nextUSR));
+}
 
 string funcToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
@@ -152,26 +170,6 @@ private template mixinKind() {
 
     auto kind() const {
         return kind_;
-    }
-}
-
-/** The source location.
- *
- * TODO overload resolutions makes it troublesum to have the simple names
- * set/put. Check in the future if it is possible to remove the Location
- * suffix.
- */
-private template mixinSourceLocation() {
-    private LocationTag loc_;
-
-@safe:
-
-    public void setLocation(LocationTag loc) {
-        this.loc_ = loc;
-    }
-
-    public auto location() const {
-        return loc_;
     }
 }
 
@@ -303,18 +301,24 @@ private void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
 
 pure nothrow struct CxGlobalVariable {
     mixin mixinUniqueId!string;
-    mixin mixinSourceLocation;
 
     private TypeKindVariable variable;
 
-    this(TypeKindVariable tk, LocationTag loc) @safe {
+    Nullable!USRType usr;
+
+    invariant {
+        assert(usr.isNull || usr.length > 0);
+    }
+
+    this(USRType usr, TypeKindVariable tk) @safe {
+        // do NOT use the user from tk.type.kind.usr, it is for the type not the instance.
+        this.usr = usr;
         this.variable = tk;
-        setLocation(loc);
         setUniqueId(variable.name.str);
     }
 
-    this(TypeKindAttr type, CppVariable name, LocationTag loc) @safe {
-        this(TypeKindVariable(type, name), loc);
+    this(USRType usr, TypeKindAttr type, CppVariable name) @safe {
+        this(usr, TypeKindVariable(type, name));
     }
 
 const:
@@ -344,11 +348,8 @@ const:
         import std.algorithm : map, copy;
         import std.ascii : newline;
         import std.format : formattedWrite;
+        import std.range : put;
         import cpptooling.analyzer.type : TypeKind;
-
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// %s\n", location);
-        }
 
         final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:
@@ -360,6 +361,10 @@ const:
         case Kind.pointer:
             formattedWrite(sink,
                     "%s;", variable.type.toStringDecl(variable.name.str));
+            if (!usr.isNull) {
+                put(sink, " // ");
+                put(sink, cast(string) usr);
+            }
             break;
         case Kind.ctor:
             logger.error("Assumption broken. A global variable with the type of a Constructor");
@@ -445,8 +450,6 @@ struct CppMethodGeneric {
      * Expecting them to be set in c'tors.
      */
     template MethodProperties() {
-        mixin mixinSourceLocation;
-
         const pure @nogc nothrow {
             bool isConst() {
                 return isConst_;
@@ -497,12 +500,12 @@ struct CppMethodGeneric {
 /// TODO: rename to CxFreeFunction
 pure nothrow struct CFunction {
     mixin mixinUniqueId!string;
-    mixin mixinSourceLocation;
 
     import std.typecons : TypedefType;
 
+    Nullable!USRType usr;
+
     private {
-        bool isInitialized;
         CFunctionName name_;
         CxParam[] params;
         CxReturnType returnType_;
@@ -511,8 +514,9 @@ pure nothrow struct CFunction {
     }
 
     /// C function representation.
-    this(const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
-            const VariadicType is_variadic, const StorageClass storage_class, const LocationTag loc) @safe {
+    this(USRType usr, const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
+            const VariadicType is_variadic, const StorageClass storage_class) @safe {
+        this.usr = usr;
         this.name_ = name;
         this.returnType_ = return_type;
         this.isVariadic_ = is_variadic;
@@ -520,34 +524,31 @@ pure nothrow struct CFunction {
 
         this.params = params_.dup;
 
-        setLocation(loc);
         setUniqueId(signatureToString);
-
-        isInitialized = true;
     }
 
     /// Function with no parameters.
-    this(const CFunctionName name, const CxReturnType return_type, const LocationTag loc) @safe {
-        this(name, CxParam[].init, return_type, VariadicType.no, StorageClass.None, loc);
+    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @safe {
+        this(usr, name, CxParam[].init, return_type, VariadicType.no, StorageClass.None);
     }
 
     /// Function with no parameters and returning void.
-    this(const CFunctionName name, const LocationTag loc) @safe {
+    this(USRType usr, const CFunctionName name) @safe {
         CxReturnType void_ = makeSimple("void");
-        this(name, CxParam[].init, void_, VariadicType.no, StorageClass.None, loc);
+        this(usr, name, CxParam[].init, void_, VariadicType.no, StorageClass.None);
     }
 
     void toString(Writer)(scope Writer sink) const {
-        import std.algorithm : copy, map, joiner;
-        import std.ascii : newline;
         import std.conv : to;
         import std.format : formattedWrite;
-        import std.range : put, takeOne;
+        import std.range : put;
 
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// %s\n", location);
+        formattedWrite(sink, "%s; // %s", signatureToString(), to!string(storageClass));
+
+        if (!usr.isNull) {
+            put(sink, " ");
+            put(sink, cast(string) usr);
         }
-        formattedWrite(sink, "%s // %s", signatureToString(), to!string(storageClass));
     }
 
 @safe const:
@@ -576,13 +577,12 @@ pure nothrow struct CFunction {
         }
     }
 
-    // Separating file location from the rest
     private string signatureToString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s);", returnType.toStringDecl, name.str,
+        formattedWrite(rval, "%s %s(%s)", returnType.toStringDecl, name.str,
                 paramRange.joinParams);
         return rval.data;
     }
@@ -601,7 +601,8 @@ pure nothrow struct CFunction {
     }
 
     invariant() {
-        if (isInitialized) {
+        if (!usr.isNull) {
+            assert(usr.length > 0);
             assert(name_.length > 0);
             assert(returnType_.toStringDecl.length > 0);
 
@@ -627,6 +628,8 @@ pure nothrow struct CFunction {
 pure @safe nothrow struct CppCtor {
     mixin mixinUniqueId!string;
 
+    Nullable!USRType usr;
+
     private {
         CppAccess accessType_;
         CppMethodName name_;
@@ -639,6 +642,7 @@ pure @safe nothrow struct CppCtor {
     }
 
     this(const CppMethodName name, const CxParam[] params, const CppAccess access) {
+        this.usr = makeUniqueUSR;
         this.name_ = name;
         this.accessType_ = access;
         this.params_ = params.dup;
@@ -653,7 +657,7 @@ const:
     string toString() {
         import std.format : format;
 
-        return format("%s(%s)", name_.str, paramRange.joinParams);
+        return format("%s(%s);", name_.str, paramRange.joinParams);
     }
 
     auto accessType() {
@@ -673,12 +677,12 @@ const:
     }
 }
 
-struct CppDtor {
-pure @safe:
-
+@safe struct CppDtor {
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.StringHelperVirtual;
+
+    Nullable!USRType usr;
 
     @disable this();
 
@@ -689,6 +693,7 @@ pure @safe:
     this(const CppMethodName name, const CppAccess access, const CppVirtualMethod virtual) {
         import std.typecons : TypedefType;
 
+        this.usr = makeUniqueUSR;
         this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
         this.accessType_ = access;
         this.name_ = name;
@@ -699,20 +704,9 @@ pure @safe:
 const:
 
     string toString() {
-        import std.algorithm : joiner;
-        import std.range : only;
-        import std.conv : text;
+        import std.format : format;
 
-        // dfmt off
-        return
-            only(
-                 helperVirtualPre(classification_),
-                 name_.str,
-                 "()"
-                )
-            .joiner()
-            .text;
-        // dfmt on
+        return format("%s%s();", helperVirtualPre(classification_), name_.str);
     }
 
     invariant() {
@@ -730,19 +724,26 @@ nothrow struct CppMethod {
         mixin CppMethodGeneric.MethodProperties;
     }
 
-    @disable this();
+    Nullable!USRType usr;
 
-    this(const this other) {
-        this(other.name, other.params_, other.returnType, other.accessType,
-                CppConstMethod(other.isConst), CppVirtualMethod(other.classification_));
-        // TODO error prone, fix duplicator to be compile time safe.
-        this.setLocation(other.location);
+    invariant {
+        assert(usr.isNull || usr.length > 0);
     }
 
-    this(const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
+    @disable this();
+
+    // TODO error prone, fix duplicator to be compile time safe.
+    this(const this other) {
+        this(other.usr, other.name, other.params_, other.returnType,
+                other.accessType, CppConstMethod(other.isConst),
+                CppVirtualMethod(other.classification_));
+    }
+
+    this(USRType usr, const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         import std.typecons : TypedefType;
 
+        this.usr = usr;
         this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
         this.accessType_ = access;
         this.name_ = name;
@@ -755,36 +756,38 @@ nothrow struct CppMethod {
     }
 
     /// Function with no parameters.
-    this(const CppMethodName name, const CxReturnType return_type, const CppAccess access,
-            const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
-        this(name, CxParam[].init, return_type, access, const_, virtual);
+    this(USRType usr, const CppMethodName name, const CxReturnType return_type,
+            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
+        this(usr, name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
-    this(const CppMethodName name, const CppAccess access, const CppConstMethod const_ = false,
+    this(USRType usr, const CppMethodName name, const CppAccess access,
+            const CppConstMethod const_ = false,
             const CppVirtualMethod virtual = MemberVirtualType.Normal) @safe {
         CxReturnType void_ = makeSimple("void");
-        this(name, CxParam[].init, void_, access, const_, virtual);
+        this(usr, name, CxParam[].init, void_, access, const_, virtual);
     }
 
     void toString(Writer)(scope Writer w) @safe const {
-        import std.ascii : newline;
-        import std.format : formattedWrite;
         import std.range.primitives : put;
-
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(w, "// Origin %s\n", location);
-        }
 
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
         put(w, signatureToString);
         put(w, helperVirtualPost(classification_));
+        put(w, ";");
+
+        if (!usr.isNull) {
+            put(w, " // ");
+            put(w, cast(string) usr);
+        }
     }
 
 @safe const:
 
+    // TODO change to using a sink like toString
     /// Signature of the method.
     private string signatureToString() {
         import std.format : format;
@@ -832,6 +835,8 @@ nothrow struct CppMethodOp {
         mixin CppMethodGeneric.MethodProperties;
     }
 
+    Nullable!USRType usr;
+
     @disable this();
 
     this(const this other) {
@@ -843,6 +848,7 @@ nothrow struct CppMethodOp {
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
         import std.typecons : TypedefType;
 
+        this.usr = makeUniqueUSR;
         this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
         this.accessType_ = access;
         this.name_ = name;
@@ -866,13 +872,7 @@ nothrow struct CppMethodOp {
     }
 
     void toString(Writer)(scope Writer w) @safe const {
-        import std.ascii : newline;
-        import std.format : formattedWrite;
         import std.range.primitives : put;
-
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(w, "// Origin %s\n", location);
-        }
 
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
@@ -888,21 +888,9 @@ nothrow struct CppMethodOp {
 
     /// Signature of the method.
     private string signatureToString() {
-        import std.algorithm : joiner;
-        import std.conv : text;
         import std.format : format;
-        import std.range : only;
 
-        // dfmt off
-        return
-            only(
-                 name_.str,
-                 format("(%s)", paramRange.joinParams),
-                 helperConst(isConst),
-                )
-            .joiner()
-            .text;
-        // dfmt on
+        return format("%s(%s)%s;", name_.str, paramRange.joinParams, helperConst(isConst));
     }
 
     string toString() {
@@ -941,7 +929,7 @@ nothrow struct CppMethodOp {
 pure @safe nothrow struct CppInherit {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
-    USRType usr;
+    Nullable!USRType usr;
 
     private {
         CppAccess access_;
@@ -1022,7 +1010,6 @@ const:
 
 pure nothrow struct CppClass {
     mixin mixinKind;
-    mixin mixinSourceLocation;
     mixin mixinUniqueId!size_t;
 
     import std.variant : Algebraic, visit;
@@ -1033,7 +1020,7 @@ pure nothrow struct CppClass {
 
     alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
-    USRType usr;
+    Nullable!USRType usr;
 
     private {
         CppClassName name_;
@@ -1069,8 +1056,7 @@ pure nothrow struct CppClass {
         this = other;
     }
 
-    this(const CppClassName name, const LocationTag loc,
-            const CppInherit[] inherits, const CppNsStack ns) @safe
+    this(const CppClassName name, const CppInherit[] inherits, const CppNsStack ns) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1080,28 +1066,17 @@ pure nothrow struct CppClass {
 
         () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
 
-        this.setLocation(loc);
-
         ///TODO consider update so the identifier also depend on the namespace.
         setUniqueId(this.name_.str);
     }
 
     //TODO remove
-    this(const CppClassName name, const LocationTag loc, const CppInherit[] inherits) @safe
+    this(const CppClassName name, const CppInherit[] inherits) @safe
     out {
         assert(name_.length > 0);
     }
     body {
-        this(name, loc, inherits, CppNsStack.init);
-    }
-
-    //TODO remove
-    this(const CppClassName name, const LocationTag loc) @safe
-    out {
-        assert(name_.length > 0);
-    }
-    body {
-        this(name, loc, CppInherit[].init, CppNsStack.init);
+        this(name, inherits, CppNsStack.init);
     }
 
     //TODO remove
@@ -1110,17 +1085,15 @@ pure nothrow struct CppClass {
         assert(name_.length > 0);
     }
     body {
-        this(name, LocationTag(null), CppInherit[].init, CppNsStack.init);
+        this(name, CppInherit[].init, CppNsStack.init);
     }
 
     void toString(Writer)(scope Writer sink) const {
-        import std.algorithm : copy, filter, joiner, map;
+        import std.algorithm : copy, joiner, map;
         import std.ascii : newline;
-        import std.conv : to, text;
+        import std.conv : to;
         import std.format : format, formattedWrite;
-        import std.range : takeOne, only, chain, takeOne, repeat, roundRobin,
-            take;
-        import std.string : toLower;
+        import std.range : takeOne, takeOne, repeat, roundRobin, take, put;
 
         comments.map!(a => format("// %s", a)).joiner(newline).copy(sink);
         comments.takeOne.map!(a => newline).copy(sink);
@@ -1132,21 +1105,22 @@ pure nothrow struct CppClass {
         inherits.map!(a => a.toString).joiner(", ").copy(sink);
         formattedWrite(sink, " { // %s%s", to!string(classification_), newline);
 
-        // location information
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "  // Class %s\n", location);
+        // content
+        if (!usr.isNull) {
+            put(sink, " // ");
+            put(sink, cast(string) usr);
+            put(sink, newline);
         }
 
-        // content
         // methods
         methods_pub.takeOne.map!(a => "public:" ~ newline).copy(sink);
-        methods_pub.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+        methods_pub.map!(a => "  " ~ a.funcToString).roundRobin((newline)
                 .repeat.take(methods_pub.length)).copy(sink);
         methods_prot.takeOne.map!(a => "protected:" ~ newline).copy(sink);
-        methods_prot.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+        methods_prot.map!(a => "  " ~ a.funcToString).roundRobin((newline)
                 .repeat.take(methods_prot.length)).copy(sink);
         methods_priv.takeOne.map!(a => "private:" ~ newline).copy(sink);
-        methods_priv.map!(a => "  " ~ a.funcToString).roundRobin((";" ~ newline)
+        methods_priv.map!(a => "  " ~ a.funcToString).roundRobin((newline)
                 .repeat.take(methods_priv.length)).copy(sink);
 
         // inner classes
@@ -1341,6 +1315,7 @@ const:
     }
 
     invariant() {
+        //assert(usr.isNull || usr.length > 0);
         foreach (i; inherits_) {
             assert(i.name.length > 0);
         }
@@ -1403,8 +1378,7 @@ const:
     }
 }
 
-struct CppNamespace {
-@safe:
+@safe struct CppNamespace {
     mixin mixinKind;
 
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -1570,8 +1544,6 @@ const:
  * analyzed C++ source.
  */
 pure nothrow struct CppRoot {
-    mixin mixinSourceLocation;
-
     import std.container : RedBlackTree;
 
     private {
@@ -1581,36 +1553,23 @@ pure nothrow struct CppRoot {
         RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
-    /// Make a root with a "noloc" location.
+    /// Returns: An initialized CppRoot
     static auto make() @safe {
-        auto r = CppRoot(unknownLocation);
+        import std.container : make;
+
+        CppRoot r;
+
+        r.globals = make!(typeof(this.globals));
+        r.funcs = make!(typeof(this.funcs));
+
         return r;
     }
 
-    /// Construct a root container with a location.
-    this(in Location loc) @safe {
-        this(LocationTag(loc));
-    }
-
-    /// ditto
-    this(in LocationTag loc) @safe {
-        import std.container : make;
-
-        this.globals = make!(typeof(this.globals));
-        this.funcs = make!(typeof(this.funcs));
-
-        setLocation(loc);
-    }
-
+    /// Recrusive stringify the content for human readability.
     void toString(Writer)(scope Writer sink) const {
         import std.ascii : newline;
         import std.algorithm : map, joiner, copy;
-        import std.format : formattedWrite;
         import std.range : takeOne;
-
-        if (location.kind == LocationTag.Kind.loc) {
-            formattedWrite(sink, "// Root %s\n", location);
-        }
 
         globals[].takeOne.map!(a => newline).copy(sink);
         globals[].map!(a => a.toString).joiner(newline).copy(sink);
@@ -1686,54 +1645,40 @@ const:
 
         return trustedUnique(buf);
     }
-
-    invariant {
-        final switch (loc_.kind) {
-        case LocationTag.Kind.loc:
-            assert(loc_.file.length > 0);
-            break;
-        case LocationTag.Kind.noloc:
-            break;
-        }
-    }
 }
 
 @Name("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
-        auto f = CFunction(CFunctionName("nothing"), dummyLoc);
+        auto f = CFunction(dummyUSR, CFunctionName("nothing"));
         shouldEqual(f.returnType.toStringDecl("x"), "void x");
-        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
-void nothing(); // None");
+        shouldEqual(f.toString, "void nothing(); // None dummyUSR");
     }
 
     { // extern storage.
-        auto f = CFunction(CFunctionName("nothing"), [], CxReturnType(makeSimple("void")),
-                VariadicType.no, StorageClass.Extern, dummyLoc);
+        auto f = CFunction(dummyUSR, CFunctionName("nothing"), [],
+                CxReturnType(makeSimple("void")), VariadicType.no, StorageClass.Extern);
         shouldEqual(f.returnType.toStringDecl("x"), "void x");
-        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
-void nothing(); // Extern");
+        shouldEqual(f.toString, "void nothing(); // Extern dummyUSR");
     }
 
     { // a return type.
-        auto f = CFunction(CFunctionName("nothing"), CxReturnType(makeSimple("int")), dummyLoc);
-        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
-int nothing(); // None");
+        auto f = CFunction(dummyUSR, CFunctionName("nothing"), CxReturnType(makeSimple("int")));
+        shouldEqual(f.toString, "int nothing(); // None dummyUSR");
     }
 
     { // return type and parameters.
         auto p0 = makeCxParam(TypeKindVariable(makeSimple("int"), CppVariable("x")));
         auto p1 = makeCxParam(TypeKindVariable(makeSimple("char"), CppVariable("y")));
-        auto f = CFunction(CFunctionName("nothing"), [p0, p1],
-                CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None, dummyLoc);
-        shouldEqual(f.toString, "// File:a.h Line:123 Column:45
-int nothing(int x, char y); // None");
+        auto f = CFunction(dummyUSR, CFunctionName("nothing"), [p0, p1],
+                CxReturnType(makeSimple("int")), VariadicType.no, StorageClass.None);
+        shouldEqual(f.toString, "int nothing(int x, char y); // None dummyUSR");
     }
 }
 
 @Name("Test of creating simples CppMethod")
 unittest {
-    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
+    auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     shouldEqual(m.isConst, false);
     shouldEqual(m.classification, MemberVirtualType.Normal);
     shouldEqual(m.name, "voider");
@@ -1748,18 +1693,18 @@ unittest {
     tk.attr.isPtr = Yes.isPtr;
     auto p = CxParam(TypeKindVariable(tk, CppVariable("x")));
 
-    auto m = CppMethod(CppMethodName("none"), [p, p], CxReturnType(tk),
+    auto m = CppMethod(dummyUSR, CppMethodName("none"), [p, p], CxReturnType(tk),
             CppAccess(AccessType.Public), CppConstMethod(true),
             CppVirtualMethod(MemberVirtualType.Virtual));
 
-    shouldEqual(m.toString, "virtual char* none(char* x, char* x) const");
+    shouldEqual(m.toString, "virtual char* none(char* x, char* x) const; // dummyUSR");
 }
 
 @Name("should represent the operator as a string")
 unittest {
     auto m = CppMethodOp(CppMethodName("operator="), CppAccess(AccessType.Public));
 
-    shouldEqual(m.toString, "void operator=() /* operator */");
+    shouldEqual(m.toString, "void operator=(); /* operator */");
 }
 
 @Name("should separate the operator keyword from the actual operator")
@@ -1772,12 +1717,12 @@ unittest {
 @Name("should represent a class with one public method")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
+    auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
     shouldEqualPretty(c.toString, "class Foo { // Normal
 public:
-  void voider();
+  void voider(); // dummyUSR
 }; //Class:Foo");
 }
 
@@ -1789,7 +1734,7 @@ unittest {
 
     shouldEqualPretty(c.toString, "class Foo { // Normal
 public:
-  void operator=() /* operator */;
+  void operator=(); /* operator */
 }; //Class:Foo");
 }
 
@@ -1813,7 +1758,7 @@ unittest {
     import std.array : appender;
 
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
+    auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
 
     auto app = appender!string();
@@ -1821,7 +1766,7 @@ unittest {
         app.put(d.funcToString());
     }
 
-    shouldEqual(app.data, "void voider()");
+    shouldEqual(app.data, "void voider(); // dummyUSR");
 }
 
 @Name("Test of toString for a free function")
@@ -1829,12 +1774,11 @@ unittest {
     auto ptk = makeSimple("char*");
     ptk.attr.isPtr = Yes.isPtr;
     auto rtk = makeSimple("int");
-    auto f = CFunction(CFunctionName("nothing"), [makeCxParam(TypeKindVariable(ptk,
+    auto f = CFunction(dummyUSR, CFunctionName("nothing"), [makeCxParam(TypeKindVariable(ptk,
             CppVariable("x"))), makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
-            CxReturnType(rtk), VariadicType.no, StorageClass.None, dummyLoc);
+            CxReturnType(rtk), VariadicType.no, StorageClass.None);
 
-    shouldEqualPretty(f.toString, "// File:a.h Line:123 Column:45
-int nothing(char* x, char* y); // None");
+    shouldEqualPretty(f.toString, "int nothing(char* x, char* y); // None dummyUSR");
 }
 
 @Name("Test of Ctor's")
@@ -1845,7 +1789,7 @@ unittest {
 
     auto ctor = CppCtor(CppMethodName("ctor"), [p, p], CppAccess(AccessType.Public));
 
-    shouldEqual(ctor.toString, "ctor(char* x, char* x)");
+    shouldEqual(ctor.toString, "ctor(char* x, char* x);");
 }
 
 @Name("Test of Dtor's")
@@ -1853,13 +1797,13 @@ unittest {
     auto dtor = CppDtor(CppMethodName("~dtor"), CppAccess(AccessType.Public),
             CppVirtualMethod(MemberVirtualType.Virtual));
 
-    shouldEqual(dtor.toString, "virtual ~dtor()");
+    shouldEqual(dtor.toString, "virtual ~dtor();");
 }
 
 @Name("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
+    c.put(CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public)));
 
     {
         auto m = CppCtor(CppMethodName("Foo"), CxParam[].init, CppAccess(AccessType.Public));
@@ -1868,15 +1812,16 @@ unittest {
 
     {
         auto tk = makeSimple("int");
-        auto m = CppMethod(CppMethodName("fun"), CxReturnType(tk), CppAccess(AccessType.Protected),
-                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(dummyUSR, CppMethodName("fun"), CxReturnType(tk),
+                CppAccess(AccessType.Protected), CppConstMethod(false),
+                CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
 
     {
         auto tk = makeSimple("char*");
         tk.attr.isPtr = Yes.isPtr;
-        auto m = CppMethod(CppMethodName("gun"), CxReturnType(tk), CppAccess(AccessType.Private),
+        auto m = CppMethod(dummyUSR, CppMethodName("gun"), CxReturnType(tk), CppAccess(AccessType.Private),
                 CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Normal));
         m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("x"))));
         m.put(CxParam(TypeKindVariable(makeSimple("int"), CppVariable("y"))));
@@ -1885,30 +1830,30 @@ unittest {
 
     {
         auto tk = makeSimple("int");
-        auto m = CppMethod(CppMethodName("wun"), CxReturnType(tk), CppAccess(AccessType.Public),
-                CppConstMethod(true), CppVirtualMethod(MemberVirtualType.Normal));
+        auto m = CppMethod(dummyUSR, CppMethodName("wun"), CxReturnType(tk),
+                CppAccess(AccessType.Public), CppConstMethod(true),
+                CppVirtualMethod(MemberVirtualType.Normal));
         c.put(m);
     }
 
     shouldEqualPretty(c.toString, "class Foo { // Abstract
 public:
-  void voider();
+  void voider(); // dummyUSR
   Foo();
-  int wun() const;
+  int wun() const; // dummyUSR
 protected:
-  virtual int fun() = 0;
+  virtual int fun() = 0; // dummyUSR
 private:
-  char* gun(int x, int y);
+  char* gun(int x, int y); // dummyUSR
 }; //Class:Foo");
 }
 
 @Name("should be a class in a ns in the comment")
 unittest {
     CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
-    auto c = CppClass(CppClassName("A_Class"), dummyLoc, CppInherit[].init, ns);
+    auto c = CppClass(CppClassName("A_Class"), CppInherit[].init, ns);
 
     shouldEqualPretty(c.toString, "class A_Class { // Unknown
-  // Class File:a.h Line:123 Column:45
 }; //Class:a_ns::another_ns::A_Class");
 
 }
@@ -1920,11 +1865,10 @@ unittest {
     inherit ~= CppInherit(CppClassName("prot"), CppAccess(AccessType.Protected));
     inherit ~= CppInherit(CppClassName("priv"), CppAccess(AccessType.Private));
 
-    auto c = CppClass(CppClassName("Foo"), dummyLoc, inherit);
+    auto c = CppClass(CppClassName("Foo"), inherit);
 
     shouldEqualPretty(c.toString,
             "class Foo : public pub, protected prot, private priv { // Unknown
-  // Class File:a.h Line:123 Column:45
 }; //Class:Foo");
 }
 
@@ -1963,7 +1907,7 @@ unittest {
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"), CxReturnType(makeSimple("int")),
+        auto m = CppMethod(dummyUSR, CppMethodName("wun"), CxReturnType(makeSimple("int")),
                 CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
@@ -1973,7 +1917,7 @@ unittest {
 public:
   Foo();
   virtual ~Foo();
-  virtual int wun();
+  virtual int wun(); // dummyUSR
 }; //Class:Foo");
 }
 
@@ -1991,7 +1935,7 @@ unittest {
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"), CxReturnType(makeSimple("int")),
+        auto m = CppMethod(dummyUSR, CppMethodName("wun"), CxReturnType(makeSimple("int")),
                 CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
@@ -2001,7 +1945,7 @@ unittest {
 public:
   Foo();
   virtual ~Foo();
-  virtual int wun() = 0;
+  virtual int wun() = 0; // dummyUSR
 }; //Class:Foo");
 }
 
@@ -2010,13 +1954,13 @@ unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
     auto c = CppClass(CppClassName("Foo"));
-    c.put(CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public)));
+    c.put(CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public)));
     ns.put(c);
 
     shouldEqualPretty(ns.toString, "namespace simple { //simple
 class Foo { // Normal
 public:
-  void voider();
+  void voider(); // dummyUSR
 }; //Class:Foo
 } //NS:simple");
 }
@@ -2034,23 +1978,22 @@ unittest {
     auto root = CppRoot.make();
 
     { // free function
-        auto f = CFunction(CFunctionName("nothing"), dummyLoc);
+        auto f = CFunction(dummyUSR, CFunctionName("nothing"));
         root.put(f);
     }
 
     auto c = CppClass(CppClassName("Foo"));
-    auto m = CppMethod(CppMethodName("voider"), CppAccess(AccessType.Public));
+    auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     root.put(c);
 
     root.put(CppNamespace.make(CppNs("simple")));
 
     shouldEqualPretty(root.toString, "
-// File:a.h Line:123 Column:45
-void nothing(); // None
+void nothing(); // None dummyUSR
 class Foo { // Normal
 public:
-  void voider();
+  void voider(); // dummyUSR
 }; //Class:Foo
 namespace simple { //simple
 } //NS:simple");
@@ -2085,12 +2028,11 @@ unittest {
 @Name("Add a C-func to a namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
-    auto f = CFunction(CFunctionName("nothing"), dummyLoc);
+    auto f = CFunction(dummyUSR, CFunctionName("nothing"));
     n.put(f);
 
     shouldEqualPretty(n.toString, "namespace  { //
-// File:a.h Line:123 Column:45
-void nothing(); // None
+void nothing(); // None dummyUSR
 } //NS:");
 }
 
@@ -2112,18 +2054,16 @@ unittest {
 
 @Name("should be a global definition")
 unittest {
-    auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(makeSimple("int"), CppVariable("y"), dummyLoc);
+    auto v0 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
+    auto v1 = CxGlobalVariable(dummyUSR, makeSimple("int"), CppVariable("y"));
 
-    shouldEqualPretty(v0.toString, "// File:a.h Line:123 Column:45
-int x;");
-    shouldEqualPretty(v1.toString, "// File:a.h Line:123 Column:45
-int y;");
+    shouldEqualPretty(v0.toString, "int x; // dummyUSR");
+    shouldEqualPretty(v1.toString, "int y; // dummyUSR");
 }
 
 @Name("Should be globals stored in the root object")
 unittest {
-    auto v = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
+    auto v = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto n = CppNamespace.makeAnonymous();
     auto r = CppRoot.make();
     n.put(v);
@@ -2131,28 +2071,18 @@ unittest {
     r.put(n);
 
     shouldEqualPretty(r.toString, "
-// File:a.h Line:123 Column:45
-int x;
+int x; // dummyUSR
 namespace  { //
-// File:a.h Line:123 Column:45
-int x;
+int x; // dummyUSR
 } //NS:");
-}
-
-@Name("Should be a root with a location")
-unittest {
-    auto r = CppRoot(dummyLoc);
-
-    shouldEqualPretty(r.toString, "// Root File:a.h Line:123 Column:45
-");
 }
 
 @Name("should be possible to sort the data structures")
 unittest {
     import std.array : array;
 
-    auto v0 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc);
-    auto v1 = CxGlobalVariable(TypeKindVariable(makeSimple("int"), CppVariable("x")), dummyLoc2);
+    auto v0 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
+    auto v1 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto r = CppRoot.make();
     r.put(v0);
     r.put(v1);
@@ -2220,12 +2150,12 @@ unittest {
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("wun"), CppAccess(AccessType.Public),
+        auto m = CppMethod(dummyUSR, CppMethodName("wun"), CppAccess(AccessType.Public),
                 CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
         c.put(m);
     }
     {
-        auto m = CppMethod(CppMethodName("gun"), CppAccess(AccessType.Public),
+        auto m = CppMethod(dummyUSR, CppMethodName("gun"), CppAccess(AccessType.Public),
                 CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Virtual));
         c.put(m);
     }
@@ -2233,8 +2163,8 @@ unittest {
     shouldEqualPretty(c.toString, "class Foo { // Abstract
 public:
   ~Foo();
-  virtual void wun() = 0;
-  virtual void gun();
+  virtual void wun() = 0; // dummyUSR
+  virtual void gun(); // dummyUSR
 }; //Class:Foo");
 
 }
@@ -2247,14 +2177,4 @@ unittest {
     shouldEqualPretty(c.toString, "// A comment
 class Foo { // Unknown
 }; //Class:Foo");
-}
-
-@Name("Should be a method with a location")
-unittest {
-    auto m = CppMethod(CppMethodName("method"), CppAccess(AccessType.Public),
-            CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Virtual));
-    m.setLocation(dummyLoc);
-
-    shouldEqualPretty(m.toString, "// Origin File:a.h Line:123 Column:45
-virtual void method()");
 }

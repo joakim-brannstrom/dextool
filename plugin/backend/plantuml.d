@@ -1177,8 +1177,9 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
             import cpptooling.data.type : CppConstMethod;
             import cpptooling.data.representation : CppMethod;
 
-            auto method = CppMethod(result.name, result.params, result.returnType,
-                    accessType, CppConstMethod(result.isConst), result.virtualKind);
+            auto method = CppMethod(result.type.kind.usr, result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
             logger.trace("method: ", method.toString);
         }
 
@@ -1277,9 +1278,9 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeFunctionDecl(v, container, indent);
 
         debug {
-            auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
-                    result.isVariadic, result.storageClass, result.location);
-            logger.info("global function: ", func.toString);
+            auto func = CFunction(result.type.kind.usr, result.name, result.params,
+                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
+            logger.info("function: ", func.toString);
         }
 
         recv.put(result);
@@ -1399,8 +1400,10 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
 
         if (genClassMethod) {
-            auto method = CppMethod(result.name, result.params, result.returnType,
-                    accessType, CppConstMethod(result.isConst), result.virtualKind);
+            auto method = CppMethod(USRType("dummy"), result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
+            method.usr.nullify;
             uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ method.toString));
         }
 

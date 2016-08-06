@@ -42,7 +42,7 @@ import clang.Type : Type;
 public import cpptooling.analyzer.type;
 import cpptooling.data.type : Location, LocationTag;
 
-private long _nextSequence;
+private size_t _nextSequence;
 
 static this() {
     // Use a fixed number to minimize the difference between two generated
@@ -58,8 +58,8 @@ static this() {
 private string nextSequence() @safe {
     import std.conv : text;
 
-    if (_nextSequence == long.max) {
-        _nextSequence = 1;
+    if (_nextSequence == size_t.max) {
+        _nextSequence = size_t.min;
     }
 
     _nextSequence += 1;

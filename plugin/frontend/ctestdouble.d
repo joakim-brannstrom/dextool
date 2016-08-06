@@ -201,29 +201,29 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
-        bool r = true;
+        bool decision = true;
 
         // docopt blocks during parsing so both restrict and exclude cannot be
         // set at the same time.
         if (restrict.length > 0) {
-            r = canFind!((a) {
+            decision = canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(restrict);
             debug {
-                logger.tracef(!r, "--file-restrict skipping %s", info);
+                logger.tracef(!decision, "--file-restrict skipping %s", info);
             }
         } else if (exclude.length > 0) {
-            r = !canFind!((a) {
+            decision = !canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(exclude);
             debug {
-                logger.tracef(!r, "--file-exclude skipping %s", info);
+                logger.tracef(!decision, "--file-exclude skipping %s", info);
             }
         }
 
-        return r;
+        return decision;
     }
 
     bool doGoogleMock() {

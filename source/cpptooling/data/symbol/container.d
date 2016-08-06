@@ -107,8 +107,15 @@ unittest {
  * A location of kind "noloc" do NOT mean that there exist a
  * definition/declaration. See the hasXXX-methods.
  *
- * Only the last declaration is saved to be used as a fallback for those
+ * Only the first declaration is saved to be used as a fallback for those
  * occasions when a definition isn't found.
+ *
+ * Remember that for those users of DeclLocation that do not have a
+ * cache/delaying the decision until all files have been analyzed base may base
+ * their decision on the first occurens. Therefor to be less surprising to the
+ * user the first one is saved and the rest discarded.
+ *
+ * TODO save all declarations? Remember that it may take a lot of memory.
  *
  * Hint, the name DeclLocation was chosen because a definition is a declaration
  * so it encapsulates both.
@@ -121,6 +128,7 @@ private @safe struct DeclLocation {
         this = other;
     }
 
+    // TODO change name to anyOfDeclaratoinOrDefinition to be self explaining
     /** A range of one location if any is set.
      *
      * Priority is definition -> declaration.
@@ -131,7 +139,7 @@ private @safe struct DeclLocation {
         if (hasDefinition) {
             rval = only(definition_.get);
         } else if (hasDeclaration) {
-            rval = only(last_decl.get);
+            rval = only(first_decl.get);
         }
 
         return rval;
@@ -151,12 +159,15 @@ private @safe struct DeclLocation {
     }
 
     @property ref const(LocationTag) declaration() pure nothrow const @nogc {
-        return last_decl.get;
+        return first_decl.get;
     }
 
     @property ref const(LocationTag) declaration(inout LocationTag d) {
-        last_decl = d;
-        return last_decl.get;
+        if (first_decl.isNull) {
+            first_decl = d;
+        }
+
+        return first_decl.get;
     }
 
     bool hasDefinition() pure nothrow const @nogc {
@@ -164,14 +175,12 @@ private @safe struct DeclLocation {
     }
 
     bool hasDeclaration() pure nothrow const @nogc {
-        return !last_decl.isNull && last_decl.kind != LocationTag.Kind.noloc;
+        return !first_decl.isNull && first_decl.kind != LocationTag.Kind.noloc;
     }
 
-    ///
-    private Nullable!LocationTag definition_;
-
-    ///
-    private Nullable!LocationTag last_decl;
+private:
+    Nullable!LocationTag definition_;
+    Nullable!LocationTag first_decl;
 }
 
 /** Contain symbols found during analyze.

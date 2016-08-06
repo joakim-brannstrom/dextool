@@ -32,6 +32,8 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
      */
     FileName[] getIncludes();
 
+    // TODO Move the doXXX to Parameters
+
     /// If any google mocks are generated.
     bool doGoogleMock();
 
@@ -49,6 +51,7 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 }
 
 /** Parameters used during generation.
+ *
  * Important aspact that they do NOT change, therefore it is pure.
  */
 @safe pure interface Parameters {
@@ -160,14 +163,16 @@ struct Generator {
      * Logical decisions should have been handled in earlier stages.
      */
     auto process(ref CppRoot root, ref Container container) {
-        auto fl = rawFilter(root, ctrl, products);
+        import cpptooling.data.symbol.types : USRType;
+
+        auto fl = rawFilter(root, ctrl, products, (USRType usr) => container.find!LocationTag(usr));
         logger.trace("Filtered:\n", fl.toString());
 
         auto tr = translate(fl, container, ctrl, params);
         logger.trace("Translated to implementation:\n", tr.toString());
 
         auto modules = Modules.make();
-        generate(tr, ctrl, params, modules);
+        generate(tr, ctrl, params, modules, container);
         postProcess(ctrl, params, products, modules);
     }
 
@@ -256,7 +261,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         this(ControllerT ctrl, ProductT prod) {
             this.ctrl = ctrl;
             this.prod = prod;
-            this.root = CppRoot(LocationTag(null));
+            this.root = CppRoot.make;
             this.container = &container_;
         }
     } else {
@@ -287,13 +292,12 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
 
         mixin(mixinNodeLog!());
 
-        // TODO ugly hack. Move this information to the representation. But for
-        // now skipping all definitions
         // TODO investigate if linkage() == CXLinkage_External should be used
         // instead.
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
-            auto var = CxGlobalVariable(TypeKindVariable(result.type, result.name), result.location);
+            auto var = CxGlobalVariable(result.instanceUSR,
+                    TypeKindVariable(result.type, result.name));
             root.put(var);
         }
     }
@@ -303,8 +307,8 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
 
         auto result = analyzeFunctionDecl(v, container, indent);
         if (result.isValid) {
-            auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
-                    result.isVariadic, result.storageClass, result.location);
+            auto func = CFunction(result.type.kind.usr, result.name, result.params,
+                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
             root.put(func);
         }
     }
@@ -351,7 +355,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     }
 
     override void visit(const(TranslationUnit) v) {
-        import cpptooling.generator.utility : validLocation;
+        import std.algorithm : filter;
         import cpptooling.analyzer.clang.type : makeLocation;
 
         mixin(mixinNodeLog!());
@@ -359,8 +363,9 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         LocationTag tu_loc;
         () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
 
-        foreach (loc; tu_loc.validLocation!(a => ctrl.doFile(a.file, "root " ~ a.toString))) {
-            prod.putLocation(FileName(loc.file), LocationType.Root);
+        if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
+                "root " ~ tu_loc.toString)) {
+            prod.putLocation(FileName(tu_loc.file), LocationType.Root);
         }
 
         v.accept(this);
@@ -400,10 +405,6 @@ import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
-auto dummyLoc() {
-    return LocationTag(Location("<test double>", 0, 0));
-}
-
 enum ClassType {
     Normal,
     Adapter,
@@ -426,13 +427,38 @@ enum NamespaceType {
  * Params:
  *  ctrl: removes according to directives via ctrl
  */
-CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
-    import std.algorithm : among, each, filter;
+CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, LookupT lookup) @safe {
+    import std.algorithm : each, filter, map, filter;
     import std.range : tee;
-    import cpptooling.generator.utility : validLocation, storeValidLocations,
-        filterAnyLocation;
+    import application.types : FileName;
+    import cpptooling.data.representation : dedup, StorageClass;
+    import cpptooling.generator.utility : filterAnyLocation;
 
-    auto raw = CppRoot(input.location);
+    // setup
+    static if (is(CppT == CppRoot)) {
+        auto filtered = CppRoot.make;
+    } else static if (is(CppT == CppNamespace)) {
+        auto filtered = CppNamespace.make(input.name);
+        assert(!input.isAnonymous);
+        assert(input.name.length > 0);
+    } else {
+        static assert("Type not supported: " ~ CppT.stringof);
+    }
+
+    // type specific
+    static if (is(CppT == CppNamespace)) {
+        // dfmt off
+        input.funcRange
+            .dedup
+            // by definition static functions can't be replaced by test doubles
+            .filter!(a => a.storageClass != StorageClass.Static)
+            // ask controller if the file should be mocked, and thus the node
+            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+            // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .each!(a => filtered.put(a.value));
+        // dfmt on
+    }
 
     // Assuming that namespaces are never duplicated at this stage.
     // The assumption comes from the structure of the clang AST.
@@ -440,74 +466,29 @@ CppRoot rawFilter(CppRoot input, Controller ctrl, Products prod) {
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
-        .each!(a => raw.put(rawFilter(a, ctrl, prod)));
+        .map!(a => rawFilter(a, ctrl, prod, lookup))
+        .each!(a => filtered.put(a));
 
     if (ctrl.doGoogleMock) {
         input.classRange
             // only classes with virtual functions are mocked
             .filter!(a => a.isVirtual)
-            // ask controller if the file should be mocked, and thus the node
-            .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
+            // ask controller (the user) if the file should be mocked
+            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
             // pass on location as a product to be used to calculate #include
-            .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
             // the class shall be further processed
-            .each!(a => raw.put(a));
+            .each!(a => filtered.put(a.value));
     }
     // dfmt on
 
-    return raw;
-}
-
-/// Recursive filtering of namespaces to remove everything except free functions.
-CppNamespace rawFilter(CppNamespace input, Controller ctrl, Products prod)
-in {
-    assert(!input.isAnonymous);
-    assert(input.name.length > 0);
-}
-body {
-    import std.algorithm : among, each, filter, map;
-    import std.range : tee;
-    import application.types : FileName;
-    import cpptooling.data.representation : dedup, StorageClass;
-    import cpptooling.generator.utility : storeValidLocations,
-        filterAnyLocation;
-
-    auto ns = CppNamespace.make(input.name);
-
-    // dfmt off
-    input.funcRange
-        .dedup
-        // by definition static functions can't be replaced by test doubles
-        .filter!(a => a.storageClass != StorageClass.Static)
-        // ask controller if the file should be mocked, and thus the node
-        .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
-        // pass on location as a product to be used to calculate #include
-        .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
-        .each!(a => ns.put(a));
-
-    input.namespaceRange
-        .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, ctrl, prod))
-        .each!(a => ns.put(a));
-
-    if (ctrl.doGoogleMock) {
-        input.classRange
-            .filter!(a => a.isVirtual)
-            // ask controller if the file should be mocked, and thus the node
-            .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
-            // pass on location as a product to be used to calculate #include
-            .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
-            .each!(a => ns.put(a));
-    }
-    //dfmt on
-
-    return ns;
+    return filtered;
 }
 
 CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
 
-    auto r = CppRoot(root.location);
+    auto r = CppRoot.make;
 
     // dfmt off
     root.namespaceRange
@@ -593,7 +574,8 @@ NullableVoid!CppNamespace translate(CppNamespace input, Container container,
  *  - implementations using double.
  *  - adapter.
  */
-void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules)
+void generate(CppRoot r, Controller ctrl, Parameters params,
+        Generator.Modules modules, ref const(Container) container)
 in {
     import std.array : empty;
 
@@ -601,6 +583,7 @@ in {
 }
 body {
     import std.algorithm : each, filter;
+    import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
     import cpptooling.generator.includes : generateIncludes;
@@ -617,8 +600,8 @@ body {
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
-    static void eachNs(CppNamespace ns, Parameters params,
-            Generator.Modules modules, CppModule impl_singleton) {
+    static void eachNs(LookupT)(CppNamespace ns, Parameters params,
+            Generator.Modules modules, CppModule impl_singleton, LookupT lookup) {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
@@ -641,28 +624,35 @@ body {
             generateSingleton(ns, impl_singleton);
             break;
         case TestDouble:
-            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock);
+            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock, lookup);
             generateNsTestDoubleImpl(ns, modules.impl);
             break;
         }
 
-        ns.funcRange.each!(a => generateFuncImpl(a, inner.impl));
-        ns.namespaceRange.each!(a => eachNs(a, params, inner, inner_impl_singleton));
+        foreach (a; ns.funcRange) {
+            generateFuncImpl(a, inner.impl);
+        }
+        foreach (a; ns.namespaceRange) {
+            eachNs(a, params, inner, inner_impl_singleton, lookup);
+        }
     }
 
     gmockGlobal(r.classRange, modules.gmock, params);
     // no singleton in global namespace thus null
-    r.namespaceRange().each!(a => eachNs(a, params, modules, null));
+    foreach (a; r.namespaceRange()) {
+        eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr));
+    }
 }
 
-void generateClassHdr(CppClass c, CppModule hdr, CppModule gmock, Parameters params) {
+void generateClassHdr(LookupT)(CppClass c, CppModule hdr, CppModule gmock,
+        Parameters params, LookupT lookup) {
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
 
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
     case ClassType.Adapter:
-        generateHdr(c, hdr, No.locationAsComment);
+        generateHdr(c, hdr, No.locationAsComment, lookup);
         break;
     case ClassType.Gmock:
         generateGmock(c, gmock, params);
@@ -684,7 +674,8 @@ void generateClassImpl(CppClass c, CppModule impl) {
     }
 }
 
-void generateNsTestDoubleHdr(CppNamespace ns, Parameters params, CppModule hdr, CppModule gmock) {
+void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
+        CppModule hdr, CppModule gmock, LookupT lookup) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
@@ -692,7 +683,9 @@ void generateNsTestDoubleHdr(CppNamespace ns, Parameters params, CppModule hdr, 
     cpp_ns.suppressIndent(1);
     hdr.sep(2);
 
-    ns.classRange().each!((a) { generateClassHdr(a, cpp_ns, gmock, params); });
+    foreach (a; ns.classRange()) {
+        generateClassHdr(a, cpp_ns, gmock, params, lookup);
+    }
 }
 
 void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl) {
@@ -772,7 +765,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
     auto methods = dedup(getMethods(class_, container));
 
-    auto c = CppClass(class_.name, class_.location, class_.inherits, class_.resideInNs);
+    auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
     // dfmt off
     () @trusted {
         import std.algorithm : each;

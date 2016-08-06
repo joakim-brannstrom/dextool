@@ -14,13 +14,9 @@ import dsrcgen.cpp : CppModule;
 import application.types : MainNs, MainInterface;
 import cpptooling.analyzer.type;
 import cpptooling.data.representation : CppClass, CppNamespace;
-import cpptooling.data.type : LocationTag, Location, USRType;
+import cpptooling.data.type : USRType;
 
 @safe:
-
-auto dummyLoc() {
-    return LocationTag(Location("<test double>", 0, 0));
-}
 
 /// Make a C++ adapter for an interface.
 CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
@@ -52,7 +48,8 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
 CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
-    import cpptooling.data.representation : CppVariable, CxGlobalVariable;
+    import cpptooling.data.representation : CppVariable, CxGlobalVariable,
+        makeUniqueUSR;
     import cpptooling.utility.conv : str;
 
     auto attr = TypeAttr.init;
@@ -60,8 +57,8 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
     auto kind = TypeKind(TypeKind.PointerInfo(main_ns.str ~ "::" ~ main_if.str ~ "%s %s",
             USRType(main_ns.str ~ "::" ~ main_if.str ~ "*"), [attr]));
 
-    auto v = CxGlobalVariable(TypeKindAttr(kind, TypeAttr.init),
-            CppVariable("test_double_inst"), dummyLoc);
+    auto v = CxGlobalVariable(makeUniqueUSR, TypeKindAttr(kind, TypeAttr.init),
+            CppVariable("test_double_inst"));
     auto ns = CppNamespace.makeAnonymous();
     ns.setKind(KindT.TestDoubleSingleton);
     ns.put(v);
