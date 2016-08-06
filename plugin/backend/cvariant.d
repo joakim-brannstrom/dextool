@@ -311,10 +311,14 @@ final class CVisitor : Visitor {
     }
 
     void toString(Writer)(scope Writer w) @safe const {
+        import std.format : FormatSpec;
         import std.range.primitives : put;
 
         root.toString(w);
         put(w, "\n");
+
+        auto fmt = FormatSpec!char("%s");
+        container.toString(w, fmt);
     }
 
     override string toString() const {
