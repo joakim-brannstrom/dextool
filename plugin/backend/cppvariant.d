@@ -17,8 +17,9 @@ import application.types;
 import cpptooling.utility.nullvoid;
 import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
-/// Control various aspectes of the analyze and generation like what nodes to
-/// process.
+/** Control various aspectes of the analyze and generation like what nodes to
+ * process.
+ */
 @safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
@@ -47,8 +48,9 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
     bool doIncludeOfPostIncludes();
 }
 
-/// Parameters used during generation.
-/// Important aspact that they do NOT change, therefore it is pure.
+/** Parameters used during generation.
+ * Important aspact that they do NOT change, therefore it is pure.
+ */
 @safe pure interface Parameters {
     import std.typecons : Tuple;
 
@@ -116,6 +118,8 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
     void putLocation(FileName loc, LocationType type);
 }
 
+/** Generator of test doubles for C++ code.
+ */
 struct Generator {
     import std.typecons : Typedef;
 
@@ -123,7 +127,7 @@ struct Generator {
     import cpptooling.data.symbol.container : Container;
     import cpptooling.utility.conv : str;
 
-    static struct Modules {
+    private static struct Modules {
         import plugin.utility : MakerInitializingClassMembers;
 
         mixin MakerInitializingClassMembers!Modules;
@@ -133,6 +137,7 @@ struct Generator {
         CppModule gmock;
     }
 
+    ///
     this(Controller ctrl, Parameters params, Products products) {
         this.ctrl = ctrl;
         this.params = params;
@@ -143,10 +148,12 @@ struct Generator {
      *
      * raw -> filter -> translate -> code gen.
      *
-     * filters the structural data.
-     * Controller is involved to allow filtering of identifiers in files.
+     * Filters the structural data.
+     * Controller is involved to allow filtering of identifiers according to
+     * there lexical location.
      *
-     * translate prepares the data for code generator.
+     * Translate prepares the data for code generator.
+     * Extra structures needed for code generation is made at this stage.
      * On demand extra data is created. An example of on demand is --gmock.
      *
      * Code generation is a straight up translation.
@@ -222,11 +229,14 @@ private:
 final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.ast.visitor;
+    import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
+        ClassDecl, Namespace, TranslationUnit;
+    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
-    import cpptooling.data.representation;
+    import cpptooling.data.representation : CppRoot, CxGlobalVariable;
+    import cpptooling.data.type : CppNsStack, CxReturnType, CppNs,
+        TypeKindVariable;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
 
@@ -500,8 +510,7 @@ body {
 }
 
 CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
-    import std.array;
-    import std.algorithm : map, filter, each, among;
+    import std.algorithm : map, filter, each;
 
     auto r = CppRoot(root.location);
 
@@ -525,16 +534,15 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
  */
 NullableVoid!CppNamespace translate(CppNamespace input, Container container,
         Controller ctrl, Parameters params) {
-    import std.algorithm : map, filter, each, among;
-    import std.array;
-    import std.typecons : TypedefType;
-    import cpptooling.data.representation;
+    import std.algorithm : map, filter, each;
+    import std.array : empty;
+    import cpptooling.data.representation : CppNs;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
 
     static auto makeGmockInNs(CppClass c, Parameters params) {
-        import cpptooling.data.representation;
+        import cpptooling.data.representation : CppNs;
 
         auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
         ns.setKind(NamespaceType.TestDouble);
@@ -592,7 +600,7 @@ NullableVoid!CppNamespace translate(CppNamespace input, Container container,
  */
 void generate(CppRoot r, Controller ctrl, Parameters params, Generator.Modules modules)
 in {
-    import std.array;
+    import std.array : empty;
 
     assert(r.funcRange.empty);
 }
@@ -639,7 +647,7 @@ body {
             break;
         case TestDouble:
             generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock);
-            generateNsTestDoubleImpl(ns, params, modules.impl);
+            generateNsTestDoubleImpl(ns, modules.impl);
             break;
         }
 
@@ -692,7 +700,7 @@ void generateNsTestDoubleHdr(CppNamespace ns, Parameters params, CppModule hdr, 
     ns.classRange().each!((a) { generateClassHdr(a, cpp_ns, gmock, params); });
 }
 
-void generateNsTestDoubleImpl(CppNamespace ns, Parameters params, CppModule impl) {
+void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 
@@ -713,13 +721,14 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
     static bool isMethodOrOperator(T)(T method) @trusted {
         import std.variant : visit;
-        import cpptooling.data.representation;
+        import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor,
+            CppDtor;
 
         // dfmt off
-        return method.visit!((const CppMethod c) => true,
-                        (const CppMethodOp c) => true,
-                        (const CppCtor c) => false,
-                        (const CppDtor c) => false);
+        return method.visit!((const CppMethod a) => true,
+                        (const CppMethodOp a) => true,
+                        (const CppCtor a) => false,
+                        (const CppDtor a) => false);
         // dfmt on
     }
 
@@ -752,7 +761,8 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
         static auto getUniqeId(T)(ref T method) @trusted {
             import std.variant : visit;
-            import cpptooling.data.representation;
+            import cpptooling.data.representation : CppMethod, CppMethodOp,
+                CppCtor, CppDtor;
 
             // dfmt off
             return method.visit!((CppMethod a) => a.id,
