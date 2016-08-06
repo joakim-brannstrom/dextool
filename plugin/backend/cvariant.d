@@ -311,7 +311,10 @@ final class CVisitor : Visitor {
     }
 
     void toString(Writer)(scope Writer w) @safe const {
+        import std.range.primitives : put;
+
         root.toString(w);
+        put(w, "\n");
     }
 
     override string toString() const {
