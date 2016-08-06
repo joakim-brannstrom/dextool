@@ -36,6 +36,7 @@ int main(string[] args) {
                           // component tests
                           "test.component.scratch",
                           "test.component.plantuml",
+                          "test.component.analyzer.type",
                           );
     //dfmt on
 }

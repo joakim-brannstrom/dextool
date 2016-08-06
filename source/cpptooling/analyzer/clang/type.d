@@ -726,6 +726,8 @@ body {
         if (!c.kind.among(CXCursorKind.CXCursor_FunctionDecl, CXCursorKind.CXCursor_CXXMethod)) {
             // see retrieveUnexposed for why
             rval = typeToSimple(c, type, indent);
+        } else if (type.isFunctionType) {
+            rval = typeToFuncProto(c, type, container, indent);
         }
         break;
 
