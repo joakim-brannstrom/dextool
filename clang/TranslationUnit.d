@@ -55,6 +55,7 @@ struct TranslationUnit {
         return r;
     }
 
+    // If the source code is zero length then it is NOT added.
     static TranslationUnit parseString(alias makeSourceFileName = randomSourceFileName)(
             Index index, string source, string[] commandLineArgs,
             CXUnsavedFile[] unsavedFiles = null,
@@ -62,12 +63,16 @@ struct TranslationUnit {
         import std.string : toStringz;
 
         string path = makeSourceFileName;
+        auto in_memory_files = unsavedFiles;
 
         // in-memory file
-        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
+        if (source.length > 0) {
+            auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
+            in_memory_files ~= file;
+        }
 
         auto translationUnit = TranslationUnit.parse(index, path,
-                commandLineArgs, [file] ~ unsavedFiles, options);
+                commandLineArgs, in_memory_files, options);
 
         return translationUnit;
     }

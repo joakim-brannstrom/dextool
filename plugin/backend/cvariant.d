@@ -120,8 +120,7 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
     void putLocation(FileName loc, LocationType type);
 }
 
-/**
- *
+/** Generator of test doubles for C code.
  */
 struct Generator {
     import std.typecons : Typedef;
@@ -129,9 +128,10 @@ struct Generator {
     import cpptooling.data.representation : CppRoot;
     import cpptooling.utility.conv : str;
 
-    static struct Modules {
+    private static struct Modules {
         import plugin.utility : MakerInitializingClassMembers;
 
+        // add a static c'tor
         mixin MakerInitializingClassMembers!Modules;
 
         CppModule hdr;
@@ -140,29 +140,16 @@ struct Generator {
         CppModule gmock;
     }
 
+    ///
     this(Controller ctrl, Parameters params, Products products) {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
-        this.raw = CppRoot.make;
-    }
-
-    /** Analyse and store the content of root.
-     *
-     * Analyse consist of a filtering.
-     * filters the structural data.
-     * Controller is involved to allow filtering of identifiers in files.
-     */
-    void analyse(ref CppRoot root, ref const(Container) container) {
-        logger.trace("Raw:\n", root.toString());
-
-        rawFilter(root, ctrl, products, raw);
-        logger.tracef("Filtered:\n%s\n", raw.toString());
     }
 
     /** Process structural data to a test double.
      *
-     * translate -> code generation.
+     * raw -> filter -> translate -> code generation.
      *
      * Translate analyzes what is left after filtering.
      * On demand extra data is created. An example of on demand is --gmock.
@@ -173,19 +160,21 @@ struct Generator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(ref const(Container) container) {
-        makeImplStuff(raw, ctrl, params);
+    auto process(ref CppRoot root, ref const(Container) container) {
+        auto filtered = CppRoot.make;
+        rawFilter(root, ctrl, products, filtered);
+        logger.tracef("Filtered:\n%s\n", filtered.toString());
 
-        logger.trace("Post processed:\n", raw.toString());
+        makeImplStuff(filtered, ctrl, params);
+
+        logger.trace("Post processed:\n", filtered.toString());
 
         auto m = Modules.make();
-        generate(raw, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
+        generate(filtered, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
         postProcess(m, ctrl, params, products);
     }
 
 private:
-    CppRoot raw;
-
     Controller ctrl;
     Parameters params;
     Products products;
@@ -241,8 +230,9 @@ private:
 final class CVisitor : Visitor {
     import std.typecons : scoped;
 
-    import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.ast.visitor;
+    import cpptooling.analyzer.clang.ast : VarDecl, FunctionDecl,
+        TranslationUnit;
+    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
     import cpptooling.data.representation : CppRoot;
@@ -311,7 +301,14 @@ final class CVisitor : Visitor {
     }
 
     void toString(Writer)(scope Writer w) @safe const {
+        import std.format : FormatSpec;
+        import std.range.primitives : put;
+
         root.toString(w);
+        put(w, "\n");
+
+        auto fmt = FormatSpec!char("%s");
+        container.toString(w, fmt);
     }
 
     override string toString() const {
@@ -358,7 +355,7 @@ enum NamespaceType {
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
  */
-void rawFilter(ref CppRoot input, Controller ctrl, Products prod, ref CppRoot raw) {
+void rawFilter(ref CppRoot input, Controller ctrl, Products prod, ref CppRoot filtered) {
     import std.algorithm : filter, each;
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : storeValidLocations,
@@ -372,14 +369,14 @@ void rawFilter(ref CppRoot input, Controller ctrl, Products prod, ref CppRoot ra
         .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         // pass on location as a product to be used to calculate #include
         .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
-        .each!(a => raw.put(a));
+        .each!(a => filtered.put(a));
 
     input.globalRange()
         // ask controller if to generate a definitions
         .filterAnyLocation!((value, loc) => ctrl.doFile(loc.file, cast(string) value.name ~ " " ~ loc.toString))
         // pass on location as a product to be used to calculate #include
         .storeValidLocations!(a => prod.putLocation(FileName(a.file), LocationType.Leaf))
-        .each!(a => raw.put(a));
+        .each!(a => filtered.put(a));
     // dfmt on
 }
 
@@ -422,11 +419,9 @@ void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
 
 void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Container container,
         CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
-    import std.algorithm : each;
-    import std.array;
     import cpptooling.utility.conv : str;
     import cpptooling.generator.func : generateFuncImpl;
-    import cpptooling.generator.includes;
+    import cpptooling.generator.includes : generateWrapIncludeInExternC;
 
     generateWrapIncludeInExternC(ctrl, params, hdr);
 
@@ -454,7 +449,7 @@ void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Conta
         case NamespaceType.TestDouble:
             generateNsTestDoubleHdr(ns,
                     cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params, hdr, gmock);
-            generateNsTestDoubleImpl(ns, params, impl);
+            generateNsTestDoubleImpl(ns, impl);
             break;
         }
     }
@@ -467,16 +462,16 @@ void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Conta
     }
 }
 
-void generateCGlobalPreProcessorDefine(ref CxGlobalVariable g, string prefix, CppModule code) {
+void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefix, CppModule code) {
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
     import cpptooling.analyzer.type : TypeKind, toStringDecl, toRepr;
 
-    auto d_name = E((prefix ~ "Init_").toUpper ~ g.name.str);
+    auto d_name = E((prefix ~ "Init_").toUpper ~ global.name.str);
     auto ifndef = code.IFNDEF(d_name);
 
     // example: #define TEST_INIT_extern_a int extern_a[4]
-    final switch (g.type.kind.info.kind) with (TypeKind.Info) {
+    final switch (global.type.kind.info.kind) with (TypeKind.Info) {
     case Kind.array:
     case Kind.func:
     case Kind.funcPtr:
@@ -484,7 +479,7 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable g, string prefix, Cp
     case Kind.record:
     case Kind.simple:
     case Kind.typeRef:
-        ifndef.define(d_name ~ E(g.type.toStringDecl(g.name.str)));
+        ifndef.define(d_name ~ E(global.type.toStringDecl(global.name.str)));
         break;
     case Kind.ctor:
         // a C test double shold never have preprocessor macros for a C++ ctor
@@ -493,29 +488,29 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable g, string prefix, Cp
         // a C test double shold never have preprocessor macros for a C++ dtor
         assert(false);
     case Kind.null_:
-        logger.error("Type of global definition is null. Identifier ", g.name.str);
+        logger.error("Type of global definition is null. Identifier ",
+                global.name.str);
         break;
     }
 }
 
-void generateCGlobalDefinition(ref CxGlobalVariable g, Flag!"locationAsComment" loc_as_comment,
+void generateCGlobalDefinition(ref CxGlobalVariable global, Flag!"locationAsComment" loc_as_comment,
         string prefix, const ref Container container, CppModule code)
 in {
     import std.algorithm : among;
     import cpptooling.analyzer.type : TypeKind;
 
-    assert(!g.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
+    assert(!global.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
 }
 body {
     import std.format : format;
     import std.string : toUpper;
     import cpptooling.utility.conv : str;
-    import cpptooling.analyzer.type;
 
-    string d_name = (prefix ~ "Init_").toUpper ~ g.name.str;
+    string d_name = (prefix ~ "Init_").toUpper ~ global.name.str;
 
-    if (loc_as_comment && g.location.kind == LocationTag.Kind.loc) {
-        code.comment("Origin " ~ g.location.toString)[$.begin = "/// "];
+    if (loc_as_comment && global.location.kind == LocationTag.Kind.loc) {
+        code.comment("Origin " ~ global.location.toString)[$.begin = "/// "];
     }
     code.stmt(d_name);
 }
@@ -564,7 +559,7 @@ void generateNsTestDoubleHdr(ref CppNamespace ns, Flag!"locationAsComment" loc_a
     });
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, Parameters params, CppModule impl) {
+void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl) {
     import std.algorithm : each;
     import cpptooling.utility.conv : str;
 

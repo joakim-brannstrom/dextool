@@ -68,6 +68,19 @@ struct Compiler {
         return [virtualPath];
     }
 
+    void addInMemorySource(string filename, string content) {
+        extraFiles_ ~= InternalHeader(filename, content);
+    }
+
+    CXUnsavedFile[] extraFiles() {
+        import std.array : array;
+        import std.string : toStringz;
+
+        return extraFiles_.map!((e) {
+            return CXUnsavedFile(e.filename.toStringz, e.content.ptr, e.content.length);
+        }).array();
+    }
+
     CXUnsavedFile[] extraHeaders() {
         import std.array : array;
         import std.string : toStringz;
@@ -79,6 +92,8 @@ struct Compiler {
     }
 
 private:
+
+    InternalHeader[] extraFiles_;
 
     string virtualPath() {
         if (virtual_path.any)

@@ -12,10 +12,12 @@ Utility useful for plugins.
 */
 module plugin.utility;
 
-/** Static initializer of class members.
-Params:
-  T = type to construct an instance of.
-*/
+/** Make a static c'tor that creates an instance with all class members initialized.
+ *
+ * Params:
+ *   T = type to construct an instance of
+ *   postInit = call the function with the initialized instance.
+ */
 mixin template MakerInitializingClassMembers(T, alias postInit = function void(ref T) {
 }) {
     static T make() {

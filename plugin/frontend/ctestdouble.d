@@ -314,8 +314,6 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import plugin.backend.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
-
-    auto generator = Generator(variant, variant, variant);
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
 
@@ -343,8 +341,12 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     }
 
     // Analyse and generate test double
-    generator.analyse(visitor.root, visitor.container);
-    generator.process(visitor.container);
+    auto generator = Generator(variant, variant, variant);
+    generator.process(visitor.root, visitor.container);
+
+    debug {
+        logger.trace(visitor);
+    }
 
     return writeFileData(variant.file_data);
 }

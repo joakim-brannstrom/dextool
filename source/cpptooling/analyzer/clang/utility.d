@@ -11,7 +11,7 @@ import logger = std.experimental.logger;
 
 import clang.Cursor : Cursor;
 import cpptooling.analyzer.clang.ast.visitor;
-import cpptooling.analyzer.clang.type : TypeResult;
+import cpptooling.analyzer.clang.type : TypeResults;
 import cpptooling.data.symbol.container : Container;
 
 version (unittest) {
@@ -59,13 +59,15 @@ void backtrackScope(NodeT, SinkT)(ref const(NodeT) node, scope SinkT sink) {
 }
 
 //TODO remove the default value for indent.
-void put(ref Nullable!TypeResult tr, ref Container container, in uint indent = 0) @safe {
-    import cpptooling.analyzer.clang.type : logTypeResult;
+void put(ref Nullable!TypeResults tr, ref Container container, in uint indent = 0) @safe {
+    import std.range : chain, only;
 
-    if (!tr.isNull) {
-        container.put(tr.primary.kind);
-        foreach (e; tr.extra) {
-            container.put(e.kind);
-        }
+    if (tr.isNull) {
+        return;
+    }
+
+    foreach (a; chain(only(tr.primary), tr.extra)) {
+        container.put(a.type.kind);
+        container.put(a.type.kind.loc, a.type.kind.usr, a.type.attr.isDefinition);
     }
 }
