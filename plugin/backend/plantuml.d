@@ -35,11 +35,10 @@ version (unittest) {
     }
 }
 
-/** Control various aspectes of the analyze and generation like what nodes to
+/** Control various aspects of the analyze and generation like what nodes to
  * process.
  */
-interface Controller {
-@safe:
+@safe interface Controller {
     /// Query the controller with the filename of the AST node for a decision
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
@@ -57,8 +56,7 @@ interface Controller {
 
 /// Parameters used during generation.
 /// Important aspact that they do NOT change, therefore it is pure.
-pure const interface Parameters {
-@safe:
+@safe pure const interface Parameters {
     import std.typecons : Tuple, Flag;
 
     alias Files = Tuple!(FileName, "classes", FileName, "components", FileName,
@@ -97,8 +95,7 @@ pure const interface Parameters {
 }
 
 /// Data produced by the generator like files.
-interface Products {
-@safe:
+@safe interface Products {
     /** Data pushed from the generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
@@ -118,7 +115,9 @@ interface Products {
     void putLocation(FileName loc, LocationType type);
 }
 
-/// Different kinds of relations between entities.
+/** The supported "kind"s of relations between entities. Related to the UML
+ * standard.
+ */
 enum RelateKind {
     None,
     Extend,
@@ -267,9 +266,9 @@ private auto fanOutSorted(T)(T t) pure {
  * file. This is the container that is then passed between the analyze stages.
  *
  * All classes must exist in "classes".
- * It is common that during data gathering a CppClass is found to be related to
- * another class by a FullyQualifiedNameType so the relation is added before
- * the class represented by the FullyQualifiedNameType is added.
+ * It is common that during data gathering a class is found to be related to
+ * another class by a USR. The relation is added before the class represented
+ * by the USR is added.
  *
  * A --> B
  * Directed relation.
@@ -277,8 +276,8 @@ private auto fanOutSorted(T)(T t) pure {
  *
  * Store of R[A.B].
  * When analyzing the structural data it is this kind of relations that are
- * found. From a CppClass to many X, where X is other CppClass.
- * The key used must be unique, thus the choice of using fully qualified name.
+ * found. From a class to many X, where X is other classes.
+ * The key used must be unique, thus the choice of using USR.
  *
  * Example of relations.
  * A --> B (member)
@@ -291,7 +290,8 @@ private auto fanOutSorted(T)(T t) pure {
  * relate[A].put(B, Extend)
  * relate[B].put(A, Compose)
  *
- * The relations are of the kind Fan-out.
+ * The relations are of the kind Fan-out, one-to-many.
+ * They can be sorted in descending fan-out-count order.
  */
 class UMLClassDiagram {
 @safe:
@@ -314,6 +314,10 @@ class UMLClassDiagram {
         }
     }
 
+    /** Store parameter content with the key.
+     *
+     * It is the body of the class in a class diagram.
+     */
     void put(Key key, string content)
     in {
         assert(key in classes);
@@ -322,6 +326,10 @@ class UMLClassDiagram {
         classes[key].content ~= content;
     }
 
+    /** Set the classification of a class.
+     *
+     * Example would be a pure virtual, which in java would be an interface.
+     */
     void put(Key key, ClassClassificationState classification)
     in {
         assert(key in classes);
@@ -344,6 +352,13 @@ class UMLClassDiagram {
         relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
     }
 
+    /** Use to retrieve the relation struct for the key.
+     *
+     * Example:
+     * ---
+     * diagram.relateTo(Key("foo")).put(Key("bar"), Relate.Kind.Associate);
+     * ---
+     */
     const(Relate) relateTo(Key k) pure const
     in {
         assert(k in classes);
@@ -353,16 +368,17 @@ class UMLClassDiagram {
         return relate_to[cast(Relate.Key) k];
     }
 
-    /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
+    /// Returns: Flat array of all relations of type FROM-KIND-TO-COUNT.
     auto relateToFlatArray() pure const @trusted {
         import std.algorithm : map, joiner;
-        import std.array;
+        import std.array : array;
 
         return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
     }
 
-    alias KeyClass = Tuple!(Key, const(Class));
+    private alias KeyClass = Tuple!(Key, const(Class));
 
+    /// Returns: An array of the key/values.
     KeyClass[] asArray() const pure nothrow @trusted {
         import std.array : array;
         import std.algorithm : map;
@@ -376,6 +392,7 @@ class UMLClassDiagram {
         // dfmt on
     }
 
+    /// Returns: An array of the key/values sorted on key.
     auto nameSortedRange() const pure @trusted {
         static string sortClassNameBy(T)(ref T a) {
             return a[1].displayName.str;
@@ -404,7 +421,7 @@ class UMLClassDiagram {
 
     private string[] relateToStringArray() const pure @trusted {
         import std.algorithm : map, joiner;
-        import std.array;
+        import std.array : array;
 
         return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
@@ -426,6 +443,8 @@ class UMLClassDiagram {
     }
 
     Relate[Relate.Key] relate_to;
+
+    private Relate[Relate.Key] relate_to;
     private Class[Key] classes;
 }
 
@@ -436,6 +455,8 @@ class UMLClassDiagram {
  * file. This is the container that is then passed between the analyze stages.
  *
  * The relations are of the kind Fan-out.
+ *
+ * See_Also: UMLClassDiagram
  */
 class UMLComponentDiagram {
     import std.container.rbtree : RedBlackTree;
@@ -444,7 +465,7 @@ class UMLComponentDiagram {
     alias Location = Typedef!(string, string.init, "Location");
     alias DisplayName = Typedef!(string, string.init, "DisplayName");
 
-    struct Component {
+    private struct Component {
         DisplayName displayName;
         string[] toFile;
         RedBlackTree!Location contains;
@@ -483,6 +504,13 @@ class UMLComponentDiagram {
         components[from].toFile ~= cast(string) to;
     }
 
+    /** Use to retrieve the relation struct for the key.
+     *
+     * Example:
+     * ---
+     * diagram.relateTo(Key("foo")).put(Key("bar"), Relate.Kind.Associate);
+     * ---
+     */
     const(Relate) relateTo(Key k) pure const @safe
     in {
         assert(k in components);
@@ -500,8 +528,9 @@ class UMLComponentDiagram {
         return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
     }
 
-    alias KeyComponent = Tuple!(Key, const(Component));
+    private alias KeyComponent = Tuple!(Key, const(Component));
 
+    /// Returns: Flat array of all relations of type FROM-KIND-TO-COUNT.
     KeyComponent[] asArray() const pure nothrow @trusted {
         import std.array : array;
         import std.algorithm : map;
@@ -515,6 +544,7 @@ class UMLComponentDiagram {
         // dfmt on
     }
 
+    /// Returns: An array of the key/values sorted on key.
     auto nameSortedRange() const pure @trusted {
         static string sortComponentNameBy(T)(ref T a) {
             return cast(string) a[1].displayName;
@@ -546,6 +576,7 @@ class UMLComponentDiagram {
         return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
+    /// String representation of the Component Diagram.
     void toString(Writer)(scope Writer w) @safe const {
         import std.algorithm : joiner, each;
         import std.ascii : newline;
@@ -566,6 +597,7 @@ class UMLComponentDiagram {
         put(w, "} // UML Component Diagram");
     }
 
+    ///
     override string toString() @safe const {
         import std.exception : assumeUnique;
 
@@ -579,8 +611,9 @@ class UMLComponentDiagram {
         return trustedUnique(buf);
     }
 
+private:
     Relate[Relate.Key] relate_to;
-    private Component[Key] components;
+    Component[Key] components;
 }
 
 @Name("Should be a None relate not shown and an extended relate")
@@ -661,12 +694,15 @@ a -Relate- [1]b
 } // UML Component Diagram");
 }
 
+/** Context for the UML diagram generator from internal representation to the
+ * concrete files.
+ */
 struct Generator {
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
 
-    static struct Modules {
-        private static postInit(ref this m) {
+    private static struct Modules {
+        private static void postInit(ref typeof(this) m) {
             m.classes_dot.suppressIndent(1);
             m.components_dot.suppressIndent(1);
         }
@@ -681,6 +717,13 @@ struct Generator {
         PlantumlModule components_dot;
     }
 
+    /** Instansiate.
+     *
+     * Params:
+     *  ctrl = dynamic control of data generation.
+     *  params = static control, may never change during generation.
+     *  products = receiver of UML diagrams.
+     */
     this(Controller ctrl, Parameters params, Products products) {
         this.ctrl = ctrl;
         this.params = params;
@@ -689,6 +732,10 @@ struct Generator {
         this.uml_component = new UMLComponentDiagram;
     }
 
+    /** Process the sources to produce UML diagrams in-memory.
+     *
+     * The diagrams are forwarded to the registered Products instance.
+     */
     auto process() {
         auto m = Modules.make();
         generate(uml_class, uml_component, params.doGenDot, m);
@@ -838,7 +885,7 @@ private:
         }
 
         static FileName makeDotFileName(FileName f, DotLayout layout) {
-            import std.path;
+            import std.path : extension, stripExtension;
 
             auto ext = extension(cast(string) f);
 
@@ -856,8 +903,6 @@ private:
 
             return FileName((cast(string) f).stripExtension ~ suffix ~ ext);
         }
-
-        PlantumlModule style;
 
         if (ctrl.genStyleInclFile) {
             prods.putFile(params.getFiles.styleOutput, makeMinimalStyle(params.genClassMethod));
@@ -884,13 +929,13 @@ private:
 private alias ClassClassificationResult = Tuple!(TypeKindAttr, "type",
         cpptooling.data.class_classification.State, "classification");
 
-// Unable to format the class with dfmt.
 private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, copy, each;
     import std.array : Appender;
     import std.typecons : scoped, TypedefType;
 
-    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.ast : ClassDecl, CXXBaseSpecifier,
+        Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeClassDecl,
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
@@ -1062,7 +1107,8 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import std.range : chain, only, dropOne, ElementType;
     import std.typecons : scoped, NullableRef, TypedefType;
 
-    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.ast : TranslationUnit, UnexposedDecl,
+        VarDecl, FunctionDecl, ClassDecl, Namespace;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeClassDecl;
@@ -1590,12 +1636,13 @@ alias PathKind = Tuple!(string, "file", Relate.Kind, "kind");
  * Additional metadata as to make it possible to backtrack.
  */
 KeyValue makeComponentKey(in string location_file, Controller ctrl) @trusted {
-    import std.base64;
-    import std.path;
     import std.array : appender;
+    import std.base64 : Base64Impl, Base64;
+    import std.path : buildNormalizedPath, absolutePath, relativePath, baseName;
     import std.typecons : tuple;
 
-    //TODO consider using a hash function to shorten the length of the encoded path
+    // TODO consider using hash murmur2/3 to shorten the length of the encoded
+    // path
 
     alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
@@ -1618,10 +1665,11 @@ KeyValue makeComponentKey(in string location_file, Controller ctrl) @trusted {
 }
 
 UMLClassDiagram.Key makeClassKey(in USRType key) @trusted {
-    import std.base64;
+    import std.base64 : Base64Impl, Base64;
     import std.array : appender;
 
-    //TODO consider using a hash function to shorten the length of the encoded path
+    // TODO consider using hash murmur2/3 function to shorten the length of the
+    // encoded path
 
     alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
