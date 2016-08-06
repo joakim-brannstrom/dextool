@@ -160,11 +160,6 @@ struct Generator {
      * Logical decisions should have been handled in earlier stages.
      */
     auto process(ref CppRoot root, ref Container container) {
-        import std.array;
-        import cpptooling.data.representation : CppNamespace, CppNs;
-
-        logger.trace("Raw:\n", root.toString());
-
         auto fl = rawFilter(root, ctrl, products);
         logger.trace("Filtered:\n", fl.toString());
 

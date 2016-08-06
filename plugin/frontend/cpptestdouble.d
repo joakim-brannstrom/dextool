@@ -341,5 +341,9 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     // process and put the data in variant.
     Generator(variant, variant, variant).process(visitor.root, visitor.container);
 
+    debug {
+        logger.trace(visitor);
+    }
+
     return writeFileData(variant.file_data);
 }
