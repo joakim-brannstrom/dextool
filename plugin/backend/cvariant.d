@@ -145,20 +145,6 @@ struct Generator {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
-        this.raw = CppRoot.make;
-    }
-
-    /** Analyse and store the content of root.
-     *
-     * Analyse consist of a filtering.
-     * filters the structural data.
-     * Controller is involved to allow filtering of identifiers in files.
-     */
-    void analyse(ref CppRoot root, ref const(Container) container) {
-        logger.trace("Raw:\n", root.toString());
-
-        rawFilter(root, ctrl, products, raw);
-        logger.tracef("Filtered:\n%s\n", raw.toString());
     }
 
     /** Process structural data to a test double.
@@ -174,19 +160,21 @@ struct Generator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(ref const(Container) container) {
-        makeImplStuff(raw, ctrl, params);
+    auto process(ref CppRoot root, ref const(Container) container) {
+        auto filtered = CppRoot.make;
+        rawFilter(root, ctrl, products, filtered);
+        logger.tracef("Filtered:\n%s\n", filtered.toString());
 
-        logger.trace("Post processed:\n", raw.toString());
+        makeImplStuff(filtered, ctrl, params);
+
+        logger.trace("Post processed:\n", filtered.toString());
 
         auto m = Modules.make();
-        generate(raw, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
+        generate(filtered, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
         postProcess(m, ctrl, params, products);
     }
 
 private:
-    CppRoot raw;
-
     Controller ctrl;
     Parameters params;
     Products products;
