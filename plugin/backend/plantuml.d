@@ -1121,7 +1121,6 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCXXBaseSpecified(v, *container, indent);
-        recv.put(this.type, result);
 
         debug {
             import std.algorithm : each;
@@ -1133,18 +1132,21 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
             logger.trace("inherit: ", inherit.toString);
         }
+
+        recv.put(this.type, result);
     }
 
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
-        recv.put(this.type, result, accessType);
 
         debug {
             auto tor = CppCtor(result.name, result.params, accessType);
             logger.trace("ctor: ", tor.toString);
         }
+
+        recv.put(this.type, result, accessType);
     }
 
     override void visit(const(Destructor) v) {
@@ -1153,12 +1155,13 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeDestructor(v, *container, indent);
         classification = classifyClass(classification, MethodKind.Dtor,
                 cast(MemberVirtualType) result.virtualKind, hasMember);
-        recv.put(this.type, result, accessType);
 
         debug {
             auto tor = CppDtor(result.name, accessType, result.virtualKind);
             logger.trace("dtor: ", tor.toString);
         }
+
+        recv.put(this.type, result, accessType);
     }
 
     override void visit(const(CXXMethod) v) {
@@ -1170,8 +1173,6 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         classification = classifyClass(classification, MethodKind.Method,
                 cast(MemberVirtualType) result.virtualKind, hasMember);
 
-        recv.put(this.type, result, accessType);
-
         debug {
             import cpptooling.data.type : CppConstMethod;
             import cpptooling.data.representation : CppMethod;
@@ -1180,6 +1181,8 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
                     accessType, CppConstMethod(result.isConst), result.virtualKind);
             logger.trace("method: ", method.toString);
         }
+
+        recv.put(this.type, result, accessType);
     }
 
     override void visit(const(FieldDecl) v) {
@@ -1192,11 +1195,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         hasMember = Yes.hasMember;
         classification = classifyClass(classification, MethodKind.Unknown,
                 MemberVirtualType.Unknown, hasMember);
-        recv.put(this.type, result, accessType);
-
         debug {
             logger.trace("member: ", cast(string) result.name);
         }
+
+        recv.put(this.type, result, accessType);
     }
 
     override void visit(const(CXXAccessSpecifier) v) @trusted {
@@ -1260,24 +1263,26 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = () @trusted{ return analyzeVarDecl(v, container, indent); }();
-        recv.put(result);
 
         debug {
             logger.info("global variable: ", cast(string) result.name);
         }
+
+        recv.put(result);
     }
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
-        recv.put(result);
 
         debug {
             auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
                     result.isVariadic, result.storageClass, result.location);
             logger.info("global function: ", func.toString);
         }
+
+        recv.put(result);
     }
 
     override void visit(const(ClassDecl) v) @trusted {
