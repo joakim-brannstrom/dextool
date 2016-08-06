@@ -322,29 +322,43 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 }
 
+struct Lookup {
+    import cpptooling.analyzer.kind : TypeKind;
+    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol.types : USRType;
+    import cpptooling.data.type : Location, LocationTag;
+
+    private Container* container;
+
+    auto kind(USRType usr) @safe {
+        return container.find!TypeKind(usr);
+    }
+
+    auto location(USRType usr) @safe {
+        return container.find!LocationTag(usr);
+    }
+}
+
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         CompileCommandDB compile_db, FileProcess file_process, Flag!"skipFileError" skipFileError) {
     import std.algorithm : map, joiner;
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : TypedefType;
-    import cpptooling.analyzer.kind : TypeKind;
-    import cpptooling.data.type : Location, LocationTag;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.symbol.types : USRType;
     import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
         UMLComponentDiagram, TransformToDiagram;
 
     Container container;
     auto generator = Generator(variant, variant, variant);
 
-    auto transform = TransformToDiagram!(Controller, Parameters)(variant,
-            variant, (USRType usr) @safe{ return container.find!TypeKind(usr); },
-            generator.uml_component, generator.uml_class);
+    // note how the transform is connected with destinations via the generator
+    // uml diagrams
+    auto transform = new TransformToDiagram!(Controller, Parameters, Lookup)(variant,
+            variant, Lookup(&container), generator.umlComponent, generator.umlClass);
 
-    auto visitor = new UMLVisitor!(Controller, TransformToDiagram!(Controller, Parameters))(variant,
-            transform, container);
+    auto visitor = new UMLVisitor!(Controller, typeof(transform))(variant, transform, container);
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
@@ -408,12 +422,13 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         break;
     }
 
+    transform.finalize();
     generator.process();
 
     debug {
         logger.trace(container.toString);
-        logger.trace(generator.uml_component.toString);
-        logger.trace(generator.uml_class.toString);
+        logger.trace(generator.umlComponent.toString);
+        logger.trace(generator.umlClass.toString);
     }
 
     return writeFileData(variant.fileData);

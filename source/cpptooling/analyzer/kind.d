@@ -186,6 +186,7 @@ pure @safe nothrow @nogc struct TypeKind {
     alias Info = TaggedAlgebraic!InternalInfo;
 
     Info info;
+    // remove the location
     USRType usr;
     LocationTag loc;
 
@@ -229,6 +230,7 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
     Flag!"isPrimitive" isPrimitive;
+    Flag!"isDefinition" isDefinition;
 }
 
 /// DO NOT USE.

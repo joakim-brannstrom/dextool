@@ -20,11 +20,12 @@ import cpptooling.data.type : LocationTag;
 public import cpptooling.analyzer.kind;
 
 alias TypeKindAttr = Tuple!(TypeKind, "kind", TypeAttr, "attr");
-alias TypeResult = Tuple!(TypeKindAttr, "primary", TypeKindAttr[], "extra");
+alias TypeResult = Tuple!(TypeKindAttr, "type", LocationTag, "location");
+alias TypeResults = Tuple!(TypeResult, "primary", TypeResult[], "extra");
 
 /** Merge rhs into lhs.
  */
-ref TypeResult mergeExtra(ref return TypeResult lhs, const ref TypeResult rhs) {
+ref TypeResults mergeExtra(ref return TypeResults lhs, const ref TypeResults rhs) {
     lhs.extra ~= rhs.extra;
     return lhs;
 }
@@ -58,7 +59,7 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_spac
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(const ref Nullable!TypeResult result, in uint indent = 0,
+void logTypeResult(const ref Nullable!TypeResults result, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     debug {
         if (!result.isNull) {
@@ -68,8 +69,9 @@ void logTypeResult(const ref Nullable!TypeResult result, in uint indent = 0,
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(const ref TypeResult result, in uint indent = 0,
+void logTypeResult(const ref TypeResults result, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+    import std.algorithm : map;
     import std.array : array;
     import std.conv : to;
     import std.range : repeat, chain, only;
@@ -78,7 +80,7 @@ void logTypeResult(const ref TypeResult result, in uint indent = 0,
     // dfmt off
     debug {
         string indent_ = repeat(' ', indent).array();
-        foreach (const ref tka; chain(only(result.primary), result.extra)) {
+        foreach (const ref tka; chain(only(result.primary), result.extra).map!(a => a.type)) {
             string extra;
             switch (tka.kind.info.kind) with (TypeKind.Info) {
             case Kind.typeRef:

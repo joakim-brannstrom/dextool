@@ -24,10 +24,11 @@ import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
 import cpptooling.analyzer.clang.ast : FunctionDecl, VarDecl, Constructor,
-    Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier;
+    Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier,
+    TranslationUnit;
 import cpptooling.analyzer.clang.ast.visitor : Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
-    TypeResult, logTypeResult;
+    TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.utility : put;
 import cpptooling.data.type : AccessType, VariadicType, CxParam,
     TypeKindVariable, CppVariable, LocationTag, Location, CxReturnType,
@@ -68,7 +69,7 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) @safe {
     }
 }
 
-private CxParam[] toCxParam(ref TypeResult tr, ref Container container) @safe {
+private CxParam[] toCxParam(ref TypeKind kind, ref Container container) @safe {
     import std.array;
     import std.algorithm : map;
     import std.range : chain, zip, tee;
@@ -76,7 +77,7 @@ private CxParam[] toCxParam(ref TypeResult tr, ref Container container) @safe {
 
     import cpptooling.analyzer.type;
 
-    auto tr_params = tr.primary.kind.info.params;
+    auto tr_params = kind.info.params;
 
     // dfmt off
     auto params = zip(// range 1
@@ -146,45 +147,45 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
     // hint, start reading the function from the bottom up.
     // design is pipe and data transformation
 
-    Nullable!TypeResult extractAndStoreRawType(const(Cursor) c) {
+    Nullable!TypeResults extractAndStoreRawType(const(Cursor) c) {
         auto tr = retrieveType(c, container, indent);
         if (tr.isNull) {
             return tr;
         }
 
-        assert(tr.primary.kind.info.kind.among(TypeKind.Info.Kind.func,
+        assert(tr.primary.type.kind.info.kind.among(TypeKind.Info.Kind.func,
                 TypeKind.Info.Kind.typeRef, TypeKind.Info.Kind.simple));
         put(tr, container, indent);
 
         return tr;
     }
 
-    Nullable!TypeResult lookupRefToConcreteType(Nullable!TypeResult tr) {
+    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) {
         if (tr.isNull) {
             return tr;
         }
 
-        if (tr.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        if (tr.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
             // replace typeRef kind with the func
-            auto kind = container.find!TypeKind(tr.primary.kind.info.canonicalRef).front;
-            tr.primary.kind = kind;
+            auto kind = container.find!TypeKind(tr.primary.type.kind.info.canonicalRef).front;
+            tr.primary.type.kind = kind;
         }
 
         logTypeResult(tr, indent);
-        assert(tr.primary.kind.info.kind == TypeKind.Info.Kind.func);
+        assert(tr.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
 
         return tr;
     }
 
     static struct ComposeData {
-        TypeResult tr;
+        TypeResults tr;
         CFunctionName name;
         LocationTag loc;
         VariadicType isVariadic;
         StorageClass storageClass;
     }
 
-    ComposeData getCursorData(TypeResult tr) {
+    ComposeData getCursorData(TypeResults tr) {
         import deimos.clang.index : CX_StorageClass;
 
         auto data = ComposeData(tr);
@@ -209,12 +210,12 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
     FunctionDeclResult composeFunc(ComposeData data) {
         Nullable!CFunction rval;
 
-        auto return_type = container.find!TypeKind(data.tr.primary.kind.info.return_);
+        auto return_type = container.find!TypeKind(data.tr.primary.type.kind.info.return_);
         if (return_type.length == 0) {
             return FunctionDeclResult.init;
         }
 
-        auto params = toCxParam(data.tr, container);
+        auto params = toCxParam(data.tr.primary.type.kind, container);
 
         VariadicType is_variadic;
         // according to C/C++ standard the last parameter is the only one
@@ -224,8 +225,8 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
             is_variadic = Yes.isVariadic;
         }
 
-        return FunctionDeclResult(Yes.isValid, data.tr.primary, data.name,
-                TypeKindAttr(return_type.front, data.tr.primary.kind.info.returnAttr),
+        return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
+                TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr),
                 is_variadic, data.storageClass, params, data.loc);
     }
 
@@ -234,7 +235,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
                       lookupRefToConcreteType,
                       // either break early if null or continue composing a
                       // function representation
-                      (Nullable!TypeResult tr) {
+                      (Nullable!TypeResults tr) {
                           if (tr.isNull) {
                               return FunctionDeclResult.init;
                           } else {
@@ -248,7 +249,8 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
     return rval;
 }
 
-alias VarDeclResult = Tuple!(TypeKindAttr, "type", CppVariable, "name", LocationTag, "location");
+alias VarDeclResult = Tuple!(TypeKindAttr, "type", CppVariable, "name",
+        LocationTag, "location", USRType, "instanceUSR");
 
 auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @safe {
     import clang.Cursor : Cursor;
@@ -261,8 +263,15 @@ auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @
 
     auto name = CppVariable(v.cursor.spelling);
     auto loc = locToTag(v.cursor.location());
+    auto instance_usr = USRType(v.cursor.usr);
+    // Assuming that all variable declarations have a USR
+    assert(instance_usr.length > 0);
 
-    return VarDeclResult(type.primary, name, loc);
+    // store the location to enable creating relations to/from this instance
+    // USR.
+    container.put(loc, instance_usr, Yes.isDefinition);
+
+    return VarDeclResult(type.primary.type, name, loc, instance_usr);
 }
 
 alias ConstructorResult = Tuple!(CppMethodName, "name", CxParam[], "params");
@@ -279,7 +288,7 @@ auto analyzeConstructor(const(Constructor) v, ref Container container, in uint i
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
-    auto params = toCxParam(type, container);
+    auto params = toCxParam(type.primary.type.kind, container);
     auto name = CppMethodName(v.cursor.spelling);
 
     return ConstructorResult(name, params);
@@ -302,20 +311,21 @@ alias CXXMethodResult = Tuple!(TypeKindAttr, "type", CppMethodName, "name",
         CxParam[], "params", Flag!"isOperator", "isOperator",
         CxReturnType, "returnType", CppVirtualMethod, "virtualKind", Flag!"isConst", "isConst");
 
-///ditto
+/// ditto
 auto analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint indent) @safe {
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
-    assert(type.get.primary.kind.info.kind == TypeKind.Info.Kind.func);
+    assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
     put(type, container, indent);
 
     auto name = CppMethodName(v.cursor.spelling);
-    auto params = toCxParam(type, container);
+    auto params = toCxParam(type.primary.type.kind, container);
     auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
-            type.primary.kind.info.return_).front, type.primary.kind.info.returnAttr));
+            type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
     auto is_virtual = classify(v.cursor);
 
-    return CXXMethodResult(type.primary, name, params, cast(Flag!"isOperator") isOperator(name),
-            return_type, is_virtual, cast(Flag!"isConst") type.primary.attr.isConst);
+    return CXXMethodResult(type.primary.type, name, params,
+            cast(Flag!"isOperator") isOperator(name), return_type, is_virtual,
+            cast(Flag!"isConst") type.primary.type.attr.isConst);
 }
 
 alias FieldDeclResult = Tuple!(TypeKindAttr, "type", CppVariable, "name");
@@ -326,7 +336,8 @@ auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint inden
     put(type, container, indent);
 
     auto name = CppVariable(v.cursor.spelling);
-    return FieldDeclResult(type.primary, name);
+
+    return FieldDeclResult(type.primary.type, name);
 }
 
 alias CXXBaseSpecifierResult = Tuple!(TypeKindAttr, "type", CppClassName,
@@ -359,14 +370,14 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
 
     auto name = CppClassName(c_ref.spelling);
     auto access = CppAccess(toAccessType(() @trusted{ return c_ref.access; }().accessSpecifier));
-    auto usr = type.primary.kind.usr;
+    auto usr = type.primary.type.kind.usr;
 
-    if (type.primary.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-        usr = type.primary.kind.info.canonicalRef;
+    if (type.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        usr = type.primary.type.kind.info.canonicalRef;
     }
 
     // namespace has the class itself so must remove
-    return CXXBaseSpecifierResult(type.primary, name, namespace.data[1 .. $], usr, access);
+    return CXXBaseSpecifierResult(type.primary.type, name, namespace.data[1 .. $], usr, access);
 }
 
 alias ClassDeclResult = Tuple!(TypeKindAttr, "type", CppClassName, "name",
@@ -381,7 +392,13 @@ auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint in
     auto loc = () @trusted{ return locToTag(decl.cursor.location()); }();
     auto name = CppClassName(decl.cursor.spelling);
 
-    return ClassDeclResult(type.primary, name, loc);
+    return ClassDeclResult(type.primary.type, name, loc);
+}
+
+/// dummy
+alias TranslationUnitResult = bool;
+auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, in uint indent) {
+    return true;
 }
 
 /** Reconstruct the semantic clang AST with dextool data structures suitable
@@ -422,7 +439,6 @@ final class ClassVisitor : Visitor {
     }
 
     override void visit(const(CXXBaseSpecifier) v) {
-        import std.algorithm : each;
         import std.range : retro;
         import std.array : appender;
         import deimos.clang.index : CXCursorKind;
@@ -433,7 +449,9 @@ final class ClassVisitor : Visitor {
         auto inherit = CppInherit(result.name, result.access);
         inherit.usr = result.canonicalUSR;
 
-        retro(result.reverseScope).each!(a => inherit.put(a));
+        foreach (a; retro(result.reverseScope)) {
+            inherit.put(a);
+        }
         root.put(inherit);
     }
 
@@ -466,23 +484,23 @@ final class ClassVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         auto type = retrieveType(v.cursor, *container, indent);
-        assert(type.get.primary.kind.info.kind == TypeKind.Info.Kind.func);
+        assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
         put(type, *container, indent);
 
-        auto params = toCxParam(type, *container);
+        auto params = toCxParam(type.primary.type.kind, *container);
         auto name = CppMethodName(v.cursor.spelling);
         auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
-                type.primary.kind.info.return_).front, type.primary.kind.info.returnAttr));
+                type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
         auto is_virtual = classify(v.cursor);
 
         if (name.isOperator) {
             auto op = CppMethodOp(name, params, return_type, accessType,
-                    CppConstMethod(type.primary.attr.isConst), is_virtual);
+                    CppConstMethod(type.primary.type.attr.isConst), is_virtual);
             root.put(op);
             logger.trace("operator: ", op.toString);
         } else {
             auto method = CppMethod(name, params, return_type, accessType,
-                    CppConstMethod(type.primary.attr.isConst), is_virtual);
+                    CppConstMethod(type.primary.type.attr.isConst), is_virtual);
             root.put(method);
             logger.trace("method: ", method.toString);
         }

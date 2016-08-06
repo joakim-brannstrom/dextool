@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2
@@ -7,6 +6,20 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+Overall design of the data flow when analyzing.
+ - Visitor pull data from the AST.
+ - Visitor push data to the general Transform.
+ - The Transform splice the data and forwards to the specialized transformers.
+   The top Transform act as a mediator. It do not have any logic or knowledge
+   other than how to forward the data to the specialized transforms.
+ - The specialized transformers finalizes the data, delays, decisions etc.
+   They decide when to do the final forwarding to the diagrams.
+ - The UML diagrams are processed by the Generator.
+   The generator transforms the in-memory representation to content suitable to
+   store in files.
+ - The generator forwards the content to a receiver, the registered Products.
+ - Backend done. See frontend for what happens with the Products.
 */
 module plugin.backend.plantuml;
 
@@ -18,6 +31,7 @@ import logger = std.experimental.logger;
 import dsrcgen.plantuml;
 
 import application.types;
+import cpptooling.analyzer.kind : TypeKind, TypeAttr;
 import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast.visitor : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
@@ -295,12 +309,16 @@ private auto fanOutSorted(T)(T t) pure {
  */
 class UMLClassDiagram {
 @safe:
+    import std.typecons : NullableRef;
+    import std.format : FormatSpec;
+
     alias ClassClassificationState = cpptooling.data.class_classification.State;
 
-    alias Key = Typedef!(string, string.init, "UMLKey");
+    alias Key = USRType;
     alias DisplayName = Typedef!(string, string.init, "DisplayName");
+    alias Content = Typedef!(string, null, "Comment");
 
-    struct Class {
+    private struct Class {
         DisplayName displayName;
         ClassClassificationState classification;
         string[] content;
@@ -318,19 +336,19 @@ class UMLClassDiagram {
      *
      * It is the body of the class in a class diagram.
      */
-    void put(Key key, string content)
+    void put(Key key, Content content)
     in {
         assert(key in classes);
     }
     body {
-        classes[key].content ~= content;
+        classes[key].content ~= cast(string) content;
     }
 
     /** Set the classification of a class.
      *
      * Example would be a pure virtual, which in java would be an interface.
      */
-    void put(Key key, ClassClassificationState classification)
+    void set(Key key, ClassClassificationState classification)
     in {
         assert(key in classes);
     }
@@ -410,11 +428,16 @@ class UMLClassDiagram {
         import std.range : only, chain, takeOne;
 
         // dfmt off
-        return classes.byKeyValue.map!(a => chain(only(format("%s -> %s%s", a.value.displayName.str, a.key.str, a.value.content.length == 0 ? "" : " {")),
-                                                  a.value.content.dup.map!(b => "  " ~ b),
-                                                  a.value.content.takeOne.map!(b => "} // " ~ a.value.displayName.str))
-                                       .joiner(newline)
-                                       .text)
+        return classes
+            .byKeyValue
+            .map!(a => chain(only(format("%s -> %s%s",
+                                         a.value.displayName.str,
+                                         a.key.str,
+                                         a.value.content.length == 0 ? "" : " {")),
+                             a.value.content.dup.map!(b => "  " ~ b),
+                             a.value.content.takeOne.map!(b => "} // " ~ a.value.displayName.str))
+                  .joiner(newline)
+                  .text)
             .array();
         // dfmt on
     }
@@ -426,23 +449,39 @@ class UMLClassDiagram {
         return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
-    override string toString() @safe pure const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char) const {
         import std.ascii : newline;
-        import std.algorithm : joiner;
-        import std.conv : text;
-        import std.format : format;
-        import std.range : only, chain;
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+        import std.range : zip, repeat;
 
-        // dfmt off
-        return chain(only(format("UML Class Diagram (Total %d) {",classes.length)),
-                     classesToStringArray,
-                     relateToStringArray,
-                     only("} // UML Class Diagram"),
-                     ).joiner(newline).text;
-        // dfmt on
+        formattedWrite(w, "UML Class Diagram (Total %d) {", classes.length);
+        put(w, newline);
+        foreach (a; zip(classesToStringArray, repeat(newline))) {
+            put(w, a[0]);
+            put(w, a[1]);
+        }
+        foreach (a; zip(relateToStringArray, repeat(newline))) {
+            put(w, a[0]);
+            put(w, a[1]);
+        }
+        put(w, "} // UML Class Diagram");
     }
 
-    Relate[Relate.Key] relate_to;
+    override string toString() @safe pure const {
+        import std.exception : assumeUnique;
+        import std.format : FormatSpec;
+
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
 
     private Relate[Relate.Key] relate_to;
     private Class[Key] classes;
@@ -578,7 +617,6 @@ class UMLComponentDiagram {
 
     /// String representation of the Component Diagram.
     void toString(Writer)(scope Writer w) @safe const {
-        import std.algorithm : joiner, each;
         import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range.primitives : put;
@@ -586,14 +624,14 @@ class UMLComponentDiagram {
 
         formattedWrite(w, "UML Component Diagram (Total %d) {", components.length);
         put(w, newline);
-        zip(componentsToStringArray, repeat(newline)).each!((a) {
+        foreach (a; zip(componentsToStringArray, repeat(newline))) {
             put(w, a[0]);
             put(w, a[1]);
-        });
-        zip(relateToStringArray, repeat(newline)).each!((a) {
+        }
+        foreach (a; zip(relateToStringArray, repeat(newline))) {
             put(w, a[0]);
             put(w, a[1]);
-        });
+        }
         put(w, "} // UML Component Diagram");
     }
 
@@ -694,6 +732,68 @@ a -Relate- [1]b
 } // UML Component Diagram");
 }
 
+/** Convenient array with support for marking of elements and removal.
+ *
+ * In the backend used for example to delay processing of relations between
+ * USRs.
+ */
+struct MarkArray(T) {
+    alias Range = T[];
+    private T[] arr;
+    private size_t[] remove_;
+
+    alias arr this;
+
+    /// Store e in the cache.
+    void put(T e) {
+        arr ~= e;
+    }
+
+    /** Mark index i for removal.
+     *
+     * Later as in calling $(D doRemoval).
+     */
+    void markForRemoval(size_t i) @safe pure {
+        remove_ ~= i;
+    }
+
+    /// Remove all items that has been marked.
+    void doRemoval() {
+        import std.algorithm : canFind, filter, cache, copy, map;
+        import std.array : array;
+        import std.range : enumerate;
+
+        // naive implementation. Should use swapping instead.
+        arr = arr[].enumerate.filter!(a => !canFind(remove_, a.index)).map!(a => a.value).array();
+        remove_.length = 0;
+    }
+}
+
+@Name("Should store relations between USR's")
+unittest {
+    MarkArray!int arr;
+
+    arr ~= 10;
+
+    arr[].length.shouldEqual(1);
+    arr[0].shouldEqual(10);
+}
+
+@Name("Should mark and remove relations between USR's")
+unittest {
+    MarkArray!int arr;
+    arr ~= [10, 20, 30];
+
+    arr.markForRemoval(1);
+    arr[].length.shouldEqual(3);
+
+    arr.doRemoval;
+
+    arr[].length.shouldEqual(2);
+    arr[0].shouldEqual(10);
+    arr[1].shouldEqual(30);
+}
+
 /** Context for the UML diagram generator from internal representation to the
  * concrete files.
  */
@@ -728,8 +828,8 @@ struct Generator {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
-        this.uml_class = new UMLClassDiagram;
-        this.uml_component = new UMLComponentDiagram;
+        this.umlClass = new UMLClassDiagram;
+        this.umlComponent = new UMLComponentDiagram;
     }
 
     /** Process the sources to produce UML diagrams in-memory.
@@ -738,12 +838,15 @@ struct Generator {
      */
     auto process() {
         auto m = Modules.make();
-        generate(uml_class, uml_component, params.doGenDot, m);
+        generate(umlClass, umlComponent, params.doGenDot, m);
         postProcess(ctrl, params, products, m);
     }
 
-    UMLClassDiagram uml_class;
-    UMLComponentDiagram uml_component;
+    /// The UML diagram used as source during generation.
+    UMLClassDiagram umlClass;
+
+    /// ditto
+    UMLComponentDiagram umlComponent;
 
 private:
     Controller ctrl;
@@ -932,7 +1035,7 @@ private alias ClassClassificationResult = Tuple!(TypeKindAttr, "type",
 private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, copy, each;
     import std.array : Appender;
-    import std.typecons : scoped, TypedefType;
+    import std.typecons : scoped, TypedefType, NullableRef;
 
     import cpptooling.analyzer.clang.ast : ClassDecl, CXXBaseSpecifier,
         Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier;
@@ -965,7 +1068,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
     private {
         ControllerT ctrl;
-        ReceiveT recv;
+        NullableRef!ReceiveT recv;
 
         Container* container;
         CppNsStack ns_stack;
@@ -976,9 +1079,9 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     this(TypeKindAttr type, const(CppNs)[] reside_in_ns, ControllerT ctrl,
-            ReceiveT recv, ref Container container, in uint indent) {
+            ref ReceiveT recv, ref Container container, in uint indent) {
         this.ctrl = ctrl;
-        this.recv = recv;
+        this.recv = &recv;
         this.container = &container;
         this.indent = indent;
         this.ns_stack = reside_in_ns.dup;
@@ -1111,7 +1214,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         VarDecl, FunctionDecl, ClassDecl, Namespace;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
-        analyzeVarDecl, analyzeClassDecl;
+        analyzeVarDecl, analyzeClassDecl, analyzeTranslationUnit;
     import cpptooling.data.representation : CppNsStack, CppNs;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
 
@@ -1128,7 +1231,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
 
     }
 
-    this(ControllerT ctrl, ReceiveT recv, ref Container container) {
+    this(ControllerT ctrl, ref ReceiveT recv, ref Container container) {
         this.ctrl = ctrl;
         this.recv = recv;
         this.container = &container;
@@ -1137,6 +1240,9 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
         v.accept(this);
+
+        auto result = analyzeTranslationUnit(v, container, indent);
+        recv.put(result);
     }
 
     override void visit(const(UnexposedDecl) v) {
@@ -1262,7 +1368,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         if (genClassInheritDependency) {
             auto src_key = makeClassKey(src.kind.usr);
 
-            auto canonical = lookup(result.canonicalUSR).front;
+            auto canonical = lookup.kind(result.canonicalUSR).front;
             auto dest_key = makeClassKey(canonical.usr);
             auto fqn = canonical.toStringDecl(TypeAttr.init);
 
@@ -1290,7 +1396,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         if (genClassMethod) {
             auto method = CppMethod(result.name, result.params, result.returnType,
                     accessType, CppConstMethod(result.isConst), result.virtualKind);
-            uml.put(src_key, toPrefix(accessType) ~ method.toString);
+            uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ method.toString));
         }
 
         if (genClassParamDependency) {
@@ -1324,7 +1430,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 
         if (genClassMethod) {
             auto tor = CppCtor(result.name, result.params, accessType);
-            uml.put(src_key, toPrefix(accessType) ~ tor.toString);
+            uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ tor.toString));
         }
 
         if (genClassParamDependency) {
@@ -1348,7 +1454,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         if (genClassMethod) {
             auto key = makeClassKey(src.kind.usr);
             auto tor = CppDtor(result.name, accessType, result.virtualKind);
-            uml.put(key, toPrefix(accessType) ~ tor.toString);
+            uml.put(key, UMLClassDiagram.Content(toPrefix(accessType) ~ tor.toString));
         }
     }
 
@@ -1367,7 +1473,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 
     void put(ref const(ClassClassificationResult) result) {
         auto key = makeClassKey(result.type.kind.usr);
-        uml.put(key, result.classification);
+        uml.set(key, result.classification);
     }
 
     void put(ref const(ClassDeclResult) src, const(CppNs)[] reside_in) {
@@ -1379,19 +1485,63 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         string fqn = chain(reside_in.map!(a => cast(string) a), only(cast(string) src.name)).joiner("::")
             .text;
         uml.put(key, cast(UMLClassDiagram.DisplayName) fqn);
-
-        logger.tracef("foo: %s %s", key, fqn);
     }
 }
 
-private struct TransformToComponentDiagram(ControllerT, LookupT) {
+/** Transform data from a data source (via push) to a UML component diagram.
+ *
+ * The component diagram is built upon the assumption that the physical
+ * location of a declaration/definition has a correlation to the design the
+ * creator had in mind.
+ *
+ * Physical world -> mental model.
+ *
+ * Design of relations transform:
+ * A relation is based on where the identifier is located to the owner of the
+ * type.
+ * Identifier-location -> Type-owner-location.
+ *
+ * A type-owner-location is where the type is defined.
+ * This though creates a problem when considering forward declarations in
+ * combination with pointers, references, parameters.
+ *
+ * To handle the above case relations are go through three steps.
+ *  - Add relations with USR->USR.
+ *  - First try. Check both USRs location. If both of them are definitions then
+ *    accept the relation. Otherwise put it into the cache.
+ *  - Second try. Process the cache at the end of a translation unit. Same
+ *    criteria as the first try.
+ *  - Third try. When all translation units have been processed use a fallback
+ *    strategy for those items left in the cache. At this stage a location
+ *    corresponding to a declaration is OK. Reason, better than nothing.
+ *
+ * In the following example the processing is a.h before b.h.
+ * If the locatoin of the forward declaration of B had been used the relation
+ * from a.h to b.h would have been lost.
+ *
+ * Example:
+ * a.h
+ * ---
+ * class B;
+ * class A {
+ *  B* b;
+ * };
+ * ---
+ *
+ * b.h
+ * ---
+ * class B {};
+ * ---
+ */
+private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.algorithm : map, copy, each, joiner;
     import std.range : chain;
     import std.typecons : TypedefType;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
         CXXMethodResult, ConstructorResult, DestructorResult, ClassDeclResult,
-        FieldDeclResult, VarDeclResult, FunctionDeclResult;
+        FieldDeclResult, VarDeclResult, FunctionDeclResult,
+        TranslationUnitResult;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.type : CppAccess, CxReturnType;
 
@@ -1400,75 +1550,200 @@ private struct TransformToComponentDiagram(ControllerT, LookupT) {
         assert(ctrl !is null);
     }
 
-    UMLComponentDiagram diagram;
-    ControllerT ctrl;
-    LookupT lookup;
+    private {
+        alias USRRelation = Tuple!(USRType, "from", USRType, "to", Relate.Kind, "kind");
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
-        auto r0 = lookup(result.canonicalUSR).map!(a => PathKind(a.loc.file,
-                Relate.Kind.Associate));
-        putDest(r0, src);
+        UMLComponentDiagram diagram;
+        ControllerT ctrl;
+        LookupT lookup;
+        MarkArray!USRRelation dcache;
+    }
+
+    this(UMLComponentDiagram diagram, ControllerT ctrl, LookupT lookup) {
+        this.diagram = diagram;
+        this.ctrl = ctrl;
+        this.lookup = lookup;
+    }
+
+    /** Store the relations in the cache for later resolution regarding there
+     * location.
+     *
+     * The concept is a source has relations to many destinations.
+     *
+     * The relation is hard coded as an Association.
+     * If the function is generalized to be reused with Class then the hard
+     * coded must be a lookup table or something to allow differentiating
+     * depending on "stuff".
+     *
+     * It is by design that the src do NOT go via resolveTypeRef. A free
+     * variable that is a pointer shall have the "src" still as the pointer
+     * itself but the destination is the pointed at type.
+     *
+     * Params:
+     *  src = source of the relations
+     *  range = destinations of the relations
+     *  target = cache to put the values into
+     *  lookup = type supporting lookups via USR for the TypeKind
+     */
+    static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @safe 
+            if (is(ElementType!Range == TypeKindAttr)
+                || is(ElementType!Range == const(TypeKindAttr))) {
+        // dfmt off
+        foreach(a; range
+            .map!(a => resolveTypeRef(a.kind, lookup))
+            .joiner
+            .map!(a => a.usr)
+            // create the relations of type src-to-kind
+            .map!(to_ => USRRelation(src, to_, Relate.Kind.Associate))) {
+            target.put(a);
+        }
+        // dfmt on
+    }
+
+    /// ditto
+    static void putParamsToCache(T)(ref const(TypeKindAttr) src,
+            const(CxParam)[] params, ref T target, LookupT lookup) @safe {
+        // dfmt off
+        auto range = params
+            // returns a bunch of ranges of the unpacked parameters
+            .map!(a => unpackParam(a))
+            .joiner;
+        // dfmt on
+
+        putToCache(src.kind.usr, range, target, lookup);
+    }
+
+    /// Process the last bits left in the cache.
+    void finalize() {
+        import std.algorithm : map, filter, cache;
+        import std.range : enumerate, only;
+        import std.typecons : tuple;
+
+        if (dcache.length > 0) {
+            logger.tracef("%d relations left. Activating fallback strategy", dcache.length);
+        }
+
+        // dfmt off
+        foreach (e; dcache[]
+                 // keep track of the index to allow marking of the cache for removal
+                 .enumerate
+                 // find the types
+                 .map!(a => tuple(a.index, lookup.location(a.value.from), lookup.location(a.value.to)))
+                 .cache
+                 // a zero range means a failed lookup, a broken relation
+                 .filter!(a => a[1].length != 0 && a[2].length != 0)
+                 // unpack with fallback
+                 .map!(a => tuple(a[0], a[1].front.any, a[2].front.any))
+                 // ensure that both both resulted in valid ranges
+                 .filter!(a => a[1].length != 0 && a[2].length != 0)
+                 // unpack
+                 .map!(a => tuple(a[0], a[1].front, a[2].front))
+                 // check via ctrl (the user) if the destination is "ok"
+                 .filter!(a => ctrl.doFile(cast(string) a[2].file, cast(string) a[2].file))
+                 ) {
+            //TODO warn when a declaration has been used?
+
+            putDest(e[1], e[2], Relate.Kind.Associate);
+            dcache.markForRemoval(e[0]);
+        }
+        // dfmt on
+
+        dcache.doRemoval;
+
+        if (dcache.length > 0) {
+            logger.errorf("Fallback strategy failed for %d USRs. They are:", dcache.length);
+        }
+
+        foreach (e; dcache[]) {
+            logger.tracef("  %s -> %s", cast(string) e.from, cast(string) e.to);
+        }
+    }
+
+    void put(ref const(TranslationUnitResult) result) {
+        import std.algorithm : map, filter, cache;
+        import std.range : enumerate, only;
+        import std.typecons : tuple;
+
+        // dfmt off
+        foreach (e; dcache[]
+                 // keep track of the index to allow marking of the cache for removal
+                 .enumerate
+                 // find the types
+                 .map!(a => tuple(a.index, lookup.location(a.value.from), lookup.location(a.value.to)))
+                 .cache
+                 // a zero range means a failed lookup, a broken relation
+                 .filter!(a => a[1].length != 0 && a[2].length != 0)
+                 // unpack
+                 .map!(a => tuple(a[0], a[1].front, a[2].front))
+                 // only okey with a relatioin TO something that is a definition
+                 .filter!(a => a[1].hasDefinition && a[2].hasDefinition)
+                 // check via ctrl (the user) if the destination is "ok"
+                 .filter!(a => ctrl.doFile(cast(string) a[2].definition.file, cast(string) a[2].definition.file))
+                 ) {
+            putDest(e[1].definition, e[2].definition, Relate.Kind.Associate);
+            dcache.markForRemoval(e[0]);
+        }
+        // dfmt on
+
+        dcache.doRemoval;
     }
 
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
             in CppAccess accessType) {
-        auto dests = result.params.map!(a => paramToPathKind(a, lookup)).joiner;
-        putDest(dests, src);
+
+        putParamsToCache(src, result.params, dcache, lookup);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess accessType) {
-        auto r0 = result.params.map!(a => paramToPathKind(a, lookup)).joiner;
-        auto r1 = componentLookupType((cast(TypedefType!CxReturnType) result.returnType), lookup);
-        auto dests = chain(r0, r1).map!(a => PathKind(a.file, Relate.Kind.Associate));
-        putDest(dests, src);
+        import std.range : only;
+
+        putParamsToCache(src, result.params, dcache, lookup);
+        putToCache(src.kind.usr,
+                only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess accessType) {
-        // primitive types do not have a location
-        if (result.type.kind.loc.kind == LocationTag.Kind.loc) {
-            auto r = componentLookupType(result.type, lookup).map!(a => PathKind(a.file,
-                    Relate.Kind.Associate));
-            putDest(r, src);
-        }
+        import std.range : only;
+
+        putToCache(src.kind.usr, only(result.type), dcache, lookup);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(ClassClassificationResult) result) {
-        putDest(result.type, src);
+        import std.range : only;
+
+        // called when creating a relation for a nested class
+        putToCache(src.kind.usr, only(result.type), dcache, lookup);
+    }
+
+    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
+        auto r0 = lookup.kind(result.canonicalUSR).map!(a => TypeKindAttr(a.get, TypeAttr.init));
+
+        putToCache(src.kind.usr, r0, dcache, lookup);
     }
 
     void put(ref const(VarDeclResult) result) {
+        import std.range : only;
+
+        // primitive types do not have a location
         if (result.location.kind == LocationTag.Kind.loc) {
             putSrc(result.location);
 
-            // dfmt off
-            auto r = componentLookupType(result.type, lookup)
-                .map!(a => PathKind(a.file, Relate.Kind.Associate));
-            // dfmt on
-            putDest(r, result.location);
+            putToCache(result.instanceUSR, only(result.type), dcache, lookup);
         }
     }
 
     void put(ref const(FunctionDeclResult) result) {
-        if (result.location.kind == LocationTag.Kind.loc) {
-            auto r0 = result.params.map!(a => paramToPathKind(a, lookup)).joiner();
-            auto r1 = componentLookupType((cast(TypedefType!CxReturnType) result.returnType),
-                    lookup);
-            auto dests = chain(r0, r1).map!(a => PathKind(a.file, Relate.Kind.Associate));
-            putSrc(result.type);
-            putDest(dests, result.type);
-        }
+        import std.range : only;
+
+        putSrc(result.type);
+
+        putParamsToCache(result.type, result.params, dcache, lookup);
+        putToCache(result.type.kind.usr,
+                only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
     }
 
     void putSrc(ref const(TypeKindAttr) src) @safe {
-        string location = src.kind.loc.file;
-
-        if (!ctrl.doFile(location, location)) {
-            return;
-        }
-
-        auto key = makeComponentKey(location, ctrl);
-        diagram.put(key.key, cast(UMLComponentDiagram.DisplayName) key.display);
-        diagram.put(key.key, cast(UMLComponentDiagram.Location) location);
+        putSrc(src.kind.loc);
     }
 
     void putSrc(ref const(LocationTag) src) @safe {
@@ -1483,45 +1758,17 @@ private struct TransformToComponentDiagram(ControllerT, LookupT) {
         diagram.put(key.key, cast(UMLComponentDiagram.Location) location);
     }
 
-    void putDest(ref const(TypeKindAttr) dest, ref const(TypeKindAttr) src) @safe {
-        import std.range : only;
+    void putDest(ref const(LocationTag) src, ref const(LocationTag) dest, Relate.Kind kind) {
+        auto src_ = makeComponentKey(src.file, ctrl);
+        auto dest_ = makeComponentKey(dest.file, ctrl);
 
-        if (dest.kind.loc.kind == LocationTag.Kind.noloc) {
+        // Ignoring self referencing relations.
+        if (src_.key == dest_.key) {
             return;
         }
 
-        auto dests = only(PathKind(cast(string) dest.kind.loc.file, Relate.Kind.Associate));
-        putDest(dests, src);
-    }
-
-    /** Create relations from src to those destinations in dests.
-     * Params:
-     *   dests = of PathKind, it is the destinations.
-     *   src = the source that all the relations originate from.
-     */
-    void putDest(Range, SrcT)(ref Range dests, ref const(SrcT) src) @safe 
-            if (is(ElementType!Range == PathKind)) {
-        import std.algorithm : map, filter, cache;
-
-        static if (is(SrcT == TypeKindAttr)) {
-            auto source_key = makeComponentKey(src.kind.loc.file, ctrl);
-        } else static if (is(SrcT == LocationTag)) {
-            auto source_key = makeComponentKey(src.file, ctrl);
-        } else {
-            static assert("Type not supported (SrcT): " ~ SrcT.stringof);
-        }
-
-        // dfmt off
-        foreach (a; dests
-                 // ask pred if to keep the element
-                 .filter!(a => ctrl.doFile(cast(string) a.file, cast(string) a.file))
-                 .map!(a => KeyRelate(a.file, makeComponentKey(a.file, ctrl), a.kind))
-                 .cache
-                 // self referencing components are invalid
-                 .filter!(a => a.key != source_key)) {
-            diagram.relate(source_key.key, a.key.key, cast(UMLComponentDiagram.DisplayName) a.key.display, a.kind);
-        }
-        // dfmt on
+        diagram.relate(src_.key, dest_.key,
+                cast(UMLComponentDiagram.DisplayName) dest_.display, kind);
     }
 }
 
@@ -1530,66 +1777,74 @@ private struct TransformToComponentDiagram(ControllerT, LookupT) {
  * No manipulation of data is to be done in this struct. Only routing to
  * appropriate functions.
  */
-struct TransformToDiagram(ControllerT, ParametersT) {
+class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
         ClassDeclResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
-        DestructorResult, VarDeclResult, FunctionDeclResult;
+        DestructorResult, VarDeclResult, FunctionDeclResult,
+        TranslationUnitResult;
     import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.data.type : CppNs, CppAccess;
 
-    alias LookupType = typeof(Container.find!TypeKind(USRType())) delegate(USRType usr) @safe;
-
     private {
-        TransformToComponentDiagram!(ControllerT, LookupType) toComponent;
-        TransformToClassDiagram!(ControllerT, LookupType) toClass;
+        TransformToComponentDiagram!(ControllerT, LookupT) to_component;
+        TransformToClassDiagram!(ControllerT, LookupT) to_class;
     }
 
-    this(ControllerT ctrl, ParametersT params, LookupType lookup,
+    this(ControllerT ctrl, ParametersT params, LookupT lookup,
             UMLComponentDiagram comp_dia, UMLClassDiagram class_dia) {
-        toComponent = typeof(toComponent)(comp_dia, ctrl, lookup);
-        toClass = typeof(toClass)(class_dia, ctrl, lookup, params.genClassMethod,
+        to_component = typeof(to_component)(comp_dia, ctrl, lookup);
+        to_class = typeof(to_class)(class_dia, ctrl, lookup, params.genClassMethod,
                 params.genClassParamDependency, params.genClassInheritDependency,
                 params.genClassMemberDependency);
     }
 
 @safe:
 
-    /// A class.
+    /** Signal that diagrams to perform a finalization of cached data.
+     */
+    void finalize() {
+        to_component.finalize();
+    }
+
+    void put(ref const(TranslationUnitResult) result) {
+        to_component.put(result);
+    }
+
     void put(ref const(ClassDeclResult) src, const(CppNs)[] reside_in) {
-        toClass.put(src, reside_in);
-        toComponent.putSrc(src.type);
+        to_class.put(src, reside_in);
+        to_component.putSrc(src.type);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
-        toClass.put(src, result);
-        toComponent.put(src, result);
+        to_class.put(src, result);
+        to_component.put(src, result);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess accessType) {
-        toClass.put(src, result, accessType);
-        toComponent.put(src, result, accessType);
+        to_class.put(src, result, accessType);
+        to_component.put(src, result, accessType);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
             in CppAccess accessType) {
-        toClass.put(src, result, accessType);
-        toComponent.put(src, result, accessType);
+        to_class.put(src, result, accessType);
+        to_component.put(src, result, accessType);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess accessType) {
-        toClass.put(src, result, accessType);
+        to_class.put(src, result, accessType);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess accessType) {
-        toClass.put(src, result, accessType);
-        toComponent.put(src, result, accessType);
+        to_class.put(src, result, accessType);
+        to_component.put(src, result, accessType);
     }
 
     void put(ref const(ClassClassificationResult) result) {
-        toClass.put(result);
+        to_class.put(result);
     }
 
     /** A nested class.
@@ -1597,17 +1852,17 @@ struct TransformToDiagram(ControllerT, ParametersT) {
      * Propagate the classification and relation of the root->nested.
      */
     void put(ref const(TypeKindAttr) src, ref const(ClassClassificationResult) result) {
-        toComponent.put(src, result);
+        to_component.put(src, result);
         // only needs result
-        toClass.put(result);
+        to_class.put(result);
     }
 
     void put(ref const(VarDeclResult) result) {
-        toComponent.put(result);
+        to_component.put(result);
     }
 
     void put(ref const(FunctionDeclResult) result) {
-        toComponent.put(result);
+        to_component.put(result);
     }
 }
 
@@ -1680,63 +1935,61 @@ UMLClassDiagram.Key makeClassKey(in USRType key) @trusted {
     return k;
 }
 
-auto componentLookupType(LookupT)(TypeKindAttr type, LookupT lookup) @safe {
-    import std.algorithm : map, filter, joiner;
+private auto resolveTypeRef(LookupT)(TypeKind type, LookupT lookup) {
     import std.range : only, dropOne;
-    import cpptooling.analyzer.type : TypeKind;
+    import cpptooling.analyzer.kind : TypeKind;
 
-    enum rel_kind = Relate.Kind.Associate;
+    auto rval = only(const(TypeKind).init).dropOne;
+    auto found = typeof(lookup.kind(USRType.init)).init;
 
-    auto type_lookup = only(USRType.init).dropOne;
-    auto rval = only(PathKind()).dropOne;
-
-    if (type.attr.isPrimitive || type.kind.loc.kind == LocationTag.Kind.noloc) {
-        return rval;
-    }
-
-    // because of the noloc check it is safe to assume that all locs are
-    // now of type loc
-
-    final switch (type.kind.info.kind) with (TypeKind.Info) {
-    case Kind.record:
-        rval = only(PathKind(type.kind.loc.file, rel_kind));
-        break;
+    final switch (type.info.kind) with (TypeKind.Info) {
     case Kind.array:
-        if (!type.kind.info.elementAttr.isPrimitive) {
-            type_lookup = only(type.kind.info.element);
-        }
-        break;
-    case Kind.simple:
-        rval = only(PathKind(type.kind.loc.file, rel_kind));
-        break;
-    case Kind.func:
-        rval = only(PathKind(type.kind.loc.file, rel_kind));
+        found = lookup.kind(type.info.element);
         break;
     case Kind.funcPtr:
-        type_lookup = only(type.kind.info.pointee);
+        found = lookup.kind(type.info.pointee);
         break;
     case Kind.pointer:
-        type_lookup = only(type.kind.info.pointee);
+        found = lookup.kind(type.info.pointee);
         break;
     case Kind.typeRef:
-        rval = only(PathKind(type.kind.loc.file, rel_kind));
+        found = lookup.kind(type.info.canonicalRef);
         break;
     case Kind.ctor:
     case Kind.dtor:
+    case Kind.func:
+    case Kind.record:
+    case Kind.simple:
+        rval = only(cast(const TypeKind) type);
+        break;
     case Kind.null_:
         break;
     }
 
-    // dfmt off
-    foreach (c; type_lookup
-             .map!(a => lookup(a))
-             .joiner()
-             .filter!(a => a.loc.kind != LocationTag.Kind.noloc)) {
-        rval = only(PathKind(c.loc.file, rel_kind));
+    import std.algorithm : filter;
+
+    foreach (item; found.filter!(a => !a.isNull)) {
+        rval = only(item.get);
     }
-    // dfmt on
 
     return rval;
+}
+
+private auto unpackParam(CxParam p) @trusted {
+    import std.range : only, dropOne;
+    import std.variant : visit;
+    import cpptooling.data.representation : TypeKindVariable, VariadicType;
+
+    // dfmt off
+    return p.visit!(
+                    (TypeKindVariable v) => only(v.type),
+                    (TypeKindAttr v) => only(v),
+                    (VariadicType v) {
+                        logger.error(
+                                     "Variadic function not supported. Would require runtime information to relate.");
+                        return only(TypeKindAttr.init).dropOne;
+                    });
+    // dfmt on
 }
 
 alias ClassRelate = Tuple!(Relate.Kind, "kind", Relate.Key, "key",
@@ -1754,7 +2007,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
 
     final switch (type.kind.info.kind) with (TypeKind.Info) {
     case Kind.typeRef:
-        auto tref = lookup(type.kind.info.canonicalRef);
+        auto tref = lookup.kind(type.kind.info.canonicalRef);
         foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
             auto rel_type = Relate.Kind.Aggregate;
             if (type.attr.isPtr || type.attr.isRef) {
@@ -1769,7 +2022,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
                 cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
         break;
     case Kind.array:
-        auto element = lookup(type.kind.info.element);
+        auto element = lookup.kind(type.kind.info.element);
         foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
             auto rel_type = Relate.Kind.Aggregate;
             if (type.kind.info.elementAttr.isPtr || type.kind.info.elementAttr.isRef) {
@@ -1780,7 +2033,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
         }
         break;
     case Kind.pointer:
-        auto pointee = lookup(type.kind.info.pointee);
+        auto pointee = lookup.kind(type.kind.info.pointee);
         foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
             string display = p.toStringDecl(TypeAttr.init);
             r = ClassRelate(Relate.Kind.Compose, p.usr, cast(UMLClassDiagram.DisplayName) display);
@@ -1807,7 +2060,7 @@ private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
 
     final switch (tk.kind.info.kind) with (TypeKind.Info) {
     case Kind.typeRef:
-        auto tref = lookup(tk.kind.info.canonicalRef);
+        auto tref = lookup.kind(tk.kind.info.canonicalRef);
         foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
             r = ClassRelate(Relate.Kind.Associate, Relate.Key(t.usr),
                     cast(UMLClassDiagram.DisplayName) t.toStringDecl(TypeAttr.init));
@@ -1818,14 +2071,14 @@ private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
                 cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
         break;
     case Kind.array:
-        auto element = lookup(tk.kind.info.element);
+        auto element = lookup.kind(tk.kind.info.element);
         foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
             r = ClassRelate(Relate.Kind.Associate, e.usr,
                     cast(UMLClassDiagram.DisplayName) e.toStringDecl(TypeAttr.init));
         }
         break;
     case Kind.pointer:
-        auto pointee = lookup(tk.kind.info.pointee);
+        auto pointee = lookup.kind(tk.kind.info.pointee);
         foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
             string display = p.toStringDecl(TypeAttr.init);
             r = ClassRelate(Relate.Kind.Associate, Relate.Key(p.usr),
@@ -1870,23 +2123,6 @@ private auto getClassMethodRelation(LookupT)(const(CxParam)[] params, LookupT lo
 
     // dfmt off
     return params.map!(a => genParam(a, lookup)).array();
-    // dfmt on
-}
-
-private auto paramToPathKind(LookupT)(CxParam p, LookupT lookup) @trusted {
-    import std.range : only, dropOne;
-    import std.variant : visit;
-    import cpptooling.data.representation : TypeKindVariable, VariadicType;
-
-    // dfmt off
-    return p.visit!(
-                    (TypeKindVariable v) => componentLookupType(v.type, lookup),
-                    (TypeKindAttr v) => componentLookupType(v, lookup),
-                    (VariadicType v) {
-                    logger.error(
-                                 "Variadic function not supported. Would require runtime information to relate.");
-                    return only(PathKind()).dropOne;
-                    });
     // dfmt on
 }
 
