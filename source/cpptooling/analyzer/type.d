@@ -69,7 +69,7 @@ void logTypeResult(const ref Nullable!TypeResults result, in uint indent = 0,
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(const ref TypeResults result, in uint indent = 0,
+void logTypeResult(const ref TypeResults results, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     import std.algorithm : map;
     import std.array : array;
@@ -80,15 +80,15 @@ void logTypeResult(const ref TypeResults result, in uint indent = 0,
     // dfmt off
     debug {
         string indent_ = repeat(' ', indent).array();
-        foreach (const ref tka; chain(only(result.primary), result.extra).map!(a => a.type)) {
+        foreach (const ref result; chain(only(results.primary), results.extra)) {
             string extra;
-            switch (tka.kind.info.kind) with (TypeKind.Info) {
+            switch (result.type.kind.info.kind) with (TypeKind.Info) {
             case Kind.typeRef:
-                extra = "|ex ref:" ~ cast(string) tka.kind.info.typeRef ~ "|ex canonical:" ~ cast(string) tka.kind.info.canonicalRef;
+                extra = "|ex ref:" ~ cast(string) result.type.kind.info.typeRef ~ "|ex canonical:" ~ cast(string) result.type.kind.info.canonicalRef;
                 break;
             case Kind.funcPtr:
             case Kind.pointer:
-                extra = "|ex usr:" ~ cast(string) tka.kind.info.pointee;
+                extra = "|ex usr:" ~ cast(string) result.type.kind.info.pointee;
                 break;
             default:
             }
@@ -98,24 +98,24 @@ void logTypeResult(const ref TypeResults result, in uint indent = 0,
                  "%d%s %s|%s|repr:%s|loc:%s|usr:%s|%s%s [%s:%d]",
                  indent,
                  indent_,
-                 to!string(tka.kind.info.kind),
-                 tka.kind.internalGetFmt,
-                 tka.toStringDecl("x"),
-                 (tka.kind.loc.kind == LocationTag.Kind.loc) ? (tka.kind.loc.file.length == 0 ? "no" : "yes") : "noloc",
-                 cast(string) tka.kind.usr,
-                 tka.attr,
+                 to!string(result.type.kind.info.kind),
+                 result.type.kind.internalGetFmt,
+                 result.type.toStringDecl("x"),
+                 (result.location.kind == LocationTag.Kind.loc) ? (result.location.file.length == 0 ? "no" : "yes") : "noloc",
+                 cast(string) result.type.kind.usr,
+                 result.type.attr,
                  extra,
                  func,
                  line);
 
-            switch (tka.kind.info.kind) with (TypeKind.Info) {
+            switch (result.type.kind.info.kind) with (TypeKind.Info) {
             case Kind.func:
-                foreach (r; tka.kind.info.params) {
+                foreach (r; result.type.kind.info.params) {
                     logTypeAttr(r.attr, indent, 1);
                 }
                 break;
             case Kind.pointer:
-                foreach (r; tka.kind.info.attrs) {
+                foreach (r; result.type.kind.info.attrs) {
                     logTypeAttr(r, indent, 1);
                 }
                 break;

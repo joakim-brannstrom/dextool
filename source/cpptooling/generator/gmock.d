@@ -246,15 +246,16 @@ auto makeGmock(ClassT)(const CppClass c) {
         import std.array : array;
 
         auto params = m_.paramRange.array();
-        auto m = CppMethod(m_.name, params, m_.returnType, CppAccess(AccessType.Public),
+
+        auto m = CppMethod(m_.usr, m_.name, params, m_.returnType, CppAccess(AccessType.Public),
                 CppConstMethod(m_.isConst), CppVirtualMethod(MemberVirtualType.Pure));
-        m.setLocation(m_.location);
 
         return m;
     }
 
-    auto rclass = CppClass(c.name, c.location, c.inherits, c.resideInNs);
+    auto rclass = CppClass(c.name, c.inherits, c.resideInNs);
     rclass.setKind(ClassT.Gmock);
+
     //dfmt off
     foreach (m_in; c.methodRange) {
         () @trusted{

@@ -42,7 +42,7 @@ import clang.Type : Type;
 public import cpptooling.analyzer.type;
 import cpptooling.data.type : Location, LocationTag;
 
-private long _nextSequence;
+private size_t _nextSequence;
 
 static this() {
     // Use a fixed number to minimize the difference between two generated
@@ -58,8 +58,8 @@ static this() {
 private string nextSequence() @safe {
     import std.conv : text;
 
-    if (_nextSequence == long.max) {
-        _nextSequence = 1;
+    if (_nextSequence == size_t.max) {
+        _nextSequence = size_t.min;
     }
 
     _nextSequence += 1;
@@ -145,14 +145,14 @@ void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint
     // dfmt on
 }
 
-private void assertTypeResult(const ref TypeResults result) {
+private void assertTypeResult(const ref TypeResults results) {
     import std.range : chain, only;
 
-    foreach (const ref tka; chain(only(result.primary), result.extra)) {
-        assert(tka.type.toStringDecl("x").length > 0);
-        assert(tka.type.kind.usr.length > 0);
-        if (!tka.type.attr.isPrimitive && tka.type.kind.loc.kind != LocationTag.Kind.noloc) {
-            assert(tka.type.kind.loc.file.length > 0);
+    foreach (const ref result; chain(only(results.primary), results.extra)) {
+        assert(result.type.toStringDecl("x").length > 0);
+        assert(result.type.kind.usr.length > 0);
+        if (!result.type.attr.isPrimitive && result.location.kind != LocationTag.Kind.noloc) {
+            assert(result.location.file.length > 0);
         }
     }
 }
@@ -355,7 +355,7 @@ body {
     foreach (pass; only(&pass1, &pass2, &pass3)) {
         auto r = pass(c, indent + 1);
         if (!r.isNull) {
-            rval = TypeResults(TypeResult(r, r.kind.loc), null);
+            rval = TypeResults(r.get, null);
             return rval;
         }
     }
@@ -366,12 +366,12 @@ body {
 
 /** Pass 1, implicit anonymous types for struct and union.
  */
-private Nullable!TypeKindAttr pass1(ref const(Cursor) c, uint indent)
+private Nullable!TypeResult pass1(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
 body {
-    Nullable!TypeKindAttr rval;
+    Nullable!TypeResult rval;
 
     if (!c.isAnonymous) {
         return rval;
@@ -382,12 +382,12 @@ body {
         goto case;
     case CXCursor_UnionDecl:
         auto type = c.type;
-        rval = makeTypeKindAttr(type);
+        rval.type = makeTypeKindAttr(type);
 
         string spell = type.spelling;
-        rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
-        rval.kind.usr = USRType(c.usr);
-        rval.kind.loc = makeLocation(c);
+        rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
+        rval.type.kind.usr = USRType(c.usr);
+        rval.location = makeLocation(c);
         break;
     default:
     }
@@ -415,12 +415,12 @@ body {
  * } Enum; <--- not this one, covered by "other" pass
  * ---
  */
-private Nullable!TypeKindAttr pass2(ref const(Cursor) c, uint indent)
+private Nullable!TypeResult pass2(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
 body {
-    Nullable!TypeKindAttr rval;
+    Nullable!TypeResult rval;
 
     switch (c.kind) with (CXCursorKind) {
     case CXCursor_StructDecl:
@@ -430,12 +430,12 @@ body {
     case CXCursor_EnumDecl:
         if (c.spelling.length == 0) {
             auto type = c.type;
-            rval = makeTypeKindAttr(type);
+            rval = TypeResult(makeTypeKindAttr(type), LocationTag.init);
 
             string spell = type.spelling;
-            rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
-            rval.kind.usr = USRType(c.usr);
-            rval.kind.loc = makeLocation(c);
+            rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
+            rval.type.kind.usr = USRType(c.usr);
+            rval.location = makeLocation(c);
         }
         break;
     default:
@@ -456,12 +456,12 @@ body {
  * } Struct;
  * ---
  */
-private Nullable!TypeKindAttr pass3(ref const(Cursor) c, uint indent)
+private Nullable!TypeResult pass3(ref const(Cursor) c, uint indent)
 in {
     logNode(c, indent);
 }
 body {
-    Nullable!TypeKindAttr rval;
+    Nullable!TypeResult rval;
 
     switch (c.kind) with (CXCursorKind) {
     case CXCursor_FieldDecl:
@@ -774,7 +774,7 @@ body {
         rval.primary.type.kind.usr = c.usr;
     }
 
-    rval.primary.type.kind.loc = makeLocation(c);
+    rval.primary.location = makeLocation(c);
 
     return rval;
 }
@@ -815,9 +815,9 @@ body {
         rval.kind.usr = c.usr;
     }
 
-    rval.kind.loc = makeLocation(c);
+    auto loc = makeLocation(c);
 
-    return TypeResults(TypeResult(rval, rval.kind.loc), null);
+    return TypeResults(TypeResult(rval, loc), null);
 }
 
 private TypeResults typeToSimple(ref const(Cursor) c, ref Type type, in uint this_indent)
@@ -830,6 +830,7 @@ out (result) {
 }
 body {
     auto rval = makeTypeKindAttr(type);
+    LocationTag loc;
 
     auto maybe_primitive = translateCursorType(type.kind);
 
@@ -841,17 +842,17 @@ body {
         if (rval.kind.usr.length == 0) {
             rval.kind.usr = makeFallbackUSR(c, this_indent + 1);
         }
-        rval.kind.loc = makeLocation(c);
+        loc = makeLocation(c);
     } else {
         string spell = maybe_primitive.get;
         rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
         rval.attr.isPrimitive = Yes.isPrimitive;
 
         rval.kind.usr = makeUSR(maybe_primitive.get);
-        rval.kind.loc = LocationTag(null);
+        loc = LocationTag(null);
     }
 
-    return TypeResults(TypeResult(rval, rval.kind.loc), null);
+    return TypeResults(TypeResult(rval, loc), null);
 }
 
 /// A function proto signature?
@@ -895,7 +896,7 @@ body {
         rval.primary.type.kind.usr = c.usr;
     }
 
-    rval.primary.type.kind.loc = makeLocation(c);
+    rval.primary.location = makeLocation(c);
 
     return rval;
 }
@@ -924,24 +925,25 @@ body {
     info.fmt = spell ~ " %s";
 
     auto rval = makeTypeKindAttr(type);
+    LocationTag loc;
     rval.kind.info = info;
 
     if (c.isDeclaration) {
         auto decl_c = type.declaration;
         rval.kind.usr = decl_c.usr;
-        rval.kind.loc = makeLocation(decl_c);
+        loc = makeLocation(decl_c);
     } else {
         // fallback
         rval.kind.usr = c.usr;
-        rval.kind.loc = makeLocation(c);
+        loc = makeLocation(c);
     }
 
     if (rval.kind.usr.length == 0) {
         rval.kind.usr = makeFallbackUSR(c, indent + 1);
-        rval.kind.loc = makeLocation(c);
+        loc = makeLocation(c);
     }
 
-    return TypeResults(TypeResult(rval, rval.kind.loc), null);
+    return TypeResults(TypeResult(rval, loc), null);
 }
 
 /** Represent a pointer type hierarchy.
@@ -1046,10 +1048,10 @@ body {
         // represent a usr to a primary more intelligently
         rval.primary.type.kind.usr = rval.primary.type.kind.toStringDecl(TypeAttr.init, "");
         // TODO shouldnt be needed, it is a primitive....
-        rval.primary.type.kind.loc = makeLocation(c);
+        rval.primary.location = makeLocation(c);
     } else {
         rval.primary.type.kind.usr = c.usr;
-        rval.primary.type.kind.loc = makeLocation(c);
+        rval.primary.location = makeLocation(c);
         if (rval.primary.type.kind.usr.length == 0) {
             rval.primary.type.kind.usr = makeFallbackUSR(c, indent);
         }
@@ -1102,7 +1104,7 @@ body {
     TypeResults rval;
     rval.primary.type.kind.info = info;
     rval.primary.type.kind.usr = c.usr;
-    rval.primary.type.kind.loc = makeLocation(c);
+    rval.primary.location = makeLocation(c);
     // somehow pointee.primary.attr is wrong, somehow. Don't undestand why.
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
@@ -1151,24 +1153,26 @@ body {
 
     auto return_t = retrieveReturn(return_rval);
     auto params = extractParams(c, type, container, indent);
-    auto primary = makeTypeKindAttr(type);
+    TypeResult primary;
+    primary.type = makeTypeKindAttr(type);
 
     // a C++ member function must be queried for constness via a different API
-    primary.attr.isConst = cast(Flag!"isConst") c.func.isConst;
+    primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
 
     TypeKind.FuncInfo info;
     info.fmt = format("%s %s(%s)", return_t.toStringDecl.strip, "%s", params.joinParamId());
     info.return_ = return_t.kind.usr;
     info.returnAttr = return_t.attr;
-    info.params = params.map!(a => FuncInfoParam(a.tka.kind.usr, a.tka.attr, a.id, a.isVariadic)).array();
+    info.params = params.map!(a => FuncInfoParam(a.result.type.kind.usr,
+            a.result.type.attr, a.id, a.isVariadic)).array();
 
-    primary.kind.info = info;
+    primary.type.kind.info = info;
     // in the case of __sighandler_t it is already used for the typedef
-    primary.kind.usr = makeFallbackUSR(c, indent);
-    primary.kind.loc = makeLocation(c);
+    primary.type.kind.usr = makeFallbackUSR(c, indent);
+    primary.location = makeLocation(c);
 
-    rval.primary.type = primary;
-    rval.extra ~= params.map!(a => TypeResult(a.tka, a.tka.kind.loc)).array();
+    rval.primary = primary;
+    rval.extra ~= params.map!(a => a.result).array();
     rval.extra ~= return_rval.primary;
     rval.extra ~= return_rval.extra;
 
@@ -1191,19 +1195,21 @@ body {
 
     TypeResults rval;
     auto params = extractParams(c, type, container, indent);
-    auto primary = makeTypeKindAttr(type);
+    TypeResult primary;
+    primary.type = makeTypeKindAttr(type);
 
     TypeKind.CtorInfo info;
     info.fmt = format("%s(%s)", "%s", params.joinParamId());
-    info.params = params.map!(a => FuncInfoParam(a.tka.kind.usr, a.tka.attr, a.id, a.isVariadic)).array();
+    info.params = params.map!(a => FuncInfoParam(a.result.type.kind.usr,
+            a.result.type.attr, a.id, a.isVariadic)).array();
     info.id = c.spelling;
 
-    primary.kind.info = info;
-    primary.kind.usr = c.usr;
-    primary.kind.loc = makeLocation(c);
+    primary.type.kind.info = info;
+    primary.type.kind.usr = c.usr;
+    primary.location = makeLocation(c);
 
-    rval.primary.type = primary;
-    rval.extra ~= params.map!(a => TypeResult(a.tka, a.tka.kind.loc)).array();
+    rval.primary = primary;
+    rval.extra ~= params.map!(a => a.result).array();
 
     return rval;
 }
@@ -1227,9 +1233,10 @@ body {
 
     primary.kind.info = info;
     primary.kind.usr = c.usr;
-    primary.kind.loc = makeLocation(c);
 
+    rval.primary.location = makeLocation(c);
     rval.primary.type = primary;
+
     return rval;
 }
 
@@ -1322,13 +1329,13 @@ body {
         element = passType(c, index, container, indent + 1).get;
 
         primary_usr = element.primary.type.kind.toStringDecl(TypeAttr.init) ~ index_nr.toRepr;
-        primary_loc = element.primary.type.kind.loc;
+        primary_loc = element.primary.location;
     } else {
         // on purpuse not checking if it is null before using
         element = retrieveType(index_decl, container, indent + 1).get;
 
         primary_usr = element.primary.type.kind.usr;
-        primary_loc = element.primary.type.kind.loc;
+        primary_loc = element.primary.location;
     }
 
     switch (primary_loc.kind) {
@@ -1352,7 +1359,7 @@ body {
 
     TypeResults rval;
     rval.primary.type.kind.usr = primary_usr;
-    rval.primary.type.kind.loc = primary_loc;
+    rval.primary.location = primary_loc;
     rval.primary.type.kind.info = info;
     rval.primary.type.attr = makeTypeAttr(type);
     rval.extra ~= [element.primary] ~ element.extra;
@@ -1749,7 +1756,7 @@ body {
     rval.primary.type = makeTypeKindAttr(type);
     rval.primary.type.kind = makeSimple2(c.spelling);
     rval.primary.type.kind.usr = c.usr;
-    rval.primary.type.kind.loc = makeLocation(c);
+    rval.primary.location = makeLocation(c);
 
     return rval;
 }
@@ -1801,7 +1808,7 @@ body {
     return rval;
 }
 
-private alias ExtractParamsResult = Tuple!(TypeKindAttr, "tka", string, "id",
+private alias ExtractParamsResult = Tuple!(TypeResult, "result", string, "id",
         Flag!"isVariadic", "isVariadic");
 
 ExtractParamsResult[] extractParams(ref const(Cursor) c, ref Type type,
@@ -1815,7 +1822,7 @@ out (result) {
     import cpptooling.utility.logger : trace;
 
     foreach (p; result) {
-        trace(p.tka.toStringDecl(p.id), this_indent);
+        trace(p.result.type.toStringDecl(p.id), this_indent);
     }
 }
 body {
@@ -1832,22 +1839,22 @@ body {
 
             auto tka = retrieveType(p, container, indent);
             auto id = p.spelling;
-            params ~= ExtractParamsResult(tka.primary.type, id, No.isVariadic);
+            params ~= ExtractParamsResult(tka.primary, id, No.isVariadic);
         }
 
         if (type.func.isVariadic) {
             import clang.SourceLocation;
 
-            TypeKindAttr tka;
+            TypeResult result;
 
             auto info = TypeKind.SimpleInfo("...%s");
-            tka.kind.info = info;
-            tka.kind.usr = "..." ~ c.location.toString();
-            tka.kind.loc = makeLocation(c);
+            result.type.kind.info = info;
+            result.type.kind.usr = "..." ~ c.location.toString();
+            result.location = makeLocation(c);
 
             // TODO remove this ugly hack
             // space as id to indicate it is empty
-            params ~= ExtractParamsResult(tka, " ", Yes.isVariadic);
+            params ~= ExtractParamsResult(result, " ", Yes.isVariadic);
         }
     }
 
@@ -1873,9 +1880,9 @@ private string joinParamId(ExtractParamsResult[] r) {
         if (p.id.length == 0) {
             //TODO decide if to autogenerate for unnamed parameters here or later
             //return p.tka.toStringDecl("x" ~ text(uid));
-            return p.tka.toStringDecl("");
+            return p.result.type.toStringDecl("");
         } else {
-            return p.tka.toStringDecl(p.id);
+            return p.result.type.toStringDecl(p.id);
         }
     }
 

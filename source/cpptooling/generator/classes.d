@@ -11,20 +11,30 @@ import std.typecons : Yes, No, Flag;
 import dsrcgen.cpp : CppModule;
 
 import cpptooling.data.representation : CppClass;
+import cpptooling.data.type : LocationTag;
+import cpptooling.data.symbol.types : USRType;
 
 @safe:
 
-private void genComment(T)(T m, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
-    import std.format : format;
-    import cpptooling.data.type : LocationTag, Location;
+// for now this function is only used at one place but genCtor, genDtor and
+// genOp is expected to use it in the future.
+private string genLocationComment(LookupT)(USRType usr, LookupT lookup) {
+    import std.algorithm : map, joiner;
 
-    if (loc_as_comment && m.location.kind == LocationTag.Kind.loc) {
-        hdr.comment("Origin " ~ m.location.toString)[$.begin = "/// "];
+    foreach (loc; lookup(usr).map!(a => a.any).joiner) {
+        return "Origin " ~ loc.toString;
     }
+
+    return "Unknown origin for USR " ~ cast(string) usr;
 }
 
-/// Generate code for a C++ class from a CppClass specification.
-void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_comment) {
+/** Generate code for a C++ class from a CppClass specification.
+ *
+ * Params:
+ *  lookup = expecting same signature and behavior as Container.find!LocationTag
+ */
+void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
+        Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
     import std.algorithm : each;
     import std.variant : visit;
     import cpptooling.data.representation;
@@ -40,10 +50,12 @@ void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_c
     }
 
     static void genMethod(const ref CppMethod m, CppModule hdr,
-            Flag!"locationAsComment" loc_as_comment) {
+            Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
         import cpptooling.analyzer.type;
 
-        m.genComment(hdr, loc_as_comment);
+        if (loc_as_comment) {
+            hdr.comment(genLocationComment(m.usr, lookup))[$.begin = "/// "];
+        }
 
         string params = m.paramRange().joinParams();
         auto o = hdr.method(cast(Flag!"isVirtual") m.isVirtual(),
@@ -65,7 +77,7 @@ void generateHdr(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_c
         // dfmt off
         () @trusted {
         m.visit!(
-            (const CppMethod m) => genMethod(m, pub, loc_as_comment),
+            (const CppMethod m) => genMethod(m, pub, loc_as_comment, lookup),
             (const CppMethodOp m) => genOp(m, pub),
             (const CppCtor m) => genCtor(m, pub),
             (const CppDtor m) => genDtor(m, pub));

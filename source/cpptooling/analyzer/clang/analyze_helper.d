@@ -434,7 +434,7 @@ final class ClassVisitor : Visitor {
         this.accessType = CppAccess(AccessType.Private);
 
         auto result = analyzeClassDecl(decl, container, indent);
-        this.root = CppClass(result.name, result.location, CppInherit[].init, reside_in_ns);
+        this.root = CppClass(result.name, CppInherit[].init, reside_in_ns);
         this.root.usr = result.type.kind.usr;
     }
 
@@ -499,7 +499,8 @@ final class ClassVisitor : Visitor {
             root.put(op);
             logger.trace("operator: ", op.toString);
         } else {
-            auto method = CppMethod(name, params, return_type, accessType,
+            auto method = CppMethod(type.primary.type.kind.usr, name, params,
+                    return_type, accessType,
                     CppConstMethod(type.primary.type.attr.isConst), is_virtual);
             root.put(method);
             logger.trace("method: ", method.toString);

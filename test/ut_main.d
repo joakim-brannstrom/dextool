@@ -28,6 +28,7 @@ int main(string[] args) {
                           "cpptooling.generator.func",
                           "cpptooling.generator.gmock",
                           "cpptooling.generator.includes",
+                          "cpptooling.generator.utility",
                           "cpptooling.utility.clang",
                           "cpptooling.utility.conv",
                           "cpptooling.utility.taggedalgebraic",

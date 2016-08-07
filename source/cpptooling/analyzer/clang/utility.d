@@ -68,6 +68,6 @@ void put(ref Nullable!TypeResults tr, ref Container container, in uint indent = 
 
     foreach (a; chain(only(tr.primary), tr.extra)) {
         container.put(a.type.kind);
-        container.put(a.type.kind.loc, a.type.kind.usr, a.type.attr.isDefinition);
+        container.put(a.location, a.type.kind.usr, a.type.attr.isDefinition);
     }
 }

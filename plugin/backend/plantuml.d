@@ -1033,7 +1033,7 @@ private alias ClassClassificationResult = Tuple!(TypeKindAttr, "type",
         cpptooling.data.class_classification.State, "classification");
 
 private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
-    import std.algorithm : map, copy, each;
+    import std.algorithm : map, copy, each, joiner;
     import std.array : Appender;
     import std.typecons : scoped, TypedefType, NullableRef;
 
@@ -1099,9 +1099,10 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         auto result = analyzeClassDecl(v, *container, indent);
 
-        if (result.type.kind.loc.kind == LocationTag.Kind.noloc
-                || !ctrl.doFile(result.type.kind.loc.file, result.type.kind.loc.file)) {
-            return;
+        foreach (loc; container.find!LocationTag(result.type.kind.usr).map!(a => a.any).joiner) {
+            if (!ctrl.doFile(loc.file, loc.file)) {
+                return;
+            }
         }
 
         recv.put(result, ns_stack);
@@ -1168,7 +1169,6 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCXXMethod(v, *container, indent);
-        assert(result.type.kind.loc.kind == LocationTag.Kind.loc);
 
         classification = classifyClass(classification, MethodKind.Method,
                 cast(MemberVirtualType) result.virtualKind, hasMember);
@@ -1177,8 +1177,9 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
             import cpptooling.data.type : CppConstMethod;
             import cpptooling.data.representation : CppMethod;
 
-            auto method = CppMethod(result.name, result.params, result.returnType,
-                    accessType, CppConstMethod(result.isConst), result.virtualKind);
+            auto method = CppMethod(result.type.kind.usr, result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
             logger.trace("method: ", method.toString);
         }
 
@@ -1277,9 +1278,9 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeFunctionDecl(v, container, indent);
 
         debug {
-            auto func = CFunction(result.name, result.params, CxReturnType(result.returnType),
-                    result.isVariadic, result.storageClass, result.location);
-            logger.info("global function: ", func.toString);
+            auto func = CFunction(result.type.kind.usr, result.name, result.params,
+                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
+            logger.info("function: ", func.toString);
         }
 
         recv.put(result);
@@ -1291,9 +1292,10 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
 
         auto result = analyzeClassDecl(v, container, indent);
 
-        if (result.type.kind.loc.kind == LocationTag.Kind.noloc
-                || !ctrl.doFile(result.type.kind.loc.file, result.type.kind.loc.file)) {
-            return;
+        foreach (loc; container.find!LocationTag(result.type.kind.usr).map!(a => a.any).joiner) {
+            if (!ctrl.doFile(loc.file, loc.file)) {
+                return;
+            }
         }
 
         recv.put(result, ns_stack);
@@ -1399,8 +1401,10 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
 
         if (genClassMethod) {
-            auto method = CppMethod(result.name, result.params, result.returnType,
-                    accessType, CppConstMethod(result.isConst), result.virtualKind);
+            auto method = CppMethod(USRType("dummy"), result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
+            method.usr.nullify;
             uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ method.toString));
         }
 
@@ -1562,6 +1566,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         ControllerT ctrl;
         LookupT lookup;
         MarkArray!USRRelation dcache;
+        USRType[] src_cache;
     }
 
     this(UMLComponentDiagram diagram, ControllerT ctrl, LookupT lookup) {
@@ -1622,11 +1627,31 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         putToCache(src.kind.usr, range, target, lookup);
     }
 
+    static void finalizeSrcCache(LookupT, TargetT)(USRType[] cache, LookupT lookup, TargetT target) {
+        import std.algorithm : map, joiner;
+
+        // dfmt off
+        foreach (loc; cache
+                 .map!(usr => lookup.location(usr))
+                 .joiner
+                 .map!(a => a.any)
+                 .joiner) {
+            target.putSrc(loc);
+        }
+        // dfmt on
+    }
+
     /// Process the last bits left in the cache.
     void finalize() {
         import std.algorithm : map, filter, cache;
         import std.range : enumerate, only;
         import std.typecons : tuple;
+
+        finalizeSrcCache(src_cache[], lookup, this);
+        if (src_cache.length > 0) {
+            logger.tracef("%d relations left in src cache", src_cache.length);
+        }
+        src_cache.length = 0;
 
         if (dcache.length > 0) {
             logger.tracef("%d relations left. Activating fallback strategy", dcache.length);
@@ -1673,6 +1698,12 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         import std.range : enumerate, only;
         import std.typecons : tuple;
 
+        finalizeSrcCache(src_cache[], lookup, this);
+        if (src_cache.length > 0) {
+            logger.tracef("%d relations left in src cache", src_cache.length);
+        }
+        src_cache.length = 0;
+
         // dfmt off
         foreach (e; dcache[]
                  // keep track of the index to allow marking of the cache for removal
@@ -1695,6 +1726,10 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         // dfmt on
 
         dcache.doRemoval;
+    }
+
+    void put(ref const(ClassDeclResult) result) {
+        src_cache ~= result.type.kind.usr;
     }
 
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
@@ -1744,15 +1779,11 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     void put(ref const(FunctionDeclResult) result) {
         import std.range : only;
 
-        putSrc(result.type);
+        src_cache ~= result.type.kind.usr;
 
         putParamsToCache(result.type, result.params, dcache, lookup);
         putToCache(result.type.kind.usr,
                 only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
-    }
-
-    void putSrc(ref const(TypeKindAttr) src) @safe {
-        putSrc(src.kind.loc);
     }
 
     void putSrc(ref const(LocationTag) src) @safe {
@@ -1822,9 +1853,9 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.put(result);
     }
 
-    void put(ref const(ClassDeclResult) src, const(CppNs)[] reside_in) {
-        to_class.put(src, reside_in);
-        to_component.putSrc(src.type);
+    void put(ref const(ClassDeclResult) result, const(CppNs)[] reside_in) {
+        to_class.put(result, reside_in);
+        to_component.put(result);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {

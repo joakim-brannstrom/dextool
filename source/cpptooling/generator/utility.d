@@ -16,52 +16,103 @@ import std.functional : unaryFun;
 import std.traits;
 import std.range : ElementType;
 
-template validLocation(alias predicate) if (is(typeof(unaryFun!predicate))) {
-    auto validLocation(Loc)(Loc loc) {
+version (unittest) {
+    import unit_threaded : Name, shouldEqual;
+} else {
+    private struct Name {
+        string name_;
+    }
+}
+
+/** Filter according to location existence and predicate.
+ *
+ * A false result is:
+ *  - neither a location for a declaration or definition exist.
+ *  - fails the predicate.
+ *
+ * The predicate is only called when a location exist.
+ */
+template filterAnyLocation(alias predicate) {
+    alias predFun = unaryFun!predicate;
+
+    auto filterAnyLocation(Range, LookupT)(Range range, LookupT lookup) {
         import std.algorithm : filter, map;
-        import std.range : only;
+        import std.typecons : tuple;
+        import std.range : ElementType;
         import cpptooling.data.type : LocationTag, Location;
 
+        struct LocElem {
+            LocationTag location;
+            ElementType!Range value;
+        }
+
         // dfmt off
-        return only(loc)
-            // remove invalid locations
-            .filter!(a => a.kind != LocationTag.Kind.noloc)
-            // convert to the desired type
-            .map!(a => cast(Location) a)
-            // filter out those that the user do not want
-            .filter!(a => unaryFun!predicate(a));
+        return range
+            // get the location associated with each item
+            .map!(a => tuple(lookup(a.usr), a))
+            // remove those that don't have a location
+            .filter!(a => a[0].length != 0)
+            // unpack the location. a declaration or definition, doesn't matter
+            .map!(a => tuple(a[0].front.any, a[1]))
+            // pack data in a struct that make it easier to use with named
+            // fields
+            .map!(a => LocElem(a[0].front, a[1]))
+            .filter!(a => predicate(a));
         // dfmt on
     }
 }
 
-template storeValidLocations(alias storeFun) if (is(typeof(unaryFun!storeFun))) {
-    auto storeValidLocations(Range)(Range range) {
-        import std.algorithm : each;
-        import std.range : tee;
-        import cpptooling.data.type : LocationTag, Location;
+@Name("Should only let USRs with a location pass")
+unittest {
+    import std.algorithm : joiner;
+    import std.array : array;
+    import std.range : only, dropOne;
+    import std.typecons : Nullable;
+    import cpptooling.data.symbol.types : USRType;
+    import cpptooling.data.type : LocationTag, Location;
 
-        return range.tee!((a) {
-            if (a.location.kind != LocationTag.Kind.noloc) {
-                storeFun(a.location);
-            }
-        });
-    }
-}
+    auto valid_loc = LocationTag(Location("valid.h", 1, 2));
 
-template filterAnyLocation(alias predicate) if (is(typeof(unaryFun!predicate))) {
-    auto filterAnyLocation(Range)(Range range) {
-        import std.algorithm : filter, any;
-        import cpptooling.data.type : LocationTag, Location;
+    static struct ImplAny {
+        Nullable!LocationTag data;
 
-        bool anyLocation(T)(T value, LocationTag loc) {
-            final switch (loc.kind) {
-            case LocationTag.Kind.noloc:
-                return false;
-            case LocationTag.Kind.loc:
-                return predicate(value, cast(Location) loc);
-            }
+        static auto makeNull() {
+            auto rval = ImplAny(LocationTag.init);
+            rval.data.nullify;
+            return rval;
         }
 
-        return range.filter!(a => anyLocation(a, a.location));
+        this(LocationTag data) {
+            this.data = data;
+        }
+
+        auto any() {
+            return data.isNull ? only(LocationTag.init).dropOne : only(data.get);
+        }
     }
+
+    static struct ImplUSR {
+        USRType usr;
+        int id; /// only for test purpose to ensure the data has passed through
+    }
+
+    // dfmt off
+    // predicate says "yes", expecting meaning of life
+    filterAnyLocation!(a => true)(
+        only(ImplUSR(USRType("fool"), 42)), (USRType a) { return only(ImplAny(valid_loc)); } )
+        .front.value.id.shouldEqual(42);
+
+    // lookup says "no location for that USR", expecting filter to catch and remove the nothingness
+    filterAnyLocation!(a => true)(
+        only(ImplUSR(USRType("fool"), 42)), (USRType a) { return only(ImplAny.makeNull).dropOne; } )
+        .array()
+        .length.shouldEqual(0);
+
+    // predicate says "no", expecting filter to remove the input
+    filterAnyLocation!(a => false)(
+        only(ImplUSR(USRType("fool"), 42)), (USRType a) { return only(ImplAny(valid_loc)); } )
+        .array()
+        .length.shouldEqual(0);
+
+    // dfmt on
 }
