@@ -253,9 +253,8 @@ struct Container {
         put(w, "]\n");
         put(w, "types [");
         foreach (a; types[]) {
-            formattedWrite(w, "\n  %s %s -> %s %s", a.info.kind.to!string(),
-                    cast(string) a.usr, a.internalGetFmt,
-                    a.loc.kind == LocationTag.Kind.loc ? a.loc.file : "noloc");
+            formattedWrite(w, "\n  %s %s -> %s", a.info.kind.to!string(),
+                    cast(string) a.usr, a.internalGetFmt);
         }
         put(w, "]\n");
         put(w, "locations [");
@@ -309,9 +308,8 @@ struct Container {
             import cpptooling.analyzer.type : TypeKind, toStringDecl, TypeAttr;
             import cpptooling.data.type : LocationTag, Location;
 
-            logger.tracef("Stored kind:%s usr:%s repr:%s loc:%s", latest.info.kind.to!string,
-                    cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"),
-                    latest.loc.kind == LocationTag.Kind.loc ? latest.loc.file : "noloc");
+            logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
+                    cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));
         }
     }
 
@@ -434,8 +432,8 @@ unittest {
   Class0
   Class1]
 types [
-  null_ key0 -> kind is @null@ noloc
-  null_ key1 -> kind is @null@ noloc]
+  null_ key0 -> kind is @null@
+  null_ key1 -> kind is @null@]
 locations [
   key1 ->
     File:file1 Line:1 Column:2
