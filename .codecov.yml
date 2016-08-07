@@ -1,3 +1,5 @@
+# Documentation: https://github.com/codecov/support/wiki/codecov.yml
+
 coverage:
     ignore:
         # not part of Dextool
@@ -5,3 +7,9 @@ coverage:
         - dsrcgen/.*
         - libclang/.*
         - unit-threaded/.*
+    status:
+        project: true
+        patch: true
+        changes: false
+
+comment: false
