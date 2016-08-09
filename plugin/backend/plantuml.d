@@ -1209,6 +1209,41 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 }
 
+final class UMLActivity : Visitor {
+    import std.algorithm : map, filter, cache, joiner;
+    import std.range : chain, only, dropOne, ElementType;
+    import std.typecons : scoped, NullableRef, TypedefType;
+
+    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
+        analyzeVarDecl, analyzeClassDecl, analyzeTranslationUnit;
+    import cpptooling.data.representation : CppNsStack, CppNs;
+    import cpptooling.utility.clang : logNode, mixinNodeLog;
+
+    alias visit = Visitor.visit;
+
+    mixin generateIndentIncrDecr;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+
+        v.accept(this);
+    }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+
+        v.accept(this);
+    }
+}
+
 final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : chain, only, dropOne, ElementType;
@@ -1232,7 +1267,6 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
 
         NullableRef!Container container;
         CppNs[] ns_stack;
-
     }
 
     this(ControllerT ctrl, ref ReceiveT recv, ref Container container) {
