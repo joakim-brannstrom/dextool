@@ -14,6 +14,14 @@ public import dsrcgen.c;
 
 /// Mixin of methods for semantic representation of C++ in D.
 mixin template CppModuleX() {
+    /** Access to self.
+     *
+     * Useful in with-statements.
+     */
+    auto _() {
+        return this;
+    }
+
     // Statements
     auto friend(string expr) {
         return stmt("friend " ~ expr);
