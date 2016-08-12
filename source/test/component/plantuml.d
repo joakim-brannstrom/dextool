@@ -95,7 +95,7 @@ private struct Backend {
 
 // Begin. Test of parameter dependency for component diagrams.
 
-void actTwoFiles(ref ClangContext ctx0, ref ClangContext ctx1, Backend be) {
+private void actTwoFiles(ref ClangContext ctx0, ref ClangContext ctx1, Backend be) {
     checkForCompilerErrors(ctx0).shouldBeFalse;
     checkForCompilerErrors(ctx1).shouldBeFalse;
 

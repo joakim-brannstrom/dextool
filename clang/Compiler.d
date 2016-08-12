@@ -25,80 +25,77 @@ static this() {
     uniquePathId = text(uniform(1, 10_000_000));
 }
 
+struct InternalHeader {
+    string filename;
+    string content;
+}
+
+/** Clang specific in-memory files.
+ *
+ * Imported into the binary during compilation time.
+ */
 struct Compiler {
     import std.algorithm : any, map;
     import std.path : buildPath;
     import std.meta : staticMap;
 
-    private {
-        version (Windows) {
-            enum root = `C:\`;
-        } else {
-            enum root = "/";
-        }
-        enum root_suffix = "dextool_clang";
-
-        string virtual_path;
-
-        static template toInternalHeader(string file) {
-            enum toInternalHeader = InternalHeader(file, import(file));
-        }
-
-        static struct InternalHeader {
-            string filename;
-            string content;
-        }
-
-        // dfmt off
-        enum internalHeaders = [
-            staticMap!(toInternalHeader,
-                       "float.h",
-                       "limits.h",
-                       "stdalign.h",
-                       "stdarg.h",
-                       "stdbool.h",
-                       "stddef.h",
-                       "stdint.h",
-                       "__stddef_max_align_t.h")
-        ];
-        // dfmt on
-    }
-
-    string[] extraIncludePaths() {
-        return [virtualPath];
-    }
-
-    void addInMemorySource(string filename, string content) {
-        extraFiles_ ~= InternalHeader(filename, content);
-    }
-
-    CXUnsavedFile[] extraFiles() {
-        import std.array : array;
-        import std.string : toStringz;
-
-        return extraFiles_.map!((e) {
-            return CXUnsavedFile(e.filename.toStringz, e.content.ptr, e.content.length);
-        }).array();
-    }
-
-    CXUnsavedFile[] extraHeaders() {
+    InternalHeader[] extraHeaders() {
         import std.array : array;
         import std.string : toStringz;
 
         return internalHeaders.map!((e) {
             auto path = buildPath(virtualPath, e.filename);
-            return CXUnsavedFile(path.toStringz, e.content.ptr, e.content.length);
+            return InternalHeader(path, e.content);
         }).array();
     }
 
 private:
+    version (Windows) {
+        enum root = `C:\`;
+    } else {
+        enum root = "/";
+    }
+    enum root_suffix = "dextool_clang";
 
-    InternalHeader[] extraFiles_;
+    static template toInternalHeader(string file) {
+        enum toInternalHeader = InternalHeader(file, import(file));
+    }
 
-    string virtualPath() {
-        if (virtual_path.any)
-            return virtual_path;
+    // dfmt off
+    enum internalHeaders = [
+        staticMap!(toInternalHeader,
+                   "float.h",
+                   "limits.h",
+                   "stdalign.h",
+                   "stdarg.h",
+                   "stdbool.h",
+                   "stddef.h",
+                   "stdint.h",
+                   "__stddef_max_align_t.h")
+    ];
+    // dfmt on
+}
 
-        return virtual_path = buildPath(root, uniquePathId, root_suffix);
+private:
+
+string virtualPath() {
+    return buildPath(root, uniquePathId, root_suffix);
+}
+
+struct HeaderResult {
+    private size_t idx;
+
+    InternalHeader front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return  /+4: return the element+/ ;
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        /+6: remove the front element of the range+/
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return  /+9: true if empty, false otherwise+/ ;
     }
 }

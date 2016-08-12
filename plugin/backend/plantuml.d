@@ -1225,21 +1225,39 @@ final class UMLActivity : Visitor {
 
     mixin generateIndentIncrDecr;
 
+    import dsrcgen.plantuml : ActivityModule;
+
+    ActivityModule diagram;
+
+    this() {
+        diagram = new ActivityModule;
+    }
+
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
 
+        diagram.comment("Source: " ~ v.cursor.spelling);
         v.accept(this);
     }
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
 
+        diagram.comment(v.cursor.spelling);
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        diagram.comment(v.cursor.spelling);
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
 
+        diagram.comment(v.cursor.spelling);
         v.accept(this);
     }
 }

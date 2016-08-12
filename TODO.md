@@ -60,3 +60,36 @@ Feature requests, todos etc that aren't covered by code comments.
    functions, data structure etc.
  - [DONE] Test double generation of C-functions.
  - [DONE] Adapter connecting C-functions with a test double implementation
+
+# Technical Debt
+
+## Typedef
+It turns out that the generated assembler code for Tyepdef is suboptimal.
+The Typedef's are commonly used to encode "meaning" in the type system.
+
+An alternative idiom to use would be the enum approach.
+Example:
+```d
+enum FileName : string {_init = null};
+auto a = cast(FileName) "foo";
+```
+
+I'm not sure if the enum-idiom is a good solution. Further investigation needed
+regarding "is this valid D code, no undefined behavior" and "does the idiom
+make it more ergonomic".
+
+Is this undefined behavior?
+```d
+auto a = cast(FileName) "foo";
+```
+
+Which function signature is better? More ergonomic to use?
+```d
+enum F : string {_init = null};
+alias G = Typedef(string, null, "G");
+
+void fun(F f) {}
+void gun(G g) {}
+
+fun(
+```
