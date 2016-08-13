@@ -1,9 +1,14 @@
+# OLD NOTES
+For pre v0.1.
+Not applicable for the current design (0.7+).
+Kept for when a stub-generator that is simpled and independent from google mock is introduced.
+
 # Assumption
 Templates aren't allowed to be used. Coding standard, embedded systems etc.
 
 From the different test doubles it is a stub we generate. But just following the definition will produce something that isn't very useful.
 
-The generator cannot know what complex behaviour the tester need so it allows the tester to register callbacks to user implemented functions where the tester have full control.
+The generator cannot know what complex behavior the tester need so it allows the tester to register callbacks to user implemented functions where the tester have full control.
 
 The normal case is "hardcoded" values that can be set by the tester during runtime.
 
