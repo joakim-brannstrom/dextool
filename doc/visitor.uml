@@ -1,4 +1,6 @@
 @startuml
+' General describes how the visitor pattern works
+
 skinparam componentStyle uml2
 
 class Struct {
