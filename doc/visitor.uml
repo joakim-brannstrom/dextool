@@ -1,5 +1,5 @@
 @startuml
-' General describes how the visitor pattern works
+' General description of the visitor pattern works
 
 skinparam componentStyle uml2
 
