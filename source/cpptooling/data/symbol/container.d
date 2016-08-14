@@ -194,6 +194,11 @@ struct Container {
         FastLookup!(DeclLocation, USRType) locations;
     }
 
+    // Forbid moving. The container is "heavy" and it results in assert errors
+    // when moved. If moving is implemented then duplication of the FastLookup
+    // need to be performed.
+    @disable this(this);
+
     /** Find the symbol corresponding to the key.
      *
      * Unified Symbol Resolution (USR).

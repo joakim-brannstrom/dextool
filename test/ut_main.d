@@ -7,6 +7,10 @@ import std.stdio;
 import unit_threaded.runner;
 
 int main(string[] args) {
+    import unit_threaded : enableStackTrace;
+
+    //enableStackTrace;
+
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(

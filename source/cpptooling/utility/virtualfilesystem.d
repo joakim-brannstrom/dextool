@@ -31,18 +31,22 @@ version (unittest) {
     }
 }
 
+// dfmt off
+
 enum FileName : string {
-    _init = null}
+    _init = null
+}
 
-    enum Content : string {
-        _init = null}
+enum Content : string {
+    _init = null
+}
 
-        enum AutoLoad {
-            No,
-            Yes
-        }
+enum AutoLoad {
+    No,
+    Yes
+}
 
-        /** File layer abstracting the handling of in-memory files and concrete
+/** File layer abstracting the handling of in-memory files and concrete
  * filesystem files.
  *
  * This struct abstracts and contains those differences.
@@ -54,38 +58,38 @@ enum FileName : string {
  * TODO Is it better to have everything as MMF?
  * I think it would be possible to have the source code as an anonymous MMF.
  */
-        struct VirtualFileSystem {
-            import std.mmfile : MmFile;
-            import std.traits : isSomeString;
+struct VirtualFileSystem {
+    import std.mmfile : MmFile;
+    import std.traits : isSomeString;
 
-            private {
-                struct MmFSize {
-                    MmFile file;
-                    size_t size;
-                }
+    private {
+        struct MmFSize {
+            MmFile file;
+            size_t size;
+        }
 
-                ubyte[][FileName] in_memory;
-                MmFSize[FileName] filesys;
-            }
+        ubyte[][FileName] in_memory;
+        MmFSize[FileName] filesys;
+    }
 
-            /** Add a mapping to a concrete file.
+    /** Add a mapping to a concrete file.
      *
      * Params:
      *   fname = file to map into the VFS
      */
-            void put(FileName fname) {
-                if (fname in in_memory || fname in filesys) {
-                    return;
-                }
+    void put(FileName fname) {
+        if (fname in in_memory || fname in filesys) {
+            return;
+        }
 
-                import std.file : getSize;
+        import std.file : getSize;
 
-                auto sz = getSize(cast(string) fname);
-                auto mmf = new MmFile(cast(string) fname, MmFile.Mode.read, sz, null);
-                filesys[fname] = MmFSize(mmf, sz);
-            }
+        auto sz = getSize(cast(string) fname);
+        auto mmf = new MmFile(cast(string) fname, MmFile.Mode.read, sz, null);
+        filesys[fname] = MmFSize(mmf, sz);
+    }
 
-            /** Add an in-memory file.
+    /** Add an in-memory file.
      *
      * An in-memory file CAN override the lookup of a filesystem file.
      *
@@ -93,132 +97,132 @@ enum FileName : string {
      *   fname = simulated in-memory filename
      *   source_code = ?
      */
-            void put(FileName fname, Content source_code) @safe pure {
-                // conform to lookup rules.
-                if (fname in in_memory) {
-                    return;
-                }
+    void put(FileName fname, Content source_code) @safe pure {
+        // conform to lookup rules.
+        if (fname in in_memory) {
+            return;
+        }
 
-                in_memory[fname] = cast(ubyte[]) source_code.dup;
-            }
+        in_memory[fname] = cast(ubyte[]) source_code.dup;
+    }
 
-            /// Returns: range of the filenames in the VFS.
-            auto files() pure nothrow const @nogc {
-                import std.range : chain;
+    /// Returns: range of the filenames in the VFS.
+    auto files() pure nothrow const @nogc {
+        import std.range : chain;
 
-                return chain(in_memory.byKey, filesys.byKey);
-            }
+        return chain(in_memory.byKey, filesys.byKey);
+    }
 
-            /**
+    /**
      * Params:
      *   T = type of the elements of the slice
      *   auto_load = if the file is loaded from the filesystem if it isn't found.
      *
      * Returns: slice of the whole file */
-            T slice(T = string, AutoLoad auto_load = AutoLoad.Yes)(FileName fname) {
-                ubyte[] data;
+    T slice(T = string, AutoLoad auto_load = AutoLoad.Yes)(FileName fname) {
+        ubyte[] data;
 
-                if (auto code = fname in in_memory) {
-                    data = (*code)[];
-                } else if (auto mmf = fname in filesys) {
-                    data = cast(ubyte[])(*mmf).file[0 .. (*mmf).size];
-                }
+        if (auto code = fname in in_memory) {
+            data = (*code)[];
+        } else if (auto mmf = fname in filesys) {
+            data = cast(ubyte[])(*mmf).file[0 .. (*mmf).size];
+        }
 
-                if (data.length == 0) {
-                    // error handling.
-                    // Either try to automatically load the file or error out.
-                    static if (auto_load == AutoLoad.Yes) {
-                        put(fname);
-                        return slice!(T, AutoLoad.No)(fname);
-                    } else {
-                        import std.exception;
+        if (data.length == 0) {
+            // error handling.
+            // Either try to automatically load the file or error out.
+            static if (auto_load == AutoLoad.Yes) {
+                put(fname);
+                return slice!(T, AutoLoad.No)(fname);
+            } else {
+                import std.exception;
 
-                        throw new Exception("File not found in VirtualFileSystem: " ~ fname);
-                    }
-                }
-
-                import std.utf : validate;
-
-                static auto trustedCast(ubyte[] buf) @trusted {
-                    return cast(T) buf;
-                }
-
-                auto result = trustedCast(data);
-
-                static if (isSomeString!T) {
-                    validate(result);
-                }
-
-                return result;
+                throw new Exception("File not found in VirtualFileSystem: " ~ fname);
             }
         }
 
-        @Name("Should be an in-memory mapped file")
-        unittest {
-            VirtualFileSystem vfs;
-            string code = "some code";
-            auto filename = cast(FileName) "path/to/code.c";
+        import std.utf : validate;
 
-            vfs.put(filename, cast(Content) code);
-
-            vfs.slice(filename).shouldEqual(code);
+        static auto trustedCast(ubyte[] buf) @trusted {
+            return cast(T) buf;
         }
 
-        @Name("Should be a file from the filesystem")
-        unittest {
-            import std.path;
-            import std.stdio;
-            import unit_threaded : Sandbox;
+        auto result = trustedCast(data);
 
-            VirtualFileSystem vfs;
-            string code = "content of fun.txt";
-
-            with (immutable Sandbox()) {
-                auto filename = cast(FileName) buildPath(testPath, "fun.txt");
-                File(filename, "w").write(code);
-
-                vfs.put(filename);
-
-                vfs.slice(filename).shouldEqual(code);
-            }
+        static if (isSomeString!T) {
+            validate(result);
         }
 
-        // keep the clang specifics together in one place
+        return result;
+    }
+}
 
-        ///** Returns: a slice starting at the offset of the SourceLocation. */
-        T slice(T = string)(VirtualFileSystem vfs, SourceLocation sloc) {
-            auto spell = sloc.spelling;
-            auto s = vfs.slice!(T, AutoLoad.Yes)(cast(FileName) spell.file.name);
-            return s[spell.offset .. $];
-        }
+@Name("Should be an in-memory mapped file")
+unittest {
+    VirtualFileSystem vfs;
+    string code = "some code";
+    auto filename = cast(FileName) "path/to/code.c";
 
-        /** Returns: a slice of the text the SourceRanges refers to. */
-        T slice(T = string)(VirtualFileSystem vfs, SourceRange srange) {
-            // sanity check
-            if (!srange.isValid) {
-                throw new Exception("Invalid SourceRange");
-            }
+    vfs.put(filename, cast(Content) code);
 
-            auto begin = srange.begin.spelling;
-            auto end = srange.end.spelling;
+    vfs.slice(filename).shouldEqual(code);
+}
 
-            if (begin.file.name != end.file.name) {
-                throw new Exception("Strange SourceRange, begin and end references different files: "
-                        ~ begin.file.name ~ " " ~ end.file.name);
-            }
+@Name("Should be a file from the filesystem")
+unittest {
+    import std.path;
+    import std.stdio;
+    import unit_threaded : Sandbox;
 
-            auto s = vfs.slice!(T, AutoLoad.Yes)(cast(FileName) spell.file.name);
-            return s[begin.offset .. end.offset];
-        }
+    VirtualFileSystem vfs;
+    string code = "content of fun.txt";
 
-        CXUnsavedFile[] toClangFiles(ref VirtualFileSystem vfs) {
-            import std.algorithm : map;
-            import std.array : array;
-            import std.string : toStringz;
+    with (immutable Sandbox()) {
+        auto filename = cast(FileName) buildPath(testPath, "fun.txt");
+        File(filename, "w").write(code);
 
-            return vfs.files.map!((a) {
-                auto s = vfs.slice!(ubyte[], AutoLoad.No)(cast(FileName) a);
-                auto strz = (cast(char[]) a).toStringz;
-                return CXUnsavedFile(strz, cast(char*) s.ptr, s.length);
-            }).array();
-        }
+        vfs.put(filename);
+
+        vfs.slice(filename).shouldEqual(code);
+    }
+}
+
+// keep the clang specifics together in one place
+
+///** Returns: a slice starting at the offset of the SourceLocation. */
+T slice(T = string)(VirtualFileSystem vfs, SourceLocation sloc) {
+    auto spell = sloc.spelling;
+    auto s = vfs.slice!(T, AutoLoad.Yes)(cast(FileName) spell.file.name);
+    return s[spell.offset .. $];
+}
+
+/** Returns: a slice of the text the SourceRanges refers to. */
+T slice(T = string)(VirtualFileSystem vfs, SourceRange srange) {
+    // sanity check
+    if (!srange.isValid) {
+        throw new Exception("Invalid SourceRange");
+    }
+
+    auto begin = srange.begin.spelling;
+    auto end = srange.end.spelling;
+
+    if (begin.file.name != end.file.name) {
+        throw new Exception("Strange SourceRange, begin and end references different files: "
+                            ~ begin.file.name ~ " " ~ end.file.name);
+    }
+
+    auto s = vfs.slice!(T, AutoLoad.Yes)(cast(FileName) spell.file.name);
+    return s[begin.offset .. end.offset];
+}
+
+CXUnsavedFile[] toClangFiles(ref VirtualFileSystem vfs) {
+    import std.algorithm : map;
+    import std.array : array;
+    import std.string : toStringz;
+
+    return vfs.files.map!((a) {
+                          auto s = vfs.slice!(ubyte[], AutoLoad.No)(cast(FileName) a);
+                          auto strz = (cast(char[]) a).toStringz;
+                          return CXUnsavedFile(strz, cast(char*) s.ptr, s.length);
+                          }).array();
+}

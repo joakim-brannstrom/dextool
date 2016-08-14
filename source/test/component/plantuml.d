@@ -8,7 +8,7 @@ Test of the backend for the plugin plantuml.
 module test.component.plantuml;
 
 import std.format : format;
-import std.typecons : BlackHole, Flag, Yes, No;
+import std.typecons : BlackHole, Flag, Yes, No, scoped;
 
 import unit_threaded;
 import test.clang_util;
@@ -72,7 +72,7 @@ pure const @safe class DummyParameters : BHParameters {
 /** Emulate the data structures that the frontend uses to communicate with the
  * backend.
  */
-struct Backend {
+class Backend {
     DummyController ctrl;
     DummyParameters params;
     UMLClassDiagram uml_class;
@@ -85,9 +85,7 @@ struct Backend {
     ClangAST!(typeof(visitor)) ast;
     ClangContext ctx;
 
-    @disable this();
-
-    private this(bool dummy) {
+    this() {
         ctrl = new DummyController;
         params = new DummyParameters;
         uml_class = new UMLClassDiagram;
@@ -100,15 +98,12 @@ struct Backend {
     }
 }
 
-auto backend() {
-    return Backend(true);
-}
-
 // Test Cases ****************************************************************
 
 // Begin. Test of parameter dependency for component diagrams.
 
-void actTwoFiles(ref TranslationUnit tu0, ref TranslationUnit tu1, ref Backend be) {
+void actTwoFiles(BackendT)(ref TranslationUnit tu0, ref TranslationUnit tu1, ref BackendT be)
+        if (is(BackendT == typeof(scoped!Backend()))) {
     checkForCompilerErrors(tu0).shouldBeFalse;
     checkForCompilerErrors(tu1).shouldBeFalse;
 
@@ -150,7 +145,7 @@ class A_ByCtor {
 };";
 
     // arrange
-    auto be = backend();
+    auto be = scoped!Backend();
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp/ctor.hpp",
             cast(Content) format(comp_ctor, getValue!string));
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
@@ -179,7 +174,7 @@ class A_ByParam {
 };";
 
     // arrange
-    auto be = backend();
+    auto be = scoped!Backend();
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp/a.hpp",
             cast(Content) format(comp_method, getValue!string));
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
@@ -207,7 +202,7 @@ void free_func(A%s a);
 ";
 
     // arrange
-    auto be = backend();
+    auto be = scoped!Backend();
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
             cast(Content) format(comp_func, getValue!string));
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
@@ -240,7 +235,7 @@ class A_ByMember {
             : Snippet.include_comp_a, getValue!string));
 
     // arrange
-    auto be = backend();
+    auto be = scoped!Backend();
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
             cast(Content) format(comp_func, getValue!string.length == 0
                 ? Snippet.include_comp_a : "", getValue!string));
@@ -288,9 +283,8 @@ A a;
     }
 
     // arrange
-    auto be = backend();
-    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
-            cast(Content) format(comp, getValue!string));
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp", cast(Content) comp);
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);

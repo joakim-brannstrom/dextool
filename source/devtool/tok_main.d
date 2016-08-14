@@ -9,6 +9,7 @@ module devtool.tok_main;
 import std.conv;
 import std.stdio;
 import std.string;
+import std.typecons : Yes;
 import logger = std.experimental.logger;
 
 import deimos.clang.index;
@@ -124,8 +125,9 @@ int dump_ast(string filename, string[] flags) {
     import cpptooling.analyzer.clang.context;
     import clang.TranslationUnit : dumpAST;
 
-    auto file_ctx = ClangContext.fromFile(filename, flags);
-    auto tu = file_ctx.translationUnit;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    //auto file_ctx = ClangContext.fromFile(filename, flags);
+    auto tu = ctx.makeTranslationUnit(filename, flags);
     writeln(dumpAST(tu));
 
     return 0;
