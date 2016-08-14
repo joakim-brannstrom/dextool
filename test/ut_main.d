@@ -32,7 +32,7 @@ int main(string[] args) {
                           "cpptooling.utility.clang",
                           "cpptooling.utility.conv",
                           "cpptooling.utility.taggedalgebraic",
-                          "cpptooling.utility.vfs",
+                          "cpptooling.utility.virtualfilesystem",
                           "plugin.loader",
                           "plugin.backend.plantuml",
                           // component tests

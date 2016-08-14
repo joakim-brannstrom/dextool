@@ -12,9 +12,7 @@
  */
 module clang.Compiler;
 
-import deimos.clang.index;
-
-private string uniquePathId;
+private const(string) uniquePathId;
 
 static this() {
     import std.conv : text;
@@ -23,11 +21,6 @@ static this() {
     // Keep the identifier the same while running.
     // Easier for the user to reason about what it is, where it comes from.
     uniquePathId = text(uniform(1, 10_000_000));
-}
-
-struct InternalHeader {
-    string filename;
-    string content;
 }
 
 /** Clang specific in-memory files.
@@ -39,23 +32,21 @@ struct Compiler {
     import std.path : buildPath;
     import std.meta : staticMap;
 
-    InternalHeader[] extraHeaders() {
-        import std.array : array;
-        import std.string : toStringz;
+    HeaderResult extraHeaders() {
+        return HeaderResult(internalHeaders, extraIncludePath);
+    }
 
-        return internalHeaders.map!((e) {
-            auto path = buildPath(virtualPath, e.filename);
-            return InternalHeader(path, e.content);
-        }).array();
+    /// Returns: The virtual path the internal headers are located at.
+    string extraIncludePath() {
+        if (virtual_path is null) {
+            virtual_path = virtualPath;
+        }
+
+        return virtual_path;
     }
 
 private:
-    version (Windows) {
-        enum root = `C:\`;
-    } else {
-        enum root = "/";
-    }
-    enum root_suffix = "dextool_clang";
+    string virtual_path;
 
     static template toInternalHeader(string file) {
         enum toInternalHeader = InternalHeader(file, import(file));
@@ -71,31 +62,51 @@ private:
                    "stdbool.h",
                    "stddef.h",
                    "stdint.h",
-                   "__stddef_max_align_t.h")
+                   "__stddef_max_align_t.h"
+                   )
     ];
     // dfmt on
 }
 
 private:
 
-string virtualPath() {
+string virtualPath() @safe pure nothrow {
+    import std.path : buildPath;
+
+    version (Windows) {
+        enum root = `C:\`;
+    } else {
+        enum root = "/";
+    }
+    enum root_suffix = "dextool_clang";
+
     return buildPath(root, uniquePathId, root_suffix);
 }
 
+struct InternalHeader {
+    string filename;
+    string content;
+}
+
 struct HeaderResult {
+    private InternalHeader[] hdrs;
+    private string virtual_path;
     private size_t idx;
 
     InternalHeader front() @safe pure nothrow {
+        import std.path : buildPath;
+
         assert(!empty, "Can't get front of an empty range");
-        return  /+4: return the element+/ ;
+        auto path = buildPath(virtual_path, hdrs[idx].filename);
+        return InternalHeader(path, hdrs[idx].content);
     }
 
     void popFront() @safe pure nothrow {
         assert(!empty, "Can't pop front of an empty range");
-        /+6: remove the front element of the range+/
+        ++idx;
     }
 
     bool empty() @safe pure nothrow const @nogc {
-        return  /+9: true if empty, false otherwise+/ ;
+        return idx == hdrs.length;
     }
 }

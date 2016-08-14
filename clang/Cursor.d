@@ -1,5 +1,5 @@
 /**
- * Copyright: Copyright (c) 2011 Jacob Carlborg. All rights reserved.
+ * Copyright: Copyright (c) 2011-2016 Jacob Carlborg. All rights reserved.
  * Authors: Jacob Carlborg, Joakim Brännström (joakim.brannstrom dottli gmx.com)
  * Version: 1.1+
  * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -25,10 +25,6 @@ import clang.Visitor;
 
 /** The Cursor class represents a reference to an element within the AST. It
  * acts as a kind of iterator.
- *
- * Keep track of TranslationUnit the cursor belong to for correct
- * tokenization. The TranslationUnit returned from
- * clang_Cursor_getTranslationUnit do not produce correct tokens.
  */
 struct Cursor {
     mixin CX;

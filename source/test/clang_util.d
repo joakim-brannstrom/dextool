@@ -10,20 +10,10 @@ module test.clang_util;
 import std.typecons : Flag, Yes, No;
 
 public import cpptooling.analyzer.clang.context : ClangContext;
+import clang.TranslationUnit : TranslationUnit;
 
-auto makeContext(string c, string[] args = null) {
-    return ClangContext.fromString(c, args ~ ["-fsyntax-only"]);
-}
-
-auto makeInMemorySource(string filename, string content) {
-    import std.string : toStringz;
-    import deimos.clang.index : CXUnsavedFile;
-
-    return CXUnsavedFile(filename.toStringz, content.ptr, content.length);
-}
-
-Flag!"hasError" checkForCompilerErrors(ref ClangContext ctx) {
-    import cpptooling.analyzer.clang.context : hasParseErrors, logDiagnostic;
+Flag!"hasError" checkForCompilerErrors(ref TranslationUnit ctx) {
+    import cpptooling.analyzer.clang.utility : hasParseErrors, logDiagnostic;
 
     if (ctx.hasParseErrors) {
         logDiagnostic(ctx);

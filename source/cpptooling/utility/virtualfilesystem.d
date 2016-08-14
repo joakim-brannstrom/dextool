@@ -16,7 +16,7 @@ cache.
 The VFS provides an agnostic access to both in-memory and filesystem with
 helper functions for SourceRange/SourceLocation.
 */
-module cpptooling.utility.vfs;
+module cpptooling.utility.virtualfilesystem;
 
 import clang.SourceLocation : SourceLocation;
 import clang.SourceRange : SourceRange;
@@ -32,26 +32,27 @@ version (unittest) {
 }
 
 enum FileName : string {
-    _init = null};
-    enum Source : string {
-        _init = null};
+    _init = null}
+
+    enum Content : string {
+        _init = null}
+
         enum AutoLoad {
             No,
             Yes
-        };
+        }
 
         /** File layer abstracting the handling of in-memory files and concrete
  * filesystem files.
  *
  * This struct abstracts and contains those differences.
  *
- * A file is only read once.
- * After the first access it is moved to in-memory storage to speed up future
- * access.
+ * The lookup rule for a filename is:
+ *  - in-memory container.
+ *  - load from the filesystem.
  *
- * TODO
- * Is it better to have everything as MMF?
- * It would be possible to have the source code as an anonymous MMF.
+ * TODO Is it better to have everything as MMF?
+ * I think it would be possible to have the source code as an anonymous MMF.
  */
         struct VirtualFileSystem {
             import std.mmfile : MmFile;
@@ -73,6 +74,10 @@ enum FileName : string {
      *   fname = file to map into the VFS
      */
             void put(FileName fname) {
+                if (fname in in_memory || fname in filesys) {
+                    return;
+                }
+
                 import std.file : getSize;
 
                 auto sz = getSize(cast(string) fname);
@@ -82,11 +87,18 @@ enum FileName : string {
 
             /** Add an in-memory file.
      *
+     * An in-memory file CAN override the lookup of a filesystem file.
+     *
      * Params:
      *   fname = simulated in-memory filename
      *   source_code = ?
      */
-            void put(FileName fname, Source source_code) @safe pure {
+            void put(FileName fname, Content source_code) @safe pure {
+                // conform to lookup rules.
+                if (fname in in_memory) {
+                    return;
+                }
+
                 in_memory[fname] = cast(ubyte[]) source_code.dup;
             }
 
@@ -147,7 +159,7 @@ enum FileName : string {
             string code = "some code";
             auto filename = cast(FileName) "path/to/code.c";
 
-            vfs.put(filename, cast(Source) code);
+            vfs.put(filename, cast(Content) code);
 
             vfs.slice(filename).shouldEqual(code);
         }
@@ -206,6 +218,7 @@ enum FileName : string {
 
             return vfs.files.map!((a) {
                 auto s = vfs.slice!(ubyte[], AutoLoad.No)(cast(FileName) a);
-                return CXUnsavedFile((cast(string) a).toStringz, cast(char*) s.ptr, s.length);
+                auto strz = (cast(char[]) a).toStringz;
+                return CXUnsavedFile(strz, cast(char*) s.ptr, s.length);
             }).array();
         }
