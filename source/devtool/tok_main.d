@@ -126,7 +126,6 @@ int dump_ast(string filename, string[] flags) {
     import clang.TranslationUnit : dumpAST;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    //auto file_ctx = ClangContext.fromFile(filename, flags);
     auto tu = ctx.makeTranslationUnit(filename, flags);
     writeln(dumpAST(tu));
 
