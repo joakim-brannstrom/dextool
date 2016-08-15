@@ -10,11 +10,11 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.data.type;
 
-import std.typecons : Typedef, Tuple, Flag;
-import std.variant : Algebraic;
+import std.typecons; // : Typedef, Tuple, Flag;
+import std.variant; // : Algebraic;
 
-import cpptooling.analyzer.type : TypeKind, TypeKindAttr, TypeResult;
-import cpptooling.data.symbol.types : USRType;
+import cpptooling.analyzer.type; // : TypeKind, TypeKindAttr, TypeResult;
+import cpptooling.data.symbol.types; // : USRType;
 import cpptooling.utility.taggedalgebraic;
 
 static import cpptooling.data.class_classification;
