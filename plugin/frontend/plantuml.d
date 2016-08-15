@@ -344,9 +344,11 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import std.algorithm : map, joiner;
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType;
+    import std.typecons : TypedefType, Yes;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
+
+    import cpptooling.analyzer.clang.context : ClangContext;
     import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
         UMLComponentDiagram, TransformToDiagram;
 
@@ -359,6 +361,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             variant, Lookup(&container), generator.umlComponent, generator.umlClass);
 
     auto visitor = new UMLVisitor!(Controller, typeof(transform))(variant, transform, container);
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
@@ -373,7 +376,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             auto entry_cflags = cflags ~ parseFlag(entry);
 
             auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
-                    entry_cflags, visitor);
+                    entry_cflags, visitor, ctx);
 
             // compile error, let user decide how to proceed.
             if (analyze_status == ExitStatusType.Errors && skipFileError) {
@@ -416,7 +419,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             abs_in_file = buildNormalizedPath(input_file).asAbsolutePath.text;
         }
 
-        if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+        if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
         break;

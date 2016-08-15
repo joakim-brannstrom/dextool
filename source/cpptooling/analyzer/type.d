@@ -15,7 +15,7 @@ import std.typecons : Tuple, Nullable, Flag;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.data.type : LocationTag;
+import cpptooling.data.type; // : LocationTag;
 
 public import cpptooling.analyzer.kind;
 

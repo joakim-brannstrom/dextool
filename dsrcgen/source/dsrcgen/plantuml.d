@@ -6,6 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dsrcgen.plantuml;
 
+import std.format : format;
 import std.meta : AliasSeq, staticIndexOf;
 import std.traits : ReturnType;
 import std.typecons : Flag, Yes, No, Typedef, Tuple;
@@ -47,6 +48,77 @@ class Comment : BaseModule {
         }
 
         return indent("' " ~ contents, parent_level, level);
+    }
+}
+
+/** Affected by attribute end.
+ * stmt ~ end
+ *    <recursive>
+ */
+class Stmt(T) : T {
+    private string headline;
+
+    ///
+    this(string headline) {
+        this.headline = headline;
+    }
+
+    /// See_Also: BaseModule
+    override string renderIndent(int parent_level, int level) {
+        auto end = "end" in attrs;
+        string r = headline ~ (end is null ? "" : *end);
+
+        if ("noindent" !in attrs) {
+            r = indent(r, parent_level, level);
+        }
+
+        return r;
+    }
+}
+
+/** A plantuml block.
+ *
+ * Affected by attribute begin, end, noindent.
+ * headline ~ begin
+ *     <recursive>
+ * end
+ * noindent affects post_recursive. If set no indention there.
+ * r.length > 0 catches the case when begin or end is empty string. Used in switch/case.
+ */
+class Suite(T) : T {
+    private string headline;
+
+    ///
+    this(string headline) {
+        this.headline = headline;
+    }
+
+    override string renderIndent(int parent_level, int level) {
+        import std.ascii : newline;
+
+        string r;
+        if (auto begin = "begin" in attrs) {
+            r = headline ~ *begin;
+        } else {
+            r = headline ~ " {" ~ newline;
+        }
+
+        if (r.length > 0 && "noindent" !in attrs) {
+            r = indent(r, parent_level, level);
+        }
+        return r;
+    }
+
+    override string renderPostRecursive(int parent_level, int level) {
+        string r = "}";
+        if (auto end = "end" in attrs) {
+            r = *end;
+        }
+
+        if (r.length > 0 && "noindent" !in attrs) {
+            r = indent(r, parent_level, level);
+        }
+        return r;
     }
 }
 
@@ -139,14 +211,24 @@ mixin RelateTypes!(Text!PlantumlModule, Text!PlantumlModule,
 alias CanRelateSeq = AliasSeq!(ClassNameType, ComponentNameType);
 enum CanRelate(T) = staticIndexOf!(T, CanRelateSeq) >= 0;
 
-/** Semantic representation in D of PlantUML elements.
- *
- * All created instances are stored internally.
- * The returned instances is thus to allow the user to further manipulate or
- * add nesting content.
- */
-class PlantumlModule : BaseModule {
-    mixin Attrs;
+private mixin template PlantumlBase() {
+    /** Access to self.
+     *
+     * Useful in with-statements.
+     */
+    auto _() {
+        return this;
+    }
+
+    /** An empty node holdig other nodes.
+     *
+     * Not affected by indentation.
+     */
+    auto empty() {
+        auto e = new Empty!(typeof(this));
+        append(e);
+        return e;
+    }
 
     /** Make a Comment followed by a separator.
      *
@@ -167,7 +249,7 @@ class PlantumlModule : BaseModule {
      * is to allow detailed "surgical" insertion of raw text/data when no
      * semantical "helpers" exist for a specific use case.
      */
-    auto text(string content) {
+    auto text(string content) pure {
         auto e = new Text!(typeof(this))(content);
         append(e);
         return e;
@@ -194,8 +276,8 @@ class PlantumlModule : BaseModule {
      *
      * Returns: Stmt instance stored in this.
      */
-    Stmt stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Stmt(stmt_);
+    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Stmt!(typeof(this))(stmt_);
         append(e);
         if (separator) {
             sep();
@@ -203,13 +285,43 @@ class PlantumlModule : BaseModule {
         return e;
     }
 
+    /** Make a suite/block as a child of "this" with an optional separator.
+     *
+     * The separator is inserted after the block.
+     *
+     * Returns: Suite instance stored in this.
+     */
+    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Suite!(typeof(this))(headline);
+        append(e);
+        if (separator) {
+            sep();
+        }
+        return e;
+    }
+
+}
+
+/** Semantic representation in D of PlantUML elements.
+ *
+ * Design:
+ * All created instances are stored internally.
+ * The returned instances is thus to allow the user to further manipulate or
+ * add nesting content.
+ */
+class PlantumlModule : BaseModule {
+    mixin Attrs;
+    mixin PlantumlBase;
+
+    this() pure {
+        super();
+    }
+
     /** Make a UML class without any content.
      *
      * Return: A tuple allowing further modification.
      */
     ClassType class_(string name) {
-        import std.format : format;
-
         auto e = stmt(format(`class "%s"`, name));
         auto as = e.text("");
         auto spot = as.text("");
@@ -223,8 +335,6 @@ class PlantumlModule : BaseModule {
      * Return: A tuple allowing further modification.
      */
     auto component(string name) {
-        import std.format : format;
-
         auto e = stmt(format(`component "%s"`, name));
         auto as = e.text("");
 
@@ -243,8 +353,6 @@ class PlantumlModule : BaseModule {
      *  relate = type of relation between a/b
      */
     auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
-        import std.format : format;
-
         static if (is(T == ClassNameType)) {
             enum side_format = `"%s"`;
         } else static if (is(T == ComponentNameType)) {
@@ -266,8 +374,6 @@ class PlantumlModule : BaseModule {
     /** Raw relate of a "type" b.
      */
     auto unsafeRelate(string a, string b, string type) {
-        import std.format : format;
-
         return RelationType(stmt(format(`%s %s %s`, a, type, b)));
     }
 
@@ -286,21 +392,6 @@ class PlantumlModule : BaseModule {
 
     // Suites
 
-    /** Make a suite/block as a child of "this" with an optional separator.
-     *
-     * The separator is inserted after the block.
-     *
-     * Returns: Suite instance stored in this.
-     */
-    Suite suite(string headline, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Suite(headline);
-        append(e);
-        if (separator) {
-            sep();
-        }
-        return e;
-    }
-
     /** Make a UML namespace with an optional separator.
      * The separator is inserted after the block.
      */
@@ -316,7 +407,7 @@ class PlantumlModule : BaseModule {
      * separator.
      * The separator is inserted after the block.
      */
-    Suite digraph(string name, Flag!"addSep" separator = Yes.addSep) {
+    auto digraph(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("digraph " ~ name);
         if (separator) {
             sep();
@@ -329,8 +420,6 @@ class PlantumlModule : BaseModule {
      * Return: A tuple allowing further modification.
      */
     ClassType classBody(string name) {
-        import std.format : format;
-
         auto e = stmt(format(`class "%s"`, name));
         auto as = e.text("");
         auto spot = as.text("");
@@ -350,8 +439,6 @@ class PlantumlModule : BaseModule {
      * Return: A tuple allowing further modification.
      */
     auto componentBody(string name) {
-        import std.format : format;
-
         auto e = stmt(format(`component "%s"`, name));
         auto as = e.text("");
 
@@ -380,11 +467,42 @@ private string paramsToString(T...)(auto ref T args) {
     return params;
 }
 
+/** Add a label to an existing relation.
+ *
+ * The meaning of LabelPos.
+ * A "Left" -- "Right" B : "OnRelation"
+ */
+auto label(Relation m, string txt, LabelPos pos) {
+    final switch (pos) with (LabelPos) {
+    case Left:
+        m.left.text(format(` "%s"`, txt));
+        break;
+    case Right:
+        // it is not a mistake to put the right label on middle
+        m.rel.text(format(`"%s" `, txt));
+        break;
+    case OnRelation:
+        m.right.text(format(` : "%s"`, txt));
+        break;
+    }
+
+    return m;
+}
+
+///
+unittest {
+    auto m = new PlantumlModule;
+    auto c0 = m.class_("A");
+    auto c1 = m.class_("B");
+    auto r0 = m.relate(c0.name, c1.name, Relate.Compose);
+    r0.label("foo", LabelPos.Right);
+}
+
 // Begin: Class Diagram functions
 private alias CanHaveMethodSeq = AliasSeq!(ClassType, ClassModuleType);
 private enum CanHaveMethod(T) = staticIndexOf!(T, CanHaveMethodSeq) >= 0;
 
-private auto getM(T)(T m) {
+private auto getContainedModule(T)(T m) {
     static if (is(T == ClassModuleType)) {
         return m;
     } else static if (is(T == ClassType)) {
@@ -410,7 +528,7 @@ private auto getM(T)(T m) {
  * ---
  */
 auto method(T)(T m, string txt) if (CanHaveMethod!T) {
-    auto e = m.getM.stmt(txt);
+    auto e = m.getContainedModule.stmt(txt);
     return e;
 }
 
@@ -433,10 +551,8 @@ unittest {
  */
 auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
         Flag!"isConst" isConst) if (CanHaveMethod!T) {
-    import std.format : format;
-
-    auto e = m.getM.stmt(format("%s%s %s()%s", isVirtual ? "virtual " : "",
-            return_type, name, isConst ? " const" : ""));
+    auto e = m.getContainedModule.stmt(format("%s%s %s()%s", isVirtual
+            ? "virtual " : "", return_type, name, isConst ? " const" : ""));
     return e;
 }
 
@@ -452,12 +568,10 @@ auto method(T)(T m, Flag!"isVirtual" isVirtual, string return_type, string name,
  */
 auto method(T0, T...)(T m, Flag!"isVirtual" isVirtual, string return_type,
         string name, Flag!"isConst" isConst, auto ref T args) if (CanHaveMethod!T) {
-    import std.format : format;
-
     string params = m.paramsToString(args);
 
-    auto e = m.getM.stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
-            return_type, name, params, isConst ? " const" : ""));
+    auto e = m.getContainedModule.stmt(format("%s%s %s(%s)%s", isVirtual
+            ? "virtual " : "", return_type, name, params, isConst ? " const" : ""));
     return e;
 }
 
@@ -468,7 +582,7 @@ auto method(T0, T...)(T m, Flag!"isVirtual" isVirtual, string return_type,
  *  class_name = name of the class to create a d'tor for.
  */
 auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
-    auto e = m.getM.stmt(class_name ~ "()");
+    auto e = m.getContainedModule.stmt(class_name ~ "()");
     return e;
 }
 
@@ -484,11 +598,9 @@ auto ctor(T)(T m, string class_name) if (CanHaveMethod!T) {
  */
 auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
         if (CanHaveMethod!T) {
-    import std.format : format;
-
     string params = this.paramsToString(args);
 
-    auto e = m.getM.class_suite(class_name, format("%s(%s)", class_name, params));
+    auto e = m.getContainedModule.class_suite(class_name, format("%s(%s)", class_name, params));
     return e;
 }
 
@@ -500,10 +612,8 @@ auto ctorBody(T0, T...)(T0 m, string class_name, auto ref T args)
  */
 auto dtor(T)(T m, Flag!"isVirtual" isVirtual, string class_name)
         if (CanHaveMethod!T) {
-    import std.format : format;
-
-    auto e = m.getM.stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
-            class_name[0] == '~' ? "" : "~", class_name));
+    auto e = m.getContainedModule.stmt(format("%s%s%s()", isVirtual
+            ? "virtual " : "", class_name[0] == '~' ? "" : "~", class_name));
     return e;
 }
 
@@ -520,9 +630,7 @@ unittest {
  *  class_name = name of the class to create a d'tor for.
  */
 auto dtor(T)(T m, string class_name) if (CanHaveMethod!T) {
-    import std.format : format;
-
-    auto e = m.getM.stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
+    auto e = m.getContainedModule.stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
     return e;
 }
 
@@ -580,117 +688,285 @@ auto addAs(T)(ref T m) if (is(T == ComponentType) || is(T == ClassType)) {
 }
 // End: Component Diagram functions
 
-/** Add a label to an existing relation.
- *
- * The meaning of LabelPos.
- * A "Left" -- "Right" B : "OnRelation"
- */
-auto label(Relation m, string txt, LabelPos pos) {
-    import std.format : format;
-
-    final switch (pos) with (LabelPos) {
-    case Left:
-        m.left.text(format(` "%s"`, txt));
-        break;
-    case Right:
-        // it is not a mistake to put the right label on middle
-        m.rel.text(format(`"%s" `, txt));
-        break;
-    case OnRelation:
-        m.right.text(format(` : "%s"`, txt));
-        break;
-    }
-
-    return m;
-}
-
-///
-unittest {
-    auto m = new PlantumlModule;
-    auto c0 = m.class_("A");
-    auto c1 = m.class_("B");
-    auto r0 = m.relate(c0.name, c1.name, Relate.Compose);
-    r0.label("foo", LabelPos.Right);
-}
-
 /** Add a raw label "on" the relationship line.
  */
 auto label(Relation m, string txt) {
-    import std.format : format;
-
     m.right.text(format(` : "%s"`, txt));
     return m;
 }
 
-/** Affected by attribute end.
- * stmt ~ end
- *    <recursive>
+/** Specialization of an ActivityBlock.
  */
-class Stmt : PlantumlModule {
-    private string headline;
+private enum ActivityKind {
+    Unspecified,
+    /// if-stmt with an optional Then
+    IfThen,
+    /// if-stmt that has consumed Then
+    If,
+    /// foo
+    Else
+}
 
-    ///
-    this(string headline) {
-        this.headline = headline;
+/** Used to realise type safe if/else/endif blocks.
+ */
+struct ActivityBlock(ActivityKind kind_) {
+    /// Access the compile time for easier constraint checking.
+    private enum kind = kind_;
+
+    /// Module that is meant to be enclosed between the for example if-else.
+    private ActivityModule current;
+
+    /** Point where a new "else" can be injected.
+     *
+     * An array to allow blocks of different kinds to carry more than one
+     * injection point. Use enums to address the points for clarity.
+     */
+    private ActivityModule[] injectBlock;
+
+    /// Operations are performed on current
+    alias current this;
+}
+
+/// Addressing the injectBlock of an ActivityBlock!(ActivityKind.If)
+private enum ActivityBlockIfThen {
+    Next,
+    Then
+}
+
+/** Semantic representation in D for Activity Diagrams.
+ *
+ * The syntax of the activity diagrams is the one that as of plantuml-8045 is
+ * marked as "beta".
+ */
+class ActivityModule : BaseModule {
+    mixin Attrs;
+    mixin PlantumlBase;
+
+    /// Call the module to add text.
+    auto opCall(string txt) pure {
+        return text(txt);
     }
 
-    /// See_Also: BaseModule
-    override string renderIndent(int parent_level, int level) {
-        auto end = "end" in attrs;
-        string r = headline ~ (end is null ? "" : *end);
+    // Statements
 
-        if ("noindent" !in attrs) {
-            r = indent(r, parent_level, level);
+    /// Start a diagram.
+    auto start() {
+        return stmt("start");
+    }
+
+    /// Stop an diagram.
+    auto stop() {
+        return stmt("stop");
+    }
+
+    /** Basic activity.
+     *
+     * :middle;
+     *
+     * Returns: The middle text object to be filled with content.
+     */
+    auto activity(string content) {
+        auto e = stmt(":")[$.end = ""];
+        auto rval = e.text(content);
+        e.text(";");
+        sep();
+
+        rval.suppressIndent(1);
+
+        return rval;
+    }
+
+    /// Add a condition.
+    auto if_(string condition_) {
+        // the sep from cond is AFTER all this.
+        // the cond is the holder of the structure.
+        auto cond = stmt(format("if (%s)", condition_), No.addSep);
+        auto then = cond.empty;
+        cond.sep;
+
+        auto next = base;
+        next.suppressIndent(1);
+        stmt("endif");
+
+        return ActivityBlock!(ActivityKind.IfThen)(cond, [next, then]);
+    }
+
+    auto unsafeIf(string condition, string then = null) {
+        if (then is null) {
+            return stmt(format("if (%s)", condition));
+        } else {
+            return stmt(format("if (%s) then (%s)", condition, then));
         }
+    }
 
-        return r;
+    auto unsafeIfElse(string condition, string then = null) {
+        if (then is null) {
+            return stmt(format("else if (%s)", condition));
+        } else {
+            return stmt(format("else if (%s) then (%s)", condition, then));
+        }
+    }
+
+    /// Type unsafe else.
+    auto unsafeElse_() {
+        return stmt("else");
+    }
+
+    auto unsafeEndif() {
+        return stmt("endif");
     }
 }
 
-/** A plantuml block.
- *
- * Affected by attribute begin, end, noindent.
- * headline ~ begin
- *     <recursive>
- * end
- * noindent affects post_recursive. If set no indention there.
- * r.length > 0 catches the case when begin or end is empty string. Used in switch/case.
- */
-class Suite : PlantumlModule {
-    private string headline;
-
-    ///
-    this(string headline) {
-        this.headline = headline;
+@Name("Should be a start-stuff-stop activity diagram")
+ ///
+unittest {
+    auto m = new ActivityModule;
+    with (m) {
+        start;
+        activity("hello")(" world");
+        stop;
     }
 
-    override string renderIndent(int parent_level, int level) {
-        import std.ascii : newline;
+    m.render.shouldEqual("    start\n    :hello world;\n    stop\n");
+}
 
-        string r;
-        if (auto begin = "begin" in attrs) {
-            r = headline ~ *begin;
-        } else {
-            r = headline ~ " {" ~ newline;
-        }
+@Name("Should be a single if-condition")
+ ///
+unittest {
+    auto m = new ActivityModule;
+    auto if_ = m.if_("branch?");
 
-        if (r.length > 0 && "noindent" !in attrs) {
-            r = indent(r, parent_level, level);
-        }
-        return r;
+    m.render.shouldEqual("    if (branch?)
+    endif
+");
+
+    with (if_) {
+        activity("inside");
     }
 
-    override string renderPostRecursive(int parent_level, int level) {
-        string r = "}";
-        if (auto end = "end" in attrs) {
-            r = *end;
-        }
+    m.render.shouldEqual("    if (branch?)
+        :inside;
+    endif
+");
+}
 
-        if (r.length > 0 && "noindent" !in attrs) {
-            r = indent(r, parent_level, level);
-        }
-        return r;
+auto then(ActivityBlock!(ActivityKind.IfThen) if_then, string content) {
+    with (if_then.injectBlock[ActivityBlockIfThen.Then]) {
+        text(format(" then (%s)", content));
     }
+
+    auto if_ = ActivityBlock!(ActivityKind.If)(if_then.current,
+            [if_then.injectBlock[ActivityBlockIfThen.Next]]);
+    return if_;
+}
+
+@Name("Should be an if-condition with a marked branch via 'then'")
+ ///
+unittest {
+    auto m = new ActivityModule;
+    with (m.if_("branch?").then("yes")) {
+        activity("inside");
+    }
+
+    m.render.shouldEqual("    if (branch?) then (yes)
+        :inside;
+    endif
+");
+}
+
+import std.algorithm : among;
+
+auto else_(T)(T if_) if (T.kind.among(ActivityKind.IfThen, ActivityKind.If)) {
+    auto curr = if_.injectBlock[ActivityBlockIfThen.Next].stmt("else", No.addSep);
+    curr.sep;
+
+    return ActivityBlock!(ActivityKind.Else)(curr, []);
+}
+
+@Name("Should be an if-else-condition")
+ ///
+unittest {
+    auto m = new ActivityModule;
+    auto cond = m.if_("cond?");
+    cond.activity("stuff yes");
+    with (cond.else_) {
+        activity("stuff no");
+    }
+
+    m.render.shouldEqual("    if (cond?)
+        :stuff yes;
+    else
+        :stuff no;
+    endif
+");
+}
+
+auto else_if(T)(T if_, string condition)
+        if (T.kind.among(ActivityKind.IfThen, ActivityKind.If)) {
+    auto cond = if_.injectBlock[ActivityBlockIfThen.Next].stmt(format("else if (%s)",
+            condition), No.addSep);
+    auto then = cond.empty;
+    cond.sep;
+
+    auto next = if_.base;
+    next.suppressIndent(1);
+
+    return ActivityBlock!(ActivityKind.IfThen)(cond, [next, then]);
+}
+
+@Name("Should be an if-else_if-else with 'then'")
+unittest {
+    auto m = new ActivityModule;
+    auto cond = m.if_("cond1?");
+    cond.then("yes");
+    cond.activity("stuff1");
+
+    auto else_if = cond.else_if("cond2?");
+    else_if.then("yes");
+    else_if.activity("stuff2");
+
+    m.render.shouldEqual("    if (cond1?) then (yes)
+        :stuff1;
+    else if (cond2?) then (yes)
+        :stuff2;
+    endif
+");
+}
+
+@Name("Should be complex conditions")
+unittest {
+    auto m = new ActivityModule;
+
+    auto cond = m.if_("cond1");
+    with (cond.then("yes")) {
+        activity("stuff");
+        activity("stuff");
+
+        auto cond2 = if_("cond2");
+        with (cond2) {
+            activity("stuff");
+        }
+        with (cond2.else_) {
+            activity("stuff");
+        }
+    }
+
+    with (cond.else_) {
+        activity("stuff");
+    }
+
+    m.render.shouldEqual("    if (cond1) then (yes)
+        :stuff;
+        :stuff;
+        if (cond2)
+            :stuff;
+        else
+            :stuff;
+        endif
+    else
+        :stuff;
+    endif
+");
 }
 
 /** Generate a plantuml block ready to be rendered.

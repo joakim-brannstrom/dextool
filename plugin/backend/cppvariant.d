@@ -485,7 +485,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     return filtered;
 }
 
-CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters params) {
+CppRoot translate(CppRoot root, ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
 
     auto r = CppRoot.make;
@@ -508,7 +508,7 @@ CppRoot translate(CppRoot root, Container container, Controller ctrl, Parameters
 
 /** Translate namspaces and the content to test double implementations.
  */
-NullableVoid!CppNamespace translate(CppNamespace input, Container container,
+NullableVoid!CppNamespace translate(CppNamespace input, ref Container container,
         Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;

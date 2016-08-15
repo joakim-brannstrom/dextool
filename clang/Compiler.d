@@ -12,9 +12,7 @@
  */
 module clang.Compiler;
 
-import deimos.clang.index;
-
-private string uniquePathId;
+private const(string) uniquePathId;
 
 static this() {
     import std.conv : text;
@@ -25,80 +23,90 @@ static this() {
     uniquePathId = text(uniform(1, 10_000_000));
 }
 
+/** Clang specific in-memory files.
+ *
+ * Imported into the binary during compilation time.
+ */
 struct Compiler {
     import std.algorithm : any, map;
     import std.path : buildPath;
     import std.meta : staticMap;
 
-    private {
-        version (Windows) {
-            enum root = `C:\`;
-        } else {
-            enum root = "/";
-        }
-        enum root_suffix = "dextool_clang";
+    HeaderResult extraHeaders() {
+        return HeaderResult(internalHeaders, extraIncludePath);
+    }
 
-        string virtual_path;
-
-        static template toInternalHeader(string file) {
-            enum toInternalHeader = InternalHeader(file, import(file));
+    /// Returns: The virtual path the internal headers are located at.
+    string extraIncludePath() {
+        if (virtual_path is null) {
+            virtual_path = virtualPath;
         }
 
-        static struct InternalHeader {
-            string filename;
-            string content;
-        }
-
-        // dfmt off
-        enum internalHeaders = [
-            staticMap!(toInternalHeader,
-                       "float.h",
-                       "limits.h",
-                       "stdalign.h",
-                       "stdarg.h",
-                       "stdbool.h",
-                       "stddef.h",
-                       "stdint.h",
-                       "__stddef_max_align_t.h")
-        ];
-        // dfmt on
-    }
-
-    string[] extraIncludePaths() {
-        return [virtualPath];
-    }
-
-    void addInMemorySource(string filename, string content) {
-        extraFiles_ ~= InternalHeader(filename, content);
-    }
-
-    CXUnsavedFile[] extraFiles() {
-        import std.array : array;
-        import std.string : toStringz;
-
-        return extraFiles_.map!((e) {
-            return CXUnsavedFile(e.filename.toStringz, e.content.ptr, e.content.length);
-        }).array();
-    }
-
-    CXUnsavedFile[] extraHeaders() {
-        import std.array : array;
-        import std.string : toStringz;
-
-        return internalHeaders.map!((e) {
-            auto path = buildPath(virtualPath, e.filename);
-            return CXUnsavedFile(path.toStringz, e.content.ptr, e.content.length);
-        }).array();
+        return virtual_path;
     }
 
 private:
+    string virtual_path;
 
-    InternalHeader[] extraFiles_;
+    static template toInternalHeader(string file) {
+        enum toInternalHeader = InternalHeader(file, import(file));
+    }
 
-    string virtualPath() {
-        if (virtual_path.any)
-            return virtual_path;
+    // dfmt off
+    enum internalHeaders = [
+        staticMap!(toInternalHeader,
+                   "float.h",
+                   "limits.h",
+                   "stdalign.h",
+                   "stdarg.h",
+                   "stdbool.h",
+                   "stddef.h",
+                   "stdint.h",
+                   "__stddef_max_align_t.h"
+                   )
+    ];
+    // dfmt on
+}
 
-        return virtual_path = buildPath(root, uniquePathId, root_suffix);
+private:
+
+string virtualPath() @safe pure nothrow {
+    import std.path : buildPath;
+
+    version (Windows) {
+        enum root = `C:\`;
+    } else {
+        enum root = "/";
+    }
+    enum root_suffix = "dextool_clang";
+
+    return buildPath(root, uniquePathId, root_suffix);
+}
+
+struct InternalHeader {
+    string filename;
+    string content;
+}
+
+struct HeaderResult {
+    private InternalHeader[] hdrs;
+    private string virtual_path;
+    private size_t idx;
+
+    InternalHeader front() @safe pure nothrow {
+        import std.path : buildPath;
+
+        assert(!empty, "Can't get front of an empty range");
+        auto path = buildPath(virtual_path, hdrs[idx].filename);
+        return InternalHeader(path, hdrs[idx].content);
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        ++idx;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return idx == hdrs.length;
     }
 }

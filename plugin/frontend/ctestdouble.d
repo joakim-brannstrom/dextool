@@ -310,12 +310,15 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType;
+    import std.typecons : TypedefType, Yes;
+
+    import cpptooling.analyzer.clang.context : ClangContext;
     import plugin.backend.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
     foreach (idx, in_file; (cast(TypedefType!InFiles) in_files)) {
         logger.infof("File %d/%d ", idx + 1, total_files);
@@ -335,14 +338,13 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
         }
 
-        if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+        if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
     }
 
     // Analyse and generate test double
-    auto generator = Generator(variant, variant, variant);
-    generator.process(visitor.root, visitor.container);
+    Generator(variant, variant, variant).process(visitor.root, visitor.container);
 
     debug {
         logger.trace(visitor);

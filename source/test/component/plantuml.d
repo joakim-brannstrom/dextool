@@ -8,10 +8,12 @@ Test of the backend for the plugin plantuml.
 module test.component.plantuml;
 
 import std.format : format;
-import std.typecons : BlackHole, Flag, Yes, No;
+import std.typecons : BlackHole, Flag, Yes, No, scoped;
 
 import unit_threaded;
 import test.clang_util;
+
+import clang.TranslationUnit : TranslationUnit;
 
 import application.types;
 import cpptooling.analyzer.kind : TypeKind;
@@ -19,8 +21,11 @@ import cpptooling.analyzer.type : USRType;
 import cpptooling.analyzer.clang.ast : ClangAST;
 import cpptooling.analyzer.clang.context;
 import cpptooling.data.symbol.container : Container;
+import cpptooling.utility.virtualfilesystem : FileName, Content;
 import plugin.frontend.plantuml : Lookup;
 import plugin.backend.plantuml;
+
+private:
 
 alias BHController = BlackHole!Controller;
 alias BHParameters = BlackHole!Parameters;
@@ -32,6 +37,8 @@ writelnUt(be.uml_component.toString);
 
 ///
 @safe class DummyController : BHController {
+    import application.types : FileName;
+
     override bool doFile(in string filename, in string info) {
         return true;
     }
@@ -65,7 +72,7 @@ pure const @safe class DummyParameters : BHParameters {
 /** Emulate the data structures that the frontend uses to communicate with the
  * backend.
  */
-private struct Backend {
+class Backend {
     DummyController ctrl;
     DummyParameters params;
     UMLClassDiagram uml_class;
@@ -76,10 +83,9 @@ private struct Backend {
 
     Container container;
     ClangAST!(typeof(visitor)) ast;
+    ClangContext ctx;
 
-    @disable this();
-
-    this(bool dummy) {
+    this() {
         ctrl = new DummyController;
         params = new DummyParameters;
         uml_class = new UMLClassDiagram;
@@ -88,6 +94,7 @@ private struct Backend {
         transform = new typeof(transform)(ctrl, params, Lookup(&container),
                 uml_component, uml_class);
         visitor = new typeof(visitor)(ctrl, transform, container);
+        ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     }
 }
 
@@ -95,21 +102,22 @@ private struct Backend {
 
 // Begin. Test of parameter dependency for component diagrams.
 
-void actTwoFiles(ref ClangContext ctx0, ref ClangContext ctx1, Backend be) {
-    checkForCompilerErrors(ctx0).shouldBeFalse;
-    checkForCompilerErrors(ctx1).shouldBeFalse;
+void actTwoFiles(BackendT)(ref TranslationUnit tu0, ref TranslationUnit tu1, ref BackendT be)
+        if (is(BackendT == typeof(scoped!Backend()))) {
+    checkForCompilerErrors(tu0).shouldBeFalse;
+    checkForCompilerErrors(tu1).shouldBeFalse;
 
-    be.ast.root = ctx0.cursor;
+    be.ast.root = tu0.cursor;
     be.ast.accept(be.visitor);
 
-    be.ast.root = ctx1.cursor;
+    be.ast.root = tu1.cursor;
     be.ast.accept(be.visitor);
 
     be.transform.finalize();
 }
 
 // Reusable code snippets
-private struct Snippet {
+struct Snippet {
     enum includes = ["-I/"];
     enum include_comp_a = `#include "comp_a/a.hpp"`;
     enum comp_a = "
@@ -118,7 +126,7 @@ class A {
 }
 
 // Generated component keys. See plugin.backend.plantuml.makeComponentKey
-private struct Key {
+struct Key {
     enum comp_a = "Y29tcF9h";
     enum comp = "Y29tcA";
 }
@@ -137,13 +145,15 @@ class A_ByCtor {
 };";
 
     // arrange
-    auto be = Backend(true);
-    auto ctx0 = ClangContext.fromString!"/comp/ctor.hpp"(format(comp_ctor,
-            getValue!string), Snippet.includes);
-    auto ctx1 = ClangContext.fromString!"/comp_a/a.hpp"(Snippet.comp_a, Snippet.includes);
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/ctor.hpp",
+            cast(Content) format(comp_ctor, getValue!string));
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
+    auto tu0 = be.ctx.makeTranslationUnit("/comp/ctor.hpp", Snippet.includes);
+    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
     // act
-    actTwoFiles(ctx0, ctx1, be);
+    actTwoFiles(tu0, tu1, be);
 
     // assert
     auto result = be.uml_component.relateToFlatArray;
@@ -164,13 +174,15 @@ class A_ByParam {
 };";
 
     // arrange
-    auto be = Backend(true);
-    auto ctx0 = ClangContext.fromString!"/comp/a.hpp"(format(comp_method,
-            getValue!string), Snippet.includes);
-    auto ctx1 = ClangContext.fromString!"/comp_a/a.hpp"(Snippet.comp_a);
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/a.hpp",
+            cast(Content) format(comp_method, getValue!string));
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
+    auto tu0 = be.ctx.makeTranslationUnit("/comp/a.hpp", Snippet.includes);
+    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
     // act
-    actTwoFiles(ctx0, ctx1, be);
+    actTwoFiles(tu0, tu1, be);
 
     // assert
     auto result = be.uml_component.relateToFlatArray;
@@ -190,13 +202,15 @@ void free_func(A%s a);
 ";
 
     // arrange
-    auto be = Backend(true);
-    auto ctx0 = ClangContext.fromString!"/comp/fun.hpp"(format(comp_func,
-            getValue!string), Snippet.includes);
-    auto ctx1 = ClangContext.fromString!"/comp_a/a.hpp"(Snippet.comp_a, Snippet.includes);
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
+            cast(Content) format(comp_func, getValue!string));
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
+    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
     // act
-    actTwoFiles(ctx0, ctx1, be);
+    actTwoFiles(tu0, tu1, be);
 
     // assert
     auto result = be.uml_component.relateToFlatArray;
@@ -221,14 +235,16 @@ class A_ByMember {
             : Snippet.include_comp_a, getValue!string));
 
     // arrange
-    auto be = Backend(true);
-    auto ctx0 = ClangContext.fromString!"/comp/fun.hpp"(format(comp_func,
-            getValue!string.length == 0 ? Snippet.include_comp_a : "", getValue!string),
-            Snippet.includes, [ClangContext.InMemoryFile("/comp_a/a.hpp", Snippet.comp_a)]);
-    auto ctx1 = ClangContext.fromString!"/comp_a/a.hpp"(Snippet.comp_a, Snippet.includes);
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
+            cast(Content) format(comp_func, getValue!string.length == 0
+                ? Snippet.include_comp_a : "", getValue!string));
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
+    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
     // act
-    actTwoFiles(ctx0, ctx1, be);
+    actTwoFiles(tu0, tu1, be);
 
     // assert
     auto result = be.uml_component.relateToFlatArray;
@@ -267,13 +283,14 @@ A a;
     }
 
     // arrange
-    auto be = Backend(true);
-    auto ctx0 = ClangContext.fromString!"/comp/fun.hpp"(comp, Snippet.includes,
-            [ClangContext.InMemoryFile("/comp_a/a.hpp", Snippet.comp_a)]);
-    auto ctx1 = ClangContext.fromString!"/comp_a/a.hpp"(Snippet.comp_a, Snippet.includes);
+    auto be = scoped!Backend();
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp", cast(Content) comp);
+    be.ctx.virtualFileSystem.put(cast(FileName) "/comp_a/a.hpp", cast(Content) Snippet.comp_a);
+    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
     // act
-    actTwoFiles(ctx0, ctx1, be);
+    actTwoFiles(tu0, tu1, be);
 
     writelnUt(be.container.toString);
     writelnUt(be.uml_component.toString);

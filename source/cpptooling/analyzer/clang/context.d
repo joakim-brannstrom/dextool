@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -6,191 +5,121 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.analyzer.clang.context;
 
-import std.typecons : Flag, Yes;
-
+import std.typecons : Flag;
 import logger = std.experimental.logger;
 
-/// Holds the context of the file.
+version (unittest) {
+    import unit_threaded : Name, shouldEqual;
+} else {
+    private struct Name {
+        string name_;
+    }
+}
+
+/** Convenient context of items needed to practically create a clang AST.
+ *
+ * "Creating a clang AST" means calling $(D makeTranslationUnit).
+ *
+ * Assumes that the scope of a ClangContext is the same as that stated for a
+ * clang Index. Namely that those translation units that are created are the
+ * same as those that would be linked together into an executable or library.
+ *
+ * Items are:
+ *  - An index that all translation units use as input.
+ *  - A VFS providing access to the files that the translation unites are
+ *    derived from.
+ */
 struct ClangContext {
-    import clang.Compiler;
-    import clang.Cursor;
-    import clang.Index;
-    import clang.TranslationUnit;
+    import clang.Index : Index;
+    import clang.TranslationUnit : TranslationUnit;
 
-    alias MakeTU = TranslationUnit delegate(ref ClangContext ctx);
-    static struct InMemoryFile {
-        /// Simulated in-memory filename. How it is accessed.
-        string filename;
+    import cpptooling.utility.virtualfilesystem : VirtualFileSystem, FileName,
+        Content;
 
-        ///
-        string content;
+    import deimos.clang.index : CXTranslationUnit_Flags;
+
+    private {
+        Index index;
+        string[] internal_header_arg;
+        string[] syntax_only_arg;
     }
 
-    /** Initialize context from in-memory source code.
+    /** Access to the virtual filesystem used when instantiating translation
+     * units.
+     *
+     * Note:
+     * NOT using the abbreviation VFS because it is not commonly known. Better
+     * to be specific.
+     */
+    VirtualFileSystem virtualFileSystem;
+
+    @disable this();
+
+    // The context is "heavy" therefor disabling moving.
+    @disable this(this);
+
+    /** Create an instance.
+     *
+     * The binary dextool has clang specified headers attached. Those are feed
+     * to the VFS and used when the flag useInternalHeaders is "yes". To make
+     * them accessable a "-I" parameter with their in-memory location is
+     * supplied to all instantiated translation units.
      *
      * Params:
-     *  T = symbol to generate the simulated filename for content
-     *  content = in-memory content that is handed over to clang for parsing
-     *  args = extra arguments to pass to libclang
-     *
-     * Returns:
+     *   useInternalHeaders = load the VFS with in-memory system headers.
+     *   prependParamSyntaxOnly = prepend the flag -fsyntax-only to instantiated translation units.
      */
-    static auto fromString(T...)(string content, const(string[]) args = null,
-            InMemoryFile[] files = null) if (T.length <= 1) {
-        return ClangContext((ref ClangContext ctx) {
-            auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
-
-            foreach (file; files) {
-                ctx.compiler.addInMemorySource(file.filename, file.content);
-            }
-
-            return TranslationUnit.parseString!(T)(ctx.index, content,
-                use_args, ctx.compiler.extraHeaders ~ ctx.compiler.extraFiles);
-        });
-    }
-
-    /** Initialize context from file.
-     *
-     * Params:
-     *  input_file = filename of the source code that is handed over to clang for parsing
-     *  args = extra arguments to pass to libclang
-     *
-     * Returns: ClangContext
-     */
-    static auto fromFile(string input_file, const(string[]) args = null) {
-        return ClangContext((ref ClangContext ctx) {
-            auto use_args = ctx.makeArgs(args, Yes.useInternalHeaders);
-            return TranslationUnit.parse(ctx.index, input_file, use_args,
-                ctx.compiler.extraHeaders);
-        });
-    }
-
-    /** Deferred construction of the context.
-     *
-     * The logic for constructing the translation unit is split to a delegate.
-     *
-     * The split is to enables a design where the context initializes the basic
-     * memory structure like Compiler and Index without handling the logic of
-     * constructing the translation unit.
-     *
-     * Params:
-     *   makeTranslationUnit = construct a translation unit
-     */
-    private this(MakeTU makeTranslationUnit) {
+    this(Flag!"useInternalHeaders" useInternalHeaders,
+            Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) {
         index = Index(false, false);
-        translation_unit = makeTranslationUnit(this);
+        virtualFileSystem = VirtualFileSystem();
+
+        if (useInternalHeaders) {
+            import cpptooling.utility.virtualfilesystem : FileName, Content;
+            import clang.Compiler : Compiler;
+
+            Compiler compiler;
+            internal_header_arg = ["-I" ~ compiler.extraIncludePath];
+            foreach (hdr; compiler.extraHeaders) {
+                virtualFileSystem.put(cast(FileName) hdr.filename, cast(Content) hdr.content);
+            }
+        }
+
+        if (prependParamSyntaxOnly) {
+            syntax_only_arg = ["-fsyntax-only"];
+        }
     }
 
-    /** Top cursor to travers the AST.
-     * Returns: Cursor of the translation unit
+    /** Create a translation unit from the context.
+     *
+     * The translation unit is NOT kept by the context.
      */
-    @property Cursor cursor() {
-        return translation_unit.cursor;
-    }
-
-    /// Returns: The translation unit for the context
-    TranslationUnit translationUnit() {
-        return translation_unit;
-    }
-
-private:
-    string[] makeArgs(const(string[]) args, Flag!"useInternalHeaders" internal_hdr) {
+    auto makeTranslationUnit(inout string sourceFilename, inout string[] commandLineArgs = null,
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
         import std.array : join;
 
-        string[] use_args;
+        logger.info("Compiler flags: ", commandLineArgs.join(" "));
 
-        if (internal_hdr) {
-            use_args = compilerArgs();
-        }
+        string[] args = syntax_only_arg ~ commandLineArgs ~ internal_header_arg;
 
-        if (args !is null) {
-            use_args = args.dup ~ use_args;
-        }
+        logger.trace("Internal compiler flags: ", args.join(" "));
 
-        logger.info("Compiler flags: ", args.join(" "));
-        logger.trace("Internal compiler flags: ", use_args.join(" "));
+        // ensure the file exist in the filesys layer.
+        // it has either been added as an in-memory file by the user or it is
+        // read from the filesystem.
+        virtualFileSystem.put(cast(FileName) sourceFilename);
 
-        return use_args;
+        import cpptooling.utility.virtualfilesystem : toClangFiles;
+
+        auto files = virtualFileSystem.toClangFiles;
+
+        return TranslationUnit.parse(index, sourceFilename, args, files);
     }
-
-    string[] compilerArgs() {
-        import std.array : array, join;
-        import std.algorithm : map;
-
-        auto compiler_args = compiler.extraIncludePaths.map!(e => "-I" ~ e).array();
-        return compiler_args;
-    }
-
-    Index index;
-    Compiler compiler;
-    TranslationUnit translation_unit;
 }
 
-/// No errors occured during translation.
-bool isValid(ref ClangContext context) {
-    return context.translation_unit.isValid;
-}
+@Name("Should be an instance")
+unittest {
+    import std.typecons : Yes;
 
-/** Query context for if diagnostic errors where detected during parsing.
- * Return: True if errors where found.
- */
-bool hasParseErrors(ref ClangContext context) {
-    import deimos.clang.index : CXDiagnosticSeverity;
-
-    if (!context.isValid)
-        return true;
-
-    bool has_error = false;
-    auto dia = context.translation_unit.diagnostics;
-    if (dia.length == 0)
-        return false;
-
-    foreach (diag; dia) {
-        auto severity = diag.severity;
-
-        final switch (severity) with (CXDiagnosticSeverity) {
-        case CXDiagnostic_Ignored:
-        case CXDiagnostic_Note:
-        case CXDiagnostic_Warning:
-            break;
-        case CXDiagnostic_Error:
-        case CXDiagnostic_Fatal:
-            has_error = true;
-            break;
-        }
-    }
-
-    return has_error;
-}
-
-/// Log diagnostic error messages to std.logger.
-void logDiagnostic(ref ClangContext context) {
-    import deimos.clang.index : CXDiagnosticSeverity;
-
-    auto dia = context.translation_unit.diagnostics;
-
-    if (dia.length == 0)
-        return;
-
-    foreach (diag; dia) {
-        auto severity = diag.severity;
-
-        final switch (severity) with (CXDiagnosticSeverity) {
-        case CXDiagnostic_Ignored:
-            logger.info(diag.format);
-            break;
-        case CXDiagnostic_Note:
-            logger.info(diag.format);
-            break;
-        case CXDiagnostic_Warning:
-            logger.warning(diag.format);
-            break;
-        case CXDiagnostic_Error:
-            logger.error(diag.format);
-            break;
-        case CXDiagnostic_Fatal:
-            logger.error(diag.format);
-            break;
-        }
-    }
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 }

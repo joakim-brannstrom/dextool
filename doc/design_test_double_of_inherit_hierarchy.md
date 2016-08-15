@@ -1,3 +1,6 @@
+# TODO
+Needs cleanup to describe the current design of how inheritance is handled.
+
 # Test Doubles of complex inheritance hierarchies
 When generating a mock from an interface with a inheritance hierarchy of >1 or
 multiple inheritance it is required to scan all the hierarchy for methods to

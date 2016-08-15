@@ -64,16 +64,16 @@ mixin template Attrs() {
  */
 interface BaseElement {
     /// Recursively render the modules.
-    string render();
+    string render() pure;
 
     /// Query the module for an indented string representation.
-    string renderIndent(int parent_level, int level);
+    string renderIndent(int parent_level, int level) pure;
 
     /// Query the module for a concatenated string of the childrens representation.
-    string renderRecursive(int parent_level, int level);
+    string renderRecursive(int parent_level, int level) pure;
 
     /// Query the module for post recursive data.
-    string renderPostRecursive(int parent_level, int level);
+    string renderPostRecursive(int parent_level, int level) pure;
 }
 
 /// Raw text representation without indentation.
@@ -81,14 +81,23 @@ class Text(T) : T {
     private string contents;
 
     /// Use content as is.
-    this(string contents) {
+    this(string contents) pure {
         this.contents = contents;
     }
 
     /// Render content without indentation.
-    override string renderIndent(int parent_level, int level) {
+    override string renderIndent(int parent_level, int level) pure {
         return contents;
     }
+}
+
+/** An empty node.
+ *
+ * Not affected by indentation.
+ *
+ * Useful to inject other nodes under it.
+ */
+class Empty(T) : T {
 }
 
 /** Common functionality for modules.
@@ -103,15 +112,16 @@ class Text(T) : T {
  * TODO refactor, toString to support the range versions with a sink.
  */
 class BaseModule : BaseElement {
+
     /// Empty with defaults.
-    this() {
+    this() pure nothrow @nogc {
     }
 
     /** Module with a indent different fro default
      * Params:
      *  indent_width = number of whitespaces to use as indent for each level
      */
-    this(int indent_width) {
+    this(int indent_width) pure nothrow @nogc {
         this.indent_width = indent_width;
     }
 
@@ -126,7 +136,7 @@ class BaseModule : BaseElement {
      * Params:
      *  levels = nr of indentation levels to suppress
      */
-    void suppressIndent(int levels) {
+    void suppressIndent(int levels) pure nothrow @nogc {
         this.suppress_child_indent = levels;
     }
 
@@ -135,23 +145,23 @@ class BaseModule : BaseElement {
      * Params:
      *  levels = nr of indentation levels to suppress
      */
-    void suppressThisIndent(int levels) {
+    void suppressThisIndent(int levels) pure nothrow @nogc {
         this.suppress_indent = levels;
     }
 
     /// Sets the width of the indentation
-    void setIndentation(int ind) {
+    void setIndentation(int ind) pure nothrow @nogc {
         this.indent_width = ind;
     }
 
     /// Clear the node of childrens.
-    auto reset() {
+    auto reset() pure nothrow {
         children.length = 0;
         return this;
     }
 
     /// Separate with at most count empty lines.
-    void sep(int count = 1) {
+    void sep(int count = 1) pure nothrow {
         import std.ascii : newline;
 
         count -= sep_lines;
@@ -170,7 +180,7 @@ class BaseModule : BaseElement {
      *
      * TODO change to insertFront to be consistent with std.container API.
      */
-    void prepend(BaseElement e) {
+    void prepend(BaseElement e) pure nothrow {
         children = e ~ children;
         sep_lines = 0;
     }
@@ -181,7 +191,7 @@ class BaseModule : BaseElement {
      *
      * TODO change to insertBack to be consistent with std.container API.
      */
-    void append(BaseElement e) {
+    void append(BaseElement e) pure nothrow {
         children ~= e;
         sep_lines = 0;
     }
@@ -193,7 +203,7 @@ class BaseModule : BaseElement {
      * Conceptually restarts the container so no children then nothing to
      * separate with empty lines.
      */
-    void clearChildren() {
+    void clearChildren() pure nothrow {
         children.length = 0;
         sep_lines = 0;
     }
@@ -201,7 +211,7 @@ class BaseModule : BaseElement {
     /** Render content with an indentation that takes the parent in
      * consideration.
      */
-    string indent(string s, int parent_level, int level) const {
+    string indent(string s, int parent_level, int level) const pure nothrow {
         import std.algorithm : max;
 
         level = max(0, parent_level, level);
@@ -212,11 +222,11 @@ class BaseModule : BaseElement {
         return indent.idup ~ s;
     }
 
-    override string renderIndent(int parent_level, int level) {
+    override string renderIndent(int parent_level, int level) pure {
         return "";
     }
 
-    override string renderRecursive(int parent_level, int level) {
+    override string renderRecursive(int parent_level, int level) pure {
         import std.algorithm : max;
 
         level -= suppress_indent;
@@ -234,11 +244,11 @@ class BaseModule : BaseElement {
         return s;
     }
 
-    override string renderPostRecursive(int parent_level, int level) {
+    override string renderPostRecursive(int parent_level, int level) pure {
         return "";
     }
 
-    override string render() {
+    override string render() pure {
         return renderRecursive(0 - suppress_child_indent, 0 - suppress_child_indent);
     }
 

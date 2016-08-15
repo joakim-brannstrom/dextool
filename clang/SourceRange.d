@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -36,29 +35,29 @@ struct SourceRange {
     mixin CX;
 
     /// Retrieve a NULL (invalid) source range.
-    static SourceRange empty() {
+    static SourceRange empty() @trusted {
         auto r = clang_getNullRange();
         return SourceRange(r);
     }
 
     /// Retrieve a source location representing the first character within a source range.
-    @property SourceLocation start() const {
+    @property SourceLocation start() const @trusted {
         auto r = clang_getRangeStart(cx);
         return SourceLocation(r);
     }
 
     /// Retrieve a source location representing the last character within a source range.
-    @property SourceLocation end() const {
+    @property SourceLocation end() const @trusted {
         auto r = clang_getRangeEnd(cx);
         return SourceLocation(r);
     }
 
-    @property string path() const {
+    @property string path() const @trusted {
         return start.path;
     }
 
     ///
-    bool isNull() const {
+    bool isNull() const @trusted {
         return clang_Range_isNull(cx) != 0;
     }
 

@@ -38,6 +38,14 @@ class Comment : BaseModule {
 mixin template CModuleX() {
     mixin Attrs;
 
+    /** Access to self.
+     *
+     * Useful in with-statements.
+     */
+    auto _() {
+        return this;
+    }
+
     auto comment(string comment) {
         auto e = new Comment(comment);
         e.sep;

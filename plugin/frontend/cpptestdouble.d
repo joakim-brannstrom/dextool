@@ -312,6 +312,9 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileCommandDB compile_db) {
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
+    import std.typecons : Yes;
+
+    import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import plugin.backend.cppvariant : Generator, CppVisitor;
 
@@ -334,7 +337,8 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
         abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
     }
 
-    if (analyzeFile(abs_in_file, use_cflags, visitor) == ExitStatusType.Errors) {
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }
 
