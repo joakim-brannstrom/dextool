@@ -28,7 +28,7 @@ string toString(SourceLocation.Location value) @safe {
             value.line, value.column, value.offset);
 }
 
-string toString(SourceLocation value) {
+string toString(SourceLocation value) @safe {
     import std.string;
     import std.conv;
 

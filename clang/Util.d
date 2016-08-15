@@ -70,7 +70,7 @@ mixin template CX(string name = "") {
             mixin(methodCall);
     }
 
-    @property bool isValid() {
+    @property bool isValid() @safe pure nothrow const @nogc {
         return cx !is CType.init;
     }
 }
