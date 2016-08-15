@@ -262,15 +262,17 @@ struct TestDoubleIncludes {
  *  input_file = path to a file to analyze
  *  cflags = compiler flags to pass on to clang
  *  visitor = to apply on the clang AST
+ *  ctx = $(D ClangContext)
  *
  * Returns: if the analyze was performed ok or errors occured
  */
-ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, VisitorT visitor) {
+ExitStatusType analyzeFile(VisitorT, ClangContextT)(in string input_file,
+        in string[] cflags, VisitorT visitor, ref ClangContextT ctx) {
     import std.file : exists;
 
-    import cpptooling.analyzer.clang.context : ClangContext, hasParseErrors,
-        logDiagnostic;
     import cpptooling.analyzer.clang.ast : ClangAST;
+    import cpptooling.analyzer.clang.context : ClangContext;
+    import cpptooling.analyzer.clang.utility : hasParseErrors, logDiagnostic;
 
     if (!exists(input_file)) {
         logger.errorf("File '%s' do not exist", input_file);
@@ -279,15 +281,14 @@ ExitStatusType analyzeFile(VisitorT)(in string input_file, in string[] cflags, V
 
     logger.infof("Analyzing '%s'", input_file);
 
-    // Get and ensure the clang context is valid
-    auto file_ctx = ClangContext.fromFile(input_file, cflags);
-    if (file_ctx.hasParseErrors) {
-        logDiagnostic(file_ctx);
+    auto translation_unit = ctx.makeTranslationUnit(input_file, cflags);
+    if (translation_unit.hasParseErrors) {
+        logDiagnostic(translation_unit);
         logger.error("Compile error...");
         return ExitStatusType.Errors;
     }
 
-    auto ast = ClangAST!VisitorT(file_ctx.cursor);
+    auto ast = ClangAST!VisitorT(translation_unit.cursor);
     ast.accept(visitor);
 
     return ExitStatusType.Ok;

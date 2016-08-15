@@ -32,12 +32,13 @@ int main(string[] args) {
                           "cpptooling.utility.clang",
                           "cpptooling.utility.conv",
                           "cpptooling.utility.taggedalgebraic",
+                          "cpptooling.utility.virtualfilesystem",
                           "plugin.loader",
                           "plugin.backend.plantuml",
                           // component tests
-                          "test.component.scratch",
-                          "test.component.plantuml",
                           "test.component.analyzer.type",
+                          "test.component.plantuml",
+                          "test.component.scratch",
                           );
     //dfmt on
 }

@@ -8,7 +8,7 @@ Precise testing of the Type analyzer of the Clang AST.
 module test.component.analyzer.type;
 
 import std.format : format;
-import std.typecons : scoped;
+import std.typecons : scoped, Yes;
 import std.variant : visit;
 
 import unit_threaded;
@@ -24,6 +24,7 @@ import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.data.type : TypeKindVariable, VariadicType;
 import cpptooling.utility.clang : logNode, mixinNodeLog;
+import cpptooling.utility.virtualfilesystem : FileName, Content;
 
 final class FindFunctionDeclVisitor : Visitor {
     alias visit = Visitor.visit;
@@ -74,15 +75,18 @@ namespace dextool__gnu_cxx {
 
     // arrange
     auto visitor = new FindFunctionDeclVisitor;
-    auto ctx = ClangContext.fromString!"issue.hpp"(code);
     visitor.find = "c:@F@__uselocale";
 
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("issue.hpp");
+
     // act
-    auto ast = ClangAST!(typeof(visitor))(ctx.cursor);
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
     ast.accept(visitor);
 
     // assert
-    checkForCompilerErrors(ctx).shouldBeFalse;
+    checkForCompilerErrors(tu).shouldBeFalse;
     visitor.found.shouldBeTrue;
     visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
     (cast(string) visitor.result.name).shouldEqual("__uselocale");
@@ -119,15 +123,17 @@ unittest {
 
     // arrange
     auto visitor = new FindFunctionDeclVisitor;
-    auto ctx = ClangContext.fromString!"issue.hpp"(format(code,
-            getValue!string, getValue!string));
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp",
+            cast(Content) format(code, getValue!string, getValue!string));
+    auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
-    auto ast = ClangAST!(typeof(visitor))(ctx.cursor);
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
     ast.accept(visitor);
 
     // assert
-    checkForCompilerErrors(ctx).shouldBeFalse;
+    checkForCompilerErrors(tu).shouldBeFalse;
     visitor.found.shouldBeTrue;
     visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
     (cast(string) visitor.result.name).shouldEqual("fun");
