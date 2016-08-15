@@ -19,6 +19,8 @@ import clang.SourceLocation;
 import clang.SourceRange;
 import clang.Visitor;
 
+/** A single translation unit, which resides in an index.
+ */
 struct TranslationUnit {
     import std.typecons : Nullable, RefCounted;
     import clang.Util;
@@ -47,7 +49,7 @@ struct TranslationUnit {
                                             toCArray!(CXUnsavedFile)(unsavedFiles),
                                             cast(uint) unsavedFiles.length,
                                             options
-                                            );
+                                           );
         // dfmt on
 
         auto r = TranslationUnit(p);
@@ -55,21 +57,20 @@ struct TranslationUnit {
         return r;
     }
 
-    // If the source code is zero length then it is NOT added.
-    static TranslationUnit parseString(alias makeSourceFileName = randomSourceFileName)(
-            Index index, string source, string[] commandLineArgs,
-            CXUnsavedFile[] unsavedFiles = null,
+    /** Convenient function to create a TranslationUnit from source code via a
+     * parameter.
+     *
+     * Common use cases is unit testing.
+     */
+    static TranslationUnit parseString(Index index, string source,
+            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
             uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
         import std.string : toStringz;
 
-        string path = makeSourceFileName;
-        auto in_memory_files = unsavedFiles;
+        string path = randomSourceFileName;
+        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
 
-        // in-memory file
-        if (source.length > 0) {
-            auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
-            in_memory_files ~= file;
-        }
+        auto in_memory_files = unsavedFiles ~ [file];
 
         auto translationUnit = TranslationUnit.parse(index, path,
                 commandLineArgs, in_memory_files, options);
@@ -94,7 +95,7 @@ struct TranslationUnit {
             return buildPath(root, text(uniform(1, 10_000_000)));
         }
 
-        auto s = fullyQualifiedName!(typeof(this)) ~ ".h";
+        auto s = "random_source_filename.h";
         return buildPath(virtualPath, s);
     }
 
