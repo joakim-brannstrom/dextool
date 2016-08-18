@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -714,7 +713,7 @@ struct ActivityBlock(ActivityKind kind_) {
     private enum kind = kind_;
 
     /// Module that is meant to be enclosed between the for example if-else.
-    private ActivityModule current;
+    private ActivityModule current_;
 
     /** Point where a new "else" can be injected.
      *
@@ -722,6 +721,10 @@ struct ActivityBlock(ActivityKind kind_) {
      * injection point. Use enums to address the points for clarity.
      */
     private ActivityModule[] injectBlock;
+
+    @property auto current() {
+        return current_;
+    }
 
     /// Operations are performed on current
     alias current this;
