@@ -10,6 +10,8 @@
 #define TEST_INIT_f const int* const* const f = reinterpret_cast<const int* const* const>(7)
 #define TEST_INIT_g int* const* const g = reinterpret_cast<int *const *const>(7)
 #define TEST_INIT_bar const Foo bar = {0,1,2}
+#define TEST_INIT_extern_array const int extern_array[3] = {0,1,2}
+#define TEST_INIT_extern_const_typedef_array const MyIntType extern_const_typedef_array[2] = {0,1}
 #endif
 
 #ifdef TEST_FUNC_PTR

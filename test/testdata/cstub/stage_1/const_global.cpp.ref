@@ -18,6 +18,12 @@
 #ifndef TEST_INIT_e
 #define TEST_INIT_e const int *const *e
 #endif // TEST_INIT_e
+#ifndef TEST_INIT_extern_array
+#define TEST_INIT_extern_array const int extern_array[3]
+#endif // TEST_INIT_extern_array
+#ifndef TEST_INIT_extern_const_typedef_array
+#define TEST_INIT_extern_const_typedef_array const MyIntType extern_const_typedef_array[2]
+#endif // TEST_INIT_extern_const_typedef_array
 #ifndef TEST_INIT_f
 #define TEST_INIT_f const int *const *const f
 #endif // TEST_INIT_f
@@ -31,5 +37,7 @@ TEST_INIT_bar;
 TEST_INIT_c;
 TEST_INIT_d;
 TEST_INIT_e;
+TEST_INIT_extern_array;
+TEST_INIT_extern_const_typedef_array;
 TEST_INIT_f;
 TEST_INIT_g;
