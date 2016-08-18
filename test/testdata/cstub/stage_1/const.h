@@ -13,3 +13,8 @@ typedef struct Foo {
 } Foo;
 
 extern const Foo bar;
+
+extern const int extern_array[3];
+
+typedef unsigned int MyIntType;
+extern const MyIntType extern_const_typedef_array[2];

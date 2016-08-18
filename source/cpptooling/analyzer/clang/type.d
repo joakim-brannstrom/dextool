@@ -1281,6 +1281,7 @@ body {
     return rval;
 }
 
+/// TODO this function is horrible. Refactor
 private TypeResults typeToArray(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint indent)
 in {
@@ -1350,7 +1351,15 @@ body {
 
     TypeKind.ArrayInfo info;
     info.element = element.primary.type.kind.usr;
-    info.elementAttr = element.primary.type.attr;
+
+    if (!element.primary.type.kind.info.kind.among(TypeKind.Info.Kind.pointer,
+            TypeKind.Info.Kind.funcPtr)) {
+        auto elem_t = type.array.elementType;
+        info.elementAttr = makeTypeAttr(elem_t);
+    } else {
+        info.elementAttr = element.primary.type.attr;
+    }
+
     info.indexes = index_nr;
     // TODO probably need to adjust elementType and format to allow ptr to
     // array etc. int * const x[10];
