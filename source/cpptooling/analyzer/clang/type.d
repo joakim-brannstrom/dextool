@@ -67,9 +67,8 @@ private string nextSequence() @safe {
     return text(_nextSequence);
 }
 
-/// Find the first typeref node, if any.
-private auto takeOneTypeRef(T)(auto ref T in_) {
-    import std.range : takeOne;
+/// Returns: Filter node to only return those that are a typeref.
+private auto filterByTypeRef(T)(auto ref T in_) {
     import std.algorithm : filter, among;
 
     return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
@@ -1536,7 +1535,7 @@ body {
         }
 
         // any TypeRef children and thus need to traverse the tree?
-        foreach (child; c.children.takeOneTypeRef) {
+        foreach (child; c.children.filterByTypeRef) {
             if (!child.kind.among(CXCursorKind.CXCursor_TypeRef)) {
                 break;
             }
@@ -1673,8 +1672,10 @@ body {
 /** Retrieve the type representation of a FuncDecl or CXXMethod.
  *
  * case a. A typedef of a function signature.
- * When it is instansiated it results in a FunctionDecl with a TypeRef.
+ * When it is instantiated it results in a FunctionDecl with a TypeRef.
  * Note in the example that the child node is a TypeRef.
+ * Using the resultType to distinguish between a typedef function signature and
+ * a function returning a function ptr.
  *
  * Example:
  * FunctionDecl "tiger" [Keyword "extern", Identifier "func_type", Identifier "tiger"] c:@F@tiger
@@ -1701,12 +1702,20 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    import std.range : chain, only, takeOne;
+    import std.algorithm : filter;
+    import std.range : chain, only;
 
     const uint indent = this_indent + 1;
     typeof(return) rval;
 
-    foreach (child; c.children.takeOneTypeRef) {
+    // distinguish between a child node that is for the return value from those
+    // cases when it is a function derived from a typedef:ed function signature.
+    auto result_decl_usr = c.func.resultType.declaration.usr;
+
+    foreach (child; c.children.filterByTypeRef.filter!((a) {
+            auto tmp = a.referenced.usr;
+            return tmp != result_decl_usr;
+        })) {
         if (child.kind != CXCursorKind.CXCursor_TypeRef) {
             break;
         }
