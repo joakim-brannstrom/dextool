@@ -37,6 +37,15 @@ extern void fun(func_ptr2 p, Something_Big b);
 // expect a correct call signature for a function ptr
 void func_ptr_arg(int (*a)(int p, int) , int b);
 
+// expect the exact signature below. Using a char* as a parameter to ensure the
+// generated test double when/if it doesn't work has a different signature.
+typedef void (gun_type)(int);
+typedef gun_type* gun_ptr;
+gun_ptr func_return_func_ptr();
+
+// using a typedef signature to create a function
+extern gun_type gun_func;
+
 // expect a func signature exactly as the function below.
 // Not uncommon in C code that the keyword struct is used.
 void c_func_with_struct(const struct A* a);
@@ -49,4 +58,5 @@ void array_func(int x, int* y, int z[16]);
 
 typedef unsigned int MyIntType;
 void array_func_param_typedef(MyIntType [16]);
+
 #endif // FUNCTIONS_H
