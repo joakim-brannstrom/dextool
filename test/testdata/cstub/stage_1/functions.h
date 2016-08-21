@@ -37,8 +37,8 @@ extern void fun(func_ptr2 p, Something_Big b);
 // expect a correct call signature for a function ptr
 void func_ptr_arg(int (*a)(int p, int) , int b);
 
-// expect the exact signature below. Using a char* as a parameter to ensure the
-// generated test double when/if it doesn't work has a different signature.
+// expecting a func_return_func_ptr in the generated test double.
+// (bug) Previously it derived the function signature from the return value.
 typedef void (gun_type)(int);
 typedef gun_type* gun_ptr;
 gun_ptr func_return_func_ptr();
