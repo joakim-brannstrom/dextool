@@ -68,7 +68,7 @@ pure @safe nothrow @nogc struct TypeKind {
         TypeAttr elementAttr;
     }
 
-    /** The type 'extern int (*e_g)(int pa)'
+    /** The type 'extern int (*e_g)(int pa)'.
      *
      * attrs is only for the pointers, never the final pointee.
      * In the example shown about it would have length 2.
@@ -88,7 +88,30 @@ pure @safe nothrow @nogc struct TypeKind {
         TypeAttr[] attrs;
     }
 
-    /** The type of a function prototype, 'void foo(int)'
+    /** The type of a function signature, 'void foo(int)'.
+     *
+     * fmt = void %s(int)
+     */
+    static struct FuncSignatureInfo {
+        string fmt;
+        USRType return_;
+        TypeAttr returnAttr;
+        FuncInfoParam[] params;
+    }
+
+    /** The type of a function prototype, 'void foo(int)'.
+     *
+     * TODO consider changing the chain to be a FuncInfo referencing a FuncSignatureInfo.
+     *
+     * This coupled with FuncSignatureInfo having the USR of the signature
+     * would mean that it would be possible to merge/detect/find all those
+     * FuncInfo with the same symbol mangling/signature.
+     *
+     * Which is needed when doing cross-translation unit analyse to find
+     * connections between "points of interest.
+     *
+     * It would also lower the amount of data in a FuncInfo.
+     *
      * fmt = void %s(int)
      */
     static struct FuncInfo {
@@ -173,8 +196,11 @@ pure @safe nothrow @nogc struct TypeKind {
         typeof(null) null_;
         SimpleInfo simple;
         ArrayInfo array;
+
         FuncInfo func;
         FuncPtrInfo funcPtr;
+        FuncSignatureInfo funcSignature;
+
         RecordInfo record;
         CtorInfo ctor;
         DtorInfo dtor;
@@ -208,6 +234,9 @@ pure @safe nothrow @nogc struct TypeKind {
             assert(info.fmt.length > 0);
             assert(info.attrs.length > 0);
             break;
+        case Kind.funcSignature:
+            assert(info.fmt.length > 0);
+            break;
         case Kind.pointer:
             assert(info.fmt.length > 0);
             assert(info.attrs.length > 0);
@@ -239,6 +268,7 @@ auto internalGetFmt(ref const TypeKind t) {
     case Kind.array:
     case Kind.func:
     case Kind.funcPtr:
+    case Kind.funcSignature:
     case Kind.record:
     case Kind.pointer:
     case Kind.ctor:

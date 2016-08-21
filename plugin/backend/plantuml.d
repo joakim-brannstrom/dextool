@@ -1998,6 +1998,7 @@ private auto resolveTypeRef(LookupT)(TypeKind type, LookupT lookup) {
     case Kind.ctor:
     case Kind.dtor:
     case Kind.func:
+    case Kind.funcSignature:
     case Kind.record:
     case Kind.simple:
         rval = only(cast(const TypeKind) type);
@@ -2082,6 +2083,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
     case Kind.simple:
     case Kind.func:
     case Kind.funcPtr:
+    case Kind.funcSignature:
     case Kind.ctor:
     case Kind.dtor:
     case Kind.null_:
@@ -2128,6 +2130,7 @@ private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
     case Kind.simple:
     case Kind.func:
     case Kind.funcPtr:
+    case Kind.funcSignature:
     case Kind.ctor:
     case Kind.dtor:
     case Kind.null_:

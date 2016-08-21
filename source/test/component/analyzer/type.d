@@ -157,3 +157,39 @@ unittest {
     writelnUt(visitor.result.returnType.toStringDecl);
     visitor.result.returnType.attr.isPrimitive.shouldBeTrue;
 }
+
+@Name("Should be the USR of the function declaration not the typedef signature")
+unittest {
+    import cpptooling.data.type : LocationTag;
+
+    enum code = "
+typedef void (gun_type)(int);
+
+// using a typedef signature to create a function
+extern gun_type gun_func;
+";
+
+    // arrange
+    auto visitor = new FindFunctionDeclVisitor;
+    visitor.find = "c:@F@gun_func#I#";
+
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.found.shouldBeTrue;
+
+    auto loc_result = visitor.container.find!LocationTag(visitor.result.type.kind.usr).front.any;
+    loc_result.length.shouldEqual(1);
+
+    auto loc = loc_result.front;
+    loc.kind.shouldEqual(LocationTag.Kind.loc);
+    // line 5 is the declaration of gun_func
+    loc.line.shouldEqual(5);
+}

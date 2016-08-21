@@ -1113,8 +1113,9 @@ body {
     return rval;
 }
 
-private TypeResults typeToFuncProto(ref const(Cursor) c, ref Type type,
-        ref const(Container) container, in uint indent)
+private TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
+        ref Type type, ref const(Container) container, in uint indent)
+        if (is(InfoT == TypeKind.FuncInfo) || is(InfoT == TypeKind.FuncSignatureInfo))
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1158,7 +1159,7 @@ body {
     // a C++ member function must be queried for constness via a different API
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
 
-    TypeKind.FuncInfo info;
+    InfoT info;
     info.fmt = format("%s %s(%s)", return_t.toStringDecl.strip, "%s", params.joinParamId());
     info.return_ = return_t.kind.usr;
     info.returnAttr = return_t.attr;
@@ -1632,11 +1633,7 @@ body {
         }
 
         auto type = c.type;
-        auto func = typeToFuncProto(c, type, container, indent);
-
-        // a USR for the function do not exist because the only sensible would
-        // be the typedef... but it is used by the typedef _for this function_
-        func.primary.type.kind.usr = makeFallbackUSR(c, indent);
+        auto func = typeToFuncProto!(TypeKind.FuncSignatureInfo)(c, type, container, indent);
 
         rval = typeToTypedef(c, type, func.primary.type.kind.usr,
                 func.primary.type.kind.usr, container, indent);
@@ -1730,17 +1727,34 @@ body {
         }
         auto retrieved_ref = retrieveType(child, container, indent);
 
-        if (!retrieved_ref.isNull
-                && retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.func) {
+        if (retrieved_ref.isNull) {
+            continue;
+        }
+
+        if (retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.func) {
             // fast path
             rval = retrieved_ref;
-        } else if (!retrieved_ref.isNull
-                && retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        } else if (retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
             // check the canonical type
             foreach (k; chain(only(retrieved_ref.primary), retrieved_ref.extra)) {
-                if (k.type.kind.usr == retrieved_ref.primary.type.kind.info.canonicalRef
-                        && k.type.kind.info.kind == TypeKind.Info.Kind.func) {
+                if (k.type.kind.usr != retrieved_ref.primary.type.kind.info.canonicalRef) {
+                    continue;
+                }
+
+                if (k.type.kind.info.kind == TypeKind.Info.Kind.func) {
                     rval = retrieved_ref;
+                } else if (k.type.kind.info.kind == TypeKind.Info.Kind.funcSignature) {
+                    // function declaration of a typedef'ed signature
+                    rval = retrieved_ref;
+                    rval.extra ~= rval.primary;
+
+                    auto prim = k;
+                    auto info = k.type.kind.info;
+                    prim.type.kind.info = TypeKind.FuncInfo(info.fmt,
+                            info.return_, info.returnAttr, info.params);
+                    prim.location = makeLocation(c);
+                    prim.type.kind.usr = makeFallbackUSR(c, this_indent);
+                    rval.primary = prim;
                 }
             }
         }
