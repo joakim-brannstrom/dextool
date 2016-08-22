@@ -36,7 +36,7 @@ import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
-import cpptooling.analyzer.clang.analyze_helper : ClassStructDeclResult;
+import cpptooling.analyzer.clang.analyze_helper : RecordResult;
 import plugin.utility : MarkArray;
 
 static import cpptooling.data.class_classification;
@@ -1022,7 +1022,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : ClassDecl, CXXBaseSpecifier,
         Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier,
         generateIndentIncrDecr;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeClassDecl,
+    import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
         analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
     import cpptooling.data.type : MemberVirtualType;
@@ -1079,7 +1079,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
-        auto result = analyzeClassDecl(v, *container, indent);
+        auto result = analyzeRecord(v, *container, indent);
 
         foreach (loc; container.find!LocationTag(result.type.kind.usr).map!(a => a.any).joiner) {
             if (!ctrl.doFile(loc.file, loc.file)) {
@@ -1198,7 +1198,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : TranslationUnit, UnexposedDecl,
         VarDecl, FunctionDecl, ClassDecl, Namespace, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
-        analyzeVarDecl, analyzeClassDecl, analyzeTranslationUnit;
+        analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
     import cpptooling.data.representation : CppNsStack, CppNs;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
 
@@ -1270,7 +1270,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
-        auto result = analyzeClassDecl(v, container, indent);
+        auto result = analyzeRecord(v, container, indent);
 
         foreach (loc; container.find!LocationTag(result.type.kind.usr).map!(a => a.any).joiner) {
             if (!ctrl.doFile(loc.file, loc.file)) {
@@ -1461,7 +1461,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         uml.set(key, result.classification);
     }
 
-    void put(ref const(ClassStructDeclResult) src, const(CppNs)[] reside_in) {
+    void put(ref const(RecordResult) src, const(CppNs)[] reside_in) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only;
@@ -1524,7 +1524,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
         CXXMethodResult, ConstructorResult, DestructorResult,
-        ClassStructDeclResult, FieldDeclResult, VarDeclResult,
+        RecordResult, FieldDeclResult, VarDeclResult,
         FunctionDeclResult, TranslationUnitResult;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.type : CppAccess, CxReturnType;
@@ -1707,7 +1707,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         dcache.doRemoval;
     }
 
-    void put(ref const(ClassStructDeclResult) result) {
+    void put(ref const(RecordResult) result) {
         src_cache ~= result.type.kind.usr;
     }
 
@@ -1797,7 +1797,7 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        ClassStructDeclResult, FieldDeclResult, CXXMethodResult,
+        RecordResult, FieldDeclResult, CXXMethodResult,
         ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.analyzer.kind : TypeKind;
@@ -1829,7 +1829,7 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.put(result);
     }
 
-    void put(ref const(ClassStructDeclResult) result, const(CppNs)[] reside_in) {
+    void put(ref const(RecordResult) result, const(CppNs)[] reside_in) {
         to_class.put(result, reside_in);
         to_component.put(result);
     }

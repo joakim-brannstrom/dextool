@@ -7,8 +7,11 @@
 #define TEST_INIT_expect_c const int expect_c
 #endif // TEST_INIT_expect_c
 #ifndef TEST_INIT_expect_const_my_int
-#define TEST_INIT_expect_const_my_int const my_int *const expect_const_my_int
+#define TEST_INIT_expect_const_my_int const my_int expect_const_my_int
 #endif // TEST_INIT_expect_const_my_int
+#ifndef TEST_INIT_expect_const_ptr_my_int
+#define TEST_INIT_expect_const_ptr_my_int const my_int *const expect_const_ptr_my_int
+#endif // TEST_INIT_expect_const_ptr_my_int
 #ifndef TEST_INIT_expect_d
 #define TEST_INIT_expect_d int *expect_d
 #endif // TEST_INIT_expect_d
@@ -34,6 +37,7 @@
 TEST_INIT_expect_b;
 TEST_INIT_expect_c;
 TEST_INIT_expect_const_my_int;
+TEST_INIT_expect_const_ptr_my_int;
 TEST_INIT_expect_d;
 TEST_INIT_expect_e;
 TEST_INIT_expect_f;

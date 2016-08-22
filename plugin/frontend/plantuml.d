@@ -386,7 +386,6 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         const auto total_files = compile_db.length;
-        logger.trace("Number of files to process: ", total_files);
 
         foreach (idx, entry; compile_db) {
             logger.infof("File %d/%d ", idx + 1, total_files);

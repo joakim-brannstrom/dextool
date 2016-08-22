@@ -17,14 +17,16 @@ import logger = std.experimental.logger;
 
 import std.traits : Unqual;
 import std.typecons : Nullable, tuple, Flag, Yes, No;
+import std.meta : staticIndexOf;
 
 import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
-import cpptooling.analyzer.clang.ast : FunctionDecl, VarDecl, Constructor,
-    Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier, StructDecl,
-    TranslationUnit, Visitor;
+import cpptooling.analyzer.clang.ast : ClassTemplate,
+       ClassTemplatePartialSpecialization, Constructor, CXXMethod, ClassDecl,
+       CXXBaseSpecifier, Destructor, FieldDecl, FunctionDecl,
+       StructDecl, TranslationUnit, UnionDecl, VarDecl, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.utility : put;
@@ -436,53 +438,62 @@ struct CXXBaseSpecifierResult {
  * the class the typedef refers.
  */
 auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container, in uint indent) @safe {
+    import deimos.clang.index : CXCursorKind;
     import std.array : array;
     import std.algorithm : map;
     import cpptooling.data.type : CppAccess;
     import cpptooling.analyzer.clang.utility : backtrackScopeRange;
+    import cpptooling.analyzer.type : toStringDecl;
 
-    auto c_ref = v.cursor.referenced;
-
-    auto type = () @trusted{ return retrieveType(c_ref, container, indent); }();
+    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
-    auto name = CppClassName(c_ref.spelling);
-    auto access = CppAccess(toAccessType(() @trusted{ return c_ref.access; }().accessSpecifier));
+    auto name = CppClassName(type.primary.type.toStringDecl);
+    auto access = CppAccess(toAccessType(() @trusted{ return v.cursor.access; }().accessSpecifier));
     auto usr = type.primary.type.kind.usr;
 
     if (type.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
         usr = type.primary.type.kind.info.canonicalRef;
     }
 
-    // namespace has the class itself so must remove
-    CppNs[] namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array()[1 .. $];
+    CppNs[] namespace;
+    auto c_ref = v.cursor.referenced;
+    if (c_ref.kind == CXCursorKind.CXCursor_NoDeclFound) {
+        namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array();
+    } else {
+        namespace = backtrackScopeRange(v.cursor).map!(a => CppNs(a.spelling)).array();
+    }
+
+    if (namespace.length > 0) {
+        // namespace has the class itself in the range so must remove
+        namespace = namespace[1 .. $];
+    }
 
     return CXXBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
 }
 
-struct ClassStructDeclResult {
+struct RecordResult {
     TypeKindAttr type;
     CppClassName name;
     LocationTag location;
 }
 
-ClassStructDeclResult analyzeClassStructDecl(T)(const(T) decl, ref Container container,
-        in uint indent) if (is(T == ClassDecl) || is(T == StructDecl)) {
-    return analyzeClassStructDecl(decl.cursor, container, indent);
+RecordResult analyzeRecord(T)(const(T) decl, ref Container container,
+        in uint indent)
+        if (staticIndexOf!(T, ClassDecl, StructDecl, ClassTemplate,
+            ClassTemplatePartialSpecialization, UnionDecl) != -1) {
+    return analyzeRecord(decl.cursor, container, indent);
 }
 
-ClassStructDeclResult analyzeClassStructDecl(const(Cursor) cursor,
+RecordResult analyzeRecord(const(Cursor) cursor,
         ref Container container, in uint indent) @safe {
     auto type = () @trusted{ return retrieveType(cursor, container, indent); }();
     put(type, container, indent);
 
     auto name = CppClassName(cursor.spelling);
 
-    return ClassStructDeclResult(type.primary.type, name, type.primary.location);
+    return RecordResult(type.primary.type, name, type.primary.location);
 }
-
-alias analyzeClassDecl = analyzeClassStructDecl!ClassDecl;
-alias analyzeStructDecl = analyzeClassStructDecl!StructDecl;
 
 ///
 struct TranslationUnitResult {
@@ -525,7 +536,7 @@ final class ClassVisitor : Visitor {
         this.indent = indent;
         this.accessType = CppAccess(AccessType.Private);
 
-        auto result = analyzeClassDecl(decl, container, indent);
+        auto result = analyzeRecord(decl, container, indent);
         this.root = CppClass(result.name, CppInherit[].init, reside_in_ns);
         this.root.usr = result.type.kind.usr;
     }

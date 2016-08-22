@@ -154,13 +154,6 @@ TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @safe no
     return TypeKindAttr(t, attr);
 }
 
-TypeKind makeSimple2(string txt) pure @safe nothrow {
-    TypeKind t;
-    t.info = TypeKind.SimpleInfo(txt ~ " %s");
-
-    return t;
-}
-
 /** Combine type attributes, kind and identifier to produce a declaration.
  * TODO reconsider the function name.
  *  - Don't encode the return type in the name (?)

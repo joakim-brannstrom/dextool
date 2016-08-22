@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -19,6 +18,7 @@ int main(string[] args) {
                           "cstub_tests",
                           "cpp_tests",
                           "plantuml_tests",
+                          "graphml_tests",
                           );
     //dfmt on
 }

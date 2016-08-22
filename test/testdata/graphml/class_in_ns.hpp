@@ -1,0 +1,1 @@
+../shared_input/cpp/class_in_ns.hpp

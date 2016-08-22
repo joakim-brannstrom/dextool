@@ -47,6 +47,11 @@ shared static this() {
 
     registerPlugin(CliCategory("uml"), CliCategoryInfo("generate PlantUML diagrams"),
             &plugin.frontend.plantuml.runPlugin);
+
+    import plugin.frontend.graphml;
+
+    registerPlugin(CliCategory("graphml"), CliCategoryInfo(
+            "static analyse of type relations as GraphML"), &plugin.frontend.graphml.runPlugin);
 }
 
 version (unittest) {

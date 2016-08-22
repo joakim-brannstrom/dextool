@@ -92,7 +92,7 @@ final class TestRecordVisitor : Visitor {
 
     Container container;
 
-    ClassStructDeclResult record;
+    RecordResult record;
 
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
@@ -107,7 +107,7 @@ final class TestRecordVisitor : Visitor {
     override void visit(const(ClassDecl) v) {
         mixin(mixinNodeLog!());
 
-        record = analyzeClassStructDecl(v, container, indent);
+        record = analyzeRecord(v, container, indent);
         v.accept(this);
     }
 
@@ -190,6 +190,43 @@ final class TestFunctionBodyVisitor : Visitor {
 
         funcs ~= analyzeFunctionDecl(v, container, indent);
         v.accept(this);
+    }
+}
+
+final class TestUnionVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    RecordResult[] records;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Expression) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(UnionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        records ~= analyzeRecord(v, container, indent);
     }
 }
 
@@ -547,4 +584,30 @@ class A {
     visitor.funcs.length.shouldEqual(3);
     visitor.funcs[1].name.shouldEqual("__builtin_huge_valf");
     visitor.funcs[2].name.shouldEqual("__builtin_huge_valf");
+}
+
+@("Should be an union analysed and classified as a record")
+unittest {
+    immutable code = "
+struct A {
+    union {
+        char a;
+        int b;
+    };
+};";
+
+    // arrange
+    auto visitor = new TestUnionVisitor;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.records.length.shouldEqual(1);
+    visitor.records[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.record);
 }
