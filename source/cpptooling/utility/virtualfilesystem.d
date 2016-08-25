@@ -44,6 +44,11 @@ enum Content : string {
     _init = null
 }
 
+enum Mode {
+    Read,
+    Write
+}
+
 /** File layer abstracting the handling of in-memory files and concrete
  * filesystem files.
  *
@@ -62,10 +67,11 @@ struct VirtualFileSystem {
     private {
         struct MmFSize {
             MmFile file;
+            Mode mode;
             size_t size;
         }
 
-        ubyte[][FileName] in_memory;
+        void[][FileName] in_memory;
         MmFSize[FileName] filesys;
     }
 
@@ -77,7 +83,7 @@ struct VirtualFileSystem {
      * Params:
      *   fname = file to map into the VFS
      */
-    void put(FileName fname) @safe {
+    void open(FileName fname, Mode mode = Mode.Read) @safe {
         if (fname in in_memory || fname in filesys) {
             return;
         }
@@ -88,25 +94,52 @@ struct VirtualFileSystem {
         // TODO I'm not sure what checks need to be added to make this safe.
         // Should be doable so marking it as safe for now with the intention of
         // revisiting this to ensure it is safe.
-        auto mmf = () @trusted { return new MmFile(cast(string) fname, MmFile.Mode.read, sz, null); }();
-        filesys[fname] = MmFSize(mmf, sz);
+        auto mmf = () @trusted { return new MmFile(cast(string) fname, mode == Mode.Read ? MmFile.Mode.read : MmFile.Mode.readWrite, sz, null); }();
+        filesys[fname] = MmFSize(mmf, mode, sz);
     }
 
-    /** Add an in-memory file.
+    /** Create an in-memory file.
+     *
+     * Params:
+     *   fname = simulated in-memory filename.
+     */
+    void openInMemory(FileName fname) @safe pure {
+        in_memory[fname] = new ubyte[0];
+    }
+
+    void close(FileName fname) @safe {
+        if (fname in in_memory) {
+            in_memory.remove(fname);
+        } else if (auto f = fname in filesys) {
+            f.destroy;
+            filesys.remove(fname);
+        }
+    }
+
+    /** Write to a file.
      *
      * An in-memory file CAN override the lookup of a filesystem file.
      *
+     * In-memory is appended to.
+     * A memory mapped is BLOCKED.
+     *
      * Params:
-     *   fname = simulated in-memory filename
-     *   source_code = ?
+     *   fname = filename to write to
+     *   content = stuff to write
      */
-    void put(FileName fname, Content source_code) @safe pure {
-        // conform to lookup rules.
-        if (fname in in_memory) {
-            return;
+    void write(FileName fname, Content content) @safe {
+        if (auto f = fname in in_memory) {
+            *f ~= content.dup;
+        } else if (auto f = fname in filesys) {
+            if (f.mode == Mode.Write) {
+                auto cont_s = () @trusted { return cast(void[]) content[]; }();
+                auto s = () @trusted { return (*f).file[(*f).size .. (*f).size + cont_s.length]; }();
+                s[] = cont_s[];
+                f.size += cont_s.length;
+            } else {
+                assert(false);
+            }
         }
-
-        in_memory[fname] = cast(ubyte[]) source_code.dup;
     }
 
     /// Returns: range of the filenames in the VFS.
@@ -123,7 +156,8 @@ struct VirtualFileSystem {
     string code = "some code";
     auto filename = cast(FileName) "path/to/code.c";
 
-    vfs.put(filename, cast(Content) code);
+    vfs.openInMemory(filename);
+    vfs.write(filename, cast(Content) code);
 
     vfs.slice(filename).shouldEqual(code);
 }
@@ -141,7 +175,7 @@ unittest {
         auto filename = cast(FileName) buildPath(testPath, "fun.txt");
         File(filename, "w").write(code);
 
-        vfs.put(filename);
+        vfs.open(filename);
 
         vfs.slice(filename).shouldEqual(code);
     }
@@ -154,19 +188,19 @@ unittest {
  *
  * Returns: slice of the whole file */
 T slice(T = string, Flag!"autoLoad" auto_load = Yes.autoLoad)(ref VirtualFileSystem vfs, FileName fname) @safe {
-    ubyte[] data;
+    void[] data;
 
     if (auto code = fname in vfs.in_memory) {
         data = (*code)[];
     } else if (auto mmf = fname in vfs.filesys) {
-        data = () @trusted { return cast(ubyte[])(*mmf).file[0 .. (*mmf).size]; }();
+        data = () @trusted { return (*mmf).file[0 .. (*mmf).size]; }();
     }
 
     if (data.length == 0) {
         // error handling.
         // Either try to automatically load the file or error out.
         static if (auto_load) {
-            vfs.put(fname);
+            vfs.open(fname);
             return vfs.slice!(T, No.autoLoad)(fname);
         } else {
             import std.exception;
@@ -177,7 +211,7 @@ T slice(T = string, Flag!"autoLoad" auto_load = Yes.autoLoad)(ref VirtualFileSys
 
     import std.utf : validate;
 
-    static auto trustedCast(ubyte[] buf) @trusted {
+    static auto trustedCast(void[] buf) @trusted {
         return cast(T) buf;
     }
 

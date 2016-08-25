@@ -81,7 +81,8 @@ struct ClangContext {
             Compiler compiler;
             internal_header_arg = ["-I" ~ compiler.extraIncludePath];
             foreach (hdr; compiler.extraHeaders) {
-                virtualFileSystem.put(cast(FileName) hdr.filename, cast(Content) hdr.content);
+                virtualFileSystem.openInMemory(cast(FileName) hdr.filename);
+                virtualFileSystem.write(cast(FileName) hdr.filename, cast(Content) hdr.content);
             }
         }
 
@@ -107,7 +108,7 @@ struct ClangContext {
         // ensure the file exist in the filesys layer.
         // it has either been added as an in-memory file by the user or it is
         // read from the filesystem.
-        virtualFileSystem.put(cast(FileName) sourceFilename);
+        virtualFileSystem.open(cast(FileName) sourceFilename);
 
         import cpptooling.utility.virtualfilesystem : toClangFiles;
 
