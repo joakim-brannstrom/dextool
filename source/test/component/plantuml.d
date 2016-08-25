@@ -231,9 +231,6 @@ class A_ByMember {
     A%s a;
 };";
 
-    writelnUt(format(comp_func, getValue!string.length == 0 ? ""
-            : Snippet.include_comp_a, getValue!string));
-
     // arrange
     auto be = scoped!Backend();
     be.ctx.virtualFileSystem.put(cast(FileName) "/comp/fun.hpp",
@@ -291,9 +288,6 @@ A a;
 
     // act
     actTwoFiles(tu0, tu1, be);
-
-    writelnUt(be.container.toString);
-    writelnUt(be.uml_component.toString);
 
     // assert
     auto result = be.uml_component.relateToFlatArray;

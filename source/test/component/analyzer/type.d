@@ -147,14 +147,12 @@ unittest {
                      (VariadicType v) {});
         // dfmt on
 
-        writelnUt(type.toStringDecl);
         type.attr.isPrimitive.shouldBeTrue;
     }
 
     // do not try and verify the string representation of the type.
     // It may be platform and compiler specific.
     // For example is signed char -> char.
-    writelnUt(visitor.result.returnType.toStringDecl);
     visitor.result.returnType.attr.isPrimitive.shouldBeTrue;
 }
 
