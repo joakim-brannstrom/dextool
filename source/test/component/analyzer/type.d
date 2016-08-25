@@ -13,6 +13,7 @@ import std.variant : visit;
 
 import unit_threaded;
 import test.clang_util;
+import test.helpers;
 
 import cpptooling.analyzer.kind;
 import cpptooling.analyzer.type : USRType, toStringDecl;
@@ -78,7 +79,7 @@ namespace dextool__gnu_cxx {
     visitor.find = "c:@F@__uselocale";
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -124,7 +125,7 @@ unittest {
     // arrange
     auto visitor = new FindFunctionDeclVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp",
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp",
             cast(Content) format(code, getValue!string, getValue!string));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -172,7 +173,7 @@ extern gun_type gun_func;
     visitor.find = "c:@F@gun_func#I#";
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.put(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act

@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -9,14 +8,16 @@ module test.helpers;
 import std.ascii : newline;
 import std.traits : isSomeString;
 
-import unit_threaded : Name;
-
 version (unittest) {
-    import unit_threaded : shouldEqual;
+    import unit_threaded : Name, shouldEqual;
+} else {
+    private struct Name {
+        string name_;
+    }
 }
 
-/**
- * Verify in lockstep that the two values are the same.
+/** Verify in lockstep that the two values are the same.
+ *
  * Useful when the values can be treated as ranges.
  * The lockstep comparison then results in a more comprehensible failure
  * message.
@@ -72,8 +73,7 @@ unittest {
     shouldEqual(msg, "foo");
 }
 
-/**
- * Split with sep and verify in lockstep that the two values are the same.
+/** Split with sep and verify in lockstep that the two values are the same.
  *
  * Throws: UnitTestException on failure.
  * Params:
@@ -94,8 +94,8 @@ void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
     shouldEqualPretty!(typeof(rValue), typeof(rExpected))(rValue, rExpected, file, line);
 }
 
-/**
- * Verify that two strings are the same.
+/** Verify that two strings are the same.
+ *
  * Performs tests per line to better isolate when a difference is found.
  *
  * Throws: UnitTestException on failure
@@ -115,5 +115,11 @@ void shouldEqualPretty(V, E)(lazy V value, lazy E expected, lazy string sep = ne
     shouldEqualPretty!(typeof(rValue), typeof(rExpected))(rValue, rExpected, file, line);
 }
 
-private:
-enum isAllSomeString(T0, T1) = isSomeString!T0 && isSomeString!T1;
+private enum isAllSomeString(T0, T1) = isSomeString!T0 && isSomeString!T1;
+
+import cpptooling.utility.virtualfilesystem;
+
+void openAndWrite(ref VirtualFileSystem vfs, FileName fname, Content content) {
+    vfs.openInMemory(fname);
+    vfs.write(fname, content);
+}
