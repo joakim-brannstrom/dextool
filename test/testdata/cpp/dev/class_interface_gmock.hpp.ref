@@ -4,9 +4,9 @@
 #include "gmock/gmock.h"
 
 namespace TestDouble {
-class MockSimple : public Simple {
+class MockInterface : public Interface {
 public:
-    virtual ~MockSimple() {}
+    virtual ~MockInterface() {}
 
     MOCK_METHOD0(func1, int());
     MOCK_METHOD1(func2, void(int x));
@@ -14,8 +14,8 @@ public:
     MOCK_METHOD1(func2, void(double *x));
     MOCK_METHOD2(func3, void(long x, long y));
     MOCK_METHOD1(func3, void(long x));
-    MOCK_METHOD1(opAssign, void(const Simple &other));
-    virtual void operator=(const Simple &other) {
+    MOCK_METHOD1(opAssign, void(const Interface &other));
+    virtual void operator=(const Interface &other) {
         opAssign(other);
     }
     MOCK_METHOD1(opAssign, int(int other));
