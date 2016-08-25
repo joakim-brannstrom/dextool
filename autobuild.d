@@ -262,7 +262,7 @@ struct Fsm {
     // Lowest number of dscanner issues since started
     ulong lowestDscannerAnalyzeCount = ulong.max;
 
-    alias ErrorMsg = Tuple!(Path, "fname", string, "msg");
+    alias ErrorMsg = Tuple!(Path, "fname", string, "msg", string, "output");
     ErrorMsg[] testErrorLog;
 
     void run(Path[] inotify_paths, Flag!"Travis" travis,
@@ -531,7 +531,7 @@ struct Fsm {
             consoleToFile(logfile, r.output);
 
             if (r.status != 0) {
-                testErrorLog ~= ErrorMsg(logfile, name);
+                testErrorLog ~= ErrorMsg(logfile, name, r.output);
             }
         }
 
@@ -550,7 +550,13 @@ struct Fsm {
     }
 
     void stateTest_failed() {
-        testErrorLog.each!(a => printStatus(Status.Fail, a.msg, ", log at ", a.fname));
+        // separate the log dump to the console from the list of files the logs can be found in.
+        // Most common scenario is one failure.
+        testErrorLog.each!((a) { writeln(a.output); });
+        testErrorLog.each!((a) {
+            printStatus(Status.Fail, a.msg, ", log at ", a.fname);
+        });
+
         printStatus(Status.Fail, "Test of code generation");
     }
 
