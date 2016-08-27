@@ -20,6 +20,7 @@ module cpptooling.utility.virtualfilesystem;
 
 import std.traits : isSomeString;
 import std.typecons : Flag, Yes, No;
+import logger = std.experimental.logger;
 
 import clang.SourceLocation : SourceLocation;
 import clang.SourceRange : SourceRange;
@@ -45,8 +46,8 @@ enum Content : string {
 }
 
 enum Mode {
-    Read,
-    Write
+    read,
+    readWrite
 }
 
 /** File layer abstracting the handling of in-memory files and concrete
@@ -83,18 +84,30 @@ struct VirtualFileSystem {
      * Params:
      *   fname = file to map into the VFS
      */
-    void open(FileName fname, Mode mode = Mode.Read) @safe {
+    void open(FileName fname, Mode mode = Mode.read) @safe {
         if (fname in in_memory || fname in filesys) {
             return;
         }
 
-        import std.file : getSize;
+        import std.file : getSize, exists;
 
-        auto sz = getSize(cast(string) fname);
+        auto mmf_mode = mode == Mode.read ? MmFile.Mode.read : MmFile.Mode.readWriteNew;
+        debug logger.tracef("File memory mapping mode %s (%s) for '%s'", mmf_mode, mode, cast(string) fname);
+
+        size_t sz;
+        size_t buf_size;
+        if (exists(cast(string) fname)) {
+            sz = getSize(cast(string) fname);
+            buf_size = sz;
+        } else {
+            // a new file must have a buffer size > 0
+            buf_size = 1;
+        }
+
         // TODO I'm not sure what checks need to be added to make this safe.
         // Should be doable so marking it as safe for now with the intention of
         // revisiting this to ensure it is safe.
-        auto mmf = () @trusted { return new MmFile(cast(string) fname, mode == Mode.Read ? MmFile.Mode.read : MmFile.Mode.readWrite, sz, null); }();
+        auto mmf = () @trusted { return new MmFile(cast(string) fname, mmf_mode, buf_size, null); }();
         filesys[fname] = MmFSize(mmf, mode, sz);
     }
 
@@ -131,9 +144,9 @@ struct VirtualFileSystem {
         if (auto f = fname in in_memory) {
             *f ~= content.dup;
         } else if (auto f = fname in filesys) {
-            if (f.mode == Mode.Write) {
+            if (f.mode == Mode.readWrite) {
                 auto cont_s = () @trusted { return cast(void[]) content[]; }();
-                auto s = () @trusted { return (*f).file[(*f).size .. (*f).size + cont_s.length]; }();
+                auto s = () @trusted { return (*f).file[f.size .. f.size + cont_s.length]; }();
                 s[] = cont_s[];
                 f.size += cont_s.length;
             } else {
@@ -189,14 +202,17 @@ unittest {
  * Returns: slice of the whole file */
 T slice(T = string, Flag!"autoLoad" auto_load = Yes.autoLoad)(ref VirtualFileSystem vfs, FileName fname) @safe {
     void[] data;
+    bool found;
 
     if (auto code = fname in vfs.in_memory) {
         data = (*code)[];
+        found = true;
     } else if (auto mmf = fname in vfs.filesys) {
         data = () @trusted { return (*mmf).file[0 .. (*mmf).size]; }();
+        found = true;
     }
 
-    if (data.length == 0) {
+    if (!found) {
         // error handling.
         // Either try to automatically load the file or error out.
         static if (auto_load) {
