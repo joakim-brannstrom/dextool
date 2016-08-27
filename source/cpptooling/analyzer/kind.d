@@ -247,6 +247,7 @@ pure @safe nothrow @nogc struct TypeKind {
     }
 }
 
+/// Attributes of a declaration of a type.
 pure @safe nothrow @nogc struct TypeAttr {
     import std.typecons : Flag;
 
@@ -257,6 +258,50 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isArray" isArray;
     Flag!"isPrimitive" isPrimitive;
     Flag!"isDefinition" isDefinition;
+}
+
+/// Returns: the USR for the referenced type.
+auto resolveTypeRef(LookupT)(TypeKind type, TypeAttr attr_, LookupT lookup) {
+    import std.range : only, dropOne;
+    import cpptooling.analyzer.type : TypeKindAttr;
+
+    auto rval = only(TypeKindAttr.init).dropOne;
+    auto attr = attr_;
+    auto found = typeof(lookup.kind(USRType.init)).init;
+
+    final switch (type.info.kind) with (TypeKind.Info) {
+    case Kind.array:
+        attr = type.info.elementAttr;
+        found = lookup.kind(type.info.element);
+        break;
+    case Kind.funcPtr:
+        found = lookup.kind(type.info.pointee);
+        break;
+    case Kind.pointer:
+        found = lookup.kind(type.info.pointee);
+        break;
+    case Kind.typeRef:
+        found = lookup.kind(type.info.canonicalRef);
+        break;
+    case Kind.ctor:
+    case Kind.dtor:
+    case Kind.func:
+    case Kind.funcSignature:
+    case Kind.record:
+    case Kind.simple:
+        rval = only(TypeKindAttr(type, attr));
+        break;
+    case Kind.null_:
+        break;
+    }
+
+    import std.algorithm : filter;
+
+    foreach (item; found.filter!(a => !a.isNull)) {
+        rval = only(TypeKindAttr(item.get, attr));
+    }
+
+    return rval;
 }
 
 /// DO NOT USE.
