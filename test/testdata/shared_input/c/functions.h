@@ -3,8 +3,6 @@
 // Expecting definitions for all function declarations.
 // A class with pure virtual member functions for each C function.
 
-namespace ns {
-
 // expect plain, simple function definitions.
 void func_void(void);
 int func_return(void);
@@ -31,30 +29,34 @@ void unnamed_params(int, int);
 
 // expect usage of the typedef and NOT the underlying types
 typedef int (*func_ptr2)(int, int);
-typedef int (*func_ptr3)();
 typedef struct Something_Big {
     int tiny;
 } Something_Big;
 extern void fun(func_ptr2 p, Something_Big b);
 
 // expect a correct call signature for a function ptr
-void func_ptr_arg(int (*a)(int p, int), int b);
+void func_ptr_arg(int (*a)(int p, int) , int b);
 
-// C++ behaves different from C.
-// In C++ the struct keyword is not expected to be kept in the function
-// signature, compared to C where it is.
+// expecting a func_return_func_ptr in the generated test double.
+// (bug) Previously it derived the function signature from the return value.
+typedef void (gun_type)(int);
+typedef gun_type* gun_ptr;
+gun_ptr func_return_func_ptr();
+
+// using a typedef signature to create a function
+extern gun_type gun_func;
+
+// expect a func signature exactly as the function below.
+// Not uncommon in C code that the keyword struct is used.
 void c_func_with_struct(const struct A* a);
-
-// C++ testing
-void func_ref(int& a);
-int& func_return_ref();
-void func_ref_many(int& a, char& b);
-void func_array(int a[10]);
-void func_ref_ptr(int*& a);
-void func_ref_array(int (&a)[10]);
 
 // expecting static functions to be ignored
 static void ignore();
 
-} // NS: ns
+// expecting the array parameter to be preserved
+void array_func(int x, int* y, int z[16]);
+
+typedef unsigned int MyIntType;
+void array_func_param_typedef(MyIntType [16]);
+
 #endif // FUNCTIONS_H

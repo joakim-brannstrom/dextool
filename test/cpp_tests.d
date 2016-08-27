@@ -184,7 +184,7 @@ unittest {
 @Name(testId ~ "Should only generate impl for those functions in ns")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/functions.hpp", testEnv);
+    auto p = genTestParams("dev/functions_in_ns.hpp", testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
