@@ -129,7 +129,7 @@ private bool isOperator(CppMethodName name_) @safe {
 alias FunctionDeclResult = Tuple!(Flag!"isValid", "isValid", TypeKindAttr,
         "type", CFunctionName, "name", TypeKindAttr,
         "returnType", VariadicType, "isVariadic", StorageClass, "storageClass",
-        CxParam[], "params", LocationTag, "location");
+        CxParam[], "params", LocationTag, "location", Flag!"isDefinition");
 
 auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @trusted {
     import std.algorithm : among;
@@ -183,6 +183,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
         LocationTag loc;
         VariadicType isVariadic;
         StorageClass storageClass;
+        Flag!"isDefinition" is_definition;
     }
 
     ComposeData getCursorData(TypeResults tr) {
@@ -192,6 +193,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
 
         data.name = CFunctionName(v.cursor.spelling);
         data.loc = locToTag(v.cursor.location());
+        data.is_definition = cast(Flag!"isDefinition") v.cursor.isDefinition;
 
         switch (v.cursor.storageClass()) with (CX_StorageClass) {
         case CX_SC_Extern:
@@ -227,7 +229,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
 
         return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
                 TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr),
-                is_variadic, data.storageClass, params, data.loc);
+                is_variadic, data.storageClass, params, data.loc, data.is_definition);
     }
 
     // dfmt off
@@ -396,9 +398,10 @@ auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint in
 }
 
 /// dummy
-alias TranslationUnitResult = bool;
+alias TranslationUnitResult = Tuple!(string, "fileName");
 auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, in uint indent) {
-    return true;
+    auto fname = tu.spelling;
+    return TranslationUnitResult(fname);
 }
 
 /** Reconstruct the semantic clang AST with dextool data structures suitable
