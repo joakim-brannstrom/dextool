@@ -1160,10 +1160,10 @@ body {
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
 
     InfoT info;
-    info.fmt = format("%s %s(%s)", return_t.toStringDecl.strip, "%s", params.joinParamId());
+    info.fmt = format("%s %s(%s)", return_t.toStringDecl.strip, "%s", params.params.joinParamId());
     info.return_ = return_t.kind.usr;
     info.returnAttr = return_t.attr;
-    info.params = params.map!(a => FuncInfoParam(a.result.type.kind.usr,
+    info.params = params.params.map!(a => FuncInfoParam(a.result.type.kind.usr,
             a.result.type.attr, a.id, a.isVariadic)).array();
 
     primary.type.kind.info = info;
@@ -1172,7 +1172,7 @@ body {
     primary.location = makeLocation(c);
 
     rval.primary = primary;
-    rval.extra ~= params.map!(a => a.result).array();
+    rval.extra ~= params.params.map!(a => a.result).array() ~ params.extra;
     rval.extra ~= return_rval.primary;
     rval.extra ~= return_rval.extra;
 
@@ -1199,8 +1199,8 @@ body {
     primary.type = makeTypeKindAttr(type);
 
     TypeKind.CtorInfo info;
-    info.fmt = format("%s(%s)", "%s", params.joinParamId());
-    info.params = params.map!(a => FuncInfoParam(a.result.type.kind.usr,
+    info.fmt = format("%s(%s)", "%s", params.params.joinParamId());
+    info.params = params.params.map!(a => FuncInfoParam(a.result.type.kind.usr,
             a.result.type.attr, a.id, a.isVariadic)).array();
     info.id = c.spelling;
 
@@ -1209,7 +1209,7 @@ body {
     primary.location = makeLocation(c);
 
     rval.primary = primary;
-    rval.extra ~= params.map!(a => a.result).array();
+    rval.extra ~= params.params.map!(a => a.result).array() ~ params.extra;
 
     return rval;
 }
@@ -1842,8 +1842,10 @@ body {
 
 private alias ExtractParamsResult = Tuple!(TypeResult, "result", string, "id",
         Flag!"isVariadic", "isVariadic");
+private alias ExtractParamsResults = Tuple!(ExtractParamsResult[], "params",
+        TypeResult[], "extra");
 
-ExtractParamsResult[] extractParams(ref const(Cursor) c, ref Type type,
+ExtractParamsResults extractParams(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1853,14 +1855,14 @@ in {
 out (result) {
     import cpptooling.utility.logger : trace;
 
-    foreach (p; result) {
+    foreach (p; result.params) {
         trace(p.result.type.toStringDecl(p.id), this_indent);
     }
 }
 body {
     auto indent = this_indent + 1;
 
-    void appendParams(ref const(Cursor) c, ref ExtractParamsResult[] params) {
+    void appendParams(ref const(Cursor) c, ref ExtractParamsResults rval) {
         import std.range : enumerate;
 
         foreach (idx, p; c.children.enumerate) {
@@ -1871,7 +1873,8 @@ body {
 
             auto tka = retrieveType(p, container, indent);
             auto id = p.spelling;
-            params ~= ExtractParamsResult(tka.primary, id, No.isVariadic);
+            rval.params ~= ExtractParamsResult(tka.primary, id, No.isVariadic);
+            rval.extra ~= tka.extra;
         }
 
         if (type.func.isVariadic) {
@@ -1886,20 +1889,20 @@ body {
 
             // TODO remove this ugly hack
             // space as id to indicate it is empty
-            params ~= ExtractParamsResult(result, " ", Yes.isVariadic);
+            rval.params ~= ExtractParamsResult(result, " ", Yes.isVariadic);
         }
     }
 
-    ExtractParamsResult[] params;
+    ExtractParamsResults rval;
 
     if (c.kind == CXCursorKind.CXCursor_TypeRef) {
         auto cref = c.referenced;
-        appendParams(cref, params);
+        appendParams(cref, rval);
     } else {
-        appendParams(c, params);
+        appendParams(c, rval);
     }
 
-    return params;
+    return rval;
 }
 
 /// Join an array slice of PTuples to a parameter string of "type" "id"
