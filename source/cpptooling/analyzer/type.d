@@ -59,30 +59,18 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_spac
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(const ref Nullable!TypeResults result, in uint indent = 0,
+void logTypeResult(ref const(TypeResult) result, in uint indent,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
-    debug {
-        if (!result.isNull) {
-            logTypeResult(result.get, indent, func, line);
-        }
-    }
-}
-
-/// Pretty loggning with indentation.
-void logTypeResult(const ref TypeResults results, in uint indent = 0,
-        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
-    import std.algorithm : map;
     import std.array : array;
     import std.conv : to;
-    import std.range : repeat, chain, only;
+    import std.range : repeat;
     import logger = std.experimental.logger;
 
     // dfmt off
     debug {
         string indent_ = repeat(' ', indent).array();
-        foreach (const ref result; chain(only(results.primary), results.extra)) {
-            string extra;
-            switch (result.type.kind.info.kind) with (TypeKind.Info) {
+        string extra;
+        switch (result.type.kind.info.kind) with (TypeKind.Info) {
             case Kind.typeRef:
                 extra = "|ex ref:" ~ cast(string) result.type.kind.info.typeRef ~ "|ex canonical:" ~ cast(string) result.type.kind.info.canonicalRef;
                 break;
@@ -91,39 +79,62 @@ void logTypeResult(const ref TypeResults results, in uint indent = 0,
                 extra = "|ex usr:" ~ cast(string) result.type.kind.info.pointee;
                 break;
             default:
-            }
+        }
 
-            logger.logf!(-1, "", "", "", "")
-                (logger.LogLevel.trace,
-                 "%d%s %s|%s|repr:%s|loc:%s|usr:%s|%s%s [%s:%d]",
-                 indent,
-                 indent_,
-                 to!string(result.type.kind.info.kind),
-                 result.type.kind.internalGetFmt,
-                 result.type.toStringDecl("x"),
-                 (result.location.kind == LocationTag.Kind.loc) ? (result.location.file.length == 0 ? "no" : "yes") : "noloc",
-                 cast(string) result.type.kind.usr,
-                 result.type.attr,
-                 extra,
-                 func,
-                 line);
+        logger.logf!(-1, "", "", "", "")
+            (logger.LogLevel.trace,
+             "%d%s %s|%s|repr:%s|loc:%s|usr:%s|%s%s [%s:%d]",
+             indent,
+             indent_,
+             to!string(result.type.kind.info.kind),
+             result.type.kind.internalGetFmt,
+             result.type.toStringDecl("x"),
+             (result.location.kind == LocationTag.Kind.loc) ? (result.location.file.length == 0 ? "no" : "yes") : "noloc",
+             cast(string) result.type.kind.usr,
+             result.type.attr,
+             extra,
+             func,
+             line);
 
-            switch (result.type.kind.info.kind) with (TypeKind.Info) {
+        switch (result.type.kind.info.kind) with (TypeKind.Info) {
             case Kind.func:
                 foreach (r; result.type.kind.info.params) {
-                    logTypeAttr(r.attr, indent, 1);
+                    logTypeAttr(r.attr, indent, 1, func, line);
                 }
                 break;
             case Kind.pointer:
                 foreach (r; result.type.kind.info.attrs) {
-                    logTypeAttr(r, indent, 1);
+                    logTypeAttr(r, indent, 1, func, line);
                 }
                 break;
             default:
-            }
         }
     }
     // dfmt on
+}
+
+/// Pretty loggning with indentation.
+void logTypeResult(ref const(TypeResults) results, in uint indent = 0,
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+    import std.range : chain, only;
+
+    // dfmt off
+    debug {
+        foreach (const ref result; chain(only(results.primary), results.extra)) {
+            logTypeResult(result, indent, func, line);
+        }
+    }
+    // dfmt on
+}
+
+/// Pretty loggning with indentation.
+void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+    debug {
+        if (!results.isNull) {
+            logTypeResult(results.get, indent, func, line);
+        }
+    }
 }
 
 //TODO remove, this is not good. keep it focused on SimleInfo.
