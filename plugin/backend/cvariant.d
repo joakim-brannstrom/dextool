@@ -479,6 +479,7 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefi
     case Kind.funcPtr:
     case Kind.funcSignature:
     case Kind.pointer:
+    case Kind.primitive:
     case Kind.record:
     case Kind.simple:
     case Kind.typeRef:

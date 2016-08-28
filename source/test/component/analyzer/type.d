@@ -148,13 +148,13 @@ unittest {
                      (VariadicType v) {});
         // dfmt on
 
-        type.attr.isPrimitive.shouldBeTrue;
+        type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
     }
 
     // do not try and verify the string representation of the type.
     // It may be platform and compiler specific.
     // For example is signed char -> char.
-    visitor.result.returnType.attr.isPrimitive.shouldBeTrue;
+    visitor.result.returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
 }
 
 @Name("Should be the USR of the function declaration not the typedef signature")

@@ -1603,7 +1603,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         // dfmt off
         foreach(a; range
             // remove primitive types
-            .filter!(a => !a.attr.isPrimitive)
+            .filter!(a => a.kind.info.kind != TypeKind.Info.Kind.primitive)
             .map!(a => resolveTypeRef(a.kind, a.attr, lookup))
             .joiner
             .map!(a => a.kind.usr)
@@ -2039,6 +2039,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
             r = ClassRelate(Relate.Kind.Compose, p.usr, cast(UMLClassDiagram.DisplayName) display);
         }
         break;
+    case Kind.primitive:
     case Kind.simple:
     case Kind.func:
     case Kind.funcPtr:
@@ -2086,6 +2087,7 @@ private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
                     cast(UMLClassDiagram.DisplayName) display);
         }
         break;
+    case Kind.primitive:
     case Kind.simple:
     case Kind.func:
     case Kind.funcPtr:

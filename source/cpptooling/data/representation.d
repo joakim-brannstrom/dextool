@@ -356,11 +356,13 @@ const:
         case Kind.func:
         case Kind.funcPtr:
         case Kind.funcSignature:
+        case Kind.primitive:
         case Kind.simple:
         case Kind.typeRef:
         case Kind.array:
         case Kind.pointer:
-            formattedWrite(sink, "%s;", variable.type.toStringDecl(variable.name.str));
+            formattedWrite(sink, "%s;",
+                    variable.type.toStringDecl(variable.name.str));
             if (!usr.isNull) {
                 put(sink, " // ");
                 put(sink, cast(string) usr);
