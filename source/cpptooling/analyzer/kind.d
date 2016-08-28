@@ -260,10 +260,22 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isDefinition" isDefinition;
 }
 
-/// Returns: the USR for the referenced type.
-auto resolveTypeRef(LookupT)(TypeKind type, TypeAttr attr_, LookupT lookup) {
+/** Returns: the USR for the referenced type.
+ *
+ * Params:
+ *   LookupT = ?
+ *   policy = only resolve those that matching the policy. If none are specified then resolve all.
+ */
+auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT lookup) {
+    import std.algorithm : among;
     import std.range : only, dropOne;
     import cpptooling.analyzer.type : TypeKindAttr;
+
+    static if (policy.length > 0) {
+        if (!type.info.kind.among(policy)) {
+            return only(TypeKindAttr(type, attr_));
+        }
+    }
 
     auto rval = only(TypeKindAttr.init).dropOne;
     auto attr = attr_;
