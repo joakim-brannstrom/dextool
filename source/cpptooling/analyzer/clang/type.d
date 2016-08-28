@@ -1845,7 +1845,7 @@ private alias ExtractParamsResult = Tuple!(TypeResult, "result", string, "id",
 private alias ExtractParamsResults = Tuple!(ExtractParamsResult[], "params",
         TypeResult[], "extra");
 
-ExtractParamsResults extractParams(ref const(Cursor) c, ref Type type,
+private ExtractParamsResults extractParams(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1857,6 +1857,10 @@ out (result) {
 
     foreach (p; result.params) {
         trace(p.result.type.toStringDecl(p.id), this_indent);
+    }
+
+    foreach (e; result.extra) {
+        logTypeResult(e, this_indent);
     }
 }
 body {
