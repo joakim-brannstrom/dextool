@@ -36,7 +36,7 @@ final class FindFunctionDeclVisitor : Visitor {
     /// The USR to find.
     USRType find;
 
-    FunctionDeclResult* result;
+    FunctionDeclResult[] result;
     bool found;
 
     override void visit(const(TranslationUnit) v) {
@@ -58,7 +58,7 @@ final class FindFunctionDeclVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         if (this.find.length == 0 || v.cursor.usr == this.find) {
-            result = new FunctionDeclResult(analyzeFunctionDecl(v, container, indent));
+            result ~= analyzeFunctionDecl(v, container, indent);
             found = true;
         }
     }
@@ -89,8 +89,8 @@ namespace dextool__gnu_cxx {
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     visitor.found.shouldBeTrue;
-    visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-    (cast(string) visitor.result.name).shouldEqual("__uselocale");
+    visitor.result[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+    (cast(string) visitor.result[0].name).shouldEqual("__uselocale");
 }
 
 @Name("Should be parameters and return type that are of primitive type")
@@ -136,10 +136,10 @@ unittest {
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     visitor.found.shouldBeTrue;
-    visitor.result.type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-    (cast(string) visitor.result.name).shouldEqual("fun");
+    visitor.result[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+    (cast(string) visitor.result[0].name).shouldEqual("fun");
 
-    foreach (param; visitor.result.params) {
+    foreach (param; visitor.result[0].params) {
         TypeKindAttr type;
         // dfmt off
         param.visit!(
@@ -154,7 +154,7 @@ unittest {
     // do not try and verify the string representation of the type.
     // It may be platform and compiler specific.
     // For example is signed char -> char.
-    visitor.result.returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+    visitor.result[0].returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
 }
 
 @Name("Should be the USR of the function declaration not the typedef signature")
@@ -184,11 +184,52 @@ extern gun_type gun_func;
     checkForCompilerErrors(tu).shouldBeFalse;
     visitor.found.shouldBeTrue;
 
-    auto loc_result = visitor.container.find!LocationTag(visitor.result.type.kind.usr).front.any;
+    auto loc_result = visitor.container.find!LocationTag(
+            visitor.result[0].type.kind.usr).front.any;
     loc_result.length.shouldEqual(1);
 
     auto loc = loc_result.front;
     loc.kind.shouldEqual(LocationTag.Kind.loc);
     // line 5 is the declaration of gun_func
     loc.line.shouldEqual(5);
+}
+
+@Name("Should be two pointers with the same type signature but different USRs")
+unittest {
+    final class VarVisitor : Visitor {
+        alias visit = Visitor.visit;
+        mixin generateIndentIncrDecr;
+
+        Container container;
+        VarDeclResult[] results;
+
+        override void visit(const(TranslationUnit) v) {
+            v.accept(this);
+        }
+
+        override void visit(const(VarDecl) v) {
+            mixin(mixinNodeLog!());
+            auto result = analyzeVarDecl(v, container, 0);
+            results ~= result;
+        }
+    }
+
+    enum code = "
+int* p0;
+int* p1;
+";
+
+    // arrange
+    auto visitor = new VarVisitor;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    visitor.results.length.shouldEqual(2);
+    visitor.results[0].type.kind.usr.shouldNotEqual(visitor.results[1].type.kind.usr);
 }
