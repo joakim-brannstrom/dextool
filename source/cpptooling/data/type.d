@@ -203,3 +203,11 @@ enum StorageClass {
     Extern,
     Static
 }
+
+/// Convert a namespace stack to a string separated by ::.
+string toStringNs(CppNsStack ns) @safe {
+    import std.algorithm : map;
+    import std.array : join;
+
+    return ns.map!(a => cast(string) a).join("::");
+}

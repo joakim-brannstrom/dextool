@@ -226,14 +226,6 @@ auto dedup(T)(auto ref T r) @safe if (isInputRange!T) {
     return rval;
 }
 
-/// Convert a namespace stack to a string separated by ::.
-string toStringNs(CppNsStack ns) @safe {
-    import std.algorithm : map;
-    import std.array : join;
-
-    return ns.map!(a => cast(string) a).join("::");
-}
-
 /// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
     import std.variant : visit;
