@@ -150,7 +150,8 @@ private void assertTypeResult(const ref TypeResults results) {
     foreach (const ref result; chain(only(results.primary), results.extra)) {
         assert(result.type.toStringDecl("x").length > 0);
         assert(result.type.kind.usr.length > 0);
-        if (!result.type.attr.isPrimitive && result.location.kind != LocationTag.Kind.noloc) {
+        if (result.type.kind.info.kind != TypeKind.Info.Kind.primitive
+                && result.location.kind != LocationTag.Kind.noloc) {
             assert(result.location.file.length > 0);
         }
     }
@@ -844,8 +845,7 @@ body {
         loc = makeLocation(c);
     } else {
         string spell = maybe_primitive.get;
-        rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
-        rval.attr.isPrimitive = Yes.isPrimitive;
+        rval.kind.info = TypeKind.PrimitiveInfo(spell ~ " %s");
 
         rval.kind.usr = makeUSR(maybe_primitive.get);
         loc = LocationTag(null);
@@ -1043,7 +1043,7 @@ body {
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
 
-    if (pointee.primary.type.attr.isPrimitive) {
+    if (pointee.primary.type.kind.info.kind == TypeKind.Info.Kind.primitive) {
         // represent a usr to a primary more intelligently
         rval.primary.type.kind.usr = rval.primary.type.kind.toStringDecl(TypeAttr.init, "");
         // TODO shouldnt be needed, it is a primitive....

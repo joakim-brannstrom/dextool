@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -173,7 +172,23 @@ pure @safe nothrow @nogc struct TypeKind {
         USRType canonicalRef;
     }
 
+    /** Represent a primitive type.
+     *
+     * Similar to a $(D SimpleInfo) but used to distinguish primitive types
+     * from "other" simple representations.
+     *
+     * The type 'int x' would be:
+     *
+     * fmt = int %s
+     */
+    static struct PrimitiveInfo {
+        string fmt;
+    }
+
     /** Textual representation of simple types.
+     *
+     * A simple type is one that do not need the features or distinction of the
+     * other infos.
      *
      * The type 'const int x' would be:
      *
@@ -194,6 +209,7 @@ pure @safe nothrow @nogc struct TypeKind {
     /// Formatting information needed to reproduce the type and identifier.
     static union InternalInfo {
         typeof(null) null_;
+        PrimitiveInfo primitive;
         SimpleInfo simple;
         ArrayInfo array;
 
@@ -223,6 +239,7 @@ pure @safe nothrow @nogc struct TypeKind {
             assert(info.id.length > 0);
             assert(info.fmt.length > 0);
             break;
+        case Kind.primitive:
         case Kind.record:
         case Kind.simple:
         case Kind.typeRef:
@@ -256,7 +273,6 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isPtr" isPtr;
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
-    Flag!"isPrimitive" isPrimitive;
     Flag!"isDefinition" isDefinition;
 }
 
@@ -299,6 +315,7 @@ auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT l
     case Kind.dtor:
     case Kind.func:
     case Kind.funcSignature:
+    case Kind.primitive:
     case Kind.record:
     case Kind.simple:
         rval = only(TypeKindAttr(type, attr));
@@ -320,6 +337,7 @@ auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT l
 /// Internally used to get the fmt for debugging purpuse.
 auto internalGetFmt(ref const TypeKind t) {
     final switch (t.info.kind) with (TypeKind.Info) {
+    case Kind.primitive:
     case Kind.typeRef:
     case Kind.simple:
     case Kind.array:
