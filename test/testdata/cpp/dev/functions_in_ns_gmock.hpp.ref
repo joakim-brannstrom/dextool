@@ -1,0 +1,42 @@
+#ifndef test_double_gmock_hpp
+#define test_double_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace ns {
+namespace TestDouble {
+class MockI_TestDouble : public I_TestDouble {
+public:
+    virtual ~MockI_TestDouble() {}
+
+    MOCK_METHOD1(func_ref_ptr, void(int *&a));
+    MOCK_METHOD1(func_array, void(int a[10]));
+    MOCK_METHOD2(func_ref_many, void(int &a, char &b));
+    MOCK_METHOD0(func_return_ref, int &());
+    MOCK_METHOD1(func_ref, void(int &a));
+    MOCK_METHOD1(array_func_param_typedef, void(MyIntType x0[16]));
+    MOCK_METHOD3(array_func, void(int x, int *y, int z[16]));
+    MOCK_METHOD1(c_func_with_struct, void(const ns::A *a));
+    MOCK_METHOD1(gun_func, void(int x0));
+    MOCK_METHOD0(func_return_func_ptr, gun_ptr());
+    MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int ), int b));
+    MOCK_METHOD0(func_void, void());
+    MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
+    MOCK_METHOD1(func_extern, int(int out));
+    MOCK_METHOD1(func_variadic_one_unnamed, int(char *x0));
+    MOCK_METHOD0(func_variadic, void());
+    MOCK_METHOD3(c_func_three_named, void(const int a, const int b, const int c));
+    MOCK_METHOD2(c_func_two_named, void(const int a, const int b));
+    MOCK_METHOD1(c_func_one_named, const int(const int a));
+    MOCK_METHOD0(c_func_return, const int());
+    MOCK_METHOD3(func_three_named, void(int a, int b, int c));
+    MOCK_METHOD2(func_two_named, void(int a, int b));
+    MOCK_METHOD1(func_one_named, int(int a));
+    MOCK_METHOD0(func_return, int());
+    MOCK_METHOD1(func_ref_array, void(int (&a)[10]));
+    MOCK_METHOD2(unnamed_params, void(int x0, int x1));
+};
+} //NS:TestDouble
+
+} //NS:ns
+#endif // test_double_gmock_hpp

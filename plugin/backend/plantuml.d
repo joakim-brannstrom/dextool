@@ -31,7 +31,7 @@ import logger = std.experimental.logger;
 import dsrcgen.plantuml;
 
 import application.types;
-import cpptooling.analyzer.kind : TypeKind, TypeAttr;
+import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveTypeRef;
 import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast.visitor : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
@@ -1604,9 +1604,9 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         foreach(a; range
             // remove primitive types
             .filter!(a => !a.attr.isPrimitive)
-            .map!(a => resolveTypeRef(a.kind, lookup))
+            .map!(a => resolveTypeRef(a.kind, a.attr, lookup))
             .joiner
-            .map!(a => a.usr)
+            .map!(a => a.kind.usr)
             // create the relations of type src-to-kind
             .map!(to_ => USRRelation(src, to_, Relate.Kind.Associate))) {
             target.put(a);
@@ -1973,47 +1973,6 @@ UMLClassDiagram.Key makeClassKey(in USRType key) @trusted {
 
     auto k = UMLClassDiagram.Key(enc.data.idup);
     return k;
-}
-
-private auto resolveTypeRef(LookupT)(TypeKind type, LookupT lookup) {
-    import std.range : only, dropOne;
-    import cpptooling.analyzer.kind : TypeKind;
-
-    auto rval = only(const(TypeKind).init).dropOne;
-    auto found = typeof(lookup.kind(USRType.init)).init;
-
-    final switch (type.info.kind) with (TypeKind.Info) {
-    case Kind.array:
-        found = lookup.kind(type.info.element);
-        break;
-    case Kind.funcPtr:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.pointer:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.typeRef:
-        found = lookup.kind(type.info.canonicalRef);
-        break;
-    case Kind.ctor:
-    case Kind.dtor:
-    case Kind.func:
-    case Kind.funcSignature:
-    case Kind.record:
-    case Kind.simple:
-        rval = only(cast(const TypeKind) type);
-        break;
-    case Kind.null_:
-        break;
-    }
-
-    import std.algorithm : filter;
-
-    foreach (item; found.filter!(a => !a.isNull)) {
-        rval = only(item.get);
-    }
-
-    return rval;
 }
 
 private auto unpackParam(CxParam p) @trusted {
