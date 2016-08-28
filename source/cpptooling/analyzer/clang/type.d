@@ -968,7 +968,7 @@ body {
     import std.range : dropBack;
     import cpptooling.utility.logger;
 
-    auto indent = this_indent + 1;
+    const auto indent = this_indent + 1;
 
     auto getPointee() {
         auto pointee = type.pointeeType;
@@ -1043,18 +1043,8 @@ body {
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
 
-    if (pointee.primary.type.kind.info.kind == TypeKind.Info.Kind.primitive) {
-        // represent a usr to a primary more intelligently
-        rval.primary.type.kind.usr = rval.primary.type.kind.toStringDecl(TypeAttr.init, "");
-        // TODO shouldnt be needed, it is a primitive....
-        rval.primary.location = makeLocation(c);
-    } else {
-        rval.primary.type.kind.usr = c.usr;
-        rval.primary.location = makeLocation(c);
-        if (rval.primary.type.kind.usr.length == 0) {
-            rval.primary.type.kind.usr = makeFallbackUSR(c, indent);
-        }
-    }
+    rval.primary.type.kind.usr = makeFallbackUSR(c, indent);
+    rval.primary.location = makeLocation(c);
 
     rval.extra = [pointee.primary] ~ pointee.extra;
 
