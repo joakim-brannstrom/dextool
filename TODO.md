@@ -46,6 +46,7 @@ Feature requests, todos etc that aren't covered by code comments.
  - A GUI to navigate the UML diagrams. Maybe with ImGUI?
 
 ## Features
+ - Infer purity for functions in graphml plugin.
  - Calculate software entropy.
  - Date in the header when it was generated.
  - Support for header with copyright notice in generated.
