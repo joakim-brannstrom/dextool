@@ -9,7 +9,7 @@ representation.
 */
 module plugin.backend.cvariant;
 
-import std.typecons : Typedef, Flag;
+import std.typecons : Flag;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -123,10 +123,7 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 /** Generator of test doubles for C code.
  */
 struct Generator {
-    import std.typecons : Typedef;
-
     import cpptooling.data.representation : CppRoot;
-    import cpptooling.utility.conv : str;
 
     private static struct Modules {
         import plugin.utility : MakerInitializingClassMembers;
@@ -201,7 +198,7 @@ private:
 
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.include(incl_fname.str.baseName);
+            o.include(incl_fname.baseName);
             o.sep(2);
             o.append(code);
 
@@ -391,7 +388,6 @@ void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
     import cpptooling.data.representation : CppNamespace, CppNs;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.adapter : makeSingleton;
-    import cpptooling.utility.conv : str;
 
     alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(
             MainInterface, ClassType);
@@ -402,7 +398,7 @@ void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
 
     root.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
 
-    auto ns = CppNamespace.make(CppNs(params.getMainNs.str));
+    auto ns = CppNamespace.make(CppNs(params.getMainNs));
     ns.setKind(NamespaceType.TestDouble);
 
     auto c_if = makeFuncInterface(root.funcRange, params.getMainInterface);
@@ -420,7 +416,6 @@ void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
 
 void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Container container,
         CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
-    import cpptooling.utility.conv : str;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
@@ -434,9 +429,9 @@ void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Conta
     global_definitions.suppressIndent(1);
 
     foreach (a; r.globalRange) {
-        generateCGlobalPreProcessorDefine(a, params.getArtifactPrefix.str, global_macros);
+        generateCGlobalPreProcessorDefine(a, params.getArtifactPrefix, global_macros);
         generateCGlobalDefinition(a, cast(Flag!"locationAsComment") ctrl.doLocationAsComment,
-                params.getArtifactPrefix.str, container, global_definitions);
+                params.getArtifactPrefix, container, global_definitions);
     }
 
     foreach (ns; r.namespaceRange) {
@@ -467,10 +462,9 @@ void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Conta
 
 void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefix, CppModule code) {
     import std.string : toUpper;
-    import cpptooling.utility.conv : str;
     import cpptooling.analyzer.type : TypeKind, toStringDecl, toRepr;
 
-    auto d_name = E((prefix ~ "Init_").toUpper ~ global.name.str);
+    auto d_name = E((prefix ~ "Init_").toUpper ~ global.name);
     auto ifndef = code.IFNDEF(d_name);
 
     // example: #define TEST_INIT_extern_a int extern_a[4]
@@ -484,7 +478,7 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefi
     case Kind.record:
     case Kind.simple:
     case Kind.typeRef:
-        ifndef.define(d_name ~ E(global.type.toStringDecl(global.name.str)));
+        ifndef.define(d_name ~ E(global.type.toStringDecl(global.name)));
         break;
     case Kind.ctor:
         // a C test double shold never have preprocessor macros for a C++ ctor
@@ -493,8 +487,7 @@ void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefi
         // a C test double shold never have preprocessor macros for a C++ dtor
         assert(false);
     case Kind.null_:
-        logger.error("Type of global definition is null. Identifier ",
-                global.name.str);
+        logger.error("Type of global definition is null. Identifier ", global.name);
         break;
     }
 }
@@ -511,9 +504,8 @@ body {
     import std.algorithm : map, joiner;
     import std.format : format;
     import std.string : toUpper;
-    import cpptooling.utility.conv : str;
 
-    string d_name = (prefix ~ "Init_").toUpper ~ global.name.str;
+    string d_name = (prefix ~ "Init_").toUpper ~ global.name;
 
     if (loc_as_comment) {
         // dfmt off
@@ -561,9 +553,8 @@ void generateClassImpl(ref CppClass c, CppModule impl) {
 void generateNsTestDoubleHdr(LookupT)(ref CppNamespace ns, Flag!"locationAsComment" loc_as_comment,
         Parameters params, CppModule hdr, CppModule gmock, LookupT lookup) {
     import std.algorithm : each;
-    import cpptooling.utility.conv : str;
 
-    auto cpp_ns = hdr.namespace(ns.name.str);
+    auto cpp_ns = hdr.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     hdr.sep(2);
 
@@ -574,9 +565,8 @@ void generateNsTestDoubleHdr(LookupT)(ref CppNamespace ns, Flag!"locationAsComme
 
 void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl) {
     import std.algorithm : each;
-    import cpptooling.utility.conv : str;
 
-    auto cpp_ns = impl.namespace(ns.name.str);
+    auto cpp_ns = impl.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     impl.sep(2);
 

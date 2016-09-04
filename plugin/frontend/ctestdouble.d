@@ -16,11 +16,9 @@ import plugin.types;
 import plugin.backend.cvariant : Controller, Parameters, Products;
 
 auto runPlugin(CliOption opt, CliArgs args) {
-    import std.typecons : TypedefType;
     import docopt;
 
-    auto parsed = docopt.docoptParse(cast(TypedefType!CliOption) opt,
-            cast(TypedefType!CliArgs) args);
+    auto parsed = docopt.docoptParse(opt, args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -310,7 +308,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType, Yes;
+    import std.typecons : Yes;
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import plugin.backend.cvariant : CVisitor, Generator;
@@ -320,7 +318,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
-    foreach (idx, in_file; (cast(TypedefType!InFiles) in_files)) {
+    foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
         string[] use_cflags;
         string abs_in_file;

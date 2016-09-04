@@ -50,12 +50,11 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
 CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data.representation : CppVariable, CxGlobalVariable,
         makeUniqueUSR;
-    import cpptooling.utility.conv : str;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
-    auto kind = TypeKind(TypeKind.PointerInfo(main_ns.str ~ "::" ~ main_if.str ~ "%s %s",
-            USRType(main_ns.str ~ "::" ~ main_if.str ~ "*"), [attr]));
+    auto kind = TypeKind(TypeKind.PointerInfo(main_ns ~ "::" ~ main_if ~ "%s %s",
+            USRType(main_ns ~ "::" ~ main_if ~ "*"), [attr]));
 
     auto v = CxGlobalVariable(makeUniqueUSR, TypeKindAttr(kind, TypeAttr.init),
             CppVariable("test_double_inst"));
@@ -74,7 +73,6 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
 void generateImpl(CppClass c, CppModule impl) {
     import std.variant : visit;
     import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
     import dsrcgen.c : E;
 
     // C'tor is expected to have one parameter.
@@ -97,8 +95,8 @@ void generateImpl(CppClass c, CppModule impl) {
         }();
         // dfmt on
 
-        with (impl.ctor_body(m.name.str, E(p0.type.toStringDecl(p0.name.str)))) {
-            stmt(E("test_double_inst") = E("&" ~ p0.name.str));
+        with (impl.ctor_body(m.name, E(p0.type.toStringDecl(p0.name)))) {
+            stmt(E("test_double_inst") = E("&" ~ p0.name));
         }
         impl.sep(2);
     }
@@ -108,7 +106,7 @@ void generateImpl(CppClass c, CppModule impl) {
     }
 
     static void genDtor(const ref CppClass c, const ref CppDtor m, CppModule impl) {
-        with (impl.dtor_body(c.name.str)) {
+        with (impl.dtor_body(c.name)) {
             stmt("test_double_inst = 0");
         }
         impl.sep(2);
@@ -118,8 +116,8 @@ void generateImpl(CppClass c, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
-        auto b = impl.method_body(m.returnType.toStringDecl, c.name().str,
-                m.name().str, m.isConst ? Yes.isConst : No.isConst, params);
+        auto b = impl.method_body(m.returnType.toStringDecl, c.name, m.name,
+                m.isConst ? Yes.isConst : No.isConst, params);
         with (b) {
             auto p = m.paramRange().joinParamNames();
             stmt(E("test_double_inst") = E("&" ~ p));
@@ -144,7 +142,6 @@ void generateImpl(CppClass c, CppModule impl) {
 void generateSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
     import cpptooling.analyzer.type;
-    import cpptooling.utility.conv : str;
     import dsrcgen.cpp : E;
 
     auto ns = impl.namespace("")[$.begin = "{" ~ newline];
@@ -152,7 +149,7 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
     impl.sep(2);
 
     foreach (g; in_ns.globalRange()) {
-        auto stmt = E(g.type.toStringDecl(g.name().str));
+        auto stmt = E(g.type.toStringDecl(g.name));
         if (g.type.kind.info.kind == TypeKind.Info.Kind.pointer) {
             stmt = E("0");
         }

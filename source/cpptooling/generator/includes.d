@@ -17,10 +17,9 @@ import dsrcgen.cpp : CppModule;
 void generateWrapIncludeInExternC(ControllerT, ParamT)(ControllerT ctrl, ParamT params,
         CppModule hdr) {
     import std.path : baseName;
-    import cpptooling.utility.conv : str;
 
     if (ctrl.doIncludeOfPreIncludes) {
-        hdr.include(params.getFiles.pre_incl.str.baseName);
+        hdr.include(params.getFiles.pre_incl.baseName);
     }
 
     auto extern_c = hdr.suite("extern \"C\"");
@@ -31,7 +30,7 @@ void generateWrapIncludeInExternC(ControllerT, ParamT)(ControllerT ctrl, ParamT 
     }
 
     if (ctrl.doIncludeOfPostIncludes) {
-        hdr.include(params.getFiles.post_incl.str.baseName);
+        hdr.include(params.getFiles.post_incl.baseName);
     }
 
     hdr.sep(2);
@@ -43,10 +42,9 @@ void generateWrapIncludeInExternC(ControllerT, ParamT)(ControllerT ctrl, ParamT 
  */
 void generateIncludes(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule hdr) {
     import std.path : baseName;
-    import cpptooling.utility.conv : str;
 
     if (ctrl.doIncludeOfPreIncludes) {
-        hdr.include(params.getFiles.pre_incl.str.baseName);
+        hdr.include(params.getFiles.pre_incl.baseName);
     }
 
     foreach (incl; params.getIncludes) {
@@ -54,7 +52,7 @@ void generateIncludes(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppM
     }
 
     if (ctrl.doIncludeOfPostIncludes) {
-        hdr.include(params.getFiles.post_incl.str.baseName);
+        hdr.include(params.getFiles.post_incl.baseName);
     }
 
     hdr.sep(2);

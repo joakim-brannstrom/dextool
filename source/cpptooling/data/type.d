@@ -10,7 +10,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.data.type;
 
-import std.typecons; // : Typedef, Tuple, Flag;
+import std.traits; // : isSomeString;
+import std.typecons; // : Tuple, Flag;
 import std.variant; // : Algebraic;
 
 import cpptooling.analyzer.type; // : TypeKind, TypeKindAttr, TypeResult;
@@ -20,36 +21,93 @@ import cpptooling.utility.taggedalgebraic;
 static import cpptooling.data.class_classification;
 
 /// Name of a C++ namespace.
-alias CppNs = Typedef!(string, null, "CppNs");
-/// Stack of nested C++ namespaces.
-alias CppNsStack = CppNs[];
-/// Nesting of C++ namespaces as a string.
-alias CppNsNesting = Typedef!(string, null, "CppNsNesting");
+struct CppNs {
+    string payload;
+    alias payload this;
+}
 
-alias CppVariable = Typedef!(string, null, "CppVariable");
+/// Stack of nested C++ namespaces.
+struct CppNsStack {
+    CppNs[] payload;
+    alias payload this;
+
+    T opCast(T : CppNs[])() {
+        return payload;
+    }
+
+    T opCast(T : const(CppNs)[])() const {
+        return payload;
+    }
+}
+
+/// Nesting of C++ namespaces as a string.
+struct CppNsNesting {
+    string payload;
+    alias payload this;
+}
+
+struct CppVariable {
+    string payload;
+    alias payload this;
+}
+
 //TODO change to using TypeAttr or TypeKindAttr
 alias TypeKindVariable = Tuple!(TypeKindAttr, "type", CppVariable, "name");
 
 // Types for classes
-alias CppClassName = Typedef!(string, null, "CppClassName");
+struct CppClassName {
+    string payload;
+    alias payload this;
+}
 
 ///TODO should be Optional type, either it has a nesting or it is "global".
 /// Don't check the length and use that as an insidential "no nesting".
-alias CppClassNesting = Typedef!(string, null, "CppNesting");
+struct CppClassNesting {
+    string payload;
+    alias payload this;
+}
 
 // Types for methods
-alias CppMethodName = Typedef!(string, null, "CppMethodName");
-alias CppConstMethod = Typedef!(bool, bool.init, "CppConstMethod");
-alias CppVirtualMethod = Typedef!(MemberVirtualType, MemberVirtualType.Unknown, "CppVirtualMethod");
-alias CppAccess = Typedef!(AccessType, AccessType.Private, "CppAccess");
+struct CppMethodName {
+    string payload;
+    alias payload this;
+}
+
+struct CppConstMethod {
+    bool payload;
+    alias payload this;
+}
+
+struct CppVirtualMethod {
+    MemberVirtualType payload;
+    alias payload this;
+}
+
+struct CppAccess {
+    AccessType payload;
+    alias payload this;
+
+    T opCast(T)() const if (isSomeString!T) {
+        import std.conv : to;
+
+        return payload.to!T();
+    }
+}
 
 // Types for free functions
-alias CFunctionName = Typedef!(string, string.init, "CFunctionName");
+struct CFunctionName {
+    string payload;
+    alias payload this;
+}
 
 // Shared types between C and Cpp
 alias VariadicType = Flag!"isVariadic";
 alias CxParam = Algebraic!(TypeKindVariable, TypeKindAttr, VariadicType);
-alias CxReturnType = Typedef!(TypeKindAttr, TypeKindAttr.init, "CxReturnType");
+
+struct CxReturnType {
+    TypeKindAttr payload;
+    alias payload this;
+}
 
 /// Locaiton of a symbol.
 struct Location {

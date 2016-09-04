@@ -12,7 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module application.compilation_db;
 
-import std.typecons : Nullable, Typedef, Tuple;
+import std.typecons : Nullable, Tuple;
 import logger = std.experimental.logger;
 
 import application.types;
@@ -28,10 +28,25 @@ version (unittest) {
 
 /// Hold an entry from the compilation database
 struct CompileCommand {
-    alias FileName = Typedef!(string, string.init, "FileName");
-    alias AbsoluteFileName = Typedef!(string, string.init, "AbsoluteFileName");
-    alias Directory = Typedef!(string, string.init, "WorkDir");
-    alias Command = Typedef!(string, string.init, "Command");
+    struct FileName {
+        string payload;
+        alias payload this;
+    }
+
+    struct AbsoluteFileName {
+        string payload;
+        alias payload this;
+    }
+
+    struct Directory {
+        string payload;
+        alias payload this;
+    }
+
+    struct Command {
+        string payload;
+        alias payload this;
+    }
 
     FileName file;
     AbsoluteFileName absoluteFile;
@@ -39,11 +54,21 @@ struct CompileCommand {
     Command command;
 }
 
-alias CompileDbJsonPath = Typedef!(string, string.init, "CompileDbJsonPath");
-alias CompileCommandDB = Typedef!(CompileCommand[], null, "CompileCommandDB");
+struct CompileDbJsonPath {
+    string payload;
+    alias payload this;
+}
+
+struct CompileCommandDB {
+    CompileCommand[] payload;
+    alias payload this;
+}
 // The result of searching for a file in a compilation DB.
 // The file may be occur more than one time therefor an array.
-alias CompileCommandSearch = Typedef!(CompileCommand[], null, "CompileCommandSearch");
+struct CompileCommandSearch {
+    CompileCommand[] payload;
+    alias payload this;
+}
 
 private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
     import std.json;
@@ -217,11 +242,9 @@ string toString(CompileCommandDB db) @safe pure {
     import std.conv : text;
     import std.format : format;
     import std.array;
-    import std.typecons : TypedefType;
 
-    return (cast(TypedefType!CompileCommandDB) db).map!(a => format("%s\n  %s\n  %s\n  %s\n",
-            cast(string) a.directory, cast(string) a.file,
-            cast(string) a.absoluteFile, cast(string) a.command)).joiner().text;
+    return db.payload.map!(a => format("%s\n  %s\n  %s\n  %s\n", a.directory,
+            a.file, a.absoluteFile, a.command)).joiner().text;
 }
 
 string toString(CompileCommandSearch search) @safe pure {
@@ -229,11 +252,9 @@ string toString(CompileCommandSearch search) @safe pure {
     import std.conv : text;
     import std.format : format;
     import std.array;
-    import std.typecons : TypedefType;
 
-    return (cast(TypedefType!CompileCommandSearch) search).map!(a => format("%s\n  %s\n  %s\n  %s\n",
-            cast(string) a.directory, cast(string) a.file,
-            cast(string) a.absoluteFile, cast(string) a.command)).joiner().text;
+    return search.payload.map!(a => format("%s\n  %s\n  %s\n  %s\n",
+            a.directory, a.file, a.absoluteFile, a.command)).joiner().text;
 }
 
 /** Filter and normalize the compiler flags.

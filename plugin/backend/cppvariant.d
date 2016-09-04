@@ -8,7 +8,7 @@ Variant of C++ test double.
 */
 module plugin.backend.cppvariant;
 
-import std.typecons : Typedef, No, Flag;
+import std.typecons : No, Flag;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -124,11 +124,8 @@ import cpptooling.analyzer.clang.ast.visitor : Visitor;
 /** Generator of test doubles for C++ code.
  */
 struct Generator {
-    import std.typecons : Typedef;
-
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.conv : str;
 
     private static struct Modules {
         import plugin.utility : MakerInitializingClassMembers;
@@ -199,7 +196,7 @@ private:
 
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.include(incl_fname.str.baseName);
+            o.include(incl_fname.baseName);
             o.sep(2);
             o.append(code);
 
@@ -588,7 +585,6 @@ body {
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
     import cpptooling.generator.includes : generateIncludes;
-    import cpptooling.utility.conv : str;
 
     generateIncludes(ctrl, params, modules.hdr);
 
@@ -610,11 +606,11 @@ body {
         final switch (cast(NamespaceType) ns.kind) with (NamespaceType) {
         case Normal:
             //TODO how to do this with meta-programming?
-            inner.hdr = modules.hdr.namespace(ns.name.str);
+            inner.hdr = modules.hdr.namespace(ns.name);
             inner.hdr.suppressIndent(1);
-            inner.impl = modules.impl.namespace(ns.name.str);
+            inner.impl = modules.impl.namespace(ns.name);
             inner.impl.suppressIndent(1);
-            inner.gmock = modules.gmock.namespace(ns.name.str);
+            inner.gmock = modules.gmock.namespace(ns.name);
             inner.gmock.suppressIndent(1);
             inner_impl_singleton = inner.impl.base;
             inner_impl_singleton.suppressIndent(1);
@@ -678,9 +674,8 @@ void generateClassImpl(CppClass c, CppModule impl) {
 void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
         CppModule hdr, CppModule gmock, LookupT lookup) {
     import std.algorithm : each;
-    import cpptooling.utility.conv : str;
 
-    auto cpp_ns = hdr.namespace(ns.name.str);
+    auto cpp_ns = hdr.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     hdr.sep(2);
 
@@ -691,9 +686,8 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
 
 void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl) {
     import std.algorithm : each;
-    import cpptooling.utility.conv : str;
 
-    auto cpp_ns = impl.namespace(ns.name.str);
+    auto cpp_ns = impl.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     impl.sep(2);
 

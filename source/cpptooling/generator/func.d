@@ -21,7 +21,6 @@ import cpptooling.data.representation : CFunction, CppClass;
 /// interface.
 void generateFuncImpl(CFunction f, CppModule impl) {
     import cpptooling.data.representation : joinParams, joinParamNames;
-    import cpptooling.utility.conv : str;
     import cpptooling.analyzer.type : toStringDecl;
     import dsrcgen.c : E;
 
@@ -34,11 +33,11 @@ void generateFuncImpl(CFunction f, CppModule impl) {
     }
     string names = joinParamNames(f.paramRange());
 
-    with (impl.func_body(f.returnType.toStringDecl, f.name().str, params)) {
+    with (impl.func_body(f.returnType.toStringDecl, f.name, params)) {
         if (f.returnType.toStringDecl == "void") {
-            stmt(E("test_double_inst->" ~ f.name().str)(E(names)));
+            stmt(E("test_double_inst->" ~ f.name)(E(names)));
         } else {
-            return_(E("test_double_inst->" ~ f.name().str)(E(names)));
+            return_(E("test_double_inst->" ~ f.name)(E(names)));
         }
     }
     impl.sep(2);
@@ -49,7 +48,6 @@ void generateFuncImpl(CFunction f, CppModule impl) {
  */
 CppClass makeFuncInterface(Tr)(Tr r, in MainInterface main_if) {
     import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
 
     import std.array : array;
 
@@ -63,7 +61,7 @@ CppClass makeFuncInterface(Tr)(Tr r, in MainInterface main_if) {
             params = params[0 .. $ - 1];
         }
 
-        auto name = CppMethodName(f.name.str);
+        auto name = CppMethodName(f.name);
         auto m = CppMethod(f.usr, name, params, f.returnType(), CppAccess(AccessType.Public),
                 CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
 

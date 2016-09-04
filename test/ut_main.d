@@ -30,7 +30,6 @@ int main(string[] args) {
                           "cpptooling.generator.includes",
                           "cpptooling.generator.utility",
                           "cpptooling.utility.clang",
-                          "cpptooling.utility.conv",
                           "cpptooling.utility.taggedalgebraic",
                           "cpptooling.utility.virtualfilesystem",
                           "plugin.loader",

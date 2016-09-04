@@ -12,8 +12,6 @@ TODO remove the trailing s in the module name, ....symbol.types <---
 */
 module cpptooling.data.symbol.types;
 
-import std.typecons : Typedef;
-
 /** The type of C++ symbol that is referenced.
  * The class must exist.
  */
@@ -23,5 +21,12 @@ enum Kind {
     CppClass
 }
 
-alias FullyQualifiedNameType = Typedef!(string, string.init, "CxFullyQualifiedName");
-alias USRType = Typedef!(string, string.init, "Unified Symbol Resolution Type");
+struct FullyQualifiedNameType {
+    string payload;
+    alias payload this;
+}
+
+struct USRType {
+    string payload;
+    alias payload this;
+}

@@ -6,8 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module application.types;
 
-import std.typecons : Typedef;
-
 enum ExitStatusType {
     Ok,
     Errors
@@ -22,19 +20,54 @@ enum LocationType {
  * name collisions.
  * See specific functions for how it is used.
  */
-alias StubPrefix = Typedef!(string, string.init, "StubPrefix");
+struct StubPrefix {
+    string payload;
+    alias payload this;
+}
 
 /// Prefix used for prepending generated files.
-alias FilePrefix = Typedef!(string, string.init, "StubPrefix");
+struct FilePrefix {
+    string payload;
+    alias payload this;
+}
 
-alias MainFileName = Typedef!(string, string.init, "MainFileName");
-alias MainName = Typedef!(string, string.init, "MainName");
-alias MainNs = Typedef!(string, string.init, "MainNs");
-alias MainInterface = Typedef!(string, string.init, "MainInterface");
+struct MainFileName {
+    string payload;
+    alias payload this;
+}
 
-alias DirName = Typedef!(string, string.init, "DirectoryName");
+struct MainName {
+    string payload;
+    alias payload this;
+}
 
-alias FileName = Typedef!(string, string.init, "FileName");
+struct MainNs {
+    string payload;
+    alias payload this;
+}
+
+struct MainInterface {
+    string payload;
+    alias payload this;
+}
+
+struct DirName {
+    string payload;
+    alias payload this;
+}
+
+struct FileName {
+    string payload;
+    alias payload this;
+}
+
 //TODO remove FileNames
-alias FileNames = Typedef!(string[], null, "FileNames");
-alias InFiles = Typedef!(string[], null, "InFiles");
+struct FileNames {
+    string[] payload;
+    alias payload this;
+}
+
+struct InFiles {
+    string[] payload;
+    alias payload this;
+}

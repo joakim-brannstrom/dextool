@@ -18,11 +18,9 @@ import plugin.backend.cppvariant : Controller, Parameters, Products;
 import application.compilation_db;
 
 auto runPlugin(CliOption opt, CliArgs args) {
-    import std.typecons : TypedefType;
     import docopt;
 
-    auto parsed = docopt.docoptParse(cast(TypedefType!CliOption) opt,
-            cast(TypedefType!CliArgs) args);
+    auto parsed = docopt.docoptParse(opt, args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {

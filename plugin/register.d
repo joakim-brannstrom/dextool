@@ -10,8 +10,6 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.register;
 
-import std.typecons : Typedef;
-
 public import plugin.types;
 
 private shared(Plugin[]) plugins;

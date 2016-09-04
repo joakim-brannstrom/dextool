@@ -292,7 +292,7 @@ auto analyzeConstructor(const(Constructor) v, ref Container container, in uint i
 
     auto params = toCxParam(type.primary.type.kind, container);
     auto name = CppMethodName(v.cursor.spelling);
-    auto usr = cast(USRType) v.cursor.usr;
+    auto usr = USRType(v.cursor.usr);
 
     return ConstructorResult(name, params, usr);
 }
@@ -307,7 +307,7 @@ auto analyzeDestructor(const(Destructor) v, ref Container container, in uint ind
 
     auto name = CppMethodName(v.cursor.spelling);
     auto virtual_kind = classify(v.cursor);
-    auto usr = cast(USRType) v.cursor.usr;
+    auto usr = USRType(v.cursor.usr);
 
     return DestructorResult(name, virtual_kind, usr);
 }
@@ -520,20 +520,18 @@ final class ClassVisitor : Visitor {
     }
 
     override void visit(const(FieldDecl) v) @trusted {
-        import std.typecons : TypedefType;
         import cpptooling.data.representation : TypeKindVariable;
 
         mixin(mixinNodeLog!());
 
         auto result = analyzeFieldDecl(v, *container, indent);
-        root.put(TypeKindVariable(result.type, result.name),
-                cast(TypedefType!CppAccess) accessType);
+        root.put(TypeKindVariable(result.type, result.name), accessType);
 
         logger.trace("member: ", cast(string) result.name);
     }
 
     override void visit(const(ClassDecl) v) @trusted {
-        import std.typecons : TypedefType, scoped;
+        import std.typecons : scoped;
 
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
@@ -541,7 +539,7 @@ final class ClassVisitor : Visitor {
         if (v.cursor.isDefinition) {
             auto visitor = scoped!ClassVisitor(v, root.resideInNs, *container, indent + 1);
             v.accept(visitor);
-            root.put(visitor.root, cast(TypedefType!CppAccess) accessType);
+            root.put(visitor.root, accessType);
             container.put(visitor.root, visitor.root.fullyQualifiedName);
         } else {
             auto type = retrieveType(v.cursor, *container, indent);
