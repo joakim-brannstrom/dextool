@@ -1072,7 +1072,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         Container* container;
         CppNsStack ns_stack;
-        CppAccess accessType;
+        CppAccess access;
 
         /// If the class has any members.
         Flag!"hasMember" hasMember;
@@ -1086,7 +1086,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         this.indent = indent;
         this.ns_stack = reside_in_ns.dup;
 
-        this.accessType = CppAccess(AccessType.Private);
+        this.access = CppAccess(AccessType.Private);
         this.classification = ClassificationState.Unknown;
 
         this.type = type;
@@ -1143,11 +1143,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeConstructor(v, *container, indent);
 
         debug {
-            auto tor = CppCtor(result.name, result.params, accessType);
+            auto tor = CppCtor(result.name, result.params, access);
             logger.trace("ctor: ", tor.toString);
         }
 
-        recv.put(this.type, result, accessType);
+        recv.put(this.type, result, access);
     }
 
     override void visit(const(Destructor) v) {
@@ -1158,11 +1158,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
                 cast(MemberVirtualType) result.virtualKind, hasMember);
 
         debug {
-            auto tor = CppDtor(result.name, accessType, result.virtualKind);
+            auto tor = CppDtor(result.name, access, result.virtualKind);
             logger.trace("dtor: ", tor.toString);
         }
 
-        recv.put(this.type, result, accessType);
+        recv.put(this.type, result, access);
     }
 
     override void visit(const(CXXMethod) v) {
@@ -1178,12 +1178,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
             import cpptooling.data.representation : CppMethod;
 
             auto method = CppMethod(result.type.kind.usr, result.name, result.params,
-                    result.returnType, accessType,
-                    CppConstMethod(result.isConst), result.virtualKind);
+                    result.returnType, access, CppConstMethod(result.isConst), result.virtualKind);
             logger.trace("method: ", method.toString);
         }
 
-        recv.put(this.type, result, accessType);
+        recv.put(this.type, result, access);
     }
 
     override void visit(const(FieldDecl) v) {
@@ -1200,12 +1199,12 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
             logger.trace("member: ", cast(string) result.name);
         }
 
-        recv.put(this.type, result, accessType);
+        recv.put(this.type, result, access);
     }
 
     override void visit(const(CXXAccessSpecifier) v) @trusted {
         mixin(mixinNodeLog!());
-        accessType = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
+        access = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }
 }
 
@@ -1351,11 +1350,11 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     /// If the class members result in dependency on those members.
     Flag!"genClassMemberDependency" genClassMemberDependency;
 
-    private static string toPrefix(CppAccess accessType) {
+    private static string toPrefix(CppAccess access) {
         import std.typecons : TypedefType;
         import cpptooling.data.type : CppAccess, AccessType;
 
-        final switch (cast(TypedefType!CppAccess) accessType) {
+        final switch (cast(TypedefType!CppAccess) access) {
         case AccessType.Public:
             return "+";
         case AccessType.Protected:
@@ -1385,7 +1384,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     }
 
     /// Reconstruct the function signature as a UML comment.
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
         import std.range : chain, only;
@@ -1402,10 +1401,9 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 
         if (genClassMethod) {
             auto method = CppMethod(USRType("dummy"), result.name, result.params,
-                    result.returnType, accessType,
-                    CppConstMethod(result.isConst), result.virtualKind);
+                    result.returnType, access, CppConstMethod(result.isConst), result.virtualKind);
             method.usr.nullify;
-            uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ method.toString));
+            uml.put(src_key, UMLClassDiagram.Content(toPrefix(access) ~ method.toString));
         }
 
         if (genClassParamDependency) {
@@ -1425,8 +1423,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
-            in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
         import cpptooling.data.representation : CppCtor;
@@ -1438,8 +1435,8 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
 
         if (genClassMethod) {
-            auto tor = CppCtor(result.name, result.params, accessType);
-            uml.put(src_key, UMLClassDiagram.Content(toPrefix(accessType) ~ tor.toString));
+            auto tor = CppCtor(result.name, result.params, access);
+            uml.put(src_key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
 
         if (genClassParamDependency) {
@@ -1457,17 +1454,17 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess access) {
         import cpptooling.data.representation : CppDtor;
 
         if (genClassMethod) {
             auto key = makeClassKey(src.kind.usr);
-            auto tor = CppDtor(result.name, accessType, result.virtualKind);
-            uml.put(key, UMLClassDiagram.Content(toPrefix(accessType) ~ tor.toString));
+            auto tor = CppDtor(result.name, access, result.virtualKind);
+            uml.put(key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
         import std.algorithm : filter;
 
         if (genClassMemberDependency) {
@@ -1732,13 +1729,12 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         src_cache ~= result.type.kind.usr;
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
-            in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
 
         putParamsToCache(src, result.params, dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
         import std.range : only;
 
         putParamsToCache(src, result.params, dcache, lookup);
@@ -1746,7 +1742,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
                 only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess accessType) {
+    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
         import std.range : only;
 
         putToCache(src.kind.usr, only(result.type), dcache, lookup);
@@ -1863,24 +1859,23 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.put(src, result);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess accessType) {
-        to_class.put(src, result, accessType);
-        to_component.put(src, result, accessType);
+    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
+        to_class.put(src, result, access);
+        to_component.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result,
-            in CppAccess accessType) {
-        to_class.put(src, result, accessType);
-        to_component.put(src, result, accessType);
+    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
+        to_class.put(src, result, access);
+        to_component.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess accessType) {
-        to_class.put(src, result, accessType);
+    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess access) {
+        to_class.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess accessType) {
-        to_class.put(src, result, accessType);
-        to_component.put(src, result, accessType);
+    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
+        to_class.put(src, result, access);
+        to_component.put(src, result, access);
     }
 
     void put(ref const(ClassClassificationResult) result) {
