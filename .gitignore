@@ -9,6 +9,7 @@ results.json
 
 build/
 docs/
+tmp/
 resources/version.txt
 
 binary_size.txt
