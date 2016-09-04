@@ -20,11 +20,12 @@ import cpptooling.utility.taggedalgebraic;
 static import cpptooling.data.class_classification;
 
 /// Convert a namespace stack to a string separated by ::.
-string toStringNs(CppNsStack ns) @safe {
+string toStringNs(T : const(Tx), Tx)(T ns) @safe 
+        if (is(Tx == CppNsStack) || is(Tx == CppNs[])) {
     import std.algorithm : map;
     import std.array : join;
 
-    return ns.map!(a => cast(string) a).join("::");
+    return (cast(const CppNs[]) ns).map!(a => cast(string) a).join("::");
 }
 
 /// Locaiton of a symbol.
