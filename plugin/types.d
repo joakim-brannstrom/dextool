@@ -10,15 +10,30 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.types;
 
-import std.typecons : Tuple, Typedef;
+import std.typecons : Tuple;
 
 public import application.types : ExitStatusType;
 
-alias CliOption = Typedef!(string, string.init, "CliOption");
-alias CliArgs = Typedef!(string[], string[].init, "CliArgs");
+struct CliOption {
+    string payload;
+    alias payload this;
+}
 
-alias CliCategory = Typedef!(string, string.init, "CliCategory");
-alias CliCategoryInfo = Typedef!(string, string.init, "CliCategoryInfo");
+struct CliArgs {
+    string[] payload;
+    alias payload this;
+}
+
+struct CliCategory {
+    string payload;
+    alias payload this;
+}
+
+struct CliCategoryInfo {
+    string payload;
+    alias payload this;
+}
+
 alias CliOptionParts = Tuple!(string, "usage", string, "optional", string, "others");
 
 alias PluginFuncType = ExitStatusType function(CliOption opt, CliArgs args);

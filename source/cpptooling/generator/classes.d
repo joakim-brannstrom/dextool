@@ -38,15 +38,14 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
     import std.algorithm : each;
     import std.variant : visit;
     import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
 
     static void genCtor(const ref CppCtor m, CppModule hdr) {
         string params = m.paramRange().joinParams();
-        hdr.ctor(m.name().str, params);
+        hdr.ctor(m.name, params);
     }
 
     static void genDtor(const ref CppDtor m, CppModule hdr) {
-        hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name().str);
+        hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name);
     }
 
     static void genMethod(const ref CppMethod m, CppModule hdr,
@@ -59,7 +58,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
 
         string params = m.paramRange().joinParams();
         auto o = hdr.method(cast(Flag!"isVirtual") m.isVirtual(),
-                m.returnType.toStringDecl, m.name().str, cast(Flag!"isConst") m.isConst, params);
+                m.returnType.toStringDecl, m.name, cast(Flag!"isConst") m.isConst, params);
         if (m.isPure) {
             o[$.end = " = 0;"];
         }
@@ -70,7 +69,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
     }
 
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
-    auto c = hdr.class_(in_c.name().str);
+    auto c = hdr.class_(in_c.name);
     auto pub = c.public_();
 
     foreach (m; in_c.methodPublicRange()) {

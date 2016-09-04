@@ -37,7 +37,7 @@ import std.array : Appender;
 import std.format : format, FormatSpec;
 import std.range : isInputRange;
 import std.traits : Unqual;
-import std.typecons : Typedef, Tuple, Flag, Yes, No, Nullable;
+import std.typecons : Tuple, Flag, Yes, No, Nullable;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
 
@@ -45,7 +45,6 @@ public import cpptooling.data.type;
 
 import cpptooling.analyzer.type;
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.utility.conv : str;
 
 static import cpptooling.data.class_classification;
 
@@ -226,21 +225,13 @@ auto dedup(T)(auto ref T r) @safe if (isInputRange!T) {
     return rval;
 }
 
-/// Convert a namespace stack to a string separated by ::.
-string toStringNs(CppNsStack ns) @safe {
-    import std.algorithm : map;
-    import std.array : join;
-
-    return ns.map!(a => cast(string) a).join("::");
-}
-
 /// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
     import std.variant : visit;
 
     // dfmt off
     return p.visit!(
-        (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name.str);},
+        (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name);},
         (TypeKindAttr t) { return t.toStringDecl; },
         (VariadicType a) { return "..."; }
         );
@@ -249,7 +240,7 @@ string toInternal(CxParam p) @trusted {
 
 /// Convert a TypeKindVariable to a string.
 string toInternal(TypeKindVariable tk) @trusted {
-    return tk.type.toStringDecl(tk.name.str);
+    return tk.type.toStringDecl(tk.name);
 }
 
 /// Join a range of CxParams to a string separated by ", ".
@@ -258,14 +249,14 @@ string joinParams(const(CxParam)[] r) @safe {
     import std.conv : text;
     import std.range : enumerate;
 
-    static string getTypeName(T : const(Tx), Tx)(T p, ulong uid) @trusted {
+    static string getTypeName(const CxParam p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
-        auto x = (cast(Tx) p).visit!(
-            (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name.str);},
-            (TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
-            (VariadicType a) { return "..."; }
+        auto x = p.visit!(
+            (const TypeKindVariable tk) {return tk.type.toStringDecl(tk.name);},
+            (const TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
+            (const VariadicType a) { return "..."; }
             );
         // dfmt on
         return x;
@@ -286,14 +277,14 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     import std.conv : text;
     import std.range : enumerate;
 
-    static string getName(T : const(Tx), Tx)(T p, ulong uid) @trusted {
+    static string getName(const CxParam p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
-        return (cast(Tx) p).visit!(
-            (TypeKindVariable tk) {return tk.name.str;},
-            (TypeKindAttr t) { return "x" ~ text(uid); },
-            (VariadicType a) { return ""; }
+        return p.visit!(
+            (const TypeKindVariable tk) {return tk.name;},
+            (const TypeKindAttr t) { return "x" ~ text(uid); },
+            (const VariadicType a) { return ""; }
             );
         // dfmt on
     }
@@ -321,15 +312,15 @@ CxParam makeCxParam(TypeKindVariable tk) @trusted {
     return CxParam(tk);
 }
 
-private void assertVisit(T : const(Tx), Tx)(ref T p) @trusted {
+private void assertVisit(ref const(CxParam) p) @trusted {
     import std.variant : visit;
 
     // dfmt off
-    (cast(Tx) p).visit!(
-        (TypeKindVariable tk) { assert(tk.name.length > 0);
-                                assert(tk.type.toStringDecl.length > 0);},
-        (TypeKindAttr t)      { assert(t.toStringDecl.length > 0); },
-        (VariadicType a)      {});
+    p.visit!(
+        (const TypeKindVariable tk) { assert(tk.name.length > 0);
+                                      assert(tk.type.toStringDecl.length > 0);},
+        (const TypeKindAttr t)      { assert(t.toStringDecl.length > 0); },
+        (const VariadicType a)      {});
     // dfmt on
 }
 
@@ -348,7 +339,7 @@ pure nothrow struct CxGlobalVariable {
         // do NOT use the user from tk.type.kind.usr, it is for the type not the instance.
         this.usr = usr;
         this.variable = tk;
-        setUniqueId(variable.name.str);
+        setUniqueId(variable.name);
     }
 
     this(USRType usr, TypeKindAttr type, CppVariable name) @safe {
@@ -385,11 +376,10 @@ const:
         case Kind.typeRef:
         case Kind.array:
         case Kind.pointer:
-            formattedWrite(sink, "%s;",
-                    variable.type.toStringDecl(variable.name.str));
+            formattedWrite(sink, "%s;", variable.type.toStringDecl(variable.name));
             if (!usr.isNull && fmt.spec == 'u') {
                 put(sink, " // ");
-                put(sink, cast(string) usr);
+                put(sink, usr);
             }
             break;
         case Kind.ctor:
@@ -400,7 +390,7 @@ const:
             break;
         case Kind.null_:
             logger.error("Type of global variable is null. Identifier ",
-                    variable.name.str);
+                    variable.name);
             break;
         }
     }
@@ -529,8 +519,6 @@ struct CppMethodGeneric {
 pure nothrow struct CFunction {
     mixin mixinUniqueId!string;
 
-    import std.typecons : TypedefType;
-
     Nullable!USRType usr;
 
     private {
@@ -562,7 +550,7 @@ pure nothrow struct CFunction {
 
     /// Function with no parameters and returning void.
     this(USRType usr, const CFunctionName name) @safe {
-        CxReturnType void_ = makeSimple("void");
+        auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, VariadicType.no, StorageClass.None);
     }
 
@@ -575,7 +563,7 @@ pure nothrow struct CFunction {
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(sink, " ");
-            put(sink, cast(string) usr);
+            put(sink, usr);
         }
     }
 
@@ -610,8 +598,7 @@ pure nothrow struct CFunction {
         import std.format : formattedWrite;
 
         auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s)", returnType.toStringDecl, name.str,
-                paramRange.joinParams);
+        formattedWrite(rval, "%s %s(%s)", returnType.toStringDecl, name, paramRange.joinParams);
         return rval.data;
     }
 
@@ -675,9 +662,9 @@ pure nothrow struct CFunction {
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
-        formattedWrite(w, "%s(%s);", name_.str, paramRange.joinParams);
+        formattedWrite(w, "%s(%s);", name_, paramRange.joinParams);
         if (!usr.isNull && fmt.spec == 'u') {
-            formattedWrite(w, " // %s", cast(string) usr);
+            formattedWrite(w, " // %s", usr);
         }
     }
 
@@ -711,22 +698,20 @@ const:
 
     this(const USRType usr, const CppMethodName name, const CppAccess access,
             const CppVirtualMethod virtual) {
-        import std.typecons : TypedefType;
-
         this.usr = usr;
-        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.classification_ = virtual;
         this.accessType_ = access;
         this.name_ = name;
 
-        setUniqueId(name_.str);
+        setUniqueId(name_);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
-        formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_.str);
+        formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_);
         if (!usr.isNull && fmt.spec == 'u') {
-            formattedWrite(w, " // %s", cast(string) usr);
+            formattedWrite(w, " // %s", usr);
         }
     }
 
@@ -756,14 +741,12 @@ const:
 
     this(const USRType usr, const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
-        import std.typecons : TypedefType;
-
         this.usr = usr;
-        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.classification_ = virtual;
         this.accessType_ = access;
         this.name_ = name;
         this.returnType_ = return_type;
-        this.isConst_ = cast(TypedefType!CppConstMethod) const_;
+        this.isConst_ = const_;
 
         this.params_ = params.dup;
 
@@ -780,10 +763,9 @@ const:
     }
 
     /// Function with no parameters and returning void.
-    this(USRType usr, const CppMethodName name, const CppAccess access,
-            const CppConstMethod const_ = false,
-            const CppVirtualMethod virtual = MemberVirtualType.Normal) @safe {
-        CxReturnType void_ = makeSimple("void");
+    this(USRType usr, const CppMethodName name, const CppAccess access, const CppConstMethod const_ = CppConstMethod(false),
+            const CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
+        auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -799,7 +781,7 @@ const:
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, cast(string) usr);
+            put(w, usr);
         }
     }
 
@@ -809,7 +791,7 @@ const:
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
-        put(w, name_.str);
+        put(w, name_);
         formattedWrite(w, "(%s)", paramRange.joinParams);
         put(w, helperConst(isConst));
     }
@@ -838,13 +820,11 @@ const:
 
     this(const USRType usr, const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
             const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
-        import std.typecons : TypedefType;
-
         this.usr = usr;
-        this.classification_ = cast(TypedefType!CppVirtualMethod) virtual;
+        this.classification_ = virtual;
         this.accessType_ = access;
         this.name_ = name;
-        this.isConst_ = cast(TypedefType!CppConstMethod) const_;
+        this.isConst_ = const_;
         this.returnType_ = return_type;
 
         this.params_ = params.dup;
@@ -858,9 +838,9 @@ const:
 
     /// Operator with no parameters and returning void.
     this(const USRType usr, const CppMethodName name, const CppAccess access,
-            const CppConstMethod const_ = false,
-            const CppVirtualMethod virtual = MemberVirtualType.Normal) @safe {
-        CxReturnType void_ = makeSimple("void");
+            const CppConstMethod const_ = CppConstMethod(false),
+            const CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
+        auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, access, const_, virtual);
     }
 
@@ -876,7 +856,7 @@ const:
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, cast(string) usr);
+            put(w, usr);
         }
     }
 
@@ -886,7 +866,7 @@ const:
     private string signatureToString() {
         import std.format : format;
 
-        return format("%s(%s)%s", name_.str, paramRange.joinParams, helperConst(isConst));
+        return format("%s(%s)%s", name_, paramRange.joinParams, helperConst(isConst));
     }
 
     mixin(standardToString);
@@ -936,14 +916,13 @@ const:
         import std.conv : to;
         import std.format : formattedWrite;
         import std.range.primitives : put;
-        import std.typecons : TypedefType;
         import std.string : toLower;
 
-        put(w, to!string(cast(TypedefType!CppAccess) access_).toLower);
+        put(w, (cast(string) access_).toLower);
         put(w, " ");
 
         foreach (a; ns) {
-            formattedWrite(w, "%s::", cast(string) a);
+            formattedWrite(w, "%s::", a);
         }
         put(w, cast(string) name_);
     }
@@ -960,19 +939,19 @@ const:
         return access_;
     }
 
-    FullyQualifiedNameType fullyQualifiedName() {
+    FullyQualifiedNameType fullyQualifiedName() const {
         //TODO optimize by only calculating once.
         import std.algorithm : map, joiner;
         import std.range : chain, only;
         import std.conv : text;
 
         // dfmt off
-            auto r = chain(ns.map!(a => cast(string) a),
-                           only(cast(string) name_))
-                .joiner("::")
-                .text();
-            return FullyQualifiedNameType(r);
-            // dfmt on
+        auto r = chain(ns.payload.map!(a => cast(string) a),
+                       only(cast(string) name_))
+            .joiner("::")
+            .text();
+        return FullyQualifiedNameType(r);
+        // dfmt on
     }
 }
 
@@ -980,7 +959,6 @@ const:
     mixin mixinKind;
     mixin mixinUniqueId!size_t;
 
-    import std.typecons : TypedefType;
     import std.variant : Algebraic, visit;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
@@ -1018,12 +996,12 @@ const:
     }
     body {
         this.name_ = name;
-        this.reside_in_ns = ns.dup;
+        this.reside_in_ns = CppNsStack(ns.dup);
 
         () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
 
         ///TODO consider update so the identifier also depend on the namespace.
-        setUniqueId(this.name_.str);
+        setUniqueId(this.name_);
     }
 
     //TODO remove
@@ -1055,7 +1033,7 @@ const:
             formattedWrite(w, "// %s\n", a);
         }
 
-        formattedWrite(w, "class %s", name_.str);
+        formattedWrite(w, "class %s", name_);
 
         // inheritance
         if (inherits_.length > 0) {
@@ -1069,7 +1047,7 @@ const:
         // debug help
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, cast(string) usr);
+            put(w, usr);
             put(w, newline);
         }
 
@@ -1124,9 +1102,9 @@ const:
 
         // end
         put(w, "}; //Class:");
-        reside_in_ns.map!(a => cast(string) a).joiner("::").copy(w);
-        reside_in_ns.takeOne.map!(a => "::").copy(w);
-        put(w, name_.str);
+        reside_in_ns.payload.map!(a => cast(string) a).joiner("::").copy(w);
+        reside_in_ns.payload.takeOne.map!(a => "::").copy(w);
+        put(w, name_);
     }
 
     mixin(standardToString);
@@ -1138,7 +1116,7 @@ const:
                 || is(Unqual!T == CppDtor) || is(Unqual!T == CppMethodOp)) {
         auto f = () @trusted{ Unqual!T tmp; tmp = func; return CppFunc(tmp); }();
 
-        final switch (cast(TypedefType!CppAccess) func.accessType) {
+        final switch (func.accessType) {
         case AccessType.Public:
             methods_pub ~= f;
             break;
@@ -1279,7 +1257,7 @@ const:
     auto nsNestingRange() @nogc {
         import std.range : retro;
 
-        return reside_in_ns.retro;
+        return reside_in_ns.payload.retro;
     }
 
     auto commentRange() @nogc {
@@ -1341,9 +1319,9 @@ const:
 
         // dfmt off
         auto fqn = chain(
-                         reside_in_ns.map!(a => cast(string) a).joiner("::"),
-                         reside_in_ns.takeOne.map!(a => "::").joiner(),
-                         only(name_.str).joiner()
+                         reside_in_ns.payload.map!(a => cast(string) a).joiner("::"),
+                         reside_in_ns.payload.takeOne.map!(a => "::").joiner(),
+                         only(cast(string) name_).joiner()
                         );
         return FullyQualifiedNameType(fqn.array().toUTF8);
         // dfmt on
@@ -1371,14 +1349,14 @@ const:
 
     /// A namespace without any nesting.
     static auto make(CppNs name) pure nothrow {
-        return CppNamespace([name]);
+        return CppNamespace(CppNsStack([name]));
     }
 
     this(const CppNsStack stack) pure nothrow {
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
         }
-        this.stack = stack.dup;
+        this.stack = CppNsStack(stack.dup);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
@@ -1388,8 +1366,8 @@ const:
         import std.meta : AliasSeq;
         import std.range : takeOne, retro, put;
 
-        auto ns_top_name = stack.retro.takeOne.map!(a => cast(string) a).joiner();
-        auto ns_full_name = stack.map!(a => cast(string) a).joiner("::");
+        auto ns_top_name = stack.payload.retro.takeOne.map!(a => cast(string) a).joiner();
+        auto ns_full_name = stack.payload.map!(a => cast(string) a).joiner("::");
 
         formattedWrite(w, "namespace %s { //%s\n", ns_top_name, ns_full_name);
 
@@ -1427,7 +1405,7 @@ const:
     auto nsNestingRange() @nogc pure nothrow {
         import std.range : retro;
 
-        return stack.retro;
+        return stack.payload.retro;
     }
 
     /// Range data of symbols residing in this namespace.
@@ -1482,11 +1460,10 @@ const:
 
         import std.array : array;
         import std.algorithm : map, joiner;
-        import std.range : takeOne, only, chain, takeOne;
-        import std.utf : byChar, toUTF8;
+        import std.utf : toUTF8;
 
         // dfmt off
-        auto fqn = stack.map!(a => cast(string) a).joiner("::");
+        auto fqn = stack.payload.map!(a => cast(string) a).joiner("::");
         return FullyQualifiedNameType(fqn.array().toUTF8);
         // dfmt on
     }
@@ -1681,9 +1658,9 @@ unittest {
 
 @Name("Create a namespace struct two deep")
 unittest {
-    auto stack = [CppNs("foo"), CppNs("bar")];
+    auto stack = CppNsStack([CppNs("foo"), CppNs("bar")]);
     auto n = CppNamespace(stack);
-    shouldEqual(n.name, "bar");
+    shouldEqual(cast(string) n.name, "bar");
     shouldEqual(n.isAnonymous, false);
 }
 
@@ -1786,7 +1763,7 @@ private:
 
 @Name("should be a class in a ns in the comment")
 unittest {
-    CppNsStack ns = [CppNs("a_ns"), CppNs("another_ns")];
+    auto ns = CppNsStack([CppNs("a_ns"), CppNs("another_ns")]);
     auto c = CppClass(CppClassName("A_Class"), CppInherit[].init, ns);
 
     shouldEqualPretty(c.toString, "class A_Class { // Unknown
@@ -1904,7 +1881,7 @@ public:
 
 @Name("Should show nesting of namespaces as valid C++ code")
 unittest {
-    auto stack = [CppNs("foo"), CppNs("bar")];
+    auto stack = CppNsStack([CppNs("foo"), CppNs("bar")]);
     auto n = CppNamespace(stack);
     shouldEqualPretty(n.toString, "namespace bar { //foo::bar
 } //NS:bar");
@@ -1939,9 +1916,9 @@ namespace simple { //simple
 @Name("CppNamespace.toString should return nested namespace")
 unittest {
     auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
-    auto depth1 = CppNamespace(stack[0 .. 1]);
-    auto depth2 = CppNamespace(stack[0 .. 2]);
-    auto depth3 = CppNamespace(stack[0 .. $]);
+    auto depth1 = CppNamespace(CppNsStack(stack[0 .. 1]));
+    auto depth2 = CppNamespace(CppNsStack(stack[0 .. 2]));
+    auto depth3 = CppNamespace(CppNsStack(stack[0 .. $]));
 
     depth2.put(depth3);
     depth1.put(depth2);

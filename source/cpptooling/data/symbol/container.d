@@ -367,7 +367,7 @@ unittest {
     {
         auto result = cont.find!TypeKind(USRType("key"));
         result.length.shouldEqual(1);
-        result.front.usr.shouldEqual("key");
+        (cast(string) result.front.usr).shouldEqual("key");
     }
 
     auto loc = LocationTag(Location("file.h", 1, 2));
@@ -412,7 +412,7 @@ unittest {
     auto found_class = cont.find!CppClass(FullyQualifiedNameType("Class")).front;
 
     // should be able to use the found class
-    "Class".shouldEqual(found_class.name);
+    "Class".shouldEqual(cast(string) found_class.name);
 }
 
 @Name("should list all contained items")

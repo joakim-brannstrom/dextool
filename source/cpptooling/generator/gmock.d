@@ -21,7 +21,6 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import cpptooling.data.representation; // : CppClass, CppNamespace, CppMethodOp, CppMethod;
-import cpptooling.utility.conv : str;
 import cpptooling.analyzer.kind;
 import cpptooling.analyzer.type;
 
@@ -60,7 +59,7 @@ private void genOp(const CppMethodOp m, CppModule hdr) {
 
     static void genMockMethod(const CppMethodOp m, CppModule hdr) {
         string params = m.paramRange().joinParams();
-        string gmock_name = translateOp(m.op().str);
+        string gmock_name = translateOp(m.op);
         string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
         //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
         string stmt = format("%s(%s, %s(%s))", gmock_macro, gmock_name,
@@ -71,11 +70,11 @@ private void genOp(const CppMethodOp m, CppModule hdr) {
     static void genMockCaller(const CppMethodOp m, CppModule hdr) {
         import dsrcgen.cpp : E;
 
-        string gmock_name = translateOp(m.op().str);
+        string gmock_name = translateOp(m.op);
 
         //TODO should use the toString function for TypeKind + TypeAttr, otherwise const isn't affecting it.
         CppModule code = hdr.method_inline(Yes.isVirtual, m.returnType.toStringDecl,
-                m.name.str, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
+                m.name, m.isConst ? Yes.isConst : No.isConst, m.paramRange().joinParams());
         auto call = E(gmock_name)(m.paramRange().joinParamNames);
 
         if (m.returnType.toStringDecl == "void") {
@@ -94,7 +93,7 @@ private void genMethod(const CppMethod m, CppModule hdr) {
 
     void genMethodWithFewParams(const CppMethod m, CppModule hdr) {
         hdr.stmt(format("%s(%s, %s(%s))", gmockMacro(m.paramRange().length,
-                m.isConst), m.name.str(), m.returnType.toStringDecl, m.paramRange().joinParams()));
+                m.isConst), m.name, m.returnType.toStringDecl, m.paramRange().joinParams()));
         return;
     }
 
@@ -113,10 +112,10 @@ private void genMethod(const CppMethod m, CppModule hdr) {
             // inject gmock macro
             code.stmt(format("%s(%s, void(%s))",
                              gmockMacro(a.length, m.isConst),
-                             partName(m.name().str, part_no),
+                             partName(m.name, part_no),
                              a.joinParams));
             // inject delegation call to gmock macro
-            delegate_mock.stmt(E(partName(m.name().str, part_no))(a.joinParamNames));
+            delegate_mock.stmt(E(partName(m.name, part_no))(a.joinParamNames));
             // dfmt on
         }
 
@@ -124,7 +123,7 @@ private void genMethod(const CppMethod m, CppModule hdr) {
                 CppModule code, CppModule delegate_mock) {
             import dsrcgen.cpp : E;
 
-            auto part_name = partName(m.name().str, part_no);
+            auto part_name = partName(m.name, part_no);
             code.stmt(format("%s(%s, %s(%s))", gmockMacro(p.length, m.isConst),
                     part_name, m.returnType.toStringDecl, p.joinParams));
 
@@ -142,9 +141,8 @@ private void genMethod(const CppMethod m, CppModule hdr) {
         code.suppressIndent(1);
 
         // Generate mock method that delegates to partial mock methods
-        auto delegate_mock = hdr.method_inline(Yes.isVirtual,
-                m.returnType.toStringDecl, m.name().str,
-                cast(Flag!"isConst") m.isConst, m.paramRange().joinParams());
+        auto delegate_mock = hdr.method_inline(Yes.isVirtual, m.returnType.toStringDecl,
+                m.name, cast(Flag!"isConst") m.isConst, m.paramRange().joinParams());
 
         auto param_chunks = m.paramRange.chunks(MAX_GMOCK_PARAMS);
 
@@ -191,9 +189,8 @@ in {
 }
 body {
     import cpptooling.data.representation;
-    import cpptooling.utility.conv : str;
 
-    auto ns = hdr.namespace(params.getMainNs().str);
+    auto ns = hdr.namespace(params.getMainNs);
     ns.suppressIndent(1);
     // dfmt off
     // fully qualified class the mock inherit from
@@ -201,14 +198,14 @@ body {
         chain(
               // when joined ensure the qualifier start with "::"
               in_c.nsNestingRange.takeOne.map!(a => ""),
-              in_c.nsNestingRange.retro.map!(a => a.str),
-              only(in_c.name().str))
+              in_c.nsNestingRange.retro.map!(a => a),
+              only(cast(string) in_c.name))
         .joiner("::")
         .text;
     // dfmt on
-    auto c = ns.class_("Mock" ~ in_c.name().str, base_class);
+    auto c = ns.class_("Mock" ~ in_c.name, base_class);
     auto pub = c.public_();
-    pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name().str)[$.end = " {}" ~ newline];
+    pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name)[$.end = " {}" ~ newline];
 
     foreach (m; in_c.methodRange()) {
         // dfmt off

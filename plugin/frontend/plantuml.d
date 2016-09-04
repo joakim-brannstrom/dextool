@@ -50,11 +50,9 @@ struct FileProcess {
 }
 
 auto runPlugin(CliOption opt, CliArgs args) {
-    import std.typecons : TypedefType;
     import docopt;
 
-    auto parsed = docopt.docoptParse(cast(TypedefType!CliOption) opt,
-            cast(TypedefType!CliArgs) args);
+    auto parsed = docopt.docoptParse(opt, args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -344,7 +342,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import std.algorithm : map, joiner;
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
-    import std.typecons : TypedefType, Yes;
+    import std.typecons : Yes;
 
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
@@ -372,7 +370,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         const auto total_files = compile_db.length;
         logger.trace("Number of files to process: ", total_files);
 
-        foreach (idx, entry; (cast(TypedefType!CompileCommandDB) compile_db)) {
+        foreach (idx, entry; compile_db) {
             logger.infof("File %d/%d ", idx + 1, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry);
 

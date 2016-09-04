@@ -25,7 +25,7 @@ module plugin.backend.plantuml;
 
 import std.meta : templateAnd, templateOr;
 import std.range : ElementType;
-import std.typecons : Typedef, Tuple, Flag, Yes, No;
+import std.typecons : Tuple, Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.plantuml;
@@ -315,8 +315,15 @@ class UMLClassDiagram {
     alias ClassClassificationState = cpptooling.data.class_classification.State;
 
     alias Key = USRType;
-    alias DisplayName = Typedef!(string, string.init, "DisplayName");
-    alias Content = Typedef!(string, null, "Comment");
+    struct DisplayName {
+        string payload;
+        alias payload this;
+    }
+
+    struct Content {
+        string payload;
+        alias payload this;
+    }
 
     private struct Class {
         DisplayName displayName;
@@ -413,7 +420,7 @@ class UMLClassDiagram {
     /// Returns: An array of the key/values sorted on key.
     auto nameSortedRange() const pure @trusted {
         static string sortClassNameBy(T)(ref T a) {
-            return a[1].displayName.str;
+            return a[1].displayName;
         }
 
         return .nameSortedRange!(typeof(this), sortClassNameBy)(this);
@@ -431,11 +438,11 @@ class UMLClassDiagram {
         return classes
             .byKeyValue
             .map!(a => chain(only(format("%s -> %s%s",
-                                         a.value.displayName.str,
-                                         a.key.str,
+                                         a.value.displayName,
+                                         a.key,
                                          a.value.content.length == 0 ? "" : " {")),
                              a.value.content.dup.map!(b => "  " ~ b),
-                             a.value.content.takeOne.map!(b => "} // " ~ a.value.displayName.str))
+                             a.value.content.takeOne.map!(b => "} // " ~ a.value.displayName))
                   .joiner(newline)
                   .text)
             .array();
@@ -500,9 +507,20 @@ class UMLClassDiagram {
 class UMLComponentDiagram {
     import std.container.rbtree : RedBlackTree;
 
-    alias Key = Typedef!(string, string.init, "UMLKey");
-    alias Location = Typedef!(string, string.init, "Location");
-    alias DisplayName = Typedef!(string, string.init, "DisplayName");
+    struct Key {
+        string payload;
+        alias payload this;
+    }
+
+    struct Location {
+        string payload;
+        alias payload this;
+    }
+
+    struct DisplayName {
+        string payload;
+        alias payload this;
+    }
 
     private struct Component {
         DisplayName displayName;
@@ -602,8 +620,8 @@ class UMLComponentDiagram {
         // dfmt off
         return nameSortedRange
             .map!(a => tuple(a[0], a[1].displayName, a[1].contains[].map!(a => newline ~ "  " ~ cast(string) a).joiner))
-            .map!(a => format("%s as %s%s", a[0].str,
-                a[1].str,
+            .map!(a => format("%s as %s%s", a[0],
+                a[1],
                 a[2])).array();
         // dfmt on
     }
@@ -945,7 +963,7 @@ private:
                 return m;
             }
 
-            m.stmt("!include " ~ cast(string) style_file ~ "!" ~ to!string(cast(int) style_type));
+            m.stmt("!include " ~ style_file ~ "!" ~ to!string(cast(int) style_type));
 
             return m;
         }
@@ -972,7 +990,7 @@ private:
 
             immutable ext_dot = ".dot";
 
-            FileName fname_dot = (cast(string) fname).stripExtension ~ ext_dot;
+            auto fname_dot = FileName(fname.stripExtension ~ ext_dot);
             auto dot = new PlantumlModule;
             auto digraph = dot.digraph("g");
             digraph.suppressThisIndent(1);
@@ -1035,7 +1053,7 @@ private alias ClassClassificationResult = Tuple!(TypeKindAttr, "type",
 private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, copy, each, joiner;
     import std.array : Appender;
-    import std.typecons : scoped, TypedefType, NullableRef;
+    import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : ClassDecl, CXXBaseSpecifier,
         Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier;
@@ -1084,7 +1102,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         this.recv = &recv;
         this.container = &container;
         this.indent = indent;
-        this.ns_stack = reside_in_ns.dup;
+        this.ns_stack = CppNsStack(reside_in_ns.dup);
 
         this.access = CppAccess(AccessType.Private);
         this.classification = ClassificationState.Unknown;
@@ -1211,7 +1229,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, filter, cache, joiner;
     import std.range : chain, only, dropOne, ElementType;
-    import std.typecons : scoped, NullableRef, TypedefType;
+    import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : TranslationUnit, UnexposedDecl,
         VarDecl, FunctionDecl, ClassDecl, Namespace;
@@ -1351,10 +1369,9 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     Flag!"genClassMemberDependency" genClassMemberDependency;
 
     private static string toPrefix(CppAccess access) {
-        import std.typecons : TypedefType;
         import cpptooling.data.type : CppAccess, AccessType;
 
-        final switch (cast(TypedefType!CppAccess) access) {
+        final switch (access) {
         case AccessType.Public:
             return "+";
         case AccessType.Protected:
@@ -1388,7 +1405,6 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
         import std.range : chain, only;
-        import std.typecons : TypedefType;
 
         import cpptooling.data.type : CppConstMethod;
         import cpptooling.data.representation : CppMethod;
@@ -1410,7 +1426,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
             // dfmt off
             auto relations =
                 chain(getClassMethodRelation(result.params, lookup),
-                      only(getTypeRelation(cast(TypedefType!CxReturnType) result.returnType, lookup)))
+                      only(getTypeRelation(cast(TypeKindAttr) result.returnType, lookup)))
                 .filter!(a => a.kind != Relate.Kind.None)
                 // remove self referencing keys, would result in circles which
                 // just clutters the diagrams
@@ -1542,7 +1558,6 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.algorithm : map, copy, each, joiner;
     import std.range : chain;
-    import std.typecons : TypedefType;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
         CXXMethodResult, ConstructorResult, DestructorResult, ClassDeclResult,
@@ -1738,8 +1753,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         import std.range : only;
 
         putParamsToCache(src, result.params, dcache, lookup);
-        putToCache(src.kind.usr,
-                only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
+        putToCache(src.kind.usr, only((cast(const TypeKindAttr) result.returnType)), dcache, lookup);
     }
 
     void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
@@ -1779,7 +1793,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
 
         putParamsToCache(result.type, result.params, dcache, lookup);
         putToCache(result.type.kind.usr,
-                only((cast(TypedefType!CxReturnType) result.returnType)), dcache, lookup);
+                only(cast(const TypeKindAttr) result.returnType), dcache, lookup);
     }
 
     void putSrc(ref const(LocationTag) src) @safe {
@@ -1908,7 +1922,6 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CppNamespace, CFunction, CxGlobalVariable;
 import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
-import cpptooling.utility.conv : str;
 import dsrcgen.plantuml;
 
 alias KeyValue = Tuple!(UMLComponentDiagram.Key, "key", string, "display", string, "absFilePath");
@@ -2143,7 +2156,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
         if (doGenDot) {
             auto nodes = modules.classes_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, kv[0].str, kv[1].displayName.str));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv[0], kv[1].displayName));
 
             // make a range of all relations from THIS to other components
             auto r = uml_class.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
@@ -2157,7 +2170,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
         if (doGenDot) {
             auto nodes = modules.components_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, kv[0].str, kv[1].displayName.str));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv[0], kv[1].displayName));
 
             // make a range of all relations from THIS to other components
             auto r = uml_comp.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
