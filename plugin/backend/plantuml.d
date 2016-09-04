@@ -1143,7 +1143,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeConstructor(v, *container, indent);
 
         debug {
-            auto tor = CppCtor(result.name, result.params, access);
+            auto tor = CppCtor(result.usr, result.name, result.params, access);
             logger.trace("ctor: ", tor.toString);
         }
 
@@ -1158,7 +1158,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
                 cast(MemberVirtualType) result.virtualKind, hasMember);
 
         debug {
-            auto tor = CppDtor(result.name, access, result.virtualKind);
+            auto tor = CppDtor(result.usr, result.name, access, result.virtualKind);
             logger.trace("dtor: ", tor.toString);
         }
 
@@ -1435,7 +1435,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
 
         if (genClassMethod) {
-            auto tor = CppCtor(result.name, result.params, access);
+            auto tor = CppCtor(result.usr, result.name, result.params, access);
             uml.put(src_key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
 
@@ -1459,7 +1459,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 
         if (genClassMethod) {
             auto key = makeClassKey(src.kind.usr);
-            auto tor = CppDtor(result.name, access, result.virtualKind);
+            auto tor = CppDtor(result.usr, result.name, access, result.virtualKind);
             uml.put(key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
     }

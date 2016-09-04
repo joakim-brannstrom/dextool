@@ -276,7 +276,7 @@ auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @
     return VarDeclResult(type.primary.type, name, loc, instance_usr);
 }
 
-alias ConstructorResult = Tuple!(CppMethodName, "name", CxParam[], "params");
+alias ConstructorResult = Tuple!(CppMethodName, "name", CxParam[], "params", USRType, "usr");
 
 /** Analyze the node for actionable data.
  * Params:
@@ -292,11 +292,13 @@ auto analyzeConstructor(const(Constructor) v, ref Container container, in uint i
 
     auto params = toCxParam(type.primary.type.kind, container);
     auto name = CppMethodName(v.cursor.spelling);
+    auto usr = cast(USRType) v.cursor.usr;
 
-    return ConstructorResult(name, params);
+    return ConstructorResult(name, params, usr);
 }
 
-alias DestructorResult = Tuple!(CppMethodName, "name", CppVirtualMethod, "virtualKind");
+alias DestructorResult = Tuple!(CppMethodName, "name", CppVirtualMethod,
+        "virtualKind", USRType, "usr");
 
 /// ditto
 auto analyzeDestructor(const(Destructor) v, ref Container container, in uint indent) @safe {
@@ -305,8 +307,9 @@ auto analyzeDestructor(const(Destructor) v, ref Container container, in uint ind
 
     auto name = CppMethodName(v.cursor.spelling);
     auto virtual_kind = classify(v.cursor);
+    auto usr = cast(USRType) v.cursor.usr;
 
-    return DestructorResult(name, virtual_kind);
+    return DestructorResult(name, virtual_kind, usr);
 }
 
 alias CXXMethodResult = Tuple!(TypeKindAttr, "type", CppMethodName, "name",
@@ -462,7 +465,7 @@ final class ClassVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
-        auto tor = CppCtor(result.name, result.params, accessType);
+        auto tor = CppCtor(result.usr, result.name, result.params, accessType);
         root.put(tor);
 
         logger.trace("ctor: ", tor.toString);
@@ -475,7 +478,7 @@ final class ClassVisitor : Visitor {
         .put(type, *container, indent);
 
         auto result = analyzeDestructor(v, *container, indent);
-        auto tor = CppDtor(result.name, accessType, classify(v.cursor));
+        auto tor = CppDtor(result.usr, result.name, accessType, classify(v.cursor));
         root.put(tor);
 
         logger.trace("dtor: ", tor.toString);
@@ -497,8 +500,8 @@ final class ClassVisitor : Visitor {
         auto is_virtual = classify(v.cursor);
 
         if (name.isOperator) {
-            auto op = CppMethodOp(name, params, return_type, accessType,
-                    CppConstMethod(type.primary.type.attr.isConst), is_virtual);
+            auto op = CppMethodOp(type.primary.type.kind.usr, name, params, return_type,
+                    accessType, CppConstMethod(type.primary.type.attr.isConst), is_virtual);
             root.put(op);
             logger.trace("operator: ", op.toString);
         } else {

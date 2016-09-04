@@ -56,7 +56,9 @@ private struct FastLookup(T, K) {
         assert((key in lookup) is null);
     }
     body {
-        auto heap = new T(instance);
+        auto heap = new T;
+        *heap = instance;
+
         instances ~= heap;
         lookup[key] = heap;
 
@@ -238,7 +240,7 @@ struct Container {
         return classes.find(fqn);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.algorithm : map, copy;
         import std.ascii : newline;
         import std.format : formattedWrite, formatValue;

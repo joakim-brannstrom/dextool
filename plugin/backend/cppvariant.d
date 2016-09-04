@@ -375,11 +375,12 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         import std.format : FormatSpec;
         import std.range.primitives : put;
 
-        root.toString(w);
-        put(w, "\n");
+        auto fmt = FormatSpec!char("%u");
+        fmt.writeUpToNextSpec(w);
 
-        auto fmt = FormatSpec!char("%s");
-        container.get.toString(w, fmt);
+        root.toString(w, fmt);
+        put(w, "\n");
+        container.get.toString(w, FormatSpec!char("%s"));
     }
 
     override string toString() const {

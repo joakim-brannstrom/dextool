@@ -38,9 +38,9 @@ CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
     c.put("Adapter connecting an interface with an implementation.");
     c.put("The lifetime of the connection is the same as the instance of the adapter.");
 
-    c.put(CppCtor(CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
-    c.put(CppDtor(CppMethodName("~" ~ c_name), CppAccess(AccessType.Public),
-            CppVirtualMethod(MemberVirtualType.Normal)));
+    c.put(CppCtor(makeUniqueUSR, CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
+    c.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ c_name),
+            CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Normal)));
 
     return c;
 }
