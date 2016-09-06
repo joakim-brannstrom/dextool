@@ -14,12 +14,16 @@ to use:
 ## Dub
 ```bash
 source ./config.sh
+
 dub build
+# or
+./build.sh
 ```
 
 ## Make
 ```bash
 source ./config.sh
+
 make dmd
 # or
 make ldc2
