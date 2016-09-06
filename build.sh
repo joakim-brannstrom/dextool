@@ -12,9 +12,9 @@ if [[ -n "$DC" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-    dub build $COMPILER --parallel -c debug -b debug
-    dub build $COMPILER --parallel -c devtool -b debug
-
+    dub build $COMPILER -c application -b release
+    dub build $COMPILER -c debug -b debug
+elif [[ ( $# -eq 1 ) && ( $1 == "make" ) ]]; then
     # release build is always from makefile
     make $DC
 else

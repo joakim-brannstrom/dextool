@@ -28,4 +28,7 @@ if [[ $TEST_STATUS -ne 0 ]]; then
 fi
 
 set -e
-./build.sh
+
+./build.sh build -c debug -b debug
+./build.sh build -c devtool -b debug
+./build.sh make
