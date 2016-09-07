@@ -811,7 +811,8 @@ private template OpInfo(U, OpKind kind, string name, ARGS...)
 }
 
 private template ImplicitUnqual(T) {
-    import std.traits : Unqual, hasAliasing;
+    import std.traits : hasAliasing;
+    import cpptooling.utility.unqual : Unqual;
     static if (is(T == void)) alias ImplicitUnqual = void;
     else {
         private static struct S { T t; }
