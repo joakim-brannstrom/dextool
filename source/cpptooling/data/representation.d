@@ -36,7 +36,6 @@ module cpptooling.data.representation;
 import std.array : Appender;
 import std.format : format, FormatSpec;
 import std.range : isInputRange;
-import std.traits : Unqual;
 import std.typecons : Tuple, Flag, Yes, No, Nullable;
 import std.variant : Algebraic;
 import logger = std.experimental.logger;
@@ -45,6 +44,7 @@ public import cpptooling.data.type;
 
 import cpptooling.analyzer.type;
 import cpptooling.data.symbol.types : USRType;
+import cpptooling.utility.unqual : Unqual;
 
 static import cpptooling.data.class_classification;
 
@@ -1108,8 +1108,6 @@ const:
     }
 
     mixin(standardToString);
-
-    import std.traits : Unqual;
 
     void put(T)(T func)
             if (is(Unqual!T == CppMethod) || is(Unqual!T == CppCtor)
