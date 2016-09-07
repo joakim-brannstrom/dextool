@@ -2,6 +2,10 @@
 
 if [[ -n "$LFLAG_CLANG_PATH" ]]; then
     echo "Using user env flag \$LFLAG_CLANG_PATH"
+elif [[ -d "/usr/lib/llvm-3.9/lib" ]]; then
+    export LFLAG_CLANG_PATH="-L/usr/lib/llvm-3.9/lib"
+elif [[ -d "/usr/lib/llvm-3.8/lib" ]]; then
+    export LFLAG_CLANG_PATH="-L/usr/lib/llvm-3.8/lib"
 elif [[ -d "/usr/lib/llvm-3.7/lib" ]]; then
     export LFLAG_CLANG_PATH="-L/usr/lib/llvm-3.7/lib"
 elif [[ -d "/usr/lib/llvm-3.6/lib" ]]; then

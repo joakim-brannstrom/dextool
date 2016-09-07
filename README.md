@@ -9,13 +9,17 @@ code.
 # Overview
 The current focus is generation of test doubles for C code.
 
+# Dependencies
+ - libclang 3.7+.
+deXtool has been tested with versions [3.7, 3.8].
+
 # Building and installing
 See INSTALL.md
 
 # Usage
 ## Generate a simple C test double.
 ```
-dextool ctestdouble functions.h
+dextool ctestdouble --in functions.h
 ```
 
 Analyze and generate a test double for function prototypes and extern variables.
@@ -26,7 +30,7 @@ The name of the interface is Test_Double.
 
 ## Generate a C test double excluding data from specified files.
 ```
-dextool ctestdouble --file-exclude=/foo.h --file-exclude=functions.[h,c] --out=outdata/ functions.h -- -DBAR -I/some/path
+dextool ctestdouble --file-exclude=/foo.h --file-exclude='functions\.[h,c]' --out=outdata/ --in functions.h -- -DBAR -I/some/path
 ```
 
 The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
