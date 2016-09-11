@@ -722,6 +722,7 @@ struct ActivityBlock(ActivityKind kind_) {
      */
     private ActivityModule[] injectBlock;
 
+    /// The current activity module.
     @property auto current() {
         return current_;
     }
@@ -794,6 +795,7 @@ class ActivityModule : BaseModule {
         return ActivityBlock!(ActivityKind.IfThen)(cond, [next, then]);
     }
 
+    /// Add an if statement without any type safety reflected in D.
     auto unsafeIf(string condition, string then = null) {
         if (then is null) {
             return stmt(format("if (%s)", condition));
@@ -802,7 +804,8 @@ class ActivityModule : BaseModule {
         }
     }
 
-    auto unsafeIfElse(string condition, string then = null) {
+    /// Add an else if statement without any type safety reflected in D.
+    auto unsafeElseIf(string condition, string then = null) {
         if (then is null) {
             return stmt(format("else if (%s)", condition));
         } else {
@@ -815,6 +818,7 @@ class ActivityModule : BaseModule {
         return stmt("else");
     }
 
+    /// Type unsafe endif.
     auto unsafeEndif() {
         return stmt("endif");
     }
