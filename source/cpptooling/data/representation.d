@@ -44,6 +44,7 @@ public import cpptooling.data.type;
 import cpptooling.analyzer.type;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.unqual : Unqual;
+import cpptooling.utility.hash;
 
 static import cpptooling.data.class_classification;
 
@@ -142,17 +143,6 @@ private string standardToString() {
         return trustedUnique(buf);
     }
     };
-}
-
-private size_t makeHash(string identifier) @safe pure nothrow @nogc {
-    import std.digest.crc;
-
-    size_t value = 0;
-
-    if (identifier is null)
-        return value;
-    ubyte[4] hash = crc32Of(identifier);
-    return value ^ ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
 }
 
 /// Expects a toString function where it is mixed in.
