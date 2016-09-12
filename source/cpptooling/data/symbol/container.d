@@ -346,7 +346,8 @@ struct Container {
 
         if (is_definition) {
             if (decl.hasDefinition) {
-                logger.errorf("Multiple definitions of %s (%s)", cast(string) usr, location);
+                debug logger.tracef("Definition already in container, %s (%s)",
+                        cast(string) usr, location);
             } else {
                 decl.definition = location;
             }
