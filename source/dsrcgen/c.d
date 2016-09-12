@@ -18,10 +18,13 @@ class Comment : BaseModule {
     mixin Attrs;
 
     private string contents;
+
+    /// Create a one liner comment.
     this(string contents) {
         this.contents = contents;
     }
 
+    ///
     override string renderIndent(int parent_level, int level) {
         if ("begin" in attrs) {
             return indent(attrs["begin"] ~ contents, parent_level, level);
@@ -31,8 +34,17 @@ class Comment : BaseModule {
     }
 }
 
+/// Mixin of methods for creating semantic C content.
 mixin template CModuleX() {
     mixin Attrs;
+
+    /** Access to self.
+     *
+     * Useful in with-statements.
+     */
+    auto _() {
+        return this;
+    }
 
     auto comment(string comment) {
         auto e = new Comment(comment);
@@ -76,20 +88,28 @@ mixin template CModuleX() {
     }
 
     auto goto_(string name) {
+        import std.format : format;
+
         return stmt(format("goto %s", name));
     }
 
     auto label(string name) {
+        import std.format : format;
+
         return stmt(format("%s:", name));
     }
 
     auto define(string name) {
+        import std.format : format;
+
         auto e = stmt(format("#define %s", name));
         e[$.end = ""];
         return e;
     }
 
     auto define(string name, string value) {
+        import std.format : format;
+
         // may need to replace \n with \\\n
         auto e = stmt(format("#define %s %s", name, value));
         e[$.end = ""];
@@ -97,6 +117,8 @@ mixin template CModuleX() {
     }
 
     auto include(string filename) {
+        import std.format : format;
+
         string f = filename;
         string incl;
 
@@ -126,10 +148,14 @@ mixin template CModuleX() {
     }
 
     auto if_(string cond) {
+        import std.format : format;
+
         return suite(format("if (%s)", cond));
     }
 
     auto else_if(string cond) {
+        import std.format : format;
+
         return suite(format("else if (%s)", cond));
     }
 
@@ -138,24 +164,34 @@ mixin template CModuleX() {
     }
 
     auto for_(string init, string cond, string next) {
+        import std.format : format;
+
         return suite(format("for (%s; %s; %s)", init, cond, next));
     }
 
     auto while_(string cond) {
+        import std.format : format;
+
         return suite(format("while (%s)", cond));
     }
 
     auto do_while(string cond) {
+        import std.format : format;
+
         auto e = suite("do");
         e[$.end = format("} while (%s);", cond)];
         return e;
     }
 
     auto switch_(string cond) {
+        import std.format : format;
+
         return suite(format("switch (%s)", cond));
     }
 
     auto case_(string val) {
+        import std.format : format;
+
         auto e = suite(format("case %s:", val), No.addSep)[$.begin = "", $.end = ""];
         e.sep;
         return e;
@@ -168,11 +204,15 @@ mixin template CModuleX() {
     }
 
     auto func(string return_type, string name) {
+        import std.format : format;
+
         auto e = stmt(format("%s %s()", return_type, name));
         return e;
     }
 
     auto func(T...)(string return_type, string name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s %s(%s)", return_type, name, params));
@@ -180,11 +220,15 @@ mixin template CModuleX() {
     }
 
     auto func_body(string return_type, string name) {
+        import std.format : format;
+
         auto e = suite(format("%s %s()", return_type, name));
         return e;
     }
 
     auto func_body(T...)(string return_type, string name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s %s(%s)", return_type, name, params));
@@ -200,6 +244,8 @@ mixin template CModuleX() {
     }
 
     auto IFDEF(string name) {
+        import std.format : format;
+
         auto e = suite(format("#ifdef %s", name));
         e[$.begin = "", $.end = "#endif // " ~ name];
         e.sep;
@@ -242,6 +288,7 @@ private:
     }
 }
 
+/// Represent a semantic item in C source.
 class CModule : BaseModule {
     mixin CModuleX;
 }
@@ -286,6 +333,7 @@ private string stmt_append_end(string s, in ref string[string] attrs) pure nothr
 class Stmt(T) : T {
     private string headline;
 
+    /// Content of the statement.
     this(string headline) {
         this.headline = headline;
     }
@@ -311,6 +359,7 @@ class Stmt(T) : T {
 class Suite(T) : T {
     private string headline;
 
+    /// Content of the suite/block.
     this(string headline) {
         this.headline = headline;
     }
@@ -342,31 +391,39 @@ class Suite(T) : T {
     }
 }
 
-pure struct E {
+/// An expressioin in C.
+struct E {
+@safe pure:
     import std.conv : to;
 
     private string content;
 
+    /// Content of the expression.
     this(string content) nothrow pure {
         this.content = content;
     }
 
+    /// Convert argument via std.conv.to!string.
     this(T)(T content) nothrow pure {
         this.content = to!string(content);
     }
 
+    /// Concatenate two expressions with ".".
     this(E lhs, string rhs) nothrow pure {
         this.content = lhs.content ~ "." ~ rhs;
     }
 
+    /// ditto
     auto e(string lhs) nothrow pure const {
         return E(content ~ "." ~ lhs);
     }
 
+    /// ditto
     auto e(E lhs) nothrow pure const {
         return E(content ~ "." ~ lhs.content);
     }
 
+    /// Represent the semantic function call.
     auto opCall(T)(T value) pure const {
         return E(content ~ "(" ~ to!string(value) ~ ")");
     }
@@ -378,11 +435,12 @@ pure struct E {
 
     alias toString this;
 
-    // explicit
+    /// String representation of the content. Explicit cast.
     T opCast(T : string)() pure const nothrow {
         return content;
     }
 
+    /// Preprend the textual representation of the operator to the content.
     auto opUnary(string op)() pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "++" || op == "--") {
             return E(mixin("\"" ~ op ~ "\"~content"));
@@ -391,6 +449,10 @@ pure struct E {
         }
     }
 
+    /** Represent the semantic meaning of binary operators.
+     *
+     * ~ is special cased but OK for it doesn't exist in C/C++.
+     */
     auto opBinary(string op, T)(in T rhs) pure nothrow const {
         static if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "&") {
             return E(mixin("content~\" " ~ op ~ " \"~to!string(rhs)"));
@@ -403,23 +465,42 @@ pure struct E {
         }
     }
 
+    /** Reconstruct the semantic "=" as affecting the content.
+     *
+     * Example:
+     *   E("int x") = E(1) -> "x = 1"
+     */
     auto opAssign(T)(T rhs) pure nothrow {
         this.content ~= " = " ~ to!string(rhs);
         return this;
     }
 }
 
-/// Code generation for C header.
+/** Code structure for generation of a C header.
+ *
+ * The content is structed as:
+ *  doc
+ *      header
+ *          ifdef_guardbegin
+ *              content
+ *          ifdef_guard end
+ *
+ * Note that the indent is suppressed.
+ */
 struct CHModule {
-    string ifdef_guard;
+    /// Document root.
     CModule doc;
+    /// Usually a copyright header.
     CModule header;
+    /// Main code content.
     CModule content;
-    CModule footer;
 
+    /**
+     * Params:
+     *   ifdef_guard = guard statement.
+     */
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
-        this.ifdef_guard = ifdef_guard;
         doc = new CModule;
         with (doc) {
             // doc is a container of the modules so should not affect indent.
@@ -433,12 +514,11 @@ struct CHModule {
                 content = base;
                 content.suppressIndent(1);
             }
-            footer = base;
-            footer.suppressIndent(1);
         }
     }
 
-    auto render() {
+    /// Render the content as a string.
+    string render() {
         return doc.render();
     }
 }
@@ -696,11 +776,6 @@ unittest {
         sep();
         comment("content comment");
     }
-    with (hdr.footer) {
-        text("footer text");
-        sep();
-        comment("footer comment");
-    }
 
     assert(hdr.render == "header text
 // header comment
@@ -709,8 +784,6 @@ unittest {
 content text
 // content comment
 #endif // somefile_hpp
-footer text
-// footer comment
 ", hdr.render);
 }
 

@@ -12,7 +12,16 @@ public import dsrcgen.c;
 
 @safe:
 
+/// Mixin of methods for semantic representation of C++ in D.
 mixin template CppModuleX() {
+    /** Access to self.
+     *
+     * Useful in with-statements.
+     */
+    auto _() {
+        return this;
+    }
+
     // Statements
     auto friend(string expr) {
         return stmt("friend " ~ expr);
@@ -47,18 +56,24 @@ mixin template CppModuleX() {
      * ----
      */
     auto class_suite(string class_name, string headline) {
+        import std.format : format;
+
         auto tmp = format("%s::%s", class_name, headline);
         auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
     auto class_suite(string rval, string class_name, string headline) {
+        import std.format : format;
+
         auto tmp = format("%s %s::%s", rval, class_name, headline);
         auto e = suite(tmp, Yes.addSep);
         return e;
     }
 
     auto ctor(T...)(string class_name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s(%s)", class_name, params));
@@ -71,6 +86,8 @@ mixin template CppModuleX() {
     }
 
     auto ctor_body(T...)(string class_name, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = class_suite(class_name, format("%s(%s)", class_name, params));
@@ -78,6 +95,8 @@ mixin template CppModuleX() {
     }
 
     auto ctor_body(string class_name) {
+        import std.format : format;
+
         auto e = class_suite(class_name, format("%s()", class_name));
         return e;
     }
@@ -92,18 +111,24 @@ mixin template CppModuleX() {
      * ----
      */
     auto dtor(Flag!"isVirtual" isVirtual, string class_name) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s%s()", isVirtual ? "virtual " : "",
                 class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
     auto dtor(string class_name) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s()", class_name[0] == '~' ? "" : "~", class_name));
         return e;
     }
 
     /// Definition for a dtor.
     auto dtor_body(string class_name) {
+        import std.format : format;
+
         string s = class_name;
         if (s[0] == '~') {
             s = s[1 .. $];
@@ -123,6 +148,8 @@ mixin template CppModuleX() {
     }
 
     auto class_(string name, string inherit) {
+        import std.format : format;
+
         if (inherit.length == 0) {
             return class_(name);
         } else {
@@ -154,6 +181,8 @@ mixin template CppModuleX() {
 
     auto method(Flag!"isVirtual" isVirtual, string return_type, string name,
             Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = stmt(format("%s%s %s()%s", isVirtual ? "virtual " : "",
                 return_type, name, isConst ? " const" : ""));
         return e;
@@ -161,6 +190,8 @@ mixin template CppModuleX() {
 
     auto method(T...)(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
@@ -169,6 +200,8 @@ mixin template CppModuleX() {
     }
 
     auto method_body(string return_type, string class_name, string name, Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = class_suite(return_type, class_name, format("%s()%s", name,
                 isConst ? " const" : ""));
         return e;
@@ -176,6 +209,8 @@ mixin template CppModuleX() {
 
     auto method_body(T...)(string return_type, string class_name, string name,
             Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
@@ -185,6 +220,8 @@ mixin template CppModuleX() {
 
     auto method_inline(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst) {
+        import std.format : format;
+
         auto e = suite(format("%s%s %s()%s", isVirtual ? "virtual " : "",
                 return_type, name, isConst ? " const" : ""));
         return e;
@@ -192,6 +229,8 @@ mixin template CppModuleX() {
 
     auto method_inline(T...)(Flag!"isVirtual" isVirtual, string return_type,
             string name, Flag!"isConst" isConst, auto ref T args) {
+        import std.format : format;
+
         string params = this.paramsToString(args);
 
         auto e = suite(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
@@ -200,18 +239,35 @@ mixin template CppModuleX() {
     }
 }
 
+/// Represent a semantic item in C++ source.
 class CppModule : BaseModule {
     mixin CModuleX;
     mixin CppModuleX;
 }
 
-/// Code generation for C++ header.
+/** Code structure for generation of a C++ header.
+ *
+ * The content is structed as:
+ *  doc
+ *      header
+ *          ifdef_guardbegin
+ *              content
+ *          ifdef_guard end
+ *
+ * Note that the indent is suppressed.
+ */
 struct CppHModule {
+    /// Document root.
     CppModule doc;
+    /// Usually a copyright header.
     CppModule header;
+    /// Main code content.
     CppModule content;
-    CppModule footer;
 
+    /**
+     * Params:
+     *   ifdef_guard = guard statement.
+     */
     this(string ifdef_guard) {
         // Must suppress indentation to generate what is expected by the user.
         doc = new CppModule;
@@ -227,11 +283,10 @@ struct CppHModule {
                 content = base;
                 content.suppressIndent(1);
             }
-            footer = base;
-            footer.suppressIndent(1);
         }
     }
 
+    /// Render the content as a string.
     auto render() {
         return doc.render();
     }
@@ -249,39 +304,53 @@ struct CppHModule {
  * v0 = v ~ E("foo"); // vector<int> foo;
  * v1 = v("bar"); // vector<int>(bar);
  */
-pure struct Et {
+struct Et {
     import dsrcgen.c : E;
     import std.conv : to;
     import std.string : format;
     import std.traits : isSomeString;
 
+pure:
     private string tmpl;
 
-    struct Ett {
+    /** Template with parameters parameters.
+     * Example:
+     * 'static_cast'<int>'
+     * | ----------|-----
+     * |tmpl       |params
+     */
+    static struct Ett {
         private string tmpl;
         private string params;
 
+        /// Represent a template with parameters.
         this(string tmpl, string params) pure nothrow {
             this.tmpl = tmpl;
             this.params = params;
         }
 
+        /// Represent the semantic meaning of Identifier(..) as text.
         auto opCall(T)(T value) pure const nothrow {
             return E(this.toString)(value);
         }
 
-        // implicit
+        /** String representation.
+         * Implicit.
+         */
         @property string toString() pure const nothrow {
             return tmpl ~ "<" ~ params ~ ">";
         }
 
         alias toString this;
 
-        // explicit
+        /** String representation.
+         * Explicit.
+         */
         T opCast(T : string)() pure const nothrow {
             return tmpl ~ "<" ~ params ~ ">";
         }
 
+        /// Only handles the concatenation operator "~".
         auto opBinary(string op, T)(in T rhs) pure const nothrow {
             static if (op == "~" && is(T == E)) {
                 return E(toString() ~ " " ~ rhs.toString);
@@ -293,14 +362,17 @@ pure struct Et {
         }
     }
 
+    /// Straight copy of parameter tmpl.
     this(T)(T tmpl) pure nothrow if (isSomeString!T) {
         this.tmpl = tmpl;
     }
 
+    /// Convert parameter tmpl to string representation.
     this(T)(T tmpl) pure nothrow if (!isSomeString!T) {
         this.tmpl = to!string(tmpl);
     }
 
+    /// Represent the semantic meaning of "template name"("params").
     auto opCall(T)(T params) pure const nothrow {
         return Ett(tmpl, to!string(params));
     }

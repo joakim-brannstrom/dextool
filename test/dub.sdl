@@ -1,0 +1,17 @@
+name "dsrcgen_test"
+description "The semantic code generation framework for Dlang"
+copyright "Copyright © 2014-2016, Joakim Brännström"
+authors "Joakim Brännström"
+license "BSL-1.0"
+
+dependency "unit-threaded" version="~>0.6.27"
+
+targetPath "build"
+sourcePaths "../source" "."
+importPaths "../source" "."
+
+configuration "unittest" {
+    targetType "executable"
+
+    mainSourceFile "ut.d"
+}
