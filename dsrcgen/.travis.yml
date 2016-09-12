@@ -1,7 +1,8 @@
 language: d
 d:
-    - dmd-2.069.2
+    - dmd-2.071.1
     - dmd
+    # - ldc
 
 os:
     - linux
@@ -9,7 +10,14 @@ os:
 sudo: required
 dist: trusty
 
-script: ./travis.sh
-
 notifications:
     email: false
+
+git:
+    depth: 1
+
+branches:
+    only:
+        - master
+
+script: ./travis.sh
