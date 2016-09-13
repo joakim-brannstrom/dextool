@@ -320,12 +320,12 @@ pure:
      * |tmpl       |params
      */
     static struct Ett {
-        private string tmpl;
+        private string tmpl_;
         private string params;
 
         /// Represent a template with parameters.
-        this(string tmpl, string params) pure nothrow {
-            this.tmpl = tmpl;
+        this(string tmpl_, string params) pure nothrow {
+            this.tmpl_ = tmpl_;
             this.params = params;
         }
 
@@ -338,7 +338,7 @@ pure:
          * Implicit.
          */
         @property string toString() pure const nothrow {
-            return tmpl ~ "<" ~ params ~ ">";
+            return tmpl_ ~ "<" ~ params ~ ">";
         }
 
         alias toString this;
@@ -347,7 +347,7 @@ pure:
          * Explicit.
          */
         T opCast(T : string)() pure const nothrow {
-            return tmpl ~ "<" ~ params ~ ">";
+            return tmpl_ ~ "<" ~ params ~ ">";
         }
 
         /// Only handles the concatenation operator "~".

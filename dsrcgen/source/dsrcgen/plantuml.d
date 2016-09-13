@@ -857,6 +857,7 @@ unittest {
 ");
 }
 
+/// Add a `then` statement to an `if`.
 auto then(ActivityBlock!(ActivityKind.IfThen) if_then, string content) {
     with (if_then.injectBlock[ActivityBlockIfThen.Then]) {
         text(format(" then (%s)", content));
@@ -883,6 +884,7 @@ unittest {
 
 import std.algorithm : among;
 
+/// Add a `else` branch to a previously defined `if`.
 auto else_(T)(T if_) if (T.kind.among(ActivityKind.IfThen, ActivityKind.If)) {
     auto curr = if_.injectBlock[ActivityBlockIfThen.Next].stmt("else", No.addSep);
     curr.sep;
@@ -908,6 +910,7 @@ unittest {
 ");
 }
 
+/// Add a `else if` branch to a previously defined `if`.
 auto else_if(T)(T if_, string condition)
         if (T.kind.among(ActivityKind.IfThen, ActivityKind.If)) {
     auto cond = if_.injectBlock[ActivityBlockIfThen.Next].stmt(format("else if (%s)",
