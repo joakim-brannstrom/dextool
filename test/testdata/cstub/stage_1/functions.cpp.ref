@@ -24,6 +24,10 @@ const int c_func_return() {
     return test_double_inst->c_func_return();
 }
 
+djur_type func_with_enum_param_and_return(const djur_type a) {
+    return test_double_inst->func_with_enum_param_and_return(a);
+}
+
 gun_ptr func_return_func_ptr() {
     return test_double_inst->func_return_func_ptr();
 }
@@ -86,6 +90,10 @@ void func_variadic() {
 
 void func_void() {
     test_double_inst->func_void();
+}
+
+void func_with_enum_param(const djur_type a) {
+    test_double_inst->func_with_enum_param(a);
 }
 
 void gun_func(int x0) {

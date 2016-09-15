@@ -10,6 +10,7 @@ public:
 
     MOCK_METHOD1(c_func_one_named, const int(const int a));
     MOCK_METHOD0(c_func_return, const int());
+    MOCK_METHOD1(func_with_enum_param_and_return, djur_type(const djur_type a));
     MOCK_METHOD1(cyber, func_type *(const unsigned int baz));
     MOCK_METHOD1(leopard, func_type *(const unsigned int baz));
     MOCK_METHOD0(func_return_func_ptr, gun_ptr());
@@ -29,6 +30,7 @@ public:
     MOCK_METHOD2(func_two_named, void(int a, int b));
     MOCK_METHOD0(func_variadic, void());
     MOCK_METHOD0(func_void, void());
+    MOCK_METHOD1(func_with_enum_param, void(const djur_type a));
     MOCK_METHOD1(gun_func, void(int x0));
     MOCK_METHOD0(tiger, void());
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));

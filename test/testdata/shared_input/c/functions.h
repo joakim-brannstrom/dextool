@@ -59,4 +59,9 @@ void array_func(int x, int* y, int z[16]);
 typedef unsigned int MyIntType;
 void array_func_param_typedef(MyIntType [16]);
 
+// expect a func signature using the typedef'ed name in global namespace.
+typedef enum {HEST, ANKA} djur_type;
+void func_with_enum_param(const djur_type a);
+djur_type func_with_enum_param_and_return(const djur_type a);
+
 #endif // FUNCTIONS_H
