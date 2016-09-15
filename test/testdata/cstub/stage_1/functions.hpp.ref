@@ -9,6 +9,7 @@ class I_TestDouble {
 public:
     virtual const int c_func_one_named(const int a) = 0;
     virtual const int c_func_return() = 0;
+    virtual djur_type func_with_enum_param_and_return(const djur_type a) = 0;
     virtual gun_ptr func_return_func_ptr() = 0;
     virtual int func_extern(int out) = 0;
     virtual int func_one_named(int a) = 0;
@@ -25,6 +26,7 @@ public:
     virtual void func_two_named(int a, int b) = 0;
     virtual void func_variadic() = 0;
     virtual void func_void() = 0;
+    virtual void func_with_enum_param(const djur_type a) = 0;
     virtual void gun_func(int x0) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
 };
