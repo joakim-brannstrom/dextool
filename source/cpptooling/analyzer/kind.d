@@ -324,9 +324,7 @@ auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT l
         break;
     }
 
-    import std.algorithm : filter;
-
-    foreach (item; found.filter!(a => !a.isNull)) {
+    foreach (item; found) {
         rval = only(TypeKindAttr(item.get, attr));
     }
 
