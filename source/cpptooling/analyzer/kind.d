@@ -4,6 +4,11 @@ License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Extracted information of types.
+
+TODO replace the fmt with a specialized formatting struct for the purpose
+needed by TypeKind.  fmt is namely a typeless strict that do not encode the
+assumed number or arguments when it is used.  In other words it do not contain
+information regarding the number of '%s'.
 */
 module cpptooling.analyzer.kind;
 
@@ -54,16 +59,15 @@ pure @safe nothrow @nogc struct TypeKind {
     }
 
     /** The type 'const int x[2][3]'
-     *
-     * fmt = int %s%s
-     * indexes = [2, 3]
-     * element = usr for 'int'
-     * elementAttr = Yes.isConst
      */
     static struct ArrayInfo {
+        /// int %s%s
         string fmt;
+        /// [2, 3]
         ArrayInfoIndex[] indexes;
+        /// usr for 'int'
         USRType element;
+        /// Yes.isConst
         TypeAttr elementAttr;
     }
 
@@ -72,26 +76,22 @@ pure @safe nothrow @nogc struct TypeKind {
      * attrs is only for the pointers, never the final pointee.
      * In the example shown about it would have length 2.
      *
-     * attr[0] is the right most ptr.
-     *
-     * fmt = int (%s %s)(int pa)
-     * pointee = USRs up the pointee
-     * attrs = attributes of the pointer hierarchy
-     *
      * TODO improve formatting with more separation, f.e return, ptr and args.
      * TODO add a USRType for the FuncPrototype.
      */
     static struct FuncPtrInfo {
+        /// int (%s %s)(int pa)
         string fmt;
+        /// USRs up the pointee
         USRType pointee;
+        /// attributes of the pointer hierarchy. attr[0] is the right most ptr.
         TypeAttr[] attrs;
     }
 
     /** The type of a function signature, 'void foo(int)'.
-     *
-     * fmt = void %s(int)
      */
     static struct FuncSignatureInfo {
+        /// void %s(int)
         string fmt;
         USRType return_;
         TypeAttr returnAttr;
@@ -111,9 +111,9 @@ pure @safe nothrow @nogc struct TypeKind {
      *
      * It would also lower the amount of data in a FuncInfo.
      *
-     * fmt = void %s(int)
      */
     static struct FuncInfo {
+        /// void %s(int)
         string fmt;
         USRType return_;
         TypeAttr returnAttr;
@@ -121,23 +121,21 @@ pure @safe nothrow @nogc struct TypeKind {
     }
 
     /** The type of a ctor prototype, 'Class::Class(int)'
-     *
-     * fmt = %s(int)
-     * id = Class
      */
     static struct CtorInfo {
+        /// %s(int)
         string fmt;
+        /// Class
         string id;
         FuncInfoParam[] params;
     }
 
     /** The type of a dtor prototype, 'Class::~Class()'
-     *
-     * fmt = ~%s()
-     * id = Class
      */
     static struct DtorInfo {
+        /// ~%s()
         string fmt;
+        /// identifier, in the example it would be 'Class'
         string id;
     }
 
@@ -145,30 +143,26 @@ pure @safe nothrow @nogc struct TypeKind {
      *
      * attrs is only for the pointers, never the final pointee.
      * In the example shown about it would have length 2.
-     *
-     * attr[0] is the right most ptr.
-     *
-     * fmt = int%s %s
-     * pointee = USRs up the pointee
-     * attrs = attributes of the pointer hierarchy
      */
     static struct PointerInfo {
+        /// int%s %s
         string fmt;
+        /// USRs up the pointee
         USRType pointee;
+        /// attributes of the pointer hierarchy. attr[0] is the right most ptr.
         TypeAttr[] attrs;
     }
 
     /** Representation of a typedef, 'typedef int tx'
      *
      * canonicalType is the final resolved in a chain of typedef's.
-     *
-     * fmt = tx %s
-     * typeRef = usr of the child type
-     * canonicalRef = usr of the canonical type
      */
     static struct TypeRefInfo {
+        /// tx %s
         string fmt;
+        /// usr of the child type
         USRType typeRef;
+        /// usr of the canonical type
         USRType canonicalRef;
     }
 
@@ -178,10 +172,9 @@ pure @safe nothrow @nogc struct TypeKind {
      * from "other" simple representations.
      *
      * The type 'int x' would be:
-     *
-     * fmt = int %s
      */
     static struct PrimitiveInfo {
+        /// int %s
         string fmt;
     }
 
@@ -191,18 +184,16 @@ pure @safe nothrow @nogc struct TypeKind {
      * other infos.
      *
      * The type 'const int x' would be:
-     *
-     * fmt = int %s
      */
     static struct SimpleInfo {
+        /// int %s
         string fmt;
     }
 
     /** The type 'const A'
-     *
-     * fmt = A %s
      */
     static struct RecordInfo {
+        /// A %s
         string fmt;
     }
 
