@@ -29,6 +29,25 @@ version (unittest) {
     }
 }
 
+/** Wrapper for the results from the find-methods in Container.
+ *
+ * payload is never null.
+ */
+struct FindResult(T) {
+    private T* payload;
+
+    ///
+    ref T get()
+    out (result) {
+        assert(payload !is null);
+    }
+    body {
+        return *payload;
+    }
+
+    alias get this;
+}
+
 /* The design is such that the memory location of a stored value do not
  * change after storage.
  * Therefor storing both the ptr and a fast lookup into the stored
@@ -67,14 +86,13 @@ private struct FastLookup(T, K) {
 
     auto find(in K key) const {
         import std.range : only, dropOne;
-        import std.typecons : NullableRef;
 
         auto item = key in lookup;
         if (item is null) {
-            return only(NullableRef!(const(T))(null)).dropOne;
+            return only(FindResult!(const(T))(null)).dropOne;
         }
 
-        return only(NullableRef!(const(T))(*item));
+        return only(FindResult!(const(T))(*item));
     }
 
     auto lookupRange() @trusted const {
