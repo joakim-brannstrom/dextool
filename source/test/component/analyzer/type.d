@@ -7,6 +7,7 @@ Precise testing of the Type analyzer of the Clang AST.
 */
 module test.component.analyzer.type;
 
+import std.conv : to;
 import std.format : format;
 import std.typecons : scoped, Yes;
 import std.variant : visit;
@@ -26,6 +27,11 @@ import cpptooling.data.symbol.container : Container;
 import cpptooling.data.type : TypeKindVariable, VariadicType;
 import cpptooling.utility.clang : logNode, mixinNodeLog;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
+
+/* These two lines are useful when debugging.
+writelnUt(be.container.toString);
+writelnUt(be.uml_component.toString);
+*/
 
 final class FindFunctionDeclVisitor : Visitor {
     alias visit = Visitor.visit;
@@ -52,6 +58,13 @@ final class FindFunctionDeclVisitor : Visitor {
     override void visit(const(UnexposedDecl) v) {
         mixin(mixinNodeLog!());
         v.accept(this);
+    }
+
+    override void visit(const(VarDecl) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+
+        analyzeVarDecl(v, container, indent);
     }
 
     override void visit(const(FunctionDecl) v) {
@@ -232,4 +245,58 @@ int* p1;
     // assert
     visitor.results.length.shouldEqual(2);
     visitor.results[0].type.kind.usr.shouldNotEqual(visitor.results[1].type.kind.usr);
+}
+
+@Name("Should be a ptr-ptr at a typedef")
+unittest {
+    enum code = `
+typedef double MadeUp;
+struct Struct {
+    int x;
+};
+
+const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
+`;
+
+    import std.variant : visit;
+
+    // arrange
+    auto visitor = new FindFunctionDeclVisitor;
+    visitor.find = "c:@F@func#1**1d#1**1$@S@Struct#";
+
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // dfmt off
+    visitor.result[0].params[0]
+        .visit!((TypeKindVariable a) => writelnUt(a.type.kind.usr),
+                (TypeKindAttr a) => writelnUt(a.kind.usr),
+                (VariadicType a) => writelnUt("variadic"));
+    // dfmt on
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.found.shouldBeTrue;
+    visitor.result.length.shouldNotEqual(0);
+
+    { // assert that the found result is a func
+        auto res = visitor.container.find!TypeKind(visitor.result[0].type.kind.usr).front;
+        res.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+    }
+
+    auto param0 = visitor.container.find!TypeKind(
+            visitor.result[0].type.kind.info.params[0].usr).front;
+    // assert that the found funcs first parameter is a pointer
+    param0.info.kind.shouldEqual(TypeKind.Info.Kind.pointer);
+
+    { // assert that the type pointed at is a typedef
+        auto res = visitor.container.find!TypeKind(param0.info.pointee).front;
+        res.usr.to!string().shouldNotEqual("File:issue.hpp Line:7 Column:45$1zzzz");
+        res.info.kind.shouldEqual(TypeKind.Info.Kind.typeRef);
+    }
 }

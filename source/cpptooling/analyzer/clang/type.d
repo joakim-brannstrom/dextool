@@ -947,7 +947,7 @@ body {
 
 /** Represent a pointer type hierarchy.
  *
- * TypeResults.primary.attr is the pointed at attribute.
+ * Returns: TypeResults.primary.attr is the pointed at attribute.
  */
 private TypeResults typeToPointer(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint this_indent)
@@ -959,8 +959,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
     with (TypeKind.Info.Kind) {
-        // allow catching the logical error in debug build
-        assert(!result.primary.type.kind.info.kind.among(ctor, dtor, record, simple, array));
+        assert(result.primary.type.kind.info.kind.among(funcPtr, pointer));
     }
 }
 body {
@@ -968,9 +967,10 @@ body {
     import std.range : dropBack;
     import cpptooling.utility.logger;
 
-    const auto indent = this_indent + 1;
+    immutable indent = this_indent + 1;
 
-    auto getPointee() {
+    static auto getPointee(ref const(Cursor) c, ref Type type,
+            ref const(Container) container, in uint indent) {
         auto pointee = type.pointeeType;
         auto c_pointee = pointee.declaration;
 
@@ -1007,13 +1007,19 @@ body {
                 // Written at 2016-07-01, remove by 2017-02-01.
             }
         } else if (c_pointee.kind == CXCursorKind.CXCursor_NoDeclFound) {
-            // primitive types do not have a declaration cursor.
-            // find the underlying primitive type.
             while (pointee.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
                 pointee = pointee.pointeeType;
             }
 
-            rval = passType(c, pointee, container, indent).get;
+            auto c_decl = pointee.declaration;
+
+            if (c_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
+                // primitive types do not have a declaration cursor.
+                // find the underlying primitive type.
+                rval = passType(c, pointee, container, indent).get;
+            } else {
+                rval = retrieveType(c_decl, container, indent).get;
+            }
         } else {
             rval = retrieveType(c_pointee, container, indent).get;
         }
@@ -1021,7 +1027,7 @@ body {
         return rval;
     }
 
-    auto pointee = getPointee();
+    auto pointee = getPointee(c, type, container, indent);
 
     auto attrs = retrievePointeeAttr(type, indent);
 
@@ -1043,6 +1049,8 @@ body {
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
 
+    // must be unique even when analyzing many translation units.
+    // Could maybe work if static/anonymous namespace influenced the USR.
     rval.primary.type.kind.usr = makeFallbackUSR(c, indent);
     rval.primary.location = makeLocation(c);
 
