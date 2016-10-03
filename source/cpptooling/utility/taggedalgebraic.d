@@ -4,7 +4,7 @@
  * Copyright: Copyright 2015, Sönke Ludwig.
  * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Sönke Ludwig
-*/
+ */
 module cpptooling.utility.taggedalgebraic;
 
 // dfmt off
@@ -16,29 +16,29 @@ import std.typetuple;
 
 /** Implements a generic algebraic type using an enum to identify the stored type.
 
-    This struct takes a `union` or `struct` declaration as an input and builds
-    an algebraic data type from its fields, using an automatically generated
-    `Kind` enumeration to identify which field of the union is currently used.
-    Multiple fields with the same value are supported.
+  This struct takes a `union` or `struct` declaration as an input and builds
+  an algebraic data type from its fields, using an automatically generated
+  `Kind` enumeration to identify which field of the union is currently used.
+  Multiple fields with the same value are supported.
 
-    All operators and methods are transparently forwarded to the contained
-    value. The caller has to make sure that the contained value supports the
-    requested operation. Failure to do so will result in an assertion failure.
+  All operators and methods are transparently forwarded to the contained
+  value. The caller has to make sure that the contained value supports the
+  requested operation. Failure to do so will result in an assertion failure.
 
-    The return value of forwarded operations is determined as follows:
-    $(UL
-        $(LI If the type can be uniquely determined, it is used as the return
-            value)
-        $(LI If there are multiple possible return values and all of them match
-            the unique types defined in the `TaggedAlgebraic`, a
-            `TaggedAlgebraic` is returned.)
-        $(LI If there are multiple return values and none of them is a
-            `Variant`, an `Algebraic` of the set of possible return types is
-            returned.)
-        $(LI If any of the possible operations returns a `Variant`, this is used
-            as the return value.)
-    )
-*/
+  The return value of forwarded operations is determined as follows:
+  $(UL
+  $(LI If the type can be uniquely determined, it is used as the return
+  value)
+  $(LI If there are multiple possible return values and all of them match
+  the unique types defined in the `TaggedAlgebraic`, a
+  `TaggedAlgebraic` is returned.)
+  $(LI If there are multiple return values and none of them is a
+  `Variant`, an `Algebraic` of the set of possible return types is
+  returned.)
+  $(LI If any of the possible operations returns a `Variant`, this is used
+  as the return value.)
+  )
+ */
 struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 {
     import std.algorithm : among;
@@ -69,7 +69,7 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 
     // Compatibility alias
     deprecated("Use 'kind' instead.")
-    alias typeID = kind;
+        alias typeID = kind;
 
     // constructors
     //pragma(msg, generateConstructors!U());
@@ -94,15 +94,15 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
         {
             switch (m_kind) {
                 default: break;
-                foreach (i, tname; fieldNames) {
-                    alias T = typeof(__traits(getMember, U, tname));
-                    static if (hasElaborateCopyConstructor!T)
-                    {
-                        case __traits(getMember, Kind, tname):
-                            typeid(T).postblit(cast(void*)&trustedGet!tname());
-                            return;
-                    }
-                }
+                         foreach (i, tname; fieldNames) {
+                             alias T = typeof(__traits(getMember, U, tname));
+                             static if (hasElaborateCopyConstructor!T)
+                             {
+                                 case __traits(getMember, Kind, tname):
+                                     typeid(T).postblit(cast(void*)&trustedGet!tname());
+                                     return;
+                             }
+                         }
             }
         }
     }
@@ -116,10 +116,10 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
                 foreach (i, tname; fieldNames) {
                     alias T = typeof(__traits(getMember, U, tname));
                     case __traits(getMember, Kind, tname):
-                        static if (hasElaborateDestructor!T) {
-                            .destroy(trustedGet!tname);
-                        }
-                        return;
+                    static if (hasElaborateDestructor!T) {
+                        .destroy(trustedGet!tname);
+                    }
+                    return;
                 }
             }
         }
@@ -196,8 +196,72 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
     private @trusted @property ref inout(T) trustedGet(T)() inout { return *cast(inout(T)*)m_data.ptr; }
 }
 
+///
+unittest
+{
+    import taggedalgebraic;
+
+    struct Foo {
+        string name;
+        void bar() {}
+    }
+
+    union Base {
+        int i;
+        string str;
+        Foo foo;
+    }
+
+    alias Tagged = TaggedAlgebraic!Base;
+
+    // Instantiate
+    Tagged taggedInt = 5;
+    Tagged taggedString = "Hello";
+    Tagged taggedFoo = Foo();
+    Tagged taggedAny = taggedInt;
+    taggedAny = taggedString;
+    taggedAny = taggedFoo;
+
+    // Check type: Tagged.Kind is an enum
+    assert(taggedInt.kind == Tagged.Kind.i);
+    assert(taggedString.kind == Tagged.Kind.str);
+    assert(taggedFoo.kind == Tagged.Kind.foo);
+    assert(taggedAny.kind == Tagged.Kind.foo);
+
+    // In most cases, can simply use as-is
+    auto num = 4 + taggedInt;
+    auto msg = taggedString ~ " World!";
+    taggedFoo.bar();
+    if (taggedAny.kind == Tagged.Kind.foo) // Make sure to check type first!
+        taggedAny.bar();
+    //taggedString.bar(); // AssertError: Not a Foo!
+
+    // Convert back by casting
+    auto i   = cast(int)    taggedInt;
+    auto str = cast(string) taggedString;
+    auto foo = cast(Foo)    taggedFoo;
+    if (taggedAny.kind == Tagged.Kind.foo) // Make sure to check type first!
+        auto foo2 = cast(Foo) taggedAny;
+    //cast(Foo) taggedString; // AssertError!
+
+    // Kind is an enum, so final switch is supported:
+    final switch (taggedAny.kind) {
+        case Tagged.Kind.i:
+            // It's "int i"
+            break;
+
+        case Tagged.Kind.str:
+            // It's "string str"
+            break;
+
+        case Tagged.Kind.foo:
+            // It's "Foo foo"
+            break;
+    }
+}
+
 /** Operators and methods of the contained type can be used transparently.
-*/
+ */
 @safe unittest {
     static struct S {
         int v;
@@ -264,8 +328,8 @@ unittest { // std.conv integration
 }
 
 /** Multiple fields are allowed to have the same type, in which case the type
-    ID enum is used to disambiguate.
-*/
+  ID enum is used to disambiguate.
+ */
 @safe unittest {
     static union Test {
         typeof(null) null_;
@@ -322,16 +386,16 @@ unittest {
     static assert( is(typeof(ui.testSC())));
 
     /*static assert(!is(typeof(us.test())));
-    static assert(!is(typeof(us.testI())));
-    static assert(!is(typeof(us.testC())));
-    static assert( is(typeof(us.testS())));
-    static assert( is(typeof(us.testSC())));
+      static assert(!is(typeof(us.testI())));
+      static assert(!is(typeof(us.testC())));
+      static assert( is(typeof(us.testS())));
+      static assert( is(typeof(us.testSC())));
 
-    static assert(!is(typeof(usc.test())));
-    static assert(!is(typeof(usc.testI())));
-    static assert(!is(typeof(usc.testC())));
-    static assert(!is(typeof(usc.testS())));
-    static assert( is(typeof(usc.testSC())));*/
+      static assert(!is(typeof(usc.test())));
+      static assert(!is(typeof(usc.testI())));
+      static assert(!is(typeof(usc.testC())));
+      static assert(!is(typeof(usc.testS())));
+      static assert( is(typeof(usc.testSC())));*/
 }
 
 unittest {
@@ -493,7 +557,7 @@ unittest {
 
 
 /** Tests if the algebraic type stores a value of a certain data type.
-*/
+ */
 bool hasType(T, U)(in ref TaggedAlgebraic!U ta)
 {
     alias Fields = Filter!(fieldMatchesType!(U, T), ta.fieldNames);
@@ -501,9 +565,9 @@ bool hasType(T, U)(in ref TaggedAlgebraic!U ta)
 
     switch (ta.kind) {
         default: return false;
-        foreach (i, fname; Fields)
-            case __traits(getMember, ta.Kind, fname):
-                return true;
+                 foreach (i, fname; Fields)
+        case __traits(getMember, ta.Kind, fname):
+                     return true;
     }
     assert(false); // never reached
 }
@@ -538,7 +602,7 @@ unittest { // issue #1
 }
 
 /** Gets the value stored in an algebraic type based on its data type.
-*/
+ */
 ref inout(T) get(T, U)(ref inout(TaggedAlgebraic!U) ta)
 {
     assert(hasType!(T, U)(ta));
@@ -637,25 +701,25 @@ private static auto implementOp(OpKind kind, string name, T, ARGS...)(ref T self
 
     switch (self.m_kind) {
         default: assert(false, "Operator "~name~" ("~kind.stringof~") can only be used on values of the following types: "~[info.fields].join(", "));
-        foreach (i, f; info.fields) {
-            alias FT = typeof(__traits(getMember, T.Union, f));
-            case __traits(getMember, T.Kind, f):
-                static if (NoDuplicates!(info.ReturnTypes).length == 1)
-                    return info.perform(self.trustedGet!FT, args);
-                else static if (allSatisfy!(isMatchingUniqueType!(T.Union), info.ReturnTypes))
-                    return TaggedAlgebraic!(T.Union)(info.perform(self.trustedGet!FT, args));
-                else static if (allSatisfy!(isNoVariant, info.ReturnTypes)) {
-                    alias Alg = Algebraic!(NoDuplicates!(info.ReturnTypes));
-                    info.ReturnTypes[i] ret = info.perform(self.trustedGet!FT, args);
-                    import std.traits : isInstanceOf;
-                    static if (isInstanceOf!(TaggedAlgebraic, typeof(ret))) return Alg(ret.payload);
-                    else return Alg(ret);
-                }
-                else static if (is(FT == Variant))
-                    return info.perform(self.trustedGet!FT, args);
-                else
-                    return Variant(info.perform(self.trustedGet!FT, args));
-        }
+                 foreach (i, f; info.fields) {
+                     alias FT = typeof(__traits(getMember, T.Union, f));
+                     case __traits(getMember, T.Kind, f):
+                     static if (NoDuplicates!(info.ReturnTypes).length == 1)
+                         return info.perform(self.trustedGet!FT, args);
+                     else static if (allSatisfy!(isMatchingUniqueType!(T.Union), info.ReturnTypes))
+                         return TaggedAlgebraic!(T.Union)(info.perform(self.trustedGet!FT, args));
+                     else static if (allSatisfy!(isNoVariant, info.ReturnTypes)) {
+                         alias Alg = Algebraic!(NoDuplicates!(info.ReturnTypes));
+                         info.ReturnTypes[i] ret = info.perform(self.trustedGet!FT, args);
+                         import std.traits : isInstanceOf;
+                         static if (isInstanceOf!(TaggedAlgebraic, typeof(ret))) return Alg(ret.payload);
+                         else return Alg(ret);
+                     }
+                     else static if (is(FT == Variant))
+                         return info.perform(self.trustedGet!FT, args);
+                     else
+                         return Variant(info.perform(self.trustedGet!FT, args));
+                 }
     }
 
     assert(false); // never reached
