@@ -79,7 +79,7 @@ configuration "devtool" {
 }
 
 configuration "unittest" {
-    // v0.6.27 + b2ef76a20848037285a160217d457efe6001af33
+    // v0.6.28 + 0341207
     dependency "dextool:unit-threaded" version="*"
 
     targetName "unittest"
