@@ -164,9 +164,7 @@ private T shrinkImpl(alias F, T)(T value, T[] values) if(isIntegral!T) {
             return shrinkImpl!F(attempt, values);
 
     auto min = values.minPos[0];
-    //auto max = values.maxPos[0];
-    // maxPos exists from version 2.071.0+
-    auto max = values.minPos!"b < a"[0];
+    auto max = values.minPos!"a > b"[0]; // maxPos doesn't exist before DMD 2.071.0
 
     if(!F(min)) return shrinkImpl!F(min, values);
     if(!F(max)) return shrinkImpl!F(max, values);
