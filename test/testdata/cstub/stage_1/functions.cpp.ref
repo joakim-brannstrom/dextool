@@ -24,6 +24,10 @@ const int c_func_return() {
     return test_double_inst->c_func_return();
 }
 
+djur_type func_exhibit_type_bug_variant2() {
+    return test_double_inst->func_exhibit_type_bug_variant2();
+}
+
 djur_type func_with_enum_param_and_return(const djur_type a) {
     return test_double_inst->func_with_enum_param_and_return(a);
 }
@@ -70,6 +74,10 @@ void c_func_with_struct(const struct A *a) {
 
 void fun(func_ptr2 p, Something_Big b) {
     test_double_inst->fun(p, b);
+}
+
+void func_exhibit_type_bug_variant1(const djur_type a) {
+    test_double_inst->func_exhibit_type_bug_variant1(a);
 }
 
 void func_ptr_arg(int (*a)(int p, int ), int b) {

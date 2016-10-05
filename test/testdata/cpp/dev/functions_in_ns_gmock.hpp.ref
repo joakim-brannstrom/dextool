@@ -16,13 +16,15 @@ public:
     MOCK_METHOD1(func_ref, void(int &a));
     MOCK_METHOD1(func_with_enum_param_and_return, djur_type(const djur_type a));
     MOCK_METHOD1(func_with_enum_param, void(const djur_type a));
+    MOCK_METHOD0(func_exhibit_type_bug_variant2, djur_type());
+    MOCK_METHOD1(func_exhibit_type_bug_variant1, void(const djur_type a));
     MOCK_METHOD1(array_func_param_typedef, void(MyIntType x0[16]));
     MOCK_METHOD3(array_func, void(int x, int *y, int z[16]));
     MOCK_METHOD1(c_func_with_struct, void(const ns::A *a));
     MOCK_METHOD1(gun_func, void(int x0));
-    MOCK_METHOD0(func_return_func_ptr, gun_ptr());
     MOCK_METHOD0(func_void, void());
-    MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int ), int b));
+    MOCK_METHOD0(func_return_func_ptr, gun_ptr());
+    MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));
     MOCK_METHOD1(func_extern, int(int out));
     MOCK_METHOD1(func_variadic_one_unnamed, int(char *x0));
@@ -36,7 +38,7 @@ public:
     MOCK_METHOD1(func_one_named, int(int a));
     MOCK_METHOD0(func_return, int());
     MOCK_METHOD1(func_ref_array, void(int (&a)[10]));
-    MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
+    MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int ), int b));
 };
 } //NS:TestDouble
 

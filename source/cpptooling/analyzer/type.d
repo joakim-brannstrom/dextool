@@ -71,11 +71,14 @@ void logTypeResult(ref const(TypeResult) result, in uint indent,
         string extra;
         switch (result.type.kind.info.kind) with (TypeKind.Info) {
             case Kind.typeRef:
-                extra = "|ex ref:" ~ cast(string) result.type.kind.info.typeRef ~ "|ex canonical:" ~ cast(string) result.type.kind.info.canonicalRef;
+                extra = "|ex ref:" ~ result.type.kind.info.typeRef ~ "|ex canonical:" ~ result.type.kind.info.canonicalRef;
                 break;
             case Kind.funcPtr:
             case Kind.pointer:
-                extra = "|ex usr:" ~ cast(string) result.type.kind.info.pointee;
+                extra = "|ex usr:" ~ result.type.kind.info.pointee;
+                break;
+            case Kind.array:
+                extra = "|ex elem:" ~ result.type.kind.info.element;
                 break;
             default:
         }

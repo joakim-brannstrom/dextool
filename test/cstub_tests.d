@@ -136,7 +136,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/functions.h", testEnv);
-    p.compileFlags ~= "-DTEST_INCLUDE";
+    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC"];
     runTestFile(p, testEnv);
 }
 
@@ -373,7 +373,7 @@ unittest {
     auto p = genTestParams("stage_1/param_gmock.h", testEnv);
     p.dexParams ~= "--gmock";
     p.dexFlags ~= "-nostdinc";
-    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR"];
+    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR", "-DTEST_FUNC"];
     runTestFile(p, testEnv);
 }
 
