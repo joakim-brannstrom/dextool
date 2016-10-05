@@ -25,6 +25,10 @@
 #define TEST_INIT_expect_const_ptr_array int* const expect_const_ptr_array[10] = {0,0,0,0,0,0,0,0,0,0}
 #endif
 
+#ifdef TEST_FUNC
+#define TEST_INIT_djurpark const djur_type djurpark[3] = {HEST, HEST, HEST}
+#endif
+
 #include "test_double_global.cpp"
 #endif
 

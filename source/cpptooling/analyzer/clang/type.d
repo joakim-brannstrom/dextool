@@ -1327,7 +1327,11 @@ body {
         // on purpuse not checking if it is null before using
         element = passType(c, index, container, indent + 1).get;
 
-        primary_usr = element.primary.type.kind.toStringDecl(TypeAttr.init) ~ index_nr.toRepr;
+        if (element.primary.type.kind.usr.length != 0) {
+            primary_usr = element.primary.type.kind.usr;
+        } else {
+            primary_usr = makeFallbackUSR(c, indent);
+        }
         primary_loc = element.primary.location;
     } else {
         // on purpuse not checking if it is null before using
@@ -1336,6 +1340,9 @@ body {
         primary_usr = element.primary.type.kind.usr;
         primary_loc = element.primary.location;
     }
+    // let the indexing affect the USR as to not collide with none-arrays of
+    // the same type.
+    primary_usr = primary_usr ~ index_nr.toRepr;
 
     switch (primary_loc.kind) {
     case LocationTag.Kind.noloc:

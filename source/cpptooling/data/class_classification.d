@@ -66,15 +66,17 @@ body {
 
 /** Classify a class from a current state.
  *
- * The classification is sequencial according to an informal FSM.
- * The classification only depend on the InData. No globals, no side effects.
+ * Problem that this function solve:
+ * Clang have no property that classifies a class as virtual/abstract/pure.
  *
- * Clang have no property that clasifies a class as virtual/abstract/pure.
+ * Design:
+ * The classification is sequential according to an informal FSM.
+ * The classification only depend on the input data. No globals, no side effects.
  *
  * Params:
  *  current = current state of the classification.
- *  method_kind = indata, kind of method
- *  method_virtual_type = indata, kind of "virtuality" the function is
+ *  method_kind = kind of method
+ *  method_virtual_type = kind of "virtuality" the function is
  *  hasMember = a class with any members can at the most be virtual
  *
  * Returns: new classification state.
