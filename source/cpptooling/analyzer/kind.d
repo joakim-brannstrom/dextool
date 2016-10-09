@@ -15,14 +15,18 @@ module cpptooling.analyzer.kind;
 import std.conv : to;
 import std.string : format;
 import std.traits;
-import std.typecons : Tuple, Nullable, Flag;
+import std.typecons : Nullable, Flag;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
 
 alias ArrayInfoIndex = Nullable!long;
-alias FuncInfoParam = Tuple!(USRType, "usr", TypeAttr, "attr", string, "id",
-        Flag!"isVariadic", "isVariadic");
+struct FuncInfoParam {
+    USRType usr;
+    TypeAttr attr;
+    string id;
+    Flag!"isVariadic" isVariadic;
+}
 
 /// Convert an array of indexes to a string representation
 string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
