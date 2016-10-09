@@ -136,7 +136,7 @@ FileName stripFile(FileName fname, Regex!char re) @trusted {
 auto stripIncl(ref FileName[] incls, Regex!char re) {
     import std.array : array;
     import std.algorithm : cache, map, filter;
-    import cpptooling.data.representation : dedup;
+    import cpptooling.utility : dedup;
 
     // dfmt off
     auto r = dedup(incls)
