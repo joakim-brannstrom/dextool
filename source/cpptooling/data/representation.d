@@ -234,7 +234,7 @@ string joinParams(const(CxParam)[] r) @safe {
 
         // dfmt off
         auto x = p.visit!(
-            (const TypeKindVariable tk) {return tk.type.toStringDecl(tk.name);},
+            (const TypeKindVariable t) {return t.type.toStringDecl(t.name);},
             (const TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
             (const VariadicType a) { return "..."; }
             );
@@ -304,7 +304,7 @@ private void assertVisit(ref const(CxParam) p) @trusted {
     // dfmt on
 }
 
-pure nothrow struct CxGlobalVariable {
+struct CxGlobalVariable {
     mixin mixinUniqueId!string;
 
     private TypeKindVariable variable;
@@ -315,14 +315,17 @@ pure nothrow struct CxGlobalVariable {
         assert(usr.isNull || usr.length > 0);
     }
 
-    this(USRType usr, TypeKindVariable tk) @safe {
-        // do NOT use the user from tk.type.kind.usr, it is for the type not the instance.
+    /**
+     * do NOT use the usr from var.type.kind.usr, it is for the type not the
+     * instance.
+     */
+    this(USRType usr, TypeKindVariable var) @safe pure nothrow {
         this.usr = usr;
-        this.variable = tk;
+        this.variable = var;
         setUniqueId(variable.name);
     }
 
-    this(USRType usr, TypeKindAttr type, CppVariable name) @safe {
+    this(USRType usr, TypeKindAttr type, CppVariable name) @safe pure nothrow {
         this(usr, TypeKindVariable(type, name));
     }
 
@@ -374,6 +377,8 @@ const:
             break;
         }
     }
+
+@safe pure nothrow:
 
     auto type() {
         return variable.type;
@@ -496,7 +501,7 @@ struct CppMethodGeneric {
 
 /// Information about free functions.
 /// TODO: rename to CxFreeFunction
-pure nothrow struct CFunction {
+struct CFunction {
     mixin mixinUniqueId!string;
 
     Nullable!USRType usr;
@@ -509,9 +514,22 @@ pure nothrow struct CFunction {
         StorageClass storageClass_;
     }
 
+    invariant() {
+        if (!usr.isNull) {
+            assert(usr.length > 0);
+            assert(name_.length > 0);
+            assert(returnType_.toStringDecl.length > 0);
+
+            foreach (p; params) {
+                assertVisit(p);
+            }
+        }
+    }
+
     /// C function representation.
-    this(USRType usr, const CFunctionName name, const CxParam[] params_, const CxReturnType return_type,
-            const VariadicType is_variadic, const StorageClass storage_class) @safe {
+    this(const USRType usr, const CFunctionName name, const CxParam[] params_,
+            const CxReturnType return_type, const VariadicType is_variadic,
+            const StorageClass storage_class) @trusted {
         this.usr = usr;
         this.name_ = name;
         this.returnType_ = return_type;
@@ -524,12 +542,12 @@ pure nothrow struct CFunction {
     }
 
     /// Function with no parameters.
-    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @safe {
+    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @trusted {
         this(usr, name, CxParam[].init, return_type, VariadicType.no, StorageClass.None);
     }
 
     /// Function with no parameters and returning void.
-    this(USRType usr, const CFunctionName name) @safe {
+    this(USRType usr, const CFunctionName name) @trusted {
         auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, VariadicType.no, StorageClass.None);
     }
@@ -549,30 +567,6 @@ pure nothrow struct CFunction {
 
 @safe const:
 
-    /// A range over the parameters of the function.
-    auto paramRange() @nogc @safe pure nothrow {
-        return params;
-    }
-
-    @nogc {
-        auto returnType() {
-            return returnType_;
-        }
-
-        auto name() {
-            return name_;
-        }
-
-        StorageClass storageClass() {
-            return storageClass_;
-        }
-
-        /// If the function is variadic, aka have a parameter with "...".
-        bool isVariadic() {
-            return VariadicType.yes == isVariadic_;
-        }
-    }
-
     private string signatureToString() {
         import std.array : Appender, appender;
         import std.format : formattedWrite;
@@ -584,16 +578,28 @@ pure nothrow struct CFunction {
 
     mixin(standardToString);
 
-    invariant() {
-        if (!usr.isNull) {
-            assert(usr.length > 0);
-            assert(name_.length > 0);
-            assert(returnType_.toStringDecl.length > 0);
+nothrow pure @nogc:
 
-            foreach (p; params) {
-                assertVisit(p);
-            }
-        }
+    /// A range over the parameters of the function.
+    auto paramRange() {
+        return params;
+    }
+
+    CxReturnType returnType() {
+        return returnType_;
+    }
+
+    auto name() {
+        return name_;
+    }
+
+    StorageClass storageClass() {
+        return storageClass_;
+    }
+
+    /// If the function is variadic, aka have a parameter with "...".
+    bool isVariadic() {
+        return VariadicType.yes == isVariadic_;
     }
 }
 

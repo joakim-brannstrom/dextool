@@ -20,6 +20,14 @@ import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
 
+version (unittest) {
+    import unit_threaded : Name, shouldEqual;
+} else {
+    private struct Name {
+        string name_;
+    }
+}
+
 alias ArrayInfoIndex = Nullable!long;
 struct FuncInfoParam {
     USRType usr;
@@ -44,23 +52,77 @@ string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
 
 /** Type representation and information.
  */
-pure @safe nothrow @nogc struct TypeKind {
+struct TypeKind {
     import std.traits : isSomeString;
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
-    import std.typecons : Flag, Yes, No;
 
-    this(T)(T info, USRType usr) if (!is(T == TypeKind)) {
+    this(T)(T info, USRType usr) @safe if (!is(T == TypeKind)) {
         this.info = info;
         this.usr = usr;
     }
 
-    this(T)(T info) if (!is(T == TypeKind)) {
+    this(T)(T info) @safe if (!is(T == TypeKind)) {
         this(info, USRType(""));
     }
 
-    this(TypeKind t) {
-        this = t;
+    invariant {
+        final switch (this.info.kind) with (TypeKind.Info) {
+        case Kind.ctor:
+            // Assuming that a ctor or dtor must always have a id, otherwise
+            // unusable
+            goto case;
+        case Kind.dtor:
+            assert(info.id.length > 0);
+            assert(info.fmt.length > 0);
+            break;
+        case Kind.primitive:
+        case Kind.record:
+        case Kind.simple:
+        case Kind.typeRef:
+        case Kind.array:
+        case Kind.func:
+            assert(info.fmt.length > 0);
+            break;
+        case Kind.funcPtr:
+            assert(info.fmt.length > 0);
+            assert(info.attrs.length > 0);
+            break;
+        case Kind.funcSignature:
+            assert(info.fmt.length > 0);
+            break;
+        case Kind.pointer:
+            assert(info.fmt.length > 0);
+            assert(info.attrs.length > 0);
+            break;
+        case Kind.null_:
+            break;
+        }
     }
+
+    /// Formatting information needed to reproduce the type and identifier.
+    static @safe pure nothrow @nogc union InternalInfo {
+        typeof(null) null_;
+        PrimitiveInfo primitive;
+        SimpleInfo simple;
+        ArrayInfo array;
+
+        FuncInfo func;
+        FuncPtrInfo funcPtr;
+        FuncSignatureInfo funcSignature;
+
+        RecordInfo record;
+        CtorInfo ctor;
+        DtorInfo dtor;
+        PointerInfo pointer;
+        TypeRefInfo typeRef;
+    }
+
+    alias Info = TaggedAlgebraic!InternalInfo;
+
+    Info info;
+    USRType usr;
+
+pure @safe nothrow @nogc:
 
     /** The type 'const int x[2][3]'
      */
@@ -200,63 +262,6 @@ pure @safe nothrow @nogc struct TypeKind {
         /// A %s
         string fmt;
     }
-
-    /// Formatting information needed to reproduce the type and identifier.
-    static union InternalInfo {
-        typeof(null) null_;
-        PrimitiveInfo primitive;
-        SimpleInfo simple;
-        ArrayInfo array;
-
-        FuncInfo func;
-        FuncPtrInfo funcPtr;
-        FuncSignatureInfo funcSignature;
-
-        RecordInfo record;
-        CtorInfo ctor;
-        DtorInfo dtor;
-        PointerInfo pointer;
-        TypeRefInfo typeRef;
-    }
-
-    alias Info = TaggedAlgebraic!InternalInfo;
-
-    Info info;
-    USRType usr;
-
-    invariant {
-        final switch (this.info.kind) with (TypeKind.Info) {
-        case Kind.ctor:
-            // Assuming that a ctor or dtor must always have a id, otherwise
-            // unusable
-            goto case;
-        case Kind.dtor:
-            assert(info.id.length > 0);
-            assert(info.fmt.length > 0);
-            break;
-        case Kind.primitive:
-        case Kind.record:
-        case Kind.simple:
-        case Kind.typeRef:
-        case Kind.array:
-        case Kind.func:
-            assert(info.fmt.length > 0);
-            break;
-        case Kind.funcPtr:
-            assert(info.fmt.length > 0);
-            assert(info.attrs.length > 0);
-            break;
-        case Kind.funcSignature:
-            assert(info.fmt.length > 0);
-            break;
-        case Kind.pointer:
-            assert(info.fmt.length > 0);
-            assert(info.attrs.length > 0);
-            break;
-        case Kind.null_:
-            break;
-        }
-    }
 }
 
 /// Attributes of a declaration of a type.
@@ -345,4 +350,9 @@ auto internalGetFmt(ref const TypeKind t) {
     case Kind.null_:
         return "kind is @null@";
     }
+}
+
+// Test instantiation
+@safe unittest {
+    TypeKind tk;
 }
