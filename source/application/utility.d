@@ -105,7 +105,7 @@ unittest {
 /** if no regexp or no match when using the regexp, using the include
  * path as-is.
  */
-auto stripFile(FileName fname, Regex!char re) @trusted {
+FileName stripFile(FileName fname, Regex!char re) @trusted {
     import std.array : array;
     import std.algorithm : joiner;
     import std.range : dropOne;
