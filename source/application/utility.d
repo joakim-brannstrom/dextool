@@ -96,7 +96,7 @@ auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
 }
 
 unittest {
-    import test.helpers : shouldEqualPretty;
+    import test.extra_should : shouldEqualPretty;
 
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
     cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, "-xc"));

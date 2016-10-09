@@ -41,7 +41,7 @@ import cpptooling.analyzer.clang.analyze_helper : ClassDeclResult;
 static import cpptooling.data.class_classification;
 
 version (unittest) {
-    import test.helpers : shouldEqualPretty;
+    import test.extra_should : shouldEqualPretty;
     import unit_threaded : Name, shouldEqual;
 } else {
     private struct Name {
