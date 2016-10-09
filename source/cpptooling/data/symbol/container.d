@@ -33,11 +33,11 @@ version (unittest) {
  *
  * payload is never null.
  */
-struct FindResult(T) {
+@safe pure nothrow @nogc struct FindResult(T) {
     private T* payload;
 
     ///
-    ref T get()
+    ref T get() @trusted
     out (result) {
         assert(payload !is null);
     }

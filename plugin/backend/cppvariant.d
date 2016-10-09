@@ -714,7 +714,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
         // dfmt on
     }
 
-    static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) {
+    static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) @safe {
         import std.array : array, appender;
         import std.algorithm : copy, filter, map, each, cache;
         import std.range : chain;

@@ -147,7 +147,9 @@ struct VirtualFileSystem {
             if (f.mode == Mode.readWrite) {
                 auto cont_s = () @trusted { return cast(void[]) content[]; }();
                 auto s = () @trusted { return (*f).file[f.size .. f.size + cont_s.length]; }();
-                s[] = cont_s[];
+                () @trusted {
+                    s[] = cont_s[];
+                }();
                 f.size += cont_s.length;
             } else {
                 assert(false);
