@@ -48,4 +48,3 @@ Adapter::~Adapter() {
 
 } //NS:level1
 } //NS:level0
-

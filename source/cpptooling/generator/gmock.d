@@ -235,8 +235,10 @@ auto generateGmockHdr(FileT)(FileT if_file, FileT incl_guard, CppModule gmock) {
 }
 
 auto makeGmock(ClassT)(const CppClass c) {
+    import std.array : array;
     import std.variant : visit;
     import cpptooling.data.representation;
+    import cpptooling.utility.sort : indexSort;
 
     // Make all protected and private public to allow testing, for good and bad
     static auto conv(T)(T m_) {
@@ -254,7 +256,10 @@ auto makeGmock(ClassT)(const CppClass c) {
     rclass.setKind(ClassT.Gmock);
 
     //dfmt off
-    foreach (m_in; c.methodRange) {
+    foreach (m_in; c.methodRange
+             .array()
+             .indexSort!((ref a, ref b) => getName(a) < getName(b))
+             ) {
         () @trusted{
             m_in.visit!((const CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
                         (const CppMethodOp m) => m.isVirtual ? rclass.put(conv(m)) : false,

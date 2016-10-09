@@ -7,28 +7,28 @@ extern "C" {
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual const int c_func_one_named(const int a) = 0;
-    virtual const int c_func_return() = 0;
-    virtual djur_type func_exhibit_type_bug_variant2() = 0;
-    virtual djur_type func_with_enum_param_and_return(const djur_type a) = 0;
-    virtual gun_ptr func_return_func_ptr() = 0;
-    virtual int func_extern(int out) = 0;
-    virtual int func_one_named(int a) = 0;
-    virtual int func_return() = 0;
-    virtual int func_variadic_one_unnamed(char *x0) = 0;
     virtual void array_func(int x, int *y, int z[16]) = 0;
     virtual void array_func_param_typedef(MyIntType x0[16]) = 0;
+    virtual const int c_func_one_named(const int a) = 0;
+    virtual const int c_func_return() = 0;
     virtual void c_func_three_named(const int a, const int b, const int c) = 0;
     virtual void c_func_two_named(const int a, const int b) = 0;
     virtual void c_func_with_struct(const struct A *a) = 0;
     virtual void fun(func_ptr2 p, Something_Big b) = 0;
     virtual void func_exhibit_type_bug_variant1(const djur_type a) = 0;
+    virtual djur_type func_exhibit_type_bug_variant2() = 0;
+    virtual int func_extern(int out) = 0;
+    virtual int func_one_named(int a) = 0;
     virtual void func_ptr_arg(int (*a)(int p, int ), int b) = 0;
+    virtual int func_return() = 0;
+    virtual gun_ptr func_return_func_ptr() = 0;
     virtual void func_three_named(int a, int b, int c) = 0;
     virtual void func_two_named(int a, int b) = 0;
     virtual void func_variadic() = 0;
+    virtual int func_variadic_one_unnamed(char *x0) = 0;
     virtual void func_void() = 0;
     virtual void func_with_enum_param(const djur_type a) = 0;
+    virtual djur_type func_with_enum_param_and_return(const djur_type a) = 0;
     virtual void gun_func(int x0) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
 };

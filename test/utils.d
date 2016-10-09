@@ -6,6 +6,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module utils;
 import scriptlike;
 
+import std.typecons : Yes, No, Flag;
+
 enum dextoolExePath = "../build/dextool-debug";
 
 private void delegate(string) oldYap = null;
@@ -160,13 +162,16 @@ struct GR {
     Path result;
 }
 
-/**
- * max_diff is arbitrarily chosen.
+/** Sorted compare of gold and result.
+ *
+ * max_diff is arbitrarily chosen to 5.
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
  */
-void compare(in Path gold, in Path result) {
+void compare(in Path gold, in Path result, Flag!"sortLines" sortLines = Yes.sortLines) {
+    import std.algorithm : joiner, map;
     import std.stdio : File;
+    import std.utf : toUTF8;
 
     yap("Comparing gold:", gold.toRawString);
     yap("        result:", result.toRawString);
@@ -182,17 +187,31 @@ void compare(in Path gold, in Path result) {
         throw new ErrorLevelException(-1, ex.msg);
     }
 
+    auto maybeSort(T)(T lines) {
+        import std.array : array;
+        import std.algorithm : sort;
+
+        if (sortLines) {
+            return sort!((a, b) => a[1] < b[1])(lines.array()).array();
+        }
+
+        return lines.array();
+    }
+
     bool diff_detected = false;
-    int max_diff;
-    foreach (idx, g, r; lockstep(goldf.byLine(), resultf.byLine())) {
-        if (g.strip.length > 2 && r.strip.length > 2 && g.strip[0 .. 2] == "//"
-                && r.strip[0 .. 2] == "//") {
+    immutable max_diff = 5;
+    int accumulated_diff;
+    foreach (g, r; lockstep(maybeSort(goldf.byLine().map!(a => a.toUTF8)
+            .enumerate), maybeSort(resultf.byLine().map!(a => a.toUTF8).enumerate))) {
+        if (g[1].strip.length > 2 && r[1].strip.length > 2
+                && g[1].strip[0 .. 2] == "//" && r[1].strip[0 .. 2] == "//") {
             continue;
-        } else if (g != r && max_diff < 5) {
+        } else if (g[1] != r[1] && accumulated_diff < max_diff) {
             // +1 of index because editors start counting lines from 1
-            yap("Line ", idx + 1, "\ngold: ", g, "\nout:  ", r);
+            yap("Line ", g[0] + 1, " gold:", g[1]);
+            yap("Line ", r[0] + 1, "  out:", r[1], "\n");
             diff_detected = true;
-            ++max_diff;
+            ++accumulated_diff;
         }
     }
 

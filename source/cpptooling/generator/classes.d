@@ -1,8 +1,11 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
-License: MPL-2, Mozilla Public License 2.0
+Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.generator.classes;
 
@@ -35,9 +38,11 @@ private string genLocationComment(LookupT)(USRType usr, LookupT lookup) {
  */
 void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
         Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
+    import std.array : array;
     import std.algorithm : each;
     import std.variant : visit;
     import cpptooling.data.representation;
+    import cpptooling.utility.sort : indexSort;
 
     static void genCtor(const ref CppCtor m, CppModule hdr) {
         string params = m.paramRange().joinParams();
@@ -72,8 +77,11 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
     auto c = hdr.class_(in_c.name);
     auto pub = c.public_();
 
-    foreach (m; in_c.methodPublicRange()) {
-        // dfmt off
+    // dfmt off
+    foreach (m; in_c.methodPublicRange
+             .array()
+             .indexSort!((ref a, ref b) => getName(a) < getName(b))
+             ) {
         () @trusted {
         m.visit!(
             (const CppMethod m) => genMethod(m, pub, loc_as_comment, lookup),
@@ -81,7 +89,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
             (const CppCtor m) => genCtor(m, pub),
             (const CppDtor m) => genDtor(m, pub));
         }();
-        // dfmt on
     }
+    // dfmt on
     hdr.sep(2);
 }

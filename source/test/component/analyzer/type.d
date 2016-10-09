@@ -18,8 +18,7 @@ import test.helpers;
 
 import cpptooling.analyzer.kind;
 import cpptooling.analyzer.type : USRType, toStringDecl;
-import cpptooling.analyzer.clang.ast : ClangAST, generateIndentIncrDecr,
-    Visitor;
+import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.analyze_helper;
 import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.type;
