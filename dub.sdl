@@ -75,7 +75,7 @@ configuration "devtool" {
     targetType "executable"
 
     mainSourceFile "source/devtool/tok_main.d"
-    excludedSourceFiles "source/application/app*.d" "source/test/*"
+    excludedSourceFiles "source/application/app*.d" "source/test/*" "source/devtool/generate_clang_ast_nodes.d"
 }
 
 configuration "unittest" {
