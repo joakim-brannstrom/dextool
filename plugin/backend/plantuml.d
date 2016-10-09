@@ -33,7 +33,7 @@ import dsrcgen.plantuml;
 import application.types;
 import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveTypeRef;
 import cpptooling.analyzer.type : USRType, TypeKindAttr;
-import cpptooling.analyzer.clang.ast.visitor : Visitor;
+import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
 import cpptooling.analyzer.clang.analyze_helper : ClassDeclResult;
@@ -1056,8 +1056,8 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : ClassDecl, CXXBaseSpecifier,
-        Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier;
-    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
+        Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier,
+        generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeClassDecl,
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
         analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
@@ -1232,8 +1232,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : TranslationUnit, UnexposedDecl,
-        VarDecl, FunctionDecl, ClassDecl, Namespace;
-    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
+        VarDecl, FunctionDecl, ClassDecl, Namespace, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeClassDecl, analyzeTranslationUnit;
     import cpptooling.data.representation : CppNsStack, CppNs;

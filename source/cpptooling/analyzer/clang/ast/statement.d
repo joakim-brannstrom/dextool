@@ -6,18 +6,16 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+DO NOT EDIT. THIS FILE IS GENERATED.
+See the generator script source/devtool/generator_clang_ast_nodes.d
 */
 module cpptooling.analyzer.clang.ast.statement;
-
-import std.meta : AliasSeq;
-
-import deimos.clang.index : CXCursorKind;
-
-import cpptooling.analyzer.clang.ast.node : Node, generateNodes;
+import cpptooling.analyzer.clang.ast.node : Node;
 
 abstract class Statement : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast.visitor : Visitor;
+    import cpptooling.analyzer.clang.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -26,48 +24,457 @@ abstract class Statement : Node {
         this.cursor = cursor;
     }
 
-    import cpptooling.analyzer.clang.ast.node : generateNodeAccept;
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
 
-    mixin(generateNodeAccept!());
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
 }
 
-// dfmt off
-alias StatementSeq = AliasSeq!(
-                               CXCursorKind.CXCursor_UnexposedStmt,
-                               CXCursorKind.CXCursor_LabelStmt,
-                               CXCursorKind.CXCursor_CompoundStmt,
-                               CXCursorKind.CXCursor_CaseStmt,
-                               CXCursorKind.CXCursor_DefaultStmt,
-                               CXCursorKind.CXCursor_IfStmt,
-                               CXCursorKind.CXCursor_SwitchStmt,
-                               CXCursorKind.CXCursor_WhileStmt,
-                               CXCursorKind.CXCursor_DoStmt,
-                               CXCursorKind.CXCursor_ForStmt,
-                               CXCursorKind.CXCursor_GotoStmt,
-                               CXCursorKind.CXCursor_IndirectGotoStmt,
-                               CXCursorKind.CXCursor_ContinueStmt,
-                               CXCursorKind.CXCursor_BreakStmt,
-                               CXCursorKind.CXCursor_ReturnStmt,
-                               // overlaps with AsmStmt
-                               //CXCursorKind.CXCursor_GCCAsmStmt,
-                               CXCursorKind.CXCursor_AsmStmt,
-                               CXCursorKind.CXCursor_ObjCAtTryStmt,
-                               CXCursorKind.CXCursor_ObjCAtCatchStmt,
-                               CXCursorKind.CXCursor_ObjCAtFinallyStmt,
-                               CXCursorKind.CXCursor_ObjCAtThrowStmt,
-                               CXCursorKind.CXCursor_ObjCAtSynchronizedStmt,
-                               CXCursorKind.CXCursor_ObjCAutoreleasePoolStmt,
-                               CXCursorKind.CXCursor_ObjCForCollectionStmt,
-                               CXCursorKind.CXCursor_CXXCatchStmt,
-                               CXCursorKind.CXCursor_CXXTryStmt,
-                               CXCursorKind.CXCursor_CXXForRangeStmt,
-                               CXCursorKind.CXCursor_SEHTryStmt,
-                               CXCursorKind.CXCursor_SEHExceptStmt,
-                               CXCursorKind.CXCursor_SEHFinallyStmt,
-                               CXCursorKind.CXCursor_MSAsmStmt,
-                               CXCursorKind.CXCursor_NullStmt,
-                               CXCursorKind.CXCursor_DeclStmt,
-                               );
-// dfmt on
+final class UnexposedStmt : Statement {
+    import clang.Cursor : Cursor;
 
-mixin(generateNodes!(Statement, StatementSeq));
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class LabelStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class CompoundStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class CaseStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class DefaultStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class IfStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class SwitchStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class WhileStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class DoStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ForStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class GotoStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class IndirectGotoStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ContinueStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class BreakStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ReturnStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class AsmStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAtTryStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAtCatchStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAtFinallyStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAtThrowStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAtSynchronizedStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAutoreleasePoolStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCForCollectionStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class CXXCatchStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class CXXTryStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class CXXForRangeStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class SEHTryStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class SEHExceptStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class SEHFinallyStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class MSAsmStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class NullStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class DeclStmt : Statement {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}

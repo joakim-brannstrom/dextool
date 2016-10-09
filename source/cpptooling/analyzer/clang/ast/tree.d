@@ -24,7 +24,7 @@ import cpptooling.analyzer.clang.ast.reference;
 import cpptooling.analyzer.clang.ast.statement;
 import cpptooling.analyzer.clang.ast.translationunit;
 
-import cpptooling.analyzer.clang.ast.visitor : CXCursorKind_PrefixLen;
+import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual, shouldBeTrue;
@@ -120,17 +120,18 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
  * Note that the mixins shall be ordered alphabetically.
  */
 void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
+    import cpptooling.analyzer.clang.ast.nodes;
     import std.conv : to;
 
     switch (cursor.kind) {
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, AttributeSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, DeclarationSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, DirectiveSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, ExpressionSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, PreprocessorSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, ReferenceSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, StatementSeq));
-        mixin(wrapCursor!(CXCursorKind_PrefixLen, visitor, cursor, TranslationUnitSeq));
+        mixin(wrapCursor!(visitor, cursor)(AttributeSeq));
+        mixin(wrapCursor!(visitor, cursor)(DeclarationSeq));
+        mixin(wrapCursor!(visitor, cursor)(DirectiveSeq));
+        mixin(wrapCursor!(visitor, cursor)(ExpressionSeq));
+        mixin(wrapCursor!(visitor, cursor)(PreprocessorSeq));
+        mixin(wrapCursor!(visitor, cursor)(ReferenceSeq));
+        mixin(wrapCursor!(visitor, cursor)(StatementSeq));
+        mixin(wrapCursor!(visitor, cursor)(TranslationUnitSeq));
 
     default:
         logger.error("Node not handled:", to!string(cursor.kind));
@@ -139,26 +140,27 @@ void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
 
 private:
 
-template wrapCursor(ulong skipBeginLen, alias visitor, alias cursor, cases...) {
-    static if (cases.length > 1) {
-        enum wrapCursor = wrapCursor!(skipBeginLen, visitor, cursor, cases[0]) ~ wrapCursor!(skipBeginLen,
-                    visitor, cursor, cases[1 .. $]);
+string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
+    import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
+    import std.format : format;
+
+    static if (is(typeof(visitor) : T[], T)) {
+        // is an array
+        enum visit = "foreach (v; " ~ visitor.stringof ~ ") { v.visit(wrapped); }";
     } else {
-        import std.format : format;
-
-        static if (is(typeof(visitor) : T[], T)) {
-            // is an array
-            enum visit = "foreach (v; " ~ visitor.stringof ~ ") { v.visit(wrapped); }";
-        } else {
-            enum visit = visitor.stringof ~ ".visit(wrapped);";
-        }
-
-        enum parent = __traits(parent, cases[0]).stringof;
-        enum case0_skip = cases[0].stringof[skipBeginLen .. $];
-        //TODO allocate in an allocator, not GC with "new"
-        enum wrapCursor = format("case %s.%s: auto wrapped = new %s(%s); %s break;\n",
-                    parent, cases[0].stringof, case0_skip, cursor.stringof, visit);
+        enum visit = visitor.stringof ~ ".visit(wrapped);";
     }
+
+    //TODO allocate in an allocator, not GC with "new"
+    string result;
+
+    foreach (case_; cases) {
+        string case_skip = case_[CXCursorKind_PrefixLen .. $];
+        result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s break;\n",
+                case_, case_skip, cursor.stringof, visit);
+    }
+
+    return result;
 }
 
 @Name("Should be a bounch of 'case'")
@@ -173,7 +175,7 @@ unittest {
     int visitor;
     int cursor;
 
-    wrapCursor!(1, visitor, cursor, Dummy.xCase1, Dummy.xCase2).shouldEqual(
+    wrapCursor!(visitor, cursor)(["Dummy.xCase1", "Dummy.xCase2"]).shouldEqual(
             "case Dummy.xCase1: auto wrapped = new Case1(cursor); visitor.visit(wrapped); break;
 case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); break;
 ");
@@ -181,7 +183,8 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 
 @Name("A name for the test")
 @safe unittest {
-    import cpptooling.analyzer.clang.ast.visitor : Visitor;
+    import cpptooling.analyzer.clang.ast : Visitor;
+    import cpptooling.analyzer.clang.ast.nodes;
 
     final class TestVisitor : Visitor {
         alias visit = Visitor.visit;
@@ -231,18 +234,21 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 
     Cursor cursor;
 
-    foreach (kind; [AttributeSeq[0], DeclarationSeq[0], DirectiveSeq[0],
-            ExpressionSeq[0], PreprocessorSeq[0], ReferenceSeq[0],
-            StatementSeq[0], TranslationUnitSeq[0]]) {
+    foreach (kind; [__traits(getMember, CXCursorKind, AttributeSeq[0]), __traits(getMember,
+            CXCursorKind, DeclarationSeq[0]), __traits(getMember, CXCursorKind,
+            DirectiveSeq[0]), __traits(getMember, CXCursorKind,
+            ExpressionSeq[0]), __traits(getMember, CXCursorKind, PreprocessorSeq[0]), __traits(getMember, CXCursorKind,
+            ReferenceSeq[0]), __traits(getMember, CXCursorKind, StatementSeq[0]),
+            __traits(getMember, CXCursorKind, TranslationUnitSeq[0])]) {
         switch (kind) {
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, AttributeSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, DeclarationSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, DirectiveSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, ExpressionSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, PreprocessorSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, ReferenceSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, StatementSeq));
-            mixin(wrapCursor!(CXCursorKind_PrefixLen, test, cursor, TranslationUnitSeq));
+            mixin(wrapCursor!(test, cursor)(AttributeSeq));
+            mixin(wrapCursor!(test, cursor)(DeclarationSeq));
+            mixin(wrapCursor!(test, cursor)(DirectiveSeq));
+            mixin(wrapCursor!(test, cursor)(ExpressionSeq));
+            mixin(wrapCursor!(test, cursor)(PreprocessorSeq));
+            mixin(wrapCursor!(test, cursor)(ReferenceSeq));
+            mixin(wrapCursor!(test, cursor)(StatementSeq));
+            mixin(wrapCursor!(test, cursor)(TranslationUnitSeq));
         default:
             assert(0);
         }

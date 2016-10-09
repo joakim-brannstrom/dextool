@@ -17,7 +17,7 @@ import cpptooling.analyzer.clang.ast.node : Node;
 
 final class TranslationUnit : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast.visitor : Visitor;
+    import cpptooling.analyzer.clang.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -26,9 +26,9 @@ final class TranslationUnit : Node {
         this.cursor = cursor;
     }
 
-    import cpptooling.analyzer.clang.ast.node : generateNodeAccept;
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
 
-    mixin(generateNodeAccept!());
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
 }
-
-alias TranslationUnitSeq = AliasSeq!(CXCursorKind.CXCursor_TranslationUnit);

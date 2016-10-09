@@ -12,7 +12,7 @@ import logger = std.experimental.logger;
 import clang.Cursor : Cursor;
 import clang.TranslationUnit : TranslationUnit;
 
-import cpptooling.analyzer.clang.ast.visitor;
+import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.analyzer.clang.type : TypeResults;
 import cpptooling.data.symbol.container : Container;
 

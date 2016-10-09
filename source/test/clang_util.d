@@ -10,9 +10,10 @@ module test.clang_util;
 import std.typecons : Flag, Yes, No;
 
 public import cpptooling.analyzer.clang.context : ClangContext;
-import clang.TranslationUnit : TranslationUnit;
 
-Flag!"hasError" checkForCompilerErrors(ref TranslationUnit ctx) {
+static import clang.TranslationUnit;
+
+Flag!"hasError" checkForCompilerErrors(ref clang.TranslationUnit.TranslationUnit ctx) {
     import cpptooling.analyzer.clang.utility : hasParseErrors, logDiagnostic;
 
     if (ctx.hasParseErrors) {
