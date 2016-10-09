@@ -53,8 +53,8 @@ class MockAllProtPrivMadePublic : public ::no_inherit::AllProtPrivMadePublic {
 public:
     virtual ~MockAllProtPrivMadePublic() {}
 
-    MOCK_METHOD0(a_protected, void());
     MOCK_METHOD0(a_private, void());
+    MOCK_METHOD0(a_protected, void());
 };
 } //NS:TestDouble
 

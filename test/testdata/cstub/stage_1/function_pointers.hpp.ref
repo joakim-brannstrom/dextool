@@ -9,8 +9,8 @@ class I_TestDouble {
 public:
     virtual func_type * cyber(const unsigned int baz) = 0;
     virtual func_type * leopard(const unsigned int baz) = 0;
-    virtual int typedef_array_func(int *x, int z[16]) = 0;
     virtual void tiger() = 0;
+    virtual int typedef_array_func(int *x, int z[16]) = 0;
 };
 
 ///

@@ -279,6 +279,19 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     // dfmt on
 }
 
+/// Get the name of a C++ method.
+string getName()(ref const(CppClass.CppFunc) method) @trusted {
+    import std.variant : visit;
+
+    // dfmt off
+    return method.visit!(
+                         (const CppMethod m) => m.name,
+                         (const CppMethodOp m) => "",
+                         (const CppCtor m) => m.name,
+                         (const CppDtor m) => m.name);
+    // dfmt on
+}
+
 /// Make a variadic parameter.
 CxParam makeCxParam() @trusted {
     return CxParam(VariadicType.yes);
