@@ -102,8 +102,9 @@ unittest {
     cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, "-xc"));
 }
 
-/// if no regexp or no match when using the regexp, using the include
-/// path as-is.
+/** if no regexp or no match when using the regexp, using the include
+ * path as-is.
+ */
 auto stripFile(FileName fname, Regex!char re) @trusted {
     import std.array : array;
     import std.algorithm : joiner;
@@ -117,7 +118,9 @@ auto stripFile(FileName fname, Regex!char re) @trusted {
 
     auto c = matchFirst(cast(string) fname, re);
     auto rval = fname;
-    logger.tracef("for input '%s', strip match is: %s", cast(string) fname, c);
+
+    debug logger.tracef("input is '%s'. After strip: %s", fname, c);
+
     if (!c.empty) {
         rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
     }
@@ -125,6 +128,11 @@ auto stripFile(FileName fname, Regex!char re) @trusted {
     return rval;
 }
 
+/** Fixup the includes to be ready for usage as #include.
+ *
+ * Deduplicate.
+ * Strip the includes according to the user supplied configuration.
+ */
 auto stripIncl(ref FileName[] incls, Regex!char re) {
     import std.array : array;
     import std.algorithm : cache, map, filter;
@@ -133,13 +141,11 @@ auto stripIncl(ref FileName[] incls, Regex!char re) {
     // dfmt off
     auto r = dedup(incls)
         .map!(a => stripFile(a, re))
-        .cache()
         .filter!(a => a.length > 0)
         .array();
     // dfmt on
 
     return r;
-
 }
 
 /** Includes intended for the test double.
