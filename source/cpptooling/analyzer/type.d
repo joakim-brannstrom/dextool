@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -236,13 +235,13 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta) {
 }
 
 /// if a type can be cast to a TypeKindAttr.
-auto toStringDecl(T)(const T tka, string id)
-        if (is(typeof(cast(TypeKindAttr) tka) == TypeKindAttr)) {
-    return (cast(TypeKindAttr) tka).kind.toStringDecl(tka.attr, id);
+auto toStringDecl(T)(const T value, string id)
+        if (is(typeof(cast(TypeKindAttr) value) == TypeKindAttr)) {
+    return (cast(TypeKindAttr) value).kind.toStringDecl(value.attr, id);
 }
 
 /// ditto
-auto toStringDecl(T)(const T tka)
-        if (is(typeof(cast(TypeKindAttr) tka) == TypeKindAttr)) {
-    return (cast(TypeKindAttr) tka).kind.toStringDecl(tka.attr);
+auto toStringDecl(T)(const T value)
+        if (is(typeof(cast(TypeKindAttr) value) == TypeKindAttr)) {
+    return (cast(TypeKindAttr) value).kind.toStringDecl(value.attr);
 }
