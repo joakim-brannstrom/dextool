@@ -25,8 +25,7 @@ import clang.SourceLocation : SourceLocation;
 
 import cpptooling.analyzer.clang.ast : FunctionDecl, VarDecl, Constructor,
     Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier,
-    TranslationUnit;
-import cpptooling.analyzer.clang.ast.visitor : Visitor;
+    TranslationUnit, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.utility : put;
@@ -415,7 +414,6 @@ auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, 
 final class ClassVisitor : Visitor {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.ast.visitor;
     import cpptooling.data.representation;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.symbol.types : USRType;

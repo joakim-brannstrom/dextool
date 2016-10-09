@@ -16,7 +16,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
 import cpptooling.data.symbol.container;
-import cpptooling.analyzer.clang.ast.visitor : Visitor;
+import cpptooling.analyzer.clang.ast : Visitor;
 
 /// Control various aspects of the analyze and generation like what nodes to
 /// process.
@@ -230,8 +230,7 @@ final class CVisitor : Visitor {
     import std.typecons : scoped;
 
     import cpptooling.analyzer.clang.ast : VarDecl, FunctionDecl,
-        TranslationUnit;
-    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
+        TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
     import cpptooling.data.representation : CppRoot;

@@ -14,7 +14,7 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
-import cpptooling.analyzer.clang.ast.visitor : Visitor;
+import cpptooling.analyzer.clang.ast : Visitor;
 
 /** Control various aspectes of the analyze and generation like what nodes to
  * process.
@@ -226,8 +226,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit;
-    import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
+        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
     import cpptooling.data.representation : CppRoot, CxGlobalVariable;

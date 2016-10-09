@@ -13,10 +13,6 @@ import logger = std.experimental.logger;
 
 import application.types;
 
-// Workaround for undefined identifiers during compilation.
-// The problem is probably in ast.visitor or ast.node but I don't know why.
-import cpptooling.analyzer.clang.ast.visitor;
-
 version (unittest) {
     import unit_threaded;
 }
