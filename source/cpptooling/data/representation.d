@@ -206,25 +206,6 @@ private template mixinKind() {
     }
 }
 
-/// Return: sorted and deduplicated array of the range.
-///TODO can it be implemented more efficient?
-auto dedup(T)(auto ref T r) @safe if (isInputRange!T) {
-    import std.array : array;
-    import std.algorithm : makeIndex, uniq, map;
-
-    auto arr = r.array();
-    auto index = new size_t[r.length];
-    makeIndex(r, index);
-
-    // dfmt off
-    auto rval = index.uniq!((a,b) => arr[a] == arr[b])
-        .map!(a => arr[a])
-        .array();
-    // dfmt on
-
-    return rval;
-}
-
 /// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
     import std.variant : visit;

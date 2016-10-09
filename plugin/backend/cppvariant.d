@@ -425,11 +425,13 @@ enum NamespaceType {
  *  ctrl: removes according to directives via ctrl
  */
 CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, LookupT lookup) @safe {
+    import std.array : array;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
     import application.types : FileName;
-    import cpptooling.data.representation : dedup, StorageClass;
+    import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
+    import cpptooling.utility : dedup;
 
     // setup
     static if (is(CppT == CppRoot)) {
@@ -446,6 +448,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     static if (is(CppT == CppNamespace)) {
         // dfmt off
         input.funcRange
+            .array()
             .dedup
             // by definition static functions can't be replaced by test doubles
             .filter!(a => a.storageClass != StorageClass.Static)
