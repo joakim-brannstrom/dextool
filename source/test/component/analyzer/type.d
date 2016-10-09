@@ -158,7 +158,7 @@ unittest {
         param.visit!(
                      (TypeKindVariable v) => type = v.type,
                      (TypeKindAttr v) => type = v,
-                     (VariadicType v) {});
+                     (VariadicType v) => type);
         // dfmt on
 
         type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
