@@ -8,13 +8,12 @@ Variant of C++ test double.
 */
 module plugin.backend.cppvariant;
 
-import std.typecons : No, Flag;
+import std.typecons : No, Flag, Nullable;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import application.types;
-import cpptooling.utility.nullvoid;
 import cpptooling.analyzer.clang.ast.visitor : Visitor;
 
 /** Control various aspectes of the analyze and generation like what nodes to
@@ -506,7 +505,7 @@ CppRoot translate(CppRoot root, ref Container container, Controller ctrl, Parame
 
 /** Translate namspaces and the content to test double implementations.
  */
-NullableVoid!CppNamespace translate(CppNamespace input, ref Container container,
+Nullable!CppNamespace translate(CppNamespace input, ref Container container,
         Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
@@ -557,7 +556,7 @@ NullableVoid!CppNamespace translate(CppNamespace input, ref Container container,
         .each!(a => ns.put(makeGmockInNs(a, params)));
     // dfmt on
 
-    NullableVoid!CppNamespace rval;
+    Nullable!CppNamespace rval;
     if (!ns.namespaceRange.empty || !ns.classRange.empty) {
         rval = ns;
     }
