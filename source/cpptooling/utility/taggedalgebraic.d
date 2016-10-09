@@ -54,7 +54,7 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 
 
     private {
-        void[Largest!FieldTypes.sizeof] m_data = void;
+        void[Largest!FieldTypes.sizeof] m_data;
         Kind m_kind;
     }
 
@@ -199,7 +199,7 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 ///
 unittest
 {
-    import taggedalgebraic;
+    import cpptooling.utility.taggedalgebraic;
 
     struct Foo {
         string name;
@@ -911,6 +911,8 @@ private string generateConstructors(U)()
     import std.traits : FieldTypeTuple;
 
     string ret;
+
+    ret ~= "// " ~ U.stringof ~ "\n";
 
     // disable default construction if first type is not a null/Void type
     static if (!is(FieldTypeTuple!U[0] == typeof(null)) && !is(FieldTypeTuple!U[0] == Void))
