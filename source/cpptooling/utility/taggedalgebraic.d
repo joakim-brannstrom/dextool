@@ -81,7 +81,7 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
         swap(this, other);
     }
 
-    void opAssign(TaggedAlgebraic other)
+    void opAssign()(TaggedAlgebraic other)
     {
         import std.algorithm : swap;
         swap(this, other);
