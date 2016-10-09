@@ -19,7 +19,7 @@ import application.types;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
-    import test.helpers : shouldEqualPretty;
+    import test.extra_should : shouldEqualPretty;
 } else {
     private struct Name {
         string name_;

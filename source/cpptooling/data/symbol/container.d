@@ -439,7 +439,7 @@ unittest {
     import std.conv : to;
     import cpptooling.data.representation : CppClass, CppClassName;
     import cpptooling.data.type : Location;
-    import test.helpers;
+    import test.extra_should : shouldEqualPretty;
 
     Container cont;
 

@@ -49,7 +49,7 @@ import cpptooling.utility.unqual : Unqual;
 static import cpptooling.data.class_classification;
 
 version (unittest) {
-    import test.helpers : shouldEqualPretty;
+    import test.extra_should : shouldEqualPretty;
     import unit_threaded : Name;
     import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
     import unit_threaded : writelnUt;
