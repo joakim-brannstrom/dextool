@@ -19,9 +19,20 @@ import cpptooling.data.type; // : LocationTag;
 
 public import cpptooling.analyzer.kind;
 
-alias TypeKindAttr = Tuple!(TypeKind, "kind", TypeAttr, "attr");
-alias TypeResult = Tuple!(TypeKindAttr, "type", LocationTag, "location");
-alias TypeResults = Tuple!(TypeResult, "primary", TypeResult[], "extra");
+struct TypeKindAttr {
+    TypeKind kind;
+    TypeAttr attr;
+}
+
+struct TypeResult {
+    TypeKindAttr type;
+    LocationTag location;
+}
+
+struct TypeResults {
+    TypeResult primary;
+    TypeResult[] extra;
+}
 
 /** Merge rhs into lhs.
  */
