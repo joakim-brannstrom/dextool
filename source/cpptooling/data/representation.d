@@ -128,7 +128,7 @@ string paramTypeToString(CxParam p, string id = "") @trusted {
 // string mixin
 private string standardToString() {
     return q{
-    string toString() const {
+    string toString()() const {
         import std.format : FormatSpec;
         import std.exception : assumeUnique;
 
