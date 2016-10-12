@@ -287,12 +287,34 @@ CxParam makeCxParam() @trusted {
     return CxParam(VariadicType.yes);
 }
 
-/// CParam created by analyzing a TypeKindVariable.
+/// CxParam created by analyzing a TypeKindVariable.
 /// A empty variable name means it is of the algebraic type TypeKind.
 CxParam makeCxParam(TypeKindVariable tk) @trusted {
     if (tk.name.length == 0)
         return CxParam(tk.type);
     return CxParam(tk);
+}
+
+struct UnpackParamResult {
+    TypeKindAttr type;
+    bool isVariadic;
+}
+
+/// Unpack a CxParam.
+UnpackParamResult unpackParam(ref const(CxParam) p) @safe {
+    import std.variant : visit;
+
+    UnpackParamResult rval;
+
+    // dfmt off
+    () @trusted {
+        p.visit!((const TypeKindVariable v) => rval.type = v.type,
+                 (const TypeKindAttr v) => rval.type = v,
+                 (const VariadicType v) { rval.isVariadic = true; return rval.type; });
+    }();
+    // dfmt on
+
+    return rval;
 }
 
 private void assertVisit(ref const(CxParam) p) @trusted {
