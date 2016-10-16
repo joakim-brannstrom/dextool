@@ -7,6 +7,8 @@
  */
 module cpptooling.utility.taggedalgebraic;
 
+// based on v0.10.4
+
 // dfmt off
 import std.typetuple;
 
@@ -81,7 +83,7 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
         swap(this, other);
     }
 
-    void opAssign()(TaggedAlgebraic other)
+    void opAssign(TaggedAlgebraic other)
     {
         import std.algorithm : swap;
         swap(this, other);
@@ -339,8 +341,7 @@ unittest { // std.conv integration
 
     alias TA = TaggedAlgebraic!Test;
 
-    TA ta;
-    ta = TA(12, TA.Kind.count);
+    TA ta = TA(12, TA.Kind.count);
     assert(ta.kind == TA.Kind.count);
     assert(ta == 12);
 
@@ -912,7 +913,7 @@ private string generateConstructors(U)()
 
     string ret;
 
-    ret ~= "// " ~ U.stringof ~ "\n";
+    //ret ~= "// " ~ U.stringof ~ "\n";
 
     // disable default construction if first type is not a null/Void type
     static if (!is(FieldTypeTuple!U[0] == typeof(null)) && !is(FieldTypeTuple!U[0] == Void))
@@ -1078,12 +1079,12 @@ private template isNoVariant(T) {
 
 private void rawEmplace(T)(void[] dst, ref T src)
 {
-    T* tdst = () @trusted { return cast(T*)dst.ptr; } ();
+    T[] tdst = () @trusted { return cast(T[])dst[0 .. T.sizeof]; } ();
     static if (is(T == class)) {
-        *tdst = src;
+        tdst[0] = src;
     } else {
         import std.conv : emplace;
-        emplace(tdst);
-        *tdst = src;
+        emplace!T(&tdst[0]);
+        tdst[0] = src;
     }
 }
