@@ -134,7 +134,7 @@ void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
         mixin(wrapCursor!(visitor, cursor)(TranslationUnitSeq));
 
     default:
-        logger.error("Node not handled:", to!string(cursor.kind));
+        debug logger.trace("Node not handled:", to!string(cursor.kind));
     }
 }
 
