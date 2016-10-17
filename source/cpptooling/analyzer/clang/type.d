@@ -71,6 +71,9 @@ private string nextSequence() @safe {
 private auto filterByTypeRef(T)(auto ref T in_) {
     import std.algorithm : filter, among;
 
+    // CXCursorKind.CXCursor_TypeRef is the first node, thus >=...
+    // it is not in any other way "special".
+
     return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
             && a.kind <= CXCursorKind.CXCursor_LastRef);
 }
@@ -365,6 +368,8 @@ body {
 }
 
 /** Pass 1, implicit anonymous types for struct and union.
+ *
+ * TODO merge with pass2. Code duplication
  */
 private Nullable!TypeResult pass1(ref const(Cursor) c, uint indent)
 in {
@@ -577,6 +582,8 @@ body {
     return rval;
 }
 
+//TODO add comment, I don't understand what the function is intended to do from
+// the function name.
 private bool isUnexposedDeclWithUSR(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
     case CXCursor_TypedefDecl:
