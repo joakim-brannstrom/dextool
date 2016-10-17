@@ -330,10 +330,7 @@ in {
 
     // unable to derive anything useful from a typeref when based on nothing else.
     // __va_list is an examle (found in stdarg.h).
-    if (indent == 0 && c.kind.among(CXCursorKind.CXCursor_TypeRef,
-            CXCursorKind.CXCursor_CXXBaseSpecifier, CXCursorKind.CXCursor_TemplateRef,
-            CXCursorKind.CXCursor_NamespaceRef,
-            CXCursorKind.CXCursor_MemberRef, CXCursorKind.CXCursor_LabelRef)) {
+    if (indent == 0 && isRefNode(c.kind)) {
         assert(false);
     }
 }
