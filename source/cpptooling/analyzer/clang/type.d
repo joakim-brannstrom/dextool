@@ -872,12 +872,36 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    string spell = type.spelling;
+    /// Make a string that represent the type.
+    /// TODO super inefficient handling of strings.
+    static string makeSpelling(ref const(Cursor) c, ref Type type) {
+        import std.algorithm : canFind;
 
-    // ugly hack
-    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
-        spell = spell[6 .. $];
+        string spell = type.spelling;
+
+        if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
+            spell = spell[6 .. $];
+        }
+
+        if (!spell.canFind("::")) {
+            // if it isn't contained in a namespace then perform a backtracking of
+            // the scope to ensure it isn't needed.  Implicit struct or enums need
+            // this check.
+            // Example: typedef struct {} Struct;
+
+            import std.array : appender;
+            import cpptooling.analyzer.clang.utility : backtrackScope;
+
+            auto app = appender!string();
+            backtrackScope(c, (string a) { app.put(a); app.put("::"); });
+            app.put(spell);
+            spell = app.data;
+        }
+
+        return spell;
     }
+
+    auto spell = makeSpelling(c, type);
 
     TypeKind.TypeRefInfo info;
     info.fmt = spell ~ " %s";
@@ -1429,12 +1453,11 @@ body {
     }
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
-        foreach (child; c.children.takeOne) {
-            switch (child.kind) with (CXCursorKind) {
-            case CXCursor_TypeRef:
+        // only ref nodes are of interest
+        foreach (child; c.children.filterByTypeRef) {
+            // only a TypeRef can contain a typedef
+            if (child.kind == CXCursorKind.CXCursor_TypeRef) {
                 rval = pass4(child, container, indent);
-                break;
-            default:
             }
         }
 
@@ -1478,6 +1501,7 @@ body {
 
             trace(idx.to!string(), this_indent);
         }
+
         f(rval);
         if (!rval.isNull) {
             break;
