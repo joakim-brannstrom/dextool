@@ -71,6 +71,9 @@ private string nextSequence() @safe {
 private auto filterByTypeRef(T)(auto ref T in_) {
     import std.algorithm : filter, among;
 
+    // CXCursorKind.CXCursor_TypeRef is the first node, thus >=...
+    // it is not in any other way "special".
+
     return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
             && a.kind <= CXCursorKind.CXCursor_LastRef);
 }
@@ -327,10 +330,7 @@ in {
 
     // unable to derive anything useful from a typeref when based on nothing else.
     // __va_list is an examle (found in stdarg.h).
-    if (indent == 0 && c.kind.among(CXCursorKind.CXCursor_TypeRef,
-            CXCursorKind.CXCursor_CXXBaseSpecifier, CXCursorKind.CXCursor_TemplateRef,
-            CXCursorKind.CXCursor_NamespaceRef,
-            CXCursorKind.CXCursor_MemberRef, CXCursorKind.CXCursor_LabelRef)) {
+    if (indent == 0 && isRefNode(c.kind)) {
         assert(false);
     }
 }
@@ -365,6 +365,8 @@ body {
 }
 
 /** Pass 1, implicit anonymous types for struct and union.
+ *
+ * TODO merge with pass2. Code duplication
  */
 private Nullable!TypeResult pass1(ref const(Cursor) c, uint indent)
 in {
@@ -577,6 +579,8 @@ body {
     return rval;
 }
 
+//TODO add comment, I don't understand what the function is intended to do from
+// the function name.
 private bool isUnexposedDeclWithUSR(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
     case CXCursor_TypedefDecl:
@@ -872,12 +876,36 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    string spell = type.spelling;
+    /// Make a string that represent the type.
+    /// TODO super inefficient handling of strings.
+    static string makeSpelling(ref const(Cursor) c, ref Type type) {
+        import std.algorithm : canFind;
 
-    // ugly hack
-    if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
-        spell = spell[6 .. $];
+        string spell = type.spelling;
+
+        if (type.isConst && spell.length > 6 && spell[0 .. 6] == "const ") {
+            spell = spell[6 .. $];
+        }
+
+        if (!spell.canFind("::")) {
+            // if it isn't contained in a namespace then perform a backtracking of
+            // the scope to ensure it isn't needed.  Implicit struct or enums need
+            // this check.
+            // Example: typedef struct {} Struct;
+
+            import std.array : appender;
+            import cpptooling.analyzer.clang.utility : backtrackScope;
+
+            auto app = appender!string();
+            backtrackScope(c, (string a) { app.put(a); app.put("::"); });
+            app.put(spell);
+            spell = app.data;
+        }
+
+        return spell;
     }
+
+    auto spell = makeSpelling(c, type);
 
     TypeKind.TypeRefInfo info;
     info.fmt = spell ~ " %s";
@@ -1429,12 +1457,11 @@ body {
     }
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
-        foreach (child; c.children.takeOne) {
-            switch (child.kind) with (CXCursorKind) {
-            case CXCursor_TypeRef:
+        // only ref nodes are of interest
+        foreach (child; c.children.filterByTypeRef) {
+            // only a TypeRef can contain a typedef
+            if (child.kind == CXCursorKind.CXCursor_TypeRef) {
                 rval = pass4(child, container, indent);
-                break;
-            default:
             }
         }
 
@@ -1478,6 +1505,7 @@ body {
 
             trace(idx.to!string(), this_indent);
         }
+
         f(rval);
         if (!rval.isNull) {
             break;

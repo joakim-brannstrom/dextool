@@ -7,16 +7,16 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void array_func(int x, int *y, int z[16]) = 0;
-    virtual void array_func_param_typedef(MyIntType x0[16]) = 0;
+    virtual void array_func_param_typedef(ns::MyIntType x0[16]) = 0;
     virtual const int c_func_one_named(const int a) = 0;
     virtual const int c_func_return() = 0;
     virtual void c_func_three_named(const int a, const int b, const int c) = 0;
     virtual void c_func_two_named(const int a, const int b) = 0;
     virtual void c_func_with_struct(const ns::A *a) = 0;
-    virtual void fun(func_ptr2 p, Something_Big b) = 0;
+    virtual void fun(ns::func_ptr2 p, ns::Something_Big b) = 0;
     virtual void func_array(int a[10]) = 0;
-    virtual void func_exhibit_type_bug_variant1(const djur_type a) = 0;
-    virtual djur_type func_exhibit_type_bug_variant2() = 0;
+    virtual void func_exhibit_type_bug_variant1(const ns::djur_type a) = 0;
+    virtual ns::djur_type func_exhibit_type_bug_variant2() = 0;
     virtual int func_extern(int out) = 0;
     virtual int func_one_named(int a) = 0;
     virtual void func_ptr_arg(int (*a)(int p, int ), int b) = 0;
@@ -25,15 +25,15 @@ public:
     virtual void func_ref_many(int &a, char &b) = 0;
     virtual void func_ref_ptr(int *&a) = 0;
     virtual int func_return() = 0;
-    virtual gun_ptr func_return_func_ptr() = 0;
+    virtual ns::gun_ptr func_return_func_ptr() = 0;
     virtual int & func_return_ref() = 0;
     virtual void func_three_named(int a, int b, int c) = 0;
     virtual void func_two_named(int a, int b) = 0;
     virtual void func_variadic() = 0;
     virtual int func_variadic_one_unnamed(char *x0) = 0;
     virtual void func_void() = 0;
-    virtual void func_with_enum_param(const djur_type a) = 0;
-    virtual djur_type func_with_enum_param_and_return(const djur_type a) = 0;
+    virtual void func_with_enum_param(const ns::djur_type a) = 0;
+    virtual ns::djur_type func_with_enum_param_and_return(const ns::djur_type a) = 0;
     virtual void gun_func(int x0) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
 };
@@ -49,4 +49,35 @@ public:
 } //NS:TestDouble
 
 } //NS:ns
+namespace ns_using_scope {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void enum_named_arg(Scope::Enum e0) = 0;
+    virtual void enum_ptr_arg(Scope::Enum *e0) = 0;
+    virtual Scope::Enum * enum_ptr_rval() = 0;
+    virtual void enum_ref_arg(Scope::Enum &e0) = 0;
+    virtual Scope::Enum & enum_ref_rval() = 0;
+    virtual Scope::Enum enum_rval() = 0;
+    virtual void enum_unnamed_arg(Scope::Enum x0) = 0;
+    virtual void struct_one_named_arg(Scope::Struct e0) = 0;
+    virtual void struct_ptr_arg(Scope::Struct *e0) = 0;
+    virtual Scope::Struct * struct_ptr_rval() = 0;
+    virtual void struct_ref_arg(Scope::Struct &e0) = 0;
+    virtual Scope::Struct & struct_ref_rval() = 0;
+    virtual Scope::Struct struct_rval() = 0;
+    virtual void struct_unnamed_arg(Scope::Struct x0) = 0;
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+} //NS:ns_using_scope
 #endif // test_double_hpp
