@@ -360,17 +360,15 @@ alias CXXBaseSpecifierResult = Tuple!(TypeKindAttr, "type", CppClassName,
  * the class the typedef refers.
  */
 auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container, in uint indent) @safe {
-    import std.array : appender;
+    import std.array : array;
+    import std.algorithm : map;
     import cpptooling.data.type : CppAccess;
-    import cpptooling.analyzer.clang.utility : backtrackScope;
+    import cpptooling.analyzer.clang.utility : backtrackScopeRange;
 
     auto c_ref = v.cursor.referenced;
 
     auto type = () @trusted{ return retrieveType(c_ref, container, indent); }();
     put(type, container, indent);
-
-    auto namespace = appender!(CppNs[])();
-    backtrackScope(c_ref, (string s) { namespace.put(CppNs(s)); });
 
     auto name = CppClassName(c_ref.spelling);
     auto access = CppAccess(toAccessType(() @trusted{ return c_ref.access; }().accessSpecifier));
@@ -381,7 +379,9 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     }
 
     // namespace has the class itself so must remove
-    return CXXBaseSpecifierResult(type.primary.type, name, namespace.data[1 .. $], usr, access);
+    CppNs[] namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array()[1 .. $];
+
+    return CXXBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
 }
 
 alias ClassDeclResult = Tuple!(TypeKindAttr, "type", CppClassName, "name",

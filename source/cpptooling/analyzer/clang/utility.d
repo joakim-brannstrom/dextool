@@ -24,40 +24,54 @@ version (unittest) {
     }
 }
 
-//TODO handle anonymous namespace
-//TODO maybe merge with backtrackNode in clang/utility.d?
+private struct BacktrackScopeRangeResult {
+    private Cursor cursor;
+
+    Cursor front() @safe nothrow const {
+        assert(!empty, "Can't get front of an empty range");
+
+        return cursor;
+    }
+
+    void popFront() @safe {
+        import std.algorithm : among;
+        import deimos.clang.index : CXCursorKind;
+
+        assert(!empty, "Can't pop front of an empty range");
+
+        while (cursor.isValid) {
+            cursor = cursor.semanticParent;
+            if (cursor.kind.among(CXCursorKind.CXCursor_UnionDecl, CXCursorKind.CXCursor_StructDecl,
+                    CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_Namespace)) {
+                break;
+            }
+        }
+    }
+
+    bool empty() @safe nothrow const {
+        try {
+            return !cursor.isValid;
+        }
+        catch (Exception ex) {
+        }
+
+        return true;
+    }
+}
+
 /** Analyze the scope the declaration/definition reside in by backtracking to
  * the root.
- *
- * TODO allow the caller to determine what cursor kind's are sent to the sink.
  */
-void backtrackScope(NodeT, SinkT)(ref const(NodeT) node, scope SinkT sink) {
-    import std.algorithm : among;
-    import std.range.primitives : put;
-
-    import deimos.clang.index : CXCursorKind;
-    import cpptooling.analyzer.clang.type : logNode;
-
+auto backtrackScopeRange(NodeT)(const(NodeT) node) {
     static if (is(NodeT == Cursor)) {
-        Cursor curr = node;
+        Cursor c = node;
     } else {
         // a Declaration class
         // TODO add a constraint
-        Cursor curr = node.cursor;
+        Cursor c = node.cursor;
     }
 
-    int depth = 0;
-    while (curr.isValid) {
-        debug logNode(curr, depth);
-
-        if (curr.kind.among(CXCursorKind.CXCursor_UnionDecl, CXCursorKind.CXCursor_StructDecl,
-                CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_Namespace)) {
-            put(sink, curr.spelling);
-        }
-
-        curr = curr.semanticParent;
-        ++depth;
-    }
+    return BacktrackScopeRangeResult(c);
 }
 
 //TODO remove the default value for indent.

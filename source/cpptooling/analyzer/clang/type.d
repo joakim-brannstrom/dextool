@@ -877,9 +877,11 @@ out (result) {
 }
 body {
     /// Make a string that represent the type.
-    /// TODO super inefficient handling of strings.
     static string makeSpelling(ref const(Cursor) c, ref Type type) {
-        import std.algorithm : canFind;
+        import std.array : array;
+        import std.algorithm : canFind, map, joiner;
+        import std.range : retro;
+        import std.utf : byChar, toUTF8;
 
         string spell = type.spelling;
 
@@ -893,13 +895,17 @@ body {
             // this check.
             // Example: typedef struct {} Struct;
 
-            import std.array : appender;
-            import cpptooling.analyzer.clang.utility : backtrackScope;
+            import cpptooling.analyzer.clang.utility : backtrackScopeRange;
 
-            auto app = appender!string();
-            backtrackScope(c, (string a) { app.put(a); app.put("::"); });
-            app.put(spell);
-            spell = app.data;
+            // dfmt off
+            spell = cast(string) backtrackScopeRange(c)
+                .map!(a => a.spelling)
+                .array()
+                .retro
+                .joiner("::")
+                .byChar
+                .array();
+            // dfmt on
         }
 
         return spell;
