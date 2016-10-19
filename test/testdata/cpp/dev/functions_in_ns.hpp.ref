@@ -50,23 +50,24 @@ public:
 
 } //NS:ns
 namespace ns_using_scope {
+namespace ns_using_inner {
 namespace TestDouble {
 class I_TestDouble {
 public:
-    virtual void enum_named_arg(Scope::Enum e0) = 0;
-    virtual void enum_ptr_arg(Scope::Enum *e0) = 0;
-    virtual Scope::Enum * enum_ptr_rval() = 0;
-    virtual void enum_ref_arg(Scope::Enum &e0) = 0;
-    virtual Scope::Enum & enum_ref_rval() = 0;
-    virtual Scope::Enum enum_rval() = 0;
-    virtual void enum_unnamed_arg(Scope::Enum x0) = 0;
-    virtual void struct_one_named_arg(Scope::Struct e0) = 0;
-    virtual void struct_ptr_arg(Scope::Struct *e0) = 0;
-    virtual Scope::Struct * struct_ptr_rval() = 0;
-    virtual void struct_ref_arg(Scope::Struct &e0) = 0;
-    virtual Scope::Struct & struct_ref_rval() = 0;
-    virtual Scope::Struct struct_rval() = 0;
-    virtual void struct_unnamed_arg(Scope::Struct x0) = 0;
+    virtual void enum_named_arg(Scope::Inner::Enum e0) = 0;
+    virtual void enum_ptr_arg(Scope::Inner::Enum *e0) = 0;
+    virtual Scope::Inner::Enum * enum_ptr_rval() = 0;
+    virtual void enum_ref_arg(Scope::Inner::Enum &e0) = 0;
+    virtual Scope::Inner::Enum & enum_ref_rval() = 0;
+    virtual Scope::Inner::Enum enum_rval() = 0;
+    virtual void enum_unnamed_arg(Scope::Inner::Enum x0) = 0;
+    virtual void struct_one_named_arg(Scope::Inner::Struct e0) = 0;
+    virtual void struct_ptr_arg(Scope::Inner::Struct *e0) = 0;
+    virtual Scope::Inner::Struct * struct_ptr_rval() = 0;
+    virtual void struct_ref_arg(Scope::Inner::Struct &e0) = 0;
+    virtual Scope::Inner::Struct & struct_ref_rval() = 0;
+    virtual Scope::Inner::Struct struct_rval() = 0;
+    virtual void struct_unnamed_arg(Scope::Inner::Struct x0) = 0;
 };
 
 ///
@@ -79,5 +80,6 @@ public:
 
 } //NS:TestDouble
 
+} //NS:ns_using_inner
 } //NS:ns_using_scope
 #endif // test_double_hpp
