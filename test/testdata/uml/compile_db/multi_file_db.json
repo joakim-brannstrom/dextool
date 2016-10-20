@@ -1,16 +1,16 @@
 [
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir1 -c -o binary dir1/track_by_rval_ptr_ref.hpp",
         "file": "dir1/track_by_rval_ptr_ref.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir2 -c -o binary dir2/track_ptr.hpp",
         "file": "dir2/track_ptr.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/track_ref.hpp",
         "file": "dir3/track_ref.hpp"
     }

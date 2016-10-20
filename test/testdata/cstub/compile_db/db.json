@@ -1,11 +1,11 @@
 [
     {
-        "directory": "testdata/cstub/compile_db",
+        "directory": ".",
         "command": "gcc -Idir1 -c -o binary file1.h",
         "file": "dir1/file1.h"
     },
     {
-        "directory": "testdata/cstub/compile_db",
+        "directory": ".",
         "command": "gcc -Idir1 -c -o binary file2.h",
         "file": "dir1/file2.h"
     }
