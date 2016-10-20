@@ -1,41 +1,41 @@
 [
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/file1.hpp",
         "file": "dir3/file1.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/file2.hpp",
         "file": "dir3/file2.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/class_ns.hpp",
         "file": "dir3/class_ns.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/nested_c.hpp",
         "file": "dir3/nested_c.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/nested_d.hpp",
         "file": "dir3/nested_d.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/nested_e.hpp",
         "file": "dir3/nested_e.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/dup_class1.hpp",
         "file": "dir3/dup_class1.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir3 -c -o binary dir3/dup_class2.hpp",
         "file": "dir3/dup_class2.hpp"
     }

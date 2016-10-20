@@ -1,11 +1,11 @@
 [
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir2 -c -o binary dir2/file1.hpp",
         "file": "dir2/file1.hpp"
     },
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir2 -c -o binary dir2/file2.hpp",
         "file": "dir2/file2.hpp"
     }

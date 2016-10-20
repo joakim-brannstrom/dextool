@@ -70,10 +70,18 @@ struct CompileCommandSearch {
     alias payload this;
 }
 
-private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
+/** Parse a CompilationDatabase.
+ *
+ * Params:
+ *  raw_input = the content of the CompilationDatabase.
+ *  in_file = path to the compilation database file.
+ *  out_range = range to write the output to.
+ */
+private void parseCommands(T)(string raw_input, CompileDbJsonPath in_file, ref T out_range) nothrow {
+    import std.path : dirName;
     import std.json;
 
-    static Nullable!CompileCommand toCompileCommand(JSONValue v) nothrow {
+    static Nullable!CompileCommand toCompileCommand(JSONValue v, CompileDbJsonPath in_file) nothrow {
         import std.path : buildNormalizedPath, absolutePath;
         import logger = cpptooling.utility.logger;
 
@@ -83,11 +91,11 @@ private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
         Nullable!CompileCommand rval;
 
         try {
-            string abs_file = buildNormalizedPath(buildNormalizedPath(v["directory"].str,
-                    v["file"].str).absolutePath);
+            string abs_workdir = buildNormalizedPath(in_file, v["directory"].str);
+            string abs_file = buildNormalizedPath(abs_workdir, v["file"].str);
             auto tmp = CompileCommand(CompileCommand.FileName(v["file"].str),
-                    CompileCommand.AbsoluteFileName(abs_file), CompileCommand.Directory(v["directory"].str),
-                    CompileCommand.Command(v["command"].str));
+                    CompileCommand.AbsoluteFileName(abs_file),
+                    CompileCommand.Directory(abs_workdir), CompileCommand.Command(v["command"].str));
             rval = tmp;
         }
         catch (Exception ex) {
@@ -97,7 +105,7 @@ private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
         return rval;
     }
 
-    static void put(T)(JSONValue v, ref T out_range) nothrow {
+    static void put(T)(JSONValue v, CompileDbJsonPath in_file, ref T out_range) nothrow {
         import std.algorithm : map, filter;
         import std.array : array;
         import logger = cpptooling.utility.logger;
@@ -106,7 +114,7 @@ private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
             // dfmt off
             foreach (e; v.array()
                      // map the JSON tuples to D structs
-                     .map!(a => toCompileCommand(a))
+                     .map!(a => toCompileCommand(a, in_file))
                      // remove invalid
                      .filter!(a => !a.isNull)
                      .map!(a => a.get)) {
@@ -121,7 +129,8 @@ private void parseCommands(T)(string raw_input, ref T out_range) nothrow {
 
     try {
         auto json = parseJSON(raw_input);
-        put(json, out_range);
+        auto as_dir = CompileDbJsonPath(in_file.dirName);
+        put(json, as_dir, out_range);
     }
     catch (JSONException ex) {
         import cpptooling.utility.logger : error;
@@ -141,7 +150,7 @@ void fromFile(T)(CompileDbJsonPath filename, ref T app) {
     import std.stdio : File;
 
     auto raw = File(cast(string) filename).byLineCopy.joiner.text;
-    raw.parseCommands(app);
+    raw.parseCommands(filename, app);
 }
 
 void fromFiles(T)(CompileDbJsonPath[] fnames, ref T app) {
@@ -400,6 +409,10 @@ version (unittest) {
     import std.path : absolutePath;
     import std.format : format;
 
+    // contains a bit of extra junk that is expected to be removed
+    immutable string dummy_path = "/path/to/../to/./db/compilation_db.json";
+    immutable string dummy_dir = "/path/to/db";
+
     enum raw_dummy1 = `[
     {
         "directory": "dir1/dir2",
@@ -440,20 +453,20 @@ version (unittest) import std.array : appender;
 @Name("Should be a compile command DB")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy1.parseCommands(app);
+    raw_dummy1.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = app.data;
 
     assert(cmds.length == 1);
-    cmds[0].directory.shouldEqual("dir1/dir2");
+    cmds[0].directory.shouldEqual(dummy_dir ~ "/dir1/dir2");
     cmds[0].command.shouldEqual("g++ -Idir1 -c -o binary file1.cpp");
     cmds[0].file.shouldEqual("file1.cpp");
-    cmds[0].absoluteFile.shouldEqual("dir1/dir2/file1.cpp".absolutePath);
+    cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
 }
 
 @Name("Should be a DB with two entries")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(app);
+    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = app.data;
 
     assert(cmds.length == 2);
@@ -464,10 +477,10 @@ unittest {
 @Name("Should find filename")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(app);
+    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto found = cmds.find("dir/file2.cpp".absolutePath);
+    auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
     assert(found.length == 1);
     found[0].file.shouldEqual("file2.cpp");
 }
@@ -475,7 +488,7 @@ unittest {
 @Name("Should find no match by using an absolute path that doesn't exist in DB")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(app);
+    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find("./file2.cpp");
@@ -487,29 +500,48 @@ unittest {
     import unit_threaded : writelnUt;
 
     auto app = appender!(CompileCommand[])();
-    raw_dummy3.parseCommands(app);
+    raw_dummy3.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto found = cmds.find("dir2/file3.cpp".absolutePath);
+    auto found = cmds.find(dummy_dir ~ "/dir2/file3.cpp");
     assert(found.length == 1);
 
-    found.toString.shouldEqualPretty(format("dir2
+    found.toString.shouldEqualPretty(format("%s/dir2
   file3.cpp
   %s/dir2/file3.cpp
   g++ -Idir1 -c -o binary file3.cpp
-", getcwd));
+", dummy_dir, dummy_dir));
 }
 
 @Name("Should be a pretty printed search result")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(app);
+    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
-    auto found = cmds.find("dir/file2.cpp".absolutePath);
+    auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
 
-    found.toString.shouldEqualPretty(format("dir
+    found.toString.shouldEqualPretty(format("%s/dir
   file2.cpp
   %s/dir/file2.cpp
   g++ -Idir1 -c -o binary file2.cpp
-", getcwd));
+", dummy_dir, dummy_dir));
+}
+
+@Name("Should be a compile command DB with relative path")
+unittest {
+    enum raw = `[
+    {
+        "directory": ".",
+        "command": "g++ -Idir1 -c -o binary file1.cpp",
+        "file": "file1.cpp"
+    }
+    ]`;
+    auto app = appender!(CompileCommand[])();
+    raw.parseCommands(CompileDbJsonPath(dummy_path), app);
+    auto cmds = app.data;
+
+    assert(cmds.length == 1);
+    cmds[0].directory.shouldEqual(dummy_dir);
+    cmds[0].file.shouldEqual("file1.cpp");
+    cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/file1.cpp");
 }

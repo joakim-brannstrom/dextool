@@ -1,6 +1,6 @@
 [
     {
-        "directory": "testdata/uml/compile_db",
+        "directory": ".",
         "command": "g++ -Idir1 -c -o binary single_file_main.c",
         "file": "single_file_main.hpp"
     }
