@@ -34,9 +34,6 @@ version (unittest) {
     }
 }
 
-private enum hasIncrDecr(VisitorT) = __traits(hasMember, VisitorT, "incr")
-        && __traits(hasMember, VisitorT, "decr");
-
 /**
  * Wrap a clang cursor. No restrictions on what type of cursor it is.
  * Accept a Visitor.
@@ -57,7 +54,7 @@ struct ClangAST(VisitorT) {
     Cursor root;
 
     void accept(ref VisitorT visitor) @safe {
-        static if (isArray!VisitorT && hasIncrDecr!(typeof(VisitorT.init[0]))) {
+        static if (isArray!VisitorT) {
             foreach (v; visitor) {
                 v.incr();
             }
@@ -68,7 +65,7 @@ struct ClangAST(VisitorT) {
                 }
             }
 
-        } else if (hasIncrDecr!VisitorT) {
+        } else {
             visitor.incr();
             scope (success)
                 visitor.decr();
@@ -88,7 +85,7 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
     import std.traits : isArray;
     import clang.Visitor : Visitor;
 
-    static if (isArray!VisitorT && hasIncrDecr!(typeof(VisitorT.init[0]))) {
+    static if (isArray!VisitorT) {
         foreach (v; visitor) {
             v.incr();
         }
@@ -99,7 +96,7 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
             }
         }
 
-    } else if (hasIncrDecr!VisitorT) {
+    } else {
         visitor.incr();
         scope (success)
             visitor.decr();
