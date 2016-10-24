@@ -322,10 +322,10 @@ private void assertVisit(ref const(CxParam) p) @trusted {
 
     // dfmt off
     p.visit!(
-        (const TypeKindVariable tk) { assert(tk.name.length > 0);
-                                      assert(tk.type.toStringDecl.length > 0);},
-        (const TypeKindAttr t)      { assert(t.toStringDecl.length > 0); },
-        (const VariadicType a)      {});
+        (const TypeKindVariable v) { assert(v.name.length > 0);
+                                     assert(v.type.toStringDecl.length > 0);},
+        (const TypeKindAttr v)     { assert(v.toStringDecl.length > 0); },
+        (const VariadicType v)     {});
     // dfmt on
 }
 
