@@ -1,4 +1,3 @@
-// Written in ehe D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
