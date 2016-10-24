@@ -880,7 +880,7 @@ body {
     static string makeSpelling(ref const(Cursor) c, ref Type type) {
         import std.array : array;
         import std.algorithm : canFind, map, joiner;
-        import std.range : retro;
+        import std.range : retro, chain, only;
         import std.utf : byChar, toUTF8;
 
         string spell = type.spelling;
@@ -898,8 +898,7 @@ body {
             import cpptooling.analyzer.clang.utility : backtrackScopeRange;
 
             // dfmt off
-            spell = cast(string) backtrackScopeRange(c)
-                .map!(a => a.spelling)
+            spell = cast(string) chain(only(spell), backtrackScopeRange(c).map!(a => a.spelling))
                 .array()
                 .retro
                 .joiner("::")

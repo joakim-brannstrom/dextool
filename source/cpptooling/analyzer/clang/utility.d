@@ -16,6 +16,8 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.analyzer.clang.type : TypeResults;
 import cpptooling.data.symbol.container : Container;
 
+import deimos.clang.index : CXCursorKind;
+
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
 } else {
@@ -24,7 +26,7 @@ version (unittest) {
     }
 }
 
-private struct BacktrackScopeRangeResult {
+private struct BacktrackResult {
     private Cursor cursor;
 
     Cursor front() @safe nothrow const {
@@ -34,18 +36,9 @@ private struct BacktrackScopeRangeResult {
     }
 
     void popFront() @safe {
-        import std.algorithm : among;
-        import deimos.clang.index : CXCursorKind;
-
         assert(!empty, "Can't pop front of an empty range");
 
-        while (cursor.isValid) {
-            cursor = cursor.semanticParent;
-            if (cursor.kind.among(CXCursorKind.CXCursor_UnionDecl, CXCursorKind.CXCursor_StructDecl,
-                    CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_Namespace)) {
-                break;
-            }
-        }
+        cursor = cursor.semanticParent;
     }
 
     bool empty() @safe nothrow const {
@@ -71,7 +64,59 @@ auto backtrackScopeRange(NodeT)(const(NodeT) node) {
         Cursor c = node.cursor;
     }
 
-    return BacktrackScopeRangeResult(c);
+    import std.algorithm : among, filter;
+    import deimos.clang.index : CXCursorKind;
+
+    return BacktrackResult(c).filter!(a => a.kind.among(CXCursorKind.CXCursor_UnionDecl,
+            CXCursorKind.CXCursor_StructDecl, CXCursorKind.CXCursor_ClassDecl,
+            CXCursorKind.CXCursor_Namespace));
+}
+
+/// Backtrack a cursor until the top cursor is reached.
+auto backtrack(NodeT)(const(NodeT) node) {
+    static if (is(NodeT == Cursor)) {
+        Cursor c = node;
+    } else {
+        // a Declaration class
+        // TODO add a constraint
+        Cursor c = node.cursor;
+    }
+
+    return BacktrackResult(c);
+}
+
+/// Determine if a kind affects the scope.
+bool isScopeKind(CXCursorKind kind) @safe pure nothrow @nogc {
+    switch (kind) with (CXCursorKind) {
+    case CXCursor_ClassTemplate:
+    case CXCursor_StructDecl:
+    case CXCursor_UnionDecl:
+    case CXCursor_ClassDecl:
+    case CXCursor_CXXMethod:
+    case CXCursor_FunctionDecl:
+    case CXCursor_Constructor:
+    case CXCursor_Destructor:
+    case CXCursor_Namespace:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// Determine if a cursor is in the global or namespace scope.
+bool isGlobalOrNamespaceScope(const(Cursor) c) @safe {
+    import deimos.clang.index : CXCursorKind;
+
+    // if the loop is never ran it is in the global namespace
+    foreach (bt; c.backtrack) {
+        if (bt.kind == CXCursorKind.CXCursor_Namespace) {
+            // ok
+        } else if (bt.kind.isScopeKind) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 //TODO remove the default value for indent.
