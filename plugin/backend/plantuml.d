@@ -37,6 +37,7 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
 import cpptooling.analyzer.clang.analyze_helper : ClassDeclResult;
+import plugin.utility : MarkArray;
 
 static import cpptooling.data.class_classification;
 
@@ -748,68 +749,6 @@ a as A
 b as B
 a -Relate- [1]b
 } // UML Component Diagram");
-}
-
-/** Convenient array with support for marking of elements and removal.
- *
- * In the backend used for example to delay processing of relations between
- * USRs.
- */
-struct MarkArray(T) {
-    alias Range = T[];
-    private T[] arr;
-    private size_t[] remove_;
-
-    alias arr this;
-
-    /// Store e in the cache.
-    void put(T e) {
-        arr ~= e;
-    }
-
-    /** Mark index i for removal.
-     *
-     * Later as in calling $(D doRemoval).
-     */
-    void markForRemoval(size_t i) @safe pure {
-        remove_ ~= i;
-    }
-
-    /// Remove all items that has been marked.
-    void doRemoval() {
-        import std.algorithm : canFind, filter, cache, copy, map;
-        import std.array : array;
-        import std.range : enumerate;
-
-        // naive implementation. Should use swapping instead.
-        arr = arr[].enumerate.filter!(a => !canFind(remove_, a.index)).map!(a => a.value).array();
-        remove_.length = 0;
-    }
-}
-
-@Name("Should store relations between USR's")
-unittest {
-    MarkArray!int arr;
-
-    arr ~= 10;
-
-    arr[].length.shouldEqual(1);
-    arr[0].shouldEqual(10);
-}
-
-@Name("Should mark and remove relations between USR's")
-unittest {
-    MarkArray!int arr;
-    arr ~= [10, 20, 30];
-
-    arr.markForRemoval(1);
-    arr[].length.shouldEqual(3);
-
-    arr.doRemoval;
-
-    arr[].length.shouldEqual(2);
-    arr[0].shouldEqual(10);
-    arr[1].shouldEqual(30);
 }
 
 /** Context for the UML diagram generator from internal representation to the
@@ -1664,12 +1603,12 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         }
         src_cache.length = 0;
 
-        if (dcache.length > 0) {
-            logger.tracef("%d relations left. Activating fallback strategy", dcache.length);
+        if (dcache.data.length > 0) {
+            logger.tracef("%d relations left. Activating fallback strategy", dcache.data.length);
         }
 
         // dfmt off
-        foreach (e; dcache[]
+        foreach (e; dcache.data
                  // keep track of the index to allow marking of the cache for removal
                  .enumerate
                  // find the types
@@ -1695,11 +1634,11 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
 
         dcache.doRemoval;
 
-        if (dcache.length > 0) {
-            logger.errorf("Fallback strategy failed for %d USRs. They are:", dcache.length);
+        if (dcache.data.length > 0) {
+            logger.errorf("Fallback strategy failed for %d USRs. They are:", dcache.data.length);
         }
 
-        foreach (e; dcache[]) {
+        foreach (e; dcache.data) {
             logger.tracef("  %s -> %s", cast(string) e.from, cast(string) e.to);
         }
     }
@@ -1716,7 +1655,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         src_cache.length = 0;
 
         // dfmt off
-        foreach (e; dcache[]
+        foreach (e; dcache.data
                  // keep track of the index to allow marking of the cache for removal
                  .enumerate
                  // find the types

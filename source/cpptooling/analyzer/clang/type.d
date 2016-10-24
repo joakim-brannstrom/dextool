@@ -1187,6 +1187,9 @@ body {
     auto params = extractParams(c, type, container, indent);
     TypeResult primary;
     primary.type = makeTypeKindAttr(type);
+    // unable to backtrack from the type to the cursor thus must retrieve
+    // definitionness from the cursor.
+    primary.type.attr.isDefinition = cast(Flag!("isDefinition")) c.isDefinition;
 
     // a C++ member function must be queried for constness via a different API
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;

@@ -24,8 +24,8 @@ import std.format : format;
  * s = isStatement
  * t = isTranslationUnit
  * u = isUnexposed
- * v = isVirtualBase
- * V = isValid
+ * v = isValid
+ * V = isVirtualBase
  */
 string abilities(Cursor c) @trusted {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
@@ -33,7 +33,7 @@ string abilities(Cursor c) @trusted {
             ? "D" : "", c.isExpression ? "e" : "", c.isEmpty ? "n" : "",
             c.isPreprocessing ? "p" : "", c.isReference ? "r" : "", c.isStatement
             ? "s" : "", c.isTranslationUnit ? "t" : "", c.isUnexposed ? "u" : "",
-            c.isVirtualBase ? "v" : "", c.isValid ? "V" : "",);
+            c.isValid ? "v" : "", c.isVirtualBase ? "V" : "");
 
     return s;
 }

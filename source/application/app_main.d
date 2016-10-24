@@ -6,12 +6,12 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module application.app_main;
 
-import std.stdio : writeln, writefln, stderr;
 import std.typecons : Flag, Tuple;
 
 import logger = std.experimental.logger;
 
 import application.types;
+import application.logger;
 
 version (unittest) {
     import unit_threaded;
@@ -82,84 +82,6 @@ Generate a C test double excluding data from specified files.
   The file holding the test double is written to directory outdata.
 ";
 
-class SimpleLogger : logger.Logger {
-    import std.conv;
-
-    int line = -1;
-    string file = null;
-    string func = null;
-    string prettyFunc = null;
-    string msg = null;
-    logger.LogLevel lvl;
-
-    this(const logger.LogLevel lv = logger.LogLevel.info) {
-        super(lv);
-    }
-
-    override void writeLogMsg(ref LogEntry payload) @trusted {
-        this.line = payload.line;
-        this.file = payload.file;
-        this.func = payload.funcName;
-        this.prettyFunc = payload.prettyFuncName;
-        this.lvl = payload.logLevel;
-        this.msg = payload.msg;
-
-        stderr.writefln("%s: %s", text(this.lvl), this.msg);
-    }
-}
-
-class DebugLogger : logger.Logger {
-    import std.conv;
-
-    int line = -1;
-    string file = null;
-    string func = null;
-    string prettyFunc = null;
-    string msg = null;
-    logger.LogLevel lvl;
-
-    this(const logger.LogLevel lv = logger.LogLevel.trace) {
-        super(lv);
-    }
-
-    override void writeLogMsg(ref LogEntry payload) @trusted {
-        this.line = payload.line;
-        this.file = payload.file;
-        this.func = payload.funcName;
-        this.prettyFunc = payload.prettyFuncName;
-        this.lvl = payload.logLevel;
-        this.msg = payload.msg;
-
-        if (this.line == -1) {
-            stderr.writefln("%s: %s", text(this.lvl), this.msg);
-        } else {
-            // Example of standard: 2016-05-01T22:31:54.019:type.d:retrieveType:159 c:@S@Foo:struct Foo
-            stderr.writefln("%s: %s [%s:%d]", text(this.lvl), this.msg, this.func, this.line);
-        }
-    }
-}
-
-void confLogLevel(Flag!"debug" debug_) {
-    import std.exception;
-    import std.experimental.logger.core : sharedLog;
-
-    try {
-        if (debug_) {
-            logger.globalLogLevel(logger.LogLevel.all);
-            auto logger_ = new DebugLogger();
-            logger.sharedLog(logger_);
-        } else {
-            logger.globalLogLevel(logger.LogLevel.info);
-            auto simple_logger = new SimpleLogger();
-            logger.sharedLog(simple_logger);
-        }
-    }
-    catch (Exception ex) {
-        collectException(logger.error("Failed to configure logging level"));
-        throw ex;
-    }
-}
-
 string cliMergeCategory() {
     import std.algorithm : map, joiner, reduce, max;
     import std.ascii : newline;
@@ -189,6 +111,7 @@ string cliMergeCategory() {
 
 ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] args) {
     import std.algorithm;
+    import std.stdio : writeln, writefln, stderr;
     import std.traits;
 
     // load the plugin system
@@ -258,7 +181,7 @@ private enum CliCategoryStatus {
 }
 
 private alias MainCliReturnType = Tuple!(CliCategoryStatus, "status", string,
-        "category", Flag!"debug", "debug_", string[], "args");
+        "category", ConfigureLog, "confLog", string[], "args");
 
 /** Parse the raw command line.
  *
@@ -268,9 +191,9 @@ private alias MainCliReturnType = Tuple!(CliCategoryStatus, "status", string,
 auto parseMainCli(string[] args) {
     import std.algorithm : findAmong, filter, among;
     import std.array : array, empty;
-    import std.typecons : Yes, No;
 
-    auto debug_ = cast(Flag!"debug") !findAmong(args, ["-d", "--debug"]).empty;
+    ConfigureLog debug_ = findAmong(args, ["-d", "--debug"]).empty
+        ? ConfigureLog.info : ConfigureLog.debug_;
     // holds the remining arguments after -d/--debug has bee removed
     auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
 
@@ -308,7 +231,7 @@ version (unittest) {
     @Values("-d", "--debug")
     unittest {
         auto result = parseMainCli(["dextool", getValue!string]);
-        result.debug_.shouldBeTrue;
+        result.confLog.shouldEqual(ConfigureLog.debug_);
         findAmong(result.args, ["-d", "--debug"]).empty.shouldBeTrue;
     }
 
@@ -336,7 +259,7 @@ int rmain(string[] args) nothrow {
 
     try {
         auto parsed = parseMainCli(args);
-        confLogLevel(parsed.debug_);
+        confLogLevel(parsed.confLog);
         logger.trace(parsed);
 
         exit_status = doTestDouble(parsed.status, parsed.category, parsed.args);

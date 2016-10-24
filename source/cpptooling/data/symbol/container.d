@@ -291,7 +291,8 @@ struct Container {
                     put(w, a.value.definition.toString);
                 }
                 if (a.value.hasDeclaration) {
-                    formattedWrite(w, "\n    %s", a.value.declaration.toString);
+                    put(w, "\n    ");
+                    put(w, a.value.declaration.toString);
                 }
             }
         }();
