@@ -11,6 +11,8 @@ version(unittest) {
 
 
 alias Identity(alias T) = T;
+private enum isPrivate(T, string member) = !__traits(compiles, __traits(getMember, T, member));
+
 
 private string implMixinStr(T)() {
     import std.array: join;
@@ -19,33 +21,36 @@ private string implMixinStr(T)() {
 
     foreach(m; __traits(allMembers, T)) {
 
-        alias member = Identity!(__traits(getMember, T, m));
+        static if(!isPrivate!(T, m)) {
 
-        static if(__traits(isAbstractFunction, member)) {
+            alias member = Identity!(__traits(getMember, T, m));
 
-            enum parameters = Parameters!member.stringof;
-            enum returnType = ReturnType!member.stringof;
+            static if(__traits(isAbstractFunction, member)) {
 
-            static if(is(ReturnType!member == void))
-                enum returnDefault = "";
-            else {
-                enum varName = m ~ `_returnValues`;
-                lines ~= returnType ~ `[] ` ~ varName ~ `;`;
+                enum parameters = Parameters!member.stringof;
+                enum returnType = ReturnType!member.stringof;
+
+                static if(is(ReturnType!member == void))
+                    enum returnDefault = "";
+                else {
+                    enum varName = m ~ `_returnValues`;
+                    lines ~= returnType ~ `[] ` ~ varName ~ `;`;
+                    lines ~= "";
+                    enum returnDefault = [`    if(` ~ varName ~ `.length > 0) {`,
+                                          `        auto ret = ` ~ varName ~ `[0];`,
+                                          `        ` ~ varName ~ ` = ` ~ varName ~ `[1..$];`,
+                                          `        return ret;`,
+                                          `    } else`,
+                                          `        return (` ~ returnType ~ `).init;`];
+                }
+
+                lines ~= `override ` ~ returnType ~ " " ~ m ~ typeAndArgsParens!(Parameters!member) ~ ` {`;
+                lines ~= `    calledFuncs ~= "` ~ m ~ `";`;
+                lines ~= `    calledValues ~= tuple` ~ argNamesParens(arity!member) ~ `.to!string;`;
+                lines ~= returnDefault;
+                lines ~= `}`;
                 lines ~= "";
-                enum returnDefault = [`    if(` ~ varName ~ `.length > 0) {`,
-                                      `        auto ret = ` ~ varName ~ `[0];`,
-                                      `        ` ~ varName ~ ` = ` ~ varName ~ `[1..$];`,
-                                      `        return ret;`,
-                                      `    } else`,
-                                      `        return ` ~ returnType ~ `.init;`];
             }
-
-            lines ~= `override ` ~ returnType ~ " " ~ m ~ typeAndArgsParens!(Parameters!member) ~ ` {`;
-            lines ~= `    calledFuncs ~= "` ~ m ~ `";`;
-            lines ~= `    calledValues ~= tuple` ~ argNamesParens(arity!member) ~ `.to!string;`;
-            lines ~= returnDefault;
-            lines ~= `}`;
-            lines ~= "";
         }
     }
 
@@ -123,13 +128,14 @@ mixin template MockImplCommon() {
     }
 }
 
-struct Mock(T) {
+struct Mock(T, string module_ = __MODULE__) {
 
     MockAbstract _impl;
     alias _impl this;
 
     class MockAbstract: T {
         import std.conv: to;
+        mixin(`import ` ~ module_ ~ ";");
         //pragma(msg, implMixinStr!T);
         mixin(implMixinStr!T);
         mixin MockImplCommon;
@@ -146,9 +152,14 @@ struct Mock(T) {
     }
 }
 
-auto mock(T)() {
-    auto m = Mock!T();
-    m._impl = new Mock!T.MockAbstract;
+auto mock(T, string module_ = __MODULE__)() {
+    mixin(`import ` ~ module_ ~ ";");
+    auto m = Mock!(T, module_)();
+    // The following line is ugly, but necessary.
+    // If moved to the declaration of impl, it's constructed at compile-time
+    // and only one instance is ever used. Since structs can't have default
+    // constructors, it has to be done here
+    m._impl = new Mock!(T, module_).MockAbstract;
     return m;
 }
 
@@ -421,4 +432,14 @@ auto mockStruct(T...)(T returns) {
     auto m = mockStruct;
     fun(m);
     m.expectCalled!"foobar"(2, "quux");
+}
+
+
+@("const(ubyte)[] return type]")
+@safe pure unittest {
+    interface Interface {
+        const(ubyte)[] fun();
+    }
+
+    auto m = mock!Interface;
 }
