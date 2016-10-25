@@ -168,7 +168,7 @@ struct GR {
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
  */
-void compare(in Path gold, in Path result, Flag!"sortLines" sortLines = Yes.sortLines) {
+void compare(in Path gold, in Path result, Flag!"sortLines" sortLines) {
     import std.algorithm : joiner, map;
     import std.stdio : File;
     import std.utf : toUTF8;
@@ -362,18 +362,18 @@ auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, 
     return sw.peek.msecs;
 }
 
-void compareResult(T...)(in T args) {
+void compareResult(T...)(Flag!"sortLines" sortLines, in T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
         if (existsAsFile(a.gold)) {
-            compare(a.gold, a.result);
+            compare(a.gold, a.result, sortLines);
         }
     }
 }
 
 void compileResult(in Path input, in Path main, const ref TestEnv testEnv,
-        in string[] flags, in string[] incls) {
+        Flag!"sortLines" sortLines, in string[] flags, in string[] incls) {
     auto binout = testEnv.outdir ~ "binary";
 
     Args args;

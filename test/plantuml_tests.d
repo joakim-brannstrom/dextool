@@ -62,7 +62,8 @@ TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
     return p;
 }
 
-void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
+void runTestFile(const ref TestParams p, ref TestEnv testEnv,
+        Flag!"sortLines" sortLines = Yes.sortLines) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 
@@ -70,7 +71,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
         dextoolYap("Comparing");
         Path input = p.base_file_compare;
         // dfmt off
-        compareResult(
+        compareResult(sortLines,
                       GR(input ~ Ext(".pu.ref"), p.out_pu),
                       );
         // dfmt on
@@ -328,7 +329,7 @@ unittest {
     import std.file : exists;
 
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
-    compareResult(GR(Path(p.base_file_compare.toString ~ "_style.pu.ref"),
+    compareResult(Yes.sortLines, GR(Path(p.base_file_compare.toString ~ "_style.pu.ref"),
             testEnv.outdir ~ "view_style.iuml"));
 }
 
