@@ -69,7 +69,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
         dextoolYap("Comparing");
         Path base = p.base_cmp;
         // dfmt off
-        compareResult(
+        compareResult(No.sortLines,
                       GR(base ~ Ext(".hpp.ref"), p.out_hdr),
                       GR(base ~ Ext(".cpp.ref"), p.out_impl),
                       GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
@@ -79,7 +79,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 
     if (!p.skipCompile) {
         dextoolYap("Compiling");
-        compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
+        compileResult(p.out_impl, p.mainf, testEnv, No.sortLines, p.compileFlags, p.compileIncls);
     }
 }
 
@@ -333,7 +333,8 @@ unittest {
     // dfmt off
     dextoolYap("Comparing");
     auto input = p.input_ext.stripExtension;
-    compareResult(GR(input ~ Ext(".hpp.ref"), p.out_hdr),
+    compareResult(No.sortLines,
+                  GR(input ~ Ext(".hpp.ref"), p.out_hdr),
                   GR(input ~ Ext(".cpp.ref"), p.out_impl),
                   GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
                   GR(input.up ~ "param_gen_post_includes.hpp.ref", testEnv.outdir ~ "test_double_post_includes.hpp"));
