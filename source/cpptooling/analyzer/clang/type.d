@@ -1202,6 +1202,9 @@ body {
 
     primary.type.kind.info = info;
     primary.type.kind.usr = c.usr;
+    if (primary.type.kind.usr.length == 0) {
+        primary.type.kind.usr = makeFallbackUSR(c, indent);
+    }
     primary.location = makeLocation(c);
 
     rval.primary = primary;
