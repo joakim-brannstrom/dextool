@@ -61,7 +61,8 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     return p;
 }
 
-void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
+void runTestFile(const ref TestParams p, ref TestEnv testEnv,
+        Flag!"sortLines" sortLines = No.sortLines) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
@@ -69,7 +70,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
         dextoolYap("Comparing");
         Path base = p.base_cmp;
         // dfmt off
-        compareResult(No.sortLines,
+        compareResult(sortLines,
                       GR(base ~ Ext(".hpp.ref"), p.out_hdr),
                       GR(base ~ Ext(".cpp.ref"), p.out_impl),
                       GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
@@ -79,7 +80,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
 
     if (!p.skipCompile) {
         dextoolYap("Compiling");
-        compileResult(p.out_impl, p.mainf, testEnv, No.sortLines, p.compileFlags, p.compileIncls);
+        compileResult(p.out_impl, p.mainf, testEnv, sortLines, p.compileFlags, p.compileIncls);
     }
 }
 
