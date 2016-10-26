@@ -563,7 +563,7 @@ struct CFunction {
 
         this.params = params_.dup;
 
-        setUniqueId(signatureToString);
+        setUniqueId(usr);
     }
 
     /// Function with no parameters.
