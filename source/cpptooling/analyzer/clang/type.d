@@ -1133,7 +1133,7 @@ body {
 
     TypeResults rval;
     rval.primary.type.kind.info = info;
-    rval.primary.type.kind.usr = c.usr;
+    rval.primary.type.kind.usr = makeFallbackUSR(c, indent);
     rval.primary.location = makeLocation(c);
     // somehow pointee.primary.attr is wrong, somehow. Don't undestand why.
     // TODO remove this hack
@@ -1201,8 +1201,7 @@ body {
             a.result.type.attr, a.id, a.isVariadic)).array();
 
     primary.type.kind.info = info;
-    // in the case of __sighandler_t it is already used for the typedef
-    primary.type.kind.usr = makeFallbackUSR(c, indent);
+    primary.type.kind.usr = c.usr;
     primary.location = makeLocation(c);
 
     rval.primary = primary;
