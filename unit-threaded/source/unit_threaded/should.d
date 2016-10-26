@@ -169,42 +169,41 @@ void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in siz
     import unit_threaded.asserts;
 
     assertExceptionMsg(3.shouldEqual(5),
-                       "    source/unit_threaded/should.d:123 - Expected: 5\n"
+                       "    source/unit_threaded/should.d:123 - Expected: 5\n" ~
                        "    source/unit_threaded/should.d:123 -      Got: 3");
 
     assertExceptionMsg("foo".shouldEqual("bar"),
-                       "    source/unit_threaded/should.d:123 - Expected: \"bar\"\n"
+                       "    source/unit_threaded/should.d:123 - Expected: \"bar\"\n" ~
                        "    source/unit_threaded/should.d:123 -      Got: \"foo\"");
 
     assertExceptionMsg([1, 2, 4].shouldEqual([1, 2, 3]),
-                       "    source/unit_threaded/should.d:123 - Expected: [1, 2, 3]\n"
+                       "    source/unit_threaded/should.d:123 - Expected: [1, 2, 3]\n" ~
                        "    source/unit_threaded/should.d:123 -      Got: [1, 2, 4]");
 
     assertExceptionMsg([[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]].shouldEqual([[0], [1], [2]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n"
+                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n" ~
                        "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]]");
 
     assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3]].shouldEqual([[0], [1], [2]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n"
+                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n" ~
                        "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4, 5], [1], [2], [3]]");
 
 
     assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3], [4], [5]].shouldEqual([[0]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0]]\n"
-
-                       "    source/unit_threaded/should.d:123 -      Got: [\n"
-                       "    source/unit_threaded/should.d:123 -               [0, 1, 2, 3, 4, 5],\n"
-                       "    source/unit_threaded/should.d:123 -               [1],\n"
-                       "    source/unit_threaded/should.d:123 -               [2],\n"
-                       "    source/unit_threaded/should.d:123 -               [3],\n"
-                       "    source/unit_threaded/should.d:123 -               [4],\n"
-                       "    source/unit_threaded/should.d:123 -               [5],\n"
+                       "    source/unit_threaded/should.d:123 - Expected: [[0]]\n" ~
+                       "    source/unit_threaded/should.d:123 -      Got: [\n" ~
+                       "    source/unit_threaded/should.d:123 -               [0, 1, 2, 3, 4, 5],\n" ~
+                       "    source/unit_threaded/should.d:123 -               [1],\n" ~
+                       "    source/unit_threaded/should.d:123 -               [2],\n" ~
+                       "    source/unit_threaded/should.d:123 -               [3],\n" ~
+                       "    source/unit_threaded/should.d:123 -               [4],\n" ~
+                       "    source/unit_threaded/should.d:123 -               [5],\n" ~
                        "    source/unit_threaded/should.d:123 -           ]");
 
     assertExceptionMsg(1.shouldNotEqual(1),
-                       "    source/unit_threaded/should.d:123 - Value:\n"
-                       "    source/unit_threaded/should.d:123 - 1\n"
-                       "    source/unit_threaded/should.d:123 - is not expected to be equal to:\n"
+                       "    source/unit_threaded/should.d:123 - Value:\n" ~
+                       "    source/unit_threaded/should.d:123 - 1\n" ~
+                       "    source/unit_threaded/should.d:123 - is not expected to be equal to:\n" ~
                        "    source/unit_threaded/should.d:123 - 1");
 }
 
@@ -383,12 +382,12 @@ void shouldThrowExactly(T : Throwable = Exception, E)(lazy E expr,
     in string file = __FILE__, in size_t line = __LINE__)
 {
 
-    immutable threw = threw!T(expr);
+    const threw = threw!T(expr);
     if (!threw)
         fail("Expression did not throw", file, line);
 
     //Object.opEquals is @system and impure
-    immutable sameType = () @trusted { return threw.typeInfo == typeid(T); }();
+    const sameType = () @trusted { return threw.typeInfo == typeid(T); }();
     if (!sameType)
         fail(text("Expression threw wrong type ", threw.typeInfo,
             "instead of expected type ", typeid(T)), file, line);

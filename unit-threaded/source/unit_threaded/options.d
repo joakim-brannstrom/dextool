@@ -16,6 +16,7 @@ struct Options {
     bool random;
     uint seed;
     bool stackTraces;
+    bool showChrono;
 }
 
 /**
@@ -30,6 +31,7 @@ auto getOptions(string[] args) {
     bool random;
     uint seed = unpredictableSeed;
     bool stackTraces;
+    bool showChrono;
 
     getopt(args,
            "single|s", &single, //single-threaded
@@ -40,19 +42,22 @@ auto getOptions(string[] args) {
            "random|r", &random,
            "seed", &seed,
            "trace|t", &stackTraces,
+           "chrono|c", &showChrono,
         );
 
     if(help) {
-        writeln("Usage: <progname> <options> <tests>...\n",
-                "Options: \n",
-                "  -h/--help: help\n"
-                "  -s/--single: single-threaded\n",
-                "  -l/--list: list tests\n",
-                "  -d/--debug: enable debug output\n",
-                "  -e/--esccodes: force ANSI escape codes even for !isatty\n",
-                "  -r/--random: run tests in random order\n",
-                "  --seed: set the seed for the random order\n",
-                "  -t/--trace: enable stack traces\n",
+        import unit_threaded.io;
+        utWriteln("Usage: <progname> <options> <tests>...\n",
+                  "Options: \n",
+                  "  -h/--help: help\n",
+                  "  -s/--single: single-threaded\n",
+                  "  -l/--list: list tests\n",
+                  "  -d/--debug: enable debug output\n",
+                  "  -e/--esccodes: force ANSI escape codes even for !isatty\n",
+                  "  -r/--random: run tests in random order\n",
+                  "  --seed: set the seed for the random order\n",
+                  "  -t/--trace: enable stack traces\n",
+                  "  -c/--chrono: print execution time per test",
             );
     }
 
@@ -70,5 +75,5 @@ auto getOptions(string[] args) {
 
     immutable exit =  help || list;
     return Options(!single, args[1..$], debugOutput, list, exit, forceEscCodes,
-                   random, seed, stackTraces);
+                   random, seed, stackTraces, showChrono);
 }
