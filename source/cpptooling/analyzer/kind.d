@@ -267,6 +267,7 @@ pure @safe nothrow @nogc:
 /// Attributes of a declaration of a type.
 pure @safe nothrow @nogc struct TypeAttr {
     import std.typecons : Flag;
+    import std.format : FormatSpec;
 
     Flag!"isConst" isConst;
     Flag!"isRef" isRef;
@@ -274,6 +275,16 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
     Flag!"isDefinition" isDefinition;
+
+    ///
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
+        import std.range : chain, only;
+        import std.algorithm : filter, joiner, copy;
+
+        chain(only(isConst ? "const" : null), only(isRef ? "ref" : null),
+                only(isPtr ? "ptr" : null), only(isFuncPtr ? "funcPtr" : null),
+                only(isArray ? "array" : null)).filter!(a => a !is null).joiner(",").copy(w);
+    }
 }
 
 /** Returns: the USR for the referenced type.
