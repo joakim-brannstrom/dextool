@@ -73,13 +73,16 @@ static auto ctestdouble_opt = CliOptionParts(
  */
 class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
-    import std.typecons : Tuple, Flag;
+    import std.typecons : Flag;
     import docopt : ArgValue;
     import application.types : StubPrefix, FileName, DirName;
     import application.utility;
     import dsrcgen.cpp;
 
-    alias FileData = Tuple!(FileName, "filename", string, "data");
+    static struct FileData {
+        FileName filename;
+        string data;
+    }
 
     static const hdrExt = ".hpp";
     static const implExt = ".cpp";

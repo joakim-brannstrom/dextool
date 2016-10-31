@@ -25,7 +25,7 @@ module plugin.backend.plantuml;
 
 import std.meta : templateAnd, templateOr;
 import std.range : ElementType;
-import std.typecons : Tuple, Flag, Yes, No;
+import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.plantuml;
@@ -72,10 +72,14 @@ version (unittest) {
 /// Parameters used during generation.
 /// Important aspact that they do NOT change, therefore it is pure.
 @safe pure const interface Parameters {
-    import std.typecons : Tuple, Flag;
+    import std.typecons : Flag;
 
-    alias Files = Tuple!(FileName, "classes", FileName, "components", FileName,
-            "styleIncl", FileName, "styleOutput");
+    static struct Files {
+        FileName classes;
+        FileName components;
+        FileName styleIncl;
+        FileName styleOutput;
+    }
 
     /// Output directory to store files in.
     DirName getOutputDirectory();
@@ -151,7 +155,11 @@ private struct Relate {
     alias Key = USRType;
     alias Kind = RelateKind;
 
-    private alias Inner = Tuple!(uint, "count", Kind, "kind");
+    private static struct Inner {
+        uint count;
+        Kind kind;
+    }
+
     private Inner[][Key] to;
 
     /// Returns: number of outgoing connections
@@ -194,7 +202,11 @@ private struct Relate {
         import std.algorithm : map;
         import std.array : array;
 
-        alias RelateTuple = Tuple!(Relate.Key, "from", Relate.Key, "to", ulong, "count");
+        static struct RelateTuple {
+            Relate.Key from;
+            Relate.Key to;
+            ulong count;
+        }
 
         static ulong sumFanOut(const(Inner)[] inner) pure {
             import std.algorithm : sum;
@@ -213,8 +225,12 @@ private struct Relate {
         import std.algorithm : filter, map, joiner;
         import std.array : array;
 
-        alias RelateTuple = Tuple!(Relate.Key, "from", Kind, "kind",
-                Relate.Key, "to", uint, "count");
+        static struct RelateTuple {
+            Relate.Key from;
+            Kind kind;
+            Relate.Key to;
+            ulong count;
+        }
 
         // dfmt off
         return to.byKeyValue.map!(a => a.value
@@ -268,8 +284,9 @@ private auto fanOutSorted(T)(T t) pure {
     auto arr = t.nameSortedRange();
     auto fanout_i = new size_t[arr.length];
 
-    makeIndex!((a, b) => t.relate_to[cast(
-            Relate.Key) a[0]].fanOut > t.relate_to[cast(Relate.Key) b[0]].fanOut)(arr, fanout_i);
+    // dfmt off
+    makeIndex!((a, b) => t.relate_to[cast(Relate.Key) a.key].fanOut > t.relate_to[cast(Relate.Key) b.key].fanOut)(arr, fanout_i);
+    // dfmt on
 
     return fanout_i.map!(i => arr[i]).array();
 }
@@ -402,7 +419,10 @@ class UMLClassDiagram {
         return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
     }
 
-    private alias KeyClass = Tuple!(Key, const(Class));
+    private static struct KeyClass {
+        Key key;
+        const(Class) value;
+    }
 
     /// Returns: An array of the key/values.
     KeyClass[] asArray() const pure nothrow @trusted {
@@ -421,7 +441,7 @@ class UMLClassDiagram {
     /// Returns: An array of the key/values sorted on key.
     auto nameSortedRange() const pure @trusted {
         static string sortClassNameBy(T)(ref T a) {
-            return a[1].displayName;
+            return a.value.displayName;
         }
 
         return .nameSortedRange!(typeof(this), sortClassNameBy)(this);
@@ -586,7 +606,10 @@ class UMLComponentDiagram {
         return relate_to.byKeyValue.map!(a => a.value.toFlatArray(a.key)).joiner().array();
     }
 
-    private alias KeyComponent = Tuple!(Key, const(Component));
+    private static struct KeyComponent {
+        Key key;
+        const(Component) value;
+    }
 
     /// Returns: Flat array of all relations of type FROM-KIND-TO-COUNT.
     KeyComponent[] asArray() const pure nothrow @trusted {
@@ -605,7 +628,7 @@ class UMLComponentDiagram {
     /// Returns: An array of the key/values sorted on key.
     auto nameSortedRange() const pure @trusted {
         static string sortComponentNameBy(T)(ref T a) {
-            return cast(string) a[1].displayName;
+            return cast(string) a.value.displayName;
         }
 
         return .nameSortedRange!(typeof(this), sortComponentNameBy)(this);
@@ -620,7 +643,7 @@ class UMLComponentDiagram {
 
         // dfmt off
         return nameSortedRange
-            .map!(a => tuple(a[0], a[1].displayName, a[1].contains[].map!(a => newline ~ "  " ~ cast(string) a).joiner))
+            .map!(a => tuple(a.key, a.value.displayName, a.value.contains[].map!(a => newline ~ "  " ~ cast(string) a).joiner))
             .map!(a => format("%s as %s%s", a[0],
                 a[1],
                 a[2])).array();
@@ -986,8 +1009,10 @@ private:
     }
 }
 
-private alias ClassClassificationResult = Tuple!(TypeKindAttr, "type",
-        cpptooling.data.class_classification.State, "classification");
+private struct ClassClassificationResult {
+    TypeKindAttr type;
+    cpptooling.data.class_classification.State classification;
+}
 
 private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.algorithm : map, copy, each, joiner;
@@ -1510,7 +1535,11 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     }
 
     private {
-        alias USRRelation = Tuple!(USRType, "from", USRType, "to", Relate.Kind, "kind");
+        static struct USRRelation {
+            USRType from;
+            USRType to;
+            Relate.Kind kind;
+        }
 
         UMLComponentDiagram diagram;
         ControllerT ctrl;
@@ -1862,15 +1891,27 @@ import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.plantuml;
 
-alias KeyValue = Tuple!(UMLComponentDiagram.Key, "key", string, "display", string, "absFilePath");
-alias KeyRelate = Tuple!(string, "file", KeyValue, "key", Relate.Kind, "kind");
+struct KeyValue {
+    UMLComponentDiagram.Key key;
+    string display;
+    string absFilePath;
+}
+
+struct KeyRelate {
+    string file;
+    KeyValue key;
+    Relate.Kind kind;
+}
 
 /**
  * Params:
  *  file = filename of the relation.
  *  kind = kind of relation such as associaiton, composition etc.
  */
-alias PathKind = Tuple!(string, "file", Relate.Kind, "kind");
+struct PathKind {
+    string file;
+    Relate.Kind kind;
+}
 
 /** Calculate the key based on the directory the file that declares the symbol exist in.
  *
@@ -1938,8 +1979,11 @@ private auto unpackParam(CxParam p) @trusted {
     // dfmt on
 }
 
-alias ClassRelate = Tuple!(Relate.Kind, "kind", Relate.Key, "key",
-        UMLClassDiagram.DisplayName, "display");
+struct ClassRelate {
+    Relate.Kind kind;
+    Relate.Key key;
+    UMLClassDiagram.DisplayName display;
+}
 
 auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
     //TODO code duplication with getMethodRelation
@@ -2088,30 +2132,30 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
     auto classes_preamble = modules.classes.base;
     classes_preamble.suppressIndent(1);
     foreach (idx, kv; uml_class.fanOutSorted.enumerate) {
-        generate(kv[0], kv[1], classes_preamble);
-        generateClassRelate(uml_class.relateTo(kv[0])
-                .toFlatArray(cast(Relate.Key) kv[0]), modules.classes);
+        generate(kv.key, kv.value, classes_preamble);
+        generateClassRelate(uml_class.relateTo(kv.key)
+                .toFlatArray(cast(Relate.Key) kv.key), modules.classes);
         if (doGenDot) {
             auto nodes = modules.classes_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, kv[0], kv[1].displayName));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv.key, kv.value.displayName));
 
             // make a range of all relations from THIS to other components
-            auto r = uml_class.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
+            auto r = uml_class.relateTo(kv.key).toRange(cast(Relate.Key) kv.key);
 
             generateDotRelate(r, idx, modules.classes_dot);
         }
     }
 
     foreach (idx, kv; uml_comp.fanOutSorted.enumerate) {
-        generate(kv[0], kv[1], modules.components);
+        generate(kv.key, kv.value, modules.components);
         if (doGenDot) {
             auto nodes = modules.components_dot.base;
             nodes.suppressIndent(1);
-            nodes.stmt(format(`"%s" [label="%s"]`, kv[0], kv[1].displayName));
+            nodes.stmt(format(`"%s" [label="%s"]`, kv.key, kv.value.displayName));
 
             // make a range of all relations from THIS to other components
-            auto r = uml_comp.relateTo(kv[0]).toRange(cast(Relate.Key) kv[0]);
+            auto r = uml_comp.relateTo(kv.key).toRange(cast(Relate.Key) kv.key);
 
             generateDotRelate(r, idx, modules.components_dot);
         }

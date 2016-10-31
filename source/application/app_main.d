@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module application.app_main;
 
-import std.typecons : Flag, Tuple;
+import std.typecons : Flag;
 
 import logger = std.experimental.logger;
 
@@ -180,8 +180,12 @@ private enum CliCategoryStatus {
     Category
 }
 
-private alias MainCliReturnType = Tuple!(CliCategoryStatus, "status", string,
-        "category", ConfigureLog, "confLog", string[], "args");
+private struct MainCliReturnType {
+    CliCategoryStatus status;
+    string category;
+    ConfigureLog confLog;
+    string[] args;
+}
 
 /** Parse the raw command line.
  *

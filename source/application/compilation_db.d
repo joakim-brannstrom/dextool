@@ -12,7 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module application.compilation_db;
 
-import std.typecons : Nullable, Tuple;
+import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 import application.types;
@@ -216,7 +216,10 @@ body {
     return CompileCommandSearch(found);
 }
 
-private alias SearchResult = Tuple!(string[], "cflags", string, "absoluteFile");
+private struct SearchResult {
+    string[] cflags;
+    string absoluteFile;
+}
 
 /** Append the compiler flags if a match is found in the DB or error out.
  */

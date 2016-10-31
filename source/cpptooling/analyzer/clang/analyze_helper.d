@@ -15,7 +15,7 @@ module cpptooling.analyzer.clang.analyze_helper;
 
 import logger = std.experimental.logger;
 
-import std.typecons : Nullable, tuple, Tuple, Flag, Yes, No;
+import std.typecons : Nullable, tuple, Flag, Yes, No;
 
 import cpptooling.utility.unqual : Unqual;
 
@@ -125,10 +125,17 @@ private bool isOperator(CppMethodName name_) @safe {
     return false;
 }
 
-alias FunctionDeclResult = Tuple!(Flag!"isValid", "isValid", TypeKindAttr,
-        "type", CFunctionName, "name", TypeKindAttr,
-        "returnType", VariadicType, "isVariadic", StorageClass, "storageClass",
-        CxParam[], "params", LocationTag, "location", Flag!"isDefinition");
+struct FunctionDeclResult {
+    Flag!"isValid" isValid;
+    TypeKindAttr type;
+    CFunctionName name;
+    TypeKindAttr returnType;
+    VariadicType isVariadic;
+    StorageClass storageClass;
+    CxParam[] params;
+    LocationTag location;
+    Flag!"isDefinition" isDefinition;
+}
 
 auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @trusted {
     import std.algorithm : among;
@@ -250,8 +257,12 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
     return rval;
 }
 
-alias VarDeclResult = Tuple!(TypeKindAttr, "type", CppVariable, "name",
-        LocationTag, "location", USRType, "instanceUSR");
+struct VarDeclResult {
+    TypeKindAttr type;
+    CppVariable name;
+    LocationTag location;
+    USRType instanceUSR;
+}
 
 auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @safe {
     import clang.Cursor : Cursor;
@@ -275,7 +286,11 @@ auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @
     return VarDeclResult(type.primary.type, name, loc, instance_usr);
 }
 
-alias ConstructorResult = Tuple!(CppMethodName, "name", CxParam[], "params", USRType, "usr");
+struct ConstructorResult {
+    CppMethodName name;
+    CxParam[] params;
+    USRType usr;
+}
 
 /** Analyze the node for actionable data.
  * Params:
@@ -296,8 +311,11 @@ auto analyzeConstructor(const(Constructor) v, ref Container container, in uint i
     return ConstructorResult(name, params, usr);
 }
 
-alias DestructorResult = Tuple!(CppMethodName, "name", CppVirtualMethod,
-        "virtualKind", USRType, "usr");
+struct DestructorResult {
+    CppMethodName name;
+    CppVirtualMethod virtualKind;
+    USRType usr;
+}
 
 /// ditto
 auto analyzeDestructor(const(Destructor) v, ref Container container, in uint indent) @safe {
@@ -311,9 +329,15 @@ auto analyzeDestructor(const(Destructor) v, ref Container container, in uint ind
     return DestructorResult(name, virtual_kind, usr);
 }
 
-alias CXXMethodResult = Tuple!(TypeKindAttr, "type", CppMethodName, "name",
-        CxParam[], "params", Flag!"isOperator", "isOperator",
-        CxReturnType, "returnType", CppVirtualMethod, "virtualKind", Flag!"isConst", "isConst");
+struct CXXMethodResult {
+    TypeKindAttr type;
+    CppMethodName name;
+    CxParam[] params;
+    Flag!"isOperator" isOperator;
+    CxReturnType returnType;
+    CppVirtualMethod virtualKind;
+    Flag!"isConst" isConst;
+}
 
 /// ditto
 auto analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint indent) @safe {
@@ -332,7 +356,10 @@ auto analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint inden
             cast(Flag!"isConst") type.primary.type.attr.isConst);
 }
 
-alias FieldDeclResult = Tuple!(TypeKindAttr, "type", CppVariable, "name");
+struct FieldDeclResult {
+    TypeKindAttr type;
+    CppVariable name;
+}
 
 /// ditto
 auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint indent) @safe {
@@ -344,8 +371,13 @@ auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint inden
     return FieldDeclResult(type.primary.type, name);
 }
 
-alias CXXBaseSpecifierResult = Tuple!(TypeKindAttr, "type", CppClassName,
-        "name", CppNs[], "reverseScope", USRType, "canonicalUSR", CppAccess, "access");
+struct CXXBaseSpecifierResult {
+    TypeKindAttr type;
+    CppClassName name;
+    CppNs[] reverseScope;
+    USRType canonicalUSR;
+    CppAccess access;
+}
 
 /** Analyze the node that represents a inheritance.
  *
@@ -384,8 +416,11 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     return CXXBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
 }
 
-alias ClassDeclResult = Tuple!(TypeKindAttr, "type", CppClassName, "name",
-        LocationTag, "location");
+struct ClassDeclResult {
+    TypeKindAttr type;
+    CppClassName name;
+    LocationTag location;
+}
 
 auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint indent) {
     auto type = () @trusted{ return retrieveType(decl.cursor, container, indent); }();
@@ -400,7 +435,10 @@ auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint in
 }
 
 /// dummy
-alias TranslationUnitResult = Tuple!(string, "fileName");
+struct TranslationUnitResult {
+    string fileName;
+}
+
 auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, in uint indent) {
     auto fname = tu.spelling;
     return TranslationUnitResult(fname);
