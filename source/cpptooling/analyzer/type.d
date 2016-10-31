@@ -53,14 +53,10 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_spac
         string indent_ = repeat(' ', indent + extra_space).array();
         logger.logf!(-1, "", "", "", "")
             (logger.LogLevel.trace,
-             "%d%s const:%s|ref:%s|ptr:%s|arr:%s|fptr:%s [%s:%d]",
+             "%d%s %s [%s:%d]",
              indent,
              indent_,
-             attr.isConst,
-             attr.isRef,
-             attr.isPtr,
-             attr.isArray,
-             attr.isFuncPtr,
+             attr,
              func,
              line);
     }
@@ -187,7 +183,7 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) {
         txt.formattedWrite(t.info.fmt, id);
         break;
     case Kind.array:
-        txt.put(t.info.elementAttr.isConst ? "const " : "");
+        txt.put(ta.isConst ? "const " : "");
         txt.formattedWrite(t.info.fmt, id, t.info.indexes.toRepr);
         break;
     case Kind.funcSignature:

@@ -31,7 +31,7 @@ import logger = std.experimental.logger;
 import dsrcgen.plantuml;
 
 import application.types;
-import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveTypeRef;
+import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveCanonicalType;
 import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
@@ -1564,7 +1564,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
      * coded must be a lookup table or something to allow differentiating
      * depending on "stuff".
      *
-     * It is by design that the src do NOT go via resolveTypeRef. A free
+     * It is by design that the src do NOT go via resolveCanonicalType. A free
      * variable that is a pointer shall have the "src" still as the pointer
      * itself but the destination is the pointed at type.
      *
@@ -1583,7 +1583,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         foreach(a; range
             // remove primitive types
             .filter!(a => a.kind.info.kind != TypeKind.Info.Kind.primitive)
-            .map!(a => resolveTypeRef(a.kind, a.attr, lookup))
+            .map!(a => resolveCanonicalType(a.kind, a.attr, lookup))
             .joiner
             .map!(a => a.kind.usr)
             // create the relations of type src-to-kind
@@ -2015,7 +2015,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
         auto element = lookup.kind(type.kind.info.element);
         foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
             auto rel_type = Relate.Kind.Aggregate;
-            if (type.kind.info.elementAttr.isPtr || type.kind.info.elementAttr.isRef) {
+            if (type.attr.isPtr || type.attr.isRef) {
                 rel_type = Relate.Kind.Compose;
             }
             r = ClassRelate(rel_type, e.usr,

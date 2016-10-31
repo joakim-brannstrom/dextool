@@ -133,8 +133,6 @@ pure @safe nothrow @nogc:
         ArrayInfoIndex[] indexes;
         /// usr for 'int'
         USRType element;
-        /// Yes.isConst
-        TypeAttr elementAttr;
     }
 
     /** The type 'extern int (*e_g)(int pa)'.
@@ -267,6 +265,7 @@ pure @safe nothrow @nogc:
 /// Attributes of a declaration of a type.
 pure @safe nothrow @nogc struct TypeAttr {
     import std.typecons : Flag;
+    import std.format : FormatSpec;
 
     Flag!"isConst" isConst;
     Flag!"isRef" isRef;
@@ -274,32 +273,48 @@ pure @safe nothrow @nogc struct TypeAttr {
     Flag!"isFuncPtr" isFuncPtr;
     Flag!"isArray" isArray;
     Flag!"isDefinition" isDefinition;
+
+    ///
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
+        import std.range : chain, only;
+        import std.algorithm : filter, joiner, copy;
+
+        chain(only(isConst ? "const" : null), only(isRef ? "ref" : null),
+                only(isPtr ? "ptr" : null), only(isFuncPtr ? "funcPtr" : null),
+                only(isArray ? "array" : null)).filter!(a => a !is null).joiner(",").copy(w);
+    }
 }
 
-/** Returns: the USR for the referenced type.
+/** Resolve the canonical type.
+ *
+ * TODO merge with resolvePointeeType. (It wasn't done as of this writing
+ * because I'm not sure they will stay similare enough to allow a merge).
+ *
+ * TODO I think that the resuilt from array/funcPtr/pointee should be checked
+ * if they are a typedef. May be a bug that complicates the result at other
+ * places.
  *
  * Params:
- *   LookupT = ?
- *   policy = only resolve those that matching the policy. If none are specified then resolve all.
+ *   LookupT = a type supporting the method "kind" taking a USR and returning a
+ *             TypeKind.
+ *   type = the type to resolve
+ *   attr_ = attributes for the type, depending on the result from the lookup
+ *           either this attributes are used or those from the lookup
+ *   lookup = see $(D LookupT)
+ *
+ * Returns: TypeKindAttr of the canonical type.
  */
-auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT lookup) {
+auto resolveCanonicalType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
+        if (__traits(hasMember, LookupT, "kind")) {
     import std.algorithm : among;
     import std.range : only, dropOne;
     import cpptooling.analyzer.type : TypeKindAttr;
 
-    static if (policy.length > 0) {
-        if (!type.info.kind.among(policy)) {
-            return only(TypeKindAttr(type, attr_));
-        }
-    }
-
     auto rval = only(TypeKindAttr.init).dropOne;
-    auto attr = attr_;
     auto found = typeof(lookup.kind(USRType.init)).init;
 
     final switch (type.info.kind) with (TypeKind.Info) {
     case Kind.array:
-        attr = type.info.elementAttr;
         found = lookup.kind(type.info.element);
         break;
     case Kind.funcPtr:
@@ -311,6 +326,58 @@ auto resolveTypeRef(LookupT, policy...)(TypeKind type, TypeAttr attr_, LookupT l
     case Kind.typeRef:
         found = lookup.kind(type.info.canonicalRef);
         break;
+    case Kind.ctor:
+    case Kind.dtor:
+    case Kind.func:
+    case Kind.funcSignature:
+    case Kind.primitive:
+    case Kind.record:
+    case Kind.simple:
+        rval = only(TypeKindAttr(type, attr));
+        break;
+    case Kind.null_:
+        break;
+    }
+
+    foreach (item; found) {
+        rval = only(TypeKindAttr(item.get, attr));
+    }
+
+    return rval;
+}
+
+/** Resolve the pointe type.
+ *
+ * Params:
+ *   LookupT = a type supporting the method "kind" taking a USR as parameter,
+ *      returning the result as a TypeKind wrapped in a range.
+ *   type = the type to resolve
+ *   attr_ = attributes for the type, depending on the result from the lookup
+ *      either this attributes are used or those from the lookup
+ *   lookup = see $(D LookupT)
+ *
+ * Returns: TypeKindAttr of the pointee type.
+ */
+auto resolvePointeeType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
+        if (__traits(hasMember, LookupT, "kind")) {
+    import std.algorithm : among;
+    import std.range : only, dropOne;
+    import cpptooling.analyzer.type : TypeKindAttr;
+
+    auto rval = only(TypeKindAttr.init).dropOne;
+    auto found = typeof(lookup.kind(USRType.init)).init;
+
+    final switch (type.info.kind) with (TypeKind.Info) {
+    case Kind.array:
+        found = lookup.kind(type.info.element);
+        break;
+    case Kind.funcPtr:
+        found = lookup.kind(type.info.pointee);
+        break;
+    case Kind.pointer:
+        found = lookup.kind(type.info.pointee);
+        break;
+    case Kind.typeRef:
     case Kind.ctor:
     case Kind.dtor:
     case Kind.func:
