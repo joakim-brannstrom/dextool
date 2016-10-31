@@ -460,9 +460,11 @@ struct Fsm {
         a ~= "test";
         a ~= ["-c", "unittest"];
         a ~= ["-b", "unittest-cov"];
+        a ~= ["--"];
+        a ~= ["--chrono"];
 
         if (flagUtDebug) {
-            a ~= ["--", "-d"];
+            a ~= ["-d", "--trace"];
         }
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
