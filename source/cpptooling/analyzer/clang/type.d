@@ -1332,87 +1332,103 @@ body {
     import std.format : format;
     import cpptooling.data.type : LocationTag, Location;
 
-    ArrayInfoIndex[] index_nr;
+    static void gatherIndexesToElement(Type start, ref ArrayInfoIndex[] indexes, ref Type element) {
+        Type curr = start;
 
-    // beware, used in primitive arrays
-    auto index = type;
+        while (curr.kind.among(CXTypeKind.CXType_ConstantArray, CXTypeKind.CXType_IncompleteArray)) {
+            auto arr = curr.array;
 
-    while (index.kind.among(CXTypeKind.CXType_ConstantArray, CXTypeKind.CXType_IncompleteArray)) {
-        auto arr = index.array;
+            switch (curr.kind) with (CXTypeKind) {
+            case CXType_ConstantArray:
+                indexes ~= ArrayInfoIndex(arr.size);
+                break;
+            case CXType_IncompleteArray:
+                indexes ~= ArrayInfoIndex();
+                break;
+            default:
+                break;
+            }
 
-        switch (index.kind) with (CXTypeKind) {
-        case CXType_ConstantArray:
-            index_nr ~= ArrayInfoIndex(arr.size);
-            break;
-        case CXType_IncompleteArray:
-            index_nr ~= ArrayInfoIndex();
-            break;
-        default:
-            break;
+            curr = arr.elementType;
         }
 
-        index = arr.elementType;
+        element = curr;
     }
 
+    static void determineElement(Type ele_type, ref const(ArrayInfoIndex[]) indexes,
+            ref const(Cursor) c, ref const(Container) container, ref USRType primary_usr,
+            ref LocationTag primary_loc, ref TypeResults element, const uint indent) {
+        auto index_decl = ele_type.declaration;
+
+        if (index_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
+            // on purpuse not checking if it is null before using
+            element = passType(c, ele_type, container, indent).get;
+
+            if (element.primary.type.kind.usr.length != 0) {
+                primary_usr = element.primary.type.kind.usr;
+            } else {
+                primary_usr = makeFallbackUSR(c, indent);
+            }
+            primary_loc = element.primary.location;
+        } else {
+            // on purpuse not checking if it is null before using
+            element = retrieveType(index_decl, container, indent).get;
+
+            primary_usr = element.primary.type.kind.usr;
+            primary_loc = element.primary.location;
+        }
+        // let the indexing affect the USR as to not collide with none-arrays of
+        // the same type.
+        primary_usr = primary_usr ~ indexes.toRepr;
+
+        switch (primary_loc.kind) {
+        case LocationTag.Kind.noloc:
+            // TODO this is stupid ... fix it. Shouldn't be needed but happens
+            // when it is an array of primary types.
+            // Probably the correct fix is the contract in retrieveType to check
+            // that if it is an array at primary types it do NOT check for length.
+            primary_loc = makeLocation(c);
+            break;
+        default:
+        }
+    }
+
+    // step 1, find indexing and element type
+    ArrayInfoIndex[] index_nr;
+    Type element_type = type;
+
+    gatherIndexesToElement(type, index_nr, element_type);
+
+    // step 2, determine element
     TypeResults element;
     USRType primary_usr;
     LocationTag primary_loc;
 
-    auto index_decl = index.declaration;
+    determineElement(element_type, index_nr, c, container, primary_usr,
+            primary_loc, element, indent + 1);
 
-    if (index_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
-        // on purpuse not checking if it is null before using
-        element = passType(c, index, container, indent + 1).get;
-
-        if (element.primary.type.kind.usr.length != 0) {
-            primary_usr = element.primary.type.kind.usr;
-        } else {
-            primary_usr = makeFallbackUSR(c, indent);
-        }
-        primary_loc = element.primary.location;
-    } else {
-        // on purpuse not checking if it is null before using
-        element = retrieveType(index_decl, container, indent + 1).get;
-
-        primary_usr = element.primary.type.kind.usr;
-        primary_loc = element.primary.location;
-    }
-    // let the indexing affect the USR as to not collide with none-arrays of
-    // the same type.
-    primary_usr = primary_usr ~ index_nr.toRepr;
-
-    switch (primary_loc.kind) {
-    case LocationTag.Kind.noloc:
-        // TODO this is stupid ... fix it. Shouldn't be needed but happens
-        // when it is an array of primary types.
-        // Probably the correct fix is the contract in retrieveType to check
-        // that if it is an array at primary types it do NOT check for length.
-        primary_loc = makeLocation(c);
-        break;
-    default:
-    }
+    // step 3, put together the result
 
     TypeKind.ArrayInfo info;
     info.element = element.primary.type.kind.usr;
-
-    if (!element.primary.type.kind.info.kind.among(TypeKind.Info.Kind.pointer,
-            TypeKind.Info.Kind.funcPtr)) {
-        auto elem_t = type.array.elementType;
-        info.elementAttr = makeTypeAttr(elem_t);
-    } else {
-        info.elementAttr = element.primary.type.attr;
-    }
-
     info.indexes = index_nr;
     // TODO probably need to adjust elementType and format to allow ptr to
     // array etc. int * const x[10];
     info.fmt = element.primary.type.kind.toStringDecl(TypeAttr.init, "%s%s");
 
     TypeResults rval;
+
+    if (!element.primary.type.kind.info.kind.among(TypeKind.Info.Kind.pointer,
+            TypeKind.Info.Kind.funcPtr)) {
+        auto elem_t = type.array.elementType;
+        rval.primary.type.attr = makeTypeAttr(elem_t);
+    } else {
+        rval.primary.type.attr = element.primary.type.attr;
+    }
+
     rval.primary.type.kind.usr = primary_usr;
     rval.primary.location = primary_loc;
     rval.primary.type.kind.info = info;
-    rval.primary.type.attr = makeTypeAttr(type);
     rval.extra ~= [element.primary] ~ element.extra;
 
     return rval;

@@ -183,7 +183,7 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) {
         txt.formattedWrite(t.info.fmt, id);
         break;
     case Kind.array:
-        txt.put(t.info.elementAttr.isConst ? "const " : "");
+        txt.put(ta.isConst ? "const " : "");
         txt.formattedWrite(t.info.fmt, id, t.info.indexes.toRepr);
         break;
     case Kind.funcSignature:
