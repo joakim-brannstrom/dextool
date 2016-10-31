@@ -106,11 +106,10 @@ unittest {
  * path as-is.
  */
 FileName stripFile(FileName fname, Regex!char re) @trusted {
-    import std.array : array;
-    import std.algorithm : joiner;
+    import std.array : appender;
+    import std.algorithm : copy;
     import std.range : dropOne;
     import std.regex : matchFirst;
-    import std.utf : byChar;
 
     if (re.empty) {
         return fname;
@@ -122,7 +121,9 @@ FileName stripFile(FileName fname, Regex!char re) @trusted {
     debug logger.tracef("input is '%s'. After strip: %s", fname, c);
 
     if (!c.empty) {
-        rval = FileName(cast(string) c.dropOne.joiner("").byChar.array());
+        auto app = appender!string();
+        c.dropOne.copy(app);
+        rval = FileName(app.data);
     }
 
     return rval;
