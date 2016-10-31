@@ -262,8 +262,8 @@ pure @safe nothrow @nogc:
     }
 }
 
-/// Attributes of a declaration of a type.
-pure @safe nothrow @nogc struct TypeAttr {
+/// Attributes for a type.
+@safe @nogc struct TypeAttr {
     import std.typecons : Flag;
     import std.format : FormatSpec;
 
@@ -279,9 +279,16 @@ pure @safe nothrow @nogc struct TypeAttr {
         import std.range : chain, only;
         import std.algorithm : filter, joiner, copy;
 
-        chain(only(isConst ? "const" : null), only(isRef ? "ref" : null),
-                only(isPtr ? "ptr" : null), only(isFuncPtr ? "funcPtr" : null),
-                only(isArray ? "array" : null)).filter!(a => a !is null).joiner(",").copy(w);
+        // dfmt off
+        chain(only(isConst ? "const" : null),
+              only(isRef ? "ref" : null),
+              only(isPtr ? "ptr" : null),
+              only(isFuncPtr ? "funcPtr" : null),
+              only(isArray ? "array" : null))
+            .filter!(a => a !is null)
+            .joiner(";")
+            .copy(w);
+        // dfmt on
     }
 }
 
