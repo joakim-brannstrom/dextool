@@ -10,8 +10,6 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.types;
 
-import std.typecons : Tuple;
-
 public import application.types : ExitStatusType;
 
 struct CliOption {
@@ -34,8 +32,17 @@ struct CliCategoryInfo {
     alias payload this;
 }
 
-alias CliOptionParts = Tuple!(string, "usage", string, "optional", string, "others");
+struct CliOptionParts {
+    string usage;
+    string optional;
+    string others;
+}
 
 alias PluginFuncType = ExitStatusType function(CliOption opt, CliArgs args);
-alias Plugin = Tuple!(CliCategory, "category", CliCategoryInfo,
-        "categoryCliInfo", CliOptionParts, "opts", PluginFuncType, "func");
+
+struct Plugin {
+    CliCategory category;
+    CliCategoryInfo categoryCliInfo;
+    CliOptionParts opts;
+    PluginFuncType func;
+}

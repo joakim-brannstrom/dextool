@@ -54,10 +54,14 @@ import cpptooling.analyzer.clang.ast : Visitor;
 /// Parameters used during generation.
 /// Important aspect that they do NOT change, therefore it is pure.
 @safe pure interface Parameters {
-    import std.typecons : Tuple;
-
-    alias Files = Tuple!(FileName, "hdr", FileName, "impl", FileName, "globals",
-            FileName, "gmock", FileName, "pre_incl", FileName, "post_incl");
+    static struct Files {
+        FileName hdr;
+        FileName impl;
+        FileName globals;
+        FileName gmock;
+        FileName pre_incl;
+        FileName post_incl;
+    }
 
     /// Source files used to generate the stub.
     FileName[] getIncludes();

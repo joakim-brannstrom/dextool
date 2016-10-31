@@ -118,14 +118,17 @@ static auto plantuml_opt = CliOptionParts(
 class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
-    import std.typecons : Tuple, Flag, Yes, No;
+    import std.typecons : Flag, Yes, No;
     import application.types : FileName, DirName, FilePrefix;
     import application.utility;
 
     import docopt : ArgValue;
     import dsrcgen.plantuml;
 
-    alias FileData = Tuple!(FileName, "filename", string, "data");
+    static struct FileData {
+        FileName filename;
+        string data;
+    }
 
     static const fileExt = ".pu";
     static const inclExt = ".iuml";

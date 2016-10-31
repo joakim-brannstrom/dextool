@@ -35,17 +35,17 @@ shared static this() {
     import plugin.frontend.ctestdouble;
 
     registerPlugin(CliCategory("ctestdouble"), CliCategoryInfo("generate a C test double. Language is set to C"),
-            CliOptionParts(ctestdouble_opt), &plugin.frontend.ctestdouble.runPlugin);
+            ctestdouble_opt, &plugin.frontend.ctestdouble.runPlugin);
 
     import plugin.frontend.cpptestdouble;
 
     registerPlugin(CliCategory("cpptestdouble"), CliCategoryInfo("generate a C++ test double. Language is set to C++"),
-            CliOptionParts(cpptestdouble_opt), &plugin.frontend.cpptestdouble.runPlugin);
+            cpptestdouble_opt, &plugin.frontend.cpptestdouble.runPlugin);
 
     import plugin.frontend.plantuml;
 
     registerPlugin(CliCategory("uml"), CliCategoryInfo("generate PlantUML diagrams"),
-            CliOptionParts(plantuml_opt), &plugin.frontend.plantuml.runPlugin);
+            plantuml_opt, &plugin.frontend.plantuml.runPlugin);
 }
 
 version (unittest) {

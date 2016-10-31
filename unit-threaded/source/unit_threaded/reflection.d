@@ -72,6 +72,14 @@ const(TestData)[] allTestData(MOD_SYMBOLS...)() if(!anySatisfy!(isSomeString, ty
 }
 
 
+private template Identity(T...) if(T.length > 0) {
+    static if(__traits(compiles, { alias x = T[0]; }))
+        alias Identity = T[0];
+    else
+        enum Identity = T[0];
+}
+
+
 /**
  * Finds all built-in unittest blocks in the given module.
  * Recurses into structs, classes, and unions of the module.
@@ -110,11 +118,27 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
         }
     }
 
+    void function() getUDAFunction(alias composite, alias uda)() pure nothrow {
+        mixin(`import ` ~ moduleName!composite ~ `;`);
+        void function()[] ret;
+        foreach(memberStr; __traits(allMembers, composite)) {
+            static if(__traits(compiles, Identity!(__traits(getMember, composite, memberStr)))) {
+                alias member = Identity!(__traits(getMember, composite, memberStr));
+                static if(__traits(compiles, &member)) {
+                    static if(isSomeFunction!member && hasUDA!(member, uda)) {
+                        ret ~= &member;
+                    }
+                }
+            }
+        }
+
+        return ret.length ? ret[0] : null;
+    }
 
     TestData[] testData;
 
-    void addMemberUnittests(alias member)() pure nothrow{
-        foreach(index, eltesto; __traits(getUnitTests, member)) {
+    void addMemberUnittests(alias composite)() pure nothrow {
+        foreach(index, eltesto; __traits(getUnitTests, composite)) {
             enum name = unittestName!(eltesto, index);
             enum hidden = hasUDA!(eltesto, HiddenTest);
             enum shouldFail = hasUDA!(eltesto, ShouldFail);
@@ -130,7 +154,22 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
             enum tags = tagsFromAttrs!(Filter!(isTags, __traits(getAttributes, eltesto)));
 
             static if(valuesUDAs.length == 0) {
-                testData ~= TestData(name, (){ eltesto(); }, hidden, shouldFail, singleThreaded, builtin, suffix, tags);
+                testData ~= TestData(name,
+                                     () {
+                                         auto setup = getUDAFunction!(composite, Setup);
+                                         auto shutdown = getUDAFunction!(composite, Shutdown);
+
+                                         if(setup) setup();
+                                         scope(exit) if(shutdown) shutdown();
+
+                                         eltesto();
+                                     },
+                                     hidden,
+                                     shouldFail,
+                                     singleThreaded,
+                                     builtin,
+                                     suffix,
+                                     tags);
             } else {
                 import std.range;
 
@@ -246,7 +285,15 @@ unittest {
 private template isPrivate(alias module_, string moduleMember) {
     mixin(`import ` ~ fullyQualifiedName!module_ ~ `: ` ~ moduleMember ~ `;`);
     static if(__traits(compiles, isSomeFunction!(mixin(moduleMember)))) {
-        enum isPrivate = false;
+        alias member = Identity!(mixin(moduleMember));
+        static if(__traits(compiles, &member))
+            enum isPrivate = false;
+        else static if(__traits(compiles, new member))
+            enum isPrivate = false;
+        else static if(__traits(compiles, HasTypes!member))
+            enum isPrivate = !HasTypes!member;
+        else
+            enum isPrivate = true;
     } else {
         enum isPrivate = true;
     }
@@ -258,13 +305,70 @@ private template PassesTestPred(alias module_, alias pred, string moduleMember) 
     //should be the line below instead but a compiler bug prevents it
     //mixin(importMember!module_(moduleMember));
     mixin("import " ~ fullyQualifiedName!module_ ~ ";");
-    enum notPrivate = __traits(compiles, mixin(moduleMember)); //only way I know to check if private
-    //enum notPrivate = !isPrivate!(module_, moduleMember);
-    static if(notPrivate)
-        enum PassesTestPred = notPrivate && pred!(module_, moduleMember) &&
-                              !HasAttribute!(module_, moduleMember, DontTest);
-    else
+    alias I(T...) = T;
+    static if(!__traits(compiles, I!(__traits(getMember, module_, moduleMember)))) {
         enum PassesTestPred = false;
+    } else {
+        alias member = I!(__traits(getMember, module_, moduleMember));
+
+        template canCheckIfSomeFunction(T...) {
+            enum canCheckIfSomeFunction = T.length == 1 && __traits(compiles, isSomeFunction!(T[0]));
+        }
+
+        private string funcCallMixin(alias T)() {
+            import std.conv: to;
+            string[] args;
+            foreach(i, ParamType; Parameters!T) {
+                args ~= `arg` ~ i.to!string;
+            }
+
+            return moduleMember ~ `(` ~ args.join(`,`) ~ `);`;
+        }
+
+        private string argsMixin(alias T)() {
+            import std.conv: to;
+            string[] args;
+            foreach(i, ParamType; Parameters!T) {
+                args ~= ParamType.stringof ~ ` arg` ~ i.to!string ~ `;`;
+            }
+
+            return args.join("\n");
+        }
+
+        template canCallMember() {
+            void _f() {
+                mixin(argsMixin!member);
+                mixin(funcCallMixin!member);
+            }
+        }
+
+        template canInstantiate() {
+            void _f() {
+                mixin(`auto _ = new ` ~ moduleMember ~ `;`);
+            }
+        }
+
+        template isPrivate() {
+            static if(!canCheckIfSomeFunction!member) {
+                enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
+            } else {
+                static if(isSomeFunction!member) {
+                    enum isPrivate = !__traits(compiles, canCallMember!());
+                } else static if(is(member)) {
+                    static if(isAggregateType!member)
+                        enum isPrivate = !__traits(compiles, canInstantiate!());
+                    else
+                        enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
+                } else {
+                    enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
+                }
+            }
+        }
+
+        enum notPrivate = !isPrivate!();
+        enum PassesTestPred = !isPrivate!() && pred!(module_, moduleMember) &&
+            !HasAttribute!(module_, moduleMember, DontTest);
+    }
 }
 
 
@@ -543,12 +647,9 @@ version(unittest) {
         import core.exception;
         import std.conv;
 
-        try {
-            test.silence;
-            assert(test() != [], file ~ ":" ~ line.to!string ~ " Test was expected to fail but didn't");
-            assert(false, file ~ ":" ~ line.to!string ~ " Expected test case " ~ test.getPath ~
+        test.silence;
+        assert(test() != [], file ~ ":" ~ line.to!string ~ " Expected test case " ~ test.getPath ~
                    " to fail with AssertError but it didn't");
-        } catch(AssertError) {}
     }
 
     private void assertPass(TestCase test, string file = __FILE__, size_t line = __LINE__) {
@@ -627,7 +728,7 @@ unittest {
     auto testsNoTags = createTestCases(testData);
     assertEqual(testsNoTags.length, 4);
     assertPass(testsNoTags[0]);
-    assertFail(testsNoTags[1]);
+    assertFail(testsNoTags.find!(a => a.getPath.canFind("unittest1")).front);
     assertFail(testsNoTags[2]);
     assertFail(testsNoTags[3]);
 
@@ -700,7 +801,7 @@ unittest {
 @("Cartesian parameterized built-in values") unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
-    import unit_threaded.should;
+    import unit_threaded.should: shouldBeSameSetAs;
     import unit_threaded.tests.parametrized;
 
     const testData = allTestData!(unit_threaded.tests.parametrized).
@@ -734,7 +835,7 @@ unittest {
 @("Cartesian parameterized function values") unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
-    import unit_threaded.should;
+    import unit_threaded.should: shouldBeSameSetAs;
 
     const testData = allTestData!(unit_threaded.tests.parametrized).
         filter!(a => a.name.canFind("CartesianFunction")).array;
@@ -756,22 +857,28 @@ unittest {
 
 }
 
+@("module setup and shutdown")
 unittest {
     import unit_threaded.testcase;
     import unit_threaded.factory;
-    import unit_threaded.randomized.gen;
+    import unit_threaded.tests.module_with_setup: gNumBefore, gNumAfter;
 
-    auto testData = allTestData!(unit_threaded.randomized.gen).array;
+    const testData = allTestData!"unit_threaded.tests.module_with_setup".array;
     auto tests = createTestCases(testData);
-    foreach(test; tests) {
+    assertEqual(tests.length, 2);
 
-    }
+    assertPass(tests[0]);
+    assertEqual(gNumBefore, 1);
+    assertEqual(gNumAfter, 1);
+
+    assertFail(tests[1]);
+    assertEqual(gNumBefore, 2);
+    assertEqual(gNumAfter, 2);
 }
 
 @("issue 33") unittest {
     import unit_threaded.factory;
     import unit_threaded.testcase;
-    import unit_threaded.should;
     import test.issue33;
 
     const testData = allTestData!"test.issue33";

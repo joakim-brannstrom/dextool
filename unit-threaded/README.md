@@ -57,6 +57,7 @@ project, you can use a `unittest` configuration as exemplified in this
         { "name": "executable" },
         {
             "name": "unittest",
+            "targetType": "executable",
             "preBuildCommands": ["dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"],
             "mainSourceFile": "bin/ut.d",
             "excludedSourceFiles": ["src/main.d"],
@@ -238,6 +239,12 @@ unittest {
    // ...
 }
 ```
+
+The `@Setup` and `@Shutdown` UDAs can be attached to a
+free function in a module. If they are, they will be run before/after
+each `unittest` block in a composite (usually a module). This feature
+currently only works for `unittest` blocks, not free functions.
+Classes could override `setup` and `shutdown` already.
 
 Property-based testing
 ----------------------
