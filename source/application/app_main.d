@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -12,6 +11,7 @@ import logger = std.experimental.logger;
 
 import application.types;
 import application.logger;
+import plugin.types : CliBasicOption;
 
 version (unittest) {
     import unit_threaded;
@@ -27,59 +27,21 @@ enum string main_opt = "usage:
 
 options:
  -h, --help         show this help
- -d, --debug        turn on debug output for tracing of generator flow
+ -d, --debug        turn on debug output for detailed tracing
  --version          print the version of dextool
 
 commands:
   help
 ";
 
-enum string basic_options = "
+enum CliBasicOption basic_options = "
  -h, --help         show this help
- -d, --debug        turn on debug output for tracing of generator flow
 ";
 
 enum string help_opt = "
-REGEX
 
-The regex syntax is found at http://dlang.org/phobos/std_regex.html
-
-Information about --strip-incl.
-  Default regexp is: .*/(.*)
-
-  To allow the user to selectively extract parts of the include path dextool
-  applies the regex and then concatenates all the matcher groups found.  It is
-  turned into the replacement include path.
-
-  Important to remember then is that this approach requires that at least one
-  matcher group exists.
-
-Information about --file-exclude.
-  The regex must fully match the filename the AST node is located in.
-  If it matches all data from the file is excluded from the generated code.
-
-Information about --file-restrict.
-  The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
-
-EXAMPLES
-
-Generate a simple C test double.
-  dextool ctestdouble functions.h
-
-  Analyze and generate a test double for function prototypes and extern variables.
-  Both those found in functions.h and outside, aka via includes.
-
-  The test double is written to ./test_double.hpp/.cpp.
-  The name of the interface is Test_Double.
-
-Generate a C test double excluding data from specified files.
-  dextool ctestdouble --file-exclude=/foo.h --file-exclude='functions.[h,c]' --out=outdata/ functions.h -- -DBAR -I/some/path
-
-  The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
-  During generation declarations found in foo.h or functions.h will be excluded.
-
-  The file holding the test double is written to directory outdata.
+Use the specific help for the command groups for further information.
+dextool <command> -h
 ";
 
 string cliMergeCategory() {
@@ -100,8 +62,8 @@ string cliMergeCategory() {
         .map!(a =>
               chain(only("  "),
                     // +1 so there is a space left between category and info
-                    only(leftJustifier(cast(string) a.category, max_length + 1).text),
-                    only(cast(string) a.categoryCliInfo))
+                    only(leftJustifier(a.category, max_length + 1).text),
+                    only(a.categoryCliInfo))
               .joiner()
              )
         .joiner(newline)
@@ -110,26 +72,7 @@ string cliMergeCategory() {
 }
 
 ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] args) {
-    import std.algorithm;
-    import std.stdio : writeln, writefln, stderr;
-    import std.traits;
-
-    // load the plugin system
-    import plugin.loader;
-    import plugin.types;
-
-    static auto optTo(CliOptionParts opt) {
-        import std.format;
-
-        const auto r = format("%s
-
-options:%s%s
-
-%s", opt.usage, basic_options, opt.optional, opt.others);
-
-        debug logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
-        return CliOption(r);
-    }
+    import std.stdio : writeln;
 
     auto exit_status = ExitStatusType.Errors;
 
@@ -148,16 +91,18 @@ options:%s%s
         exit_status = ExitStatusType.Errors;
         break;
     case Category:
-        import plugin.register;
+        import std.algorithm : filter;
         import std.range : takeOne;
+        import plugin.register : getRegisteredPlugins, CliArgs;
 
         bool match_found;
 
         // dfmt off
+        // find the first plugin matching the category
         foreach (p; getRegisteredPlugins()
                  .filter!(p => p.category == category)
                  .takeOne) {
-            exit_status = p.func(optTo(p.opts), CliArgs(args[1 .. $]));
+            exit_status = p.func(basic_options, CliArgs(args[1 .. $]));
             match_found = true;
         }
         // dfmt on
@@ -275,8 +220,7 @@ int rmain(string[] args) nothrow {
 
     if (exit_status != ExitStatusType.Ok) {
         try {
-            logger.errorf(
-                    "Dextool exiting due to runtime error. Run with --debug for more information");
+            logger.errorf("Dextool exiting due to runtime error");
         }
         catch (Exception ex) {
         }

@@ -8,17 +8,18 @@ module plugin.frontend.ctestdouble;
 
 import logger = std.experimental.logger;
 
+import application.compilation_db;
 import application.types;
 import application.utility;
-import application.compilation_db;
 
 import plugin.types;
 import plugin.backend.cvariant : Controller, Parameters, Products;
 
-auto runPlugin(CliOption opt, CliArgs args) {
+auto runPlugin(CliBasicOption opt, CliArgs args) {
     import docopt;
+    import plugin.utility : toDocopt;
 
-    auto parsed = docopt.docoptParse(opt, args);
+    auto parsed = docopt.docoptParse(opt.toDocopt(ctestdouble_opt), args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -63,6 +64,46 @@ static auto ctestdouble_opt = CliOptionParts(
  --file-restrict=   Restrict the scope of the test double to those files
                     matching the regex
  --td-include=      User supplied includes used instead of those found
+
+REGEX
+The regex syntax is found at http://dlang.org/phobos/std_regex.html
+
+Information about --strip-incl.
+  Default regexp is: .*/(.*)
+
+  To allow the user to selectively extract parts of the include path dextool
+  applies the regex and then concatenates all the matcher groups found.  It is
+  turned into the replacement include path.
+
+  Important to remember then is that this approach requires that at least one
+  matcher group exists.
+
+Information about --file-exclude.
+  The regex must fully match the filename the AST node is located in.
+  If it matches all data from the file is excluded from the generated code.
+
+Information about --file-restrict.
+  The regex must fully match the filename the AST node is located in.
+  Only symbols from files matching the restrict affect the generated test double.
+
+EXAMPLES
+
+Generate a simple C test double.
+  dextool ctestdouble functions.h
+
+  Analyze and generate a test double for function prototypes and extern variables.
+  Both those found in functions.h and outside, aka via includes.
+
+  The test double is written to ./test_double.hpp/.cpp.
+  The name of the interface is Test_Double.
+
+Generate a C test double excluding data from specified files.
+  dextool ctestdouble --file-exclude=/foo.h --file-exclude='functions.[h,c]' --out=outdata/ functions.h -- -DBAR -I/some/path
+
+  The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/path.
+  During generation declarations found in foo.h or functions.h will be excluded.
+
+  The file holding the test double is written to directory outdata.
 "
 );
 // dfmt on

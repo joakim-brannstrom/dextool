@@ -16,13 +16,13 @@ import std.typecons : Flag, Yes, No;
 
 import logger = std.experimental.logger;
 
+import application.compilation_db;
 import application.types;
 import application.utility;
 
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
 import cpptooling.data.representation : CppRoot, CppNamespace, CppClass;
-import application.compilation_db;
 
 /** Contains the file processing directives after parsing user arguments.
  *
@@ -49,10 +49,11 @@ struct FileProcess {
     FileName inputFile;
 }
 
-auto runPlugin(CliOption opt, CliArgs args) {
+auto runPlugin(CliBasicOption opt, CliArgs args) {
     import docopt;
+    import plugin.utility : toDocopt;
 
-    auto parsed = docopt.docoptParse(opt, args);
+    auto parsed = docopt.docoptParse(opt.toDocopt(plantuml_opt), args);
 
     string[] cflags;
     if (parsed["--"].isTrue) {
@@ -107,6 +108,20 @@ static auto plantuml_opt = CliOptionParts(
  --file-exclude=     Exclude files from generation matching the regex
  --file-restrict=    Restrict the scope of the test double to those files
                      matching the regex
+
+REGEX
+The regex syntax is found at http://dlang.org/phobos/std_regex.html
+
+Information about --comp-strip.
+  Default regexp is: .*/(.*)
+
+Information about --file-exclude.
+  The regex must fully match the filename the AST node is located in.
+  If it matches all data from the file is excluded from the generated code.
+
+Information about --file-restrict.
+  The regex must fully match the filename the AST node is located in.
+  Only symbols from files matching the restrict affect the generated test double.
 "
 );
 // dfmt on

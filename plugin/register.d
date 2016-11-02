@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2
@@ -18,7 +17,6 @@ private shared(Plugin[]) plugins;
  * Params:
  *  category = main category of the plugin, e.g cpptestdouble
  *  info = oneliner information about the category
- *  opts = tuple with usage, optional and others
  *  func = callback function
  *
  * Example:
@@ -26,9 +24,8 @@ private shared(Plugin[]) plugins;
  * plugin/frontend/cpptestdouble.d
  * ----
  */
-void registerPlugin(CliCategory category, CliCategoryInfo info,
-        CliOptionParts opts, PluginFuncType func) {
-    plugins ~= Plugin(category, info, opts, func);
+void registerPlugin(CliCategory category, CliCategoryInfo info, PluginFuncType func) {
+    plugins ~= Plugin(category, info, func);
 }
 
 /// Only for internal usage.
