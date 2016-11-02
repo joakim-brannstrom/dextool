@@ -62,7 +62,8 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines) {
+        Flag!"sortLines" sortLines = No.sortLines,
+        Flag!"skipComments" skipComments = Yes.skipComments) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
@@ -70,7 +71,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         dextoolYap("Comparing");
         Path base = p.base_cmp;
         // dfmt off
-        compareResult(sortLines,
+        compareResult(sortLines, skipComments,
                       GR(base ~ Ext(".hpp.ref"), p.out_hdr),
                       GR(base ~ Ext(".cpp.ref"), p.out_impl),
                       GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
@@ -80,7 +81,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
 
     if (!p.skipCompile) {
         dextoolYap("Compiling");
-        compileResult(p.out_impl, p.mainf, testEnv, sortLines, p.compileFlags, p.compileIncls);
+        compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
     }
 }
 
@@ -334,7 +335,7 @@ unittest {
     // dfmt off
     dextoolYap("Comparing");
     auto input = p.input_ext.stripExtension;
-    compareResult(No.sortLines,
+    compareResult(No.sortLines, Yes.skipComments,
                   GR(input ~ Ext(".hpp.ref"), p.out_hdr),
                   GR(input ~ Ext(".cpp.ref"), p.out_impl),
                   GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
@@ -411,6 +412,27 @@ unittest {
     p.dexParams ~= ["--gmock", "--loc-as-comment"];
 
     runTestFile(p, testEnv);
+}
+
+@Name(testId ~ "Should be a custom header via CLI as string")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
+    p.dexParams ~= ["--gmock", "--hdr=// user\n// header"];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+}
+
+@Name(testId ~ "Should be a custom header via CLI as filename")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
+    p.dexParams ~= ["--gmock",
+        "--hdr-from-file=" ~ (p.root ~ "stage_2/param_custom_header.txt").toString];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv, No.sortLines, No.skipComments);
 }
 
 // END   CLI Tests ###########################################################

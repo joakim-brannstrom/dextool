@@ -55,7 +55,9 @@ static auto cpptestdouble_opt = CliOptionParts(
  --strip-incl=r     A regex used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it",
+ --gen-post-incl    Generate a post include header file if it doesn't exist and use it
+ --hdr=s            Prepend generated files with the string
+ --hdr-from-file=f  Prepend generated files with the header read from the file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -122,6 +124,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     immutable FileName gmock_file;
     immutable FileName pre_incl_file;
     immutable FileName post_incl_file;
+    immutable CustomHeader custom_hdr;
 
     immutable MainName main_name;
     immutable MainNs main_ns;
@@ -145,11 +148,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
         Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
         Regex!char strip_incl;
-        Flag!"Gmock" gmock = parsed["--gmock"].isTrue ? Flag!"Gmock".yes : Flag!"Gmock".no;
-        Flag!"PreInclude" pre_incl = parsed["--gen-pre-incl"].isTrue
-            ? Flag!"PreInclude".yes : Flag!"PreInclude".no;
-        Flag!"PostInclude" post_incl = parsed["--gen-post-incl"].isTrue
-            ? Flag!"PostInclude".yes : Flag!"PostInclude".no;
+        Flag!"Gmock" gmock = cast(Flag!"Gmock") parsed["--gmock"].isTrue;
+        Flag!"PreInclude" pre_incl = cast(Flag!"PreInclude") parsed["--gen-pre-incl"].isTrue;
+        Flag!"PostInclude" post_incl = cast(Flag!"PostInclude") parsed["--gen-post-incl"].isTrue;
+        CustomHeader custom_hdr;
 
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -160,10 +162,19 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             strip_incl = regex(r".*/(.*)");
         }
 
+        if (!parsed["--hdr"].isNull) {
+            custom_hdr = CustomHeader(parsed["--hdr"].toString);
+        } else if (!parsed["--hdr-from-file"].isNull) {
+            import std.file : readText;
+
+            string content = readText(parsed["--hdr-from-file"].toString);
+            custom_hdr = CustomHeader(content);
+        }
+
         auto variant = new CppTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
                 FileNames(parsed["--in"].asList), MainFileName(parsed["--main-fname"].toString),
                 MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
-                gmock, pre_incl, post_incl, strip_incl);
+                gmock, pre_incl, post_incl, strip_incl, custom_hdr);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -186,7 +197,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
      */
     this(StubPrefix prefix, StubPrefix file_prefix, FileNames input_files, MainFileName main_fname, MainName main_name,
             DirName output_dir, Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl,
-            Flag!"PostInclude" post_incl, Regex!char strip_incl) {
+            Flag!"PostInclude" post_incl, Regex!char strip_incl, CustomHeader custom_hdr) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.input_files = input_files;
@@ -198,6 +209,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         this.pre_incl = pre_incl;
         this.post_incl = post_incl;
         this.td_includes = TestDoubleIncludes(strip_incl);
+        this.custom_hdr = custom_hdr;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -320,6 +332,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         import application.utility : dextoolVersion;
 
         return dextoolVersion;
+    }
+
+    CustomHeader getCustomHeader() {
+        return custom_hdr;
     }
 
     // -- Products --

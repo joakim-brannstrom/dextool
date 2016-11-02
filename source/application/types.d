@@ -76,3 +76,8 @@ struct DextoolVersion {
     string payload;
     alias payload this;
 }
+
+struct CustomHeader {
+    string payload;
+    alias payload this;
+}

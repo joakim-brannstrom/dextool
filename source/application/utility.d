@@ -7,6 +7,7 @@ module application.utility;
 
 import std.regex : Regex;
 import std.stdio : File;
+import std.string : strip;
 import std.typecons : Unique, Nullable, NullableRef;
 import logger = std.experimental.logger;
 
@@ -321,6 +322,6 @@ CompileCommandDB fromArgCompileDb(string[] paths) {
 }
 
 /// Version derived from the git archive.
-enum dextoolVersion = DextoolVersion(import("version.txt"));
+enum dextoolVersion = DextoolVersion(import("version.txt").strip);
 
 static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");
