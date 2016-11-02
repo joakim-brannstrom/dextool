@@ -77,9 +77,9 @@ ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] 
         exit_status = ExitStatusType.Ok;
         break;
     case Version:
-        import application.utility : DextoolVersion;
+        import application.utility : dextoolVersion;
 
-        writeln("dextool version ", DextoolVersion);
+        writeln("dextool version ", dextoolVersion);
         exit_status = ExitStatusType.Ok;
         break;
     case NoCategory:

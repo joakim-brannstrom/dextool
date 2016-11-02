@@ -316,6 +316,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return prefix;
     }
 
+    DextoolVersion getToolVersion() {
+        import application.utility : dextoolVersion;
+
+        return dextoolVersion;
+    }
+
     // -- Products --
 
     void putFile(FileName fname, CppHModule hdr_data) {

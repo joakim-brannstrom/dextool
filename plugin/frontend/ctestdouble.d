@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -330,6 +329,12 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     StubPrefix getArtifactPrefix() {
         return prefix;
+    }
+
+    DextoolVersion getToolVersion() {
+        import application.utility : dextoolVersion;
+
+        return dextoolVersion;
     }
 
     // -- Products --
