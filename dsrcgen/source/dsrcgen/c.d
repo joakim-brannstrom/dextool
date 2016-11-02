@@ -48,8 +48,8 @@ mixin template CModuleX() {
 
     auto comment(string comment) {
         auto e = new Comment(comment);
-        e.sep;
         append(e);
+        e.sep;
         return e;
     }
 

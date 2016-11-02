@@ -59,7 +59,8 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines) {
+        Flag!"sortLines" sortLines = No.sortLines,
+        Flag!"skipComments" skipComments = Yes.skipComments) {
     dextoolYap("Input:%s", p.input_ext.toRawString);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
@@ -67,7 +68,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         dextoolYap("Comparing");
         auto input = p.input_ext.stripExtension;
         // dfmt off
-        compareResult(sortLines,
+        compareResult(sortLines, skipComments,
                       GR(input ~ Ext(".hpp.ref"), p.out_hdr),
                       GR(input ~ Ext(".cpp.ref"), p.out_impl),
                       GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global),
@@ -77,7 +78,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
 
     if (!p.skipCompile) {
         dextoolYap("Compiling");
-        compileResult(p.out_impl, p.mainf, testEnv, sortLines, p.compileFlags, p.compileIncls);
+        compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
     }
 }
 
@@ -247,3 +248,27 @@ unittest {
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
+
+// BEGIN CLI Tests ###########################################################
+
+@Name(testId ~ "Should be a custom header via CLI as string")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
+    p.dexParams ~= ["--hdr=// user\n// header"];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+}
+
+@Name(testId ~ "Should be a custom header via CLI as filename")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
+    p.dexParams ~= ["--hdr-from-file=" ~ (p.root ~ "dev/param_custom_header.txt").toString];
+
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+}
+
+// END   CLI Tests ###########################################################

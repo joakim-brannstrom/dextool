@@ -1,7 +1,11 @@
 /**
-Date: 2015-2016, Joakim Brännström
-License: MPL-2, Mozilla Public License 2.0
+Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.frontend.ctestdouble;
 
@@ -54,7 +58,9 @@ static auto ctestdouble_opt = CliOptionParts(
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
  --loc-as-comment   Generate a comment containing the location the symbol was derived from.
-                    Makes it easier to correctly define excludes/restricts",
+                    Makes it easier to correctly define excludes/restricts
+ --hdr=s            Prepend generated files with the string
+ --hdr-from-file=f  Prepend generated files with the header read from the file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -137,6 +143,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     immutable FileName gmock_file;
     immutable FileName pre_incl_file;
     immutable FileName post_incl_file;
+    immutable CustomHeader custom_hdr;
 
     immutable MainName main_name;
     immutable MainNs main_ns;
@@ -165,6 +172,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         auto pre_incl = cast(Flag!"PreInclude") parsed["--gen-pre-incl"].isTrue;
         auto post_incl = cast(Flag!"PostInclude") parsed["--gen-post-incl"].isTrue;
         auto loc_as_comment = cast(Flag!"locationAsComment") parsed["--loc-as-comment"].isTrue;
+        CustomHeader custom_hdr;
 
         if (!parsed["--strip-incl"].isNull) {
             string strip_incl_user = parsed["--strip-incl"].toString;
@@ -175,10 +183,19 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             strip_incl = regex(r".*/(.*)");
         }
 
+        if (!parsed["--hdr"].isNull) {
+            custom_hdr = CustomHeader(parsed["--hdr"].toString);
+        } else if (!parsed["--hdr-from-file"].isNull) {
+            import std.file : readText;
+
+            string content = readText(parsed["--hdr-from-file"].toString);
+            custom_hdr = CustomHeader(content);
+        }
+
         auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
-                MainFileName(parsed["--main-fname"].toString), MainName(parsed["--main"].toString),
-                DirName(parsed["--out"].toString), gmock, pre_incl, post_incl,
-                loc_as_comment, strip_incl);
+                MainFileName(parsed["--main-fname"].toString),
+                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
+                gmock, pre_incl, post_incl, loc_as_comment, strip_incl, custom_hdr);
 
         if (!parsed["--td-include"].isEmpty) {
             variant.forceIncludes(parsed["--td-include"].asList);
@@ -202,7 +219,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
      */
     this(StubPrefix prefix, StubPrefix file_prefix, MainFileName main_fname, MainName main_name, DirName output_dir,
             Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl,
-            Flag!"locationAsComment" loc_as_comment, Regex!char strip_incl) {
+            Flag!"locationAsComment" loc_as_comment, Regex!char strip_incl,
+            CustomHeader custom_hdr) {
         this.prefix = prefix;
         this.file_prefix = file_prefix;
         this.main_name = main_name;
@@ -214,6 +232,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         this.post_incl = post_incl;
         this.loc_as_comment = loc_as_comment;
         this.td_includes = TestDoubleIncludes(strip_incl);
+        this.custom_hdr = custom_hdr;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -335,6 +354,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         import application.utility : dextoolVersion;
 
         return dextoolVersion;
+    }
+
+    CustomHeader getCustomHeader() {
+        return custom_hdr;
     }
 
     // -- Products --

@@ -71,7 +71,7 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         dextoolYap("Comparing");
         Path input = p.base_file_compare;
         // dfmt off
-        compareResult(sortLines,
+        compareResult(sortLines, Yes.skipComments,
                       GR(input ~ Ext(".pu.ref"), p.out_pu),
                       );
         // dfmt on
@@ -329,8 +329,9 @@ unittest {
     import std.file : exists;
 
     exists((testEnv.outdir ~ "view_style.iuml").toString).shouldBeTrue;
-    compareResult(Yes.sortLines, GR(Path(p.base_file_compare.toString ~ "_style.pu.ref"),
-            testEnv.outdir ~ "view_style.iuml"));
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(Path(p.base_file_compare.toString ~ "_style.pu.ref"),
+                testEnv.outdir ~ "view_style.iuml"));
 }
 
 @Name(testId ~ "Test of CLI --comp-strip")

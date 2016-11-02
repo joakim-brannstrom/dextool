@@ -98,6 +98,9 @@ import cpptooling.analyzer.clang.ast : Visitor;
 
     /// Dextool Tool version.
     DextoolVersion getToolVersion();
+
+    /// Custom header to prepend generated files with.
+    CustomHeader getCustomHeader();
 }
 
 /// Data produced by the generator like files.
@@ -190,20 +193,22 @@ private:
 
         //TODO copied code from cstub. consider separating from this module to
         // allow reuse.
-        static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver) {
+        static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver,
+                CustomHeader custom_hdr) {
             auto o = CppHModule(convToIncludeGuard(fname));
-            o.header.append(makeHeader(fname, ver));
+            o.header.append(makeHeader(fname, ver, custom_hdr));
             o.content.append(hdr);
 
             return o;
         }
 
-        static auto output(CppModule code, FileName incl_fname, FileName dest, DextoolVersion ver) {
+        static auto output(CppModule code, FileName incl_fname, FileName dest,
+                DextoolVersion ver, CustomHeader custom_hdr) {
             import std.path : baseName;
 
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.append(makeHeader(dest, ver));
+            o.append(makeHeader(dest, ver, custom_hdr));
             o.include(incl_fname.baseName);
             o.sep(2);
             o.append(code);
@@ -212,9 +217,10 @@ private:
         }
 
         prods.putFile(params.getFiles.hdr, outputHdr(modules.hdr,
-                params.getFiles.hdr, params.getToolVersion));
+                params.getFiles.hdr, params.getToolVersion, params.getCustomHeader));
         prods.putFile(params.getFiles.impl, output(modules.impl,
-                params.getFiles.hdr, params.getFiles.impl, params.getToolVersion));
+                params.getFiles.hdr, params.getFiles.impl,
+                params.getToolVersion, params.getCustomHeader));
 
         if (ctrl.doPreIncludes) {
             prods.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
@@ -228,7 +234,8 @@ private:
             import cpptooling.generator.gmock : generateGmockHdr;
 
             prods.putFile(params.getFiles.gmock, generateGmockHdr(params.getFiles.hdr,
-                    params.getFiles.gmock, params.getToolVersion, modules.gmock));
+                    params.getFiles.gmock, params.getToolVersion,
+                    params.getCustomHeader, modules.gmock));
         }
     }
 }
