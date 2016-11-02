@@ -162,6 +162,18 @@ struct GR {
     Path result;
 }
 
+auto removeJunk(R)(R r) {
+    import std.algorithm : filter;
+
+    // dfmt off
+    return r
+        // remove comments
+        .filter!(a => !(a.strip.length > 2 && a.strip[0 .. 2] == "//"))
+        // remove empty lines
+        .filter!(a => a.strip.length != 0);
+    // dfmt on
+}
+
 /** Sorted compare of gold and result.
  *
  * max_diff is arbitrarily chosen to 5.
@@ -202,11 +214,9 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines) {
     immutable max_diff = 5;
     int accumulated_diff;
     foreach (g, r; lockstep(maybeSort(goldf.byLine().map!(a => a.toUTF8)
-            .enumerate), maybeSort(resultf.byLine().map!(a => a.toUTF8).enumerate))) {
-        if (g[1].strip.length > 2 && r[1].strip.length > 2
-                && g[1].strip[0 .. 2] == "//" && r[1].strip[0 .. 2] == "//") {
-            continue;
-        } else if (g[1] != r[1] && accumulated_diff < max_diff) {
+            .removeJunk.enumerate), maybeSort(resultf.byLine()
+            .map!(a => a.toUTF8).removeJunk.enumerate))) {
+        if (g[1] != r[1] && accumulated_diff < max_diff) {
             // +1 of index because editors start counting lines from 1
             yap("Line ", g[0] + 1, " gold:", g[1]);
             yap("Line ", r[0] + 1, "  out:", r[1], "\n");

@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -320,3 +319,8 @@ CompileCommandDB fromArgCompileDb(string[] paths) {
 
     return CompileCommandDB(app.data);
 }
+
+/// Version derived from the git archive.
+enum dextoolVersion = DextoolVersion(import("version.txt"));
+
+static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");

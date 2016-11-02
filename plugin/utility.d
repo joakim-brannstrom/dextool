@@ -11,6 +11,10 @@ Utility useful for plugins.
 */
 module plugin.utility;
 
+import logger = std.experimental.logger;
+
+import plugin.types : CliBasicOption, CliOptionParts;
+
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
 } else {
@@ -105,4 +109,24 @@ unittest {
     arr[].length.shouldEqual(2);
     arr[0].shouldEqual(10);
     arr[1].shouldEqual(30);
+}
+
+/** Merge basic options with the plugin specific to a docopt compatible string.
+ *
+ * Params:
+ *  basic_options = options that are reused between plugins
+ *  opt = specific options for the plugin
+ */
+auto toDocopt(CliBasicOption basic, CliOptionParts opt) {
+    import std.format : format;
+    import plugin.types : CliDocoptOption;
+
+    auto r = format("%s
+
+options:%s%s
+
+%s", opt.usage, basic, opt.optional, opt.others);
+
+    debug logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
+    return CliDocoptOption(r);
 }

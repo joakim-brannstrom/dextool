@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2
@@ -12,37 +11,68 @@ module plugin.types;
 
 public import application.types : ExitStatusType;
 
-struct CliOption {
+/// CLI options that a plugin must implement.
+struct CliBasicOption {
+    this(string p) {
+        payload = p;
+    }
+
     string payload;
     alias payload this;
+
+    invariant {
+        assert(payload.length > 0);
+    }
 }
 
+/// The raw arguments from the command line.
 struct CliArgs {
     string[] payload;
     alias payload this;
 }
 
+/// The category the plugin is registered to handle.
 struct CliCategory {
     string payload;
     alias payload this;
+
+    invariant {
+        assert(payload.length > 0);
+    }
 }
 
+/// A oneliner describing the category.
 struct CliCategoryInfo {
     string payload;
     alias payload this;
+
+    invariant {
+        import std.ascii : newline;
+        import std.algorithm : splitter, sum, map;
+
+        assert(payload.length > 0);
+        // only one line
+        assert(payload.splitter(newline).map!(a => 1).sum == 1);
+    }
 }
 
+/// The three parts needed to construct a Docopt compatible string.
 struct CliOptionParts {
     string usage;
     string optional;
     string others;
 }
 
-alias PluginFuncType = ExitStatusType function(CliOption opt, CliArgs args);
+/// Docopt compatible CLI string.
+struct CliDocoptOption {
+    string payload;
+    alias payload this;
+}
+
+alias PluginFuncType = ExitStatusType function(CliBasicOption basic, CliArgs args);
 
 struct Plugin {
     CliCategory category;
     CliCategoryInfo categoryCliInfo;
-    CliOptionParts opts;
     PluginFuncType func;
 }

@@ -71,3 +71,8 @@ struct InFiles {
     string[] payload;
     alias payload this;
 }
+
+struct DextoolVersion {
+    string payload;
+    alias payload this;
+}
