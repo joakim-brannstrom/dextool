@@ -17,11 +17,6 @@ version (unittest) {
     import unit_threaded;
 }
 
-/// Version derived from the git archive.
-enum app_version = import("version.txt");
-
-static assert(app_version.length > 0, "Failed to import version.txt at compile time");
-
 enum string main_opt = "usage:
  dextool <command> [options] [<args>...]
 
@@ -82,7 +77,9 @@ ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] 
         exit_status = ExitStatusType.Ok;
         break;
     case Version:
-        writeln("dextool version ", app_version);
+        import application.utility : DextoolVersion;
+
+        writeln("dextool version ", DextoolVersion);
         exit_status = ExitStatusType.Ok;
         break;
     case NoCategory:

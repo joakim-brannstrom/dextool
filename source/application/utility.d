@@ -319,3 +319,8 @@ CompileCommandDB fromArgCompileDb(string[] paths) {
 
     return CompileCommandDB(app.data);
 }
+
+/// Version derived from the git archive.
+enum DextoolVersion = import("version.txt");
+
+static assert(DextoolVersion.length > 0, "Failed to import version.txt at compile time");
