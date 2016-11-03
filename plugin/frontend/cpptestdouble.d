@@ -56,8 +56,8 @@ static auto cpptestdouble_opt = CliOptionParts(
  --gmock            Generate a gmock implementation of test double interface
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
- --hdr=s            Prepend generated files with the string
- --hdr-from-file=f  Prepend generated files with the header read from the file",
+ --header=s         Prepend generated files with the string
+ --header-file=f    Prepend generated files with the header read from the file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -162,12 +162,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             strip_incl = regex(r".*/(.*)");
         }
 
-        if (!parsed["--hdr"].isNull) {
-            custom_hdr = CustomHeader(parsed["--hdr"].toString);
-        } else if (!parsed["--hdr-from-file"].isNull) {
+        if (!parsed["--header"].isNull) {
+            custom_hdr = CustomHeader(parsed["--header"].toString);
+        } else if (!parsed["--header-file"].isNull) {
             import std.file : readText;
 
-            string content = readText(parsed["--hdr-from-file"].toString);
+            string content = readText(parsed["--header-file"].toString);
             custom_hdr = CustomHeader(content);
         }
 

@@ -418,7 +418,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
-    p.dexParams ~= ["--gmock", "--hdr=// user\n// header"];
+    p.dexParams ~= ["--gmock", "--header=// user\n// header"];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
@@ -429,7 +429,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
     p.dexParams ~= ["--gmock",
-        "--hdr-from-file=" ~ (p.root ~ "stage_2/param_custom_header.txt").toString];
+        "--header-file=" ~ (p.root ~ "stage_2/param_custom_header.txt").toString];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);

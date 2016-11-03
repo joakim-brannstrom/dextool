@@ -59,8 +59,8 @@ static auto ctestdouble_opt = CliOptionParts(
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
  --loc-as-comment   Generate a comment containing the location the symbol was derived from.
                     Makes it easier to correctly define excludes/restricts
- --hdr=s            Prepend generated files with the string
- --hdr-from-file=f  Prepend generated files with the header read from the file",
+ --header=s         Prepend generated files with the string
+ --header-file=f    Prepend generated files with the header read from the file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -183,12 +183,12 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             strip_incl = regex(r".*/(.*)");
         }
 
-        if (!parsed["--hdr"].isNull) {
-            custom_hdr = CustomHeader(parsed["--hdr"].toString);
-        } else if (!parsed["--hdr-from-file"].isNull) {
+        if (!parsed["--header"].isNull) {
+            custom_hdr = CustomHeader(parsed["--header"].toString);
+        } else if (!parsed["--header-file"].isNull) {
             import std.file : readText;
 
-            string content = readText(parsed["--hdr-from-file"].toString);
+            string content = readText(parsed["--header-file"].toString);
             custom_hdr = CustomHeader(content);
         }
 
