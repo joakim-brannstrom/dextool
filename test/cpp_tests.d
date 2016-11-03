@@ -255,7 +255,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
-    p.dexParams ~= ["--hdr=// user\n// header"];
+    p.dexParams ~= ["--header=// user\n// header"];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
@@ -265,7 +265,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
-    p.dexParams ~= ["--hdr-from-file=" ~ (p.root ~ "dev/param_custom_header.txt").toString];
+    p.dexParams ~= ["--header-file=" ~ (p.root ~ "dev/param_custom_header.txt").toString];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
