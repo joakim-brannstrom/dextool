@@ -17,17 +17,17 @@ version (unittest) {
     import unit_threaded;
 }
 
-enum string main_opt = "usage:
+enum string main_opt = `usage:
  dextool <command> [options] [<args>...]
 
 options:
- -h, --help         show this help
+ -h, --help         show this global help, use "dextool <command> -h" for extended help on each command
  -d, --debug        turn on debug output for detailed tracing
  --version          print the version of dextool
 
 commands:
   help
-";
+`;
 
 enum CliBasicOption basic_options = "
  -h, --help         show this help
@@ -35,7 +35,7 @@ enum CliBasicOption basic_options = "
 
 enum string help_opt = "
 
-Use the specific help for the command groups for further information.
+To show the extended help for a <command> use:
 dextool <command> -h
 ";
 
