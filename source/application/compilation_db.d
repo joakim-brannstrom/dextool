@@ -1,17 +1,17 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Utility functions for supporting a Clang Compilation Database.
-
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+Utility functions for Clang Compilation Databases.
 */
 module application.compilation_db;
 
+import std.json : JSONValue;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
@@ -20,45 +20,128 @@ import application.types;
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
     import test.extra_should : shouldEqualPretty;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
-/// Hold an entry from the compilation database
-struct CompileCommand {
-    struct FileName {
+/** Hold an entry from the compilation database.
+ *
+ * The following information is from the official specification.
+ * $(LINK2 http://clang.llvm.org/docs/JSONCompilationDatabase.html, Standard)
+ *
+ * directory: The working directory of the compilation. All paths specified in
+ * the command or file fields must be either absolute or relative to this
+ * directory.
+ *
+ * file: The main translation unit source processed by this compilation step.
+ * This is used by tools as the key into the compilation database. There can be
+ * multiple command objects for the same file, for example if the same source
+ * file is compiled with different configurations.
+ *
+ * command: The compile command executed. After JSON unescaping, this must be a
+ * valid command to rerun the exact compilation step for the translation unit
+ * in the environment the build system uses. Parameters use shell quoting and
+ * shell escaping of quotes, with ‘"‘ and ‘\‘ being the only special
+ * characters. Shell expansion is not supported.
+ *
+ * Dextool additions.
+ * The standard do not specify how to treat "directory" when it is a relative
+ * path. The logic chosen in dextool is to treat it as relative to the path
+ * the compilation database file is read from.
+ */
+@safe struct CompileCommand {
+    /// The raw filename from the tuples "file" value.
+    static struct FileName {
         string payload;
         alias payload this;
     }
 
-    struct AbsoluteFileName {
+    /// The combination of the tuples "file" and "directory" value.
+    static struct AbsoluteFileName {
+        string payload;
+        alias payload this;
+
+        invariant {
+            import std.path : isAbsolute;
+
+            assert(payload.isAbsolute);
+        }
+
+        this(AbsoluteDirectory work_dir, string raw_path) {
+            import std.path : buildNormalizedPath, absolutePath;
+
+            payload = buildNormalizedPath(work_dir, raw_path).absolutePath;
+        }
+    }
+
+    /// The tuples "directory" value converted to the absolute path.
+    static struct AbsoluteDirectory {
+        string payload;
+        alias payload this;
+
+        invariant {
+            import std.path : isAbsolute;
+
+            assert(payload.isAbsolute);
+        }
+
+        this(AbsoluteCompileDbDirectory db_path, string raw_path) {
+            import std.path : buildNormalizedPath, absolutePath;
+
+            payload = buildNormalizedPath(db_path, raw_path).absolutePath;
+        }
+    }
+
+    /// The raw command from the tuples "command" value.
+    static struct Command {
         string payload;
         alias payload this;
     }
 
-    struct Directory {
-        string payload;
-        alias payload this;
-    }
-
-    struct Command {
-        string payload;
-        alias payload this;
-    }
-
+    ///
     FileName file;
+    ///
     AbsoluteFileName absoluteFile;
-    Directory directory;
+    ///
+    AbsoluteDirectory directory;
+    ///
     Command command;
 }
 
-struct CompileDbJsonPath {
+/// The path to the compilation database.
+struct CompileDbFile {
     string payload;
     alias payload this;
 }
 
+/// The absolute path to the directory the compilation database reside at.
+struct AbsoluteCompileDbDirectory {
+    string payload;
+    alias payload this;
+
+    invariant {
+        import std.path : isAbsolute;
+
+        assert(payload.isAbsolute);
+    }
+
+    this(string file_path) {
+        import std.path : buildNormalizedPath, dirName, absolutePath;
+
+        payload = buildNormalizedPath(file_path).absolutePath.dirName;
+    }
+
+    this(CompileDbFile db) {
+        this(cast(string) db);
+    }
+
+    unittest {
+        import std.path;
+
+        auto dir = AbsoluteCompileDbDirectory(".");
+        assert(dir.isAbsolute);
+    }
+}
+
+/// A complete compilation database.
 struct CompileCommandDB {
     CompileCommand[] payload;
     alias payload this;
@@ -70,6 +153,63 @@ struct CompileCommandSearch {
     alias payload this;
 }
 
+private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow {
+    import std.algorithm : map, filter;
+    import std.json : JSON_TYPE;
+    import std.range : only;
+
+    try {
+        const auto directory = v["directory"];
+        const auto file = v["file"];
+        const auto command = v["command"];
+
+        foreach (a; only(directory, file, command).map!(a => !a.isNull
+                && a.type == JSON_TYPE.STRING).filter!(a => !a)) {
+            // sanity check.
+            // if any element is false then break early.
+            return typeof(return)();
+        }
+
+        return toCompileCommand(directory.str, file.str, command.str, db_dir);
+    }
+    catch (Exception ex) {
+        import cpptooling.utility.logger : error;
+
+        error("Unable to parse json attribute: " ~ ex.msg);
+    }
+
+    return typeof(return)();
+}
+
+/** Transform a json entry to a CompileCommand.
+ *
+ * This function is under no circumstances meant to be exposed outside this module.
+ * The API is badly designed for common use because it relies on the position
+ * order of the strings for their meaning.
+ */
+private Nullable!CompileCommand toCompileCommand(string directory, string file,
+        string command, AbsoluteCompileDbDirectory db_dir) nothrow {
+    // expects that v is a tuple of 3 json values with the keys directory,
+    // command, file
+
+    Nullable!CompileCommand rval;
+
+    try {
+        auto abs_workdir = CompileCommand.AbsoluteDirectory(db_dir, directory);
+        auto abs_file = CompileCommand.AbsoluteFileName(abs_workdir, file);
+        auto tmp = CompileCommand(CompileCommand.FileName(file), abs_file,
+                abs_workdir, CompileCommand.Command(command));
+        rval = tmp;
+    }
+    catch (Exception ex) {
+        import cpptooling.utility.logger : error;
+
+        error("Unable to parse json attribute: " ~ ex.msg);
+    }
+
+    return rval;
+}
+
 /** Parse a CompilationDatabase.
  *
  * Params:
@@ -77,35 +217,10 @@ struct CompileCommandSearch {
  *  in_file = path to the compilation database file.
  *  out_range = range to write the output to.
  */
-private void parseCommands(T)(string raw_input, CompileDbJsonPath in_file, ref T out_range) nothrow {
-    import std.path : dirName;
-    import std.json;
+private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out_range) nothrow {
+    import std.json : parseJSON, JSONException;
 
-    static Nullable!CompileCommand toCompileCommand(JSONValue v, CompileDbJsonPath in_file) nothrow {
-        import std.path : buildNormalizedPath, absolutePath;
-        import logger = cpptooling.utility.logger;
-
-        // expects that v is a tuple of 3 json values with the keys
-        // directory, command, file
-
-        Nullable!CompileCommand rval;
-
-        try {
-            string abs_workdir = buildNormalizedPath(in_file, v["directory"].str);
-            string abs_file = buildNormalizedPath(abs_workdir, v["file"].str);
-            auto tmp = CompileCommand(CompileCommand.FileName(v["file"].str),
-                    CompileCommand.AbsoluteFileName(abs_file),
-                    CompileCommand.Directory(abs_workdir), CompileCommand.Command(v["command"].str));
-            rval = tmp;
-        }
-        catch (Exception ex) {
-            logger.error("Unable to parse json attribute: " ~ ex.msg);
-        }
-
-        return rval;
-    }
-
-    static void put(T)(JSONValue v, CompileDbJsonPath in_file, ref T out_range) nothrow {
+    static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
         import std.algorithm : map, filter;
         import std.array : array;
         import logger = cpptooling.utility.logger;
@@ -114,7 +229,7 @@ private void parseCommands(T)(string raw_input, CompileDbJsonPath in_file, ref T
             // dfmt off
             foreach (e; v.array()
                      // map the JSON tuples to D structs
-                     .map!(a => toCompileCommand(a, in_file))
+                     .map!(a => toCompileCommand(a, dbdir))
                      // remove invalid
                      .filter!(a => !a.isNull)
                      .map!(a => a.get)) {
@@ -129,7 +244,7 @@ private void parseCommands(T)(string raw_input, CompileDbJsonPath in_file, ref T
 
     try {
         auto json = parseJSON(raw_input);
-        auto as_dir = CompileDbJsonPath(in_file.dirName);
+        auto as_dir = AbsoluteCompileDbDirectory(in_file);
         put(json, as_dir, out_range);
     }
     catch (JSONException ex) {
@@ -144,7 +259,7 @@ private void parseCommands(T)(string raw_input, CompileDbJsonPath in_file, ref T
     }
 }
 
-void fromFile(T)(CompileDbJsonPath filename, ref T app) {
+void fromFile(T)(CompileDbFile filename, ref T app) {
     import std.algorithm : joiner;
     import std.conv : text;
     import std.stdio : File;
@@ -153,7 +268,7 @@ void fromFile(T)(CompileDbJsonPath filename, ref T app) {
     raw.parseCommands(filename, app);
 }
 
-void fromFiles(T)(CompileDbJsonPath[] fnames, ref T app) {
+void fromFiles(T)(CompileDbFile[] fnames, ref T app) {
     foreach (f; fnames) {
         f.fromFile(app);
     }
@@ -161,15 +276,15 @@ void fromFiles(T)(CompileDbJsonPath[] fnames, ref T app) {
 
 /** Return default path if argument is null.
  */
-CompileDbJsonPath[] orDefaultDb(string[] cli_path) @safe pure nothrow {
+CompileDbFile[] orDefaultDb(string[] cli_path) @safe pure nothrow {
     import std.array : array;
     import std.algorithm : map;
 
     if (cli_path is null) {
-        return [CompileDbJsonPath("compile_commands.json")];
+        return [CompileDbFile("compile_commands.json")];
     }
 
-    return cli_path.map!(a => CompileDbJsonPath(a)).array();
+    return cli_path.map!(a => CompileDbFile(a)).array();
 }
 
 /** Contains the results of a search in the compilation database.
@@ -277,7 +392,7 @@ string toString(CompileCommandSearch search) @safe pure {
  *  - Convert all filenames to absolute path.
  */
 auto parseFlag(CompileCommand cmd) @safe pure {
-    static auto filterPair(T)(ref T r, CompileCommand.Directory workdir) {
+    static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir) {
         enum State {
             Keep,
             Skip,
@@ -298,7 +413,7 @@ auto parseFlag(CompileCommand cmd) @safe pure {
                 st = State.Keep;
                 // if an include flag make it absolute
                 rval.put("-I");
-                rval.put(buildNormalizedPath(cast(string) workdir, arg).absolutePath);
+                rval.put(buildNormalizedPath(workdir, arg).absolutePath);
             } else if (arg.among("-o")) {
                 st = State.Skip;
             }  // linker flags
@@ -322,7 +437,7 @@ auto parseFlag(CompileCommand cmd) @safe pure {
             // length. 3 is to only match those that are -Ixyz
             else if (arg.length >= 3 && arg[0 .. 2] == "-I") {
                 rval.put("-I");
-                rval.put(buildNormalizedPath(cast(string) workdir, arg[2 .. $]).absolutePath);
+                rval.put(buildNormalizedPath(workdir, arg[2 .. $]).absolutePath);
             } else if (arg.among("-I")) {
                 st = State.IsInclude;
             }  // parameter that seem to be filenames, remove
@@ -364,44 +479,40 @@ auto parseFlag(CompileCommand cmd) @safe pure {
     return filterPair(pass1, cmd.directory);
 }
 
-@Name("Should be cflags with all unnecessary flags removed")
+@("Should be cflags with all unnecessary flags removed")
 unittest {
-    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
-            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
-            CompileCommand.Command(`g++ -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`));
+    auto cmd = toCompileCommand("/home", "file1.cpp",
+            `g++ -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
+            AbsoluteCompileDbDirectory("/home"));
+    auto s = cmd.parseFlag;
+    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+}
+
+@("Should be cflags with some excess spacing")
+unittest {
+    auto cmd = toCompileCommand("/home", "file1.cpp",
+            `g++           -MD     -lfoo.a -l bar.a       -I    bar     -Igun`,
+            AbsoluteCompileDbDirectory("/home"));
 
     auto s = cmd.parseFlag;
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 
-@Name("Should be cflags with some excess spacing")
+@("Should be cflags with machine dependent removed")
 unittest {
-    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
-            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
-            CompileCommand.Command(
-                `g++           -MD     -lfoo.a -l bar.a       -I    bar     -Igun`));
+    auto cmd = toCompileCommand("/home", "file1.cpp",
+            `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
+            AbsoluteCompileDbDirectory("/home"));
 
     auto s = cmd.parseFlag;
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 
-@Name("Should be cflags with machine dependent removed")
+@("Should be cflags with all -f removed")
 unittest {
-    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
-            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
-            CompileCommand.Command(
-                `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`));
-
-    auto s = cmd.parseFlag;
-    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
-}
-
-@Name("Should be cflags with all -f removed")
-unittest {
-    auto cmd = CompileCommand(CompileCommand.FileName("file1.cpp"),
-            CompileCommand.AbsoluteFileName("/home/file1.cpp"), CompileCommand.Directory("/home"),
-            CompileCommand.Command(
-                `g++ -fmany-fooo -I bar -fno-fooo -Igun -flolol -c a_filename.c`));
+    auto cmd = toCompileCommand("/home", "file1.cpp",
+            `g++ -fmany-fooo -I bar -fno-fooo -Igun -flolol -c a_filename.c`,
+            AbsoluteCompileDbDirectory("/home"));
 
     auto s = cmd.parseFlag;
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -451,12 +562,15 @@ version (unittest) {
 ]`;
 }
 
-version (unittest) import std.array : appender;
+version (unittest) {
+    import std.array : appender;
+    import unit_threaded : writelnUt;
+}
 
-@Name("Should be a compile command DB")
+@("Should be a compile command DB")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy1.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy1.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = app.data;
 
     assert(cmds.length == 1);
@@ -466,21 +580,20 @@ unittest {
     cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
 }
 
-@Name("Should be a DB with two entries")
+@("Should be a DB with two entries")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy2.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = app.data;
 
-    assert(cmds.length == 2);
     cmds[0].file.shouldEqual("file1.cpp");
     cmds[1].file.shouldEqual("file2.cpp");
 }
 
-@Name("Should find filename")
+@("Should find filename")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy2.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
@@ -488,22 +601,22 @@ unittest {
     found[0].file.shouldEqual("file2.cpp");
 }
 
-@Name("Should find no match by using an absolute path that doesn't exist in DB")
+@("Should find no match by using an absolute path that doesn't exist in DB")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy2.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find("./file2.cpp");
     assert(found.length == 0);
 }
 
-@Name("Should find one match by using the absolute filename to disambiguous")
+@("Should find one match by using the absolute filename to disambiguous")
 unittest {
     import unit_threaded : writelnUt;
 
     auto app = appender!(CompileCommand[])();
-    raw_dummy3.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy3.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
 
     auto found = cmds.find(dummy_dir ~ "/dir2/file3.cpp");
@@ -516,10 +629,10 @@ unittest {
 ", dummy_dir, dummy_dir));
 }
 
-@Name("Should be a pretty printed search result")
+@("Should be a pretty printed search result")
 unittest {
     auto app = appender!(CompileCommand[])();
-    raw_dummy2.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw_dummy2.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
     auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
 
@@ -530,7 +643,7 @@ unittest {
 ", dummy_dir, dummy_dir));
 }
 
-@Name("Should be a compile command DB with relative path")
+@("Should be a compile command DB with relative path")
 unittest {
     enum raw = `[
     {
@@ -540,11 +653,29 @@ unittest {
     }
     ]`;
     auto app = appender!(CompileCommand[])();
-    raw.parseCommands(CompileDbJsonPath(dummy_path), app);
+    raw.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = app.data;
 
     assert(cmds.length == 1);
     cmds[0].directory.shouldEqual(dummy_dir);
     cmds[0].file.shouldEqual("file1.cpp");
     cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/file1.cpp");
+}
+
+@("Should be a DB read from a relative path with the contained paths adjusted appropriately")
+unittest {
+    auto app = appender!(CompileCommand[])();
+    raw_dummy3.parseCommands(CompileDbFile("path/compile_db.json"), app);
+    auto cmds = CompileCommandDB(app.data);
+
+    auto abs_path = getcwd() ~ "/path";
+
+    auto found = cmds.find(abs_path ~ "/dir2/file3.cpp");
+    assert(found.length == 1);
+
+    found.toString.shouldEqualPretty(format("%s/dir2
+  file3.cpp
+  %s/dir2/file3.cpp
+  g++ -Idir1 -c -o binary file3.cpp
+", abs_path, abs_path));
 }
