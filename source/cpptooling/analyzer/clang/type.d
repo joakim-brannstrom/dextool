@@ -290,32 +290,27 @@ body {
     return LocationTag(rval);
 }
 
-TypeAttr makeTypeAttr(ref Type type) {
+TypeAttr makeTypeAttr(ref Type type, ref const(Cursor) c) {
     TypeAttr attr;
 
     attr.isConst = cast(Flag!"isConst") type.isConst;
     attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
     attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
     attr.isArray = cast(Flag!"isArray") type.isArray;
-
-    // this may not work perfectly but trying for now
-    auto decl = type.declaration;
-    if (decl.isValid) {
-        attr.isDefinition = cast(Flag!"isDefinition") decl.isDefinition;
-    }
+    attr.isDefinition = cast(Flag!"isDefinition") c.isDefinition;
 
     return attr;
 }
 
-TypeKindAttr makeTypeKindAttr(ref Type type) {
+TypeKindAttr makeTypeKindAttr(ref Type type, ref const(Cursor) c) {
     TypeKindAttr tka;
-    tka.attr = makeTypeAttr(type);
+    tka.attr = makeTypeAttr(type, c);
 
     return tka;
 }
 
-TypeKindAttr makeTypeKindAttr(ref Type type, ref TypeKind tk) {
-    auto tka = makeTypeKindAttr(type);
+TypeKindAttr makeTypeKindAttr(ref Type type, ref TypeKind tk, ref const(Cursor) c) {
+    auto tka = makeTypeKindAttr(type, c);
     tka.kind = tk;
 
     return tka;
@@ -402,7 +397,7 @@ body {
         goto case;
     case CXCursor_UnionDecl:
         auto type = c.type;
-        rval.type = makeTypeKindAttr(type);
+        rval.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;
         rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
@@ -450,7 +445,7 @@ body {
     case CXCursor_EnumDecl:
         if (c.spelling.length == 0) {
             auto type = c.type;
-            rval = TypeResult(makeTypeKindAttr(type), LocationTag.init);
+            rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
             string spell = type.spelling;
             rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
@@ -786,7 +781,7 @@ body {
     info.canonicalRef = canonical_ref;
 
     TypeResults rval;
-    rval.primary.type.attr = makeTypeAttr(type);
+    rval.primary.type.attr = makeTypeAttr(type, c);
     rval.primary.type.kind.info = info;
 
     // a typedef like __va_list has a null usr
@@ -825,7 +820,7 @@ body {
         spell = spell[6 .. $];
     }
 
-    auto rval = makeTypeKindAttr(type);
+    auto rval = makeTypeKindAttr(type, c);
 
     auto info = TypeKind.SimpleInfo(spell ~ " %s");
     rval.kind.info = info;
@@ -851,7 +846,7 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    auto rval = makeTypeKindAttr(type);
+    auto rval = makeTypeKindAttr(type, c);
     LocationTag loc;
 
     auto maybe_primitive = translateCursorType(type.kind);
@@ -936,7 +931,7 @@ body {
     info.canonicalRef = canonicalRef;
 
     TypeResults rval;
-    rval.primary.type.attr = makeTypeAttr(type);
+    rval.primary.type.attr = makeTypeAttr(type, c);
     rval.primary.type.kind.info = info;
 
     // a typedef like __va_list has a null usr
@@ -974,10 +969,11 @@ body {
     TypeKind.RecordInfo info;
     info.fmt = spell ~ " %s";
 
-    auto rval = makeTypeKindAttr(type);
+    auto rval = makeTypeKindAttr(type, c);
     LocationTag loc;
     rval.kind.info = info;
 
+    // TODO investigate, this seems stupid. Why not just use c.usr
     if (c.isDeclaration) {
         auto decl_c = type.declaration;
         rval.kind.usr = decl_c.usr;
@@ -1205,10 +1201,7 @@ body {
     auto return_t = retrieveReturn(return_rval);
     auto params = extractParams(c, type, container, indent);
     TypeResult primary;
-    primary.type = makeTypeKindAttr(type);
-    // unable to backtrack from the type to the cursor thus must retrieve
-    // definitionness from the cursor.
-    primary.type.attr.isDefinition = cast(Flag!("isDefinition")) c.isDefinition;
+    primary.type = makeTypeKindAttr(type, c);
 
     // a C++ member function must be queried for constness via a different API
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
@@ -1260,7 +1253,7 @@ body {
     TypeResults rval;
     auto params = extractParams(c, type, container, indent);
     TypeResult primary;
-    primary.type = makeTypeKindAttr(type);
+    primary.type = makeTypeKindAttr(type, c);
 
     TypeKind.CtorInfo info;
     info.fmt = format("%s(%s)", "%s", params.params.joinParamId());
@@ -1289,7 +1282,7 @@ out (result) {
 }
 body {
     TypeResults rval;
-    auto primary = makeTypeKindAttr(type);
+    auto primary = makeTypeKindAttr(type, c);
 
     TypeKind.DtorInfo info;
     info.fmt = format("~%s()", "%s");
@@ -1331,16 +1324,17 @@ out (result) {
 body {
     auto indent = this_indent + 1;
     PointerTypeAttr rval;
+    auto decl_c = type.declaration;
 
     if (type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
         // recursive
         auto pointee = type.pointeeType;
         rval = retrievePointeeAttr(pointee, indent);
         // current appended so right most ptr is at position 0.
-        rval.ptrs ~= makeTypeAttr(type);
+        rval.ptrs ~= makeTypeAttr(type, decl_c);
     } else {
         // Base condition.
-        rval.base = makeTypeAttr(type);
+        rval.base = makeTypeAttr(type, decl_c);
     }
 
     return rval;
@@ -1450,7 +1444,8 @@ body {
     if (!element.primary.type.kind.info.kind.among(TypeKind.Info.Kind.pointer,
             TypeKind.Info.Kind.funcPtr)) {
         auto elem_t = type.array.elementType;
-        rval.primary.type.attr = makeTypeAttr(elem_t);
+        auto decl_c = elem_t.declaration;
+        rval.primary.type.attr = makeTypeAttr(elem_t, decl_c);
     } else {
         rval.primary.type.attr = element.primary.type.attr;
     }
@@ -1520,7 +1515,7 @@ body {
         }
 
         if (!rval.isNull) {
-            rval.primary.type.attr = makeTypeAttr(c_type);
+            rval.primary.type.attr = makeTypeAttr(c_type, c);
         }
     }
 
@@ -1872,7 +1867,7 @@ body {
     TypeResults rval;
 
     auto type = c.type;
-    rval.primary.type = makeTypeKindAttr(type);
+    rval.primary.type = makeTypeKindAttr(type, c);
     rval.primary.type.kind = makeSimple2(c.spelling);
     rval.primary.type.kind.usr = c.usr;
     rval.primary.location = makeLocation(c);
