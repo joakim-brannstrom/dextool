@@ -82,43 +82,62 @@ private auto filterByTypeRef(T)(auto ref T in_) {
  * Only use when c.usr may return the empty string.
  *
  * Fallback case, using location to make it unique.
+ *
+ * strategy 1
+ *  try and derive a location from the lexical parent.
+ * strategy 2
+ *  handled by putBacktrackLocation when loc_.kind is null_.
+ *  putBacktrackLocation will then use nextSequence to generate a _for sure_
+ *  unique ID.
  */
-private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent)
+private void makeFallbackUSR(Writer)(scope Writer w, ref const(Cursor) c, in uint this_indent) @safe {
+    // strategy 1
+    auto loc_ = backtrackLocation(c);
+
+    // strategy 2
+    putBacktrackLocation(w, c, loc_);
+}
+
+/// ditto
+/// Returns: fallback USR from the cursor.
+private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent) @safe
 out (result) {
     import cpptooling.utility.logger;
 
-    trace(cast(string) result, this_indent);
+    trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
     import std.array : appender;
-    import std.conv : to;
-    import clang.SourceLocation;
-
-    // strategy 1, derive from lexical parent
-    auto loc_ = backtrackLocation(c);
-
-    // strategy 2, I give up.
-    // Problem with this is that it isn't possible to reverse engineer.
-    //TODO fix the magic number 100. Coming from an internal state of backtrackLocation. NOT GOOD
-    // Checking if it is null_ should have been enough
-    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
-        loc_.backtracked = 1;
-        loc_.tag = nextSequence;
-    }
 
     auto app = appender!string();
-    putBacktrackLocation(c, loc_, app);
+    makeFallbackUSR((const(char)[] s) { app.put(s); }, c, this_indent);
 
     return USRType(app.data);
 }
 
-private USRType makeUSR(string s)
+/// Make a USR, never failing.
+USRType makeEnsuredUSR(const(Cursor) c, in uint this_indent) @safe
 out (result) {
+    import cpptooling.utility.logger;
+
+    trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
-    return USRType(s);
+    import std.array : appender;
+
+    auto usr = USRType(c.usr);
+    if (usr.length > 0) {
+        return usr;
+    }
+
+    auto app = appender!string();
+    makeFallbackUSR((const(char)[] s) { app.put(s); }, c, this_indent);
+    app.put("§");
+    app.put(nextSequence);
+
+    return USRType(app.data);
 }
 
 void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
@@ -167,7 +186,6 @@ struct BacktrackLocation {
     union TagType {
         typeof(null) null_;
         cpptooling.data.type.Location loc;
-        string spelling;
     }
 
     alias Tag = TaggedAlgebraic!TagType;
@@ -215,29 +233,30 @@ private BacktrackLocation backtrackLocation(ref const(Cursor) c) @safe {
 
 /// TODO consider if .offset should be used too. But may make it harder to
 /// reverse engineer a location.
-private void putBacktrackLocation(T)(ref const(Cursor) c, BacktrackLocation back_loc, ref T app) @safe {
+private void putBacktrackLocation(Writer)(scope Writer app, ref const(Cursor) c,
+        BacktrackLocation back_loc) @safe {
+    import std.range.primitives : put;
+
     static import cpptooling.data.type;
 
     // using a suffix that do NOT exist in the clang USR standard.
     // TODO lookup the algorithm for clang USR to see if $ is valid.
-    enum marker = '$';
+    enum marker = '§';
 
     final switch (back_loc.tag.kind) with (BacktrackLocation.Tag) {
     case Kind.loc:
         auto loc = cast(cpptooling.data.type.Location) back_loc.tag;
         app.put(loc.toString);
         break;
-    case Kind.spelling:
-        app.put(to!string(back_loc.tag));
-        break;
     case Kind.null_:
+        app.put(nextSequence);
         break;
     }
 
-    app.put(marker);
-    app.put(back_loc.backtracked.to!string);
+    put(app, marker);
+    put(app, back_loc.backtracked.to!string);
     if (c.isValid) {
-        app.put(() @trusted{ return c.spelling; }());
+        put(app, () @trusted{ return c.spelling; }());
     }
 }
 
@@ -264,7 +283,7 @@ body {
     }
 
     auto app = appender!string();
-    putBacktrackLocation(c, loc_, app);
+    putBacktrackLocation((const(char)[] s) { app.put(s); }, c, loc_);
 
     rval = Location(app.data, loc.line, loc.column);
 
@@ -850,7 +869,7 @@ body {
         string spell = maybe_primitive.get;
         rval.kind.info = TypeKind.PrimitiveInfo(spell ~ " %s");
 
-        rval.kind.usr = makeUSR(maybe_primitive.get);
+        rval.kind.usr = USRType(maybe_primitive.get);
         loc = LocationTag(null);
     }
 
@@ -1144,20 +1163,22 @@ body {
 }
 
 private TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
-        ref Type type, ref const(Container) container, in uint indent)
+        ref Type type, ref const(Container) container, in uint this_indent)
         if (is(InfoT == TypeKind.FuncInfo) || is(InfoT == TypeKind.FuncSignatureInfo))
 in {
-    logNode(c, indent);
-    logType(type, indent);
+    logNode(c, this_indent);
+    logType(type, this_indent);
     assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.CXType_FunctionNoProto);
 }
 out (result) {
-    logTypeResult(result, indent);
+    logTypeResult(result, this_indent);
 }
 body {
     import std.array;
     import std.algorithm : map;
     import std.string : strip;
+
+    const auto indent = this_indent + 1;
 
     // TODO redesign. This is brittle and ugly.
     // return by value instead of splitting two ways like this.
@@ -1200,11 +1221,19 @@ body {
             a.result.type.attr, a.id, a.isVariadic)).array();
 
     primary.type.kind.info = info;
+    primary.location = makeLocation(c);
+
     primary.type.kind.usr = c.usr;
     if (primary.type.kind.usr.length == 0) {
         primary.type.kind.usr = makeFallbackUSR(c, indent);
+    } else if (c.kind.among(CXCursorKind.CXCursor_VarDecl, CXCursorKind.CXCursor_FieldDecl,
+            CXCursorKind.CXCursor_TemplateTypeParameter, CXCursorKind.CXCursor_ParmDecl)) {
+        // TODO consider how the knowledge of the field could be "moved" out of
+        // this function.
+        // Instances must result in a unique USR. Otherwise it is impossible to
+        // differentiate between the type and field.
+        primary.type.kind.usr = makeFallbackUSR(c, indent);
     }
-    primary.location = makeLocation(c);
 
     rval.primary = primary;
     rval.extra ~= params.params.map!(a => a.result).array() ~ params.extra;
