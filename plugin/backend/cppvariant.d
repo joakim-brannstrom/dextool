@@ -361,9 +361,9 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         auto ns_visitor = scoped!(CppVisitor!(CppNamespace, ControllerT, ProductT))(ctrl,
                 prod, indent, ns_stack, container);
 
-        // fill the namespace with content from the analyse
         v.accept(ns_visitor);
 
+        // fill the namespace with content from the analysis
         root.put(ns_visitor.root);
     }
 
