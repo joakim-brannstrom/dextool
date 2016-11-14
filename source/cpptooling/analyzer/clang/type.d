@@ -970,23 +970,12 @@ body {
     info.fmt = spell ~ " %s";
 
     auto rval = makeTypeKindAttr(type, c);
-    LocationTag loc;
     rval.kind.info = info;
-
-    // TODO investigate, this seems stupid. Why not just use c.usr
-    if (c.isDeclaration) {
-        auto decl_c = type.declaration;
-        rval.kind.usr = decl_c.usr;
-        loc = makeLocation(decl_c);
-    } else {
-        // fallback
-        rval.kind.usr = c.usr;
-        loc = makeLocation(c);
-    }
+    rval.kind.usr = c.usr;
+    auto loc = makeLocation(c);
 
     if (rval.kind.usr.length == 0) {
         rval.kind.usr = makeFallbackUSR(c, indent + 1);
-        loc = makeLocation(c);
     }
 
     return TypeResults(TypeResult(rval, loc), null);
