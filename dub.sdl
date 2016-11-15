@@ -35,7 +35,7 @@ stringImportPaths "resources"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH" platform="linux"
-lflags "$LFLAG_CLANG_PATH" platform="osx"
+lflags "$LFLAG_CLANG_PATH" "-rpath" "$LFLAG_CLANG_ABS_PATH" platform="osx" //--enable-new-dtags not existent on mac
 libs "$LFLAG_CLANG_LIB"
 
 dflags "-dip25"
