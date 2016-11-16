@@ -1084,6 +1084,8 @@ body {
     // somehow pointee.primary.attr is wrong, somehow. Don't undestand why.
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
+    // a pointer is always itselfs definition because they are always unique
+    rval.primary.type.attr.isDefinition = Yes.isDefinition;
 
     // must be unique even when analyzing many translation units.
     // Could maybe work if static/anonymous namespace influenced the USR.
@@ -1935,7 +1937,7 @@ out (result) {
     }
 }
 body {
-    auto indent = this_indent + 1;
+    const auto indent = this_indent + 1;
 
     void appendParams(ref const(Cursor) c, ref ExtractParamsResults rval) {
         import std.range : enumerate;
