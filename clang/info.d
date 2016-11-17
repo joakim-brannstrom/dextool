@@ -27,7 +27,7 @@ import std.format : format;
  * v = isValid
  * V = isVirtualBase
  */
-string abilities(Cursor c) @trusted {
+string abilities(const(Cursor) c) @trusted {
     string s = format("%s%s%s%s%s%s%s%s%s%s%s%s%s", c.isAttribute ? "a" : "",
             c.isAnonymous ? "A" : "", c.isDeclaration ? "d" : "", c.isDefinition
             ? "D" : "", c.isExpression ? "e" : "", c.isEmpty ? "n" : "",

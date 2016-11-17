@@ -89,15 +89,15 @@ struct Type {
         return clang_equalTypes(cast(CXType) type_.cx, cast(CXType) cx) != 0;
     }
 
-    @property bool isTypedef() {
+    @property bool isTypedef() const {
         return kind == CXTypeKind.CXType_Typedef;
     }
 
-    @property bool isEnum() {
+    @property bool isEnum() const {
         return kind == CXTypeKind.CXType_Enum;
     }
 
-    @property bool isValid() {
+    @property bool isValid() const {
         return kind != CXTypeKind.CXType_Invalid;
     }
 
@@ -133,7 +133,7 @@ struct Type {
         return isObjCIdType || isObjCClassType || isObjCSelType;
     }
 
-    @property bool isWideCharType() {
+    @property bool isWideCharType() const {
         with (CXTypeKind)
             return kind == CXType_WChar;
     }
@@ -146,11 +146,11 @@ struct Type {
         return clang_isConstQualifiedType(cx) == 1;
     }
 
-    @property bool isExposed() {
+    @property bool isExposed() const {
         return kind != CXTypeKind.CXType_Unexposed;
     }
 
-    @property bool isArray() {
+    @property bool isArray() const {
         return kind == CXTypeKind.CXType_ConstantArray || kind == CXTypeKind.CXType_IncompleteArray;
     }
 
