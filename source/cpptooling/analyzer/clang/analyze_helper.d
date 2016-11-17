@@ -19,12 +19,12 @@ import std.typecons : Nullable, tuple, Flag, Yes, No;
 
 import cpptooling.utility.unqual : Unqual;
 
-import deimos.clang.index : CX_CXXAccessSpecifier;
+import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
 import cpptooling.analyzer.clang.ast : FunctionDecl, VarDecl, Constructor,
-    Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier,
+    Destructor, CXXMethod, ClassDecl, FieldDecl, CXXBaseSpecifier, StructDecl,
     TranslationUnit, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
@@ -65,6 +65,17 @@ AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) @safe {
         return AccessType.Protected;
     case CX_CXXPrivate:
         return AccessType.Private;
+    }
+}
+
+StorageClass toStorageClass(CX_StorageClass storageClass) @safe pure nothrow @nogc {
+    switch (storageClass) with (CX_StorageClass) {
+    case CX_SC_Extern:
+        return StorageClass.Extern;
+    case CX_SC_Static:
+        return StorageClass.Static;
+    default:
+        return StorageClass.None;
     }
 }
 
@@ -137,7 +148,17 @@ struct FunctionDeclResult {
     Flag!"isDefinition" isDefinition;
 }
 
-auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @trusted {
+FunctionDeclResult analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @safe {
+    return analyzeFunctionDecl(v.cursor, container, indent);
+}
+
+FunctionDeclResult analyzeFunctionDecl(const(Cursor) c_in, ref Container container, in uint indent) @safe
+in {
+    import deimos.clang.index : CXCursorKind;
+
+    assert(c_in.kind == CXCursorKind.CXCursor_FunctionDecl);
+}
+body {
     import std.algorithm : among;
     import std.functional : pipe;
 
@@ -153,8 +174,8 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
     // hint, start reading the function from the bottom up.
     // design is pipe and data transformation
 
-    Nullable!TypeResults extractAndStoreRawType(const(Cursor) c) {
-        auto tr = retrieveType(c, container, indent);
+    Nullable!TypeResults extractAndStoreRawType(const(Cursor) c) @safe {
+        auto tr = () @trusted{ return retrieveType(c, container, indent); }();
         if (tr.isNull) {
             return tr;
         }
@@ -166,7 +187,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
         return tr;
     }
 
-    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) {
+    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) @safe {
         if (tr.isNull) {
             return tr;
         }
@@ -192,30 +213,19 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
         Flag!"isDefinition" is_definition;
     }
 
-    ComposeData getCursorData(TypeResults tr) {
-        import deimos.clang.index : CX_StorageClass;
-
+    ComposeData getCursorData(TypeResults tr) @safe {
         auto data = ComposeData(tr);
 
-        data.name = CFunctionName(v.cursor.spelling);
-        data.loc = locToTag(v.cursor.location());
-        data.is_definition = cast(Flag!"isDefinition") v.cursor.isDefinition;
-
-        switch (v.cursor.storageClass()) with (CX_StorageClass) {
-        case CX_SC_Extern:
-            data.storageClass = StorageClass.Extern;
-            break;
-        case CX_SC_Static:
-            data.storageClass = StorageClass.Static;
-            break;
-        default:
-            break;
-        }
+        data.name = CFunctionName(c_in.spelling);
+        //data.name = CFunctionName("foo");
+        data.loc = locToTag(c_in.location());
+        data.is_definition = cast(Flag!"isDefinition") c_in.isDefinition;
+        data.storageClass = c_in.storageClass().toStorageClass;
 
         return data;
     }
 
-    FunctionDeclResult composeFunc(ComposeData data) {
+    FunctionDeclResult composeFunc(ComposeData data) @safe {
         Nullable!CFunction rval;
 
         auto return_type = container.find!TypeKind(data.tr.primary.type.kind.info.return_);
@@ -229,8 +239,10 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
         // according to C/C++ standard the last parameter is the only one
         // that can be a variadic, therefor only needing to peek at that
         // one.
-        if (params.length > 0 && params[$ - 1].peek!VariadicType) {
-            is_variadic = Yes.isVariadic;
+        if (params.length > 0) {
+            is_variadic = cast(VariadicType)() @trusted{
+                return params[$ - 1].peek!VariadicType;
+            }();
         }
 
         return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
@@ -251,7 +263,7 @@ auto analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint
                           }
                       }
                       )
-        (v.cursor);
+        (c_in);
     // dfmt on
 
     return rval;
@@ -262,20 +274,33 @@ struct VarDeclResult {
     CppVariable name;
     LocationTag location;
     USRType instanceUSR;
+    StorageClass storageClass;
 }
 
-auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @safe {
+/// Analyze a variable declaration
+VarDeclResult analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @safe {
+    return analyzeVarDecl(v.cursor, container, indent);
+}
+
+/// ditto
+VarDeclResult analyzeVarDecl(const(Cursor) v, ref Container container, in uint indent) @safe
+in {
+    import deimos.clang.index : CXCursorKind;
+
+    assert(v.kind == CXCursorKind.CXCursor_VarDecl);
+}
+body {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : retrieveType;
     import cpptooling.analyzer.clang.utility : put;
     import cpptooling.data.representation : CppVariable;
 
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+    auto type = () @trusted{ return retrieveType(v, container, indent); }();
     put(type, container, indent);
 
-    auto name = CppVariable(v.cursor.spelling);
-    auto loc = locToTag(v.cursor.location());
-    auto instance_usr = USRType(v.cursor.usr);
+    auto name = CppVariable(v.spelling);
+    auto loc = locToTag(v.location());
+    auto instance_usr = USRType(v.usr);
     // Assuming that all variable declarations have a USR
     assert(instance_usr.length > 0);
 
@@ -283,13 +308,16 @@ auto analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @
     // USR.
     container.put(loc, instance_usr, Yes.isDefinition);
 
-    return VarDeclResult(type.primary.type, name, loc, instance_usr);
+    auto storage = () @trusted{ return v.storageClass.toStorageClass; }();
+
+    return VarDeclResult(type.primary.type, name, loc, instance_usr, storage);
 }
 
 struct ConstructorResult {
+    TypeKindAttr type;
     CppMethodName name;
     CxParam[] params;
-    USRType usr;
+    LocationTag location;
 }
 
 /** Analyze the node for actionable data.
@@ -298,7 +326,7 @@ struct ConstructorResult {
  *   container = container to store the type in
  *   indent = to use when logging
  *
- * Return: tuple of analyzed data.
+ * Returns: analyzed data.
  */
 auto analyzeConstructor(const(Constructor) v, ref Container container, in uint indent) @safe {
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
@@ -306,15 +334,15 @@ auto analyzeConstructor(const(Constructor) v, ref Container container, in uint i
 
     auto params = toCxParam(type.primary.type.kind, container);
     auto name = CppMethodName(v.cursor.spelling);
-    auto usr = USRType(v.cursor.usr);
 
-    return ConstructorResult(name, params, usr);
+    return ConstructorResult(type.primary.type, name, params, type.primary.location);
 }
 
 struct DestructorResult {
+    TypeKindAttr type;
     CppMethodName name;
     CppVirtualMethod virtualKind;
-    USRType usr;
+    LocationTag location;
 }
 
 /// ditto
@@ -324,9 +352,8 @@ auto analyzeDestructor(const(Destructor) v, ref Container container, in uint ind
 
     auto name = CppMethodName(v.cursor.spelling);
     auto virtual_kind = classify(v.cursor);
-    auto usr = USRType(v.cursor.usr);
 
-    return DestructorResult(name, virtual_kind, usr);
+    return DestructorResult(type.primary.type, name, virtual_kind, type.primary.location);
 }
 
 struct CXXMethodResult {
@@ -337,38 +364,56 @@ struct CXXMethodResult {
     CxReturnType returnType;
     CppVirtualMethod virtualKind;
     Flag!"isConst" isConst;
+    LocationTag location;
+}
+
+CXXMethodResult analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint indent) @safe {
+    return analyzeCXXMethod(v.cursor, container, indent);
 }
 
 /// ditto
-auto analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint indent) @safe {
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+CXXMethodResult analyzeCXXMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
+    auto type = () @trusted{ return retrieveType(v, container, indent); }();
     assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
     put(type, container, indent);
 
-    auto name = CppMethodName(v.cursor.spelling);
+    auto name = CppMethodName(v.spelling);
     auto params = toCxParam(type.primary.type.kind, container);
     auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
             type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
-    auto is_virtual = classify(v.cursor);
+    auto is_virtual = classify(v);
 
     return CXXMethodResult(type.primary.type, name, params,
             cast(Flag!"isOperator") isOperator(name), return_type, is_virtual,
-            cast(Flag!"isConst") type.primary.type.attr.isConst);
+            cast(Flag!"isConst") type.primary.type.attr.isConst, type.primary.location);
 }
 
 struct FieldDeclResult {
     TypeKindAttr type;
     CppVariable name;
+    USRType instanceUSR;
+    LocationTag location;
 }
 
 /// ditto
 auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint indent) @safe {
+    import cpptooling.analyzer.clang.type : makeEnsuredUSR;
+
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
     auto name = CppVariable(v.cursor.spelling);
 
-    return FieldDeclResult(type.primary.type, name);
+    auto instance_usr = makeEnsuredUSR(v.cursor, indent + 1);
+    // Assuming that all field declarations have a USR
+    assert(instance_usr.length > 0);
+
+    auto loc = () @trusted{ return locToTag(v.cursor.location()); }();
+    // store the location to enable creating relations to/from this instance
+    // USR.
+    container.put(loc, instance_usr, Yes.isDefinition);
+
+    return FieldDeclResult(type.primary.type, name, instance_usr, loc);
 }
 
 struct CXXBaseSpecifierResult {
@@ -416,25 +461,31 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     return CXXBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
 }
 
-struct ClassDeclResult {
+struct ClassStructDeclResult {
     TypeKindAttr type;
     CppClassName name;
     LocationTag location;
 }
 
-auto analyzeClassDecl(const(ClassDecl) decl, ref Container container, in uint indent) {
-    auto type = () @trusted{ return retrieveType(decl.cursor, container, indent); }();
-    put(type, container, indent);
-
-    // BUG location should be the definition. This may result in the
-    // declaration.
-    auto loc = () @trusted{ return locToTag(decl.cursor.location()); }();
-    auto name = CppClassName(decl.cursor.spelling);
-
-    return ClassDeclResult(type.primary.type, name, loc);
+ClassStructDeclResult analyzeClassStructDecl(T)(const(T) decl, ref Container container,
+        in uint indent) if (is(T == ClassDecl) || is(T == StructDecl)) {
+    return analyzeClassStructDecl(decl.cursor, container, indent);
 }
 
-/// dummy
+ClassStructDeclResult analyzeClassStructDecl(const(Cursor) cursor,
+        ref Container container, in uint indent) @safe {
+    auto type = () @trusted{ return retrieveType(cursor, container, indent); }();
+    put(type, container, indent);
+
+    auto name = CppClassName(cursor.spelling);
+
+    return ClassStructDeclResult(type.primary.type, name, type.primary.location);
+}
+
+alias analyzeClassDecl = analyzeClassStructDecl!ClassDecl;
+alias analyzeStructDecl = analyzeClassStructDecl!StructDecl;
+
+///
 struct TranslationUnitResult {
     string fileName;
 }
@@ -501,7 +552,7 @@ final class ClassVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
-        auto tor = CppCtor(result.usr, result.name, result.params, accessType);
+        auto tor = CppCtor(result.type.kind.usr, result.name, result.params, accessType);
         root.put(tor);
 
         logger.trace("ctor: ", tor.toString);
@@ -514,7 +565,7 @@ final class ClassVisitor : Visitor {
         .put(type, *container, indent);
 
         auto result = analyzeDestructor(v, *container, indent);
-        auto tor = CppDtor(result.usr, result.name, accessType, classify(v.cursor));
+        auto tor = CppDtor(result.type.kind.usr, result.name, accessType, classify(v.cursor));
         root.put(tor);
 
         logger.trace("dtor: ", tor.toString);

@@ -32,6 +32,7 @@ alias BHController = BlackHole!Controller;
 alias BHParameters = BlackHole!Parameters;
 
 /* These two lines are useful when debugging.
+import unit_threaded;
 writelnUt(be.container.toString);
 writelnUt(be.uml_component.toString);
 */
@@ -136,7 +137,7 @@ struct Key {
 @Values("", "*", "&")
 unittest {
     // Testing that even though comp is processed first and have a forward
-    // declaration of A a relation is still created to the definition of A
+    // declaration of a relation is still created to the definition of A
 
     enum comp_ctor = "
 class A;
@@ -159,6 +160,7 @@ class A_ByCtor {
 
     // assert
     auto result = be.uml_component.relateToFlatArray;
+
     result.length.shouldEqual(1);
 
     result[0].from.shouldEqual(USRType(Key.comp));

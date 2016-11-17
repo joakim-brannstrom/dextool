@@ -1475,16 +1475,29 @@ body {
     }
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
-        // only ref nodes are of interest
-        foreach (child; c.children.filterByTypeRef) {
-            // only a TypeRef can contain a typedef
+        import std.algorithm : until;
+        import cpptooling.analyzer.clang.utility : visitBreathFirst;
+
+        // example of tree analyzed:
+        // VarDecl -> TypedefDecl
+        // VarDecl -> TypeRef -> TypedefDecl
+        foreach (child; c.visitBreathFirst.until!(a => a.depth == 3)) {
             if (child.kind == CXCursorKind.CXCursor_TypeRef) {
+                rval = retrieveType(child, container, indent);
+                break;
+            } else if (child.kind == CXCursorKind.CXCursor_TypedefDecl) {
                 rval = pass4(child, container, indent);
+                break;
             }
         }
 
         if (!rval.isNull) {
+            // depend on the underlying cursor
+            auto old_def = rval.primary.type.attr.isDefinition;
+
             rval.primary.type.attr = makeTypeAttr(c_type, c);
+
+            rval.primary.type.attr.isDefinition = old_def;
         }
     }
 
