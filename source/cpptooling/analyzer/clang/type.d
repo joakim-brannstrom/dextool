@@ -34,13 +34,16 @@ import std.traits;
 import std.typecons : Flag, Yes, No, Nullable, Tuple;
 import logger = std.experimental.logger;
 
-import deimos.clang.index : CXTypeKind;
+import deimos.clang.index : CXTypeKind, CXCursorKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
 import cpptooling.analyzer.clang.utility : logType;
 import cpptooling.data.type : Location, LocationTag;
+import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol.types : USRType;
+import cpptooling.utility.clang : logNode;
 
 private size_t _nextSequence;
 
@@ -295,11 +298,6 @@ TypeKindAttr makeTypeKindAttr(ref Type type, ref TypeKind tk, ref const(Cursor) 
 
     return tka;
 }
-
-import deimos.clang.index : CXCursorKind;
-import cpptooling.data.symbol.container : Container;
-import cpptooling.data.symbol.types : USRType;
-import cpptooling.utility.clang : logNode;
 
 /** Deduct the type the node represents.
  *
