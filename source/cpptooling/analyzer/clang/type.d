@@ -69,13 +69,17 @@ private string nextSequence() @safe {
 
 /// Returns: Filter node to only return those that are a typeref.
 private auto filterByTypeRef(T)(auto ref T in_) {
-    import std.algorithm : filter, among;
+    import std.algorithm : filter;
 
+    return in_.filter!(a => a.isTypeRef);
+}
+
+///
+private bool isTypeRef(Cursor c) {
     // CXCursorKind.CXCursor_TypeRef is the first node, thus >=...
     // it is not in any other way "special".
 
-    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
-            && a.kind <= CXCursorKind.CXCursor_LastRef);
+    return c.kind >= CXCursorKind.CXCursor_TypeRef && c.kind <= CXCursorKind.CXCursor_LastRef;
 }
 
 /** Iteratively try to construct a USR that is reproducable from the cursor.
