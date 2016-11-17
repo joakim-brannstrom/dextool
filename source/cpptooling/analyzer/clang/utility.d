@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2015-2016, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
@@ -11,6 +10,7 @@ import logger = std.experimental.logger;
 
 import clang.Cursor : Cursor;
 import clang.TranslationUnit : TranslationUnit;
+import clang.Type : Type;
 
 import cpptooling.analyzer.clang.type : TypeResults;
 import cpptooling.data.symbol.container : Container;
@@ -256,4 +256,30 @@ void logDiagnostic(ref TranslationUnit tu) {
             break;
         }
     }
+}
+
+///
+void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
+    import std.array : array;
+    import std.range : repeat;
+    import logger = std.experimental.logger;
+    import clang.info;
+
+    // dfmt off
+    debug {
+        string indent_ = repeat(' ', indent).array();
+        logger.logf!(-1, "", "", "", "")
+            (logger.LogLevel.trace,
+             "%d%s %s|%s|%s|%s|%s [%s:%d]",
+             indent,
+             indent_,
+             type.cursor.usr,
+             type.kind,
+             abilities(type),
+             type.isValid ? "valid" : "invalid",
+             type.typeKindSpelling,
+             func,
+             line);
+    }
+    // dfmt on
 }

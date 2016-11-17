@@ -39,6 +39,7 @@ import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
+import cpptooling.analyzer.clang.utility : logType;
 import cpptooling.data.type : Location, LocationTag;
 
 private size_t _nextSequence;
@@ -138,31 +139,6 @@ body {
     app.put(nextSequence);
 
     return USRType(app.data);
-}
-
-void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
-    import std.array : array;
-    import std.range : repeat;
-    import logger = std.experimental.logger;
-    import clang.info;
-
-    // dfmt off
-    debug {
-        string indent_ = repeat(' ', indent).array();
-        logger.logf!(-1, "", "", "", "")
-            (logger.LogLevel.trace,
-             "%d%s %s|%s|%s|%s|%s [%s:%d]",
-             indent,
-             indent_,
-             type.cursor.usr,
-             type.kind,
-             abilities(type),
-             type.isValid ? "valid" : "invalid",
-             type.typeKindSpelling,
-             func,
-             line);
-    }
-    // dfmt on
 }
 
 private void assertTypeResult(const ref TypeResults results) {
