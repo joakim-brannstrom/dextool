@@ -34,12 +34,16 @@ import std.traits;
 import std.typecons : Flag, Yes, No, Nullable, Tuple;
 import logger = std.experimental.logger;
 
-import deimos.clang.index : CXTypeKind;
+import deimos.clang.index : CXTypeKind, CXCursorKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
+import cpptooling.analyzer.clang.utility : logType;
 import cpptooling.data.type : Location, LocationTag;
+import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol.types : USRType;
+import cpptooling.utility.clang : logNode;
 
 private size_t _nextSequence;
 
@@ -68,13 +72,17 @@ private string nextSequence() @safe {
 
 /// Returns: Filter node to only return those that are a typeref.
 private auto filterByTypeRef(T)(auto ref T in_) {
-    import std.algorithm : filter, among;
+    import std.algorithm : filter;
 
+    return in_.filter!(a => a.isTypeRef);
+}
+
+///
+private bool isTypeRef(Cursor c) {
     // CXCursorKind.CXCursor_TypeRef is the first node, thus >=...
     // it is not in any other way "special".
 
-    return in_.filter!(a => a.kind >= CXCursorKind.CXCursor_TypeRef
-            && a.kind <= CXCursorKind.CXCursor_LastRef);
+    return c.kind >= CXCursorKind.CXCursor_TypeRef && c.kind <= CXCursorKind.CXCursor_LastRef;
 }
 
 /** Iteratively try to construct a USR that is reproducable from the cursor.
@@ -82,68 +90,62 @@ private auto filterByTypeRef(T)(auto ref T in_) {
  * Only use when c.usr may return the empty string.
  *
  * Fallback case, using location to make it unique.
+ *
+ * strategy 1
+ *  try and derive a location from the lexical parent.
+ * strategy 2
+ *  handled by putBacktrackLocation when loc_.kind is null_.
+ *  putBacktrackLocation will then use nextSequence to generate a _for sure_
+ *  unique ID.
  */
-private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent)
+private void makeFallbackUSR(Writer)(scope Writer w, ref const(Cursor) c, in uint this_indent) @safe {
+    // strategy 1
+    auto loc_ = backtrackLocation(c);
+
+    // strategy 2
+    putBacktrackLocation(w, c, loc_);
+}
+
+/// ditto
+/// Returns: fallback USR from the cursor.
+private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent) @safe
 out (result) {
     import cpptooling.utility.logger;
 
-    trace(cast(string) result, this_indent);
+    trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
     import std.array : appender;
-    import std.conv : to;
-    import clang.SourceLocation;
-
-    // strategy 1, derive from lexical parent
-    auto loc_ = backtrackLocation(c);
-
-    // strategy 2, I give up.
-    // Problem with this is that it isn't possible to reverse engineer.
-    //TODO fix the magic number 100. Coming from an internal state of backtrackLocation. NOT GOOD
-    // Checking if it is null_ should have been enough
-    if (loc_.tag.kind == BacktrackLocation.Tag.Kind.null_) {
-        loc_.backtracked = 1;
-        loc_.tag = nextSequence;
-    }
 
     auto app = appender!string();
-    putBacktrackLocation(c, loc_, app);
+    makeFallbackUSR((const(char)[] s) { app.put(s); }, c, this_indent);
 
     return USRType(app.data);
 }
 
-private USRType makeUSR(string s)
+/// Make a USR, never failing.
+USRType makeEnsuredUSR(const(Cursor) c, in uint this_indent) @safe
 out (result) {
+    import cpptooling.utility.logger;
+
+    trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
-    return USRType(s);
-}
+    import std.array : appender;
 
-void logType(ref Type type, in uint indent = 0, string func = __FUNCTION__, uint line = __LINE__) {
-    import std.array : array;
-    import std.range : repeat;
-    import logger = std.experimental.logger;
-    import clang.info;
-
-    // dfmt off
-    debug {
-        string indent_ = repeat(' ', indent).array();
-        logger.logf!(-1, "", "", "", "")
-            (logger.LogLevel.trace,
-             "%d%s %s|%s|%s|%s|%s [%s:%d]",
-             indent,
-             indent_,
-             type.cursor.usr,
-             type.kind,
-             abilities(type),
-             type.isValid ? "valid" : "invalid",
-             type.typeKindSpelling,
-             func,
-             line);
+    auto usr = USRType(c.usr);
+    if (usr.length > 0) {
+        return usr;
     }
-    // dfmt on
+
+    auto app = appender!string();
+    makeFallbackUSR((const(char)[] s) { app.put(s); }, c, this_indent);
+    app.put("§");
+    app.put(nextSequence);
+
+    return USRType(app.data);
 }
 
 private void assertTypeResult(const ref TypeResults results) {
@@ -167,7 +169,6 @@ struct BacktrackLocation {
     union TagType {
         typeof(null) null_;
         cpptooling.data.type.Location loc;
-        string spelling;
     }
 
     alias Tag = TaggedAlgebraic!TagType;
@@ -215,29 +216,30 @@ private BacktrackLocation backtrackLocation(ref const(Cursor) c) @safe {
 
 /// TODO consider if .offset should be used too. But may make it harder to
 /// reverse engineer a location.
-private void putBacktrackLocation(T)(ref const(Cursor) c, BacktrackLocation back_loc, ref T app) @safe {
+private void putBacktrackLocation(Writer)(scope Writer app, ref const(Cursor) c,
+        BacktrackLocation back_loc) @safe {
+    import std.range.primitives : put;
+
     static import cpptooling.data.type;
 
     // using a suffix that do NOT exist in the clang USR standard.
     // TODO lookup the algorithm for clang USR to see if $ is valid.
-    enum marker = '$';
+    enum marker = '§';
 
     final switch (back_loc.tag.kind) with (BacktrackLocation.Tag) {
     case Kind.loc:
         auto loc = cast(cpptooling.data.type.Location) back_loc.tag;
         app.put(loc.toString);
         break;
-    case Kind.spelling:
-        app.put(to!string(back_loc.tag));
-        break;
     case Kind.null_:
+        app.put(nextSequence);
         break;
     }
 
-    app.put(marker);
-    app.put(back_loc.backtracked.to!string);
+    put(app, marker);
+    put(app, back_loc.backtracked.to!string);
     if (c.isValid) {
-        app.put(() @trusted{ return c.spelling; }());
+        put(app, () @trusted{ return c.spelling; }());
     }
 }
 
@@ -264,48 +266,38 @@ body {
     }
 
     auto app = appender!string();
-    putBacktrackLocation(c, loc_, app);
+    putBacktrackLocation((const(char)[] s) { app.put(s); }, c, loc_);
 
     rval = Location(app.data, loc.line, loc.column);
 
     return LocationTag(rval);
 }
 
-TypeAttr makeTypeAttr(ref Type type) {
+TypeAttr makeTypeAttr(ref Type type, ref const(Cursor) c) {
     TypeAttr attr;
 
     attr.isConst = cast(Flag!"isConst") type.isConst;
     attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
     attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
     attr.isArray = cast(Flag!"isArray") type.isArray;
-
-    // this may not work perfectly but trying for now
-    auto decl = type.declaration;
-    if (decl.isValid) {
-        attr.isDefinition = cast(Flag!"isDefinition") decl.isDefinition;
-    }
+    attr.isDefinition = cast(Flag!"isDefinition") c.isDefinition;
 
     return attr;
 }
 
-TypeKindAttr makeTypeKindAttr(ref Type type) {
+TypeKindAttr makeTypeKindAttr(ref Type type, ref const(Cursor) c) {
     TypeKindAttr tka;
-    tka.attr = makeTypeAttr(type);
+    tka.attr = makeTypeAttr(type, c);
 
     return tka;
 }
 
-TypeKindAttr makeTypeKindAttr(ref Type type, ref TypeKind tk) {
-    auto tka = makeTypeKindAttr(type);
+TypeKindAttr makeTypeKindAttr(ref Type type, ref TypeKind tk, ref const(Cursor) c) {
+    auto tka = makeTypeKindAttr(type, c);
     tka.kind = tk;
 
     return tka;
 }
-
-import deimos.clang.index : CXCursorKind;
-import cpptooling.data.symbol.container : Container;
-import cpptooling.data.symbol.types : USRType;
-import cpptooling.utility.clang : logNode;
 
 /** Deduct the type the node represents.
  *
@@ -383,7 +375,7 @@ body {
         goto case;
     case CXCursor_UnionDecl:
         auto type = c.type;
-        rval.type = makeTypeKindAttr(type);
+        rval.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;
         rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
@@ -431,7 +423,7 @@ body {
     case CXCursor_EnumDecl:
         if (c.spelling.length == 0) {
             auto type = c.type;
-            rval = TypeResult(makeTypeKindAttr(type), LocationTag.init);
+            rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
             string spell = type.spelling;
             rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
@@ -767,7 +759,7 @@ body {
     info.canonicalRef = canonical_ref;
 
     TypeResults rval;
-    rval.primary.type.attr = makeTypeAttr(type);
+    rval.primary.type.attr = makeTypeAttr(type, c);
     rval.primary.type.kind.info = info;
 
     // a typedef like __va_list has a null usr
@@ -806,7 +798,7 @@ body {
         spell = spell[6 .. $];
     }
 
-    auto rval = makeTypeKindAttr(type);
+    auto rval = makeTypeKindAttr(type, c);
 
     auto info = TypeKind.SimpleInfo(spell ~ " %s");
     rval.kind.info = info;
@@ -832,7 +824,7 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    auto rval = makeTypeKindAttr(type);
+    auto rval = makeTypeKindAttr(type, c);
     LocationTag loc;
 
     auto maybe_primitive = translateCursorType(type.kind);
@@ -850,7 +842,7 @@ body {
         string spell = maybe_primitive.get;
         rval.kind.info = TypeKind.PrimitiveInfo(spell ~ " %s");
 
-        rval.kind.usr = makeUSR(maybe_primitive.get);
+        rval.kind.usr = USRType(maybe_primitive.get);
         loc = LocationTag(null);
     }
 
@@ -917,7 +909,7 @@ body {
     info.canonicalRef = canonicalRef;
 
     TypeResults rval;
-    rval.primary.type.attr = makeTypeAttr(type);
+    rval.primary.type.attr = makeTypeAttr(type, c);
     rval.primary.type.kind.info = info;
 
     // a typedef like __va_list has a null usr
@@ -955,23 +947,13 @@ body {
     TypeKind.RecordInfo info;
     info.fmt = spell ~ " %s";
 
-    auto rval = makeTypeKindAttr(type);
-    LocationTag loc;
+    auto rval = makeTypeKindAttr(type, c);
     rval.kind.info = info;
-
-    if (c.isDeclaration) {
-        auto decl_c = type.declaration;
-        rval.kind.usr = decl_c.usr;
-        loc = makeLocation(decl_c);
-    } else {
-        // fallback
-        rval.kind.usr = c.usr;
-        loc = makeLocation(c);
-    }
+    rval.kind.usr = c.usr;
+    auto loc = makeLocation(c);
 
     if (rval.kind.usr.length == 0) {
         rval.kind.usr = makeFallbackUSR(c, indent + 1);
-        loc = makeLocation(c);
     }
 
     return TypeResults(TypeResult(rval, loc), null);
@@ -1080,6 +1062,8 @@ body {
     // somehow pointee.primary.attr is wrong, somehow. Don't undestand why.
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
+    // a pointer is always itselfs definition because they are always unique
+    rval.primary.type.attr.isDefinition = Yes.isDefinition;
 
     // must be unique even when analyzing many translation units.
     // Could maybe work if static/anonymous namespace influenced the USR.
@@ -1144,20 +1128,22 @@ body {
 }
 
 private TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
-        ref Type type, ref const(Container) container, in uint indent)
+        ref Type type, ref const(Container) container, in uint this_indent)
         if (is(InfoT == TypeKind.FuncInfo) || is(InfoT == TypeKind.FuncSignatureInfo))
 in {
-    logNode(c, indent);
-    logType(type, indent);
+    logNode(c, this_indent);
+    logType(type, this_indent);
     assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.CXType_FunctionNoProto);
 }
 out (result) {
-    logTypeResult(result, indent);
+    logTypeResult(result, this_indent);
 }
 body {
     import std.array;
     import std.algorithm : map;
     import std.string : strip;
+
+    const auto indent = this_indent + 1;
 
     // TODO redesign. This is brittle and ugly.
     // return by value instead of splitting two ways like this.
@@ -1184,10 +1170,7 @@ body {
     auto return_t = retrieveReturn(return_rval);
     auto params = extractParams(c, type, container, indent);
     TypeResult primary;
-    primary.type = makeTypeKindAttr(type);
-    // unable to backtrack from the type to the cursor thus must retrieve
-    // definitionness from the cursor.
-    primary.type.attr.isDefinition = cast(Flag!("isDefinition")) c.isDefinition;
+    primary.type = makeTypeKindAttr(type, c);
 
     // a C++ member function must be queried for constness via a different API
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
@@ -1200,11 +1183,19 @@ body {
             a.result.type.attr, a.id, a.isVariadic)).array();
 
     primary.type.kind.info = info;
+    primary.location = makeLocation(c);
+
     primary.type.kind.usr = c.usr;
     if (primary.type.kind.usr.length == 0) {
         primary.type.kind.usr = makeFallbackUSR(c, indent);
+    } else if (c.kind.among(CXCursorKind.CXCursor_VarDecl, CXCursorKind.CXCursor_FieldDecl,
+            CXCursorKind.CXCursor_TemplateTypeParameter, CXCursorKind.CXCursor_ParmDecl)) {
+        // TODO consider how the knowledge of the field could be "moved" out of
+        // this function.
+        // Instances must result in a unique USR. Otherwise it is impossible to
+        // differentiate between the type and field.
+        primary.type.kind.usr = makeFallbackUSR(c, indent);
     }
-    primary.location = makeLocation(c);
 
     rval.primary = primary;
     rval.extra ~= params.params.map!(a => a.result).array() ~ params.extra;
@@ -1231,7 +1222,7 @@ body {
     TypeResults rval;
     auto params = extractParams(c, type, container, indent);
     TypeResult primary;
-    primary.type = makeTypeKindAttr(type);
+    primary.type = makeTypeKindAttr(type, c);
 
     TypeKind.CtorInfo info;
     info.fmt = format("%s(%s)", "%s", params.params.joinParamId());
@@ -1260,7 +1251,7 @@ out (result) {
 }
 body {
     TypeResults rval;
-    auto primary = makeTypeKindAttr(type);
+    auto primary = makeTypeKindAttr(type, c);
 
     TypeKind.DtorInfo info;
     info.fmt = format("~%s()", "%s");
@@ -1302,16 +1293,17 @@ out (result) {
 body {
     auto indent = this_indent + 1;
     PointerTypeAttr rval;
+    auto decl_c = type.declaration;
 
     if (type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
         // recursive
         auto pointee = type.pointeeType;
         rval = retrievePointeeAttr(pointee, indent);
         // current appended so right most ptr is at position 0.
-        rval.ptrs ~= makeTypeAttr(type);
+        rval.ptrs ~= makeTypeAttr(type, decl_c);
     } else {
         // Base condition.
-        rval.base = makeTypeAttr(type);
+        rval.base = makeTypeAttr(type, decl_c);
     }
 
     return rval;
@@ -1421,7 +1413,8 @@ body {
     if (!element.primary.type.kind.info.kind.among(TypeKind.Info.Kind.pointer,
             TypeKind.Info.Kind.funcPtr)) {
         auto elem_t = type.array.elementType;
-        rval.primary.type.attr = makeTypeAttr(elem_t);
+        auto decl_c = elem_t.declaration;
+        rval.primary.type.attr = makeTypeAttr(elem_t, decl_c);
     } else {
         rval.primary.type.attr = element.primary.type.attr;
     }
@@ -1482,16 +1475,29 @@ body {
     }
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
-        // only ref nodes are of interest
-        foreach (child; c.children.filterByTypeRef) {
-            // only a TypeRef can contain a typedef
+        import std.algorithm : until;
+        import cpptooling.analyzer.clang.utility : visitBreathFirst;
+
+        // example of tree analyzed:
+        // VarDecl -> TypedefDecl
+        // VarDecl -> TypeRef -> TypedefDecl
+        foreach (child; c.visitBreathFirst.until!(a => a.depth == 3)) {
             if (child.kind == CXCursorKind.CXCursor_TypeRef) {
+                rval = retrieveType(child, container, indent);
+                break;
+            } else if (child.kind == CXCursorKind.CXCursor_TypedefDecl) {
                 rval = pass4(child, container, indent);
+                break;
             }
         }
 
         if (!rval.isNull) {
-            rval.primary.type.attr = makeTypeAttr(c_type);
+            // depend on the underlying cursor
+            auto old_def = rval.primary.type.attr.isDefinition;
+
+            rval.primary.type.attr = makeTypeAttr(c_type, c);
+
+            rval.primary.type.attr.isDefinition = old_def;
         }
     }
 
@@ -1843,7 +1849,7 @@ body {
     TypeResults rval;
 
     auto type = c.type;
-    rval.primary.type = makeTypeKindAttr(type);
+    rval.primary.type = makeTypeKindAttr(type, c);
     rval.primary.type.kind = makeSimple2(c.spelling);
     rval.primary.type.kind.usr = c.usr;
     rval.primary.location = makeLocation(c);
@@ -1922,7 +1928,7 @@ out (result) {
     }
 }
 body {
-    auto indent = this_indent + 1;
+    const auto indent = this_indent + 1;
 
     void appendParams(ref const(Cursor) c, ref ExtractParamsResults rval) {
         import std.range : enumerate;

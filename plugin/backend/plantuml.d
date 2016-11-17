@@ -36,7 +36,7 @@ import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
-import cpptooling.analyzer.clang.analyze_helper : ClassDeclResult;
+import cpptooling.analyzer.clang.analyze_helper : ClassStructDeclResult;
 import plugin.utility : MarkArray;
 
 static import cpptooling.data.class_classification;
@@ -1125,7 +1125,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         auto result = analyzeConstructor(v, *container, indent);
 
         debug {
-            auto tor = CppCtor(result.usr, result.name, result.params, access);
+            auto tor = CppCtor(result.type.kind.usr, result.name, result.params, access);
             logger.trace("ctor: ", tor.toString);
         }
 
@@ -1140,7 +1140,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
                 cast(MemberVirtualType) result.virtualKind, hasMember);
 
         debug {
-            auto tor = CppDtor(result.usr, result.name, access, result.virtualKind);
+            auto tor = CppDtor(result.type.kind.usr, result.name, access, result.virtualKind);
             logger.trace("dtor: ", tor.toString);
         }
 
@@ -1414,7 +1414,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
 
         if (genClassMethod) {
-            auto tor = CppCtor(result.usr, result.name, result.params, access);
+            auto tor = CppCtor(result.type.kind.usr, result.name, result.params, access);
             uml.put(src_key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
 
@@ -1438,7 +1438,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
 
         if (genClassMethod) {
             auto key = makeClassKey(src.kind.usr);
-            auto tor = CppDtor(result.usr, result.name, access, result.virtualKind);
+            auto tor = CppDtor(result.type.kind.usr, result.name, access, result.virtualKind);
             uml.put(key, UMLClassDiagram.Content(toPrefix(access) ~ tor.toString));
         }
     }
@@ -1461,7 +1461,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         uml.set(key, result.classification);
     }
 
-    void put(ref const(ClassDeclResult) src, const(CppNs)[] reside_in) {
+    void put(ref const(ClassStructDeclResult) src, const(CppNs)[] reside_in) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only;
@@ -1523,9 +1523,9 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.range : chain;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        CXXMethodResult, ConstructorResult, DestructorResult, ClassDeclResult,
-        FieldDeclResult, VarDeclResult, FunctionDeclResult,
-        TranslationUnitResult;
+        CXXMethodResult, ConstructorResult, DestructorResult,
+        ClassStructDeclResult, FieldDeclResult, VarDeclResult,
+        FunctionDeclResult, TranslationUnitResult;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.type : CppAccess, CxReturnType;
 
@@ -1707,12 +1707,11 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         dcache.doRemoval;
     }
 
-    void put(ref const(ClassDeclResult) result) {
+    void put(ref const(ClassStructDeclResult) result) {
         src_cache ~= result.type.kind.usr;
     }
 
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
-
         putParamsToCache(src, result.params, dcache, lookup);
     }
 
@@ -1798,8 +1797,8 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        ClassDeclResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
-        DestructorResult, VarDeclResult, FunctionDeclResult,
+        ClassStructDeclResult, FieldDeclResult, CXXMethodResult,
+        ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.symbol.types : USRType;
@@ -1830,7 +1829,7 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.put(result);
     }
 
-    void put(ref const(ClassDeclResult) result, const(CppNs)[] reside_in) {
+    void put(ref const(ClassStructDeclResult) result, const(CppNs)[] reside_in) {
         to_class.put(result, reside_in);
         to_component.put(result);
     }

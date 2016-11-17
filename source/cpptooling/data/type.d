@@ -120,6 +120,10 @@ struct LocationTag {
         }
     }
 
+    this(string file, uint line, uint column) {
+        this(Location(file, line, column));
+    }
+
     string toString() @safe pure const {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
