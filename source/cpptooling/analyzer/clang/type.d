@@ -425,8 +425,7 @@ body {
             auto type = c.type;
             rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
-            string spell = type.spelling;
-            rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
+            rval.type.kind.info = TypeKind.SimpleInfo(nextSequence ~ " %s");
             rval.type.kind.usr = USRType(c.usr);
             rval.location = makeLocation(c);
         }
@@ -1486,7 +1485,7 @@ body {
                 rval = retrieveType(child, container, indent);
                 break;
             } else if (child.kind == CXCursorKind.CXCursor_TypedefDecl) {
-                rval = pass4(child, container, indent);
+                rval = retrieveType(child, container, indent);
                 break;
             }
         }
