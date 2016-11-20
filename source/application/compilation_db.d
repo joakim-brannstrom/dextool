@@ -391,7 +391,7 @@ string toString(CompileCommandSearch search) @safe pure {
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-auto parseFlag(CompileCommand cmd) @safe pure {
+string[] parseFlag(CompileCommand cmd) @safe pure {
     static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir) {
         enum State {
             Keep,
