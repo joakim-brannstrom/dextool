@@ -375,6 +375,7 @@ body {
         goto case;
     case CXCursor_UnionDecl:
         auto type = c.type;
+        rval = TypeResult();
         rval.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;

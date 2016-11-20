@@ -118,6 +118,31 @@ final class TestRecordVisitor : Visitor {
     }
 }
 
+final class TestDeclVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        import cpptooling.analyzer.clang.utility : put;
+
+        auto type = () @trusted{
+            return retrieveType(v.cursor, container, indent);
+        }();
+        put(type, container, indent);
+        v.accept(this);
+    }
+}
+
 version (Linux) {
     @Name("Should be a type of kind 'func'")
     unittest {
@@ -423,4 +448,22 @@ class A_ByCtor { A_ByCtor(A a); };";
 
     loc.hasDefinition.shouldBeTrue;
     loc.definition.shouldEqual(LocationTag(Location("/def.hpp", 1, 7)));
+}
+
+@("Should not crash on an anonymous type")
+@Values("struct A { union { int x; }; };", "struct A { struct { int x; }; };")
+unittest {
+    // arrange
+    auto visitor = new TestDeclVisitor;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) getValue!string);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    // didn't crash
 }
