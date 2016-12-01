@@ -13,12 +13,12 @@ public import dsrcgen.c;
 @safe:
 
 /// Mixin of methods for semantic representation of C++ in D.
-mixin template CppModuleX() {
+mixin template CppModuleX(T) {
     /** Access to self.
      *
      * Useful in with-statements.
      */
-    auto _() {
+    T _() {
         return this;
     }
 
@@ -241,8 +241,8 @@ mixin template CppModuleX() {
 
 /// Represent a semantic item in C++ source.
 class CppModule : BaseModule {
-    mixin CModuleX;
-    mixin CppModuleX;
+    mixin CModuleX!(CppModule);
+    mixin CppModuleX!(CppModule);
 }
 
 /** Code structure for generation of a C++ header.
