@@ -210,12 +210,12 @@ mixin RelateTypes!(Text!PlantumlModule, Text!PlantumlModule,
 alias CanRelateSeq = AliasSeq!(ClassNameType, ComponentNameType);
 enum CanRelate(T) = staticIndexOf!(T, CanRelateSeq) >= 0;
 
-private mixin template PlantumlBase() {
+private mixin template PlantumlBase(T) {
     /** Access to self.
      *
      * Useful in with-statements.
      */
-    auto _() {
+    T _() {
         return this;
     }
 
@@ -223,8 +223,8 @@ private mixin template PlantumlBase() {
      *
      * Not affected by indentation.
      */
-    auto empty() {
-        auto e = new Empty!(typeof(this));
+    Empty!T empty() {
+        auto e = new Empty!T;
         append(e);
         return e;
     }
@@ -235,7 +235,7 @@ private mixin template PlantumlBase() {
      *
      * TODO should have an addSep like stmt have.
      */
-    auto comment(string comment) {
+    Comment comment(string comment) {
         auto e = new Comment(comment);
         e.sep;
         append(e);
@@ -248,8 +248,8 @@ private mixin template PlantumlBase() {
      * is to allow detailed "surgical" insertion of raw text/data when no
      * semantical "helpers" exist for a specific use case.
      */
-    auto text(string content) pure {
-        auto e = new Text!(typeof(this))(content);
+    Text!T text(string content) pure {
+        auto e = new Text!T(content);
         append(e);
         return e;
     }
@@ -259,8 +259,8 @@ private mixin template PlantumlBase() {
      * Useful when a "node" is needed to add further content in.
      * The node is affected by indentation.
      */
-    auto base() {
-        auto e = new typeof(this);
+    T base() {
+        auto e = new T;
         append(e);
         return e;
     }
@@ -275,8 +275,8 @@ private mixin template PlantumlBase() {
      *
      * Returns: Stmt instance stored in this.
      */
-    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Stmt!(typeof(this))(stmt_);
+    Stmt!T stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Stmt!T(stmt_);
         append(e);
         if (separator) {
             sep();
@@ -290,8 +290,8 @@ private mixin template PlantumlBase() {
      *
      * Returns: Suite instance stored in this.
      */
-    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Suite!(typeof(this))(headline);
+    Suite!T suite(string headline, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Suite!T(headline);
         append(e);
         if (separator) {
             sep();
@@ -310,7 +310,7 @@ private mixin template PlantumlBase() {
  */
 class PlantumlModule : BaseModule {
     mixin Attrs;
-    mixin PlantumlBase;
+    mixin PlantumlBase!(PlantumlModule);
 
     this() pure {
         super();
@@ -743,7 +743,7 @@ private enum ActivityBlockIfThen {
  */
 class ActivityModule : BaseModule {
     mixin Attrs;
-    mixin PlantumlBase;
+    mixin PlantumlBase!(ActivityModule);
 
     /// Call the module to add text.
     auto opCall(string txt) pure {
@@ -979,7 +979,7 @@ struct PlantumlRootModule {
 
     /// Make a root module with suppressed indent of the first level.
     static auto make() {
-        typeof(this) r;
+        PlantumlRootModule r;
         r.root = new PlantumlModule;
         r.root.suppressIndent(1);
 

@@ -35,39 +35,39 @@ class Comment : BaseModule {
 }
 
 /// Mixin of methods for creating semantic C content.
-mixin template CModuleX() {
+mixin template CModuleX(T) {
     mixin Attrs;
 
     /** Access to self.
      *
      * Useful in with-statements.
      */
-    auto _() {
+    T _() {
         return this;
     }
 
-    auto comment(string comment) {
+    Comment comment(string comment) {
         auto e = new Comment(comment);
         append(e);
         e.sep;
         return e;
     }
 
-    auto text(string content) {
-        auto e = new Text!(typeof(this))(content);
+    Text!T text(string content) {
+        auto e = new Text!T(content);
         append(e);
         return e;
     }
 
-    auto base() {
-        auto e = new typeof(this);
+    T base() {
+        auto e = new T;
         append(e);
         return e;
     }
 
     // Statements
-    auto stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Stmt!(typeof(this))(stmt_);
+    Stmt!T stmt(string stmt_, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Stmt!T(stmt_);
         append(e);
         if (separator) {
             sep();
@@ -133,8 +133,8 @@ mixin template CModuleX() {
     }
 
     // Suites
-    auto suite(string headline, Flag!"addSep" separator = Yes.addSep) {
-        auto e = new Suite!(typeof(this))(headline);
+    Suite!T suite(string headline, Flag!"addSep" separator = Yes.addSep) {
+        auto e = new Suite!T(headline);
         append(e);
         if (separator) {
             sep();
@@ -290,7 +290,7 @@ private:
 
 /// Represent a semantic item in C source.
 class CModule : BaseModule {
-    mixin CModuleX;
+    mixin CModuleX!(CModule);
 }
 
 private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow {
