@@ -333,7 +333,7 @@ class PlantumlModule : BaseModule {
      *
      * Return: A tuple allowing further modification.
      */
-    auto component(string name) {
+    ComponentType component(string name) {
         auto e = stmt(format(`component "%s"`, name));
         auto as = e.text("");
 
@@ -351,7 +351,7 @@ class PlantumlModule : BaseModule {
      *  b = right relation
      *  relate = type of relation between a/b
      */
-    auto relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
+    Relation relate(T)(T a, T b, Relate relate) if (CanRelate!T) {
         static if (is(T == ClassNameType)) {
             enum side_format = `"%s"`;
         } else static if (is(T == ComponentNameType)) {
@@ -372,7 +372,7 @@ class PlantumlModule : BaseModule {
 
     /** Raw relate of a "type" b.
      */
-    auto unsafeRelate(string a, string b, string type) {
+    RelationType unsafeRelate(string a, string b, string type) {
         return RelationType(stmt(format(`%s %s %s`, a, type, b)));
     }
 
@@ -380,7 +380,7 @@ class PlantumlModule : BaseModule {
      *
      * It will need to be related to an object.
      */
-    auto note(string name) {
+    NoteType note(string name) {
         ///TODO only supporting free floating for now
         auto block = stmt("");
         auto body_ = block.text(`note "`);
@@ -394,7 +394,7 @@ class PlantumlModule : BaseModule {
     /** Make a UML namespace with an optional separator.
      * The separator is inserted after the block.
      */
-    auto namespace(string name, Flag!"addSep" separator = Yes.addSep) {
+    Suite!PlantumlModule namespace(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("namespace " ~ name);
         if (separator) {
             sep();
@@ -406,7 +406,7 @@ class PlantumlModule : BaseModule {
      * separator.
      * The separator is inserted after the block.
      */
-    auto digraph(string name, Flag!"addSep" separator = Yes.addSep) {
+    Suite!PlantumlModule digraph(string name, Flag!"addSep" separator = Yes.addSep) {
         auto e = suite("digraph " ~ name);
         if (separator) {
             sep();
@@ -437,7 +437,7 @@ class PlantumlModule : BaseModule {
      *
      * Return: A tuple allowing further modification.
      */
-    auto componentBody(string name) {
+    ComponentType componentBody(string name) {
         auto e = stmt(format(`component "%s"`, name));
         auto as = e.text("");
 
