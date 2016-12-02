@@ -155,7 +155,7 @@ class BaseModule : BaseElement {
     }
 
     /// Clear the node of childrens.
-    auto reset() pure nothrow {
+    BaseModule reset() pure nothrow {
         children.length = 0;
         return this;
     }
