@@ -143,7 +143,7 @@ final class TestDeclVisitor : Visitor {
     }
 }
 
-version (Linux) {
+version (linux) {
     @Name("Should be a type of kind 'func'")
     unittest {
         enum code = `
