@@ -38,6 +38,7 @@ int main(string[] args) {
                           "plugin.backend.plantuml",
                           // component tests
                           "test.component.analyzer.type",
+                          "test.component.analyzer.utility",
                           "test.component.plantuml",
                           "test.component.scratch",
                           );

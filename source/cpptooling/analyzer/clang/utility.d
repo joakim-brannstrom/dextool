@@ -84,8 +84,8 @@ auto backtrack(NodeT)(const(NodeT) node) {
     return BacktrackResult(c);
 }
 
-/// Determine if a kind affects the scope.
-bool isScopeKind(CXCursorKind kind) @safe pure nothrow @nogc {
+/// Determine if a kind creates a local scope.
+bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
     switch (kind) with (CXCursorKind) {
     case CXCursor_ClassTemplate:
     case CXCursor_StructDecl:
@@ -95,7 +95,6 @@ bool isScopeKind(CXCursorKind kind) @safe pure nothrow @nogc {
     case CXCursor_FunctionDecl:
     case CXCursor_Constructor:
     case CXCursor_Destructor:
-    case CXCursor_Namespace:
         return true;
     default:
         return false;
@@ -104,18 +103,19 @@ bool isScopeKind(CXCursorKind kind) @safe pure nothrow @nogc {
 
 /// Determine if a cursor is in the global or namespace scope.
 bool isGlobalOrNamespaceScope(const(Cursor) c) @safe {
+    import std.algorithm : among;
     import deimos.clang.index : CXCursorKind;
 
     // if the loop is never ran it is in the global namespace
     foreach (bt; c.backtrack) {
-        if (bt.kind == CXCursorKind.CXCursor_Namespace) {
-            // ok
-        } else if (bt.kind.isScopeKind) {
+        if (bt.kind.among(CXCursorKind.CXCursor_Namespace, CXCursorKind.CXCursor_TranslationUnit)) {
+            return true;
+        } else if (bt.kind.isLocalScope) {
             return false;
         }
     }
 
-    return true;
+    return false;
 }
 
 private @safe nothrow struct ASTCursor {
