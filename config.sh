@@ -15,7 +15,7 @@ elif [[ -d "/usr/lib64/llvm" ]]; then
 elif [[ -d "/Applications/Xcode.app/Contents/Frameworks" ]]; then
     export LFLAG_CLANG_PATH="-L/Applications/Xcode.app/Contents/Frameworks"
     export LFLAG_CLANG_LIB="clang"
-    export LFLAG_CLANG_ABS_PATH="/Applications/Xcode.app/Contents/Framework"
+    export LFLAG_CLANG_ABS_PATH="/Applications/Xcode.app/Contents/Frameworks"
 fi
 
 if [[ -n "$LFLAG_CLANG_LIB" ]]; then
