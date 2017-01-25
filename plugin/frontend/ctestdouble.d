@@ -18,29 +18,109 @@ import application.utility;
 import plugin.types;
 import plugin.backend.cvariant : Controller, Parameters, Products;
 
-auto runPlugin(CliBasicOption opt, CliArgs args) {
-    import docopt;
-    import plugin.utility : toDocopt;
-
-    auto parsed = docopt.docoptParse(opt.toDocopt(ctestdouble_opt), args);
-
+struct ParsedArgs {
+    string[] fileExclude;
+    string[] fileRestrict;
+    string[] testDoubleInclude;
+    string[] inFiles;
     string[] cflags;
-    if (parsed["--"].isTrue) {
-        cflags = parsed["CFLAGS"].asList;
+    string[] compileDb;
+    string header;
+    string headerFile;
+    string mainName = "TestDouble";
+    string mainFileName = "test_double";
+    string prefix = "Test_";
+    string stripInclude;
+    string out_;
+    bool help;
+    bool gmock;
+    bool generatePreInclude;
+    bool genPostInclude;
+    bool locationAsComment;
+
+    void parse(string[] args) {
+        import std.getopt;
+
+        getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help, "main",
+                &mainName, "main-fname", &mainFileName, "out", &out_, "compile-db", &compileDb, "prefix", &prefix,
+                "strip-incl", &stripInclude, "header", &header, "header-file", &headerFile, "gmock", &gmock, "gen-pre-incl",
+                &generatePreInclude, "gen-post-incl", &genPostInclude,
+                "loc-as-comment", &locationAsComment, "td-include", &testDoubleInclude, "file-exclude",
+                &fileExclude, "file-restrict", &fileRestrict, "in", &inFiles);
+
+        // ugly hack
+        bool is_cflags;
+        foreach (f; args) {
+            if (f == "--") {
+                is_cflags = true;
+                continue;
+            }
+
+            if (is_cflags) {
+                cflags ~= f;
+            }
+        }
     }
 
-    import plugin.docopt_util;
+    void printHelp() {
+        import std.stdio : writefln;
 
-    printArgs(parsed);
+        writefln("%s\n\n%s\n%s", ctestdouble_opt.usage,
+                ctestdouble_opt.optional, ctestdouble_opt.others);
+    }
 
-    auto variant = CTestDoubleVariant.makeVariant(parsed);
+    void dump() {
+        logger.tracef("args:
+--header            :%s
+--header-file       :%s
+--file-restrict     :%s
+--prefix            :%s
+--gmock             :%s
+--out               :%s
+--file-exclude      :%s
+--main              :%s
+--strip-incl        :%s
+--main-fname        :%s
+--in                :%s
+--compile-db        :%s
+--gen-post-incl     :%s
+--gen-pre-incl      :%s
+--help              :%s
+--loc-as-comment    :%s
+--td-include        :%s
+CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude,
+                mainName, stripInclude, mainFileName, inFiles,
+                compileDb, genPostInclude, generatePreInclude, help,
+                locationAsComment, testDoubleInclude, cflags);
+    }
+}
+
+auto runPlugin(CliBasicOption opt, CliArgs args) {
+    import std.stdio : writeln;
+
+    ParsedArgs pargs;
+    pargs.parse(args);
+    pargs.dump;
+
+    if (pargs.help) {
+        pargs.printHelp;
+        return ExitStatusType.Ok;
+    } else if (pargs.inFiles.length == 0) {
+        writeln("Missing required argument --in");
+        return ExitStatusType.Errors;
+    } else if (pargs.fileExclude.length != 0 && pargs.fileRestrict.length != 0) {
+        writeln("Unable to combine both --file-exclude and --file-restrict");
+        return ExitStatusType.Errors;
+    }
+
+    auto variant = CTestDoubleVariant.makeVariant(pargs);
 
     CompileCommandDB compile_db;
-    if (!parsed["--compile-db"].isEmpty) {
-        compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
+    if (pargs.compileDb.length != 0) {
+        compile_db = pargs.compileDb.fromArgCompileDb;
     }
 
-    return genCstub(variant, cflags, compile_db, InFiles(parsed["--in"].asList));
+    return genCstub(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
 }
 
 // dfmt off
@@ -120,7 +200,6 @@ Generate a C test double excluding data from specified files.
 class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
-    import docopt : ArgValue;
     import application.types : StubPrefix, FileName, DirName;
     import application.utility;
     import dsrcgen.cpp;
@@ -133,25 +212,24 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     static const hdrExt = ".hpp";
     static const implExt = ".cpp";
 
-    immutable StubPrefix prefix;
-    immutable StubPrefix file_prefix;
+    StubPrefix prefix;
 
-    immutable DirName output_dir;
-    immutable FileName main_file_hdr;
-    immutable FileName main_file_impl;
-    immutable FileName main_file_globals;
-    immutable FileName gmock_file;
-    immutable FileName pre_incl_file;
-    immutable FileName post_incl_file;
-    immutable CustomHeader custom_hdr;
+    DirName output_dir;
+    FileName main_file_hdr;
+    FileName main_file_impl;
+    FileName main_file_globals;
+    FileName gmock_file;
+    FileName pre_incl_file;
+    FileName post_incl_file;
+    CustomHeader custom_hdr;
 
-    immutable MainName main_name;
-    immutable MainNs main_ns;
-    immutable MainInterface main_if;
-    immutable Flag!"Gmock" gmock;
-    immutable Flag!"PreInclude" pre_incl;
-    immutable Flag!"PostInclude" post_incl;
-    immutable Flag!"locationAsComment" loc_as_comment;
+    MainName main_name;
+    MainNs main_ns;
+    MainInterface main_if;
+    Flag!"Gmock" gmock;
+    Flag!"PreInclude" pre_incl;
+    Flag!"PostInclude" post_incl;
+    Flag!"locationAsComment" loc_as_comment;
 
     Regex!char[] exclude;
     Regex!char[] restrict;
@@ -161,49 +239,33 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     private TestDoubleIncludes td_includes;
 
-    static auto makeVariant(ref ArgValue[string] parsed) {
-        import std.array : array;
-        import std.algorithm : map;
-
-        Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
-        Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
+    static auto makeVariant(ref ParsedArgs args) {
         Regex!char strip_incl;
-        auto gmock = cast(Flag!"Gmock") parsed["--gmock"].isTrue;
-        auto pre_incl = cast(Flag!"PreInclude") parsed["--gen-pre-incl"].isTrue;
-        auto post_incl = cast(Flag!"PostInclude") parsed["--gen-post-incl"].isTrue;
-        auto loc_as_comment = cast(Flag!"locationAsComment") parsed["--loc-as-comment"].isTrue;
         CustomHeader custom_hdr;
 
-        if (!parsed["--strip-incl"].isNull) {
-            string strip_incl_user = parsed["--strip-incl"].toString;
-            strip_incl = regex(strip_incl_user);
-            logger.trace("User supplied regex via --strip-incl: ", strip_incl_user);
+        if (args.stripInclude.length != 0) {
+            strip_incl = regex(args.stripInclude);
+            logger.trace("User supplied regex via --strip-incl: ", args.stripInclude);
         } else {
             logger.trace("Using default regex to strip include path (basename)");
             strip_incl = regex(r".*/(.*)");
         }
 
-        if (!parsed["--header"].isNull) {
-            custom_hdr = CustomHeader(parsed["--header"].toString);
-        } else if (!parsed["--header-file"].isNull) {
-            import std.file : readText;
-
-            string content = readText(parsed["--header-file"].toString);
-            custom_hdr = CustomHeader(content);
-        }
-
-        auto variant = new CTestDoubleVariant(StubPrefix(parsed["--prefix"].toString), StubPrefix("Not used"),
-                MainFileName(parsed["--main-fname"].toString),
-                MainName(parsed["--main"].toString), DirName(parsed["--out"].toString),
-                gmock, pre_incl, post_incl, loc_as_comment, strip_incl, custom_hdr);
-
-        if (!parsed["--td-include"].isEmpty) {
-            variant.forceIncludes(parsed["--td-include"].asList);
-        }
-
-        // optional parts
-        variant.exclude = exclude;
-        variant.restrict = restrict;
+        // dfmt off
+        auto variant = new CTestDoubleVariant(
+                MainFileName(args.mainFileName), DirName(args.out_),
+                strip_incl)
+            .argPrefix(args.prefix)
+            .argMainName(args.mainName)
+            .argLocationAsComment(args.locationAsComment)
+            .argGmock(args.gmock)
+            .argPreInclude(args.generatePreInclude)
+            .argPostInclude(args.genPostInclude)
+            .argForceTestDoubleIncludes(args.testDoubleInclude)
+            .argFileExclude(args.fileExclude)
+            .argFileRestrict(args.fileRestrict)
+            .argCustomHeader(args.header, args.headerFile);
+        // dfmt on
 
         return variant;
     }
@@ -217,22 +279,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(StubPrefix prefix, StubPrefix file_prefix, MainFileName main_fname, MainName main_name, DirName output_dir,
-            Flag!"Gmock" gmock, Flag!"PreInclude" pre_incl, Flag!"PostInclude" post_incl,
-            Flag!"locationAsComment" loc_as_comment, Regex!char strip_incl,
-            CustomHeader custom_hdr) {
-        this.prefix = prefix;
-        this.file_prefix = file_prefix;
-        this.main_name = main_name;
-        this.main_ns = MainNs(cast(string) main_name);
-        this.main_if = MainInterface("I_" ~ cast(string) main_name);
+    this(MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
         this.output_dir = output_dir;
-        this.gmock = gmock;
-        this.pre_incl = pre_incl;
-        this.post_incl = post_incl;
-        this.loc_as_comment = loc_as_comment;
         this.td_includes = TestDoubleIncludes(strip_incl);
-        this.custom_hdr = custom_hdr;
 
         import std.path : baseName, buildPath, stripExtension;
 
@@ -250,6 +299,74 @@ class CTestDoubleVariant : Controller, Parameters, Products {
                 base_filename ~ "_post_includes" ~ hdrExt));
     }
 
+    auto argFileExclude(string[] a) {
+        import std.array : array;
+        import std.algorithm : map;
+
+        this.exclude = a.map!(a => regex(a)).array();
+        return this;
+    }
+
+    auto argFileRestrict(string[] a) {
+        import std.array : array;
+        import std.algorithm : map;
+
+        this.restrict = a.map!(a => regex(a)).array();
+        return this;
+    }
+
+    auto argPrefix(string s) {
+        this.prefix = StubPrefix(s);
+        return this;
+    }
+
+    auto argMainName(string s) {
+        this.main_name = MainName(s);
+        this.main_ns = MainNs(s);
+        this.main_if = MainInterface("I_" ~ s);
+        return this;
+    }
+
+    auto argForceTestDoubleIncludes(string[] a) {
+        if (a.length != 0) {
+            this.forceIncludes(a);
+        }
+        return this;
+    }
+
+    auto argCustomHeader(string header, string header_file) {
+        if (header.length != 0) {
+            this.custom_hdr = CustomHeader(header);
+        } else if (header_file.length != 0) {
+            import std.file : readText;
+
+            string content = readText(header_file);
+            this.custom_hdr = CustomHeader(content);
+        }
+
+        return this;
+    }
+
+    auto argGmock(bool a) {
+        this.gmock = cast(Flag!"Gmock") a;
+        return this;
+    }
+
+    auto argPreInclude(bool a) {
+        this.pre_incl = cast(Flag!"PreInclude") a;
+        return this;
+    }
+
+    auto argPostInclude(bool a) {
+        this.post_incl = cast(Flag!"PostInclude") a;
+        return this;
+    }
+
+    auto argLocationAsComment(bool a) {
+        this.loc_as_comment = cast(Flag!"locationAsComment") a;
+        return this;
+    }
+
     /// Force the includes to be those supplied by the user.
     void forceIncludes(string[] incls) {
         td_includes.forceIncludes(incls);
@@ -263,7 +380,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
         bool decision = true;
 
-        // docopt blocks during parsing so both restrict and exclude cannot be
+        // blocks during arg parsing so both restrict and exclude cannot be
         // set at the same time.
         if (restrict.length > 0) {
             decision = canFind!((a) {
@@ -343,7 +460,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     StubPrefix getFilePrefix() {
-        return file_prefix;
+        return StubPrefix("");
     }
 
     StubPrefix getArtifactPrefix() {
