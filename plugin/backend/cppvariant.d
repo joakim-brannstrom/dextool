@@ -87,12 +87,6 @@ import cpptooling.analyzer.clang.ast : Visitor;
      */
     MainInterface getMainInterface();
 
-    /** Prefix to use for the generated files.
-     *
-     * Affects both the filename and the preprocessor #include.
-     */
-    StubPrefix getFilePrefix();
-
     /// Prefix used for test artifacts.
     StubPrefix getArtifactPrefix();
 
