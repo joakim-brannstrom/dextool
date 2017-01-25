@@ -41,12 +41,25 @@ struct ParsedArgs {
     void parse(string[] args) {
         import std.getopt;
 
-        getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help, "main",
-                &mainName, "main-fname", &mainFileName, "out", &out_, "compile-db", &compileDb, "prefix", &prefix,
-                "strip-incl", &stripInclude, "header", &header, "header-file", &headerFile, "gmock", &gmock, "gen-pre-incl",
-                &generatePreInclude, "gen-post-incl", &genPostInclude,
-                "loc-as-comment", &locationAsComment, "td-include", &testDoubleInclude, "file-exclude",
-                &fileExclude, "file-restrict", &fileRestrict, "in", &inFiles);
+        // dfmt off
+        getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+               "main", &mainName,
+                "main-fname", &mainFileName,
+                "out", &out_,
+                "compile-db", &compileDb,
+                "prefix", &prefix,
+                "strip-incl", &stripInclude,
+                "header", &header,
+                "header-file", &headerFile,
+                "gmock", &gmock,
+                "gen-pre-incl", &generatePreInclude,
+                "gen-post-incl", &genPostInclude,
+                "loc-as-comment", &locationAsComment,
+                "td-include", &testDoubleInclude,
+                "file-exclude", &fileExclude,
+                "file-restrict", &fileRestrict,
+                "in", &inFiles);
+        // dfmt on
 
         // ugly hack
         bool is_cflags;
@@ -380,8 +393,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
         bool decision = true;
 
-        // blocks during arg parsing so both restrict and exclude cannot be
-        // set at the same time.
+        // blocks during arg parsing so both restrict and exclude cannot be set
+        // at the same time.
         if (restrict.length > 0) {
             decision = canFind!((a) {
                 auto m = matchFirst(filename, a);
