@@ -61,18 +61,12 @@ struct ParsedArgs {
                 "in", &inFiles);
         // dfmt on
 
-        // ugly hack
-        bool is_cflags;
-        foreach (f; args) {
-            if (f == "--") {
-                is_cflags = true;
-                continue;
-            }
+        import std.algorithm : find;
+        import std.array : array;
+        import std.range : drop;
 
-            if (is_cflags) {
-                cflags ~= f;
-            }
-        }
+        // at this point args contain "what is left". What is interesting then is those after "--".
+        cflags = args.find("--").drop(1).array();
     }
 
     void printHelp() {
