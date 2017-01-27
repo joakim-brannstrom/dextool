@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
@@ -86,21 +85,21 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
 }
 
 // --- Stage 1 ---
-@Name(testId ~ "Should detect as func")
+@(testId ~ "Should detect as func")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/bug_func_attr.h", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should detect as func and not as param when parsed as C")
+@(testId ~ "Should detect as func and not as param when parsed as C")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/bug_typedef_func.h", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be correct declarations of arrays")
+@(testId ~ "Should be correct declarations of arrays")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/arrays.h", testEnv);
@@ -108,7 +107,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should ignore C++ code")
+@(testId ~ "Should ignore C++ code")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/class_func.hpp", testEnv);
@@ -117,7 +116,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be global constants with defines to allow initialization")
+@(testId ~ "Should be global constants with defines to allow initialization")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/const.h", testEnv);
@@ -125,7 +124,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be plain function pointers or implementations")
+@(testId ~ "Should be plain function pointers or implementations")
 unittest {
     //TODO split the test in two, "global func pointers"/"use typedef func prototype for declaration"
     mixin(EnvSetup(globalTestdir));
@@ -134,7 +133,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be implementations of C functions")
+@(testId ~ "Should be implementations of C functions")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/functions.h", testEnv);
@@ -142,7 +141,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should ignore the structs")
+@(testId ~ "Should ignore the structs")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/structs.h", testEnv);
@@ -150,7 +149,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(
+@(
         testId
         ~ "Should use the internal headers in the binary even if -nostdinc is one of the compile flags")
 unittest {
@@ -161,7 +160,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should ignore union declarations")
+@(testId ~ "Should ignore union declarations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/unions.h", testEnv);
@@ -169,14 +168,14 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be definitions of global variables for those that are extern")
+@(testId ~ "Should be definitions of global variables for those that are extern")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/variables.h", testEnv);
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be an array using a macro for size")
+@(testId ~ "Should be an array using a macro for size")
 unittest {
     //TODO Should use the original define (macro), not what it is replaced with
     mixin(EnvSetup(globalTestdir));
@@ -185,7 +184,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should extract enums to Container")
+@(testId ~ "Should extract enums to Container")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/enum.h", testEnv);
@@ -195,7 +194,7 @@ unittest {
 
 // --- Stage 2 ---
 
-@Name(testId ~ "Should not overwrite an existing X_pre_includes or X_post_includes.hpp")
+@(testId ~ "Should not overwrite an existing X_pre_includes or X_post_includes.hpp")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/no_overwrite.h", testEnv);
@@ -214,7 +213,7 @@ unittest {
 
 // BEGIN Compilation Database Tests ##########################################
 
-@Name(testId ~ "Should load compiler settings from compilation database")
+@(testId ~ "Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("compile_db/single_file_main.c", testEnv);
@@ -230,7 +229,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should fail with an error message when file not found in the compilation database")
+@(testId ~ "Should fail with an error message when file not found in the compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("compile_db/file_not_found.c", testEnv);
@@ -249,7 +248,7 @@ unittest {
     stdoutContains(p.root ~ Path("compile_db/file_not_found_msg.txt")).shouldBeTrue;
 }
 
-@Name(testId ~ "Should load compiler settings from the second compilation database")
+@(testId ~ "Should load compiler settings from the second compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
     TestParams p;
@@ -265,7 +264,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should use the exact supplied --in=... as key when looking in compile db")
+@(testId ~ "Should use the exact supplied --in=... as key when looking in compile db")
 unittest {
     mixin(EnvSetup(globalTestdir));
     TestParams p;
@@ -284,7 +283,7 @@ unittest {
 
 // BEGIN CLI Tests ###########################################################
 
-@Name(testId ~ "Should exclude many files from the generated test double")
+@(testId ~ "Should exclude many files from the generated test double")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_exclude_many_files.h", testEnv);
@@ -297,7 +296,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should exclude both main input file and all symbols from b*")
+@(testId ~ "Should exclude both main input file and all symbols from b*")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_exclude_match_all.h", testEnv);
@@ -310,7 +309,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should exclude this file from generation.")
+@(testId ~ "Should exclude this file from generation.")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_exclude_one_file.h", testEnv);
@@ -322,7 +321,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should generate pre and post includes")
+@(testId ~ "Should generate pre and post includes")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_gen_pre_post_include.h", testEnv);
@@ -343,7 +342,7 @@ unittest {
     // dfmt on
 }
 
-@Name(testId ~ "Should be all from this and b with the extra include stdio.h")
+@(testId ~ "Should be all from this and b with the extra include stdio.h")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_include.h", testEnv);
@@ -355,7 +354,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should only be signatures from this file and b.h in the generated stub")
+@(testId ~ "Should only be signatures from this file and b.h in the generated stub")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_restrict.h", testEnv);
@@ -368,7 +367,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(
+@(
         testId
         ~ "Should be a google mock of the interface used as callback from the C function implementations")
 unittest {
@@ -380,7 +379,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Interface and adapter should be affected by parameter --main=X")
+@(testId ~ "Interface and adapter should be affected by parameter --main=X")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/param_main.h", testEnv);
@@ -391,7 +390,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should process many files")
+@(testId ~ "Should process many files")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("compile_db/param_many_in.h", testEnv);
@@ -405,7 +404,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be location comments for globals and functions")
+@(testId ~ "Should be location comments for globals and functions")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_loc_as_comment.h", testEnv);
@@ -414,7 +413,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@Name(testId ~ "Should be a custom header via CLI as string")
+@(testId ~ "Should be a custom header via CLI as string")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
@@ -424,7 +423,7 @@ unittest {
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
 }
 
-@Name(testId ~ "Should be a custom header via CLI as filename")
+@(testId ~ "Should be a custom header via CLI as filename")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
@@ -441,7 +440,7 @@ unittest {
 
 // This test could be anywhere. It just happens to be placed in the suite of C
 // tests.
-@Name(testId ~ "Should exit with a help message that no matching category was found")
+@(testId ~ "Should exit with a help message that no matching category was found")
 @Values(["invalid_category"], [""])
 @Values([""], ["--debug"])
 unittest {
