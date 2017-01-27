@@ -19,6 +19,7 @@ struct TestData {
     bool builtin;
     string suffix; // append to end of getPath
     string[] tags;
+    TypeInfo exceptionTypeInfo; // for ShouldFailWith
 
     string getPath() const pure nothrow {
         string path = name.dup;
@@ -38,17 +39,20 @@ struct TestData {
  * Template parameters are module strings
  */
 const(TestData)[] allTestData(MOD_STRINGS...)() if(allSatisfy!(isSomeString, typeof(MOD_STRINGS))) {
+    import std.array: join;
+    import std.range : iota;
+    import std.format : format;
+    import std.algorithm : map;
 
     string getModulesString() {
-        import std.array: join;
         string[] modules;
-        foreach(module_; MOD_STRINGS) modules ~= module_;
+        foreach(i, module_; MOD_STRINGS) modules ~= "module%d = %s".format(i, module_);
         return modules.join(", ");
     }
 
     enum modulesString =  getModulesString;
     mixin("import " ~ modulesString ~ ";");
-    mixin("return allTestData!(" ~ modulesString ~ ");");
+    mixin("return allTestData!(" ~ 0.iota(MOD_STRINGS.length).map!(i => "module%d".format(i)).join(", ") ~ ");");
 }
 
 
@@ -138,69 +142,78 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
     TestData[] testData;
 
     void addMemberUnittests(alias composite)() pure nothrow {
-        foreach(index, eltesto; __traits(getUnitTests, composite)) {
-            enum name = unittestName!(eltesto, index);
-            enum hidden = hasUDA!(eltesto, HiddenTest);
-            enum shouldFail = hasUDA!(eltesto, ShouldFail);
-            enum singleThreaded = hasUDA!(eltesto, Serial);
-            enum builtin = true;
-            enum suffix = "";
 
-            // let's check for @Values UDAs, which are actually of type ValuesImpl
-            enum isValues(alias T) = is(typeof(T)) && is(typeof(T):ValuesImpl!U, U);
-            alias valuesUDAs = Filter!(isValues, __traits(getAttributes, eltesto));
+        foreach(index, eLtEstO; __traits(getUnitTests, composite)) {
 
-            enum isTags(alias T) = is(typeof(T)) && is(typeof(T) == Tags);
-            enum tags = tagsFromAttrs!(Filter!(isTags, __traits(getAttributes, eltesto)));
+            enum dontTest = hasUDA!(eLtEstO, DontTest);
 
-            static if(valuesUDAs.length == 0) {
-                testData ~= TestData(name,
-                                     () {
-                                         auto setup = getUDAFunction!(composite, Setup);
-                                         auto shutdown = getUDAFunction!(composite, Shutdown);
+            static if(!dontTest) {
 
-                                         if(setup) setup();
-                                         scope(exit) if(shutdown) shutdown();
+                enum name = unittestName!(eLtEstO, index);
+                enum hidden = hasUDA!(eLtEstO, HiddenTest);
+                enum shouldFail = hasUDA!(eLtEstO, ShouldFail) || hasUtUDA!(eLtEstO, ShouldFailWith);
+                enum singleThreaded = hasUDA!(eLtEstO, Serial);
+                enum builtin = true;
+                enum suffix = "";
 
-                                         eltesto();
-                                     },
-                                     hidden,
-                                     shouldFail,
-                                     singleThreaded,
-                                     builtin,
-                                     suffix,
-                                     tags);
-            } else {
-                import std.range;
+                // let's check for @Values UDAs, which are actually of type ValuesImpl
+                enum isValues(alias T) = is(typeof(T)) && is(typeof(T):ValuesImpl!U, U);
+                alias valuesUDAs = Filter!(isValues, __traits(getAttributes, eLtEstO));
 
-                // cartesianProduct doesn't work with only one range, so in the usual case
-                // of only one @Values UDA, we bind to prod with a range of tuples, just
-                // as returned by cartesianProduct.
+                enum isTags(alias T) = is(typeof(T)) && is(typeof(T) == Tags);
+                enum tags = tagsFromAttrs!(Filter!(isTags, __traits(getAttributes, eLtEstO)));
+                enum exceptionTypeInfo = getExceptionTypeInfo!eLtEstO;
 
-                static if(valuesUDAs.length == 1) {
-                    import std.typecons;
-                    enum prod = valuesUDAs[0].values.map!(a => tuple(a));
-                } else {
-                    mixin(`enum prod = cartesianProduct(` ~ valuesUDAs.length.iota.map!
-                          (a => `valuesUDAs[` ~ guaranteedToString(a) ~ `].values`).join(", ") ~ `);`);
-                }
-
-                foreach(comb; aliasSeqOf!prod) {
-                    enum valuesName = valuesName(comb);
-
-                    static if(hasUDA!(eltesto, AutoTags))
-                        enum realTags = tags ~ valuesName.split(".").array;
-                    else
-                        enum realTags = tags;
-
-                    testData ~= TestData(name ~ "." ~ valuesName,
+                static if(valuesUDAs.length == 0) {
+                    testData ~= TestData(name,
                                          () {
-                                             foreach(i; aliasSeqOf!(comb.length.iota))
-                                                 ValueHolder!(typeof(comb[i])).values[i] = comb[i];
-                                             eltesto();
-                                         },
-                                         hidden, shouldFail, singleThreaded, builtin, suffix, realTags);
+                                             auto setup = getUDAFunction!(composite, Setup);
+                                             auto shutdown = getUDAFunction!(composite, Shutdown);
 
+                                             if(setup) setup();
+                                             scope(exit) if(shutdown) shutdown();
+
+                                             eLtEstO();
+                                         },
+                                         hidden,
+                                         shouldFail,
+                                         singleThreaded,
+                                         builtin,
+                                         suffix,
+                                         tags,
+                                         exceptionTypeInfo);
+                } else {
+                    import std.range;
+
+                    // cartesianProduct doesn't work with only one range, so in the usual case
+                    // of only one @Values UDA, we bind to prod with a range of tuples, just
+                    // as returned by cartesianProduct.
+
+                    static if(valuesUDAs.length == 1) {
+                        import std.typecons;
+                        enum prod = valuesUDAs[0].values.map!(a => tuple(a));
+                    } else {
+                        mixin(`enum prod = cartesianProduct(` ~ valuesUDAs.length.iota.map!
+                              (a => `valuesUDAs[` ~ guaranteedToString(a) ~ `].values`).join(", ") ~ `);`);
+                    }
+
+                    foreach(comb; aliasSeqOf!prod) {
+                        enum valuesName = valuesName(comb);
+
+                        static if(hasUDA!(eLtEstO, AutoTags))
+                            enum realTags = tags ~ valuesName.split(".").array;
+                        else
+                            enum realTags = tags;
+
+                        testData ~= TestData(name ~ "." ~ valuesName,
+                                             () {
+                                                 foreach(i; aliasSeqOf!(comb.length.iota))
+                                                     ValueHolder!(typeof(comb[i])).values[i] = comb[i];
+                                                 eLtEstO();
+                                             },
+                                             hidden, shouldFail, singleThreaded, builtin, suffix, realTags, exceptionTypeInfo);
+
+                    }
                 }
             }
         }
@@ -243,6 +256,17 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
     addUnitTestsRecursively!module_();
     return testData;
 }
+
+private TypeInfo getExceptionTypeInfo(alias Test)() {
+    import unit_threaded.should: UnitTestException;
+
+    static if(hasUtUDA!(Test, ShouldFailWith)) {
+        alias uda = getUtUDAs!(Test, ShouldFailWith)[0];
+        return typeid(uda.Type);
+    } else
+        return null;
+}
+
 
 private string valuesName(T)(T tuple) {
     import std.algorithm;
@@ -582,18 +606,23 @@ private TestData[] moduleTestData(alias module_, alias pred, alias createTestDat
 // TestData for a member of a module (either a test function or test class)
 private TestData memberTestData(alias module_, string moduleMember, string[] extraTags = [])
     (TestFunction testFunction = null, string suffix = "") {
+
+    mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
+
     immutable singleThreaded = HasAttribute!(module_, moduleMember, Serial);
     enum builtin = false;
     enum tags = tagsFromAttrs!(GetAttributes!(module_, moduleMember, Tags));
+    enum exceptionTypeInfo = getExceptionTypeInfo!(mixin(moduleMember));
 
     return TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
                     testFunction,
                     HasAttribute!(module_, moduleMember, HiddenTest),
-                    HasAttribute!(module_, moduleMember, ShouldFail),
+                    HasAttribute!(module_, moduleMember, ShouldFail) || hasUtUDA!(mixin(moduleMember), ShouldFailWith),
                     singleThreaded,
                     builtin,
                     suffix,
-                    tags ~ extraTags);
+                    tags ~ extraTags,
+                    exceptionTypeInfo);
 }
 
 string[] tagsFromAttrs(T...)() {
@@ -648,12 +677,15 @@ version(unittest) {
         import std.conv;
 
         test.silence;
-        assert(test() != [], file ~ ":" ~ line.to!string ~ " Expected test case " ~ test.getPath ~
-                   " to fail with AssertError but it didn't");
+        assert(test() != [],
+               file ~ ":" ~ line.to!string ~ " Expected test case " ~ test.getPath ~
+               " to fail but it didn't");
     }
 
     private void assertPass(TestCase test, string file = __FILE__, size_t line = __LINE__) {
-        assertEqual(test(), [], file, line);
+        import unit_threaded.should: fail;
+        if(test() != [])
+            fail("'" ~ test.getPath ~ "' was expected to pass but failed", file, line);
     }
 }
 
@@ -899,4 +931,61 @@ unittest {
         .array
         .createTestCases[0];
     assertFail(inStructTest);
+}
+
+@("@DontTest should work for unittest blocks") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.asserts;
+    import unit_threaded.tests.module_with_tests;
+    import std.algorithm: canFind;
+    import std.array: array;
+
+    const testData = allTestData!"unit_threaded.tests.module_with_attrs";
+    assertEqual(testData.canFind!(a => a.getPath.canFind("DontTestBlock" )), false);
+}
+
+@("@ShouldFail") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.asserts;
+    import unit_threaded.tests.module_with_tests;
+    import std.algorithm: find, canFind;
+    import std.array: array;
+
+    const testData = allTestData!"unit_threaded.tests.module_with_attrs";
+
+    auto willFail = testData
+        .filter!(a => a.getPath.canFind("will fail"))
+        .array
+        .createTestCases[0];
+    assertPass(willFail);
+}
+
+
+@("@ShouldFailWith") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.asserts;
+    import unit_threaded.tests.module_with_attrs;
+    import unit_threaded.should: shouldThrowExactly, UnitTestException;
+    import std.algorithm: find, canFind;
+    import std.array: array;
+
+    const testData = allTestData!"unit_threaded.tests.module_with_attrs";
+
+    auto doesntFail = testData
+        .filter!(a => a.getPath.canFind("ShouldFailWith that fails due to not failing"))
+        .array
+        .createTestCases[0];
+    assertFail(doesntFail);
+
+    auto wrongType = testData
+        .find!(a => a.getPath.canFind("ShouldFailWith that fails due to wrong type"))
+        .array
+        .createTestCases[0];
+    assertFail(wrongType);
+
+   auto passes = testData
+        .find!(a => a.getPath.canFind("ShouldFailWith that passes"))
+        .array
+        .createTestCases[0];
+    assertPass(passes);
 }
