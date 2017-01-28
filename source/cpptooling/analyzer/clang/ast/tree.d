@@ -116,7 +116,7 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
  *
  * Note that the mixins shall be ordered alphabetically.
  */
-void dispatch(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
+void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
     import cpptooling.analyzer.clang.ast.nodes;
     import std.conv : to;
 

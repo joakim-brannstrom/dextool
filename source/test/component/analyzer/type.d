@@ -143,6 +143,56 @@ final class TestDeclVisitor : Visitor {
     }
 }
 
+final class TestFunctionBodyVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    FunctionDeclResult[] funcs;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+    override void visit(const(Expression) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(DeclRefExpr) v) {
+        mixin(mixinNodeLog!());
+        import clang.Cursor : Cursor;
+
+        Cursor ref_ = v.cursor.referenced;
+
+        logNode(ref_, indent);
+
+        import cpptooling.analyzer.clang.ast.tree : dispatch;
+
+        dispatch!Visitor(ref_, this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        funcs ~= analyzeFunctionDecl(v, container, indent);
+        v.accept(this);
+    }
+}
+
 version (linux) {
     @("Should be a type of kind 'func'")
     unittest {
@@ -466,4 +516,35 @@ unittest {
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     // didn't crash
+}
+
+@("Should be a builtin with a function name")
+unittest {
+    immutable code = "
+void f() {
+    __builtin_huge_valf();
+}
+
+class A {
+    void my_builtin() {
+        __builtin_huge_valf();
+    }
+};
+";
+
+    // arrange
+    auto visitor = new TestFunctionBodyVisitor;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.funcs.length.shouldEqual(3);
+    visitor.funcs[1].name.shouldEqual("__builtin_huge_valf");
+    visitor.funcs[2].name.shouldEqual("__builtin_huge_valf");
 }
