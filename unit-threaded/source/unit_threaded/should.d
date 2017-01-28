@@ -12,8 +12,6 @@ import std.algorithm;
 import std.traits;
 import std.range;
 
-public import unit_threaded.attrs;
-
 
 /**
  * An exception to signal that a test case has failed.
@@ -130,7 +128,6 @@ void shouldEqual(V, E)(V value, E expected, in string file = __FILE__, in size_t
 @safe unittest {
     //impure comparisons
     shouldEqual(1.0, 1.0) ;
-    shouldEqual(3.0, 3.00001); //approximately equal
 }
 
 /**
@@ -364,11 +361,19 @@ if (!isAssociativeArray!U && isInputRange!U)
  * Throws: UnitTestException on failure (when expr does not
  * throw the expected exception)
  */
-void shouldThrow(T : Throwable = Exception, E)(lazy E expr,
-    in string file = __FILE__, in size_t line = __LINE__)
+void shouldThrow(T : Throwable = Exception, E)
+                (lazy E expr, in string file = __FILE__, in size_t line = __LINE__)
 {
-    if (!threw!T(expr))
-        fail("Expression did not throw", file, line);
+    import std.conv: text;
+    import std.stdio;
+
+    () @trusted { // @trusted because of catching Throwable
+        try {
+            if (!threw!T(expr))
+                fail("Expression did not throw", file, line);
+        } catch(Throwable t)
+            fail(text("Expression threw ", typeid(t), " instead of the expected ", T.stringof), file, line);
+    }();
 }
 
 /**
@@ -397,7 +402,7 @@ void shouldThrowExactly(T : Throwable = Exception, E)(lazy E expr,
  * Verify that expr does not throw the templated Exception class.
  * Throws: UnitTestException on failure
  */
-void shouldNotThrow(T : Throwable = Exception, E)(lazy E expr,
+void shouldNotThrow(T: Throwable = Exception, E)(lazy E expr,
     in string file = __FILE__, in size_t line = __LINE__)
 {
     if (threw!T(expr))
@@ -444,6 +449,7 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
         }
     }
 
+    import std.stdio;
     try
     {
         expr();
@@ -516,6 +522,21 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     throwRangeError.shouldThrow!RangeError;
 }
 
+@safe pure unittest {
+    import std.stdio;
+
+    import core.exception: OutOfMemoryError;
+
+    class CustomException : Exception {
+        this(string msg = "", in string file = __FILE__, in size_t line = __LINE__) { super(msg, file, line); }
+    }
+
+    void func() { throw new CustomException("oh noes"); }
+
+    func.shouldThrow!CustomException;
+    assertFail(func.shouldThrow!OutOfMemoryError);
+}
+
 
 void fail(in string output, in string file, in size_t line) @safe pure
 {
@@ -525,7 +546,9 @@ void fail(in string output, in string file, in size_t line) @safe pure
 
 private string[] formatValue(T)(in string prefix, T value) {
     static if(isSomeString!T) {
-        return [ prefix ~ `"` ~ value ~ `"`];
+        // isSomeString is true for wstring and dstring,
+        // so call .to!string anyway
+        return [ prefix ~ `"` ~ value.to!string ~ `"`];
     } else static if(isInputRange!T) {
         return formatRange(prefix, value);
     } else {
@@ -566,9 +589,43 @@ private bool isEqual(V, E)(in V value, in E expected)
 private bool isEqual(V, E)(in V value, in E expected)
  if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
 {
+    return value == expected;
+}
+
+@safe pure unittest {
+    assert(isEqual(1.0, 1.0));
+    assert(!isEqual(1.0, 1.0001));
+}
+
+private bool isApproxEqual(V, E)(in V value, in E expected)
+ if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
+{
     import std.math;
     return approxEqual(value, expected);
 }
+
+@safe unittest {
+    assert(isApproxEqual(1.0, 1.0));
+    assert(isApproxEqual(1.0, 1.0001));
+}
+
+void shouldApproxEqual(V, E)(in V value, in E expected, string file = __FILE__, size_t line = __LINE__)
+ if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
+{
+    if (!isApproxEqual(value, expected))
+    {
+        const msg =
+            formatValue("Expected approx: ", expected) ~
+            formatValue("     Got       : ", value);
+        throw new UnitTestException(msg, file, line);
+    }
+}
+
+///
+@safe unittest {
+    1.0.shouldApproxEqual(1.0001);
+}
+
 
 private bool isEqual(V, E)(V value, E expected)
 if (!isObject!V && isInputRange!V && isInputRange!E && is(typeof(value.front == expected.front) == bool))
@@ -855,4 +912,9 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
 
     inOrder.shouldNotBeSameSetAs(oops);
     inOrder.shouldNotBeSameSetAs(noOrder).shouldThrow!UnitTestException;
+}
+
+
+@safe pure unittest {
+    "foo"w.shouldEqual("foo");
 }
