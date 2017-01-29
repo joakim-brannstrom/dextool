@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -143,8 +143,58 @@ final class TestDeclVisitor : Visitor {
     }
 }
 
+final class TestFunctionBodyVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    FunctionDeclResult[] funcs;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+    override void visit(const(Expression) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(DeclRefExpr) v) {
+        mixin(mixinNodeLog!());
+        import clang.Cursor : Cursor;
+
+        Cursor ref_ = v.cursor.referenced;
+
+        logNode(ref_, indent);
+
+        import cpptooling.analyzer.clang.ast.tree : dispatch;
+
+        dispatch!Visitor(ref_, this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        funcs ~= analyzeFunctionDecl(v, container, indent);
+        v.accept(this);
+    }
+}
+
 version (linux) {
-    @Name("Should be a type of kind 'func'")
+    @("Should be a type of kind 'func'")
     unittest {
         enum code = `
         #include <clocale>
@@ -174,7 +224,7 @@ version (linux) {
     }
 }
 
-@Name("Should be parameters and return type that are of primitive type")
+@("Should be parameters and return type that are of primitive type")
 // dfmt off
 @Values("int",
         "signed int",
@@ -238,7 +288,7 @@ unittest {
     visitor.funcs[0].returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
 }
 
-@Name("Should be the USR of the function declaration not the typedef signature")
+@("Should be the USR of the function declaration not the typedef signature")
 unittest {
     import cpptooling.data.type : LocationTag;
 
@@ -274,7 +324,7 @@ extern gun_type gun_func;
     loc.line.shouldEqual(5);
 }
 
-@Name("Should be two pointers with the same type signature but different USRs")
+@("Should be two pointers with the same type signature but different USRs")
 unittest {
     enum code = "
 int* p0;
@@ -296,7 +346,7 @@ int* p1;
     visitor.vars[0].type.kind.usr.shouldNotEqual(visitor.vars[1].type.kind.usr);
 }
 
-@Name("Should be a ptr-ptr at a typedef")
+@("Should be a ptr-ptr at a typedef")
 unittest {
     enum code = `
 typedef double MadeUp;
@@ -350,7 +400,7 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
     }
 }
 
-@Name("Should be the same USR for the declaration and definition of a function")
+@("Should be the same USR for the declaration and definition of a function")
 unittest {
     enum code = `
 void fun();
@@ -378,7 +428,7 @@ void gun() {}
     visitor.container.find!TypeKind(USRType("c:@F@gun")).length.shouldEqual(1);
 }
 
-@Name("Should be a unique USR for the ptr with a ref to the typedef (my_int)")
+@("Should be a unique USR for the ptr with a ref to the typedef (my_int)")
 unittest {
     enum code = `
 typedef int my_int;
@@ -466,4 +516,35 @@ unittest {
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     // didn't crash
+}
+
+@("Should be a builtin with a function name")
+unittest {
+    immutable code = "
+void f() {
+    __builtin_huge_valf();
+}
+
+class A {
+    void my_builtin() {
+        __builtin_huge_valf();
+    }
+};
+";
+
+    // arrange
+    auto visitor = new TestFunctionBodyVisitor;
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.funcs.length.shouldEqual(3);
+    visitor.funcs[1].name.shouldEqual("__builtin_huge_valf");
+    visitor.funcs[2].name.shouldEqual("__builtin_huge_valf");
 }
