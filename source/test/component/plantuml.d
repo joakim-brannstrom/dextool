@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -133,7 +133,7 @@ struct Key {
     enum comp = "Y29tcA";
 }
 
-@Name("Should be a component dependency from comp->comp_a via a c'tors parameter")
+@("Should be a component dependency from comp->comp_a via a c'tors parameter")
 @Values("", "*", "&")
 unittest {
     // Testing that even though comp is processed first and have a forward
@@ -167,7 +167,7 @@ class A_ByCtor {
     result[0].to.shouldEqual(USRType(Key.comp_a));
 }
 
-@Name("Should be a component dependency from comp->comp_a via a methods parameter")
+@("Should be a component dependency from comp->comp_a via a methods parameter")
 @Values("", "*", "&")
 unittest {
     enum comp_method = "
@@ -197,7 +197,7 @@ class A_ByParam {
     result[0].to.shouldEqual(USRType(Key.comp_a));
 }
 
-@Name("Should be a component dependency from comp->comp_a via a functions parameter")
+@("Should be a component dependency from comp->comp_a via a functions parameter")
 @Values("", "*", "&")
 unittest {
     enum comp_func = "
@@ -226,7 +226,7 @@ void free_func(A%s a);
     result[0].to.shouldEqual(USRType(Key.comp_a));
 }
 
-@Name("Should be a component dependency from comp->comp_a via a class member")
+@("Should be a component dependency from comp->comp_a via a class member")
 @Values("", "*", "&")
 unittest {
     enum comp_func = "
@@ -258,7 +258,7 @@ class A_ByMember {
     result[0].to.shouldEqual(USRType(Key.comp_a));
 }
 
-@Name("Should be a component dependency from comp->comp_a via a free variable")
+@("Should be a component dependency from comp->comp_a via a free variable")
 @Values("instantiation", "pointer")
 unittest {
     enum comp_free_variable = "
