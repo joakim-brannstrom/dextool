@@ -254,7 +254,7 @@ int main(string[] args) {
 
     if (args.length < 3) {
         writeln("devtool <category> filename");
-        writeln("categories: tok, ast, dumpast, dumpbody");
+        writeln("categories: tok, dumpast, dumpbody");
         return 1;
     }
 
