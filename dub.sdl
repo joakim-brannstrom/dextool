@@ -1,5 +1,5 @@
 name "dextool"
-description "C/C++ tooling for testing and visualisation. Test doubles via static analyze. Class and component diagrams for PlantUML and GraphViz."
+description "C/C++ tooling for testing and visualisation"
 copyright "Copyright © 2014-2016, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
@@ -37,8 +37,6 @@ stringImportPaths "resources"
 lflags "--enable-new-dtags" "-rpath=." "$LFLAG_CLANG_PATH" platform="linux"
 lflags "$LFLAG_CLANG_PATH" "-rpath" "$LFLAG_CLANG_ABS_PATH" platform="osx" //--enable-new-dtags not existent on mac
 libs "$LFLAG_CLANG_LIB"
-
-dflags "-dip25"
 
 // configurations
 // first one is the primary built
