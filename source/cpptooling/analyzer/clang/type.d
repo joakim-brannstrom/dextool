@@ -24,6 +24,12 @@ A declaration is a subset of the information that makes it possible to use in mo
 The most telling example of an useful declaration is a function declaration, "void foo();".
 Useful most everywhere.
 But during linking it must be defined _somewhere_ or a linker error will ensue.
+
+# Future optimization
+ - Skip the primitive types by having them prepoulated in the Container.
+ - Minimize the amoung of data that is propagated by changing TypeResults to
+    ensure only unique USR's exist in it.
+ - Skip pass4+ if the USR already exist in the container.
 */
 module cpptooling.analyzer.clang.type;
 
