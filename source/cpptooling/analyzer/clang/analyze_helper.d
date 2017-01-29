@@ -15,9 +15,8 @@ module cpptooling.analyzer.clang.analyze_helper;
 
 import logger = std.experimental.logger;
 
+import std.traits : Unqual;
 import std.typecons : Nullable, tuple, Flag, Yes, No;
-
-import cpptooling.utility.unqual : Unqual;
 
 import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass;
 import clang.Cursor : Cursor;
