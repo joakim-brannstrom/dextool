@@ -696,10 +696,22 @@ int main(string[] args) {
 
     import std.getopt;
 
+    bool help;
     bool run_and_exit;
     bool ut_debug;
     bool ut_skip;
-    getopt(args, "run_and_exit", &run_and_exit, "ut_debug", &ut_debug, "ut_skip", &ut_skip);
+    getopt(args, "h|help", &help, "run_and_exit", &run_and_exit, "ut_debug", &ut_debug, "ut_skip", &ut_skip);
+
+    if (help) {
+        writeln("Usage: autobuild.sh [options]
+
+options:
+-h,--help           this help
+--run_and_exit      run the tests in one pass and exit
+--ut_debug          run tests in single threaded debug mode
+--ut_skip           skip unittests to go straight to the integration tests");
+        return 0;
+    }
 
     setup();
 
@@ -716,6 +728,7 @@ int main(string[] args) {
                               "test/cstub_tests.d",
                               "test/cpp_tests.d",
                               "test/plantuml_tests.d",
+                              "test/graphml_tests.d",
                               "test/external_main.d",
                               "test/utils.d"
         )

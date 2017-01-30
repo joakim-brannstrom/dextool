@@ -24,6 +24,12 @@ A declaration is a subset of the information that makes it possible to use in mo
 The most telling example of an useful declaration is a function declaration, "void foo();".
 Useful most everywhere.
 But during linking it must be defined _somewhere_ or a linker error will ensue.
+
+# Future optimization
+ - Skip the primitive types by having them prepoulated in the Container.
+ - Minimize the amoung of data that is propagated by changing TypeResults to
+    ensure only unique USR's exist in it.
+ - Skip pass4+ if the USR already exist in the container.
 */
 module cpptooling.analyzer.clang.type;
 
@@ -379,7 +385,7 @@ body {
         rval.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;
-        rval.type.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
+        rval.type.kind.info = TypeKind.RecordInfo(spell ~ " %s");
         rval.type.kind.usr = USRType(c.usr);
         rval.location = makeLocation(c);
         break;
@@ -416,20 +422,28 @@ in {
 body {
     Nullable!TypeResult rval;
 
+    if (c.spelling.length != 0) {
+        return rval;
+    }
+
     switch (c.kind) with (CXCursorKind) {
     case CXCursor_StructDecl:
         goto case;
     case CXCursor_UnionDecl:
-        goto case;
-    case CXCursor_EnumDecl:
-        if (c.spelling.length == 0) {
-            auto type = c.type;
-            rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
+        auto type = c.type;
+        rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
-            rval.type.kind.info = TypeKind.SimpleInfo(nextSequence ~ " %s");
-            rval.type.kind.usr = USRType(c.usr);
-            rval.location = makeLocation(c);
-        }
+        rval.type.kind.info = TypeKind.RecordInfo(nextSequence ~ " %s");
+        rval.type.kind.usr = USRType(c.usr);
+        rval.location = makeLocation(c);
+        break;
+    case CXCursor_EnumDecl:
+        auto type = c.type;
+        rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
+
+        rval.type.kind.info = TypeKind.SimpleInfo(nextSequence ~ " %s");
+        rval.type.kind.usr = USRType(c.usr);
+        rval.location = makeLocation(c);
         break;
     default:
     }
@@ -541,8 +555,11 @@ body {
         rval = passType(c, type, container, indent);
         break;
 
-    case CXCursor_TypeRef:
     case CXCursor_CXXBaseSpecifier:
+        rval = retrieveClassBaseSpecifier(c, container, indent);
+        break;
+
+    case CXCursor_TypeRef:
     case CXCursor_TemplateRef:
     case CXCursor_NamespaceRef:
     case CXCursor_MemberRef:
@@ -1850,9 +1867,61 @@ body {
 
     auto type = c.type;
     rval.primary.type = makeTypeKindAttr(type, c);
-    rval.primary.type.kind = makeSimple2(c.spelling);
+    rval.primary.type.kind.info = TypeKind.SimpleInfo(c.spelling ~ " %s");
     rval.primary.type.kind.usr = c.usr;
     rval.primary.location = makeLocation(c);
+
+    return rval;
+}
+
+private Nullable!TypeResults retrieveClassBaseSpecifier(ref const(Cursor) c,
+        ref const(Container) container, in uint this_indent)
+in {
+    logNode(c, this_indent);
+    assert(c.kind == CXCursorKind.CXCursor_CXXBaseSpecifier);
+}
+body {
+    import cpptooling.utility : trace;
+
+    auto indent = this_indent + 1;
+
+    // when the cursor references a definition. easy
+    bool tryReferenced(ref Nullable!TypeResults rval) {
+        trace("", this_indent);
+        auto c_ref = c.referenced;
+
+        if (c_ref.kind == CXCursorKind.CXCursor_NoDeclFound) {
+            return false;
+        }
+
+        rval = retrieveType(c_ref, container, indent);
+
+        return true;
+    }
+
+    // no definition exist. e.g in the cases of a template instantiation.
+    bool reconstructFromCursor(ref Nullable!TypeResults rval) {
+        trace("", this_indent);
+
+        rval = TypeResults();
+
+        auto type = c.type;
+        rval.primary.type = makeTypeKindAttr(type, c);
+
+        rval.primary.type.kind.info = TypeKind.SimpleInfo(c.spelling ~ " %s");
+        rval.primary.type.kind.usr = makeEnsuredUSR(c, indent);
+        rval.primary.location = makeLocation(c);
+
+        return true;
+    }
+
+    Nullable!TypeResults rval;
+
+    foreach (idx, f; [&tryReferenced, &reconstructFromCursor]) {
+        if (f(rval)) {
+            break;
+        }
+    }
 
     return rval;
 }

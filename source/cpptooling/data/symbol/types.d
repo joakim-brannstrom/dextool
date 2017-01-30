@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
 License: MPL-2

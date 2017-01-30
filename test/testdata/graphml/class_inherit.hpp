@@ -1,0 +1,1 @@
+../shared_input/cpp/class_inherit.hpp

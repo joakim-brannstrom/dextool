@@ -9,3 +9,4 @@ cpp_tests/
 plantuml_tests/
 
 dub.selections.json
+graphml_tests/

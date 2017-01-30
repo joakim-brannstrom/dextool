@@ -970,7 +970,7 @@ const:
     mixin mixinKind;
     mixin mixinUniqueId!size_t;
 
-    import std.variant : Algebraic, visit;
+    import std.variant : Algebraic;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     static import cpptooling.data.class_classification;

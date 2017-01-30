@@ -193,6 +193,15 @@ int dumpBody(string fname, string[] flags) {
 
             v.accept(this);
         }
+
+        override void visit(const(MemberRefExpr) v) {
+            mixin(mixinNodeLog!());
+
+            auto c_ref = v.cursor.referenced;
+            logger.trace("ref: ", c_ref.spelling, " kind:", c_ref.kind.to!string());
+
+            v.accept(this);
+        }
     }
 
     final class MainVisitor : Visitor {
@@ -254,7 +263,7 @@ int main(string[] args) {
 
     if (args.length < 3) {
         writeln("devtool <category> filename");
-        writeln("categories: tok, ast, dumpast, dumpbody");
+        writeln("categories: tok, dumpast, dumpbody");
         return 1;
     }
 
