@@ -415,13 +415,13 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
  */
 void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
     import cpptooling.data.representation : CppNamespace, CppNs;
+    import cpptooling.generator.adapter : makeSingleton, makeAdapter;
     import cpptooling.generator.func : makeFuncInterface;
-    import cpptooling.generator.adapter : makeSingleton;
 
-    alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(
-            MainInterface, ClassType);
+    const has_functions = !root.funcRange.empty;
+    const has_globals = !root.globalRange.empty;
 
-    if (root.funcRange.empty) {
+    if (!has_functions && !has_globals) {
         return;
     }
 
@@ -430,16 +430,25 @@ void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
     auto ns = CppNamespace.make(CppNs(params.getMainNs));
     ns.setKind(NamespaceType.TestDouble);
 
-    auto c_if = makeFuncInterface(root.funcRange, params.getMainInterface);
+    if (has_functions) {
+        auto c_if = makeFuncInterface(root.funcRange, params.getMainInterface);
+        ns.put(c_if);
 
-    ns.put(c_if);
-    if (ctrl.doGoogleMock) {
-        // could reuse.. don't.
-        auto mock = c_if;
-        mock.setKind(ClassType.Gmock);
-        ns.put(mock);
+        if (ctrl.doGoogleMock) {
+            // could reuse.. don't.
+            auto mock = c_if;
+            mock.setKind(ClassType.Gmock);
+            ns.put(mock);
+        }
     }
-    ns.put(makeTestDoubleAdapter(params.getMainInterface));
+    // dfmt off
+    ns.put(makeAdapter(params.getMainInterface)
+           .makeTestDouble(has_functions)
+           .makeInitGlobals(has_globals)
+           .finalize!ClassType()
+           );
+    // dfmt on
+
     root.put(ns);
 }
 

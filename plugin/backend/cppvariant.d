@@ -555,7 +555,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
 
         auto i_free_func = makeFuncInterface(input.funcRange, params.getMainInterface);
         td_ns.put(i_free_func);
-        td_ns.put(makeAdapter!(MainInterface, ClassType)(params.getMainInterface));
+        td_ns.put(makeAdapter(params.getMainInterface).makeTestDouble(true).finalize!ClassType);
 
         if (ctrl.doGoogleMock) {
             td_ns.put(makeGmock!ClassType(i_free_func));

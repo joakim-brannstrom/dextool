@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -13,36 +12,70 @@ import dsrcgen.cpp : CppModule;
 
 import application.types : MainNs, MainInterface;
 import cpptooling.analyzer.type;
-import cpptooling.data.representation : CppClass, CppNamespace;
+import cpptooling.data.representation : CppClass, CppNamespace, CppClassName, CppMethodName;
 import cpptooling.data.type : USRType;
 
 @safe:
 
+private struct BuildAdapter {
+    BuildAdapter makeTestDouble(bool value) {
+        this.hasTestDouble = value;
+        return this;
+    }
+
+    BuildAdapter makeInitGlobals(bool value) {
+        this.hasGlobalInitializer = value;
+        return this;
+    }
+
+    CppClass finalize(KindT)() {
+        import cpptooling.data.representation;
+
+        auto c = CppClass(className);
+        c.setKind(KindT.Adapter);
+
+        CxParam[] params;
+
+        if (hasTestDouble) {
+            auto attr = TypeAttr.init;
+            attr.isRef = Yes.isRef;
+            auto kind = TypeKind(TypeKind.PointerInfo(interfaceName ~ "%s %s", USRType(interfaceName ~ "&"), [attr]));
+
+            params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
+                                                                TypeAttr.init), CppVariable("inst")));
+        }
+
+        if (hasGlobalInitializer) {
+            auto kind = TypeKind(TypeKind.SimpleInfo(interfaceInitGlobal ~ " %s"));
+            params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
+                                                                TypeAttr.init), CppVariable("init_globals")));
+        }
+
+        c.put("Adapter connecting an interface with an implementation.");
+        c.put("The lifetime of the connection is the same as the instance of the adapter.");
+
+        c.put(CppCtor(makeUniqueUSR, classCtor, params, CppAccess(AccessType.Public)));
+        c.put(CppDtor(makeUniqueUSR, classDtor,
+                      CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Normal)));
+
+        return c;
+    }
+
+private:
+    CppClassName className;
+    CppClassName interfaceName;
+    CppClassName interfaceInitGlobal;
+    CppMethodName classCtor;
+    CppMethodName classDtor;
+    bool hasTestDouble;
+    bool hasGlobalInitializer;
+}
+
 /// Make a C++ adapter for an interface.
-CppClass makeAdapter(InterfaceT, KindT)(InterfaceT if_name) {
-    import cpptooling.data.representation;
-
-    string c_if = cast(string) if_name;
-    string c_name = "Adapter";
-
-    auto c = CppClass(CppClassName(c_name));
-    c.setKind(KindT.Adapter);
-
-    auto attr = TypeAttr.init;
-    attr.isRef = Yes.isRef;
-    auto kind = TypeKind(TypeKind.PointerInfo(c_if ~ "%s %s", USRType(c_if ~ "&"), [attr]));
-
-    auto param = makeCxParam(TypeKindVariable(TypeKindAttr(kind,
-            TypeAttr.init), CppVariable("inst")));
-
-    c.put("Adapter connecting an interface with an implementation.");
-    c.put("The lifetime of the connection is the same as the instance of the adapter.");
-
-    c.put(CppCtor(makeUniqueUSR, CppMethodName(c_name), [param], CppAccess(AccessType.Public)));
-    c.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ c_name),
-            CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Normal)));
-
-    return c;
+BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
+    return BuildAdapter(CppClassName("Adapter"), CppClassName(cast(string) interface_name),
+                        CppClassName(cast(string) interface_name ~ "_InitGlobals"),
+                        CppMethodName("Adapter"), CppMethodName("~Adapter"));
 }
 
 /// make an anonymous namespace containing a ptr to an instance of a test
