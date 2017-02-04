@@ -109,3 +109,67 @@ struct StubData {
 # Architecture
 
 The suffix Context is used for structs that visit the AST with clangs visitor.
+
+# Global initialization
+Problem:
+ - The user has raised the design problem that the tests become coupled when
+   the globals aren't initialized before the test start.
+
+Questions:
+ 1. How should an interface be designed to "notify" the user during compile
+    time that a new global variable have been found that need to be
+    initialized.
+ 2. How should the design ensure "correct by construction"?
+ 3. What information needs to be exposed in the interface?
+    What can be hidden?
+
+1.
+Make a C++ interface that is used to initialize the global variables.
+Make each global a pure method.
+    It forces the user to update the class implementing the interface when a
+    new global has been added.
+
+2.
+The adapter for the test double takes as reference a class that implement the
+interface.
+It forces the user to implement "initializers" of the globals.
+Make a conscious decision.
+The adapter then calls the functions in its constructor.
+It sends "events" to the global initializer.
+
+3.
+Make the interface just a plain, void methods. No arguments.
+It simplifies the implementation of the C++ interface.
+Less boiler plate.
+Makes it easier to implement because there are cases, especially C++, where it
+is "hard" to know how to pass the object.
+Leave as much as possible to the implementor.
+
+A side effect of the design is that it is easy for the user to "ignore"
+initializing globals if so is desired.
+
+4. (EXTRA)
+The global initializer from the user is NOT passed by reference.
+It is to make it possible for the user to call the adapter without first having
+to create an instance in the scope;
+
+## Example
+// software under test
+extern int a;
+
+// test double code
+namespace TestDouble {
+class I_InitGlobals {
+public:
+    virtual void a() = 0;
+};
+
+class Adapter {
+public:
+    Adapter(I_InitGlobals init_globals) {
+        init_globals.a();
+    }
+};
+} //NS: TestDouble
+
+
