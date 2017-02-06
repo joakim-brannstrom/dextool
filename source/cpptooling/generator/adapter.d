@@ -100,7 +100,6 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
 
 /** Generate an adapter implementation.
  *
- * Expecting c to only have a c'tor and d'tor.
  * The global is expected to be named test_double_inst.
  */
 void generateImpl(CppClass c, CppModule impl) {
@@ -108,7 +107,7 @@ void generateImpl(CppClass c, CppModule impl) {
     import cpptooling.data.representation;
     import dsrcgen.c : E;
 
-    // C'tor is expected to have one parameter.
+    // C'tor is expected to have one or two parameter.
     static void genCtor(const ref CppClass c, const ref CppCtor m, CppModule impl) {
         import dsrcgen.cpp;
         import cpptooling.data.representation;
