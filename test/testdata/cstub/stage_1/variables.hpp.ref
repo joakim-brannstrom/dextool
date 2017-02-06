@@ -4,4 +4,40 @@ extern "C" {
 #include "variables.h"
 }
 
+namespace TestDouble {
+///
+class I_InitGlobals {
+public:
+    virtual ~I_InitGlobals() {}
+
+    virtual void expect_b() = 0;
+    virtual void expect_d() = 0;
+    virtual void expect_e() = 0;
+    virtual void expect_g() = 0;
+    virtual void expect_my_int() = 0;
+};
+
+///
+class ZeroGlobals : public I_InitGlobals {
+public:
+    ZeroGlobals();
+    virtual ~ZeroGlobals();
+
+    virtual void expect_b();
+    virtual void expect_d();
+    virtual void expect_e();
+    virtual void expect_g();
+    virtual void expect_my_int();
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_InitGlobals& init_globals);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
 #endif // test_double_hpp
