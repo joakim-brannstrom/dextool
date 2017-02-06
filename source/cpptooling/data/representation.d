@@ -1521,6 +1521,22 @@ struct CppRoot {
 
 @safe:
 
+    /** Merge the roots.
+     *
+     * Implemented to be cheap but we aware that after this operation the two
+     * root's will point to the same elements.  A mutation in one of them will
+     * affect both.
+     */
+    void merge(ref CppRoot root) {
+        import std.meta : AliasSeq;
+
+        foreach (kind; AliasSeq!("namespaceRange", "classRange", "funcRange", "globalRange")) {
+            foreach (item; __traits(getMember, root, kind)) {
+                put(item);
+            }
+        }
+    }
+
     /// Put item in storage.
     void put(CFunction f) {
         () @trusted{ funcs.insert(f); }();
