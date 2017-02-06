@@ -30,6 +30,7 @@ int main(string[] args) {
                           "cpptooling.generator.adapter",
                           "cpptooling.generator.classes",
                           "cpptooling.generator.func",
+                          "cpptooling.generator.global",
                           "cpptooling.generator.gmock",
                           "cpptooling.generator.includes",
                           "cpptooling.generator.utility",
