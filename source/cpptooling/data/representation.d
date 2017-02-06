@@ -188,13 +188,11 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 private template mixinKind() {
     private int kind_;
 
-@safe:
-
-    void setKind(int kind) {
+    void setKind(int kind) @safe {
         this.kind_ = kind;
     }
 
-    auto kind() const {
+    auto kind() const @safe {
         return kind_;
     }
 }
