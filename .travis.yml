@@ -2,7 +2,7 @@ language: d
 d:
     - dmd-2.071.2
     - dmd
-    - ldc-1.1.0-beta6
+    - ldc-1.1.0
 
 os:
     - linux

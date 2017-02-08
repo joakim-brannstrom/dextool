@@ -35,6 +35,7 @@ struct TestParams {
     string[] compileIncls;
 
     Path mainf;
+    Path binary;
 }
 
 TestParams genTestParams(string f, const ref TestEnv testEnv) {
@@ -56,6 +57,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.compileIncls = ["-I" ~ p.input_ext.dirName.toString];
 
     p.mainf = p.root ~ Path("main1.cpp");
+    p.binary = p.root ~ testEnv.outdir ~ "binary";
 
     return p;
 }
@@ -80,7 +82,8 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
 
     if (!p.skipCompile) {
         dextoolYap("Compiling");
-        compileResult(p.out_impl, p.mainf, testEnv, p.compileFlags, p.compileIncls);
+        compileResult(p.out_impl, p.binary, p.mainf, testEnv, p.compileFlags, p.compileIncls);
+        runAndLog(p.binary).status.shouldEqual(0);
     }
 }
 
@@ -448,12 +451,10 @@ unittest {
     auto p = genTestParams("", testEnv);
     p.dexParams = getValue!(string[], 0) ~ getValue!(string[], 1);
 
-    p.skipCompare = Yes.skipCompare;
-    p.skipCompile = Yes.skipCompile;
-
     bool exit_status_is_failed;
     try {
-        runTestFile(p, testEnv);
+        dextoolYap("Input:%s", p.input_ext.toRawString);
+        runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
     }
     catch (ErrorLevelException) {
         // do nothing, expecting error status of dextool to be != 0

@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -50,18 +50,22 @@ string escapePath(in Path p) {
     return p.toRawString.dup.escapeShellArg;
 }
 
-void runAndLog(string args) {
-    import std.algorithm : max;
+auto runAndLog(T)(T args_) {
+    import std.traits : Unqual;
+
+    static if(is(Unqual!T == Path)) {
+        string args = args_.escapePath;
+    } else static if (is(Unqual!T == Args)) {
+        string args = args_.data;
+    } else {
+        string args = args_;
+    }
 
     auto status = tryRunCollect(args);
 
     yap("Exit status: ", status.status);
     yap(status.output);
-    if (status.status != 0) {
-        auto l = min(100, status.output.length);
-
-        throw new ErrorLevelException(status.status, status.output[0 .. l].dup);
-    }
+    return status;
 }
 
 struct TestEnv {
@@ -343,6 +347,7 @@ bool stdoutContains(in Path gold) {
  */
 auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     import std.traits : isArray;
+    import std.algorithm : min;
 
     Args args;
     args ~= testEnv.dextool;
@@ -368,10 +373,16 @@ auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, 
 
     StopWatch sw;
     sw.start;
-    runAndLog(args.data);
+    auto output = runAndLog(args.data);
     sw.stop;
+    yap("Dextool execution time was ms: " ~ sw.peek().msecs.text);
 
-    yap("Dextool execution time in ms: " ~ sw.peek().msecs.text);
+    if (output.status != 0) {
+        auto l = min(100, output.output.length);
+
+        throw new ErrorLevelException(output.status, output.output[0 .. l].dup);
+    }
+
     return sw.peek.msecs;
 }
 
@@ -385,22 +396,19 @@ void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipCom
     }
 }
 
-void compileResult(in Path input, in Path main, const ref TestEnv testEnv,
-        in string[] flags, in string[] incls) {
-    auto binout = testEnv.outdir ~ "binary";
-
+void compileResult(const Path input, const Path binary, const Path main, const ref TestEnv testEnv,
+        const string[] flags, const string[] incls) {
     Args args;
     args ~= "g++";
     args ~= flags.dup;
     args ~= "-g";
-    args ~= "-o" ~ binout.escapePath;
+    args ~= "-o" ~ binary.escapePath;
     args ~= "-I" ~ testEnv.outdir.escapePath;
     args ~= incls.dup;
     args ~= input;
     args ~= main;
 
     runAndLog(args.data);
-    runAndLog(binout.escapePath);
 }
 
 void demangleProfileLog(in Path out_fname) {
