@@ -6,11 +6,9 @@ license "MPL-2"
 
 systemDependencies "libclang.so.1 3.6+"
 
-// v0.6.1-b.5 with local string length fix
-dependency "dextool:docopt" version="*"
-dependency "dextool:dsrcgen" version="*"
-dependency "dextool:libclang" version="*"
-dependency "dextool:clang" version="*"
+// internal packages
+dependency "dextool:cpptooling" version="*"
+dependency "dextool:plugins" version="*"
 
 subPackage "./docopt/"
 subPackage "./dsrcgen/"
@@ -27,10 +25,33 @@ subPackage {
     excludedSourceFiles "unit-threaded/source/unit_threaded/tests/*"
 }
 
+subPackage {
+    name "cpptooling"
+    targetType "library"
+
+    dependency "dextool:libclang" version="*"
+    dependency "dextool:clang" version="*"
+    dependency "dextool:dsrcgen" version="*"
+
+    sourcePaths "source/cpptooling"
+}
+
+subPackage {
+    name "plugins"
+    targetType "library"
+
+    // v0.6.1-b.5 with local string length fix
+    dependency "dextool:docopt" version="*"
+    dependency "dextool:dsrcgen" version="*"
+    dependency "dextool:libclang" version="*"
+    dependency "dextool:clang" version="*"
+    dependency "dextool:cpptooling" version="*"
+
+    sourcePaths "plugin"
+}
+
 targetPath "build"
 
-sourcePaths "source" "plugin"
-importPaths "source" "plugin"
 stringImportPaths "resources"
 
 // -rpath is relative path for all linked libraries. The second "." is argument to rpath.
@@ -46,8 +67,10 @@ configuration "application" {
 
     preBuildCommands "$ROOT_PACKAGE_DIR/gen_version_from_git.sh"
 
+    sourcePaths "source"
+    importPaths "source"
+    excludedSourceFiles "source/test/*" "source/devtool/*" "source/cpptooling/*"
     mainSourceFile "source/application/app.d"
-    excludedSourceFiles "source/test/*" "source/devtool/*"
 }
 
 configuration "debug" {
@@ -60,8 +83,10 @@ configuration "debug" {
     // To build this configuration either run "./autobuild.sh --run_and_exit" or
     // run "touch resources/version.txt && dub build -c debug"
 
+    sourcePaths "source"
+    importPaths "source"
+    excludedSourceFiles "source/test/*" "source/devtool/*" "source/cpptooling/*"
     mainSourceFile "source/application/app.d"
-    excludedSourceFiles "source/test/*" "source/devtool/*"
 
     buildRequirements {
         "requireBoundsCheck"
@@ -73,6 +98,8 @@ configuration "devtool" {
     targetName "devtool"
     targetType "executable"
 
+    sourcePaths "source"
+    importPaths "source"
     mainSourceFile "source/devtool/tok_main.d"
     excludedSourceFiles "source/application/app*.d" "source/test/*" "source/devtool/generate_clang_ast_nodes.d"
 }
@@ -84,6 +111,8 @@ configuration "unittest" {
     targetName "unittest"
     targetType "executable"
 
+    sourcePaths "source" "plugin"
+    importPaths "source" "plugin"
     mainSourceFile "test/ut_main.d"
     excludedSourceFiles "source/devtool/*"
 
