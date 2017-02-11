@@ -48,6 +48,7 @@ subPackage {
     dependency "dextool:cpptooling" version="*"
 
     sourcePaths "plugin"
+    excludedSourceFiles "plugin/register_plugin/*"
 }
 
 targetPath "build"
@@ -67,7 +68,7 @@ configuration "application" {
 
     preBuildCommands "$ROOT_PACKAGE_DIR/gen_version_from_git.sh"
 
-    sourcePaths "source"
+    sourcePaths "source" "plugin/register_plugin"
     importPaths "source"
     excludedSourceFiles "source/test/*" "source/devtool/*" "source/cpptooling/*"
     mainSourceFile "source/application/app.d"
@@ -83,7 +84,7 @@ configuration "debug" {
     // To build this configuration either run "./autobuild.sh --run_and_exit" or
     // run "touch resources/version.txt && dub build -c debug"
 
-    sourcePaths "source"
+    sourcePaths "source" "plugin/register_plugin"
     importPaths "source"
     excludedSourceFiles "source/test/*" "source/devtool/*" "source/cpptooling/*"
     mainSourceFile "source/application/app.d"

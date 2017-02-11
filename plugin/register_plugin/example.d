@@ -1,21 +1,22 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Example for using the plugin architecture.
+Example of using the plugin architecture.
 */
-module plugin.frontend.example;
+module plugin.register_plugin.example;
 
 version (unittest) {
-    // --- Example ---
     import plugin.register;
 
+    // Example code of a minimal frontend callback.
     ExitStatusType runPlugin(CliBasicOption opt, CliArgs args) {
         // run your plugin
         return ExitStatusType.Ok;
     }
 
+    // Example of registering the plugin with the module constructor.
     shared static this() {
         // dfmt off
         registerPlugin(CliCategory("example"),
