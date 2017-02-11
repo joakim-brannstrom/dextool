@@ -1,5 +1,5 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -8,7 +8,6 @@ Structuraly represents the semantic-centric view of of C/C++ code.
 The guiding principle for this module is: "Correct by construction".
  * After the data is created it should be "correct".
  * As far as possible avoid runtime errors.
-Therefor the default c'tor is disabled.
 
 Structs was chosen instead of classes to:
  * ensure allocation on the stack.
