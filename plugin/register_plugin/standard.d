@@ -1,30 +1,11 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-TODO: Update the documentation. It is lacking.
-
-As the name states, this module loads the plugins.
-
-The module system in D is well designed. It has deterministic module
-constructors.
-The design of the plugin system uses this fact to make it natural to write
-plugins for deXtool.
-
-A user defined plugin consist of at least a frontend.
-The frontend registers "plugin data" to the plugin system.
-The plugin system will use the provided callback after the initialization is
-done.
-The plugin system "hands over" control to the frontend of the plugin.
-
-To exend with user defined plugins drop the corresponding file in frontend
-and/or backend.
-See example.d.
-
-Put the registration of the plugin in this modules constructor.
+Plugins that are part of the base deXtool distribution.
 */
-module plugin.loader;
+module plugin.register_plugin.standard;
 
 shared static this() {
     import plugin.register;
@@ -51,7 +32,7 @@ shared static this() {
     import plugin.frontend.graphml;
 
     registerPlugin(CliCategory("graphml"), CliCategoryInfo(
-            "static analyse of type relations as GraphML"), &plugin.frontend.graphml.runPlugin);
+            "static code analyse information as GraphML"), &plugin.frontend.graphml.runPlugin);
 }
 
 version (unittest) {

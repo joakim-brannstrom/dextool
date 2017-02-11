@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -38,7 +38,7 @@ int main(string[] args) {
                           "cpptooling.utility.sort",
                           "cpptooling.utility.taggedalgebraic",
                           "cpptooling.utility.virtualfilesystem",
-                          "plugin.loader",
+                          "plugin.register_plugin.standard",
                           "plugin.utility",
                           //"plugin.backend.graphml.base",
                           "plugin.backend.graphml.xml",
