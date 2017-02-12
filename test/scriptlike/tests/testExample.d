@@ -34,6 +34,7 @@ void main(string[] args)
 
 		"DubProject":                &testDubProject,
 		"PlainScript":               &testPlainScript,
+		"SingleFile":                &testSingleFile,
 	];
 
 	// Check args
@@ -53,7 +54,7 @@ void main(string[] args)
 		"    testExample features/UserInputPrompts\n",
 		"\n",
 		"Available Test Names:\n",
-		"    ", lookupTest.keys.sort.join("\n    "),
+		"    ", lookupTest.keys.sort().join("\n    "),
 	);
 
 	testName = args[1];
@@ -61,7 +62,7 @@ void main(string[] args)
 		(testName in lookupTest) != null,
 		"No such test '", testName, "'.\n",
 		"Available Test Names:\n",
-		"    ", lookupTest.keys.sort.join("\n    "),
+		"    ", lookupTest.keys.sort().join("\n    "),
 	);
 
 	// Setup for test
@@ -119,7 +120,7 @@ void testAll()
 {
 	bool failed = false; // Have any tests failed?
 	
-	foreach(name; lookupTest.keys.sort)
+	foreach(name; lookupTest.keys.sort())
 	if(lookupTest[name] != &testAll)
 	{
 		// Instead of running the test function directly, run it as a separate
@@ -279,16 +280,26 @@ No Input. Quit
 	assert(output.canFind(expectedExcerpt));
 }
 
-void testUseInScripts(string subdir, Path workingDir, string command)
+void testUseInScripts(string subdir, Path workingDir, string command, bool checkReportedDir=true)
 {
 	auto projDir = Path("../examples/"~subdir);
 
 	// Test with cmdline arg
 	{
-		immutable expected = text(
+		string expected;
+		if(checkReportedDir)
+		{
+			expected = text(
 "This script is in directory: ", (thisExePath.dirName ~ projDir), "
 Hello, Frank!
 ");
+		}
+		else
+		{
+			expected = text(
+"Hello, Frank!
+");
+		}
 
 		auto output = workingDir.runCollect( command~" Frank" ).normalizeNewlines;
 		assert(output == expected);
@@ -302,11 +313,22 @@ Hello, Frank!
 
 		writeFile(workingDir ~ inFile, "George\n");
 
-		immutable expected = text(
+		string expected;
+		if(checkReportedDir)
+		{
+			expected = text(
 "This script is in directory: ", (thisExePath.dirName ~ projDir), "
 What's your name?
 > Hello, George!
 ");
+		}
+		else
+		{
+			expected = text(
+"What's your name?
+> Hello, George!
+");
+		}
 
 		auto output = workingDir.runCollect( command~" < "~inFile ).normalizeNewlines;
 		assert(output == expected);
@@ -350,5 +372,20 @@ void testPlainScript()
 		"plain-script",
 		Path("../tests/bin"),
 		Path("../../examples/plain-script/myscript").toRawString()
+	);
+}
+
+void testSingleFile()
+{
+	// Do tests
+	writeln("    Testing from its own directory...");
+	testUseInScripts("single-file", Path("../examples/single-file"), "dub myscript.d", false);
+
+	writeln("    Testing from different directory...");
+	testUseInScripts(
+		"single-file",
+		Path("../tests/bin"),
+		"dub "~Path("../../examples/single-file/myscript.d").toRawString(),
+		false
 	);
 }
