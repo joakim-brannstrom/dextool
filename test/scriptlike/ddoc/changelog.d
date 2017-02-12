@@ -6,6 +6,18 @@ $(LINK http://semitwist.com/scriptlike/changelog.html)
 
 (Dates below are YYYY/MM/DD)
 
+$(H2 v0.9.7 - TBD)
+
+$(UL
+	$(ENHANCE
+		Docs/Examples: Now recommend DUB v1.0.0+'s single-file package support,
+		and test the provided example.
+	)
+	$(FIXED
+		$(ISSUE 31): Deprecation warnings on DMD 2.072 and up.
+	)
+)
+
 $(H2 v0.9.6 - 2016/05/28)
 
 (Note: This was going to be v0.9.5, but the release got borked, so it's released as v0.9.6 instead.)

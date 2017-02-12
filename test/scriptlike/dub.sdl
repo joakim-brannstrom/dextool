@@ -1,0 +1,28 @@
+name "scriptlike"
+description "Utility library to help you write script-like programs."
+authors "Nick Sabalausky" "Jesse Phillips"
+homepage "https://github.com/abscissa/scriptlike"
+license "zlib/libpng"
+
+excludedSourceFiles "src/scriptlike/packageVersion.d"
+
+configuration "library" {
+	targetType "library"
+	targetPath "bin"
+	importPaths "src"
+}
+
+configuration "unittest" {
+	targetType "executable"
+	targetPath "bin"
+	targetName "scriptlike_unittest"
+	versions "unittest_scriptlike_d"
+}
+
+configuration "no-build" {
+	targetType "library"
+	targetPath "deleteme"
+	importPaths "dummy"
+	sourcePaths "dummy"
+	excludedSourceFiles "src/*"
+}

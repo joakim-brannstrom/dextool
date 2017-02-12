@@ -213,7 +213,13 @@ string interp(string str)()
 
 	return buf;
 }
-alias _interp_text = std.conv.text;
+string _interp_text(T...)(T args)
+{
+	static if(T.length == 0)
+		return null;
+	else
+		return std.conv.text(args);
+}
 
 version(unittest_scriptlike_d)
 unittest

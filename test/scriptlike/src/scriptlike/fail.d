@@ -12,14 +12,6 @@ import std.file;
 import std.path;
 import std.traits;
 
-// Throwable.toString(sink) isn't an override on DMD 2.064.2, and druntime
-// won't even call any Throwable.toString on DMD 2.064.2 anyway, so use
-// a fallback method if Throwable doesn't have toString(sink).
-static if( MemberFunctionsTuple!(Throwable, "toString").length > 1 )
-	private enum useFallback = false;
-else
-	private enum useFallback = true;
-
 /// This is the exception thrown by fail(). There's no need to create or throw
 /// this directly, but it's public in case you have reason to catch it.
 class Fail : Exception
@@ -33,7 +25,12 @@ class Fail : Exception
 	private static Fail opCall(string msg, string file=__FILE__, int line=__LINE__)
 	{
 		Fail.msg = msg;
-		throw cast(Fail) cast(void*) Fail.classinfo.init;
+		static if(__traits(compiles, Fail.classinfo.initializer))
+			// DMD 2.072 or 2.073 deprecates 'classinfo.init'
+			throw cast(Fail) cast(void*) Fail.classinfo.initializer;
+		else
+			// DMD 2.069.2 and below lack 'classinfo.initializer'
+			throw cast(Fail) cast(void*) Fail.classinfo.init;
 	}
 	
 	private static string fullMessage(string msg = Fail.msg)
@@ -46,12 +43,9 @@ class Fail : Exception
 		return appName~": ERROR: "~msg;
 	}
 	
-	static if(!useFallback)
+	override void toString(scope void delegate(in char[]) sink) const
 	{
-		override void toString(scope void delegate(in char[]) sink) const
-		{
-			sink(fullMessage());
-		}
+		sink(fullMessage());
 	}
 }
 
@@ -64,33 +58,17 @@ This is exception-safe, all cleanup code gets run.
 
 Your program's name is automatically detected from $(STD_FILE thisExePath).
 
-Note, on DMD 2.064.2, the error message is displayed BEFORE the exception is
-thrown. So if you catch the Fail exception, the message will have already been
-displayed. This is due to limitations in the older druntime, and is fixed
-on DMD 2.065 and up.
-
 Example:
 ----------------
 auto id = 3;
 fail("You forgot to provide a destination for id #", id, "!");
 
-// Output on DMD 2.065 and up:
+// Output:
 // yourProgramName: ERROR: You forgot to provide a destination for id #3!
-
-// Output on DMD 2.064.2:
-// yourProgramName: ERROR: You forgot to provide a destination for id #3!
-// scriptlike.fail.Fail
 ----------------
 +/
 void fail(T...)(T args)
 {
-	static if(useFallback)
-	{
-		import std.stdio;
-		stderr.writeln(Fail.fullMessage( text(args) ));
-		stderr.flush();
-	}
-	
 	throw Fail( text(args) );
 }
 
@@ -104,12 +82,8 @@ Example:
 ----------------
 failEnforce(brokenSquareRoot(4)==2, "Reality broke! Expected 2, not ", brokenSquareRoot(4));
 
-// Output on DMD 2.065 and up:
+// Output:
 // yourProgramName: ERROR: Reality broke! Expected 2, not 555
-
-// Output on DMD 2.064.2:
-// yourProgramName: ERROR: Reality broke! Expected 2, not 555
-// scriptlike.fail.Fail
 ----------------
 +/
 void failEnforce(T...)(bool cond, T args)

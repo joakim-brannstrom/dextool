@@ -84,7 +84,7 @@ T userInput(T = string)(string question = "")
 	} else
 	{
 		if(ans == "\x0a")
-			throw new NoInputException("Value required, "
+			throw new NoInputException("Value required, "~
 			                           "cannot continue operation.");
 		static if(isSomeChar!T)
 		{

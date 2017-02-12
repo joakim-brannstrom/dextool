@@ -1,6 +1,8 @@
 name "tests"
 
+// after v0.9.6 git commit fddadcd
 dependency "tests:scriptlike" version="*"
+
 dependency "tests:unit-threaded" version="*"
 
 subPackage "../unit-threaded/"
