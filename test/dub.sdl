@@ -14,7 +14,7 @@ configuration "external_tests" {
     targetName ".external_tests.bin"
     targetType "executable"
 
-    sourceFiles "cstub_tests.d" "cpp_tests.d" "plantuml_tests.d" "graphml_tests.d" "utils.d"
+    sourceFiles "c_tests.d" "cpp_tests.d" "plantuml_tests.d" "graphml_tests.d" "utils.d"
 
     mainSourceFile "./external_main.d"
     workingDirectory "."
