@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import application.types : MainInterface;
-import cpptooling.data.representation : CFunction, CppClass;
+import cpptooling.data.representation : CFunction, CppClass, CppClassName;
 
 @safe:
 
@@ -46,14 +46,12 @@ void generateFuncImpl(CFunction f, CppModule impl) {
 /** Create a C++ interface of funcs in range to allow the user to supply an
  * implementation.
  */
-CppClass makeFuncInterface(Tr)(Tr r, in MainInterface main_if) {
+CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
     import cpptooling.data.representation;
 
     import std.array : array;
 
-    string c_name = cast(string) main_if;
-
-    auto c = CppClass(CppClassName(c_name));
+    auto c = CppClass(main_if);
 
     foreach (f; r) {
         auto params = f.paramRange().array();

@@ -530,7 +530,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
         Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data.representation : CppNs;
+    import cpptooling.data.representation : CppNs, CppClassName;
     import cpptooling.generator.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
@@ -553,7 +553,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
         auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
         td_ns.setKind(NamespaceType.TestDouble);
 
-        auto i_free_func = makeFuncInterface(input.funcRange, params.getMainInterface);
+        auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(params.getMainInterface));
         td_ns.put(i_free_func);
         td_ns.put(makeAdapter(params.getMainInterface).makeTestDouble(true).finalize!ClassType);
 
