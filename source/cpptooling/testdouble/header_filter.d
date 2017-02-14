@@ -35,18 +35,55 @@ enum LocationType {
  *      Replaces all "Normal".
  *  - UserDefined.
  *      The user have supplied a list of includes which override any detected.
+ *
+ * State diagram in plantuml:
+ * @startuml
+ * [*] -> Waiting
+ * Waiting: Initialize pool
+ *
+ * Waiting -> SymbolInclude: Add
+ * Waiting --> RootInclude: Add root
+ * Waiting --> UserInclude: Add user
+ * Waiting --> Finalize: Done
+ *
+ * UserInclude: Static pool from CLI
+ *
+ * SymbolInclude: Temp pool of includes
+ * SymbolInclude --> SymbolInclude: Add
+ * SymbolInclude --> Process: Done
+ * SymbolInclude --> SymbolClear: Add root
+ *
+ * SymbolClear: Clear temp pool
+ * SymbolClear --> RootInclude: Add root
+ *
+ * RootInclude: Temp pool of includes
+ * RootInclude --> RootInclude: Add
+ * RootInclude --> Process: Done
+ *
+ * Process: Temp pool to permanent pool
+ * Process --> Waiting
+ *
+ * Finalize: strip includes
+ * Finalize: Data ready to be used
+ * @enduml
  */
 struct TestDoubleIncludes {
     import std.regex : Regex;
 
     private enum State {
-        Normal,
-        HaveRoot,
-        UserDefined
+        Waiting,
+        SymbolInclude,
+        SymbolClear,
+        RootInclude,
+        Process,
+        Finalize,
+        ForceInclude
     }
 
     private {
-        string[] incls;
+        string[] permanent_pool;
+        string[] work_pool;
+
         State st;
         Regex!char strip_incl;
         string[] unstripped_incls;
@@ -58,8 +95,12 @@ struct TestDoubleIncludes {
         this.strip_incl = strip_incl;
     }
 
-    string[] includes() @safe pure nothrow @nogc {
-        return incls;
+    string[] includes() @safe pure nothrow @nogc
+    in {
+        assert(st == State.Finalize);
+    }
+    body {
+        return permanent_pool;
     }
 
     /** Replace buffer of includes with argument.
@@ -67,48 +108,75 @@ struct TestDoubleIncludes {
      * See description of states to understand what UserDefined entitles.
      */
     void forceIncludes(string[] in_incls) {
-        st = State.UserDefined;
-        foreach (incl; in_incls) {
-            incls ~= incl;
-        }
+        st = State.ForceInclude;
+
+        /// Assuming user defined includes are good as they are so no stripping.
+        permanent_pool ~= in_incls;
     }
 
-    /// Assuming user defined includes are good as they are so no stripping.
-    void doStrip() @safe {
-        switch (st) with (State) {
-        case Normal:
-        case HaveRoot:
-            incls = stripIncl(unstripped_incls, strip_incl);
-            break;
-        default:
-        }
+    void finalize() @safe pure nothrow @nogc
+    in {
+        import std.algorithm : among;
+
+        assert(st.among(State.Waiting, State.ForceInclude));
+    }
+    body {
+        st = State.Finalize;
+    }
+
+    void process() @safe
+    in {
+        import std.algorithm : among;
+
+        assert(st.among(State.RootInclude, State.SymbolInclude));
+    }
+    body {
+        st = State.Waiting;
+        permanent_pool ~= stripIncl(work_pool, strip_incl);
+        work_pool.length = 0;
     }
 
     void put(string fname, LocationType type) @safe
     in {
+        import std.algorithm : among;
         import std.utf : validate;
 
+        assert(st.among(State.Waiting, State.RootInclude, State.SymbolInclude, State.ForceInclude));
         validate((cast(string) fname));
     }
     body {
-        final switch (st) with (State) {
-        case Normal:
+        switch (st) with (State) {
+        case Waiting:
+            work_pool ~= fname;
             if (type == LocationType.Root) {
-                unstripped_incls = [fname];
-                st = HaveRoot;
+                st = RootInclude;
             } else {
-                unstripped_incls ~= fname;
+                st = SymbolInclude;
             }
             break;
-        case HaveRoot:
-            // only accepting roots
+
+        case RootInclude:
+            st = RootInclude;
             if (type == LocationType.Root) {
-                unstripped_incls ~= fname;
+                work_pool ~= fname;
             }
             break;
-        case UserDefined:
-            // ignoring includes
+
+        case SymbolInclude:
+            if (type == LocationType.Root) {
+                work_pool = [fname]; // root override previous pool values
+                st = RootInclude;
+            } else {
+                work_pool ~= fname;
+            }
             break;
+
+        case ForceInclude:
+            // ignore
+            break;
+
+        default:
+            assert(0);
         }
     }
 
@@ -132,8 +200,14 @@ struct TestDoubleIncludes {
         import std.range : chain, only;
         import std.range.primitives : put;
 
-        chain(only(st.to!string()), incls.map!(a => cast(string) a),
-                unstripped_incls.map!(a => cast(string) a)).joiner(newline).copy(w);
+        put(w, st.to!string());
+        put(w, newline);
+        // dfmt off
+        chain(work_pool.map!(a => cast(string) a),
+              permanent_pool.map!(a => cast(string) a))
+            .joiner(newline)
+            .copy(w);
+        // dfmt on
     }
 }
 

@@ -49,6 +49,9 @@ import cpptooling.testdouble.header_filter : LocationType;
 
     /// Generate a #include of the post include header
     bool doIncludeOfPostIncludes();
+
+    /// Event that filtering on locations is done
+    void locationFilterDone();
 }
 
 /** Parameters used during generation.
@@ -164,11 +167,13 @@ struct Generator {
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      */
-    auto process(ref CppRoot root, ref Container container) {
+    void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
 
         auto fl = rawFilter(root, ctrl, products, (USRType usr) => container.find!LocationTag(usr));
         logger.trace("Filtered:\n", fl.toString());
+
+        ctrl.locationFilterDone;
 
         auto tr = translate(fl, container, ctrl, params);
         logger.trace("Translated to implementation:\n", tr.toString());

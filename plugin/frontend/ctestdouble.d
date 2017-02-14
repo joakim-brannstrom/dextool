@@ -336,9 +336,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    /// Force the includes to be those supplied by the user.
     auto argForceTestDoubleIncludes(string[] a) {
         if (a.length != 0) {
-            this.forceIncludes(a);
+            td_includes.forceIncludes(a);
         }
         return this;
     }
@@ -376,9 +377,12 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
-    /// Force the includes to be those supplied by the user.
-    void forceIncludes(string[] incls) {
-        td_includes.forceIncludes(incls);
+    void processIncludes() {
+        td_includes.process();
+    }
+
+    void finalizeIncludes() {
+        td_includes.finalize();
     }
 
     // -- Controller --
@@ -446,7 +450,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         import std.algorithm : map;
         import std.array : array;
 
-        td_includes.doStrip();
         return td_includes.includes.map!(a => FileName(a)).array();
     }
 
@@ -540,7 +543,11 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
+
+        variant.processIncludes;
     }
+
+    variant.finalizeIncludes;
 
     // Analyse and generate test double
     Generator(variant, variant, variant).process(visitor.root, visitor.container);
