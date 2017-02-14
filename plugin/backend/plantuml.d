@@ -1520,9 +1520,9 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.range : chain;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        CXXMethodResult, ConstructorResult, DestructorResult,
-        RecordResult, FieldDeclResult, VarDeclResult,
-        FunctionDeclResult, TranslationUnitResult;
+        CXXMethodResult, ConstructorResult, DestructorResult, RecordResult,
+        FieldDeclResult, VarDeclResult, FunctionDeclResult,
+        TranslationUnitResult;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.type : CppAccess, CxReturnType;
 
@@ -1794,8 +1794,8 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CXXMethodResult,
-        ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
+        RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
+        DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.symbol.types : USRType;

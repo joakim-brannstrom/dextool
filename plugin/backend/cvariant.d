@@ -14,7 +14,8 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import application.types : FileName, DirName, MainName, StubPrefix, DextoolVersion, CustomHeader, MainNs, MainInterface;
+import application.types : FileName, DirName, MainName, StubPrefix,
+    DextoolVersion, CustomHeader, MainNs, MainInterface;
 import cpptooling.data.symbol.container;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;

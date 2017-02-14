@@ -95,10 +95,10 @@ struct ParsedArgs {
 --help              :%s
 --loc-as-comment    :%s
 --td-include        :%s
-CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude,
-                mainName, stripInclude, mainFileName, inFiles,
-                compileDb, genPostInclude, generatePreInclude, help,
-                locationAsComment, testDoubleInclude, cflags);
+CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
+                out_, fileExclude, mainName, stripInclude,
+                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
+                help, locationAsComment, testDoubleInclude, cflags);
     }
 }
 
@@ -209,7 +209,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Flag;
     import application.types : StubPrefix, FileName, DirName;
     import application.utility;
-    import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
+        LocationType;
     import dsrcgen.cpp;
 
     static struct FileData {
@@ -444,6 +445,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     FileName[] getIncludes() {
         import std.algorithm : map;
         import std.array : array;
+
         td_includes.doStrip();
         return td_includes.incls.map!(a => FileName(a)).array();
     }
