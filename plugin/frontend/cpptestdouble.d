@@ -185,6 +185,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Flag;
     import application.types : StubPrefix, FileName, MainInterface, DirName;
     import application.utility;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp;
 
     static struct FileData {
@@ -414,8 +415,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     // -- Parameters --
 
     FileName[] getIncludes() {
+        import std.algorithm : map;
+        import std.array : array;
         td_includes.doStrip();
-        return td_includes.incls;
+        return td_includes.incls.map!(a => FileName(a)).array();
     }
 
     DirName getOutputDirectory() {

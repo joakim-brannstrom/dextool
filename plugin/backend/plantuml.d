@@ -129,9 +129,6 @@ version (unittest) {
 
     /// ditto.
     void putFile(FileName fname, PlantumlModule data);
-
-    /// Dummy to make the interface structurally compatible with cppvariant.Products
-    void putLocation(FileName loc, LocationType type);
 }
 
 /** The supported "kind"s of relations between entities. Related to the UML

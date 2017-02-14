@@ -10,11 +10,6 @@ enum ExitStatusType {
     Errors
 }
 
-enum LocationType {
-    Root,
-    Leaf
-}
-
 /** Prefix used for prepending generated code with a unique string to avoid
  * name collisions.
  * See specific functions for how it is used.
