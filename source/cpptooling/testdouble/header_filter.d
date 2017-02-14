@@ -51,10 +51,7 @@ enum LocationType {
  * SymbolInclude: Temp pool of includes
  * SymbolInclude --> SymbolInclude: Add
  * SymbolInclude --> Process: Done
- * SymbolInclude --> SymbolClear: Add root
- *
- * SymbolClear: Clear temp pool
- * SymbolClear --> RootInclude: Add root
+ * SymbolInclude --> RootInclude: Clear pool, add root
  *
  * RootInclude: Temp pool of includes
  * RootInclude --> RootInclude: Add
@@ -71,13 +68,12 @@ struct TestDoubleIncludes {
     import std.regex : Regex;
 
     private enum State {
-        Waiting,
-        SymbolInclude,
-        SymbolClear,
-        RootInclude,
-        Process,
-        Finalize,
-        ForceInclude
+        waiting,
+        symbolInclude,
+        rootInclude,
+        process,
+        finalize,
+        forceInclude
     }
 
     private {
@@ -97,7 +93,7 @@ struct TestDoubleIncludes {
 
     string[] includes() @safe pure nothrow @nogc
     in {
-        assert(st == State.Finalize);
+        assert(st == State.finalize);
     }
     body {
         return permanent_pool;
@@ -108,7 +104,7 @@ struct TestDoubleIncludes {
      * See description of states to understand what UserDefined entitles.
      */
     void forceIncludes(string[] in_incls) {
-        st = State.ForceInclude;
+        st = State.forceInclude;
 
         /// Assuming user defined includes are good as they are so no stripping.
         permanent_pool ~= in_incls;
@@ -118,20 +114,23 @@ struct TestDoubleIncludes {
     in {
         import std.algorithm : among;
 
-        assert(st.among(State.Waiting, State.ForceInclude));
+        assert(st.among(State.waiting, State.forceInclude));
     }
     body {
-        st = State.Finalize;
+        st = State.finalize;
     }
 
     void process() @safe
     in {
         import std.algorithm : among;
 
-        assert(st.among(State.RootInclude, State.SymbolInclude));
+        assert(st.among(State.rootInclude, State.symbolInclude, State.forceInclude));
     }
     body {
-        st = State.Waiting;
+        if (st == State.forceInclude)
+            return;
+
+        st = State.waiting;
         permanent_pool ~= stripIncl(work_pool, strip_incl);
         work_pool.length = 0;
     }
@@ -141,37 +140,37 @@ struct TestDoubleIncludes {
         import std.algorithm : among;
         import std.utf : validate;
 
-        assert(st.among(State.Waiting, State.RootInclude, State.SymbolInclude, State.ForceInclude));
+        assert(st.among(State.waiting, State.rootInclude, State.symbolInclude, State.forceInclude));
         validate((cast(string) fname));
     }
     body {
         switch (st) with (State) {
-        case Waiting:
+        case waiting:
             work_pool ~= fname;
             if (type == LocationType.Root) {
-                st = RootInclude;
+                st = rootInclude;
             } else {
-                st = SymbolInclude;
+                st = symbolInclude;
             }
             break;
 
-        case RootInclude:
-            st = RootInclude;
+        case rootInclude:
+            st = rootInclude;
             if (type == LocationType.Root) {
                 work_pool ~= fname;
             }
             break;
 
-        case SymbolInclude:
+        case symbolInclude:
             if (type == LocationType.Root) {
                 work_pool = [fname]; // root override previous pool values
-                st = RootInclude;
+                st = rootInclude;
             } else {
                 work_pool ~= fname;
             }
             break;
 
-        case ForceInclude:
+        case forceInclude:
             // ignore
             break;
 

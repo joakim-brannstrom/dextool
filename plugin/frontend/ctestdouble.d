@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -521,6 +521,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto generator = Generator(variant, variant, variant);
 
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
@@ -544,13 +545,15 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             return ExitStatusType.Errors;
         }
 
+        generator.aggregate(visitor.root, visitor.container);
+        visitor.clearRoot;
         variant.processIncludes;
     }
 
     variant.finalizeIncludes;
 
     // Analyse and generate test double
-    Generator(variant, variant, variant).process(visitor.root, visitor.container);
+    generator.process(visitor.container);
 
     debug {
         logger.trace(visitor);

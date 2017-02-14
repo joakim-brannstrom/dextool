@@ -451,7 +451,7 @@ unittest {
     p.dexFlags ~= "-I" ~ (p.root ~ "stage_2/include").toString;
     p.skipCompile = Yes.skipCompile;
 
-    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+    runTestFile(p, testEnv, No.sortLines, Yes.skipComments);
 }
 
 // END   CLI Tests ###########################################################
