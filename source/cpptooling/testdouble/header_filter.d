@@ -37,23 +37,29 @@ enum LocationType {
  *      The user have supplied a list of includes which override any detected.
  */
 struct TestDoubleIncludes {
-    import std.regex;
+    import std.regex : Regex;
 
-    enum State {
+    private enum State {
         Normal,
         HaveRoot,
         UserDefined
     }
 
-    string[] incls;
-    State st;
-    Regex!char strip_incl;
-    private string[] unstripped_incls;
+    private {
+        string[] incls;
+        State st;
+        Regex!char strip_incl;
+        string[] unstripped_incls;
+    }
 
     @disable this();
 
     this(Regex!char strip_incl) {
         this.strip_incl = strip_incl;
+    }
+
+    string[] includes() @safe pure nothrow @nogc {
+        return incls;
     }
 
     /** Replace buffer of includes with argument.

@@ -419,7 +419,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         import std.array : array;
 
         td_includes.doStrip();
-        return td_includes.incls.map!(a => FileName(a)).array();
+        return td_includes.includes.map!(a => FileName(a)).array();
     }
 
     DirName getOutputDirectory() {
