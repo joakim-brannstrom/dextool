@@ -277,12 +277,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     FileName doComponentNameStrip(FileName fname) {
         import std.path : dirName;
-        import application.utility : stripFile;
+        import cpptooling.testdouble.header_filter : stripFile;
 
         if (do_comp_by_file) {
-            return stripFile(fname, comp_strip);
+            return FileName(stripFile(cast(string) fname, comp_strip));
         } else {
-            return stripFile(FileName((cast(string) fname).dirName), comp_strip);
+            return FileName(stripFile((cast(string) fname).dirName, comp_strip));
         }
     }
 
@@ -332,9 +332,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     void putFile(FileName fname, PlantumlModule pm) {
         fileData ~= FileData(fname, pm.render());
-    }
-
-    void putLocation(FileName fname, LocationType type) {
     }
 }
 

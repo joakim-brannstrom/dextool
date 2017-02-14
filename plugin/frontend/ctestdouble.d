@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -95,10 +95,10 @@ struct ParsedArgs {
 --help              :%s
 --loc-as-comment    :%s
 --td-include        :%s
-CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude,
-                mainName, stripInclude, mainFileName, inFiles,
-                compileDb, genPostInclude, generatePreInclude, help,
-                locationAsComment, testDoubleInclude, cflags);
+CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
+                out_, fileExclude, mainName, stripInclude,
+                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
+                help, locationAsComment, testDoubleInclude, cflags);
     }
 }
 
@@ -209,6 +209,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Flag;
     import application.types : StubPrefix, FileName, DirName;
     import application.utility;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
+        LocationType;
     import dsrcgen.cpp;
 
     static struct FileData {
@@ -334,9 +336,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    /// Force the includes to be those supplied by the user.
     auto argForceTestDoubleIncludes(string[] a) {
         if (a.length != 0) {
-            this.forceIncludes(a);
+            td_includes.forceIncludes(a);
         }
         return this;
     }
@@ -374,9 +377,12 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
-    /// Force the includes to be those supplied by the user.
-    void forceIncludes(string[] incls) {
-        td_includes.forceIncludes(incls);
+    void processIncludes() {
+        td_includes.process();
+    }
+
+    void finalizeIncludes() {
+        td_includes.finalize();
     }
 
     // -- Controller --
@@ -441,8 +447,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     // -- Parameters --
 
     FileName[] getIncludes() {
-        td_includes.doStrip();
-        return td_includes.incls;
+        import std.algorithm : map;
+        import std.array : array;
+
+        return td_includes.includes.map!(a => FileName(a)).array();
     }
 
     DirName getOutputDirectory() {
@@ -513,6 +521,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto generator = Generator(variant, variant, variant);
 
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
@@ -535,10 +544,16 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
+
+        generator.aggregate(visitor.root, visitor.container);
+        visitor.clearRoot;
+        variant.processIncludes;
     }
 
+    variant.finalizeIncludes;
+
     // Analyse and generate test double
-    Generator(variant, variant, variant).process(visitor.root, visitor.container);
+    generator.process(visitor.container);
 
     debug {
         logger.trace(visitor);

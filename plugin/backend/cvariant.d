@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -14,9 +13,11 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import application.types;
+import application.types : FileName, DirName, MainName, StubPrefix,
+    DextoolVersion, CustomHeader, MainNs, MainInterface;
 import cpptooling.data.symbol.container;
 import cpptooling.analyzer.clang.ast : Visitor;
+import cpptooling.testdouble.header_filter : LocationType;
 
 /// Control various aspects of the analyze and generation like what nodes to
 /// process.
@@ -152,11 +153,20 @@ struct Generator {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
+        this.filtered = CppRoot.make;
+    }
+
+    /** Filter and aggregate data for future processing.
+     */
+    void aggregate(ref CppRoot root, ref const(Container) container) {
+        import cpptooling.data.symbol.types : USRType;
+
+        rawFilter(root, ctrl, products, filtered, (USRType usr) => container.find!LocationTag(usr));
     }
 
     /** Process structural data to a test double.
      *
-     * raw -> filter -> translate -> code generation.
+     * aggregated -> translate -> code generation.
      *
      * Translate analyzes what is left after filtering.
      * On demand extra data is created. An example of on demand is --gmock.
@@ -167,13 +177,8 @@ struct Generator {
      * TODO refactor the control flow. Especially the gmock part.
      * TODO rename translate to rawFilter. See cppvariant.
      */
-    auto process(ref CppRoot root, ref const(Container) container) {
-        import cpptooling.data.symbol.types : USRType;
-
-        auto filtered = CppRoot.make;
-        rawFilter(root, ctrl, products, filtered, (USRType usr) => container.find!LocationTag(usr));
+    void process(ref const(Container) container) {
         logger.tracef("Filtered:\n%s\n", filtered.toString());
-
         makeImplStuff(filtered, ctrl, params);
 
         logger.trace("Post processed:\n", filtered.toString());
@@ -184,6 +189,7 @@ struct Generator {
     }
 
 private:
+    CppRoot filtered;
     Controller ctrl;
     Parameters params;
     Products products;
@@ -271,6 +277,10 @@ final class CVisitor : Visitor {
     this(Controller ctrl, Products prod) {
         this.ctrl = ctrl;
         this.prod = prod;
+        this.root = CppRoot.make;
+    }
+
+    void clearRoot() @safe {
         this.root = CppRoot.make;
     }
 

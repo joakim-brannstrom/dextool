@@ -437,6 +437,23 @@ unittest {
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
 }
 
+@(testId ~ "Should be headers both from --in and derived from symbol locations")
+unittest {
+    // Test how --file-exclude and multiple --in interact to generate the
+    // include's.
+    // There is a bug where --in override include's that are needed.
+    // expecting includes of b.h and c.h
+
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("stage_2/header_include_bug.h", testEnv);
+    p.dexParams ~= ["--in=" ~ (p.root ~ "stage_2/include/c.h").toString,
+        "--file-exclude='.*/header_include_bug.h'"];
+    p.dexFlags ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.skipCompile = Yes.skipCompile;
+
+    runTestFile(p, testEnv, No.sortLines, Yes.skipComments);
+}
+
 // END   CLI Tests ###########################################################
 
 // BEGIN Unspecified CLI Test ################################################

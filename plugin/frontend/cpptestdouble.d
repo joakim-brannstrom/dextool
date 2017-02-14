@@ -90,10 +90,10 @@ struct ParsedArgs {
 --gen-pre-incl      :%s
 --help              :%s
 --td-include        :%s
-CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude,
-                mainName, stripInclude, mainFileName, inFiles,
-                compileDb, genPostInclude, generatePreInclude, help,
-                testDoubleInclude, cflags);
+CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
+                out_, fileExclude, mainName, stripInclude,
+                mainFileName, inFiles, compileDb, genPostInclude,
+                generatePreInclude, help, testDoubleInclude, cflags);
     }
 }
 
@@ -185,6 +185,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Flag;
     import application.types : StubPrefix, FileName, MainInterface, DirName;
     import application.utility;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
+        LocationType;
     import dsrcgen.cpp;
 
     static struct FileData {
@@ -261,8 +263,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(FileNames input_files, MainFileName main_fname, DirName output_dir,
-         Regex!char strip_incl) {
+    this(FileNames input_files, MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
         this.input_files = input_files;
         this.output_dir = output_dir;
         this.td_includes = TestDoubleIncludes(strip_incl);
@@ -311,9 +312,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    /// Force the includes to be those supplied by the user.
     auto argForceTestDoubleIncludes(string[] a) {
         if (a.length != 0) {
-            this.forceIncludes(a);
+            td_includes.forceIncludes(a);
         }
         return this;
     }
@@ -344,11 +346,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     auto argPostInclude(bool a) {
         this.post_incl = cast(Flag!"PostInclude") a;
         return this;
-    }
-
-    /// Force the includes to be those supplied by the user.
-    void forceIncludes(string[] incls) {
-        td_includes.forceIncludes(incls);
     }
 
     /// User supplied files used as input.
@@ -411,11 +408,18 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return post_incl;
     }
 
+    void locationFilterDone() {
+        td_includes.process();
+        td_includes.finalize();
+    }
+
     // -- Parameters --
 
     FileName[] getIncludes() {
-        td_includes.doStrip();
-        return td_includes.incls;
+        import std.algorithm : map;
+        import std.array : array;
+
+        return td_includes.includes.map!(a => FileName(a)).array();
     }
 
     DirName getOutputDirectory() {
