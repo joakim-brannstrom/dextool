@@ -116,6 +116,12 @@ mixin template CModuleX(T) {
         return e;
     }
 
+    auto extern_(string value) {
+        import std.format : format;
+
+        return stmt(format("extern %s", value));
+    }
+
     auto include(string filename) {
         import std.format : format;
 
