@@ -39,8 +39,9 @@ private string genLocationComment(LookupT)(USRType usr, LookupT lookup) {
 void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
         Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
     import std.array : array;
-    import std.algorithm : each;
+    import std.algorithm : each, map, joiner;
     import std.variant : visit;
+    import std.utf : toUTF8;
     import cpptooling.data.representation;
     import cpptooling.utility.sort : indexSort;
 
@@ -74,7 +75,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
     }
 
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
-    auto c = hdr.class_(in_c.name);
+    auto c = hdr.class_(in_c.name, in_c.inherits.map!(a => a.toString).joiner(", ").toUTF8);
     auto pub = c.public_();
 
     // dfmt off
