@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -243,7 +242,10 @@ auto makeGmock(ClassT)(const CppClass c) {
     import cpptooling.data.representation;
     import cpptooling.utility.sort : indexSort;
 
-    // Make all protected and private public to allow testing, for good and bad
+    // Make all protected and private methods public to allow testing, for good
+    // and bad. The policy can be changed. It is not set in stone. It is what I
+    // thought was good at the time. If it creates problems in the future.
+    // Identified use cases etc. Change it.
     static auto conv(T)(T m_) {
         import std.array : array;
 
