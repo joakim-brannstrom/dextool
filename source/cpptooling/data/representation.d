@@ -111,6 +111,17 @@ string funcToString(const(CppClass.CppFunc) func) @safe {
     return trustedUnique(buf);
 }
 
+string methodNameToString(const(CppClass.CppFunc) func) @trusted {
+    import std.variant : visit;
+
+    //dfmt off
+    return func.visit!((const(CppMethod) a) => a.name,
+                       (const(CppMethodOp) a) => a.name,
+                       (const(CppCtor) a) => a.name,
+                       (const(CppDtor) a) => a.name);
+    //dfmt on
+}
+
 /// Convert a CxParam to a string.
 string paramTypeToString(CxParam p, string id = "") @trusted {
     import std.variant : visit;
