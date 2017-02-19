@@ -124,6 +124,19 @@ string paramTypeToString(CxParam p, string id = "") @trusted {
     // dfmt on
 }
 
+/// Convert a CxParam to a string.
+string paramNameToString(CxParam p, string id = "") @trusted {
+    import std.variant : visit;
+
+    // dfmt off
+    return p.visit!(
+        (TypeKindVariable tk) { return tk.name; },
+        (TypeKindAttr t) { return id; },
+        (VariadicType a) { return "..."; }
+        );
+    // dfmt on
+}
+
 // string mixin
 private string standardToString() {
     return q{
