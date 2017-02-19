@@ -50,6 +50,15 @@ string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
     // dfmt on
 }
 
+bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc {
+    foreach (index; indexes) {
+        if (index.isNull)
+            return true;
+    }
+
+    return false;
+}
+
 /** Type representation and information.
  */
 struct TypeKind {
