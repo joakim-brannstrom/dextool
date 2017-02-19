@@ -14,6 +14,7 @@ import dsrcgen.cpp : CppModule;
 
 import application.types : MainInterface;
 import cpptooling.data.representation : CFunction, CppClass, CppClassName;
+import cpptooling.data.symbol.types : USRType;
 
 @safe:
 
@@ -52,6 +53,8 @@ CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
     import std.array : array;
 
     auto c = CppClass(main_if);
+    c.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ main_if),
+            CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Virtual)));
 
     foreach (f; r) {
         auto params = f.paramRange().array();

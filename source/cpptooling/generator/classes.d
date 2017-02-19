@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -36,8 +36,8 @@ private string genLocationComment(LookupT)(USRType usr, LookupT lookup) {
  * Params:
  *  lookup = expecting same signature and behavior as Container.find!LocationTag
  */
-void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
-        Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
+void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment" loc_as_comment,
+        LookupT lookup, Flag!"inlineDtor" inline_dtor = No.inlineDtor) {
     import std.array : array;
     import std.algorithm : each, map, joiner;
     import std.variant : visit;
@@ -50,8 +50,12 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
         hdr.ctor(m.name, params);
     }
 
-    static void genDtor(const ref CppDtor m, CppModule hdr) {
-        hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name);
+    static void genDtor(const ref CppDtor m, CppModule hdr, Flag!"inlineDtor" inline_dtor) {
+        if (inline_dtor) {
+            hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name)[$.end = " {}"];
+        } else {
+            hdr.dtor(m.isVirtual() ? Yes.isVirtual : No.isVirtual, m.name);
+        }
     }
 
     static void genMethod(const ref CppMethod m, CppModule hdr,
@@ -88,7 +92,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr,
             (const CppMethod m) => genMethod(m, pub, loc_as_comment, lookup),
             (const CppMethodOp m) => genOp(m, pub),
             (const CppCtor m) => genCtor(m, pub),
-            (const CppDtor m) => genDtor(m, pub));
+            (const CppDtor m) => genDtor(m, pub, inline_dtor));
         }();
     }
     // dfmt on

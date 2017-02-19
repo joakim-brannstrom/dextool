@@ -35,6 +35,7 @@ public:
     virtual void tiger() = 0;
     virtual int typedef_array_func(int *x, int z[16]) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
+    virtual ~I_TestDouble() {}
 };
 
 /// Adapter connecting an interface with an implementation.

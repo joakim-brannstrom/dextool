@@ -9,6 +9,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void fun_b() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

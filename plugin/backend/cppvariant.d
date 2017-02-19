@@ -8,7 +8,7 @@ Variant of C++ test double.
 */
 module plugin.backend.cppvariant;
 
-import std.typecons : No, Flag, Nullable;
+import std.typecons : No, Flag, Nullable, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -668,6 +668,8 @@ void generateClassHdr(LookupT)(CppClass c, CppModule hdr, CppModule gmock,
 
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
+        generateHdr(c, hdr, No.locationAsComment, lookup, Yes.inlineDtor);
+        break;
     case ClassType.Adapter:
         generateHdr(c, hdr, No.locationAsComment, lookup);
         break;

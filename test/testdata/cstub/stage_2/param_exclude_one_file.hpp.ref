@@ -12,6 +12,7 @@ public:
     virtual void fun_b() = 0;
     virtual void fun_c() = 0;
     virtual void fun_d() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

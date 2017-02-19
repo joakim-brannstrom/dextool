@@ -8,6 +8,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void this_is_wrong(const int x, const char *z, const other_func_ptr w) = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

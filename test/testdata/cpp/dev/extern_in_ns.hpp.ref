@@ -8,6 +8,7 @@ class I_TestDouble {
 public:
     virtual void fun_c_linkage() = 0;
     virtual void fun_cpp_linkage() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///
@@ -27,6 +28,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void fun_level1() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 /// Adapter connecting an interface with an implementation.

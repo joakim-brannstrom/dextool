@@ -7,6 +7,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual wchar_t * fun() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

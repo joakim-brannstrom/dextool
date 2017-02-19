@@ -10,6 +10,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void func() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

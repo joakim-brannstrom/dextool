@@ -10,6 +10,7 @@ class I_TestDouble {
 public:
     virtual void fun_c() = 0;
     virtual void fun_d() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///
