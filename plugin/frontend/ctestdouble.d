@@ -38,8 +38,12 @@ struct ParsedArgs {
     bool genPostInclude;
     bool locationAsComment;
 
+    string[] originalFlags;
+
     void parse(string[] args) {
         import std.getopt;
+
+        originalFlags = args.dup;
 
         try {
             // dfmt off
@@ -109,6 +113,7 @@ CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
 }
 
 auto runPlugin(CliBasicOption opt, CliArgs args) {
+    import std.array : appender;
     import std.stdio : writeln;
 
     ParsedArgs pargs;
@@ -127,6 +132,8 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     }
 
     auto variant = CTestDoubleVariant.makeVariant(pargs);
+    auto app = appender!string();
+    variant.putFile(variant.getIniOutputFile, makeIni(app, pargs.originalFlags).data);
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
@@ -206,6 +213,13 @@ Generate a C test double excluding data from specified files.
 );
 // dfmt on
 
+struct FileData {
+    import application.types : FileName;
+
+    FileName filename;
+    string data;
+}
+
 /** Test double generation of C code.
  *
  * TODO Describe the options.
@@ -218,14 +232,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
 
-    static struct FileData {
-        FileName filename;
-        string data;
-    }
-
     private {
         static const hdrExt = ".hpp";
         static const implExt = ".cpp";
+        static const iniExt = ".ini";
 
         StubPrefix prefix;
 
@@ -236,6 +246,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         FileName gmock_file;
         FileName pre_incl_file;
         FileName post_incl_file;
+        FileName log_file;
         CustomHeader custom_hdr;
 
         MainName main_name;
@@ -313,6 +324,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
                 base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_post_includes" ~ hdrExt));
+        this.log_file = FileName(buildPath(output_dir, base_filename ~ iniExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -390,6 +402,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     void finalizeIncludes() {
         td_includes.finalize();
+    }
+
+    /// Make an .ini-file containing the configuration data.
+    FileName getIniOutputFile() {
+        return log_file;
     }
 
     /// Data produced by the generatore intented to be written to specified file.
@@ -506,6 +523,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Products --
 
+    void putFile(FileName fname, string data) {
+        file_data ~= FileData(fname, data);
+    }
+
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
     }
@@ -517,6 +538,25 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     void putLocation(FileName fname, LocationType type) {
         td_includes.put(fname, type);
     }
+}
+
+/// Write the flags in .ini format
+ref AppT makeIni(AppT)(ref AppT app, string[] flags) {
+    import std.algorithm : joiner;
+    import std.array : array;
+    import std.file : thisExePath;
+    import std.path : baseName;
+    import std.format : formattedWrite;
+    import std.utf : toUTF8;
+    import application.utility : dextoolVersion;
+
+    formattedWrite(app, "[ToolInfo]\n");
+    formattedWrite(app, "version = %s\n\n", dextoolVersion);
+    formattedWrite(app, "# Command line to run dextool\n");
+    formattedWrite(app, "[Run]\n");
+    formattedWrite(app, "input = %s %s\n", thisExePath.baseName, flags.joiner(" ").array().toUTF8);
+
+    return app;
 }
 
 /// TODO refactor, doing too many things.
