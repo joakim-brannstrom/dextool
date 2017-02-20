@@ -74,7 +74,7 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
     }
 
     return range.filter!(a => isNotConst(a)).map!(a => MutableGlobal(a,
-            resolveTypedef(a.type.kind, container))).tee!(a => logger.info(a.type.kind.usr));
+            resolveTypedef(a.type.kind, container)));
 }
 
 /** Make a C++ "interface" class of all mutable globals.
