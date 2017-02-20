@@ -178,6 +178,10 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
     bool opEquals(T : typeof(this))(auto ref const T rhs) const {
         return this.id_ == rhs.id();
     }
+
+    void unsafeForceID(IDType id) {
+        this.id_ = id;
+    }
 }
 
 /// User defined kind to differeniate structs of the same type.
