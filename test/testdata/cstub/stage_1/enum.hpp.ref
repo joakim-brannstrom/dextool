@@ -8,6 +8,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void how_to_use_the_anon_inst() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

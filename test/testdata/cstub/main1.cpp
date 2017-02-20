@@ -29,6 +29,14 @@
 #define TEST_INIT_djurpark const djur_type djurpark[3] = {HEST, HEST, HEST}
 #endif
 
+#ifdef TEST_VARIABLES
+#define TEST_INIT_expect_c int c = 3
+#define TEST_INIT_expect_g int* const expect_g = reinterpret_cast<int*>(42)
+#define TEST_INIT_expect_h const int* const expect_h = reinterpret_cast<const int*>(42)
+#define TEST_INIT_expect_const_my_int const my_int expect_const_my_int = 42
+#define TEST_INIT_expect_const_ptr_my_int const my_int* const expect_const_ptr_my_int = reinterpret_cast<const my_int*>(42)
+#endif
+
 #include "test_double_global.cpp"
 #endif
 

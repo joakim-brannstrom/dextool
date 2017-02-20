@@ -83,7 +83,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
     }
 
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
-    auto c = hdr.class_(in_c.name, in_c.inherits.map!(a => a.toString).joiner(", ").toUTF8);
+    auto c = hdr.class_(in_c.name, in_c.inherits.map!(a => a.toString).joiner(", ").array().toUTF8);
     auto pub = c.public_();
 
     // dfmt off

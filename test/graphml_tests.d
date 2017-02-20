@@ -218,11 +218,11 @@ unittest {
 
     // a ptr at a primitive do not result in an edge to the type
     graph.countEdge("c:@expect_d", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:19 Column:13$1expect_d").shouldEqual(0);
+            ~ "/testdata/graphml/variables.h Line:23 Column:13$1expect_d").shouldEqual(0);
 
     // a ptr at e.g. a typedef of a primitive type result in an edge to the type
     graph.countEdge("c:@expect_const_ptr_my_int", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:32 Column:28§1expect_const_ptr_my_int").shouldEqual(
+            ~ "/testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int").shouldEqual(
             1);
 }
 
@@ -268,11 +268,11 @@ unittest {
 
     // a ptr at a primitive do not result in an edge to the type
     graph.countEdge("c:@N@ns@expect_d", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:18 Column:13$1expect_d").shouldEqual(0);
+            ~ "/testdata/graphml/variables.h Line:23 Column:13$1expect_d").shouldEqual(0);
 
     // a ptr at e.g. a typedef of a primitive type result in an edge to the type
     graph.countEdge("c:@N@ns@expect_const_ptr_my_int", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:32 Column:28§1expect_const_ptr_my_int").shouldEqual(
+            ~ "/testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int").shouldEqual(
             1);
 }
 
@@ -470,7 +470,8 @@ unittest {
         ng.countNode("c:@S@MethodVariables@Ua@FI@union_buf").shouldEqual(1);
         ng.countNode("c:@S@MethodVariables@Ua@FI@size").shouldEqual(1);
         // and then be related from the method to the specific field
-        graph.countEdge("c:@S@MethodVariables@F@use_field_from_union#", "c:@S@MethodVariables@Ua@FI@union_buf").shouldEqual(1);
+        graph.countEdge("c:@S@MethodVariables@F@use_field_from_union#",
+                "c:@S@MethodVariables@Ua@FI@union_buf").shouldEqual(1);
     }
 }
 

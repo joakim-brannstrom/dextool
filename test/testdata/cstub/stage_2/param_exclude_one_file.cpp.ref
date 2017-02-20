@@ -1,12 +1,46 @@
 #include "test_double.hpp"
 
+
+extern int var_b;
+extern int var_c;
+extern int var_d;
+
 namespace {
 TestDouble::I_TestDouble* test_double_inst = 0;
 } //NS:
 
 namespace TestDouble {
+Test_ZeroGlobals::Test_ZeroGlobals() {
+}
+
+Test_ZeroGlobals::~Test_ZeroGlobals() {
+}
+
+void Test_ZeroGlobals::var_b() {
+    ::var_b = 0;
+}
+
+void Test_ZeroGlobals::var_c() {
+    ::var_c = 0;
+}
+
+void Test_ZeroGlobals::var_d() {
+    ::var_d = 0;
+}
+
 Adapter::Adapter(I_TestDouble& inst) {
     test_double_inst = &inst;
+    Test_ZeroGlobals init_globals;
+    init_globals.var_b();
+    init_globals.var_c();
+    init_globals.var_d();
+}
+
+Adapter::Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals) {
+    test_double_inst = &inst;
+    init_globals.var_b();
+    init_globals.var_c();
+    init_globals.var_d();
 }
 
 Adapter::~Adapter() {

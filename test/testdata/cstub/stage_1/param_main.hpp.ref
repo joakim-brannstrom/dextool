@@ -8,7 +8,7 @@ namespace Stub {
 class I_Stub {
 public:
     virtual void foo() = 0;
-    virtual ~I_TestDouble() {}
+    virtual ~I_Stub() {}
 };
 
 ///

@@ -1,45 +1,70 @@
 #include "test_double.hpp"
-#include <string.h>
+
 
 extern int expect_b;
 extern int *expect_d;
 extern int **expect_e;
-extern int *const expect_g;
+extern const int *expect_f;
+extern const int *const *expect_i;
 extern my_int expect_my_int;
 
-namespace {
-TestDouble::I_TestDouble* test_double_inst = 0;
-} //NS:
-
 namespace TestDouble {
-ZeroGlobals::ZeroGlobals() {}
-ZeroGlobals::~ZeroGlobals() {}
-void ZeroGlobals::expect_b() {
-    memset(&expect_b, 0, sizeof(int));
-}
-void ZeroGlobals::expect_d() {
-    memset(&expect_d, 0, sizeof(int *));
-}
-void ZeroGlobals::expect_e() {
-    memset(&expect_e, 0, sizeof(int **));
-}
-void ZeroGlobals::expect_g() {
-    memset(&expect_g, 0, sizeof(int *const));
-}
-void ZeroGlobals::expect_my_int() {
-    memset(&expect_my_int, 0, sizeof(my_int));
+void Test_memzero(void* s, unsigned int n) {
+    char* iter = reinterpret_cast<char*>(s);
+    char* end = reinterpret_cast<char*>(s) + n;
+    // crash if the address ptr overflows
+    if (n > end - iter) {
+        *((char*) -1) = 'x';
+        return ;
+    }
+    for (; iter <= end; ++iter) {
+        *iter = 0;
+    }
 }
 
-Adapter::Adapter(I_InitGlobals& init_globals) {
+Test_ZeroGlobals::Test_ZeroGlobals() {
+}
+
+Test_ZeroGlobals::~Test_ZeroGlobals() {
+}
+
+void Test_ZeroGlobals::expect_b() {
+    ::expect_b = 0;
+}
+
+void Test_ZeroGlobals::expect_d() {
+    ::expect_d = 0;
+}
+
+void Test_ZeroGlobals::expect_e() {
+    ::expect_e = 0;
+}
+
+void Test_ZeroGlobals::expect_f() {
+    ::expect_f = 0;
+}
+
+void Test_ZeroGlobals::expect_i() {
+    ::expect_i = 0;
+}
+
+void Test_ZeroGlobals::expect_my_int() {
+    Test_memzero(&::expect_my_int, sizeof(::expect_my_int));
+}
+
+Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
     init_globals.expect_b();
     init_globals.expect_d();
     init_globals.expect_e();
-    init_globals.expect_g();
+    init_globals.expect_f();
+    init_globals.expect_i();
     init_globals.expect_my_int();
 }
 
 Adapter::~Adapter() {
-    test_double_inst = 0;
 }
 
 } //NS:TestDouble
+
+extern "C" {
+}

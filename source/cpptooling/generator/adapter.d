@@ -12,7 +12,8 @@ import dsrcgen.cpp : CppModule;
 
 import application.types : MainNs, MainInterface;
 import cpptooling.analyzer.type;
-import cpptooling.data.representation : CppClass, CppNamespace, CppClassName, CppMethodName;
+import cpptooling.data.representation : CppClass, CppNamespace, CppClassName,
+    CppMethodName;
 import cpptooling.data.type : USRType;
 
 @safe:
@@ -39,24 +40,25 @@ private struct BuildAdapter {
         if (hasTestDouble) {
             auto attr = TypeAttr.init;
             attr.isRef = Yes.isRef;
-            auto kind = TypeKind(TypeKind.PointerInfo(interfaceName ~ "%s %s", USRType(interfaceName ~ "&"), [attr]));
+            auto kind = TypeKind(TypeKind.PointerInfo(interfaceName ~ "%s %s",
+                    USRType(interfaceName ~ "&"), [attr]));
 
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
-                                                                TypeAttr.init), CppVariable("inst")));
+                    TypeAttr.init), CppVariable("inst")));
         }
 
         if (hasGlobalInitializer) {
             auto kind = TypeKind(TypeKind.SimpleInfo(interfaceInitGlobal ~ " %s"));
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
-                                                                TypeAttr.init), CppVariable("init_globals")));
+                    TypeAttr.init), CppVariable("init_globals")));
         }
 
         c.put("Adapter connecting an interface with an implementation.");
         c.put("The lifetime of the connection is the same as the instance of the adapter.");
 
         c.put(CppCtor(makeUniqueUSR, classCtor, params, CppAccess(AccessType.Public)));
-        c.put(CppDtor(makeUniqueUSR, classDtor,
-                      CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Normal)));
+        c.put(CppDtor(makeUniqueUSR, classDtor, CppAccess(AccessType.Public),
+                CppVirtualMethod(MemberVirtualType.Normal)));
 
         return c;
     }
@@ -74,8 +76,8 @@ private:
 /// Make a C++ adapter for an interface.
 BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
     return BuildAdapter(CppClassName("Adapter"), CppClassName(cast(string) interface_name),
-                        CppClassName(cast(string) interface_name ~ "_InitGlobals"),
-                        CppMethodName("Adapter"), CppMethodName("~Adapter"));
+            CppClassName(cast(string) interface_name ~ "_InitGlobals"),
+            CppMethodName("Adapter"), CppMethodName("~Adapter"));
 }
 
 /// make an anonymous namespace containing a ptr to an instance of a test
