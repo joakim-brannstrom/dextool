@@ -147,7 +147,7 @@ pure @safe nothrow @nogc:
     /** The type 'extern int (*e_g)(int pa)'.
      *
      * attrs is only for the pointers, never the final pointee.
-     * In the example shown about it would have length 2.
+     * In the example shown about it would have length 1.
      *
      * TODO improve formatting with more separation, f.e return, ptr and args.
      * TODO add a USRType for the FuncPrototype.
@@ -222,7 +222,7 @@ pure @safe nothrow @nogc:
         string fmt;
         /// USRs up the pointee
         USRType pointee;
-        /// attributes of the pointer hierarchy. attr[0] is the right most ptr.
+        /// attributes of the pointer hierarchy. attr[0] is the left most ptr.
         TypeAttr[] attrs;
     }
 
