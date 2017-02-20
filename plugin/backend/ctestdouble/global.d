@@ -231,7 +231,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         comment("crash if the address ptr overflows");
         with (if_("n > end - iter")) {
             stmt("*((char*) -1) = 'x'");
-            return_("");
+            stmt("return");
         }
         with (for_("", "iter < end", "++iter")) {
             stmt("*iter = 0");

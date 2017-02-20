@@ -15,7 +15,7 @@ void Test_memzero(void* s, unsigned int n) {
     // crash if the address ptr overflows
     if (n > end - iter) {
         *((char*) -1) = 'x';
-        return ;
+        return;
     }
     for (; iter < end; ++iter) {
         *iter = 0;
