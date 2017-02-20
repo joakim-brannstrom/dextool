@@ -224,35 +224,37 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         string data;
     }
 
-    static const hdrExt = ".hpp";
-    static const implExt = ".cpp";
+    private {
+        static const hdrExt = ".hpp";
+        static const implExt = ".cpp";
 
-    StubPrefix prefix;
+        StubPrefix prefix;
 
-    DirName output_dir;
-    FileName main_file_hdr;
-    FileName main_file_impl;
-    FileName main_file_globals;
-    FileName gmock_file;
-    FileName pre_incl_file;
-    FileName post_incl_file;
-    CustomHeader custom_hdr;
+        DirName output_dir;
+        FileName main_file_hdr;
+        FileName main_file_impl;
+        FileName main_file_globals;
+        FileName gmock_file;
+        FileName pre_incl_file;
+        FileName post_incl_file;
+        CustomHeader custom_hdr;
 
-    MainName main_name;
-    MainNs main_ns;
-    MainInterface main_if;
-    Flag!"Gmock" gmock;
-    Flag!"PreInclude" pre_incl;
-    Flag!"PostInclude" post_incl;
-    Flag!"locationAsComment" loc_as_comment;
+        MainName main_name;
+        MainNs main_ns;
+        MainInterface main_if;
+        Flag!"Gmock" gmock;
+        Flag!"PreInclude" pre_incl;
+        Flag!"PostInclude" post_incl;
+        Flag!"locationAsComment" loc_as_comment;
 
-    Regex!char[] exclude;
-    Regex!char[] restrict;
+        Regex!char[] exclude;
+        Regex!char[] restrict;
 
-    /// Data produced by the generatore intented to be written to specified file.
-    FileData[] file_data;
+        /// Data produced by the generatore intented to be written to specified file.
+        FileData[] file_data;
 
-    private TestDoubleIncludes td_includes;
+        TestDoubleIncludes td_includes;
+    }
 
     static auto makeVariant(ref ParsedArgs args) {
         Regex!char strip_incl;
@@ -389,6 +391,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     void finalizeIncludes() {
         td_includes.finalize();
+    }
+
+    /// Data produced by the generatore intented to be written to specified file.
+    ref FileData[] getProducedFiles() {
+        return file_data;
     }
 
     // -- Controller --
@@ -565,5 +572,5 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         logger.trace(visitor);
     }
 
-    return writeFileData(variant.file_data);
+    return writeFileData(variant.getProducedFiles);
 }
