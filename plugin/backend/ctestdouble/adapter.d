@@ -241,7 +241,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 
     static void genMethod(const ref CppClass adapter, const ref CppMethod m, CppModule impl) {
         import std.range : takeOne;
-        import std.typecons : Yes;
+        import std.typecons : Yes, No;
         import cpptooling.analyzer.type : toStringDecl;
 
         string params = m.paramRange().joinParams();

@@ -99,9 +99,19 @@ struct ClangContext {
             uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
         import std.array : join;
 
+        auto prependDefaultFlags(string[] in_cflags) {
+            import std.algorithm : canFind;
+
+            if (in_cflags.canFind(syntax_only_arg)) {
+                return in_cflags;
+            } else {
+                return syntax_only_arg ~ in_cflags;
+            }
+        }
+
         logger.info("Compiler flags: ", commandLineArgs.join(" "));
 
-        string[] args = syntax_only_arg ~ commandLineArgs ~ internal_header_arg;
+        string[] args = prependDefaultFlags(commandLineArgs ~ internal_header_arg);
 
         logger.trace("Internal compiler flags: ", args.join(" "));
 

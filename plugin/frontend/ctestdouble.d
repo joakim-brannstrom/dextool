@@ -41,25 +41,31 @@ struct ParsedArgs {
     void parse(string[] args) {
         import std.getopt;
 
-        // dfmt off
-        getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-               "main", &mainName,
-                "main-fname", &mainFileName,
-                "out", &out_,
-                "compile-db", &compileDb,
-                "prefix", &prefix,
-                "strip-incl", &stripInclude,
-                "header", &header,
-                "header-file", &headerFile,
-                "gmock", &gmock,
-                "gen-pre-incl", &generatePreInclude,
-                "gen-post-incl", &genPostInclude,
-                "loc-as-comment", &locationAsComment,
-                "td-include", &testDoubleInclude,
-                "file-exclude", &fileExclude,
-                "file-restrict", &fileRestrict,
-                "in", &inFiles);
-        // dfmt on
+        try {
+            // dfmt off
+            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+                   "main", &mainName,
+                   "main-fname", &mainFileName,
+                   "out", &out_,
+                   "compile-db", &compileDb,
+                   "prefix", &prefix,
+                   "strip-incl", &stripInclude,
+                   "header", &header,
+                   "header-file", &headerFile,
+                   "gmock", &gmock,
+                   "gen-pre-incl", &generatePreInclude,
+                   "gen-post-incl", &genPostInclude,
+                   "loc-as-comment", &locationAsComment,
+                   "td-include", &testDoubleInclude,
+                   "file-exclude", &fileExclude,
+                   "file-restrict", &fileRestrict,
+                   "in", &inFiles);
+            // dfmt on
+        }
+        catch (std.getopt.GetOptException ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
 
         import std.algorithm : find;
         import std.array : array;

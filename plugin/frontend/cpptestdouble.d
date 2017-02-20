@@ -38,7 +38,8 @@ struct ParsedArgs {
     void parse(string[] args) {
         import std.getopt;
 
-        // dfmt off
+        try {
+            // dfmt off
         getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
                "main", &mainName,
                 "main-fname", &mainFileName,
@@ -56,6 +57,11 @@ struct ParsedArgs {
                 "file-restrict", &fileRestrict,
                 "in", &inFiles);
         // dfmt on
+        }
+        catch (std.getopt.GetOptException ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
 
         import std.algorithm : find;
         import std.array : array;
