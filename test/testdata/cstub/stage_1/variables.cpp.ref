@@ -17,7 +17,7 @@ void Test_memzero(void* s, unsigned int n) {
         *((char*) -1) = 'x';
         return ;
     }
-    for (; iter <= end; ++iter) {
+    for (; iter < end; ++iter) {
         *iter = 0;
     }
 }
