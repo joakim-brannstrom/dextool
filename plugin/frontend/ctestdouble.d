@@ -214,10 +214,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
     import application.types : StubPrefix, FileName, DirName;
-    import application.utility;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
-    import dsrcgen.cpp;
+    import dsrcgen.cpp : CppModule, CppHModule;
 
     static struct FileData {
         FileName filename;
