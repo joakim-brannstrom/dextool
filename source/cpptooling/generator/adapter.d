@@ -107,12 +107,14 @@ void generateImpl(CppClass c, CppModule impl) {
     import cpptooling.data.representation;
     import dsrcgen.c : E;
 
-    // C'tor is expected to have one or two parameter.
+    // C'tor is expected to have N params.
+    // One of them must be named inst.
     static void genCtor(const ref CppClass c, const ref CppCtor m, CppModule impl) {
         import dsrcgen.cpp;
         import cpptooling.data.representation;
         import cpptooling.analyzer.type : TypeKind;
 
+        // THIS will not work. only taking the first param.
         // dfmt off
         TypeKindVariable p0 = () @trusted {
             import std.array;
@@ -133,8 +135,8 @@ void generateImpl(CppClass c, CppModule impl) {
         impl.sep(2);
     }
 
-    //TODO not implemented generator for operators
     static void genOp(const ref CppClass c, const ref CppMethodOp m, CppModule impl) {
+        // not applicable
     }
 
     static void genDtor(const ref CppClass c, const ref CppDtor m, CppModule impl) {

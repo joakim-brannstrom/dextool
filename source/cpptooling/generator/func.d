@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -49,7 +48,6 @@ void generateFuncImpl(CFunction f, CppModule impl) {
  */
 CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
     import cpptooling.data.representation;
-
     import std.array : array;
 
     auto c = CppClass(main_if);

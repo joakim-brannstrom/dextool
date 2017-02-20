@@ -66,6 +66,10 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
             hdr.comment(genLocationComment(m.usr, lookup))[$.begin = "/// "];
         }
 
+        foreach (comment; m.comments) {
+            hdr.comment(comment)[$.begin = "/// "];
+        }
+
         string params = m.paramRange().joinParams();
         auto o = hdr.method(cast(Flag!"isVirtual") m.isVirtual(),
                 m.returnType.toStringDecl, m.name, cast(Flag!"isConst") m.isConst, params);
