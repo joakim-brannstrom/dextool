@@ -147,8 +147,39 @@ ExitStatusType analyzeFile(VisitorT, ClangContextT)(in string input_file,
     return ExitStatusType.Ok;
 }
 
+/** Try to write the data to the destination directory.
+ *
+ * If the directory do not exist try and create it.
+ */
 ExitStatusType writeFileData(T)(ref T data) {
+    import std.path : dirName;
+
+    static ExitStatusType tryMkdir(string path) nothrow {
+        import std.file : isDir, mkdirRecurse;
+
+        try {
+            if (path.isDir) {
+                return ExitStatusType.Ok;
+            }
+        }
+        catch (Exception ex) {
+        }
+
+        try {
+            mkdirRecurse(path);
+            return ExitStatusType.Ok;
+        }
+        catch (Exception ex) {
+        }
+
+        return ExitStatusType.Errors;
+    }
+
     foreach (p; data) {
+        if (tryMkdir(p.filename.dirName) == ExitStatusType.Errors) {
+            logger.error("Unable to create destination directory: ", p.filename.dirName);
+        }
+
         auto status = tryWriting(cast(string) p.filename, p.data);
         if (status != ExitStatusType.Ok) {
             return ExitStatusType.Errors;
