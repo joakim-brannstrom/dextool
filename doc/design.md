@@ -110,7 +110,7 @@ struct StubData {
 
 The suffix Context is used for structs that visit the AST with clangs visitor.
 
-# Global initialization
+# Global initialization (ctestdouble)
 Problem:
  - The user has raised the design problem that the tests become coupled when
    the globals aren't initialized before the test start.
@@ -122,54 +122,83 @@ Questions:
  2. How should the design ensure "correct by construction"?
  3. What information needs to be exposed in the interface?
     What can be hidden?
+ 4. How can it be made easy to use?
 
-1.
-Make a C++ interface that is used to initialize the global variables.
+1. Make a C++ interface that is used to initialize the global variables.
 Make each global a pure method.
     It forces the user to update the class implementing the interface when a
     new global has been added.
 
-2.
-The adapter for the test double takes as reference a class that implement the
-interface.
-It forces the user to implement "initializers" of the globals.
-Make a conscious decision.
-The adapter then calls the functions in its constructor.
-It sends "events" to the global initializer.
+2. The adapter have two constructors (in the case of globals and free functions).
+One that takes a ref to a class that implement I_TestDouble.
+    Emulate what the compiler do to e.g. the .bss-segment.
+    Namely blast zeroes over everything.
+One that takes a ref to I_TestDouble and I_TestDouble_InitGlobals
+    Allows the user to control how the initialization is performed.
+    For the use case when the user want to initialize a global to something
+    else besides zero.
 
-3.
-Make the interface just a plain, void methods. No arguments.
+3. Make the interface just a plain, void methods. No arguments.
 It simplifies the implementation of the C++ interface.
 Less boiler plate.
 Makes it easier to implement because there are cases, especially C++, where it
 is "hard" to know how to pass the object.
 Leave as much as possible to the implementor.
 
-A side effect of the design is that it is easy for the user to "ignore"
+side effect, the design is that it is easy for the user to "ignore"
 initializing globals if so is desired.
+Side effect, I_TestDouble_InitGlobals only change when the variable name
+changes.
 
-4. (EXTRA)
-The global initializer from the user is NOT passed by reference.
-It is to make it possible for the user to call the adapter without first having
-to create an instance in the scope;
+4. What is easy to use?
+A definition is that the test double (with globals) behave as expected.
+Both uninitialized (maybe crash) and initialized.
+
+The most common case for globals is to initialize them to zero.
+By providing an implementation of I_TestDouble_InitGlobals that do just that,
+zero all globlas, it become easy to start using the test double for those cases
+where zeroing is the correct behavior.
 
 ## Example
+```cpp
 // software under test
+void fun();
 extern int a;
 
 // test double code
+namespace {
+    I_TestDouble* test_double_inst = 0;
+}
+
 namespace TestDouble {
-class I_InitGlobals {
+class I_TestDouble {
+public:
+    virtual void fun() = 0;
+};
+
+class I_TestDouble_InitGlobals {
 public:
     virtual void a() = 0;
 };
 
+class Test_ZeroGlobals : public I_TestDouble_InitGlobals {
+public:
+    virtual void a() { ::a = 0; }
+}
+
 class Adapter {
 public:
-    Adapter(I_InitGlobals init_globals) {
+    Adapter(I_TestDouble inst) {
+        test_double_inst = &inst;
+        Test_ZeroGlobals init_globals;
+        init_globals.a();
+    }
+
+    Adapter(I_TestDouble inst, I_InitGlobals init_globals) {
+        test_double_inst = &inst;
         init_globals.a();
     }
 };
 } //NS: TestDouble
-
+```
 

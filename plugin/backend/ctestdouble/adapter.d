@@ -5,17 +5,13 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module plugin.backend.ctestdouble.adapter;
 
-import std.typecons : Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : MainNs, MainInterface, StubPrefix;
-import cpptooling.analyzer.type;
-import cpptooling.data.representation : CppClass, CppNamespace, CppClassName,
-    CppMethodName, CppNs, CxGlobalVariable;
-import cpptooling.data.type : USRType;
-
+import application.types : StubPrefix;
+import cpptooling.data.representation : CppClass, CppClassName, CppNamespace,
+    CppNs;
 import plugin.backend.ctestdouble.global : MutableGlobal;
 
 @safe:
@@ -33,6 +29,9 @@ enum AdapterKind {
 }
 
 private struct BuildAdapter {
+    import cpptooling.data.representation : CppClass, CppClassName,
+        CppMethodName;
+
     private {
         CppClassName className;
         CppClassName interfaceName;
@@ -53,9 +52,17 @@ private struct BuildAdapter {
         return this;
     }
 
-    /// Requires data has a field named adapterKind.
+    /** Finalize the construction of a class representation the adapter.
+     *
+     * Additional metadata about the kinds the adapters c'tor and d'tor is.
+     * Used for code generation.
+     */
     CppClass finalize(ImplDataT)(ref ImplDataT data) {
-        import cpptooling.data.representation;
+        import std.typecons : Yes;
+        import cpptooling.data.representation : AccessType, CxParam, CppCtor,
+            CppDtor, CppAccess, CppVirtualMethod, CppVariable, makeUniqueUSR,
+            makeCxParam, MemberVirtualType, TypeAttr, TypeKind, TypeKindAttr,
+            TypeKindVariable;
 
         auto c = CppClass(className);
         c.put("Adapter connecting an interface with an implementation.");
@@ -116,6 +123,8 @@ private struct BuildAdapter {
 
 /// Make a C++ adapter for an interface.
 auto makeAdapter(InterfaceT)(InterfaceT interface_name) {
+    import cpptooling.data.representation : CppMethodName;
+
     return BuildAdapter(CppClassName("Adapter"), CppClassName(cast(string) interface_name),
             CppClassName(cast(string) interface_name ~ "_InitGlobals"),
             CppMethodName("Adapter"), CppMethodName("~Adapter"));
@@ -124,8 +133,9 @@ auto makeAdapter(InterfaceT)(InterfaceT interface_name) {
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
 CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string instance_name) {
+    import std.typecons : Yes;
     import cpptooling.data.representation : CppVariable, CxGlobalVariable,
-        makeUniqueUSR;
+        makeUniqueUSR, TypeAttr, TypeKind, USRType, TypeKindAttr;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
@@ -231,6 +241,8 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 
     static void genMethod(const ref CppClass adapter, const ref CppMethod m, CppModule impl) {
         import std.range : takeOne;
+        import std.typecons : Yes;
+        import cpptooling.analyzer.type : toStringDecl;
 
         string params = m.paramRange().joinParams();
         auto b = impl.method_body(m.returnType.toStringDecl, adapter.name,
