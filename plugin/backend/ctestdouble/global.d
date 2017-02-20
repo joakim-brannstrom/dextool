@@ -233,7 +233,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
             stmt("*((char*) -1) = 'x'");
             return_("");
         }
-        with (for_("", "iter <= end", "++iter")) {
+        with (for_("", "iter < end", "++iter")) {
             stmt("*iter = 0");
         }
     }
