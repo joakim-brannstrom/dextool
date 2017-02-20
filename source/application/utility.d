@@ -78,8 +78,15 @@ auto tryWriting(string fname, string data) @trusted nothrow {
     return status;
 }
 
-auto prependDefaultFlags(in string[] in_cflags, in string prefer_lang) {
-    return "-fsyntax-only" ~ prependLangFlagIfMissing(in_cflags, prefer_lang);
+auto prependDefaultFlags(const string[] in_cflags, const string prefer_lang) {
+    import std.algorithm : canFind;
+
+    immutable syntax_only = "-fsyntax-only";
+    if (in_cflags.canFind(syntax_only)) {
+        return prependLangFlagIfMissing(in_cflags, prefer_lang);
+    } else {
+        return syntax_only ~ prependLangFlagIfMissing(in_cflags, prefer_lang);
+    }
 }
 
 ///TODO move to clang module.
