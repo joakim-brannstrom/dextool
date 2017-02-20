@@ -12,6 +12,22 @@ class I_TestDouble {
 public:
     virtual void fun_b() = 0;
     virtual void fun_c() = 0;
+    virtual ~I_TestDouble() {}
+};
+
+class I_TestDouble_InitGlobals {
+public:
+    virtual void var_b() = 0;
+    virtual void var_c() = 0;
+    virtual ~I_TestDouble_InitGlobals() {}
+};
+
+class Test_ZeroGlobals : public I_TestDouble_InitGlobals {
+public:
+    Test_ZeroGlobals();
+    virtual void var_b();
+    virtual void var_c();
+    virtual ~Test_ZeroGlobals();
 };
 
 ///
@@ -19,6 +35,7 @@ public:
 class Adapter {
 public:
     Adapter(I_TestDouble& inst);
+    Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals);
     ~Adapter();
 };
 

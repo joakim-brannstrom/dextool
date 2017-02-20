@@ -16,7 +16,7 @@ import application.types;
 import application.utility;
 
 import plugin.types;
-import plugin.backend.cvariant : Controller, Parameters, Products;
+import plugin.backend.ctestdouble.cvariant : Controller, Parameters, Products;
 
 struct ParsedArgs {
     string[] fileExclude;
@@ -515,7 +515,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import std.typecons : Yes;
 
     import cpptooling.analyzer.clang.context : ClangContext;
-    import plugin.backend.cvariant : CVisitor, Generator;
+    import plugin.backend.ctestdouble.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
     const auto total_files = in_files.length;

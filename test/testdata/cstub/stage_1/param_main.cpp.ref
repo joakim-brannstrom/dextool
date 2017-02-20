@@ -1,5 +1,7 @@
 #include "stub.hpp"
 
+
+
 namespace {
 Stub::I_Stub* test_double_inst = 0;
 } //NS:

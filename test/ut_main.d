@@ -38,6 +38,7 @@ int main(string[] args) {
                           "cpptooling.utility.sort",
                           "cpptooling.utility.taggedalgebraic",
                           "cpptooling.utility.virtualfilesystem",
+                          "plugin.backend.ctestdouble.global",
                           "plugin.register_plugin.standard",
                           "plugin.utility",
                           //"plugin.backend.graphml.base",

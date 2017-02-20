@@ -4,4 +4,27 @@ extern "C" {
 #include "structs.h"
 }
 
+namespace TestDouble {
+class I_TestDouble_InitGlobals {
+public:
+    virtual void expect_Struct_ptr() = 0;
+    virtual ~I_TestDouble_InitGlobals() {}
+};
+
+class Test_ZeroGlobals : public I_TestDouble_InitGlobals {
+public:
+    Test_ZeroGlobals();
+    virtual void expect_Struct_ptr();
+    virtual ~Test_ZeroGlobals();
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble_InitGlobals& init_globals);
+    ~Adapter();
+};
+
+} //NS:TestDouble
 #endif // test_double_hpp

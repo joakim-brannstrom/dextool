@@ -3,7 +3,7 @@ Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
-module cstub_tests;
+module c_tests;
 
 import scriptlike;
 import utils;
@@ -132,7 +132,7 @@ unittest {
     //TODO split the test in two, "global func pointers"/"use typedef func prototype for declaration"
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/function_pointers.h", testEnv);
-    p.compileFlags ~= "-DTEST_FUNC_PTR";
+    p.compileFlags ~= ["-DTEST_FUNC_PTR", "-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
 
@@ -175,6 +175,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_1/variables.h", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_VARIABLES"];
     runTestFile(p, testEnv);
 }
 
@@ -293,6 +294,7 @@ unittest {
     p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString,
         `--file-exclude='.*/include/b\.[h,c]'`];
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
 
@@ -306,6 +308,7 @@ unittest {
     p.dexParams ~= ["--file-exclude=.*/param_exclude_match_all.*",
         `--file-exclude='.*/include/b\.c'`];
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
 
@@ -318,6 +321,7 @@ unittest {
     auto p = genTestParams("stage_2/param_exclude_one_file.h", testEnv);
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
     p.dexParams ~= "--file-exclude=.*/" ~ p.input_ext.baseName.toString;
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
 
@@ -351,6 +355,7 @@ unittest {
     auto p = genTestParams("stage_2/param_include.h", testEnv);
     p.dexParams ~= ["--td-include=b.h", "--td-include=stdio.h"];
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
 
@@ -364,6 +369,7 @@ unittest {
     p.dexParams ~= ["--file-restrict=.*/" ~ p.input_ext.baseName.toString,
         "--file-restrict=.*/include/b.h"];
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
 
@@ -412,6 +418,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_loc_as_comment.h", testEnv);
     p.dexParams ~= ["--gmock", "--loc-as-comment"];
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     runTestFile(p, testEnv);
 }

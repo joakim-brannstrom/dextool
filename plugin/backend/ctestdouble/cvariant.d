@@ -6,9 +6,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 Generate a C test double implementation from data about the structural
 representation.
 */
-module plugin.backend.cvariant;
+module plugin.backend.ctestdouble.cvariant;
 
-import std.typecons : Flag;
+import std.typecons : Flag, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -173,18 +173,18 @@ struct Generator {
      *
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
-     *
-     * TODO refactor the control flow. Especially the gmock part.
-     * TODO rename translate to rawFilter. See cppvariant.
      */
     void process(ref const(Container) container) {
         logger.tracef("Filtered:\n%s\n", filtered.toString());
-        makeImplStuff(filtered, ctrl, params);
 
-        logger.trace("Post processed:\n", filtered.toString());
+        auto implementation = makeImplementation(filtered, ctrl, params, container);
+        logger.trace("Post processed:\n", implementation.toString());
+        logger.trace("kind: %s\nglobals: %s\nadapterKind: %s\n",
+                implementation.kind, implementation.globals, implementation.adapterKind);
 
         auto m = Modules.make();
-        generate(filtered, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
+        generate(implementation, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
+
         postProcess(m, ctrl, params, products);
     }
 
@@ -359,20 +359,73 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, CxGlobalVariable;
+    CppDtor, CFunction, CppNamespace, CxGlobalVariable, USRType;
 import cpptooling.data.type : LocationTag, Location;
 import dsrcgen.cpp : E;
 
-enum ClassType {
-    Normal,
-    Adapter,
-    Gmock
+/** Contain data for code generation.
+ */
+struct ImplData {
+    import cpptooling.data.type : CppMethodName;
+    import plugin.backend.ctestdouble.adapter : AdapterKind;
+    import plugin.backend.ctestdouble.global : MutableGlobal;
+
+    CppRoot root;
+    /// Tagging of nodes in the root
+    Kind[size_t] kind;
+    /// Global, mutable variables
+    MutableGlobal[] globals;
+    /// Constructor kinds for ctors in an adapter
+    AdapterKind[USRType] adapterKind;
+
+    static auto make() {
+        return ImplData(CppRoot.make);
+    }
+
+    void tag(size_t id, Kind kind_) {
+        kind[id] = kind_;
+    }
+
+    Kind lookup(size_t id) {
+        if (auto k = id in kind) {
+            return *k;
+        }
+
+        return Kind.none;
+    }
+
+    MutableGlobal lookupGlobal(CppMethodName name) {
+        foreach (item; globals) {
+            if (item.name == name) {
+                return item;
+            }
+        }
+
+        // Methods shall always be 1:1 mapped with the globals list.
+        assert(0);
+    }
+
+    alias root this;
 }
 
-enum NamespaceType {
-    Normal,
-    TestDoubleSingleton,
-    TestDouble
+enum Kind {
+    none,
+    /// Adapter class
+    adapter,
+    /// gmock class
+    gmock,
+    /// interface for globals
+    initGlobalInterface,
+    initGlobalsToZero,
+    testDoubleNamespace,
+    testDoubleSingleton,
+    testDoubleInterface,
+}
+
+//TODO remove
+enum ClassType {
+    Dummy,
+    Gmock
 }
 
 /** Structurally transformed the input to a stub implementation.
@@ -407,49 +460,187 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
     // dfmt on
 }
 
-/** Make stuff in root needed for the implementation IF root has any C functions.
+/** Transform the content of the root to a test double implementation root.
  *
  * Make an adapter.
  * Make a namespace holding the test double.
+ * Make an interface for initialization of globals.
  * Make a google mock if asked by the user.
  */
-void makeImplStuff(ref CppRoot root, Controller ctrl, Parameters params) {
-    import cpptooling.data.representation : CppNamespace, CppNs;
+auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
+        const ref Container container) {
+    import std.algorithm : filter;
+    import std.array : array;
+    import cpptooling.data.representation : CppNamespace, CppNs, CppClassName,
+        CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID;
+    import plugin.backend.ctestdouble.adapter : makeSingleton, makeAdapter;
     import cpptooling.generator.func : makeFuncInterface;
-    import cpptooling.generator.adapter : makeSingleton;
+    import plugin.backend.ctestdouble.global : makeGlobalInterface,
+        makeZeroGlobal, filterMutable;
 
-    alias makeTestDoubleAdapter = cpptooling.generator.adapter.makeAdapter!(
-            MainInterface, ClassType);
+    auto impl = ImplData.make;
+    impl.root.merge(root);
 
-    if (root.funcRange.empty) {
-        return;
+    impl.globals = impl.globalRange.filterMutable(container).array();
+
+    const has_mutable_globals = impl.globals.length != 0;
+    const has_functions = !root.funcRange.empty;
+
+    if (!has_functions && !has_mutable_globals) {
+        return impl;
     }
 
-    root.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
+    auto test_double_ns = CppNamespace.make(CppNs(params.getMainNs));
 
-    auto ns = CppNamespace.make(CppNs(params.getMainNs));
-    ns.setKind(NamespaceType.TestDouble);
+    if (has_functions) {
+        auto singleton = makeSingleton(CppNs(params.getMainNs),
+                CppClassName(params.getMainInterface), "test_double_inst");
+        impl.kind[singleton.id] = Kind.testDoubleSingleton;
+        impl.put(singleton); // (1)
 
-    auto c_if = makeFuncInterface(root.funcRange, params.getMainInterface);
+        auto c_if = makeFuncInterface(impl.funcRange, CppClassName(params.getMainInterface));
+        impl.tag(c_if.id, Kind.testDoubleInterface);
+        test_double_ns.put(c_if);
 
-    ns.put(c_if);
-    if (ctrl.doGoogleMock) {
-        // could reuse.. don't.
-        auto mock = c_if;
-        mock.setKind(ClassType.Gmock);
-        ns.put(mock);
+        if (ctrl.doGoogleMock) {
+            // could reuse.. don't.
+            auto mock = c_if;
+            mock.usr = makeUniqueUSR;
+            mock.unsafeForceID = nextUniqueID;
+            impl.tag(mock.id, Kind.gmock);
+            test_double_ns.put(mock);
+        }
     }
-    ns.put(makeTestDoubleAdapter(params.getMainInterface));
-    root.put(ns);
+
+    if (has_mutable_globals) {
+        auto if_name = CppClassName(params.getMainInterface ~ "_InitGlobals");
+        auto global_if = makeGlobalInterface(impl.globals[], if_name);
+        impl.tag(global_if.id, Kind.initGlobalInterface);
+        test_double_ns.put(global_if);
+
+        auto global_init_zero = makeZeroGlobal(impl.globals[], CppClassName(params.getArtifactPrefix ~ "ZeroGlobals"),
+                params.getArtifactPrefix, CppInherit(if_name, CppAccess(AccessType.Public)));
+        impl.tag(global_init_zero.id, Kind.initGlobalsToZero);
+        test_double_ns.put(global_init_zero);
+    }
+
+    // MUST be added after the singleton (1)
+    impl.tag(test_double_ns.id, Kind.testDoubleNamespace);
+
+    {
+        // dfmt off
+        auto adapter = makeAdapter(params.getMainInterface)
+            .makeTestDouble(has_functions)
+            .makeInitGlobals(has_mutable_globals)
+            .finalize(impl);
+        impl.tag(adapter.id, Kind.adapter);
+        test_double_ns.put(adapter);
+        // dfmt on
+    }
+
+    impl.put(test_double_ns);
+    return impl;
 }
 
-void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Container container,
+void generate(ref ImplData data, Controller ctrl, Parameters params, ref const Container container,
         CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
+    import plugin.backend.ctestdouble.adapter : generateSingleton;
 
     generateWrapIncludeInExternC(ctrl, params, hdr);
+    generateGlobal(data.globalRange, ctrl, params, container, globals);
+
+    generateGlobalExterns(data.globals[], impl, container);
+
+    foreach (ns; data.namespaceRange) {
+        switch (data.lookup(ns.id)) {
+        case Kind.testDoubleSingleton:
+            generateSingleton(ns, impl);
+            break;
+        case Kind.testDoubleNamespace:
+            generateNsTestDoubleHdr(ns,
+                    cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params, hdr, gmock,
+                    (USRType usr) => container.find!LocationTag(usr), (size_t id) => data.lookup(
+                        id));
+            generateNsTestDoubleImpl(ns, impl, data, params.getArtifactPrefix);
+            break;
+
+        default:
+        }
+    }
+
+    // The generated functions must be extern C declared.
+    auto extern_c = impl.suite("extern \"C\"");
+    extern_c.suppressIndent(1);
+    foreach (a; data.funcRange) {
+        generateFuncImpl(a, extern_c);
+    }
+}
+
+/// Generate the global definitions and macros for initialization.
+void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
+        const ref Container container, CppModule globals) {
+    void generateDefinitions(ref CxGlobalVariable global, Flag!"locationAsComment" loc_as_comment,
+            string prefix, ref const(Container) container, CppModule code)
+    in {
+        import std.algorithm : among;
+        import cpptooling.analyzer.type : TypeKind;
+
+        assert(!global.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
+    }
+    body {
+        import std.algorithm : map, joiner;
+        import std.format : format;
+        import std.string : toUpper;
+
+        string d_name = (prefix ~ "Init_").toUpper ~ global.name;
+
+        if (loc_as_comment) {
+            // dfmt off
+            foreach (loc; container.find!LocationTag(global.usr)
+                // both declaration and definition is OK
+                .map!(a => a.any)
+                .joiner) {
+                code.comment("Origin " ~ loc.toString)[$.begin = "/// "];
+            }
+            // dfmt on
+        }
+        code.stmt(d_name);
+    }
+
+    void generatePreProcessor(ref CxGlobalVariable global, string prefix, CppModule code) {
+        import std.string : toUpper;
+        import cpptooling.analyzer.type : TypeKind, toStringDecl;
+
+        auto d_name = E((prefix ~ "Init_").toUpper ~ global.name);
+        auto ifndef = code.IFNDEF(d_name);
+
+        // example: #define TEST_INIT_extern_a int extern_a[4]
+        final switch (global.type.kind.info.kind) with (TypeKind.Info) {
+        case Kind.array:
+        case Kind.func:
+        case Kind.funcPtr:
+        case Kind.funcSignature:
+        case Kind.pointer:
+        case Kind.primitive:
+        case Kind.record:
+        case Kind.simple:
+        case Kind.typeRef:
+            ifndef.define(d_name ~ E(global.type.toStringDecl(global.name)));
+            break;
+        case Kind.ctor:
+            // a C test double shold never have preprocessor macros for a C++ ctor
+            assert(false);
+        case Kind.dtor:
+            // a C test double shold never have preprocessor macros for a C++ dtor
+            assert(false);
+        case Kind.null_:
+            logger.error("Type of global definition is null. Identifier ", global.name);
+            break;
+        }
+    }
 
     auto global_macros = globals.base;
     global_macros.suppressIndent(1);
@@ -457,147 +648,102 @@ void generate(ref CppRoot r, Controller ctrl, Parameters params, const ref Conta
     auto global_definitions = globals.base;
     global_definitions.suppressIndent(1);
 
-    foreach (a; r.globalRange) {
-        generateCGlobalPreProcessorDefine(a, params.getArtifactPrefix, global_macros);
-        generateCGlobalDefinition(a, cast(Flag!"locationAsComment") ctrl.doLocationAsComment,
+    foreach (a; r) {
+        generatePreProcessor(a, params.getArtifactPrefix, global_macros);
+        generateDefinitions(a, cast(Flag!"locationAsComment") ctrl.doLocationAsComment,
                 params.getArtifactPrefix, container, global_definitions);
     }
-
-    foreach (ns; r.namespaceRange) {
-        import cpptooling.generator.adapter : generateSingleton;
-
-        final switch (cast(NamespaceType) ns.kind) {
-        case NamespaceType.Normal:
-            break;
-        case NamespaceType.TestDoubleSingleton:
-            generateSingleton(ns, impl);
-            break;
-        case NamespaceType.TestDouble:
-            generateNsTestDoubleHdr(ns,
-                    cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params,
-                    hdr, gmock, (USRType usr) => container.find!LocationTag(usr));
-            generateNsTestDoubleImpl(ns, impl);
-            break;
-        }
-    }
-
-    // The generated functions must be extern C declared.
-    auto extern_c = impl.suite("extern \"C\"");
-    extern_c.suppressIndent(1);
-    foreach (a; r.funcRange) {
-        generateFuncImpl(a, extern_c);
-    }
 }
 
-void generateCGlobalPreProcessorDefine(ref CxGlobalVariable global, string prefix, CppModule code) {
-    import std.string : toUpper;
-    import cpptooling.analyzer.type : TypeKind, toStringDecl, toRepr;
-
-    auto d_name = E((prefix ~ "Init_").toUpper ~ global.name);
-    auto ifndef = code.IFNDEF(d_name);
-
-    // example: #define TEST_INIT_extern_a int extern_a[4]
-    final switch (global.type.kind.info.kind) with (TypeKind.Info) {
-    case Kind.array:
-    case Kind.func:
-    case Kind.funcPtr:
-    case Kind.funcSignature:
-    case Kind.pointer:
-    case Kind.primitive:
-    case Kind.record:
-    case Kind.simple:
-    case Kind.typeRef:
-        ifndef.define(d_name ~ E(global.type.toStringDecl(global.name)));
-        break;
-    case Kind.ctor:
-        // a C test double shold never have preprocessor macros for a C++ ctor
-        assert(false);
-    case Kind.dtor:
-        // a C test double shold never have preprocessor macros for a C++ dtor
-        assert(false);
-    case Kind.null_:
-        logger.error("Type of global definition is null. Identifier ", global.name);
-        break;
-    }
-}
-
-void generateCGlobalDefinition(ref CxGlobalVariable global, Flag!"locationAsComment" loc_as_comment,
-        string prefix, ref const(Container) container, CppModule code)
-in {
-    import std.algorithm : among;
-    import cpptooling.analyzer.type : TypeKind;
-
-    assert(!global.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
-}
-body {
+void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Container container) {
     import std.algorithm : map, joiner;
-    import std.format : format;
-    import std.string : toUpper;
+    import cpptooling.analyzer.type : TypeKind, toStringDecl;
 
-    string d_name = (prefix ~ "Init_").toUpper ~ global.name;
+    auto externs = impl.base;
+    externs.suppressIndent(1);
+    externs.sep;
+    impl.sep;
 
-    if (loc_as_comment) {
-        // dfmt off
-        foreach (loc; container.find!LocationTag(global.usr)
-            // both declaration and definition is OK
-            .map!(a => a.any)
-            .joiner) {
-            code.comment("Origin " ~ loc.toString)[$.begin = "/// "];
+    foreach (ref global; range) {
+        // example: extern int extern_a[4];
+        final switch (global.type.kind.info.kind) with (TypeKind.Info) {
+        case Kind.array:
+        case Kind.func:
+        case Kind.funcPtr:
+        case Kind.funcSignature:
+        case Kind.pointer:
+        case Kind.primitive:
+        case Kind.record:
+        case Kind.simple:
+        case Kind.typeRef:
+            externs.extern_(global.type.toStringDecl(global.name));
+            break;
+        case Kind.ctor:
+            // a C test double shold never have preprocessor macros for a C++ ctor
+            assert(false);
+        case Kind.dtor:
+            // a C test double shold never have preprocessor macros for a C++ dtor
+            assert(false);
+        case Kind.null_:
+            logger.error("Type of global definition is null. Identifier ", global.name);
+            break;
         }
-        // dfmt on
     }
-    code.stmt(d_name);
 }
 
-void generateClassHdr(LookupT)(ref CppClass c, CppModule hdr, CppModule gmock,
-        Flag!"locationAsComment" loc_as_comment, Parameters params, LookupT lookup) {
+void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"locationAsComment" loc_as_comment,
+        Parameters params, CppModule hdr, CppModule gmock, LookupT lookup, KindLookupT kind_lookup) {
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
 
-    final switch (cast(ClassType) c.kind()) {
-    case ClassType.Normal:
-    case ClassType.Adapter:
-        generateHdr(c, hdr, loc_as_comment, lookup);
-        break;
-    case ClassType.Gmock:
-        generateGmock!Parameters(c, gmock, params);
-        break;
-    }
-}
-
-void generateClassImpl(ref CppClass c, CppModule impl) {
-    import cpptooling.generator.adapter : generateClassImplAdapter = generateImpl;
-
-    final switch (cast(ClassType) c.kind()) {
-    case ClassType.Normal:
-        break;
-    case ClassType.Adapter:
-        generateClassImplAdapter(c, impl);
-        break;
-    case ClassType.Gmock:
-        break;
-    }
-}
-
-void generateNsTestDoubleHdr(LookupT)(ref CppNamespace ns, Flag!"locationAsComment" loc_as_comment,
-        Parameters params, CppModule hdr, CppModule gmock, LookupT lookup) {
-    import std.algorithm : each;
-
-    auto cpp_ns = hdr.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
+    auto test_double_ns = hdr.namespace(ns.name);
+    test_double_ns.suppressIndent(1);
     hdr.sep(2);
 
-    foreach (a; ns.classRange()) {
-        generateClassHdr(a, cpp_ns, gmock, loc_as_comment, params, lookup);
+    foreach (class_; ns.classRange()) {
+        switch (kind_lookup(class_.id)) {
+        case Kind.none:
+        case Kind.initGlobalsToZero:
+        case Kind.adapter:
+            generateHdr(class_, test_double_ns, loc_as_comment, lookup);
+            break;
+        case Kind.initGlobalInterface:
+        case Kind.testDoubleInterface:
+            generateHdr(class_, test_double_ns, loc_as_comment, lookup, Yes.inlineDtor);
+            break;
+        case Kind.gmock:
+            generateGmock!Parameters(class_, gmock, params);
+            break;
+        default:
+        }
     }
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl) {
-    import std.algorithm : each;
+void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
+        ref ImplData data, StubPrefix prefix) {
+    import plugin.backend.ctestdouble.global : generateInitGlobalsToZero;
+    import plugin.backend.ctestdouble.adapter : generateClassImplAdapter = generateImpl;
 
-    auto cpp_ns = impl.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
+    auto test_double_ns = impl.namespace(ns.name);
+    test_double_ns.suppressIndent(1);
     impl.sep(2);
 
-    ns.classRange().each!((a) { generateClassImpl(a, cpp_ns); });
+    foreach (class_; ns.classRange) {
+        switch (data.lookup(class_.id)) {
+        case Kind.adapter:
+            auto lookup(USRType usr) {
+                return usr in data.adapterKind;
+            }
+
+            generateClassImplAdapter(class_, data.globals, prefix, test_double_ns, &lookup);
+            break;
+
+        case Kind.initGlobalsToZero:
+            generateInitGlobalsToZero(class_,
+                    test_double_ns, prefix, &data.lookupGlobal);
+            break;
+
+        default:
+        }
+    }
 }

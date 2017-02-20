@@ -15,7 +15,7 @@ int main(string[] args) {
     writeln(`Running tests`);
     //dfmt off
     return args.runTests!(
-                          "cstub_tests",
+                          "c_tests",
                           "cpp_tests",
                           "plantuml_tests",
                           "graphml_tests",

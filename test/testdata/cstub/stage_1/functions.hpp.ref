@@ -31,6 +31,7 @@ public:
     virtual djur_type func_with_enum_param_and_return(const djur_type a) = 0;
     virtual void gun_func(int x0) = 0;
     virtual void unnamed_params(int x0, int x1) = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

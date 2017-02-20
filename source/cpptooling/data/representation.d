@@ -1,5 +1,5 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -8,7 +8,6 @@ Structuraly represents the semantic-centric view of of C/C++ code.
 The guiding principle for this module is: "Correct by construction".
  * After the data is created it should be "correct".
  * As far as possible avoid runtime errors.
-Therefor the default c'tor is disabled.
 
 Structs was chosen instead of classes to:
  * ensure allocation on the stack.
@@ -69,6 +68,16 @@ static this() {
     _nextUSR = 42;
 }
 
+/// Generate the next thread unique ID.
+size_t nextUniqueID() @safe nothrow {
+    if (_nextUSR == size_t.max) {
+        _nextUSR = size_t.min;
+    }
+
+    _nextUSR += 1;
+    return _nextUSR;
+}
+
 /** Construct a USR that is ensured to be unique.
  *
  * The USR start with a number which is an illegal symbol in C/C++.
@@ -78,13 +87,7 @@ static this() {
 USRType makeUniqueUSR() @safe nothrow {
     import std.conv : text;
 
-    if (_nextUSR == size_t.max) {
-        _nextUSR = size_t.min;
-    }
-
-    _nextUSR += 1;
-
-    return USRType(text(_nextUSR));
+    return USRType(text(nextUniqueID));
 }
 
 void funcToString(Writer, Char)(const(CppClass.CppFunc) func, scope Writer w, in Char[] fmt) @trusted {
@@ -112,6 +115,17 @@ string funcToString(const(CppClass.CppFunc) func) @safe {
     return trustedUnique(buf);
 }
 
+string methodNameToString(const(CppClass.CppFunc) func) @trusted {
+    import std.variant : visit;
+
+    //dfmt off
+    return func.visit!((const(CppMethod) a) => a.name,
+                       (const(CppMethodOp) a) => a.name,
+                       (const(CppCtor) a) => a.name,
+                       (const(CppDtor) a) => a.name);
+    //dfmt on
+}
+
 /// Convert a CxParam to a string.
 string paramTypeToString(CxParam p, string id = "") @trusted {
     import std.variant : visit;
@@ -125,7 +139,21 @@ string paramTypeToString(CxParam p, string id = "") @trusted {
     // dfmt on
 }
 
-// string mixin
+/// Convert a CxParam to a string.
+string paramNameToString(CxParam p, string id = "") @trusted {
+    import std.variant : visit;
+
+    // dfmt off
+    return p.visit!(
+        (TypeKindVariable tk) { return tk.name; },
+        (TypeKindAttr t) { return id; },
+        (VariadicType a) { return "..."; }
+        );
+    // dfmt on
+}
+
+/// Standard implementation of toString using the toString that take an
+/// OutputRange.
 private string standardToString() {
     return q{
     string toString()() const {
@@ -156,7 +184,7 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 @safe:
 
     static if (is(IDType == size_t)) {
-        private void setUniqueId(string identifier) {
+        private void setUniqueId(string identifier) nothrow {
             this.id_ = makeHash(identifier);
         }
     } else static if (is(IDType == string)) {
@@ -178,19 +206,47 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
     bool opEquals(T : typeof(this))(auto ref const T rhs) const {
         return this.id_ == rhs.id();
     }
+
+    void unsafeForceID(IDType id) {
+        this.id_ = id;
+    }
 }
 
+private template mixinCommentHelper() {
+    private string[] comments_;
+
+    /// Add a comment.
+    auto ref comment(string txt) @safe pure nothrow {
+        comments_ ~= txt;
+        return this;
+    }
+
+    auto comments() @safe pure nothrow const @nogc {
+        return comments_;
+    }
+
+    private void helperPutComments(Writer)(scope Writer w) const {
+        import std.ascii : newline;
+        import std.range.primitives : put;
+
+        foreach (l; comments_) {
+            put(w, "// ");
+            put(w, l);
+            put(w, newline);
+        }
+    }
+}
+
+// TODO remove this and all uses
 /// User defined kind to differeniate structs of the same type.
 private template mixinKind() {
     private int kind_;
 
-@safe:
-
-    void setKind(int kind) {
+    void setKind(int kind) @safe {
         this.kind_ = kind;
     }
 
-    auto kind() const {
+    auto kind() const @safe {
         return kind_;
     }
 }
@@ -641,6 +697,7 @@ nothrow pure @nogc:
  * ----
  */
 @safe struct CppCtor {
+    mixin mixinCommentHelper;
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.Parameters;
 
@@ -673,6 +730,7 @@ nothrow pure @nogc:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
+        helperPutComments(w);
         formattedWrite(w, "%s(%s);", name_, paramRange.joinParams);
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
@@ -693,10 +751,12 @@ const:
 }
 
 @safe struct CppDtor {
+    mixin mixinCommentHelper;
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.StringHelperVirtual;
 
+    // TODO remove the Nullable, if possible.
     Nullable!USRType usr;
 
     invariant() {
@@ -720,6 +780,7 @@ const:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
+        //helperPutComments(w);
         formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_);
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
@@ -730,6 +791,7 @@ const:
 }
 
 @safe struct CppMethod {
+    mixin mixinCommentHelper;
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
@@ -783,6 +845,7 @@ const:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) @safe const {
         import std.range.primitives : put;
 
+        helperPutComments(w);
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
@@ -809,6 +872,7 @@ const:
 }
 
 @safe struct CppMethodOp {
+    mixin mixinCommentHelper;
     mixin mixinUniqueId!string;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
@@ -858,6 +922,7 @@ const:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.range.primitives : put;
 
+        helperPutComments(w);
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
@@ -1123,7 +1188,16 @@ const:
     void put(T)(T func)
             if (is(Unqual!T == CppMethod) || is(Unqual!T == CppCtor)
                 || is(Unqual!T == CppDtor) || is(Unqual!T == CppMethodOp)) {
-        auto f = () @trusted{ Unqual!T tmp; tmp = func; return CppFunc(tmp); }();
+        static if (is(Unqual!T == T)) {
+            auto f = () @trusted{ return CppFunc(func); }();
+        } else {
+            // TODO remove this hack. It is unsafe.
+            auto f = () @trusted{
+                Unqual!T tmp;
+                tmp = cast(Unqual!T) func;
+                return CppFunc(tmp);
+            }();
+        }
 
         final switch (func.accessType) {
         case AccessType.Public:
@@ -1338,9 +1412,10 @@ const:
 }
 
 @safe struct CppNamespace {
-    mixin mixinKind;
-
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
+    mixin mixinUniqueId!size_t;
+    mixin mixinKind;
 
     private {
         CppNs name_;
@@ -1352,20 +1427,25 @@ const:
         CxGlobalVariable[] globals;
     }
 
-    static auto makeAnonymous() pure nothrow {
-        return CppNamespace(CppNsStack.init);
+    static auto makeAnonymous() nothrow {
+        auto rval = CppNamespace(CppNsStack.init);
+        rval.setUniqueId(makeUniqueUSR);
+        return rval;
     }
 
     /// A namespace without any nesting.
-    static auto make(CppNs name) pure nothrow {
-        return CppNamespace(CppNsStack([name]));
+    static auto make(CppNs name) nothrow {
+        auto rval = CppNamespace(CppNsStack([name]));
+        rval.setUniqueId(makeUniqueUSR);
+        return rval;
     }
 
-    this(const CppNsStack stack) pure nothrow {
+    this(const CppNsStack stack) nothrow {
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
         }
         this.stack = CppNsStack(stack.dup);
+        this.setUniqueId(makeUniqueUSR);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
@@ -1491,11 +1571,11 @@ struct CppRoot {
         RedBlackTree!(CFunction, "a.id < b.id") funcs;
     }
 
-    /// Returns: An initialized CppRoot
+    /// Returns: An initialized CppRootX
     static auto make() @safe {
         import std.container : make;
 
-        CppRoot r;
+        typeof(this) r;
 
         r.globals = make!(typeof(this.globals));
         r.funcs = make!(typeof(this.funcs));
@@ -1518,6 +1598,22 @@ struct CppRoot {
     }
 
 @safe:
+
+    /** Merge the roots.
+     *
+     * Implemented to be cheap but we aware that after this operation the two
+     * root's will point to the same elements.  A mutation in one of them will
+     * affect both.
+     */
+    void merge(ref CppRoot root) {
+        import std.meta : AliasSeq;
+
+        foreach (kind; AliasSeq!("namespaceRange", "classRange", "funcRange", "globalRange")) {
+            foreach (item; __traits(getMember, root, kind)) {
+                put(item);
+            }
+        }
+    }
 
     /// Put item in storage.
     void put(CFunction f) {
@@ -2102,4 +2198,15 @@ unittest {
     shouldEqualPretty(c.toString, "// A comment
 class Foo { // Unknown
 }; //Class:Foo");
+}
+
+@("It is a c'tor with a multiline comment")
+unittest {
+    auto ctor = CppCtor(dummyUSR, CppMethodName("Foo"), CxParam[].init,
+            CppAccess(AccessType.Public));
+    ctor.comment("a multiline").comment("comment");
+
+    shouldEqual(ctor.toString, "// a multiline
+// comment
+Foo();");
 }

@@ -79,6 +79,22 @@ mixin template CModuleX(T) {
         return stmt("break");
     }
 
+    auto call(string name, string params) {
+        import std.format : format;
+
+        auto e = stmt(format("%s(%s)", name, params));
+        return e;
+    }
+
+    auto call(T...)(string name, auto ref T args) {
+        import std.format : format;
+
+        string params = this.paramsToString(args);
+
+        auto e = stmt(format("%s(%s)", name, params));
+        return e;
+    }
+
     auto continue_() {
         return stmt("continue");
     }
@@ -114,6 +130,12 @@ mixin template CModuleX(T) {
         auto e = stmt(format("#define %s %s", name, value));
         e[$.end = ""];
         return e;
+    }
+
+    auto extern_(string value) {
+        import std.format : format;
+
+        return stmt(format("extern %s", value));
     }
 
     auto include(string filename) {

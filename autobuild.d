@@ -1,4 +1,3 @@
-// Written in the D programming language.
 /**
 Date: 2016, Joakim Brännström
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -700,7 +699,8 @@ int main(string[] args) {
     bool run_and_exit;
     bool ut_debug;
     bool ut_skip;
-    getopt(args, "h|help", &help, "run_and_exit", &run_and_exit, "ut_debug", &ut_debug, "ut_skip", &ut_skip);
+    getopt(args, "h|help", &help, "run_and_exit", &run_and_exit, "ut_debug",
+            &ut_debug, "ut_skip", &ut_skip);
 
     if (help) {
         writeln("Usage: autobuild.sh [options]
@@ -725,7 +725,7 @@ options:
                               "dsrcgen/source",
                               "test/testdata",
                               "unit-threaded",
-                              "test/cstub_tests.d",
+                              "test/c_tests.d",
                               "test/cpp_tests.d",
                               "test/plantuml_tests.d",
                               "test/graphml_tests.d",

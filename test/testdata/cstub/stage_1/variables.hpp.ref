@@ -4,4 +4,38 @@ extern "C" {
 #include "variables.h"
 }
 
+namespace TestDouble {
+class I_TestDouble_InitGlobals {
+public:
+    virtual void expect_b() = 0;
+    virtual void expect_d() = 0;
+    virtual void expect_e() = 0;
+    virtual void expect_f() = 0;
+    virtual void expect_i() = 0;
+    virtual void expect_my_int() = 0;
+    virtual ~I_TestDouble_InitGlobals() {}
+};
+
+class Test_ZeroGlobals : public I_TestDouble_InitGlobals {
+public:
+    Test_ZeroGlobals();
+    virtual void expect_b();
+    virtual void expect_d();
+    virtual void expect_e();
+    virtual void expect_f();
+    virtual void expect_i();
+    virtual void expect_my_int();
+    virtual ~Test_ZeroGlobals();
+};
+
+/// Adapter connecting an interface with an implementation.
+/// The lifetime of the connection is the same as the instance of the adapter.
+class Adapter {
+public:
+    Adapter(I_TestDouble_InitGlobals& init_globals);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
 #endif // test_double_hpp

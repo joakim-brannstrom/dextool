@@ -8,6 +8,7 @@ namespace TestDouble {
 class I_TestDouble {
 public:
     virtual void fun() = 0;
+    virtual ~I_TestDouble() {}
 };
 
 ///

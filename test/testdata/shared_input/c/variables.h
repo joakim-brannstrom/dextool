@@ -4,8 +4,12 @@
 #define VARIABLES_H
 
 // Test of primitive types
+// must wrap to avoid multiple definition when including in main
+#ifndef TEST_INCLUDE
 int expect_primitive;
 int expect_primitive_array[3];
+#endif
+
 const int expect_const_primitive_array[3] = {0, 1, 2};
 extern int expect_b;
 
