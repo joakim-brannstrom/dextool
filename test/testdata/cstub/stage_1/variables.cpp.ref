@@ -9,6 +9,7 @@ extern const int *const *expect_i;
 extern my_int expect_my_int;
 
 namespace TestDouble {
+namespace  {
 void Test_memzero(void* s, unsigned int n) {
     char* iter = reinterpret_cast<char*>(s);
     char* end = reinterpret_cast<char*>(s) + n;
@@ -21,6 +22,7 @@ void Test_memzero(void* s, unsigned int n) {
         *iter = 0;
     }
 }
+} //NS:
 
 Test_ZeroGlobals::Test_ZeroGlobals() {
 }

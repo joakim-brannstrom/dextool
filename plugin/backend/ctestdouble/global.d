@@ -243,6 +243,8 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
     memzero_hook.suppressIndent(1);
     auto memzero = new CppModule;
     memzero.suppressIndent(1);
+    memzero = memzero.namespace("");
+    memzero.suppressIndent(1);
 
     with (memzero.func_body("void", prefix ~ "memzero", "void* s", "unsigned int n")) {
         stmt("char* iter = reinterpret_cast<char*>(s)");
