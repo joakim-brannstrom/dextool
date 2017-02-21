@@ -1,0 +1,14 @@
+#include "test_double.hpp"
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
+    init_globals.the_lonely_warrior();
+}
+
+Adapter::~Adapter() {
+}
+
+} //NS:TestDouble
+
+extern "C" {
+}

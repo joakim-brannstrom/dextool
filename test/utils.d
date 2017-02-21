@@ -53,7 +53,7 @@ string escapePath(in Path p) {
 auto runAndLog(T)(T args_) {
     import std.traits : Unqual;
 
-    static if(is(Unqual!T == Path)) {
+    static if (is(Unqual!T == Path)) {
         string args = args_.escapePath;
     } else static if (is(Unqual!T == Args)) {
         string args = args_.data;
@@ -99,8 +99,15 @@ struct TestEnv {
         // dfmt on
     }
 
-    void setup(Path outdir__) {
-        outdir_ = outdir__.absolutePath.stripExtension;
+    void setOutput(Path outdir__) {
+        this.outdir_ = outdir__.absolutePath.stripExtension;
+    }
+
+    void outputSuffix(string suffix) {
+        outdir_ = Path(outdir_.toString ~ "_" ~ suffix);
+    }
+
+    void setupEnv() {
         yap("Test environment:", newline, toString);
 
         // ensure logs are empty
@@ -117,8 +124,13 @@ struct TestEnv {
             mkdirRecurse(outdir);
         }
 
-        auto stdout_path = outdir ~ "stdout.log";
+        auto stdout_path = outdir ~ "console.log";
         logfile = File(stdout_path.toString, "w");
+    }
+
+    void setup(Path outdir__) {
+        setOutput(outdir__);
+        setupEnv;
     }
 
     void teardown() {
@@ -137,7 +149,12 @@ struct TestEnv {
     }
 }
 
+//TODO deprecated, use envSetup instead.
 string EnvSetup(string logdir) {
+    return envSetup(logdir, Yes.setupEnv);
+}
+
+string envSetup(string logdir, Flag!"setupEnv" setupEnv = Yes.setupEnv) {
     import std.format : format;
 
     auto txt = `
@@ -154,11 +171,17 @@ string EnvSetup(string logdir) {
     {
         import std.traits : fullyQualifiedName;
         int _ = 0;
-        testEnv.setup(Path("%s/" ~ fullyQualifiedName!_));
+        testEnv.setOutput(Path("%s/" ~ fullyQualifiedName!_));
     }
 `;
 
-    return format(txt, dextoolExePath, logdir);
+    txt = format(txt, dextoolExePath, logdir);
+
+    if (setupEnv) {
+        txt ~= "\ntestEnv.setupEnv();\n";
+    }
+
+    return txt;
 }
 
 struct GR {
@@ -396,8 +419,8 @@ void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipCom
     }
 }
 
-void compileResult(const Path input, const Path binary, const Path main, const ref TestEnv testEnv,
-        const string[] flags, const string[] incls) {
+void compileResult(const Path input, const Path binary, const Path main,
+        const ref TestEnv testEnv, const string[] flags, const string[] incls) {
     Args args;
     args ~= "g++";
     args ~= flags.dup;

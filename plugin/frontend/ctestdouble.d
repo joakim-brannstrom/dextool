@@ -37,6 +37,7 @@ struct ParsedArgs {
     bool generatePreInclude;
     bool genPostInclude;
     bool locationAsComment;
+    bool generateZeroGlobals;
 
     string[] originalFlags;
 
@@ -46,12 +47,14 @@ struct ParsedArgs {
         originalFlags = args.dup;
 
         try {
+            bool no_zero_globals;
             // dfmt off
             getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
                    "main", &mainName,
                    "main-fname", &mainFileName,
                    "out", &out_,
                    "compile-db", &compileDb,
+                   "no-zeroglobals", &no_zero_globals,
                    "prefix", &prefix,
                    "strip-incl", &stripInclude,
                    "header", &header,
@@ -65,6 +68,7 @@ struct ParsedArgs {
                    "file-restrict", &fileRestrict,
                    "in", &inFiles);
             // dfmt on
+            generateZeroGlobals = !no_zero_globals;
         }
         catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
@@ -149,8 +153,7 @@ static auto ctestdouble_opt = CliOptionParts(
  dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
  dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
     // -------------
-    " --out=dir          directory for generated files [default: ./]
- --main=name        Used as part of interface, namespace etc [default: TestDouble]
+    "--main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
@@ -160,10 +163,12 @@ static auto ctestdouble_opt = CliOptionParts(
  --loc-as-comment   Generate a comment containing the location the symbol was derived from.
                     Makes it easier to correctly define excludes/restricts
  --header=s         Prepend generated files with the string
- --header-file=f    Prepend generated files with the header read from the file",
+ --header-file=f    Prepend generated files with the header read from the file
+ --no-zeroglobals   Turn off generation of the default implementation that zeroes globals",
     // -------------
 "others:
  --in=              Input files to parse
+ --out=dir          directory for generated files [default: ./]
  --compile-db=      Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex
  --file-restrict=   Restrict the scope of the test double to those files
@@ -256,6 +261,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Flag!"PreInclude" pre_incl;
         Flag!"PostInclude" post_incl;
         Flag!"locationAsComment" loc_as_comment;
+        Flag!"generateZeroGlobals" generate_zero_globals;
 
         Regex!char[] exclude;
         Regex!char[] restrict;
@@ -291,7 +297,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             .argForceTestDoubleIncludes(args.testDoubleInclude)
             .argFileExclude(args.fileExclude)
             .argFileRestrict(args.fileRestrict)
-            .argCustomHeader(args.header, args.headerFile);
+            .argCustomHeader(args.header, args.headerFile)
+            .argGenerateZeroGlobals(args.generateZeroGlobals);
         // dfmt on
 
         return variant;
@@ -393,6 +400,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     auto argLocationAsComment(bool a) {
         this.loc_as_comment = cast(Flag!"locationAsComment") a;
+        return this;
+    }
+
+    auto argGenerateZeroGlobals(bool value) {
+        this.generate_zero_globals = cast(Flag!"generateZeroGlobals") value;
         return this;
     }
 
@@ -521,6 +533,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return custom_hdr;
     }
 
+    Flag!"generateZeroGlobals" generateZeroGlobals() {
+        return generate_zero_globals;
+    }
+
     // -- Products --
 
     void putFile(FileName fname, string data) {
@@ -540,7 +556,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 }
 
-/// Write the flags in .ini format
+/** Store the input in a configuration file to make it easy to regenerate the
+ * test double.
+ */
 ref AppT makeIni(AppT)(ref AppT app, string[] flags) {
     import std.algorithm : joiner;
     import std.array : array;
@@ -554,7 +572,8 @@ ref AppT makeIni(AppT)(ref AppT app, string[] flags) {
     formattedWrite(app, "version = %s\n\n", dextoolVersion);
     formattedWrite(app, "# Command line to run dextool\n");
     formattedWrite(app, "[Run]\n");
-    formattedWrite(app, "input = %s %s\n", thisExePath.baseName, flags.joiner(" ").array().toUTF8);
+    formattedWrite(app, "command = %s %s\n", thisExePath.baseName,
+            flags.joiner(" ").array().toUTF8);
 
     return app;
 }
