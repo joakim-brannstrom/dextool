@@ -65,8 +65,8 @@ private struct BuildAdapter {
             TypeKindVariable;
 
         auto c = CppClass(className);
-        c.put("Adapter connecting an interface with an implementation.");
-        c.put("The lifetime of the connection is the same as the instance of the adapter.");
+        c.comment("Adapter connecting an interface with an implementation.");
+        c.comment("The lifetime of the connection is the same as the instance of the adapter.");
 
         CxParam[] params;
 
