@@ -239,32 +239,36 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         impl.sep(2);
     }
 
-    auto memzero_hook = impl.base;
-    memzero_hook.suppressIndent(1);
-    auto memzero = new CppModule;
-    memzero.suppressIndent(1);
-    memzero = memzero.namespace("");
-    memzero.suppressIndent(1);
+    void makeMemzero(CppModule hook) {
+        hook.suppressIndent(1);
+        auto memzero = hook.namespace("");
+        memzero.suppressIndent(1);
 
-    with (memzero.func_body("void", prefix ~ "memzero", "void* s", "unsigned int n")) {
-        stmt("char* iter = reinterpret_cast<char*>(s)");
-        stmt("char* end = reinterpret_cast<char*>(s) + n");
+        with (memzero.func_body("void", prefix ~ "memzero", "void* s", "unsigned int n")) {
+            stmt("char* iter = reinterpret_cast<char*>(s)");
+            stmt("char* end = reinterpret_cast<char*>(s) + n");
 
-        // overflow check that isn't an undefinied behavior.
-        // why this implementation and not another?
-        // if (ptr + len < ptr || ptr + len > max) ..;
-        // The first part would be removed because the compiler can prove that
-        // it invokes UB.
+            // overflow check that isn't an undefinied behavior.
+            // why this implementation and not another?
+            // if (ptr + len < ptr || ptr + len > max) ..;
+            // The first part would be removed because the compiler can prove that
+            // it invokes UB.
 
-        comment("crash if the address ptr overflows");
-        with (if_("n > end - iter")) {
-            stmt("*((char*) -1) = 'x'");
-            stmt("return");
+            comment("crash if the address ptr overflows");
+            with (if_("n > end - iter")) {
+                stmt("*((char*) -1) = 'x'");
+                stmt("return");
+            }
+            with (for_("", "iter < end", "++iter")) {
+                stmt("*iter = 0");
+            }
         }
-        with (for_("", "iter < end", "++iter")) {
-            stmt("*iter = 0");
-        }
+
+        hook.sep(2);
     }
+
+    // need to create the hook before generating functions that may need it.
+    auto memzero_hook = impl.base;
 
     bool need_memzero;
     foreach (m; c.methodPublicRange()) {
@@ -280,8 +284,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
     }
 
     if (need_memzero) {
-        memzero_hook.append(memzero);
-        memzero_hook.sep(1);
+        makeMemzero(memzero_hook);
     }
 }
 
