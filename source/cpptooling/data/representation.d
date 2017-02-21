@@ -215,7 +215,11 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 private template mixinCommentHelper() {
     private string[] comments_;
 
-    /// Add a comment.
+    /** Add a comment.
+     *
+     * Params:
+     *  txt = a oneline comment, must NOT end with newline
+     */
     auto ref comment(string txt) @safe pure nothrow {
         comments_ ~= txt;
         return this;
@@ -1034,6 +1038,7 @@ const:
 @safe struct CppClass {
     mixin mixinKind;
     mixin mixinUniqueId!size_t;
+    mixin mixinCommentHelper;
 
     import std.variant : Algebraic;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -1062,8 +1067,6 @@ const:
         TypeKindVariable[] members_pub;
         TypeKindVariable[] members_prot;
         TypeKindVariable[] members_priv;
-
-        string[] comments;
     }
 
     this(const CppClassName name, const CppInherit[] inherits, const CppNsStack ns)
@@ -1105,10 +1108,7 @@ const:
         import std.format : formattedWrite;
         import std.range : takeOne, put, save;
 
-        foreach (a; comments) {
-            formattedWrite(w, "// %s\n", a);
-        }
-
+        helperPutComments(w);
         formattedWrite(w, "class %s", name_);
 
         // inheritance
@@ -1257,15 +1257,6 @@ const:
             members_priv ~= member_;
             break;
         }
-    }
-
-    /** Add a comment string for the class.
-     *
-     * Params:
-     *  comment = a oneline comment, must NOT end with newline
-     */
-    void put(string comment) {
-        comments ~= comment;
     }
 
     void put(CppInherit inh) {
@@ -2193,7 +2184,7 @@ public:
 @Name("Should be a class with comments")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
-    c.put("A comment");
+    c.comment("A comment");
 
     shouldEqualPretty(c.toString, "// A comment
 class Foo { // Unknown

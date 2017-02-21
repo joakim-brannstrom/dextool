@@ -53,8 +53,8 @@ private struct BuildAdapter {
                     TypeAttr.init), CppVariable("init_globals")));
         }
 
-        c.put("Adapter connecting an interface with an implementation.");
-        c.put("The lifetime of the connection is the same as the instance of the adapter.");
+        c.comment("Adapter connecting an interface with an implementation.");
+        c.comment("The lifetime of the connection is the same as the instance of the adapter.");
 
         c.put(CppCtor(makeUniqueUSR, classCtor, params, CppAccess(AccessType.Public)));
         c.put(CppDtor(makeUniqueUSR, classDtor, CppAccess(AccessType.Public),

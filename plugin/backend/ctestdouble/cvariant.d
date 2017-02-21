@@ -556,6 +556,7 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
     import plugin.backend.ctestdouble.adapter : generateSingleton;
+    import plugin.backend.ctestdouble.global : generateGlobalExterns;
 
     generateWrapIncludeInExternC(ctrl, params, hdr);
     generateGlobal(data.globalRange, ctrl, params, container, globals);
@@ -664,42 +665,6 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
         generatePreProcessor(a, params.getArtifactPrefix, global_macros);
         generateDefinitions(a, cast(Flag!"locationAsComment") ctrl.doLocationAsComment,
                 params.getArtifactPrefix, container, global_definitions);
-    }
-}
-
-void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Container container) {
-    import std.algorithm : map, joiner;
-    import cpptooling.analyzer.type : TypeKind, toStringDecl;
-
-    auto externs = impl.base;
-    externs.suppressIndent(1);
-    externs.sep;
-    impl.sep;
-
-    foreach (ref global; range) {
-        // example: extern int extern_a[4];
-        final switch (global.type.kind.info.kind) with (TypeKind.Info) {
-        case Kind.array:
-        case Kind.func:
-        case Kind.funcPtr:
-        case Kind.funcSignature:
-        case Kind.pointer:
-        case Kind.primitive:
-        case Kind.record:
-        case Kind.simple:
-        case Kind.typeRef:
-            externs.extern_(global.type.toStringDecl(global.name));
-            break;
-        case Kind.ctor:
-            // a C test double shold never have preprocessor macros for a C++ ctor
-            assert(false);
-        case Kind.dtor:
-            // a C test double shold never have preprocessor macros for a C++ dtor
-            assert(false);
-        case Kind.null_:
-            logger.error("Type of global definition is null. Identifier ", global.name);
-            break;
-        }
     }
 }
 
