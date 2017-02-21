@@ -137,7 +137,7 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
 
     auto variant = CTestDoubleVariant.makeVariant(pargs);
     auto app = appender!string();
-    variant.putFile(variant.getIniOutputFile, makeIni(app, pargs.originalFlags).data);
+    variant.putFile(variant.getXmlConfigFile, makeXmlConnfig(app, pargs.originalFlags).data);
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
@@ -240,7 +240,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     private {
         static const hdrExt = ".hpp";
         static const implExt = ".cpp";
-        static const iniExt = ".ini";
+        static const xmlExt = ".xml";
 
         StubPrefix prefix;
 
@@ -331,7 +331,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
                 base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_post_includes" ~ hdrExt));
-        this.log_file = FileName(buildPath(output_dir, base_filename ~ iniExt));
+        this.log_file = FileName(buildPath(output_dir, base_filename ~ xmlExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -417,7 +417,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     /// Make an .ini-file containing the configuration data.
-    FileName getIniOutputFile() {
+    FileName getXmlConfigFile() {
         return log_file;
     }
 
@@ -559,21 +559,24 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 /** Store the input in a configuration file to make it easy to regenerate the
  * test double.
  */
-ref AppT makeIni(AppT)(ref AppT app, string[] flags) {
+ref AppT makeXmlConnfig(AppT)(ref AppT app, string[] flags) {
     import std.algorithm : joiner;
     import std.array : array;
     import std.file : thisExePath;
-    import std.path : baseName;
     import std.format : formattedWrite;
+    import std.path : baseName;
     import std.utf : toUTF8;
     import application.utility : dextoolVersion;
 
-    formattedWrite(app, "[ToolInfo]\n");
-    formattedWrite(app, "version = %s\n\n", dextoolVersion);
-    formattedWrite(app, "# Command line to run dextool\n");
-    formattedWrite(app, "[Run]\n");
-    formattedWrite(app, "command = %s %s\n", thisExePath.baseName,
+    formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
+
+    formattedWrite(app, `<dextool version="%s">` ~ "\n", dextoolVersion);
+
+    formattedWrite(app, "<!-- command line when dextool was executed -->\n");
+    formattedWrite(app, "<command>%s %s</command>\n", thisExePath.baseName,
             flags.joiner(" ").array().toUTF8);
+
+    formattedWrite(app, "</dextool>\n");
 
     return app;
 }
