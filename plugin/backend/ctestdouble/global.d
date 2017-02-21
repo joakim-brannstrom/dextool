@@ -12,7 +12,8 @@ module plugin.backend.ctestdouble.global;
 import application.types : StubPrefix;
 import cpptooling.analyzer.type : TypeKind;
 import cpptooling.data.representation : CppClass, CppClassName, CppInherit,
-    CxGlobalVariable;
+    CppVariable, CxGlobalVariable;
+import cpptooling.data.type : TypeKindAttr;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : CppModule;
@@ -111,6 +112,8 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
     import cpptooling.data.representation;
 
     auto globals_if = CppClass(main_if, [inherit]);
+    globals_if.comment("Zeroes all mutable globals except incomplete arrays.");
+
     globals_if.put(CppCtor(USRType(globals_if.name), CppMethodName(globals_if.name),
             CxParam[].init, CppAccess(AccessType.Public)));
     globals_if.put(CppDtor(USRType("~" ~ globals_if.name),
@@ -118,6 +121,25 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
             CppVirtualMethod(MemberVirtualType.Virtual)));
 
     const void_ = CxReturnType(makeSimple("void"));
+
+    // be aware it affects the end of this function
+    bool need_incomplete_array_class_comment = true;
+    void incompleteArrayComment(TypeT)(ref TypeT a, ref CppMethod method) {
+        if (need_incomplete_array_class_comment) {
+            need_incomplete_array_class_comment = false;
+            globals_if.comment(
+                    "The following code, with your init value, must be compiled and linked.");
+            globals_if.comment("Either in a separate file or in the test suite.");
+            globals_if.comment("~~~{.cpp}");
+        }
+
+        globals_if.comment("extern " ~ variableToString(a.name, a.type) ~ ";");
+        globals_if.comment("void " ~ globals_if.name ~ "::" ~ a.name ~ "() {");
+        globals_if.comment("    " ~ a.name ~ " = your_init;");
+        globals_if.comment("}");
+
+        method.comment("Warning: Incomplete array, unable to generate an initializer.");
+    }
 
     foreach (a; range) {
         auto method = CppMethod(a.usr, CppMethodName(a.name), CxParam[].init,
@@ -127,13 +149,17 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
         switch (a.underlying.info.kind) with (TypeKind.Info) {
         case Kind.array:
             if (isIncompleteArray(a.type.kind.info.indexes)) {
-                method.comment("Warning: Incomplete array, unable to generate an initializer.");
+                incompleteArrayComment(a, method);
             }
             break;
         default:
         }
 
         globals_if.put(method);
+    }
+
+    if (!need_incomplete_array_class_comment) {
+        globals_if.comment("~~~");
     }
 
     return globals_if;
@@ -254,6 +280,47 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
     if (need_memzero) {
         memzero_hook.append(memzero);
         memzero_hook.sep(1);
+    }
+}
+
+string variableToString(const CppVariable name, const TypeKindAttr type) @safe pure {
+    import cpptooling.analyzer.type : TypeKind, toStringDecl;
+
+    // example: extern int extern_a[4];
+    final switch (type.kind.info.kind) with (TypeKind.Info) {
+    case Kind.array:
+    case Kind.funcPtr:
+    case Kind.pointer:
+    case Kind.primitive:
+    case Kind.record:
+    case Kind.simple:
+    case Kind.typeRef:
+        return type.toStringDecl(name);
+    case Kind.func:
+    case Kind.funcSignature:
+    case Kind.ctor:
+    case Kind.dtor:
+        assert(false);
+    case Kind.null_:
+        debug {
+            logger.errorf("Variable has type null_. USR:%s name:%s", type.kind.usr, name);
+        }
+        break;
+    }
+
+    return null;
+}
+
+void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Container container) {
+    import std.algorithm : map, joiner;
+
+    auto externs = impl.base;
+    externs.suppressIndent(1);
+    externs.sep;
+    impl.sep;
+
+    foreach (ref global; range) {
+        externs.extern_(variableToString(global.name, global.type));
     }
 }
 
