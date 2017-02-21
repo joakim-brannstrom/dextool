@@ -1,0 +1,24 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "param_no_zeroglobals.h"
+}
+
+namespace TestDouble {
+class I_TestDouble_InitGlobals {
+public:
+    virtual void the_lonely_warrior() = 0;
+    virtual ~I_TestDouble_InitGlobals() {}
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble_InitGlobals& init_globals);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+#endif // test_double_hpp

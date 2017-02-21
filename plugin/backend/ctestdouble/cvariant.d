@@ -102,6 +102,11 @@ import cpptooling.testdouble.header_filter : LocationType;
 
     /// Custom header to prepend generated files with.
     CustomHeader getCustomHeader();
+
+    /** If an implementation of the interface for globals that zeroes them
+     * shall be generated.
+     */
+    Flag!"generateZeroGlobals" generateZeroGlobals();
 }
 
 /// Data produced by the generator like files.
@@ -518,10 +523,13 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         impl.tag(global_if.id, Kind.initGlobalInterface);
         test_double_ns.put(global_if);
 
-        auto global_init_zero = makeZeroGlobal(impl.globals[], CppClassName(params.getArtifactPrefix ~ "ZeroGlobals"),
-                params.getArtifactPrefix, CppInherit(if_name, CppAccess(AccessType.Public)));
-        impl.tag(global_init_zero.id, Kind.initGlobalsToZero);
-        test_double_ns.put(global_init_zero);
+        if (params.generateZeroGlobals) {
+            auto global_init_zero = makeZeroGlobal(impl.globals[],
+                    CppClassName(params.getArtifactPrefix ~ "ZeroGlobals"),
+                    params.getArtifactPrefix, CppInherit(if_name, CppAccess(AccessType.Public)));
+            impl.tag(global_init_zero.id, Kind.initGlobalsToZero);
+            test_double_ns.put(global_init_zero);
+        }
     }
 
     // MUST be added after the singleton (1)
@@ -552,7 +560,11 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
     generateWrapIncludeInExternC(ctrl, params, hdr);
     generateGlobal(data.globalRange, ctrl, params, container, globals);
 
-    generateGlobalExterns(data.globals[], impl, container);
+    // TODO ugly hack. should NOT be an if-statement here. Should be handled in
+    // makeImplementation.
+    if (params.generateZeroGlobals) {
+        generateGlobalExterns(data.globals[], impl, container);
+    }
 
     foreach (ns; data.namespaceRange) {
         switch (data.lookup(ns.id)) {

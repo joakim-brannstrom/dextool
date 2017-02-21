@@ -461,6 +461,29 @@ unittest {
     runTestFile(p, testEnv, No.sortLines, Yes.skipComments);
 }
 
+@(
+        testId
+        ~ "Generation of the ZeroGlobals implementation is controlled by the CLI flag --no-zeroglobals")
+@Values(["yes", ""], ["no", "--no-zeroglobals"])
+unittest {
+    mixin(envSetup(globalTestdir, No.setupEnv));
+    // don't overwrite the test result for the different tests
+    testEnv.outputSuffix(getValue!(string[])[0]);
+    testEnv.setupEnv;
+    auto p = genTestParams("stage_1/param_no_zeroglobals.h", testEnv);
+
+    p.dexParams ~= getValue!(string[])[1];
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+
+    if (getValue!(string[])[1].length == 0) {
+        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_yes";
+    } else {
+        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_no";
+    }
+
+    runTestFile(p, testEnv);
+}
+
 // END   CLI Tests ###########################################################
 
 // BEGIN Unspecified CLI Test ################################################
