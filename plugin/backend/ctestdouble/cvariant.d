@@ -703,14 +703,15 @@ void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl, CppModule mut
     test_double_ns.suppressIndent(1);
     impl.sep(2);
 
+    auto lookup(USRType usr) {
+        return usr in data.adapterKind;
+    }
+
     foreach (class_; ns.classRange) {
         switch (data.lookup(class_.id)) {
         case Kind.adapter:
-            auto lookup(USRType usr) {
-                return usr in data.adapterKind;
-            }
-
-            generateClassImplAdapter(class_, data.globals, prefix, test_double_ns, &lookup);
+            generateClassImplAdapter(class_, data.globals,
+                    prefix, test_double_ns, &lookup);
             break;
 
         case Kind.initGlobalsToZero:
