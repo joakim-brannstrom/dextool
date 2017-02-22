@@ -556,16 +556,12 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
     import plugin.backend.ctestdouble.adapter : generateSingleton;
-    import plugin.backend.ctestdouble.global : generateGlobalExterns;
 
     generateWrapIncludeInExternC(ctrl, params, hdr);
     generateGlobal(data.globalRange, ctrl, params, container, globals);
 
-    // TODO ugly hack. should NOT be an if-statement here. Should be handled in
-    // makeImplementation.
-    if (params.generateZeroGlobals) {
-        generateGlobalExterns(data.globals[], impl, container);
-    }
+    auto mutable_extern_hook = impl.base;
+    mutable_extern_hook.suppressIndent(1);
 
     foreach (ns; data.namespaceRange) {
         switch (data.lookup(ns.id)) {
@@ -577,7 +573,8 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
                     cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params, hdr, gmock,
                     (USRType usr) => container.find!LocationTag(usr), (size_t id) => data.lookup(
                         id));
-            generateNsTestDoubleImpl(ns, impl, data, params.getArtifactPrefix);
+            generateNsTestDoubleImpl(ns, impl, mutable_extern_hook, data,
+                    params.getArtifactPrefix, container);
             break;
 
         default:
@@ -696,9 +693,10 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
     }
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
-        ref ImplData data, StubPrefix prefix) {
-    import plugin.backend.ctestdouble.global : generateInitGlobalsToZero;
+void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl, CppModule mutable_extern_hook,
+        ref ImplData data, StubPrefix prefix, ref const Container container) {
+    import plugin.backend.ctestdouble.global : generateGlobalExterns,
+        generateInitGlobalsToZero;
     import plugin.backend.ctestdouble.adapter : generateClassImplAdapter = generateImpl;
 
     auto test_double_ns = impl.namespace(ns.name);
@@ -716,8 +714,9 @@ void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
             break;
 
         case Kind.initGlobalsToZero:
-            generateInitGlobalsToZero(class_,
-                    test_double_ns, prefix, &data.lookupGlobal);
+            generateGlobalExterns(data.globals[],
+                    mutable_extern_hook, container);
+            generateInitGlobalsToZero(class_, test_double_ns, prefix, &data.lookupGlobal);
             break;
 
         default:
