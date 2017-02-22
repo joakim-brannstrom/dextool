@@ -112,7 +112,7 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
     import cpptooling.data.representation;
 
     auto globals_if = CppClass(main_if, [inherit]);
-    globals_if.comment("Zeroes all mutable globals except incomplete arrays.");
+    globals_if.comment("Initialize all global variables that are mutable to zero.");
 
     globals_if.put(CppCtor(USRType(globals_if.name), CppMethodName(globals_if.name),
             CxParam[].init, CppAccess(AccessType.Public)));
@@ -122,44 +122,12 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
 
     const void_ = CxReturnType(makeSimple("void"));
 
-    // be aware it affects the end of this function
-    bool need_incomplete_array_class_comment = true;
-    void incompleteArrayComment(TypeT)(ref TypeT a, ref CppMethod method) {
-        if (need_incomplete_array_class_comment) {
-            need_incomplete_array_class_comment = false;
-            globals_if.comment(
-                    "The following code, with your init value, must be compiled and linked.");
-            globals_if.comment("Either in a separate file or in the test suite.");
-            globals_if.comment("~~~{.cpp}");
-        }
-
-        globals_if.comment("extern " ~ variableToString(a.name, a.type) ~ ";");
-        globals_if.comment("void " ~ globals_if.name ~ "::" ~ a.name ~ "() {");
-        globals_if.comment("    " ~ a.name ~ " = your_init;");
-        globals_if.comment("}");
-
-        method.comment("Warning: Incomplete array, unable to generate an initializer.");
-    }
-
     foreach (a; range) {
         auto method = CppMethod(a.usr, CppMethodName(a.name), CxParam[].init,
                 void_, CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Virtual));
 
-        switch (a.underlying.info.kind) with (TypeKind.Info) {
-        case Kind.array:
-            if (isIncompleteArray(a.type.kind.info.indexes)) {
-                incompleteArrayComment(a, method);
-            }
-            break;
-        default:
-        }
-
         globals_if.put(method);
-    }
-
-    if (!need_incomplete_array_class_comment) {
-        globals_if.comment("~~~");
     }
 
     return globals_if;
@@ -203,7 +171,8 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         switch (global.underlying.info.kind) with (TypeKind.Info) {
         case Kind.array:
             if (isIncompleteArray(global.type.kind.info.indexes)) {
-                // may be possible to initialize it to zero by casting to pointers?
+                body_.stmt(E("void** ptr") = E("(void**) &" ~ fqn));
+                body_.stmt("*ptr = 0");
             } else {
                 // c-style cast needed. the compiler warnings about throwning away the const qualifiers otherwise.
                 body_.stmt(E(prefix ~ "memzero")(std.format.format("(void*)(%s), %s",
