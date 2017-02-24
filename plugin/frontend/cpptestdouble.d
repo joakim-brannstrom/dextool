@@ -9,9 +9,9 @@ module plugin.frontend.cpptestdouble;
 
 import logger = std.experimental.logger;
 
-import application.compilation_db;
-import application.types;
-import application.utility;
+import dextool.compilation_db;
+import dextool.type;
+import dextool.utility;
 
 import plugin.types;
 import plugin.backend.cppvariant : Controller, Parameters, Products;
@@ -189,8 +189,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag;
-    import application.types : StubPrefix, FileName, MainInterface, DirName;
-    import application.utility;
+    import dextool.type : StubPrefix, FileName, MainInterface, DirName;
+    import dextool.utility;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
     import dsrcgen.cpp;
@@ -454,7 +454,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     DextoolVersion getToolVersion() {
-        import application.utility : dextoolVersion;
+        import dextool.utility : dextoolVersion;
 
         return dextoolVersion;
     }
@@ -487,6 +487,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import plugin.backend.cppvariant : Generator, CppVisitor;
+    import dextool.io : writeFileData;
 
     auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");

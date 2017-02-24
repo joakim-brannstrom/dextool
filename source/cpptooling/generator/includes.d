@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module cpptooling.generator.includes;
 
 import dsrcgen.cpp : CppModule;
-import application.types : DextoolVersion, FileName, CustomHeader;
+import dextool.type : DextoolVersion, FileName, CustomHeader;
 
 @safe:
 

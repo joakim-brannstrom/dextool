@@ -11,9 +11,9 @@ module plugin.frontend.ctestdouble;
 
 import logger = std.experimental.logger;
 
-import application.compilation_db;
-import application.types;
-import application.utility;
+import dextool.compilation_db;
+import dextool.type;
+import dextool.utility;
 
 import plugin.types;
 import plugin.backend.ctestdouble.cvariant : Controller, Parameters, Products;
@@ -32,6 +32,7 @@ struct ParsedArgs {
     string prefix = "Test_";
     string stripInclude;
     string out_;
+    string config;
     bool help;
     bool gmock;
     bool generatePreInclude;
@@ -66,7 +67,8 @@ struct ParsedArgs {
                    "td-include", &testDoubleInclude,
                    "file-exclude", &fileExclude,
                    "file-restrict", &fileRestrict,
-                   "in", &inFiles);
+                   "in", &inFiles,
+                   "config", &config);
             // dfmt on
             generateZeroGlobals = !no_zero_globals;
         }
@@ -115,10 +117,11 @@ struct ParsedArgs {
 --help              :%s
 --loc-as-comment    :%s
 --td-include        :%s
+--no-zeroglobals    :%s
 CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
                 out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
-                help, locationAsComment, testDoubleInclude, cflags);
+                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help,
+                locationAsComment, testDoubleInclude, !generateZeroGlobals, cflags);
     }
 }
 
@@ -170,7 +173,8 @@ static auto ctestdouble_opt = CliOptionParts(
                     Makes it easier to correctly define excludes/restricts
  --header=s         Prepend generated files with the string
  --header-file=f    Prepend generated files with the header read from the file
- --no-zeroglobals   Turn off generation of the default implementation that zeroes globals",
+ --no-zeroglobals   Turn off generation of the default implementation that zeroes globals
+ --config=path      Use configuration file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -225,7 +229,7 @@ Generate a C test double excluding data from specified files.
 // dfmt on
 
 struct FileData {
-    import application.types : FileName;
+    import dextool.type : FileName;
 
     FileName filename;
     string data;
@@ -238,7 +242,7 @@ struct FileData {
 class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
-    import application.types : StubPrefix, FileName, DirName;
+    import dextool.type : StubPrefix, FileName, DirName;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
@@ -524,7 +528,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     DextoolVersion getToolVersion() {
-        import application.utility : dextoolVersion;
+        import dextool.utility : dextoolVersion;
 
         return dextoolVersion;
     }
@@ -568,7 +572,7 @@ ref AppT makeXmlConnfig(AppT)(ref AppT app, string[] flags) {
     import std.range : put;
     import std.utf : toUTF8;
     import std.xml;
-    import application.utility : dextoolVersion;
+    import dextool.utility : dextoolVersion;
 
     auto doc = new Document(new Tag("dextool"));
     doc.tag.attr["version"] = dextoolVersion;
@@ -594,6 +598,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import std.typecons : Yes;
 
     import cpptooling.analyzer.clang.context : ClangContext;
+    import dextool.io : writeFileData;
     import plugin.backend.ctestdouble.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");

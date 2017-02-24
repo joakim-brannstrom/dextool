@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,13 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 
 Utility functions for Clang Compilation Databases.
 */
-module application.compilation_db;
+module dextool.compilation_db;
 
 import std.json : JSONValue;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
-
-import application.types;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
@@ -340,8 +338,6 @@ private struct SearchResult {
  */
 Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
         in string[] cflags, in string input_file) @safe {
-    import application.compilation_db : find, toString;
-
     auto compile_commands = compile_db.find(input_file.idup);
     debug {
         logger.trace(compile_commands.length > 0,

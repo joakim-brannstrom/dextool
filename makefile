@@ -4,6 +4,7 @@
 
 SRC := $(shell find source/application -name "*.d") \
 	$(shell find source/cpptooling -name "*.d") \
+	$(shell find source/dextool -name "*.d") \
 	$(shell find clang -name "*.d") \
 	$(shell find libclang/deimos -name "*.d") \
 	$(shell find plugin -name "*.d") \

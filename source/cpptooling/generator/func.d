@@ -11,7 +11,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : MainInterface;
+import dextool.type : MainInterface;
 import cpptooling.data.representation : CFunction, CppClass, CppClassName;
 import cpptooling.data.symbol.types : USRType;
 

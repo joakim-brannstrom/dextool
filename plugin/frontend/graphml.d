@@ -15,9 +15,9 @@ import std.typecons : Flag;
 
 import logger = std.experimental.logger;
 
-import application.compilation_db;
-import application.types;
-import application.utility;
+import dextool.compilation_db;
+import dextool.type;
+import dextool.utility;
 
 import plugin.types;
 import plugin.backend.graphml : Controller, Parameters, Products;
@@ -76,7 +76,7 @@ static auto graphml_opt = CliOptionParts(
 class GraphMLFrontend : Controller, Parameters, Products {
     import std.typecons : Tuple;
     import std.regex : regex, Regex;
-    import application.types : FileName, DirName;
+    import dextool.type : FileName, DirName;
     import docopt : ArgValue;
 
     private {
@@ -155,7 +155,7 @@ class GraphMLFrontend : Controller, Parameters, Products {
 }
 
 @safe struct XmlStream {
-    import application.types : FileName;
+    import dextool.type : FileName;
     import std.stdio : File;
 
     private File fout;

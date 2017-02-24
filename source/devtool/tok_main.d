@@ -257,7 +257,7 @@ int dumpBody(string fname, string[] flags) {
 }
 
 int main(string[] args) {
-    import application.logger : confLogLevel, ConfigureLog;
+    import dextool.logger : confLogLevel, ConfigureLog;
 
     confLogLevel(ConfigureLog.debug_);
 

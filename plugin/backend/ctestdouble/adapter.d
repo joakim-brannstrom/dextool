@@ -9,7 +9,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : StubPrefix;
+import dextool.type : StubPrefix;
 import cpptooling.data.representation : CppClass, CppClassName, CppNamespace,
     CppNs;
 import plugin.backend.ctestdouble.global : MutableGlobal;
