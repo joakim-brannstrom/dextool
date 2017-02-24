@@ -1,0 +1,82 @@
+///
+///
+///
+#include "test_double.hpp"
+
+
+extern int *const expect_const_ptr_array[10];
+extern int extern_a[4];
+extern MyArrayType extern_array;
+extern int extern_b[2][3];
+extern int extern_c[2][3][4];
+extern char extern_incmpl[];
+extern MyIntType extern_typedef_array[16];
+
+namespace TestDouble {
+namespace  {
+void Test_memzero(void* s, unsigned int n) {
+    char* iter = reinterpret_cast<char*>(s);
+    char* end = reinterpret_cast<char*>(s) + n;
+    // crash if the address ptr overflows
+    if (n > end - iter) {
+        *((char*) -1) = 'x';
+        return;
+    }
+    for (; iter < end; ++iter) {
+        *iter = 0;
+    }
+}
+} //NS:
+
+Test_ZeroGlobals::Test_ZeroGlobals() {
+}
+
+Test_ZeroGlobals::~Test_ZeroGlobals() {
+}
+
+void Test_ZeroGlobals::expect_const_ptr_array() {
+    Test_memzero((void*)(::expect_const_ptr_array), sizeof(::expect_const_ptr_array));
+}
+
+void Test_ZeroGlobals::extern_a() {
+    Test_memzero((void*)(::extern_a), sizeof(::extern_a));
+}
+
+void Test_ZeroGlobals::extern_array() {
+    Test_memzero(&::extern_array, sizeof(::extern_array));
+}
+
+void Test_ZeroGlobals::extern_b() {
+    Test_memzero((void*)(::extern_b), sizeof(::extern_b));
+}
+
+void Test_ZeroGlobals::extern_c() {
+    Test_memzero((void*)(::extern_c), sizeof(::extern_c));
+}
+
+void Test_ZeroGlobals::extern_incmpl() {
+    void** ptr = (void**) &::extern_incmpl;
+    *ptr = 0;
+}
+
+void Test_ZeroGlobals::extern_typedef_array() {
+    Test_memzero((void*)(::extern_typedef_array), sizeof(::extern_typedef_array));
+}
+
+Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
+    init_globals.expect_const_ptr_array();
+    init_globals.extern_a();
+    init_globals.extern_array();
+    init_globals.extern_b();
+    init_globals.extern_c();
+    init_globals.extern_incmpl();
+    init_globals.extern_typedef_array();
+}
+
+Adapter::~Adapter() {
+}
+
+} //NS:TestDouble
+
+extern "C" {
+}
