@@ -37,6 +37,7 @@ int main(string[] args) {
                           "cpptooling.utility.virtualfilesystem",
                           "dextool.utility",
                           "dextool.compilation_db",
+                          "plugin.frontend.ctestdouble",
                           "plugin.backend.ctestdouble.global",
                           "plugin.register_plugin.standard",
                           "plugin.utility",

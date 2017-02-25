@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.frontend.ctestdouble;
 
+import std.typecons : Nullable;
+
 import logger = std.experimental.logger;
 
 import dextool.compilation_db;
@@ -18,7 +20,9 @@ import dextool.utility;
 import plugin.types;
 import plugin.backend.ctestdouble.cvariant : Controller, Parameters, Products;
 
-struct ParsedArgs {
+struct RawConfiguration {
+    Nullable!XmlConfig xmlConfig;
+
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
@@ -83,6 +87,13 @@ struct ParsedArgs {
             logger.trace("--strip-incl: using default regex to strip include path (basename)");
         }
 
+        if (config.length != 0) {
+            xmlConfig = readRawConfig(FileName(config));
+            if (xmlConfig.isNull) {
+                help = true;
+            }
+        }
+
         import std.algorithm : find;
         import std.array : array;
         import std.range : drop;
@@ -118,10 +129,12 @@ struct ParsedArgs {
 --loc-as-comment    :%s
 --td-include        :%s
 --no-zeroglobals    :%s
-CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
+CFLAGS              :%s
+
+xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
                 out_, fileExclude, mainName, stripInclude,
                 mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help,
-                locationAsComment, testDoubleInclude, !generateZeroGlobals, cflags);
+                locationAsComment, testDoubleInclude, !generateZeroGlobals, cflags, xmlConfig);
     }
 }
 
@@ -129,13 +142,17 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     import std.array : appender;
     import std.stdio : writeln;
 
-    ParsedArgs pargs;
+    RawConfiguration pargs;
     pargs.parse(args);
     pargs.dump;
 
     if (pargs.help) {
         pargs.printHelp;
         return ExitStatusType.Ok;
+    } else if (pargs.config.length != 0) {
+        // do nothing for now
+        auto xml = readRawConfig(FileName(pargs.config));
+        logger.trace(xml);
     } else if (pargs.inFiles.length == 0) {
         writeln("Missing required argument --in");
         return ExitStatusType.Errors;
@@ -146,7 +163,8 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
 
     auto variant = CTestDoubleVariant.makeVariant(pargs);
     auto app = appender!string();
-    variant.putFile(variant.getXmlConfigFile, makeXmlConnfig(app, pargs.originalFlags).data);
+    variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
+            pargs.originalFlags, variant.getCompileCommandFilter).data);
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
@@ -245,6 +263,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import dextool.type : StubPrefix, FileName, DirName;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
+    import dextool.compilation_db : CompileCommandFilter;
     import dsrcgen.cpp : CppModule, CppHModule;
 
     private {
@@ -273,6 +292,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Flag!"locationAsComment" loc_as_comment;
         Flag!"generateZeroGlobals" generate_zero_globals;
 
+        Nullable!XmlConfig xmlConfig;
+        CompileCommandFilter compiler_flag_filter;
+
         Regex!char[] exclude;
         Regex!char[] restrict;
 
@@ -282,7 +304,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         TestDoubleIncludes td_includes;
     }
 
-    static auto makeVariant(ref ParsedArgs args) {
+    static auto makeVariant(ref RawConfiguration args) {
         Regex!char strip_incl;
         CustomHeader custom_hdr;
 
@@ -302,7 +324,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             .argFileExclude(args.fileExclude)
             .argFileRestrict(args.fileRestrict)
             .argCustomHeader(args.header, args.headerFile)
-            .argGenerateZeroGlobals(args.generateZeroGlobals);
+            .argGenerateZeroGlobals(args.generateZeroGlobals)
+            .argXmlConfig(args.xmlConfig);
         // dfmt on
 
         return variant;
@@ -412,6 +435,25 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    /** Ensure that the relevant information from the xml file is extracted.
+     *
+     * May overwrite information from the command line.
+     * TODO or should the command line have priority over the xml file?
+     */
+    auto argXmlConfig(Nullable!XmlConfig conf) {
+        import dextool.compilation_db : defaultCompilerFlagFilter;
+
+        if (conf.isNull) {
+            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+            return this;
+        }
+
+        xmlConfig = conf;
+        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipFlags);
+
+        return this;
+    }
+
     void processIncludes() {
         td_includes.process();
     }
@@ -420,9 +462,13 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         td_includes.finalize();
     }
 
-    /// Make an .ini-file containing the configuration data.
+    /// Destination of the configuration file containing how the test double was generated.
     FileName getXmlConfigFile() {
         return log_file;
+    }
+
+    CompileCommandFilter getCompileCommandFilter() {
+        return compiler_flag_filter;
     }
 
     /// Data produced by the generatore intented to be written to specified file.
@@ -563,9 +609,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 /** Store the input in a configuration file to make it easy to regenerate the
  * test double.
  */
-ref AppT makeXmlConnfig(AppT)(ref AppT app, string[] flags) {
+ref AppT makeXmlConfig(AppT)(ref AppT app, string[] raw_cli_flags,
+        CompileCommandFilter compiler_flag_filter) {
     import std.algorithm : joiner;
     import std.array : array;
+    import std.conv : to;
     import std.file : thisExePath;
     import std.format : formattedWrite, format;
     import std.path : baseName;
@@ -579,15 +627,109 @@ ref AppT makeXmlConnfig(AppT)(ref AppT app, string[] flags) {
     {
         auto command = new Element("command");
         command ~= new CData(format("%s %s", thisExePath.baseName,
-                flags.joiner(" ").array().toUTF8));
+                raw_cli_flags.joiner(" ").array().toUTF8));
         doc ~= new Comment("command line when dextool was executed");
         doc ~= command;
+    }
+
+    {
+        auto compiler_tag = new Element("compiler_flag_filter");
+        compiler_tag.tag.attr["skipFlags"] = compiler_flag_filter.skipFlags.to!string();
+        foreach (value; compiler_flag_filter.filter) {
+            auto tag = new Element("exclude");
+            tag ~= new Text(value);
+            compiler_tag ~= tag;
+        }
+        doc ~= compiler_tag;
     }
 
     formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
     put(app, doc.pretty(4).joiner("\n").array().toUTF8());
 
     return app;
+}
+
+/** Extracted configuration data from an XML file.
+ *
+ * It is not inteded to be used as is but rather further processed.
+ */
+struct XmlConfig {
+    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
+
+    DextoolVersion version_;
+    int skipFlags;
+    RawCliArguments command;
+    FilterClangFlag[] filterClangFlags;
+}
+
+Nullable!XmlConfig readRawConfig(FileName fname) @trusted nothrow {
+    static import std.file;
+    import std.utf : validate;
+    import std.xml;
+
+    string msg;
+    Nullable!XmlConfig rval;
+
+    try {
+        string fin = cast(string) std.file.read(fname);
+        validate(fin);
+        check(fin);
+        auto xml = new DocumentParser(fin);
+
+        debug logger.trace(xml);
+
+        rval = parseRawConfig(xml);
+        return rval;
+    }
+    catch (Exception ex) {
+        msg = ex.msg;
+    }
+
+    try {
+        logger.error(msg);
+    }
+    catch (Exception ex) {
+    }
+
+    return rval;
+}
+
+auto parseRawConfig(T)(T xml) @trusted {
+    import std.algorithm : splitter;
+    import std.array : array;
+    import std.conv : to, ConvException;
+    import std.xml;
+
+    DextoolVersion version_;
+    int skip_flags = 1;
+    RawCliArguments command;
+    FilterClangFlag[] filter_clang_flags;
+
+    if (auto tag = "version" in xml.tag.attr) {
+        version_ = *tag;
+    }
+
+    // dfmt off
+    xml.onEndTag["command"] = (const Element e) {
+        command = RawCliArguments(e.text().splitter().array());
+    };
+    xml.onStartTag["compiler_flag_filter"] = (ElementParser filter_flags) {
+        if (auto tag = "skip_flags" in xml.tag.attr) {
+            try {
+                skip_flags = (*tag).to!int;
+            }
+            catch (ConvException ex) {
+                logger.info(ex.msg);
+                logger.info("   using fallback '1'");
+            }
+        }
+
+        xml.onEndTag["exclude"] = (const Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
+    };
+    // dfmt on
+    xml.parse();
+
+    return XmlConfig(version_, skip_flags, command, filter_clang_flags);
 }
 
 /// TODO refactor, doing too many things.
@@ -614,7 +756,8 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
         // TODO duplicate code in c, c++ and plantuml. Fix it.
         if (compile_db.length > 0) {
-            auto db_search_result = compile_db.appendOrError(user_cflags, in_file);
+            auto db_search_result = compile_db.appendOrError(user_cflags,
+                    in_file, variant.getCompileCommandFilter);
             if (db_search_result.isNull) {
                 return ExitStatusType.Errors;
             }
@@ -644,4 +787,32 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     }
 
     return writeFileData(variant.getProducedFiles);
+}
+
+@("Converted a raw xml config without loosing any data")
+unittest {
+    import unit_threaded : shouldEqual;
+    import std.xml;
+
+    string raw = `
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="test">
+    <!--command line when dextool was executed-->
+    <command>dummy text</command>
+    <compiler_flag_filter skip_flags="2">
+        <exclude>foo</exclude>
+        <exclude>-foo</exclude>
+        <exclude>--foo</exclude>
+        <exclude>-G 0</exclude>
+    </compiler_flag_filter>
+</dextool>`;
+
+    auto xml = new DocumentParser(raw);
+    auto p = parseRawConfig(xml);
+
+    p.version_.dup.shouldEqual("test");
+    p.command.dup.shouldEqual(["dummy", "text"]);
+    p.skipFlags.shouldEqual(2);
+    p.filterClangFlags.shouldEqual([FilterClangFlag("foo"),
+            FilterClangFlag("-foo"), FilterClangFlag("--foo"), FilterClangFlag("-G 0")]);
 }

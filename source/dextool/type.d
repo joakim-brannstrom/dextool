@@ -76,3 +76,20 @@ struct CustomHeader {
     alias payload this;
 }
 
+/// The raw arguments from the command line.
+struct RawCliArguments {
+    string[] payload;
+    alias payload this;
+}
+
+/// Flags to exclude from the flags passed on to the clang parser.
+struct FilterClangFlag {
+    string payload;
+    alias payload this;
+
+    enum Kind {
+        exclude
+    }
+
+    Kind kind;
+}

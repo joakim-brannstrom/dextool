@@ -484,6 +484,20 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@("Configuration data read from a file")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    auto p = genTestParams("stage_1/config.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_1/config.xml").toString,
+        "--compile-db=" ~ (p.root ~ "stage_1/config.json").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompare = Yes.skipCompare;
+
+    runTestFile(p, testEnv);
+}
+
 // END   CLI Tests ###########################################################
 
 // BEGIN Unspecified CLI Test ################################################

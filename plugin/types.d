@@ -25,6 +25,7 @@ struct CliBasicOption {
     }
 }
 
+/// deprecated, moved to dextool.type
 /// The raw arguments from the command line.
 struct CliArgs {
     string[] payload;

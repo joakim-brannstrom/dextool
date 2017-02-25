@@ -387,7 +387,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
         foreach (idx, entry; compile_db) {
             logger.infof("File %d/%d ", idx + 1, total_files);
-            auto entry_cflags = cflags ~ parseFlag(entry);
+            auto entry_cflags = cflags ~ parseFlag(entry, defaultCompilerFilter);
 
             auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
                     entry_cflags, visitor, ctx);

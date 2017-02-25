@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="test">
+    <!--command line when dextool was executed-->
+    <command>dummy text expected to be read</command>
+    <compiler_flag_filter skip_flags="2">
+        <exclude>-DFAIL_IF_THIS_IS_NOT_REMOVED</exclude>
+    </compiler_flag_filter>
+</dextool>
