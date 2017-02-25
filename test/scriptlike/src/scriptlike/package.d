@@ -2,8 +2,8 @@
 $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 Scriptlike is a utility library to help you write script-like programs in D.
 
-Written in the $(LINK2 http://dlang.org, D programming language) and licensed
-under The $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng) License.
+Written in the $(LINK2 http://dlang.org, D programming language) and licensed under
+The $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng) License.
 
 For the list of officially supported compiler versions, see the
 $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/.travis.yml, .travis.yml)

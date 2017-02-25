@@ -4,11 +4,13 @@ Macros:
 	H2 = <h2>$0</h2>
 	BR = <br />
 	DOLLAR = $
+	COLON = &#58;
+	EM       = $(B $(I $0) )
 	ISSUE    = $(LINK2 https://github.com/Abscissa/scriptlike/issues/$0, #$0)
-	ENHANCE  = $(LI $(B Enhancement:) $0)
-	CHANGE   = $(LI $(B Change:) $0)
-	FIXED    = $(LI $(B Fixed:) $0)
-	API_BASE = http://semitwist.com/scriptlike-docs/$(SCRIPTLIKE_VERSION)/scriptlike/
+	ENHANCE  = $(LI $(B Enhancement$(COLON)) $0)
+	CHANGE   = $(LI $(B Change$(COLON)) $0)
+	FIXED    = $(LI $(B Fixed$(COLON)) $0)
+	API_BASE = $(DDOX_ROOT_DIR)scriptlike/
 	API_CORE      = $(D_INLINECODE $(LINK2 $(API_BASE)core/$0.html, $0))
 	API_FAIL      = $(D_INLINECODE $(LINK2 $(API_BASE)fail/$0.html, $0))
 	API_FILE_EXTR = $(D_INLINECODE $(LINK2 $(API_BASE)file/extras/$0.html, $0))

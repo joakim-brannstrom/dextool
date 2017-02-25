@@ -371,7 +371,7 @@ void testPlainScript()
 	testUseInScripts(
 		"plain-script",
 		Path("../tests/bin"),
-		Path("../../examples/plain-script/myscript").toRawString()
+		Path("../../examples/plain-script/myscript").raw
 	);
 }
 
@@ -385,7 +385,7 @@ void testSingleFile()
 	testUseInScripts(
 		"single-file",
 		Path("../tests/bin"),
-		"dub "~Path("../../examples/single-file/myscript.d").toRawString(),
+		"dub "~Path("../../examples/single-file/myscript.d").raw,
 		false
 	);
 }

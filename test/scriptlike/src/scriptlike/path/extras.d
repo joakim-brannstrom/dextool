@@ -45,6 +45,7 @@ struct Ext
 	}
 	
 	/// No longer needed. Use Ext.toString() instead.
+	deprecated("Use Ext.toString() instead.")
 	string toRawString() pure @safe nothrow
 	{
 		return str;
@@ -119,10 +120,14 @@ struct Path
 	}
 	
 	/// Returns the underlying string. Does NOT do any escaping, even if path contains spaces.
-	string toRawString() const pure @safe nothrow
+	string raw() const pure @safe nothrow
 	{
 		return str;
 	}
+
+	///ditto
+	deprecated("Use Path.raw instead.")
+	alias toRawString = raw;
 
 	/// Concatenates two paths, with a directory separator in between.
 	Path opBinary(string op)(Path rhs) if(op=="~")

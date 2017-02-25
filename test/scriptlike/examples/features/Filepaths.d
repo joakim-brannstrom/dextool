@@ -31,7 +31,7 @@ void main()
 	auto file = dir.up ~ "different subdir\\Filename with spaces.txt";
 	assert(file == Path("foo/bar/different subdir/Filename with spaces.txt"));
 	writeln(file); // Path.toString() always properly escapes for current platform!
-	writeln(file.toRawString()); // Don't escape!
+	writeln(file.raw); // Don't escape!
 
 	// Even file extentions are type-safe!
 	Ext ext = file.extension;

@@ -5,7 +5,7 @@ First, ensure you have DMD and DUB installed:
 - DUB: http://code.dlang.org/download
 
 Then, make sure Scriptlike is installed through DUB:
-$ dub fetch scriptlike --version=0.9.6
+$ dub fetch scriptlike --version=0.9.7
 
 And then...
 

@@ -4,11 +4,14 @@ echo Note, generating Scriptlike's docs requires that dub
 echo ^<http://code.dlang.org/download^> be available on your PATH.
 echo.
 echo You must also have ddox and gen-package-version available through dub:
-echo ^> dub fetch ddox --version=0.10.8
-echo ^> dub fetch gen-package-version --version=1.0.3
+echo ^> dub fetch ddox --version=0.15.18
+echo ^> dub fetch gen-package-version --version=1.0.5
 echo or:
 echo ^> dub add-local [path/to/ddox]
 echo ^> dub add-local [path/to/gen-package-version]
+echo.
+echo You may need to remove any older versions installed
+echo so they don't get run instead.
 echo.
 echo If you get errors, double-check you have dub, ddox and gen-package-version
 echo all installed as described above.

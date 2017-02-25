@@ -27,7 +27,7 @@ void main()
 	run("echo Hello > file.txt");
 
 	auto newDir = Path("some/new/dir");
-	mkdirRecurse(newDir.toRawString()); // Even works with non-Path overloads
+	mkdirRecurse(newDir.raw); // Even works with non-Path overloads
 	copy("file.txt", newDir ~ "target name.txt");
 
 	void foo(int i = 42) {

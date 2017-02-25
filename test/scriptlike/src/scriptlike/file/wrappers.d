@@ -28,7 +28,7 @@ import scriptlike.path.extras;
 /// Like $(FULL_STD_FILE read), but supports Path and command echoing.
 void[] read(in Path name, size_t upTo = size_t.max)
 {
-	return read(name.toRawString(), upTo);
+	return read(name.raw, upTo);
 }
 
 ///ditto
@@ -66,7 +66,7 @@ unittest
 /// Like $(FULL_STD_FILE readText), but supports Path and command echoing.
 S readText(S = string)(in Path name)
 {
-	return readText(name.toRawString());
+	return readText(name.raw);
 }
 
 ///ditto
@@ -104,7 +104,7 @@ unittest
 /// for symmetry with writeFile.
 void write(in Path name, const void[] buffer)
 {
-	write(name.toRawString(), buffer);
+	write(name.raw, buffer);
 }
 
 ///ditto
@@ -177,7 +177,7 @@ unittest
 /// Like $(FULL_STD_FILE append), but supports Path, command echoing and dryrun.
 void append(in Path name, in void[] buffer)
 {
-	append(name.toRawString(), buffer);
+	append(name.raw, buffer);
 }
 
 ///ditto
@@ -229,19 +229,19 @@ unittest
 /// Like $(FULL_STD_FILE rename), but supports Path, command echoing and dryrun.
 void rename(in Path from, in Path to)
 {
-	rename(from.toRawString(), to.toRawString());
+	rename(from.raw, to.raw);
 }
 
 ///ditto
 void rename(in string from, in Path to)
 {
-	rename(from, to.toRawString());
+	rename(from, to.raw);
 }
 
 ///ditto
 void rename(in Path from, in string to)
 {
-	rename(from.toRawString(), to);
+	rename(from.raw, to);
 }
 
 ///ditto
@@ -318,7 +318,7 @@ unittest
 /// Like $(FULL_STD_FILE remove), but supports Path, command echoing and dryrun.
 void remove(in Path name)
 {
-	remove(name.toRawString());
+	remove(name.raw);
 }
 
 ///ditto
@@ -368,7 +368,7 @@ unittest
 /// Like $(FULL_STD_FILE getSize), but supports Path and command echoing.
 ulong getSize(in Path name)
 {
-	return getSize(name.toRawString());
+	return getSize(name.raw);
 }
 
 ///ditto
@@ -403,7 +403,7 @@ void getTimes(in Path name,
 	out SysTime accessTime,
 	out SysTime modificationTime)
 {
-	getTimes(name.toRawString(), accessTime, modificationTime);
+	getTimes(name.raw, accessTime, modificationTime);
 }
 
 ///ditto
@@ -458,7 +458,7 @@ else version(Windows)
 		out SysTime fileAccessTime,
 		out SysTime fileModificationTime)
 	{
-		getTimesWin(name.toRawString(), fileCreationTime, fileAccessTime, fileModificationTime);
+		getTimesWin(name.raw, fileCreationTime, fileAccessTime, fileModificationTime);
 	}
 
 	void getTimesWin(in string name,
@@ -498,7 +498,7 @@ void setTimes(in Path name,
 	SysTime accessTime,
 	SysTime modificationTime)
 {
-	setTimes(name.toRawString(), accessTime, modificationTime);
+	setTimes(name.raw, accessTime, modificationTime);
 }
 
 ///ditto
@@ -559,7 +559,7 @@ unittest
 /// Like $(FULL_STD_FILE timeLastModified), but supports Path and command echoing.
 SysTime timeLastModified(in Path name)
 {
-	return timeLastModified(name.toRawString());
+	return timeLastModified(name.raw);
 }
 
 ///ditto
@@ -572,7 +572,7 @@ SysTime timeLastModified(in string name)
 ///ditto
 SysTime timeLastModified(in Path name, SysTime returnIfMissing)
 {
-	return timeLastModified(name.toRawString(), returnIfMissing);
+	return timeLastModified(name.raw, returnIfMissing);
 }
 
 ///ditto
@@ -635,7 +635,7 @@ unittest
 /// Like $(FULL_STD_FILE exists), but supports Path and command echoing.
 bool exists(in Path name) @trusted
 {
-	return exists(name.toRawString());
+	return exists(name.raw);
 }
 
 ///ditto
@@ -670,7 +670,7 @@ unittest
 /// Like $(FULL_STD_FILE getAttributes), but supports Path and command echoing.
 uint getAttributes(in Path name)
 {
-	return getAttributes(name.toRawString());
+	return getAttributes(name.raw);
 }
 
 ///ditto
@@ -703,7 +703,7 @@ unittest
 /// Like $(FULL_STD_FILE getLinkAttributes), but supports Path and command echoing.
 uint getLinkAttributes(in Path name)
 {
-	return getLinkAttributes(name.toRawString());
+	return getLinkAttributes(name.raw);
 }
 
 ///ditto
@@ -736,7 +736,7 @@ unittest
 /// Like $(FULL_STD_FILE isDir), but supports Path and command echoing.
 @property bool isDir(in Path name)
 {
-	return isDir(name.toRawString());
+	return isDir(name.raw);
 }
 
 ///ditto
@@ -775,7 +775,7 @@ unittest
 /// Like $(FULL_STD_FILE isFile), but supports Path and command echoing.
 @property bool isFile(in Path name)
 {
-	return isFile(name.toRawString());
+	return isFile(name.raw);
 }
 
 ///ditto
@@ -814,7 +814,7 @@ unittest
 /// Like $(FULL_STD_FILE isSymlink), but supports Path and command echoing.
 @property bool isSymlink(in Path name)
 {
-	return isSymlink(name.toRawString());
+	return isSymlink(name.raw);
 }
 
 ///ditto
@@ -883,7 +883,7 @@ Path getcwd()
 /// Like $(FULL_STD_FILE chdir), but supports Path and command echoing.
 void chdir(in Path pathname)
 {
-	chdir(pathname.toRawString());
+	chdir(pathname.raw);
 }
 
 /// Like $(FULL_STD_FILE chdir), but supports Path and command echoing.
@@ -922,7 +922,7 @@ unittest
 /// Like $(FULL_STD_FILE mkdir), but supports Path, command echoing and dryrun.
 void mkdir(in Path pathname)
 {
-	mkdir(pathname.toRawString());
+	mkdir(pathname.raw);
 }
 
 ///ditto
@@ -969,7 +969,7 @@ unittest
 /// Like $(FULL_STD_FILE mkdirRecurse), but supports Path, command echoing and dryrun.
 void mkdirRecurse(in Path pathname)
 {
-	mkdirRecurse(pathname.toRawString());
+	mkdirRecurse(pathname.raw);
 }
 
 ///ditto
@@ -1016,7 +1016,7 @@ unittest
 /// Like $(FULL_STD_FILE rmdir), but supports Path, command echoing and dryrun.
 void rmdir(in Path pathname)
 {
-	rmdir(pathname.toRawString());
+	rmdir(pathname.raw);
 }
 
 ///ditto
@@ -1086,17 +1086,17 @@ else version(Posix)
 {
 	void symlink(Path original, Path link)
 	{
-		symlink(original.toRawString(), link.toRawString());
+		symlink(original.raw, link.raw);
 	}
 
 	void symlink(string original, Path link)
 	{
-		symlink(original, link.toRawString());
+		symlink(original, link.raw);
 	}
 
 	void symlink(Path original, string link)
 	{
-		symlink(original.toRawString(), link);
+		symlink(original.raw, link);
 	}
 
 	void symlink(string original, string link)
@@ -1175,7 +1175,7 @@ else version(Posix)
 
 	Path readLink(Path link)
 	{
-		return Path( readLink(link.toRawString()) );
+		return Path( readLink(link.raw) );
 	}
 
 	string readLink(string link)
@@ -1212,19 +1212,19 @@ else version(Posix)
 /// Like $(FULL_STD_FILE copy), but supports Path, command echoing and dryrun.
 void copy(in Path from, in Path to)
 {
-	copy(from.toRawString(), to.toRawString());
+	copy(from.raw, to.raw);
 }
 
 ///ditto
 void copy(in string from, in Path to)
 {
-	copy(from, to.toRawString());
+	copy(from, to.raw);
 }
 
 ///ditto
 void copy(in Path from, in string to)
 {
-	copy(from.toRawString(), to);
+	copy(from.raw, to);
 }
 
 ///ditto
@@ -1305,7 +1305,7 @@ unittest
 /// Like $(FULL_STD_FILE rmdirRecurse), but supports Path, command echoing and dryrun.
 void rmdirRecurse(in Path pathname)
 {
-	rmdirRecurse(pathname.toRawString());
+	rmdirRecurse(pathname.raw);
 }
 
 ///ditto
@@ -1361,7 +1361,7 @@ auto dirEntries(string path, SpanMode mode, bool followSymlink = true)
 ///ditto
 auto dirEntries(Path path, SpanMode mode, bool followSymlink = true)
 {
-	return dirEntries(path.toRawString(), mode, followSymlink);
+	return dirEntries(path.raw, mode, followSymlink);
 }
 
 ///ditto
@@ -1376,7 +1376,7 @@ auto dirEntries(string path, string pattern, SpanMode mode,
 auto dirEntries(Path path, string pattern, SpanMode mode,
 	bool followSymlink = true)
 {
-	return dirEntries(path.toRawString(), pattern, mode, followSymlink);
+	return dirEntries(path.raw, pattern, mode, followSymlink);
 }
 
 version(unittest_scriptlike_d)
@@ -1428,7 +1428,7 @@ unittest
 /// Like $(FULL_STD_FILE slurp), but supports Path and command echoing.
 auto slurp(Types...)(Path filename, in string format)
 {
-	return slurp!Types(filename.toRawString(), format);
+	return slurp!Types(filename.raw, format);
 }
 
 ///ditto
