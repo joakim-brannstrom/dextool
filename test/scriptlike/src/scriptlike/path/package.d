@@ -68,19 +68,19 @@ unittest
 
 		assert(Ext("foo"));
 		assert(Ext(""));
-		assert(Ext(null).toRawString() is null);
+		assert(Ext(null).toString() is null);
 		assert(!Ext(null));
 	}
 
 	auto p = Path();
-	assert(p.toRawString() == ".");
+	assert(p.raw == ".");
 	assert(!p.empty);
 	
 	assert(Path("").empty);
 	
 	assert(Path("foo"));
 	assert(Path(""));
-	assert(Path(null).toRawString() is null);
+	assert(Path(null).raw is null);
 	assert(!Path(null));
 	
 	version(Windows)
@@ -96,12 +96,12 @@ unittest
 		
 		p = Path(str);
 		assert(!p.empty);
-		assert(p.toRawString() == dirSep~"foo"~dirSep~"bar");
+		assert(p.raw == dirSep~"foo"~dirSep~"bar");
 		
 		p = Path(str);
-		assert(p.toRawString() == dirSep~"foo"~dirSep~"bar");
-		assert(p.toRawString() == p.toRawString());
-		assert(p.toString()    == p.toRawString().to!string());
+		assert(p.raw == dirSep~"foo"~dirSep~"bar");
+		assert(p.raw == p.raw);
+		assert(p.toString()    == p.raw.to!string());
 		
 		assert(p.up.toString() == dirSep~"foo");
 		assert(p.up.up.toString() == dirSep);
@@ -150,8 +150,8 @@ unittest
 		assert(p.stripDrive().toString() == dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
 		version(Windows)
 		{
-			assert(( Path("C:"~p.toRawString()) ).toString() == "C:"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
-			assert(( Path("C:"~p.toRawString()) ).stripDrive().toString() == dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
+			assert(( Path("C:"~p.raw) ).toString() == "C:"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
+			assert(( Path("C:"~p.raw) ).stripDrive().toString() == dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
 		}
 		assert(p.extension().toString() == ".ext");
 		assert(p.stripExtension().toString() == dirSep~"foo"~dirSep~"bar"~dirSep~"filename");
@@ -175,18 +175,18 @@ unittest
 		else
 			static assert(0, "This platform not supported.");
 
-		assert(!( Path("dir"~p.toRawString()) ).isRooted());
-		assert(!( Path("dir"~p.toRawString()) ).isAbsolute());
+		assert(!( Path("dir"~p.raw) ).isRooted());
+		assert(!( Path("dir"~p.raw) ).isAbsolute());
 		
 		version(Windows)
 		{
-			assert(( Path("dir"~p.toRawString()) ).absolutePath("C:/main").toString() == "C:"~dirSep~"main"~dirSep~"dir"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
-			assert(( Path("C:"~p.toRawString()) ).relativePath("C:/foo").toString() == "bar"~dirSep~"filename.ext");
-			assert(( Path("C:"~p.toRawString()) ).relativePath("C:/foo/bar").toString() == "filename.ext");
+			assert(( Path("dir"~p.raw) ).absolutePath("C:/main").toString() == "C:"~dirSep~"main"~dirSep~"dir"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
+			assert(( Path("C:"~p.raw) ).relativePath("C:/foo").toString() == "bar"~dirSep~"filename.ext");
+			assert(( Path("C:"~p.raw) ).relativePath("C:/foo/bar").toString() == "filename.ext");
 		}
 		else version(Posix)
 		{
-			assert(( Path("dir"~p.toRawString()) ).absolutePath("/main").toString() == dirSep~"main"~dirSep~"dir"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
+			assert(( Path("dir"~p.raw) ).absolutePath("/main").toString() == dirSep~"main"~dirSep~"dir"~dirSep~"foo"~dirSep~"bar"~dirSep~"filename.ext");
 			assert(p.relativePath("/foo").toString() == "bar"~dirSep~"filename.ext");
 			assert(p.relativePath("/foo/bar").toString() == "filename.ext");
 		}

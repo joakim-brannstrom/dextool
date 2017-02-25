@@ -1,6 +1,6 @@
 name "tests"
 
-// after v0.9.6 git commit fddadcd
+// after v0.9.7 git commit 746465f
 dependency "tests:scriptlike" version="*"
 
 dependency "tests:unit-threaded" version="*"

@@ -33,7 +33,7 @@ bool existsAsDir(in string path) @trusted
 ///ditto
 bool existsAsDir(in Path path) @trusted
 {
-	return existsAsDir(path.toRawString());
+	return existsAsDir(path.raw);
 }
 
 version(unittest_scriptlike_d)
@@ -78,7 +78,7 @@ bool existsAsFile(in string path) @trusted
 ///ditto
 bool existsAsFile(in Path path) @trusted
 {
-	return existsAsFile(path.toRawString());
+	return existsAsFile(path.raw);
 }
 
 version(unittest_scriptlike_d)
@@ -123,7 +123,7 @@ bool existsAsSymlink()(in string path) @trusted
 ///ditto
 bool existsAsSymlink(in Path path) @trusted
 {
-	return existsAsSymlink(path.toRawString());
+	return existsAsSymlink(path.raw);
 }
 
 version(unittest_scriptlike_d)

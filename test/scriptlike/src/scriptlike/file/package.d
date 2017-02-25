@@ -94,7 +94,7 @@ unittest
 
 	import std.stdio : stdout;
 	writeln("    testA with string"); stdout.flush();
-	testA(tempPath.toRawString()); // Test with string
+	testA(tempPath.raw); // Test with string
 
 	writeln("    testA with Path"); stdout.flush();
 	testA(tempPath); // Test with Path
@@ -206,7 +206,7 @@ unittest
 			assert(tempPath2.existsAsSymlink());
 			
 			auto linkTarget = tempPath2.readLink();
-			assert(linkTarget.toRawString() == tempname1);
+			assert(linkTarget.raw == tempname1);
 		}
 	}
 	

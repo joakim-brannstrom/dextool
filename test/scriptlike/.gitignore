@@ -8,8 +8,6 @@ docs/public/sitemap.xml
 docs/public/symbols.js
 docs/public/scriptlike/
 
-dub.selections.json
-
 src/scriptlike/packageVersion.d
 ddoc/packageVersion.ddoc
 

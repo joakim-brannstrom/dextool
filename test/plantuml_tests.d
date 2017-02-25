@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -64,7 +63,7 @@ TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = Yes.sortLines) {
-    dextoolYap("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.raw);
     runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 
     if (!p.skipCompare) {

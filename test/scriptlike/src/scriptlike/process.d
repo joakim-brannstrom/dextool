@@ -476,7 +476,7 @@ struct Args
 
 	void put(Path item)
 	{
-		put(item.toRawString());
+		put(item.raw);
 	}
 
 	void put(Range)(Range items)

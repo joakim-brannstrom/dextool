@@ -59,7 +59,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
-    dextoolYap("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.raw);
     runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 }
 

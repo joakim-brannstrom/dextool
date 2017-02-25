@@ -3,6 +3,6 @@
 	"targetType": "executable",
 	"mainSourceFile": "myscript.d",
 	"dependencies": {
-		"scriptlike": "~>0.9.6"
+		"scriptlike": "~>0.9.7"
 	}
 }

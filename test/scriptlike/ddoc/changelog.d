@@ -6,7 +6,19 @@ $(LINK http://semitwist.com/scriptlike/changelog.html)
 
 (Dates below are YYYY/MM/DD)
 
-$(H2 v0.9.7 - TBD)
+$(H2 v0.10.0 - TBD)
+
+$(UL
+	$(CHANGE
+		$(ISSUE 33): Rename `Path.toRawString` to `Path.raw`.
+	)
+	$(CHANGE
+		Deprecated `Ext.toRawString`. It didn't do anything
+		different from `Ext.toString` and thus wasn't needed.
+	)
+)
+
+$(H2 v0.9.7 - 2017/07/23)
 
 $(UL
 	$(ENHANCE

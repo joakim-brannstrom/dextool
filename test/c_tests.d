@@ -65,7 +65,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = No.sortLines,
         Flag!"skipComments" skipComments = Yes.skipComments) {
-    dextoolYap("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.raw);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
     if (!p.skipCompare) {
@@ -500,7 +500,7 @@ unittest {
 
     bool exit_status_is_failed;
     try {
-        dextoolYap("Input:%s", p.input_ext.toRawString);
+        dextoolYap("Input:%s", p.input_ext.raw);
         runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
     }
     catch (ErrorLevelException) {
