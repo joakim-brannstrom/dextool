@@ -47,7 +47,7 @@ void echoOff() {
 string escapePath(in Path p) {
     import scriptlike : escapeShellArg;
 
-    return p.toRawString.dup.escapeShellArg;
+    return p.raw.dup.escapeShellArg;
 }
 
 auto runAndLog(T)(T args_) {
@@ -217,8 +217,8 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     import std.stdio : File;
     import std.utf : toUTF8;
 
-    yap("Comparing gold:", gold.toRawString);
-    yap("        result:", result.toRawString);
+    yap("Comparing gold:", gold.raw);
+    yap("        result:", result.raw);
 
     File goldf;
     File resultf;
@@ -355,7 +355,7 @@ bool stdoutContains(in Path gold) {
     import std.range : enumerate;
     import std.stdio : File;
 
-    yap("Contains gold:", gold.toRawString);
+    yap("Contains gold:", gold.raw);
 
     File goldf;
 

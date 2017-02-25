@@ -62,7 +62,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = No.sortLines,
         Flag!"skipComments" skipComments = Yes.skipComments) {
-    dextoolYap("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.raw);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
 
     if (!p.skipCompare) {
@@ -89,7 +89,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_anon_namespace.hpp", testEnv);
 
-    dextoolYap("Input:%s", p.input_ext.toRawString);
+    dextoolYap("Input:%s", p.input_ext.raw);
     runTestFile(p, testEnv);
 }
 
