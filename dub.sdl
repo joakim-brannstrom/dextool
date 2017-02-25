@@ -106,7 +106,7 @@ configuration "devtool" {
 }
 
 configuration "unittest" {
-    // after v0.7.2, git commit cb722d6
+    // after v0.7.4
     dependency "dextool:unit-threaded" version="*"
 
     targetName "unittest"
