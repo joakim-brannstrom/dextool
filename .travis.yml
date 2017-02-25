@@ -24,4 +24,4 @@ script: ./travis.sh
 after_success:
   # restrict what compiler coverage so it is possible to know what compiler
   # reported the coverage statistics on github PR
-  - ((test $DC == "dmd") && ($DC --version|grep 2.070.2) && bash <(curl -s https://codecov.io/bash))
+  - ((test $DC == "dmd") && ($DC --version|grep 2.071.2) && bash <(curl -s https://codecov.io/bash))

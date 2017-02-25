@@ -563,20 +563,25 @@ ref AppT makeXmlConnfig(AppT)(ref AppT app, string[] flags) {
     import std.algorithm : joiner;
     import std.array : array;
     import std.file : thisExePath;
-    import std.format : formattedWrite;
+    import std.format : formattedWrite, format;
     import std.path : baseName;
+    import std.range : put;
     import std.utf : toUTF8;
+    import std.xml;
     import application.utility : dextoolVersion;
 
+    auto doc = new Document(new Tag("dextool"));
+    doc.tag.attr["version"] = dextoolVersion;
+    {
+        auto command = new Element("command");
+        command ~= new CData(format("%s %s", thisExePath.baseName,
+                flags.joiner(" ").array().toUTF8));
+        doc ~= new Comment("command line when dextool was executed");
+        doc ~= command;
+    }
+
     formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
-
-    formattedWrite(app, `<dextool version="%s">` ~ "\n", dextoolVersion);
-
-    formattedWrite(app, "<!-- command line when dextool was executed -->\n");
-    formattedWrite(app, "<command>%s %s</command>\n", thisExePath.baseName,
-            flags.joiner(" ").array().toUTF8);
-
-    formattedWrite(app, "</dextool>\n");
+    put(app, doc.pretty(4).joiner("\n").array().toUTF8());
 
     return app;
 }
