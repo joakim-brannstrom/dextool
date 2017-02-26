@@ -75,6 +75,12 @@ struct ParsedArgs {
             help = true;
         }
 
+        // default arguments
+        if (stripInclude.length == 0) {
+            stripInclude = r".*/(.*)";
+            logger.trace("--strip-incl: using default regex to strip include path (basename)");
+        }
+
         import std.algorithm : find;
         import std.array : array;
         import std.range : drop;
@@ -276,13 +282,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Regex!char strip_incl;
         CustomHeader custom_hdr;
 
-        if (args.stripInclude.length != 0) {
-            strip_incl = regex(args.stripInclude);
-            logger.trace("User supplied regex via --strip-incl: ", args.stripInclude);
-        } else {
-            logger.trace("Using default regex to strip include path (basename)");
-            strip_incl = regex(r".*/(.*)");
-        }
+        strip_incl = regex(args.stripInclude);
 
         // dfmt off
         auto variant = new CTestDoubleVariant(
