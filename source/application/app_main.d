@@ -1,5 +1,5 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -9,8 +9,8 @@ import std.typecons : Flag;
 
 import logger = std.experimental.logger;
 
-import application.types;
-import application.logger;
+import dextool.type;
+import dextool.logger;
 import plugin.types : CliBasicOption;
 
 version (unittest) {
@@ -77,7 +77,7 @@ ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] 
         exit_status = ExitStatusType.Ok;
         break;
     case Version:
-        import application.utility : dextoolVersion;
+        import dextool.utility : dextoolVersion;
 
         writeln("dextool version ", dextoolVersion);
         exit_status = ExitStatusType.Ok;

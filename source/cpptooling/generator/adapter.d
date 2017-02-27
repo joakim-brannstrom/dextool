@@ -10,7 +10,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : MainNs, MainInterface;
+import dextool.type : MainNs, MainInterface;
 import cpptooling.analyzer.type;
 import cpptooling.data.representation : CppClass, CppNamespace, CppClassName,
     CppMethodName;

@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,13 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 
 Utility functions for Clang Compilation Databases.
 */
-module application.compilation_db;
+module dextool.compilation_db;
 
 import std.json : JSONValue;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
-
-import application.types;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
@@ -339,9 +337,15 @@ private struct SearchResult {
 /** Append the compiler flags if a match is found in the DB or error out.
  */
 Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
-        in string[] cflags, in string input_file) @safe {
-    import application.compilation_db : find, toString;
+        const string[] cflags, const string input_file) @safe {
 
+    return appendOrError(compile_db, cflags, input_file, defaultCompilerFilter);
+}
+
+/** Append the compiler flags if a match is found in the DB or error out.
+ */
+Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
+        const string[] cflags, const string input_file, const CompileCommandFilter flag_filter) @safe {
     auto compile_commands = compile_db.find(input_file.idup);
     debug {
         logger.trace(compile_commands.length > 0,
@@ -349,6 +353,8 @@ Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
         if (compile_commands.length == 0) {
             logger.trace(compile_db.toString);
         }
+
+        logger.tracef("CompilationDatabase filter: %s", flag_filter);
     }
 
     typeof(return) rval;
@@ -357,7 +363,7 @@ Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
         return rval;
     } else {
         rval = SearchResult.init;
-        rval.cflags = cflags ~ compile_commands[0].parseFlag;
+        rval.cflags = cflags ~ compile_commands[0].parseFlag(flag_filter);
         rval.absoluteFile = cast(string) compile_commands[0].absoluteFile;
     }
 
@@ -384,19 +390,95 @@ string toString(CompileCommandSearch search) @safe pure {
             a.directory, a.file, a.absoluteFile, a.command)).joiner().text;
 }
 
+const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+
+/// Returns: array of default flags to exclude.
+auto defaultCompilerFlagFilter() @safe {
+    import dextool.type : FilterClangFlag;
+    import std.array : appender;
+
+    auto app = appender!(FilterClangFlag[])();
+
+    // dfmt off
+    foreach (f; [
+             // allow warnings. too much difference between gcc and clang to be
+             // of use.
+             "-Werror",
+             // remove basic compile flag irrelevant for AST generation
+             "-c", "-o",
+             // machine dependent flags
+             "-m",
+             // machine dependent flags, AVR
+             "-nodevicelib", "-Waddr-space-convert",
+             // machine dependent flags, VxWorks
+             "-non-static", "-Bstatic", "-Bdynamic", "-Xbind-lazy", "-Xbind-now",
+             // blacklist all -f, add to whitelist those that are compatible with clang
+             "-f",
+             // linker flags
+             "-static", "-shared", "-rdynamic", "-s", "-l", "-L", "-z", "-u", "-T", "-Xlinker",
+             // a linker flag with filename as one argument, determined by checking length
+             "-l",
+             // remove some of the preprocessor flags.
+             "-MT", "-MF", "-MD", "-MQ", "-MMD", "-MP", "-MG", "-E", "-cc1", "-S", "-M", "-MM", "-###",
+             ]) {
+        app.put(FilterClangFlag(f));
+    }
+    // dfmt on
+
+    return app.data;
+}
+
+struct CompileCommandFilter {
+    import dextool.type : FilterClangFlag;
+
+    FilterClangFlag[] filter;
+    int skipFlags = 1;
+}
+
 /** Filter and normalize the compiler flags.
  *
- *  - Sanitize the compiler command by removing unnecessary flags.
- *    e.g those only for linking.
+ *  - Sanitize the compiler command by removing flags matching the filter.
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-string[] parseFlag(CompileCommand cmd) @safe pure {
-    static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir) {
+string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+    import dextool.type : FilterClangFlag;
+
+    static bool excludeStartWith(string flag, const FilterClangFlag[] flag_filter) @safe {
+        import std.algorithm : startsWith, filter, count;
+
+        // the purpuse is to find if any of the flags in flag_filter matches
+        // the start of flag.
+
+        // dfmt off
+        return 0 != flag_filter
+            .filter!(a => a.kind == FilterClangFlag.Kind.exclude)
+            // keep flags that are at least the length of values
+            .filter!(a => flag.length >= a.length)
+            // if the flag starst with the exclude-flag it is a match
+            .filter!(a => flag.startsWith(a.payload))
+            .count();
+        // dfmt on
+    }
+
+    static bool isCombindedIncludeFlag(string flag) @safe {
+        // if an include flag make it absolute, as one argument by checking
+        // length. 3 is to only match those that are -Ixyz
+        return flag.length >= 3 && flag[0 .. 2] == "-I";
+    }
+
+    static bool isNotAFlag(string flag) @safe {
+        // good enough if it seem to be a file
+        return flag.length >= 1 && flag[0] != '-';
+    }
+
+    static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
+            const FilterClangFlag[] flag_filter) @safe {
         enum State {
-            Keep,
-            Skip,
-            IsInclude
+            keep,
+            skip,
+            skipIfNotFlag,
+            isInclude
         }
 
         import std.path : buildNormalizedPath, absolutePath;
@@ -407,41 +489,24 @@ string[] parseFlag(CompileCommand cmd) @safe pure {
         auto rval = appender!(ElementType!T[]);
 
         foreach (arg; r) {
-            if (st == State.Skip) {
-                st = State.Keep;
-            } else if (st == State.IsInclude) {
-                st = State.Keep;
+            if (st == State.skip) {
+                st = State.keep;
+            } else if (st == State.skipIfNotFlag && isNotAFlag(arg)) {
+                st = State.keep;
+            } else if (st == State.isInclude) {
+                st = State.keep;
                 // if an include flag make it absolute
                 rval.put("-I");
                 rval.put(buildNormalizedPath(workdir, arg).absolutePath);
-            } else if (arg.among("-o")) {
-                st = State.Skip;
-            }  // linker flags
-            else if (arg.among("-l", "-L", "-z", "-u", "-T", "-Xlinker")) {
-                st = State.Skip;
-            }  // machine dependent flags
-            // TODO investigate if it is a bad idea to remove -m flags that may affect int size etc
-            else if (arg.among("-m")) {
-                st = State.Skip;
-            }  // machine dependent flags, AVR
-            else if (arg.among("-nodevicelib", "-Waddr-space-convert")) {
-                st = State.Skip;
-            }  // machine dependent flags, VxWorks
-            else if (arg.among("-non-static", "-Bstatic", "-Bdynamic",
-                    "-Xbind-lazy", "-Xbind-now")) {
-                st = State.Skip;
-            }  // Preprocessor
-            else if (arg.among("-MT", "-MQ", "-MF")) {
-                st = State.Skip;
-            }  // if an include flag make it absolute, as one argument by checking
-            // length. 3 is to only match those that are -Ixyz
-            else if (arg.length >= 3 && arg[0 .. 2] == "-I") {
+            } else if (isCombindedIncludeFlag(arg)) {
                 rval.put("-I");
                 rval.put(buildNormalizedPath(workdir, arg[2 .. $]).absolutePath);
             } else if (arg.among("-I")) {
-                st = State.IsInclude;
+                st = State.isInclude;
             }  // parameter that seem to be filenames, remove
-            else if (arg.length >= 1 && arg[0] != '-') {
+            else if (excludeStartWith(arg, flag_filter)) {
+                st = State.skipIfNotFlag;
+            } else if (isNotAFlag(arg)) {
                 // skipping
             } else {
                 rval.put(arg);
@@ -456,27 +521,18 @@ string[] parseFlag(CompileCommand cmd) @safe pure {
 
     // dfmt off
     auto pass1 = (cast(string) cmd.command).splitter(' ')
-        .dropOne
         // remove empty strings
-        .filter!(a => !(a == ""))
-        // remove compile flag
-        .filter!(a => !a.among("-c"))
-        // machine dependent flags
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-m")))
-        // remove destination flag
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-o")))
-        // blacklist all -f, add to whitelist those that are compatible with clang
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-f")))
-        // linker flags
-        .filter!(a => !a.among("-static", "-shared", "-rdynamic", "-s"))
-        // a linker flag with filename as one argument, determined by checking length
-        .filter!(a => !(a.length >= 3 && a[0 .. 2].among("-l", "-o")))
-        // remove some of the preprocessor flags.
-        .filter!(a => !a.among("-MD", "-MQ", "-MMD", "-MP", "-MG", "-E",
-                "-cc1", "-S", "-M", "-MM", "-###"));
+        .filter!(a => !(a == ""));
     // dfmt on
 
-    return filterPair(pass1, cmd.directory);
+    // consume elements
+    foreach (_; 0 .. flag_filter.skipFlags) {
+        if (!pass1.empty) {
+            pass1.popFront;
+        }
+    }
+
+    return filterPair(pass1, cmd.directory, flag_filter.filter);
 }
 
 @("Should be cflags with all unnecessary flags removed")
@@ -484,7 +540,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp",
             `g++ -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
             AbsoluteCompileDbDirectory("/home"));
-    auto s = cmd.parseFlag;
+    auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 
@@ -494,7 +550,7 @@ unittest {
             `g++           -MD     -lfoo.a -l bar.a       -I    bar     -Igun`,
             AbsoluteCompileDbDirectory("/home"));
 
-    auto s = cmd.parseFlag;
+    auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 
@@ -504,7 +560,7 @@ unittest {
             `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
             AbsoluteCompileDbDirectory("/home"));
 
-    auto s = cmd.parseFlag;
+    auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 
@@ -514,7 +570,7 @@ unittest {
             `g++ -fmany-fooo -I bar -fno-fooo -Igun -flolol -c a_filename.c`,
             AbsoluteCompileDbDirectory("/home"));
 
-    auto s = cmd.parseFlag;
+    auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
 }
 

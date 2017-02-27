@@ -30,7 +30,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.plantuml;
 
-import application.types;
+import dextool.type;
 import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveCanonicalType;
 import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast : Visitor;

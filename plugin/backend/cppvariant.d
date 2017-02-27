@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2016, Joakim Brännström
+Date: 2016-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -13,8 +12,8 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import application.types : FileName, DirName, MainName, StubPrefix,
-    DextoolVersion, CustomHeader, MainNs, MainInterface;
+import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
+    CustomHeader, MainNs, MainInterface;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
 
@@ -446,7 +445,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     import std.array : array;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
-    import application.types : FileName;
+    import dextool.type : FileName;
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.utility : dedup;

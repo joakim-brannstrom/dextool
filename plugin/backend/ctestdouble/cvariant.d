@@ -13,8 +13,8 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import application.types : FileName, DirName, MainName, StubPrefix,
-    DextoolVersion, CustomHeader, MainNs, MainInterface;
+import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
+    CustomHeader, MainNs, MainInterface;
 import cpptooling.data.symbol.container;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
@@ -64,7 +64,7 @@ import cpptooling.testdouble.header_filter : LocationType;
         FileName post_incl;
     }
 
-    /// Source files used to generate the stub.
+    /// Source files used to generate the test double.
     FileName[] getIncludes();
 
     /// Output directory to store files in.
@@ -111,7 +111,7 @@ import cpptooling.testdouble.header_filter : LocationType;
 
 /// Data produced by the generator like files.
 @safe interface Products {
-    /** Data pushed from the stub generator to be written to files.
+    /** Data pushed from the test double generator to be written to files.
      *
      * The put value is the code generation tree. It allows the caller of
      * Generator to inject more data in the tree before writing. For
@@ -433,11 +433,18 @@ enum ClassType {
     Gmock
 }
 
-/** Structurally transformed the input to a stub implementation.
+/** Structurally transformed the input to a test double implementation.
  *
  * This stage:
  *  - removes C++ code.
  *  - removes according to directives via ctrl.
+ *
+ * Params:
+ *  input = structural representation of the source code
+ *  ctrl = controll what nodes to keep
+ *  prod = push location data of the nodes that are kept
+ *  filtered = output structural representation
+ *  lookup = callback function supporting lookup of locations
  */
 void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         ref CppRoot filtered, LookupT lookup) {

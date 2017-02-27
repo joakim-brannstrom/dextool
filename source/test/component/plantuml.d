@@ -16,7 +16,7 @@ import test.helpers;
 
 import clang.TranslationUnit : TranslationUnit;
 
-import application.types;
+import dextool.type;
 import cpptooling.analyzer.kind : TypeKind;
 import cpptooling.analyzer.type : USRType;
 import cpptooling.analyzer.clang.ast : ClangAST;
@@ -39,7 +39,7 @@ writelnUt(be.uml_component.toString);
 
 ///
 @safe class DummyController : BHController {
-    import application.types : FileName;
+    import dextool.type : FileName;
 
     override bool doFile(in string filename, in string info) {
         return true;

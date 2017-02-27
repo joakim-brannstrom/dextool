@@ -15,9 +15,6 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "application.app_main",
-                          "application.types",
-                          "application.utility",
-                          "application.compilation_db",
                           "cpptooling.analyzer.clang.ast",
                           "cpptooling.analyzer.clang.ast.node",
                           "cpptooling.analyzer.clang.ast.visitor",
@@ -38,6 +35,9 @@ int main(string[] args) {
                           "cpptooling.utility.sort",
                           "cpptooling.utility.taggedalgebraic",
                           "cpptooling.utility.virtualfilesystem",
+                          "dextool.utility",
+                          "dextool.compilation_db",
+                          "plugin.frontend.ctestdouble",
                           "plugin.backend.ctestdouble.global",
                           "plugin.register_plugin.standard",
                           "plugin.utility",

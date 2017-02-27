@@ -1,9 +1,9 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module application.types;
+module dextool.type;
 
 enum ExitStatusType {
     Ok,
@@ -74,4 +74,22 @@ struct DextoolVersion {
 struct CustomHeader {
     string payload;
     alias payload this;
+}
+
+/// The raw arguments from the command line.
+struct RawCliArguments {
+    string[] payload;
+    alias payload this;
+}
+
+/// Flags to exclude from the flags passed on to the clang parser.
+struct FilterClangFlag {
+    string payload;
+    alias payload this;
+
+    enum Kind {
+        exclude
+    }
+
+    Kind kind;
 }

@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module plugin.types;
 
-public import application.types : ExitStatusType;
+public import dextool.type : ExitStatusType;
 
 /// CLI options that a plugin must implement.
 struct CliBasicOption {
@@ -25,6 +25,7 @@ struct CliBasicOption {
     }
 }
 
+/// deprecated, moved to dextool.type
 /// The raw arguments from the command line.
 struct CliArgs {
     string[] payload;

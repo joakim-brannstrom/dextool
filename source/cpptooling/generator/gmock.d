@@ -19,7 +19,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import application.types : DextoolVersion, CustomHeader;
+import dextool.type : DextoolVersion, CustomHeader;
 import cpptooling.data.representation; // : CppClass, CppNamespace, CppMethodOp, CppMethod;
 import cpptooling.analyzer.kind;
 import cpptooling.analyzer.type;

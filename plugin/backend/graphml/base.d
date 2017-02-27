@@ -52,7 +52,7 @@ static import cpptooling.data.class_classification;
 
 /// Data produced by the backend to be handled by the frontend.
 @safe interface Products {
-    import application.types : FileName;
+    import dextool.type : FileName;
 
     /** Put content, by appending, to specified file.
      *
@@ -304,14 +304,14 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     import std.conv : to;
     import std.typecons : scoped, TypedefType, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : ClassDecl, ClassTemplate, ClassTemplatePartialSpecialization, StructDecl,
-        CXXBaseSpecifier, Constructor, Destructor, CXXMethod, FieldDecl,
-        CXXAccessSpecifier, TypedefDecl, UnionDecl;
+    import cpptooling.analyzer.clang.ast : ClassDecl, ClassTemplate,
+        ClassTemplatePartialSpecialization, StructDecl, CXXBaseSpecifier,
+        Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier,
+        TypedefDecl, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
-        analyzeConstructor, analyzeDestructor,
-        analyzeCXXMethod, analyzeFieldDecl, analyzeCXXBaseSpecified,
-        toAccessType;
+        analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
+        analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
     import cpptooling.data.type : MemberVirtualType;
     import cpptooling.data.representation : CppNsStack, CppNs, AccessType,
         CppAccess, CppDtor, CppCtor, CppMethod, CppClassName;
@@ -954,8 +954,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     import std.typecons : NullableRef;
 
     import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CXXMethodResult,
-        ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
+        RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
+        DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.analyzer.type : TypeKindAttr, TypeKind, TypeAttr,
         toStringDecl;

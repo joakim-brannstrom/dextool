@@ -422,6 +422,57 @@ auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, 
     return sw.peek.msecs;
 }
 
+auto filesToDextoolInFlags(T)(const T in_files) {
+    Args args;
+
+    static if (isArray!T) {
+        foreach (f; input) {
+            args ~= "--in=" ~ f.escapePath;
+        }
+    } else {
+        if (input.escapePath.length > 0) {
+            args ~= "--in=" ~ input.escapePath;
+        }
+    }
+
+    return args;
+}
+
+/** Run dextool with supplied flags and parameters.
+ *
+ * Return: The runtime in ms.
+ */
+auto runDextool2(const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+    import std.traits : isArray;
+    import std.algorithm : min;
+
+    Args args;
+    args ~= testEnv.dextool;
+    args ~= pre_args.dup;
+    args ~= "--out=" ~ testEnv.outdir.escapePath;
+
+    if (flags.length > 0) {
+        args ~= "--";
+        args ~= flags.dup;
+    }
+
+    import std.datetime;
+
+    StopWatch sw;
+    sw.start;
+    auto output = runAndLog(args.data);
+    sw.stop;
+    yap("Dextool execution time was ms: " ~ sw.peek().msecs.text);
+
+    if (output.status != 0) {
+        auto l = min(100, output.output.length);
+
+        throw new ErrorLevelException(output.status, output.output[0 .. l].dup);
+    }
+
+    return sw.peek.msecs;
+}
+
 void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipComments, in T args) {
     static assert(args.length >= 1);
 

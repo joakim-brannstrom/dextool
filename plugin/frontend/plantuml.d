@@ -16,9 +16,9 @@ import std.typecons : Flag, Yes, No;
 
 import logger = std.experimental.logger;
 
-import application.compilation_db;
-import application.types;
-import application.utility;
+import dextool.compilation_db;
+import dextool.type;
+import dextool.utility;
 
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
@@ -134,8 +134,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag, Yes, No;
-    import application.types : FileName, DirName, FilePrefix;
-    import application.utility;
+    import dextool.type : FileName, DirName, FilePrefix;
+    import dextool.utility;
 
     import docopt : ArgValue;
     import dsrcgen.plantuml;
@@ -363,6 +363,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import cpptooling.data.symbol.container : Container;
 
     import cpptooling.analyzer.clang.context : ClangContext;
+    import dextool.io : writeFileData;
     import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
         UMLComponentDiagram, TransformToDiagram;
 
@@ -386,7 +387,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
         foreach (idx, entry; compile_db) {
             logger.infof("File %d/%d ", idx + 1, total_files);
-            auto entry_cflags = cflags ~ parseFlag(entry);
+            auto entry_cflags = cflags ~ parseFlag(entry, defaultCompilerFilter);
 
             auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
                     entry_cflags, visitor, ctx);
