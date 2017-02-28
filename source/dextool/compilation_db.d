@@ -432,7 +432,7 @@ struct CompileCommandFilter {
     import dextool.type : FilterClangFlag;
 
     FilterClangFlag[] filter;
-    int skipFlags = 1;
+    int skipCompilerArgs = 1;
 }
 
 /** Filter and normalize the compiler flags.
@@ -526,7 +526,7 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
     // dfmt on
 
     // consume elements
-    foreach (_; 0 .. flag_filter.skipFlags) {
+    foreach (_; 0 .. flag_filter.skipCompilerArgs) {
         if (!pass1.empty) {
             pass1.popFront;
         }

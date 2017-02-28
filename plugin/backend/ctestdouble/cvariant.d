@@ -26,6 +26,9 @@ import cpptooling.testdouble.header_filter : LocationType;
     /// if it shall be processed.
     bool doFile(in string filename, in string info);
 
+    /** Query the controller for a decision if it shall be processed. */
+    bool doSymbol(string symbol);
+
     /** A list of includes for the test double header.
      *
      * Part of the controller because they are dynamic, may change depending on
@@ -457,6 +460,9 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
     input.funcRange
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
+        // ask controller if the user wants to generate a test double function for the symbol.
+        // note: using the fact that C do NOT have name mangling.
+        .filter!(a => ctrl.doSymbol(a.name))
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
         // pass on location as a product to be used to calculate #include
@@ -464,6 +470,9 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         .each!(a => filtered.put(a.value));
 
     input.globalRange()
+        // ask controller if the user wants to generate a global for the symbol.
+        // note: using the fact that C do NOT have name mangling.
+        .filter!(a => ctrl.doSymbol(a.name))
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
         // pass on location as a product to be used to calculate #include

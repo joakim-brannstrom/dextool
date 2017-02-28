@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="test">
+    <symbol_filter>
+        <restrict>restrict_func</restrict>
+        <restrict>restrict_var</restrict>
+    </symbol_filter>
+</dextool>
