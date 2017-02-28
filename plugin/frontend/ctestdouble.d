@@ -162,9 +162,15 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     }
 
     auto variant = CTestDoubleVariant.makeVariant(pargs);
-    auto app = appender!string();
-    variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
-            pargs.originalFlags, variant.getCompileCommandFilter).data);
+    {
+        auto app = appender!string();
+        variant.putFile(variant.getXmlLog, makeXmlLog(app, pargs.originalFlags).data);
+    }
+    {
+        auto app = appender!string();
+        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
+                variant.getCompileCommandFilter).data);
+    }
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
@@ -280,6 +286,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         FileName gmock_file;
         FileName pre_incl_file;
         FileName post_incl_file;
+        FileName config_file;
         FileName log_file;
         CustomHeader custom_hdr;
 
@@ -358,7 +365,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
                 base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_post_includes" ~ hdrExt));
-        this.log_file = FileName(buildPath(output_dir, base_filename ~ xmlExt));
+        this.config_file = FileName(buildPath(output_dir, base_filename ~ "_config" ~ xmlExt));
+        this.log_file = FileName(buildPath(output_dir, base_filename ~ "_log" ~ xmlExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -464,6 +472,13 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     /// Destination of the configuration file containing how the test double was generated.
     FileName getXmlConfigFile() {
+        return config_file;
+    }
+
+    /** Destination of the xml log for how dextool was ran when generatinng the
+     * test double.
+     */
+    FileName getXmlLog() {
         return log_file;
     }
 
@@ -606,18 +621,21 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 }
 
+void makeXmlHeader(AppT)(ref AppT app) {
+    import std.format : formattedWrite;
+
+    formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
+}
+
 /** Store the input in a configuration file to make it easy to regenerate the
  * test double.
  */
-ref AppT makeXmlConfig(AppT)(ref AppT app, string[] raw_cli_flags,
-        CompileCommandFilter compiler_flag_filter) {
-    import std.algorithm : joiner;
+ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
+    import std.algorithm : joiner, copy;
     import std.array : array;
-    import std.conv : to;
     import std.file : thisExePath;
-    import std.format : formattedWrite, format;
+    import std.format : format;
     import std.path : baseName;
-    import std.range : put;
     import std.utf : toUTF8;
     import std.xml;
     import dextool.utility : dextoolVersion;
@@ -632,6 +650,23 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, string[] raw_cli_flags,
         doc ~= command;
     }
 
+    makeXmlHeader(app);
+    doc.pretty(4).joiner("\n").copy(app);
+
+    return app;
+}
+
+/** Store the input in a configuration file to make it easy to regenerate the
+ * test double.
+ */
+ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_filter) {
+    import std.algorithm : joiner, copy;
+    import std.conv : to;
+    import std.xml;
+    import dextool.utility : dextoolVersion;
+
+    auto doc = new Document(new Tag("dextool"));
+    doc.tag.attr["version"] = dextoolVersion;
     {
         auto compiler_tag = new Element("compiler_flag_filter");
         compiler_tag.tag.attr["skipFlags"] = compiler_flag_filter.skipFlags.to!string();
@@ -643,8 +678,8 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, string[] raw_cli_flags,
         doc ~= compiler_tag;
     }
 
-    formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
-    put(app, doc.pretty(4).joiner("\n").array().toUTF8());
+    makeXmlHeader(app);
+    doc.pretty(4).joiner("\n").copy(app);
 
     return app;
 }
