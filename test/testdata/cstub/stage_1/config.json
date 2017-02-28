@@ -1,7 +1,7 @@
 [
     {
         "directory": ".",
-        "command": "on_purpose_error_forcing_to_skip_two g++ -I. -DFAIL_IF_THIS_IS_NOT_REMOVED -c -o binary config.h",
+        "command": "--on_purpose_error_forcing_to_skip_two --on_purpose_error_forcing_to_skip_two g++ -I. -DFAIL_IF_THIS_IS_NOT_REMOVED -c -o binary config.h",
         "file": "config.h"
     }
 ]

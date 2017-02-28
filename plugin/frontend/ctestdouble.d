@@ -692,7 +692,7 @@ struct XmlConfig {
     import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
 
     DextoolVersion version_;
-    int skipFlags;
+    int skipCompilerArgs;
     RawCliArguments command;
     FilterClangFlag[] filterClangFlags;
 }
@@ -749,7 +749,7 @@ auto parseRawConfig(T)(T xml) @trusted {
         command = RawCliArguments(e.text().splitter().array());
     };
     xml.onStartTag["compiler_flag_filter"] = (ElementParser filter_flags) {
-        if (auto tag = "skip_flags" in xml.tag.attr) {
+        if (auto tag = "skip_compiler_args" in xml.tag.attr) {
             try {
                 skip_flags = (*tag).to!int;
             }
@@ -834,7 +834,7 @@ unittest {
 <dextool version="test">
     <!--command line when dextool was executed-->
     <command>dummy text</command>
-    <compiler_flag_filter skip_flags="2">
+    <compiler_flag_filter skip_compiler_args="2">
         <exclude>foo</exclude>
         <exclude>-foo</exclude>
         <exclude>--foo</exclude>
@@ -847,7 +847,7 @@ unittest {
 
     p.version_.dup.shouldEqual("test");
     p.command.dup.shouldEqual(["dummy", "text"]);
-    p.skipFlags.shouldEqual(2);
+    p.skipCompilerArgs.shouldEqual(2);
     p.filterClangFlags.shouldEqual([FilterClangFlag("foo"),
             FilterClangFlag("-foo"), FilterClangFlag("--foo"), FilterClangFlag("-G 0")]);
 }
