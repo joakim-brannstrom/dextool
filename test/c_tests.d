@@ -196,6 +196,19 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@("Restrict generation of functions and variables to the symbol filter")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    auto p = genTestParams("stage_1/symbol.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_1/symbol.xml").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompile = Yes.skipCompile;
+
+    runTestFile(p, testEnv);
+}
+
 // --- Stage 2 ---
 
 @(testId ~ "Should not overwrite an existing X_pre_includes or X_post_includes.hpp")

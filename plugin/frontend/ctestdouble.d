@@ -169,7 +169,7 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     {
         auto app = appender!string();
         variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
-                variant.getCompileCommandFilter).data);
+                variant.getCompileCommandFilter, variant.getRestrictSymbols).data);
     }
 
     CompileCommandDB compile_db;
@@ -301,6 +301,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
         Nullable!XmlConfig xmlConfig;
         CompileCommandFilter compiler_flag_filter;
+        FilterSymbol restrict_symbols;
 
         Regex!char[] exclude;
         Regex!char[] restrict;
@@ -457,7 +458,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         }
 
         xmlConfig = conf;
-        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipFlags);
+        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
+        restrict_symbols = conf.restrictSymbols;
 
         return this;
     }
@@ -482,7 +484,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return log_file;
     }
 
-    CompileCommandFilter getCompileCommandFilter() {
+    ref FilterSymbol getRestrictSymbols() {
+        return restrict_symbols;
+    }
+
+    ref CompileCommandFilter getCompileCommandFilter() {
         return compiler_flag_filter;
     }
 
@@ -520,6 +526,14 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         }
 
         return decision;
+    }
+
+    bool doSymbol(string symbol) {
+        if (!restrict_symbols.hasSymbols) {
+            return true;
+        }
+
+        return restrict_symbols.contains(symbol);
     }
 
     bool doGoogleMock() {
@@ -659,7 +673,8 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
 /** Store the input in a configuration file to make it easy to regenerate the
  * test double.
  */
-ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_filter) {
+ref AppT makeXmlConfig(AppT)(ref AppT app,
+        CompileCommandFilter compiler_flag_filter, FilterSymbol restrict_sym) {
     import std.algorithm : joiner, copy;
     import std.conv : to;
     import std.xml;
@@ -669,7 +684,8 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
     doc.tag.attr["version"] = dextoolVersion;
     {
         auto compiler_tag = new Element("compiler_flag_filter");
-        compiler_tag.tag.attr["skipFlags"] = compiler_flag_filter.skipFlags.to!string();
+        compiler_tag.tag.attr["skip_compiler_args"]
+            = compiler_flag_filter.skipCompilerArgs.to!string();
         foreach (value; compiler_flag_filter.filter) {
             auto tag = new Element("exclude");
             tag ~= new Text(value);
@@ -678,10 +694,47 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
         doc ~= compiler_tag;
     }
 
+    if (restrict_sym.hasSymbols) {
+        auto symbol_tag = new Element("symbol_filter");
+        foreach (value; restrict_sym.range) {
+            auto tag = new Element("restrict");
+            tag ~= new Text(value.key);
+            symbol_tag ~= tag;
+        }
+        doc ~= symbol_tag;
+    }
+
     makeXmlHeader(app);
     doc.pretty(4).joiner("\n").copy(app);
 
     return app;
+}
+
+/// A symbol to filter. How it is used is handled by the query function.
+struct FilterSymbol {
+@safe:
+
+    private bool[string] filter;
+    private bool has_symbols;
+
+    bool contains(string symbol) {
+        if (symbol in filter)
+            return true;
+        return false;
+    }
+
+    bool hasSymbols() {
+        return has_symbols;
+    }
+
+    void put(string symbol) {
+        has_symbols = true;
+        filter[symbol] = true;
+    }
+
+    auto range() @trusted {
+        return filter.byKeyValue();
+    }
 }
 
 /** Extracted configuration data from an XML file.
@@ -695,6 +748,9 @@ struct XmlConfig {
     int skipCompilerArgs;
     RawCliArguments command;
     FilterClangFlag[] filterClangFlags;
+
+    /// Only a symbol that matches this
+    FilterSymbol restrictSymbols;
 }
 
 Nullable!XmlConfig readRawConfig(FileName fname) @trusted nothrow {
@@ -739,6 +795,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     int skip_flags = 1;
     RawCliArguments command;
     FilterClangFlag[] filter_clang_flags;
+    FilterSymbol restrict_symbols;
 
     if (auto tag = "version" in xml.tag.attr) {
         version_ = *tag;
@@ -761,10 +818,13 @@ auto parseRawConfig(T)(T xml) @trusted {
 
         xml.onEndTag["exclude"] = (const Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
     };
+    xml.onStartTag["symbol_filter"] = (ElementParser filter_sym) {
+        xml.onEndTag["restrict"] = (const Element e) { restrict_symbols.put(e.text()); };
+    };
     // dfmt on
     xml.parse();
 
-    return XmlConfig(version_, skip_flags, command, filter_clang_flags);
+    return XmlConfig(version_, skip_flags, command, filter_clang_flags, restrict_symbols);
 }
 
 /// TODO refactor, doing too many things.

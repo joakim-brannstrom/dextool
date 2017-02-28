@@ -1,0 +1,39 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "symbol.h"
+}
+
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void restrict_func() = 0;
+    virtual ~I_TestDouble() {}
+};
+
+class I_TestDouble_InitGlobals {
+public:
+    virtual void restrict_var() = 0;
+    virtual ~I_TestDouble_InitGlobals() {}
+};
+
+///
+class Test_ZeroGlobals : public I_TestDouble_InitGlobals {
+public:
+    Test_ZeroGlobals();
+    virtual void restrict_var();
+    virtual ~Test_ZeroGlobals();
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+#endif // test_double_hpp
