@@ -547,6 +547,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         auto adapter = makeAdapter(params.getMainInterface)
             .makeTestDouble(has_functions)
             .makeInitGlobals(has_mutable_globals)
+            .makeZeroGlobals(params.generateZeroGlobals)
             .finalize(impl);
         impl.tag(adapter.id, Kind.adapter);
         test_double_ns.put(adapter);
