@@ -3,6 +3,10 @@
 
 extern int the_lonely_warrior;
 
+namespace {
+TestDouble::I_TestDouble* test_double_inst = 0;
+} //NS:
+
 namespace TestDouble {
 Test_ZeroGlobals::Test_ZeroGlobals() {
 }
@@ -14,15 +18,26 @@ void Test_ZeroGlobals::the_lonely_warrior() {
     ::the_lonely_warrior = 0;
 }
 
-Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
+Adapter::Adapter(I_TestDouble& inst) {
+    test_double_inst = &inst;
+    Test_ZeroGlobals init_globals;
+    init_globals.the_lonely_warrior();
+}
+
+Adapter::Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals) {
+    test_double_inst = &inst;
     init_globals.the_lonely_warrior();
 }
 
 Adapter::~Adapter() {
+    test_double_inst = 0;
 }
 
 } //NS:TestDouble
 
 extern "C" {
+void fun() {
+    test_double_inst->fun();
 }
 
+}

@@ -5,6 +5,12 @@ extern "C" {
 }
 
 namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void fun() = 0;
+    virtual ~I_TestDouble() {}
+};
+
 class I_TestDouble_InitGlobals {
 public:
     virtual void the_lonely_warrior() = 0;
@@ -15,7 +21,8 @@ public:
 ///
 class Adapter {
 public:
-    Adapter(I_TestDouble_InitGlobals& init_globals);
+    Adapter(I_TestDouble& inst);
+    Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals);
     ~Adapter();
 };
 

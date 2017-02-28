@@ -40,6 +40,7 @@ private struct BuildAdapter {
         CppMethodName classDtor;
         bool hasTestDouble;
         bool hasGlobalInitializer;
+        bool zeroGlobalsInitializer;
     }
 
     BuildAdapter makeTestDouble(bool value) {
@@ -49,6 +50,11 @@ private struct BuildAdapter {
 
     BuildAdapter makeInitGlobals(bool value) {
         this.hasGlobalInitializer = value;
+        return this;
+    }
+
+    BuildAdapter makeZeroGlobals(bool value) {
+        this.zeroGlobalsInitializer = value;
         return this;
     }
 
@@ -94,12 +100,20 @@ private struct BuildAdapter {
                     CppAccess(AccessType.Public));
             c.put(ctor);
 
-            if (hasTestDouble && hasGlobalInitializer) {
+            // the priority order is important.
+            // 1. for the c'tor with one parameter generate a default
+            //    initialization to zero if the user hasn't specified
+            //     --no-zeroglobals.
+            // 2. it is then possible that there exist globals and free
+            //    functions.  Because of the previous choice by the user it is
+            //    preferred to generate a test double as the one-parameter
+            //    c'tor before the global variable initializer.
+            if (hasTestDouble && hasGlobalInitializer && zeroGlobalsInitializer) {
                 data.adapterKind[ctor.usr] = AdapterKind.ctor_testDouble_zeroGlobal;
-            } else if (hasGlobalInitializer) {
-                data.adapterKind[ctor.usr] = AdapterKind.ctor_initGlobal;
             } else if (hasTestDouble) {
                 data.adapterKind[ctor.usr] = AdapterKind.ctor_testDouble;
+            } else if (hasGlobalInitializer) {
+                data.adapterKind[ctor.usr] = AdapterKind.ctor_initGlobal;
             }
         }
         if (params.length == 2) {
