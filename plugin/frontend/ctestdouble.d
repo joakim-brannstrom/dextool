@@ -129,12 +129,13 @@ struct RawConfiguration {
 --loc-as-comment    :%s
 --td-include        :%s
 --no-zeroglobals    :%s
+--config            :%s
 CFLAGS              :%s
 
 xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
                 out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help,
-                locationAsComment, testDoubleInclude, !generateZeroGlobals, cflags, xmlConfig);
+                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help, locationAsComment,
+                testDoubleInclude, !generateZeroGlobals, config, cflags, xmlConfig);
     }
 }
 
@@ -266,10 +267,10 @@ struct FileData {
 class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
+    import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : StubPrefix, FileName, DirName;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
-    import dextool.compilation_db : CompileCommandFilter;
     import dsrcgen.cpp : CppModule, CppHModule;
 
     private {
@@ -313,15 +314,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     static auto makeVariant(ref RawConfiguration args) {
-        Regex!char strip_incl;
-        CustomHeader custom_hdr;
-
-        strip_incl = regex(args.stripInclude);
-
         // dfmt off
         auto variant = new CTestDoubleVariant(
                 MainFileName(args.mainFileName), DirName(args.out_),
-                strip_incl)
+                regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
             .argLocationAsComment(args.locationAsComment)
@@ -497,6 +493,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return file_data;
     }
 
+    void putFile(FileName fname, string data) {
+        file_data ~= FileData(fname, data);
+    }
+
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
@@ -618,10 +618,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Products --
 
-    void putFile(FileName fname, string data) {
-        file_data ~= FileData(fname, data);
-    }
-
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
     }
@@ -633,12 +629,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     void putLocation(FileName fname, LocationType type) {
         td_includes.put(fname, type);
     }
-}
-
-void makeXmlHeader(AppT)(ref AppT app) {
-    import std.format : formattedWrite;
-
-    formattedWrite(app, `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n");
 }
 
 /** Store the input in a configuration file to make it easy to regenerate the
@@ -653,6 +643,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
     import std.utf : toUTF8;
     import std.xml;
     import dextool.utility : dextoolVersion;
+    import dextool.xml : makePrelude;
 
     auto doc = new Document(new Tag("dextool"));
     doc.tag.attr["version"] = dextoolVersion;
@@ -664,7 +655,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
         doc ~= command;
     }
 
-    makeXmlHeader(app);
+    makePrelude(app);
     doc.pretty(4).joiner("\n").copy(app);
 
     return app;
@@ -679,6 +670,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app,
     import std.conv : to;
     import std.xml;
     import dextool.utility : dextoolVersion;
+    import dextool.xml : makePrelude;
 
     auto doc = new Document(new Tag("dextool"));
     doc.tag.attr["version"] = dextoolVersion;
@@ -704,7 +696,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app,
         doc ~= symbol_tag;
     }
 
-    makeXmlHeader(app);
+    makePrelude(app);
     doc.pretty(4).joiner("\n").copy(app);
 
     return app;
@@ -786,8 +778,6 @@ Nullable!XmlConfig readRawConfig(FileName fname) @trusted nothrow {
 }
 
 auto parseRawConfig(T)(T xml) @trusted {
-    import std.algorithm : splitter;
-    import std.array : array;
     import std.conv : to, ConvException;
     import std.xml;
 
@@ -802,9 +792,6 @@ auto parseRawConfig(T)(T xml) @trusted {
     }
 
     // dfmt off
-    xml.onEndTag["command"] = (const Element e) {
-        command = RawCliArguments(e.text().splitter().array());
-    };
     xml.onStartTag["compiler_flag_filter"] = (ElementParser filter_flags) {
         if (auto tag = "skip_compiler_args" in xml.tag.attr) {
             try {
@@ -884,7 +871,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     return writeFileData(variant.getProducedFiles);
 }
 
-@("Converted a raw xml config without loosing any data")
+@("Converted a raw xml config without loosing any configuration data or version")
 unittest {
     import unit_threaded : shouldEqual;
     import std.xml;
@@ -892,8 +879,8 @@ unittest {
     string raw = `
 <?xml version="1.0" encoding="UTF-8"?>
 <dextool version="test">
-    <!--command line when dextool was executed-->
-    <command>dummy text</command>
+    <!-- comment is ignored -->
+    <command>tag is ignored</command>
     <compiler_flag_filter skip_compiler_args="2">
         <exclude>foo</exclude>
         <exclude>-foo</exclude>
@@ -906,7 +893,7 @@ unittest {
     auto p = parseRawConfig(xml);
 
     p.version_.dup.shouldEqual("test");
-    p.command.dup.shouldEqual(["dummy", "text"]);
+    p.command.dup.shouldEqual([]);
     p.skipCompilerArgs.shouldEqual(2);
     p.filterClangFlags.shouldEqual([FilterClangFlag("foo"),
             FilterClangFlag("-foo"), FilterClangFlag("--foo"), FilterClangFlag("-G 0")]);

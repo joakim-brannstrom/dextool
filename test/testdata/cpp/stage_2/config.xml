@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="test">
+    <compiler_flag_filter skip_compiler_args="2">
+        <exclude>-c</exclude>
+        <exclude>-o</exclude>
+        <exclude>-DFAIL_IF_THIS_IS_NOT_REMOVED</exclude>
+    </compiler_flag_filter>
+</dextool>

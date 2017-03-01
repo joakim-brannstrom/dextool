@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Variant of C++ test double.
 */
-module plugin.backend.cppvariant;
+module plugin.backend.cpptestdouble.cppvariant;
 
 import std.typecons : No, Flag, Nullable, Yes;
 import logger = std.experimental.logger;
