@@ -493,6 +493,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return file_data;
     }
 
+    void putFile(FileName fname, string data) {
+        file_data ~= FileData(fname, data);
+    }
+
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
@@ -613,10 +617,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     // -- Products --
-
-    void putFile(FileName fname, string data) {
-        file_data ~= FileData(fname, data);
-    }
 
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
