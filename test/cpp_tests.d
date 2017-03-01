@@ -259,7 +259,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
-    p.dexParams ~= ["--header=// user\n// header"];
+    p.dexParams ~= ["--header=// user $file$\n// header $file$"];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);

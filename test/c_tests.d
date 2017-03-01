@@ -440,7 +440,7 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_custom_header.h", testEnv);
-    p.dexParams ~= ["--gmock", "--header=// user\n// header"];
+    p.dexParams ~= ["--gmock", "--header=// user $file$\n// header $file$"];
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
