@@ -14,7 +14,8 @@ import dextool.type;
 import dextool.utility;
 
 import plugin.types;
-import plugin.backend.cppvariant : Controller, Parameters, Products;
+import plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
+    Products;
 
 struct ParsedArgs {
     string[] fileExclude;
@@ -486,7 +487,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
-    import plugin.backend.cppvariant : Generator, CppVisitor;
+    import plugin.backend.cpptestdouble.cppvariant : Generator, CppVisitor;
     import dextool.io : writeFileData;
 
     auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
