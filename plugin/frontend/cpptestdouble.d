@@ -7,6 +7,8 @@ Generation of C++ test doubles.
 */
 module plugin.frontend.cpptestdouble;
 
+import std.typecons : Nullable;
+
 import logger = std.experimental.logger;
 
 import dextool.compilation_db;
@@ -17,7 +19,9 @@ import plugin.types;
 import plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
     Products;
 
-struct ParsedArgs {
+struct RawConfiguration {
+    Nullable!XmlConfig xmlConfig;
+
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
@@ -31,13 +35,18 @@ struct ParsedArgs {
     string prefix = "Test_";
     string stripInclude;
     string out_;
+    string config;
     bool help;
     bool gmock;
     bool generatePreInclude;
     bool genPostInclude;
 
+    string[] originalFlags;
+
     void parse(string[] args) {
         import std.getopt;
+
+        originalFlags = args.dup;
 
         try {
             // dfmt off
@@ -56,12 +65,26 @@ struct ParsedArgs {
                 "td-include", &testDoubleInclude,
                 "file-exclude", &fileExclude,
                 "file-restrict", &fileRestrict,
-                "in", &inFiles);
+                "in", &inFiles,
+                "config", &config);
         // dfmt on
         }
         catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
+        }
+
+        // default arguments
+        if (stripInclude.length == 0) {
+            stripInclude = r".*/(.*)";
+            logger.trace("--strip-incl: using default regex to strip include path (basename)");
+        }
+
+        if (config.length != 0) {
+            xmlConfig = readRawConfig(FileName(config));
+            if (xmlConfig.isNull) {
+                help = true;
+            }
         }
 
         import std.algorithm : find;
@@ -97,17 +120,21 @@ struct ParsedArgs {
 --gen-pre-incl      :%s
 --help              :%s
 --td-include        :%s
-CFLAGS              :%s", header, headerFile, fileRestrict, prefix, gmock,
+--config            :%s
+CFLAGS              :%s
+
+xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
                 out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude,
-                generatePreInclude, help, testDoubleInclude, cflags);
+                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
+                help, testDoubleInclude, config, cflags, xmlConfig);
     }
 }
 
 auto runPlugin(CliBasicOption opt, CliArgs args) {
+    import std.array : appender;
     import std.stdio : writeln;
 
-    ParsedArgs pargs;
+    RawConfiguration pargs;
     pargs.parse(args);
     pargs.dump;
 
@@ -123,13 +150,22 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     }
 
     auto variant = CppTestDoubleVariant.makeVariant(pargs);
+    {
+        auto app = appender!string();
+        variant.putFile(variant.getXmlLog, makeXmlLog(app, pargs.originalFlags).data);
+    }
+    {
+        auto app = appender!string();
+        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
+                variant.getCompileCommandFilter).data);
+    }
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
         compile_db = pargs.compileDb.fromArgCompileDb;
     }
 
-    return genCpp(variant, pargs.cflags, compile_db);
+    return genCpp(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
 }
 
 // dfmt off
@@ -147,7 +183,8 @@ static auto cpptestdouble_opt = CliOptionParts(
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
  --header=s         Prepend generated files with the string
- --header-file=f    Prepend generated files with the header read from the file",
+ --header-file=f    Prepend generated files with the header read from the file
+ --config=path      Use configuration file",
     // -------------
 "others:
  --in=              Input files to parse
@@ -181,6 +218,13 @@ Information about --file-restrict.
 );
 // dfmt on
 
+struct FileData {
+    import dextool.type : FileName;
+
+    FileName filename;
+    string data;
+}
+
 /** Test double generation of C++ code.
  *
  * TODO Describe the options.
@@ -190,63 +234,55 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag;
+    import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : StubPrefix, FileName, MainInterface, DirName;
     import dextool.utility;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes,
         LocationType;
     import dsrcgen.cpp;
 
-    static struct FileData {
-        FileName filename;
-        string data;
-    }
+    private {
+        static const hdrExt = ".hpp";
+        static const implExt = ".cpp";
+        static const xmlExt = ".xml";
 
-    static const hdrExt = ".hpp";
-    static const implExt = ".cpp";
+        StubPrefix prefix;
 
-    StubPrefix prefix;
-
-    FileNames input_files;
-    DirName output_dir;
-    FileName main_file_hdr;
-    FileName main_file_impl;
-    FileName main_file_globals;
-    FileName gmock_file;
-    FileName pre_incl_file;
-    FileName post_incl_file;
-    CustomHeader custom_hdr;
-
-    MainName main_name;
-    MainNs main_ns;
-    MainInterface main_if;
-    Flag!"Gmock" gmock;
-    Flag!"PreInclude" pre_incl;
-    Flag!"PostInclude" post_incl;
-
-    Regex!char[] exclude;
-    Regex!char[] restrict;
-
-    /// Data produced by the generatore intented to be written to specified file.
-    FileData[] file_data;
-
-    private TestDoubleIncludes td_includes;
-
-    static auto makeVariant(ref ParsedArgs args) {
-        Regex!char strip_incl;
+        DirName output_dir;
+        FileName main_file_hdr;
+        FileName main_file_impl;
+        FileName main_file_globals;
+        FileName gmock_file;
+        FileName pre_incl_file;
+        FileName post_incl_file;
+        FileName config_file;
+        FileName log_file;
         CustomHeader custom_hdr;
 
-        if (args.stripInclude.length != 0) {
-            strip_incl = regex(args.stripInclude);
-            logger.trace("User supplied regex via --strip-incl: ", args.stripInclude);
-        } else {
-            logger.trace("Using default regex to strip include path (basename)");
-            strip_incl = regex(r".*/(.*)");
-        }
+        MainName main_name;
+        MainNs main_ns;
+        MainInterface main_if;
+        Flag!"Gmock" gmock;
+        Flag!"PreInclude" pre_incl;
+        Flag!"PostInclude" post_incl;
 
+        Nullable!XmlConfig xmlConfig;
+        CompileCommandFilter compiler_flag_filter;
+
+        Regex!char[] exclude;
+        Regex!char[] restrict;
+
+        /// Data produced by the generatore intented to be written to specified file.
+        FileData[] file_data;
+
+        TestDoubleIncludes td_includes;
+    }
+
+    static auto makeVariant(ref RawConfiguration args) {
         // dfmt off
-        auto variant = new CppTestDoubleVariant(FileNames(args.inFiles), MainFileName(args.mainFileName),
+        auto variant = new CppTestDoubleVariant(MainFileName(args.mainFileName),
                 DirName(args.out_),
-                strip_incl)
+                regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
             .argGmock(args.gmock)
@@ -255,7 +291,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             .argForceTestDoubleIncludes(args.testDoubleInclude)
             .argFileExclude(args.fileExclude)
             .argFileRestrict(args.fileRestrict)
-            .argCustomHeader(args.header, args.headerFile);
+            .argCustomHeader(args.header, args.headerFile)
+            .argXmlConfig(args.xmlConfig);
         // dfmt on
 
         return variant;
@@ -270,8 +307,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(FileNames input_files, MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
-        this.input_files = input_files;
+    this(MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
         this.output_dir = output_dir;
         this.td_includes = TestDoubleIncludes(strip_incl);
 
@@ -289,6 +325,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
                 base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_post_includes" ~ hdrExt));
+        this.config_file = FileName(buildPath(output_dir, base_filename ~ "_config" ~ xmlExt));
+        this.log_file = FileName(buildPath(output_dir, base_filename ~ "_log" ~ xmlExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -355,9 +393,48 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
-    /// User supplied files used as input.
-    FileNames getInputFile() {
-        return input_files;
+    /** Ensure that the relevant information from the xml file is extracted.
+     *
+     * May overwrite information from the command line.
+     * TODO or should the command line have priority over the xml file?
+     */
+    auto argXmlConfig(Nullable!XmlConfig conf) {
+        import dextool.compilation_db : defaultCompilerFlagFilter;
+
+        if (conf.isNull) {
+            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+            return this;
+        }
+
+        xmlConfig = conf;
+        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
+
+        return this;
+    }
+
+    /// Destination of the configuration file containing how the test double was generated.
+    FileName getXmlConfigFile() {
+        return config_file;
+    }
+
+    /** Destination of the xml log for how dextool was ran when generatinng the
+     * test double.
+     */
+    FileName getXmlLog() {
+        return log_file;
+    }
+
+    ref CompileCommandFilter getCompileCommandFilter() {
+        return compiler_flag_filter;
+    }
+
+    /// Data produced by the generatore intented to be written to specified file.
+    ref FileData[] getProducedFiles() {
+        return file_data;
+    }
+
+    void putFile(FileName fname, string data) {
+        file_data ~= FileData(fname, data);
     }
 
     // -- Controller --
@@ -479,8 +556,147 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 }
 
+/** Extracted configuration data from an XML file.
+ *
+ * It is not inteded to be used as is but rather further processed.
+ */
+struct XmlConfig {
+    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
+
+    DextoolVersion version_;
+    int skipCompilerArgs;
+    RawCliArguments command;
+    FilterClangFlag[] filterClangFlags;
+}
+
+Nullable!XmlConfig readRawConfig(FileName fname) @trusted nothrow {
+    static import std.file;
+    import std.utf : validate;
+    import std.xml;
+
+    string msg;
+    Nullable!XmlConfig rval;
+
+    try {
+        string fin = cast(string) std.file.read(fname);
+        validate(fin);
+        check(fin);
+        auto xml = new DocumentParser(fin);
+
+        debug logger.trace(xml);
+
+        rval = parseRawConfig(xml);
+        return rval;
+    }
+    catch (Exception ex) {
+        msg = ex.msg;
+    }
+
+    try {
+        logger.error(msg);
+    }
+    catch (Exception ex) {
+    }
+
+    return rval;
+}
+
+auto parseRawConfig(T)(T xml) @trusted {
+    import std.conv : to, ConvException;
+    import std.xml;
+
+    DextoolVersion version_;
+    int skip_flags = 1;
+    RawCliArguments command;
+    FilterClangFlag[] filter_clang_flags;
+
+    if (auto tag = "version" in xml.tag.attr) {
+        version_ = *tag;
+    }
+
+    // dfmt off
+    xml.onStartTag["compiler_flag_filter"] = (ElementParser filter_flags) {
+        if (auto tag = "skip_compiler_args" in xml.tag.attr) {
+            try {
+                skip_flags = (*tag).to!int;
+            }
+            catch (ConvException ex) {
+                logger.info(ex.msg);
+                logger.info("   using fallback '1'");
+            }
+        }
+
+        xml.onEndTag["exclude"] = (const Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
+    };
+    // dfmt on
+    xml.parse();
+
+    return XmlConfig(version_, skip_flags, command, filter_clang_flags);
+}
+
+/** Store the input in a configuration file to make it easy to regenerate the
+ * test double.
+ */
+ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
+    import std.algorithm : joiner, copy;
+    import std.array : array;
+    import std.file : thisExePath;
+    import std.format : format;
+    import std.path : baseName;
+    import std.utf : toUTF8;
+    import std.xml;
+    import dextool.utility : dextoolVersion;
+    import dextool.xml : makePrelude;
+
+    auto doc = new Document(new Tag("dextool"));
+    doc.tag.attr["version"] = dextoolVersion;
+    {
+        auto command = new Element("command");
+        command ~= new CData(format("%s %s", thisExePath.baseName,
+                raw_cli_flags.joiner(" ").array().toUTF8));
+        doc ~= new Comment("command line when dextool was executed");
+        doc ~= command;
+    }
+
+    makePrelude(app);
+    doc.pretty(4).joiner("\n").copy(app);
+
+    return app;
+}
+
+/** Store the input in a configuration file to make it easy to regenerate the
+ * test double.
+ */
+ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_filter) {
+    import std.algorithm : joiner, copy;
+    import std.conv : to;
+    import std.xml;
+    import dextool.utility : dextoolVersion;
+    import dextool.xml : makePrelude;
+
+    auto doc = new Document(new Tag("dextool"));
+    doc.tag.attr["version"] = dextoolVersion;
+    {
+        auto compiler_tag = new Element("compiler_flag_filter");
+        compiler_tag.tag.attr["skip_compiler_args"]
+            = compiler_flag_filter.skipCompilerArgs.to!string();
+        foreach (value; compiler_flag_filter.filter) {
+            auto tag = new Element("exclude");
+            tag ~= new Text(value);
+            compiler_tag ~= tag;
+        }
+        doc ~= compiler_tag;
+    }
+
+    makePrelude(app);
+    doc.pretty(4).joiner("\n").copy(app);
+
+    return app;
+}
+
 /// TODO refactor, doing too many things.
-ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileCommandDB compile_db) {
+ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
+        CompileCommandDB compile_db, InFiles in_files) {
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
@@ -492,13 +708,14 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags, CompileC
 
     auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto in_file = cast(string) variant.getInputFile[0];
+    auto in_file = cast(string) in_files[0];
     logger.trace("Input file: ", in_file);
     string[] use_cflags;
     string abs_in_file;
 
     if (compile_db.length > 0) {
-        auto db_search_result = compile_db.appendOrError(user_cflags, in_file);
+        auto db_search_result = compile_db.appendOrError(user_cflags, in_file,
+                variant.getCompileCommandFilter);
         if (db_search_result.isNull) {
             return ExitStatusType.Errors;
         }

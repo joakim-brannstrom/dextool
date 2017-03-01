@@ -84,6 +84,8 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
     }
 }
 
+// --- Development tests ---
+
 @Name(testId ~ "Should not segfault. Bug with anonymous namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -271,6 +273,20 @@ unittest {
 
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
+}
+
+@("Configuration data read from a file")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    auto p = genTestParams("stage_2/config.hpp", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/config.xml").toString,
+        "--compile-db=" ~ (p.root ~ "stage_2/config.json").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompare = Yes.skipCompare;
+
+    runTestFile(p, testEnv);
 }
 
 // END   CLI Tests ###########################################################
