@@ -569,37 +569,9 @@ struct XmlConfig {
     FilterClangFlag[] filterClangFlags;
 }
 
-Nullable!XmlConfig readRawConfig(FileName fname) @trusted nothrow {
-    static import std.file;
-    import std.utf : validate;
-    import std.xml;
+static import dextool.xml;
 
-    string msg;
-    Nullable!XmlConfig rval;
-
-    try {
-        string fin = cast(string) std.file.read(fname);
-        validate(fin);
-        check(fin);
-        auto xml = new DocumentParser(fin);
-
-        debug logger.trace(xml);
-
-        rval = parseRawConfig(xml);
-        return rval;
-    }
-    catch (Exception ex) {
-        msg = ex.msg;
-    }
-
-    try {
-        logger.error(msg);
-    }
-    catch (Exception ex) {
-    }
-
-    return rval;
-}
+alias readRawConfig = dextool.xml.readRawConfig!(XmlConfig, parseRawConfig);
 
 auto parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;

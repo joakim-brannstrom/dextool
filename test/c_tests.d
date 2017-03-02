@@ -488,7 +488,6 @@ unittest {
 @("Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
-
     auto p = genTestParams("stage_2/config.h", testEnv);
     p.dexParams ~= ["--config", (p.root ~ "stage_2/config.xml").toString,
         "--compile-db=" ~ (p.root ~ "stage_2/config.json").toString];
@@ -502,7 +501,6 @@ unittest {
 @("Restrict generation of functions and variables to the symbol filter")
 unittest {
     mixin(envSetup(globalTestdir));
-
     auto p = genTestParams("stage_2/symbol.h", testEnv);
     p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol.xml").toString];
     p.compileFlags = ["-DTEST_INCLUDE"];
@@ -510,6 +508,27 @@ unittest {
     p.skipCompile = Yes.skipCompile;
 
     runTestFile(p, testEnv);
+}
+
+@("An error message containing what is wrong in the input xml file")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_config_with_errors.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/param_config_with_errors.xml").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompare = Yes.skipCompare;
+    p.skipCompile = Yes.skipCompile;
+
+    try {
+        runTestFile(p, testEnv);
+    }
+    catch (ErrorLevelException) {
+        // do nothing, expecting error status of dextool to be != 0
+    }
+
+    stdoutContains("Invalid xml file").shouldBeTrue;
+    stdoutContains("Line 2, column 1: Expected literal").shouldBeTrue;
 }
 
 // END   CLI Tests ###########################################################
