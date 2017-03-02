@@ -169,8 +169,8 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     }
     {
         auto app = appender!string();
-        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
-                variant.getCompileCommandFilter, variant.getRestrictSymbols).data);
+        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app, variant.getCompileCommandFilter,
+                variant.getRestrictSymbols, variant.getExcludeSymbols).data);
     }
 
     CompileCommandDB compile_db;
@@ -303,6 +303,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Nullable!XmlConfig xmlConfig;
         CompileCommandFilter compiler_flag_filter;
         FilterSymbol restrict_symbols;
+        FilterSymbol exclude_symbols;
 
         Regex!char[] exclude;
         Regex!char[] restrict;
@@ -456,6 +457,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         xmlConfig = conf;
         compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
         restrict_symbols = conf.restrictSymbols;
+        exclude_symbols = conf.excludeSymbols;
 
         return this;
     }
@@ -482,6 +484,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     ref FilterSymbol getRestrictSymbols() {
         return restrict_symbols;
+    }
+
+    ref FilterSymbol getExcludeSymbols() {
+        return exclude_symbols;
     }
 
     ref CompileCommandFilter getCompileCommandFilter() {
@@ -529,11 +535,24 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     bool doSymbol(string symbol) {
-        if (!restrict_symbols.hasSymbols) {
+        // fast path, assuming no symbol filter is the most common
+        if (!restrict_symbols.hasSymbols && !exclude_symbols.hasSymbols) {
             return true;
         }
 
-        return restrict_symbols.contains(symbol);
+        if (restrict_symbols.hasSymbols && exclude_symbols.hasSymbols) {
+            return restrict_symbols.contains(symbol) && !exclude_symbols.contains(symbol);
+        }
+
+        if (restrict_symbols.hasSymbols) {
+            return restrict_symbols.contains(symbol);
+        }
+
+        if (exclude_symbols.hasSymbols) {
+            return !exclude_symbols.contains(symbol);
+        }
+
+        return true;
     }
 
     bool doGoogleMock() {
@@ -664,10 +683,11 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
 /** Store the input in a configuration file to make it easy to regenerate the
  * test double.
  */
-ref AppT makeXmlConfig(AppT)(ref AppT app,
-        CompileCommandFilter compiler_flag_filter, FilterSymbol restrict_sym) {
-    import std.algorithm : joiner, copy;
+ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_filter,
+        FilterSymbol restrict_sym, FilterSymbol exclude_sym) {
+    import std.algorithm : joiner, copy, map;
     import std.conv : to;
+    import std.range : chain;
     import std.xml;
     import dextool.utility : dextoolVersion;
     import dextool.xml : makePrelude;
@@ -686,12 +706,18 @@ ref AppT makeXmlConfig(AppT)(ref AppT app,
         doc ~= compiler_tag;
     }
 
-    if (restrict_sym.hasSymbols) {
+    if (restrict_sym.hasSymbols || exclude_sym.hasSymbols) {
         auto symbol_tag = new Element("symbol_filter");
-        foreach (value; restrict_sym.range) {
-            auto tag = new Element("restrict");
-            tag ~= new Text(value.key);
-            symbol_tag ~= tag;
+        foreach (value; chain(restrict_sym.range.map!((a) {
+                    auto tag = new Element("restrict");
+                    tag ~= new Text(a.key);
+                    return tag;
+                }), exclude_sym.range.map!((a) {
+                    auto tag = new Element("exclude");
+                    tag ~= new Text(a.key);
+                    return tag;
+                }))) {
+            symbol_tag ~= value;
         }
         doc ~= symbol_tag;
     }
@@ -743,6 +769,8 @@ struct XmlConfig {
 
     /// Only a symbol that matches this
     FilterSymbol restrictSymbols;
+    /// Remove symbols matching this
+    FilterSymbol excludeSymbols;
 }
 
 static import dextool.xml;
@@ -758,6 +786,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     RawCliArguments command;
     FilterClangFlag[] filter_clang_flags;
     FilterSymbol restrict_symbols;
+    FilterSymbol exclude_symbols;
 
     if (auto tag = "version" in xml.tag.attr) {
         version_ = *tag;
@@ -779,11 +808,13 @@ auto parseRawConfig(T)(T xml) @trusted {
     };
     xml.onStartTag["symbol_filter"] = (ElementParser filter_sym) {
         xml.onEndTag["restrict"] = (const Element e) { restrict_symbols.put(e.text()); };
+        xml.onEndTag["exclude"] = (const Element e) { exclude_symbols.put(e.text()); };
     };
     // dfmt on
     xml.parse();
 
-    return XmlConfig(version_, skip_flags, command, filter_clang_flags, restrict_symbols);
+    return XmlConfig(version_, skip_flags, command, filter_clang_flags,
+            restrict_symbols, exclude_symbols);
 }
 
 /// TODO refactor, doing too many things.

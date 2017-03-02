@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="test">
+    <symbol_filter>
+        <exclude>remove_func</exclude>
+        <exclude>remove_var</exclude>
+    </symbol_filter>
+</dextool>
