@@ -2,6 +2,19 @@
 
 This file contains the test design of Dextool
 
+# Test strategy for Test Doubles
+The strategy for the test doubles are divided in three stages.
+
+1. Test code generation for different aspects of the languages.
+    The focus isn't on the functional aspects but rather that the generated
+    test doubles are "correct".
+2. Test the parameters and other type of user defined input.
+    How it affects generated test doubles.
+3. Test the function aspects of the generated test doubles.
+    Does the adapter work?
+    Is the generated google mock definition possible to use with the adapter?
+    Is the behavior of the test double what the user need?
+
 # Design of Component Tests
 
 The idea is that individual unit tests are spread out in the program. As it
