@@ -196,19 +196,6 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@("Restrict generation of functions and variables to the symbol filter")
-unittest {
-    mixin(envSetup(globalTestdir));
-
-    auto p = genTestParams("stage_1/symbol.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_1/symbol.xml").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
-
-    p.skipCompile = Yes.skipCompile;
-
-    runTestFile(p, testEnv);
-}
-
 // --- Stage 2 ---
 
 @(testId ~ "Should not overwrite an existing X_pre_includes or X_post_includes.hpp")
@@ -394,17 +381,18 @@ unittest {
         ~ "Should be a google mock of the interface used as callback from the C function implementations")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_1/param_gmock.h", testEnv);
+    auto p = genTestParams("stage_2/param_gmock.h", testEnv);
     p.dexParams ~= "--gmock";
-    p.dexFlags ~= "-nostdinc";
-    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR", "-DTEST_FUNC"];
+    p.dexFlags ~= ["-nostdinc", "-I" ~ (p.root ~ "stage_1").toString];
+    p.compileFlags ~= ["-DTEST_INCLUDE", "-DTEST_FUNC_PTR", "-DTEST_FUNC",
+        "-I" ~ (p.root ~ "stage_1").toString];
     runTestFile(p, testEnv);
 }
 
 @(testId ~ "Interface and adapter should be affected by parameter --main=X")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_1/param_main.h", testEnv);
+    auto p = genTestParams("stage_2/param_main.h", testEnv);
     p.dexParams ~= ["--main=Stub", "--main-fname=stub"];
     p.out_hdr = p.out_hdr.up ~ "stub.hpp";
     p.out_impl = p.out_impl.up ~ "stub.cpp";
@@ -483,7 +471,7 @@ unittest {
     // don't overwrite the test result for the different tests
     testEnv.outputSuffix(getValue!(string[])[0]);
     testEnv.setupEnv;
-    auto p = genTestParams("stage_1/param_no_zeroglobals.h", testEnv);
+    auto p = genTestParams("stage_2/param_no_zeroglobals.h", testEnv);
 
     p.dexParams ~= getValue!(string[])[1];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
@@ -500,15 +488,47 @@ unittest {
 @("Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
-
-    auto p = genTestParams("stage_1/config.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_1/config.xml").toString,
-        "--compile-db=" ~ (p.root ~ "stage_1/config.json").toString];
+    auto p = genTestParams("stage_2/config.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/config.xml").toString,
+        "--compile-db=" ~ (p.root ~ "stage_2/config.json").toString];
     p.compileFlags = ["-DTEST_INCLUDE"];
 
     p.skipCompare = Yes.skipCompare;
 
     runTestFile(p, testEnv);
+}
+
+@("Restrict generation of functions and variables to the symbol filter")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/symbol.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol.xml").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompile = Yes.skipCompile;
+
+    runTestFile(p, testEnv);
+}
+
+@("An error message containing what is wrong in the input xml file")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_config_with_errors.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/param_config_with_errors.xml").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompare = Yes.skipCompare;
+    p.skipCompile = Yes.skipCompile;
+
+    try {
+        runTestFile(p, testEnv);
+    }
+    catch (ErrorLevelException) {
+        // do nothing, expecting error status of dextool to be != 0
+    }
+
+    stdoutContains("Invalid xml file").shouldBeTrue;
+    stdoutContains("Line 2, column 1: Expected literal").shouldBeTrue;
 }
 
 // END   CLI Tests ###########################################################
