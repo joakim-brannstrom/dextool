@@ -485,7 +485,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@("Configuration data read from a file")
+@(testId ~ "Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/config.h", testEnv);
@@ -498,11 +498,11 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@("Restrict generation of functions and variables to the symbol filter")
+@(testId ~ "Only generate test doubles for those functions matching the symbol filter (restrict)")
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/symbol.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol.xml").toString];
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol_restrict.xml").toString];
     p.compileFlags = ["-DTEST_INCLUDE"];
 
     p.skipCompile = Yes.skipCompile;
@@ -510,7 +510,20 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@("An error message containing what is wrong in the input xml file")
+@(testId
+        ~ "The test double shall NOT contain any of those symbols specified to be excluded by the symbol filter (exclude)")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/symbol.h", testEnv);
+    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol_exclude.xml").toString];
+    p.compileFlags = ["-DTEST_INCLUDE"];
+
+    p.skipCompile = Yes.skipCompile;
+
+    runTestFile(p, testEnv);
+}
+
+@(testId ~ "An error message containing what is wrong in the input xml file")
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_config_with_errors.h", testEnv);
