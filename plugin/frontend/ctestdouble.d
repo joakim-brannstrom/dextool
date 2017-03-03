@@ -150,10 +150,6 @@ auto runPlugin(CliBasicOption opt, CliArgs args) {
     if (pargs.help) {
         pargs.printHelp;
         return ExitStatusType.Ok;
-    } else if (pargs.config.length != 0) {
-        // do nothing for now
-        auto xml = readRawConfig(FileName(pargs.config));
-        logger.trace(xml);
     } else if (pargs.inFiles.length == 0) {
         writeln("Missing required argument --in");
         return ExitStatusType.Errors;
