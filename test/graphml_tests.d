@@ -492,7 +492,7 @@ unittest {
     ng.countNode("c:@N@std@S@char_traits>#C@F@assign#&C#&1C#S").shouldEqual(1);
 }
 
-@("Should be a full representation of a C structs")
+@(testId ~ "Should be a full representation of a C structs")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("structs.h", testEnv);
