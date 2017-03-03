@@ -3,7 +3,7 @@ Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module cpptooling.generator.adapter;
+module plugin.backend.cpptestdouble.adapter;
 
 import std.typecons : Yes, No;
 import logger = std.experimental.logger;

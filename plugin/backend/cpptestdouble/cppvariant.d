@@ -530,7 +530,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
     import std.algorithm : map, filter, each;
     import std.array : empty;
     import cpptooling.data.representation : CppNs, CppClassName;
-    import cpptooling.generator.adapter : makeAdapter, makeSingleton;
+    import plugin.backend.cpptestdouble.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
 
@@ -635,7 +635,7 @@ body {
             inner_impl_singleton.suppressIndent(1);
             break;
         case TestDoubleSingleton:
-            import cpptooling.generator.adapter : generateSingleton;
+            import plugin.backend.cpptestdouble.adapter : generateSingleton;
 
             generateSingleton(ns, impl_singleton);
             break;
@@ -679,7 +679,7 @@ void generateClassHdr(LookupT)(CppClass c, CppModule hdr, CppModule gmock,
 }
 
 void generateClassImpl(CppClass c, CppModule impl) {
-    import cpptooling.generator.adapter : generateImplAdapter = generateImpl;
+    import plugin.backend.cpptestdouble.adapter : generateImplAdapter = generateImpl;
 
     final switch (cast(ClassType) c.kind()) {
     case ClassType.Normal:
