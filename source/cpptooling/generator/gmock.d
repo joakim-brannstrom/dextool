@@ -236,7 +236,11 @@ auto generateGmockHdr(FileT)(FileT if_file, FileT incl_guard, DextoolVersion ver
     return o;
 }
 
-auto makeGmock(ClassT)(const CppClass c) {
+/** Make a gmock implementation of the class.
+ *
+ * The generated gmock have unique USR and ID.
+ */
+auto makeGmock(const CppClass c) {
     import std.array : array;
     import std.variant : visit;
     import cpptooling.data.representation;
@@ -258,7 +262,8 @@ auto makeGmock(ClassT)(const CppClass c) {
     }
 
     auto rclass = CppClass(c.name, c.inherits, c.resideInNs);
-    rclass.setKind(ClassT.Gmock);
+    rclass.usr = makeUniqueUSR;
+    rclass.unsafeForceID = nextUniqueID;
 
     //dfmt off
     foreach (m_in; c.methodRange

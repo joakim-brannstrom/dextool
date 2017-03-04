@@ -275,7 +275,7 @@ unittest {
     runTestFile(p, testEnv, No.sortLines, No.skipComments);
 }
 
-@("Configuration data read from a file")
+@(testId ~ "Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
 

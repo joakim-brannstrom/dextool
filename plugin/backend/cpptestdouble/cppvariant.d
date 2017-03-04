@@ -174,11 +174,12 @@ struct Generator {
 
         ctrl.locationFilterDone;
 
-        auto tr = translate(fl, container, ctrl, params);
-        logger.trace("Translated to implementation:\n", tr.toString());
+        auto impl_data = translate(fl, container, ctrl, params);
+        logger.trace("Translated to implementation:\n", impl_data.toString());
+        logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
-        generate(tr, ctrl, params, modules, container);
+        generate(impl_data, ctrl, params, modules, container);
         postProcess(ctrl, params, products, modules);
     }
 
@@ -414,21 +415,49 @@ private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace;
+    CppDtor, CFunction, CppNamespace, USRType;
 import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
-enum ClassType {
-    Normal,
-    Adapter,
-    Gmock
+enum Kind {
+    none,
+    /// Adapter class
+    adapter,
+    /// gmock class
+    gmock,
+    /// interface for globals
+    testDoubleNamespace,
+    testDoubleSingleton,
+    testDoubleInterface,
 }
 
-enum NamespaceType {
-    Normal,
-    TestDoubleSingleton,
-    TestDouble
+struct ImplData {
+    import cpptooling.data.type : CppMethodName;
+    import plugin.backend.ctestdouble.adapter : AdapterKind;
+    import plugin.backend.ctestdouble.global : MutableGlobal;
+
+    CppRoot root;
+    alias root this;
+
+    /// Tagging of nodes in the root
+    Kind[size_t] kind;
+
+    static auto make() {
+        return ImplData(CppRoot.make);
+    }
+
+    void tag(size_t id, Kind kind_) {
+        kind[id] = kind_;
+    }
+
+    Kind lookup(size_t id) {
+        if (auto k = id in kind) {
+            return *k;
+        }
+
+        return Kind.none;
+    }
 }
 
 /** Structurally transform the input to a stub implementation.
@@ -502,22 +531,24 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     return filtered;
 }
 
-CppRoot translate(CppRoot root, ref Container container, Controller ctrl, Parameters params) {
+auto translate(CppRoot root, ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
 
-    auto r = CppRoot.make;
+    auto r = ImplData.make;
 
     // dfmt off
     root.namespaceRange
-        .map!(a => translate(a, container, ctrl, params))
+        .map!(a => translate(a, r, container, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => r.put(a.get));
 
-    root.classRange
+    foreach (a; root.classRange
         .map!(a => mergeClassInherit(a, container))
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)
-        .each!((a) {a.setKind(ClassType.Gmock); r.put(a); });
+        .filter!(a => a.isVirtual)) {
+        r.tag(a.id, Kind.gmock);
+        r.put(a);
+    }
     // dfmt on
 
     return r;
@@ -525,39 +556,53 @@ CppRoot translate(CppRoot root, ref Container container, Controller ctrl, Parame
 
 /** Translate namspaces and the content to test double implementations.
  */
-Nullable!CppNamespace translate(CppNamespace input, ref Container container,
-        Controller ctrl, Parameters params) {
+Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
+        ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data.representation : CppNs, CppClassName;
-    import cpptooling.generator.adapter : makeAdapter, makeSingleton;
+    import cpptooling.data.representation : CppNs, CppClassName, makeUniqueUSR,
+        nextUniqueID;
+    import plugin.backend.cpptestdouble.adapter : makeAdapter, makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
 
-    static auto makeGmockInNs(CppClass c, Parameters params) {
+    static auto makeGmockInNs(CppClass c, Parameters params, ref ImplData data) {
         import cpptooling.data.representation : CppNs;
 
         auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
-        ns.setKind(NamespaceType.TestDouble);
-        ns.put(makeGmock!ClassType(c));
+        data.tag(ns.id, Kind.testDoubleNamespace);
+        auto mock = makeGmock(c);
+        data.tag(mock.id, Kind.gmock);
+        ns.put(mock);
         return ns;
     }
 
     auto ns = CppNamespace.make(input.name);
 
     if (!input.funcRange.empty) {
-        ns.put(makeSingleton!NamespaceType(params.getMainNs, params.getMainInterface));
+        // singleton instance must be before the functions
+        auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
+        data.tag(singleton.id, Kind.testDoubleSingleton);
+        ns.put(singleton);
+
+        // output the functions using the singleton
         input.funcRange.each!(a => ns.put(a));
 
         auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
-        td_ns.setKind(NamespaceType.TestDouble);
+        data.tag(td_ns.id, Kind.testDoubleNamespace);
 
         auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(params.getMainInterface));
+        data.tag(i_free_func.id, Kind.testDoubleInterface);
         td_ns.put(i_free_func);
-        td_ns.put(makeAdapter(params.getMainInterface).makeTestDouble(true).finalize!ClassType);
+
+        auto adapter = makeAdapter(params.getMainInterface).makeTestDouble(true).finalize;
+        data.tag(adapter.id, Kind.adapter);
+        td_ns.put(adapter);
 
         if (ctrl.doGoogleMock) {
-            td_ns.put(makeGmock!ClassType(i_free_func));
+            auto mock = makeGmock(i_free_func);
+            data.tag(mock.id, Kind.gmock);
+            td_ns.put(mock);
         }
 
         ns.put(td_ns);
@@ -565,15 +610,17 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
 
     //dfmt off
     input.namespaceRange()
-        .map!(a => translate(a, container, ctrl, params))
+        .map!(a => translate(a, data, container, ctrl, params))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
 
-    input.classRange
+    foreach (class_; input.classRange
         .map!(a => mergeClassInherit(a, container))
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)
-        .each!(a => ns.put(makeGmockInNs(a, params)));
+        .filter!(a => a.isVirtual)) {
+        auto mock = makeGmockInNs(class_, params, data);
+        ns.put(mock);
+    }
     // dfmt on
 
     Nullable!CppNamespace rval;
@@ -591,7 +638,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref Container container,
  *  - implementations using double.
  *  - adapter.
  */
-void generate(CppRoot r, Controller ctrl, Parameters params,
+void generate(ref ImplData r, Controller ctrl, Parameters params,
         Generator.Modules modules, ref const(Container) container)
 in {
     import std.array : empty;
@@ -607,8 +654,8 @@ body {
 
     generateIncludes(ctrl, params, modules.hdr);
 
-    static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
-        foreach (a; r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)) {
+    static void gmockGlobal(T)(T r, CppModule gmock, Parameters params, ref ImplData data) {
+        foreach (a; r.filter!(a => data.lookup(a.id) == Kind.gmock)) {
             generateGmock(a, gmock, params);
         }
     }
@@ -617,13 +664,13 @@ body {
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
     static void eachNs(LookupT)(CppNamespace ns, Parameters params,
-            Generator.Modules modules, CppModule impl_singleton, LookupT lookup) {
+            Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref ImplData data) {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
 
-        final switch (cast(NamespaceType) ns.kind) with (NamespaceType) {
-        case Normal:
+        switch (data.lookup(ns.id)) with (Kind) {
+        case none:
             //TODO how to do this with meta-programming?
             inner.hdr = modules.hdr.namespace(ns.name);
             inner.hdr.suppressIndent(1);
@@ -634,14 +681,18 @@ body {
             inner_impl_singleton = inner.impl.base;
             inner_impl_singleton.suppressIndent(1);
             break;
-        case TestDoubleSingleton:
-            import cpptooling.generator.adapter : generateSingleton;
+        case testDoubleSingleton:
+            import plugin.backend.cpptestdouble.adapter : generateSingleton;
 
             generateSingleton(ns, impl_singleton);
             break;
-        case TestDouble:
-            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock, lookup);
-            generateNsTestDoubleImpl(ns, modules.impl);
+        case testDoubleInterface:
+            break;
+        case testDoubleNamespace:
+            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock, lookup, data);
+            generateNsTestDoubleImpl(ns, modules.impl, data);
+            break;
+        default:
             break;
         }
 
@@ -649,70 +700,65 @@ body {
             generateFuncImpl(a, inner.impl);
         }
         foreach (a; ns.namespaceRange) {
-            eachNs(a, params, inner, inner_impl_singleton, lookup);
+            eachNs(a, params, inner, inner_impl_singleton, lookup, data);
         }
     }
 
-    gmockGlobal(r.classRange, modules.gmock, params);
+    gmockGlobal(r.classRange, modules.gmock, params, r);
+
     // no singleton in global namespace thus null
     foreach (a; r.namespaceRange()) {
-        eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr));
-    }
-}
-
-void generateClassHdr(LookupT)(CppClass c, CppModule hdr, CppModule gmock,
-        Parameters params, LookupT lookup) {
-    import cpptooling.generator.classes : generateHdr;
-    import cpptooling.generator.gmock : generateGmock;
-
-    final switch (cast(ClassType) c.kind()) {
-    case ClassType.Normal:
-        generateHdr(c, hdr, No.locationAsComment, lookup, Yes.inlineDtor);
-        break;
-    case ClassType.Adapter:
-        generateHdr(c, hdr, No.locationAsComment, lookup);
-        break;
-    case ClassType.Gmock:
-        generateGmock(c, gmock, params);
-        break;
-    }
-}
-
-void generateClassImpl(CppClass c, CppModule impl) {
-    import cpptooling.generator.adapter : generateImplAdapter = generateImpl;
-
-    final switch (cast(ClassType) c.kind()) {
-    case ClassType.Normal:
-        break;
-    case ClassType.Adapter:
-        generateImplAdapter(c, impl);
-        break;
-    case ClassType.Gmock:
-        break;
+        eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), r);
     }
 }
 
 void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
-        CppModule hdr, CppModule gmock, LookupT lookup) {
-    import std.algorithm : each;
+        CppModule hdr, CppModule gmock, LookupT lookup, ref ImplData data) {
+    import cpptooling.generator.classes : generateHdr;
+    import cpptooling.generator.gmock : generateGmock;
 
     auto cpp_ns = hdr.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     hdr.sep(2);
 
-    foreach (a; ns.classRange()) {
-        generateClassHdr(a, cpp_ns, gmock, params, lookup);
+    foreach (c; ns.classRange()) {
+        switch (data.lookup(c.id)) {
+        case Kind.none:
+            generateHdr(c, cpp_ns, No.locationAsComment, lookup, Yes.inlineDtor);
+            break;
+        case Kind.testDoubleInterface:
+            generateHdr(c, cpp_ns,
+                    No.locationAsComment, lookup, Yes.inlineDtor);
+            break;
+        case Kind.adapter:
+            generateHdr(c, cpp_ns, No.locationAsComment, lookup);
+            break;
+        case Kind.gmock:
+            generateGmock(c, gmock, params);
+            break;
+        default:
+            break;
+        }
     }
 }
 
-void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl) {
+void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl, ref ImplData data) {
     import std.algorithm : each;
+    import plugin.backend.cpptestdouble.adapter : generateImpl;
 
     auto cpp_ns = impl.namespace(ns.name);
     cpp_ns.suppressIndent(1);
     impl.sep(2);
 
-    ns.classRange().each!((a) { generateClassImpl(a, cpp_ns); });
+    foreach (ref class_; ns.classRange()) {
+        switch (data.lookup(class_.id)) {
+        case Kind.adapter:
+            generateImpl(class_, cpp_ns);
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 CppClass mergeClassInherit(ref CppClass class_, ref Container container) {

@@ -379,6 +379,8 @@ struct ImplData {
     import plugin.backend.ctestdouble.global : MutableGlobal;
 
     CppRoot root;
+    alias root this;
+
     /// Tagging of nodes in the root
     Kind[size_t] kind;
     /// Global, mutable variables
@@ -412,8 +414,6 @@ struct ImplData {
         // Methods shall always be 1:1 mapped with the globals list.
         assert(0);
     }
-
-    alias root this;
 }
 
 enum Kind {
@@ -428,12 +428,6 @@ enum Kind {
     testDoubleNamespace,
     testDoubleSingleton,
     testDoubleInterface,
-}
-
-//TODO remove
-enum ClassType {
-    Dummy,
-    Gmock
 }
 
 /** Structurally transformed the input to a test double implementation.

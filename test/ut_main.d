@@ -24,7 +24,6 @@ int main(string[] args) {
                           "cpptooling.analyzer.type",
                           "cpptooling.data.representation",
                           "cpptooling.data.symbol.container",
-                          "cpptooling.generator.adapter",
                           "cpptooling.generator.classes",
                           "cpptooling.generator.func",
                           "cpptooling.generator.gmock",
