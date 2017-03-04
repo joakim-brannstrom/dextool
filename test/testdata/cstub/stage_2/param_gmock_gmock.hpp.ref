@@ -8,11 +8,6 @@ class MockI_TestDouble : public I_TestDouble {
 public:
     virtual ~MockI_TestDouble() {}
 
-    MOCK_METHOD0(tiger, void());
-    MOCK_METHOD1(leopard, func_type *(const unsigned int baz));
-    MOCK_METHOD1(cyber, func_type *(const unsigned int baz));
-    MOCK_METHOD2(typedef_array_func, int(int *x, int z[16]));
-    MOCK_METHOD1(gun_func, void(int x0));
     MOCK_METHOD3(array_func, void(int x, int *y, int z[16]));
     MOCK_METHOD1(array_func_param_typedef, void(MyIntType x0[16]));
     MOCK_METHOD1(c_func_one_named, const int(const int a));
@@ -20,6 +15,7 @@ public:
     MOCK_METHOD3(c_func_three_named, void(const int a, const int b, const int c));
     MOCK_METHOD2(c_func_two_named, void(const int a, const int b));
     MOCK_METHOD1(c_func_with_struct, void(const struct A *a));
+    MOCK_METHOD1(cyber, func_type *(const unsigned int baz));
     MOCK_METHOD2(fun, void(func_ptr2 p, Something_Big b));
     MOCK_METHOD1(func_exhibit_type_bug_variant1, void(const djur_type a));
     MOCK_METHOD0(func_exhibit_type_bug_variant2, djur_type());
@@ -35,6 +31,10 @@ public:
     MOCK_METHOD0(func_void, void());
     MOCK_METHOD1(func_with_enum_param, void(const djur_type a));
     MOCK_METHOD1(func_with_enum_param_and_return, djur_type(const djur_type a));
+    MOCK_METHOD1(gun_func, void(int x0));
+    MOCK_METHOD1(leopard, func_type *(const unsigned int baz));
+    MOCK_METHOD0(tiger, void());
+    MOCK_METHOD2(typedef_array_func, int(int *x, int z[16]));
     MOCK_METHOD2(unnamed_params, void(int x0, int x1));
 };
 } //NS:TestDouble
