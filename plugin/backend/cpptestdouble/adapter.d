@@ -29,11 +29,10 @@ private struct BuildAdapter {
         return this;
     }
 
-    CppClass finalize(KindT)() {
+    CppClass finalize() {
         import cpptooling.data.representation;
 
         auto c = CppClass(className);
-        c.setKind(KindT.Adapter);
 
         CxParam[] params;
 
@@ -82,7 +81,7 @@ BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
 
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
-CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
+CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data.representation : CppVariable, CxGlobalVariable,
         makeUniqueUSR;
 
@@ -94,7 +93,6 @@ CppNamespace makeSingleton(KindT)(MainNs main_ns, MainInterface main_if) {
     auto v = CxGlobalVariable(makeUniqueUSR, TypeKindAttr(kind, TypeAttr.init),
             CppVariable("test_double_inst"));
     auto ns = CppNamespace.makeAnonymous();
-    ns.setKind(KindT.TestDoubleSingleton);
     ns.put(v);
 
     return ns;

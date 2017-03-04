@@ -241,20 +241,6 @@ private template mixinCommentHelper() {
     }
 }
 
-// TODO remove this and all uses
-/// User defined kind to differeniate structs of the same type.
-private template mixinKind() {
-    private int kind_;
-
-    void setKind(int kind) @safe {
-        this.kind_ = kind;
-    }
-
-    auto kind() const @safe {
-        return kind_;
-    }
-}
-
 /// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
     import std.variant : visit;
@@ -1036,7 +1022,6 @@ const:
 }
 
 @safe struct CppClass {
-    mixin mixinKind;
     mixin mixinUniqueId!size_t;
     mixin mixinCommentHelper;
 
@@ -1406,7 +1391,6 @@ const:
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     mixin mixinUniqueId!size_t;
-    mixin mixinKind;
 
     private {
         CppNs name_;
