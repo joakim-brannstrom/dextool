@@ -488,8 +488,9 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
     import std.array : array;
     import cpptooling.data.representation : CppNamespace, CppNs, CppClassName,
         CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID;
-    import plugin.backend.ctestdouble.adapter : makeSingleton, makeAdapter;
     import cpptooling.generator.func : makeFuncInterface;
+    import cpptooling.generator.gmock : makeGmock;
+    import plugin.backend.ctestdouble.adapter : makeSingleton, makeAdapter;
     import plugin.backend.ctestdouble.global : makeGlobalInterface,
         makeZeroGlobal, filterMutable;
 
@@ -518,10 +519,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         test_double_ns.put(c_if);
 
         if (ctrl.doGoogleMock) {
-            // could reuse.. don't.
-            auto mock = c_if;
-            mock.usr = makeUniqueUSR;
-            mock.unsafeForceID = nextUniqueID;
+            auto mock = makeGmock(c_if);
             impl.tag(mock.id, Kind.gmock);
             test_double_ns.put(mock);
         }
