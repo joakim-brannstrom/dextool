@@ -498,6 +498,28 @@ void compileResult(const Path input, const Path binary, const Path main,
     runAndLog(args.data);
 }
 
+void testWithGTest(const Path[] src, const Path binary, const ref TestEnv testEnv,
+        const string[] flags, const string[] incls) {
+    immutable bool[string] rm_flag = ["-Wpedantic" : true, "-Werror" : true, "-pedantic" : true];
+
+    auto flags_ = flags.filter!(a => a !in rm_flag).array();
+
+    Args args;
+    args ~= "g++";
+    args ~= flags_.dup;
+    args ~= "-g";
+    args ~= "-o" ~ binary.escapePath;
+    args ~= "-I" ~ testEnv.outdir.escapePath;
+    args ~= "-I" ~ "fused_gmock";
+    args ~= incls.dup;
+    args ~= src.dup;
+    args ~= "-l" ~ "gmock_gtest";
+    args ~= "-lpthread";
+    args ~= "-L./";
+
+    runAndLog(args.data);
+}
+
 void demangleProfileLog(in Path out_fname) {
     Args args;
     args ~= "ddemangle";
