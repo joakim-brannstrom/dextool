@@ -16,6 +16,7 @@ enum globalTestdir = "c_tests";
 struct TestParams {
     Flag!"skipCompare" skipCompare;
     Flag!"skipCompile" skipCompile;
+    bool useGTest;
 
     Path root;
     Path input_ext;
@@ -62,11 +63,27 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     return p;
 }
 
+TestParams genGtestParams(string base, const ref TestEnv testEnv) {
+    auto env = genTestParams(base, testEnv);
+    env.dexParams ~= "--gmock";
+    env.useGTest = true;
+    env.mainf = Path(env.input_ext.stripExtension.toString ~ "_test.cpp");
+
+    return env;
+}
+
 void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = No.sortLines,
         Flag!"skipComments" skipComments = Yes.skipComments) {
     dextoolYap("Input:%s", p.input_ext.raw);
     runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
+
+    if (p.useGTest) {
+        dextoolYap("Google Test");
+        testWithGTest([p.out_impl, p.mainf], p.binary, testEnv, p.compileFlags, p.compileIncls);
+        runAndLog(p.binary).status.shouldEqual(0);
+        return;
+    }
 
     if (!p.skipCompare) {
         dextoolYap("Comparing");
@@ -573,3 +590,15 @@ unittest {
 }
 
 // END   Unspecified CLI Test ################################################
+
+// BEGIN Stage 3 tests, functional ###########################################
+
+@(testId ~ "Test using gtest/gmock")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genGtestParams("stage_3/test1.h", testEnv);
+
+    runTestFile(p, testEnv);
+}
+
+// END   Stage 3 #############################################################
