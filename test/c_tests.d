@@ -601,4 +601,11 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@(testId ~ "Test double of free functions shall be connected to the gmock instance")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genGtestParams("stage_3/use_functions_mock.h", testEnv);
+    runTestFile(p, testEnv);
+}
+
 // END   Stage 3 #############################################################
