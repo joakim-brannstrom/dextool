@@ -4,9 +4,6 @@ external_tests
 *.log
 trace.*
 
-c_tests/
-cpp_tests/
-plantuml_tests/
+build/
 
 dub.selections.json
-graphml_tests/

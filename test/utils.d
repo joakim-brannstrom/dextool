@@ -10,6 +10,14 @@ import std.typecons : Yes, No, Flag;
 
 enum dextoolExePath = "../build/dextool-debug";
 
+auto buildArtifacts() {
+    return Path("build");
+}
+
+auto gmockLib() {
+    return buildArtifacts ~ "libgmock_gtest.a";
+}
+
 private void delegate(string) oldYap = null;
 private string[] yapLog;
 
@@ -72,6 +80,7 @@ struct TestEnv {
     import std.ascii : newline;
 
     private Path outdir_;
+    private string outdir_suffix;
     private Path dextool_;
     private File logfile;
 
@@ -80,7 +89,8 @@ struct TestEnv {
     }
 
     Path outdir() const {
-        return outdir_;
+        return Path(((buildArtifacts ~ outdir_).absolutePath.stripExtension)
+                .toString ~ "_" ~ outdir_suffix);
     }
 
     Path dextool() const {
@@ -100,11 +110,11 @@ struct TestEnv {
     }
 
     void setOutput(Path outdir__) {
-        this.outdir_ = outdir__.absolutePath.stripExtension;
+        this.outdir_ = outdir__;
     }
 
     void outputSuffix(string suffix) {
-        outdir_ = Path(outdir_.toString ~ "_" ~ suffix);
+        this.outdir_suffix = suffix;
     }
 
     void setupEnv() {
@@ -515,7 +525,7 @@ void testWithGTest(const Path[] src, const Path binary, const ref TestEnv testEn
     args ~= src.dup;
     args ~= "-l" ~ "gmock_gtest";
     args ~= "-lpthread";
-    args ~= "-L./";
+    args ~= "-L" ~ buildArtifacts.toString;
 
     runAndLog(args.data);
 }
