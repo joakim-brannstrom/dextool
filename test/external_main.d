@@ -4,27 +4,32 @@ License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 
+import scriptlike;
+
 int main(string[] args) {
     import unit_threaded.runner;
     import std.stdio;
-    import std.file : exists;
+    import std.file : exists, mkdirRecurse;
     import std.process;
     import std.string : toStringz;
+    import utils : buildArtifacts, gmockLib;
 
-    auto gmock_gtest = "libgmock_gtest.a";
-    if (!exists(gmock_gtest)) {
-        execute(["g++", "fused_gmock/main.cc", "-c", "-o", "gmock_main.o", "-Ifused_gmock/"]);
-        execute(["g++", "fused_gmock/gmock-gtest-all.cc", "-c", "-o",
-                "gmock_gtest.o", "-Ifused_gmock/"]);
-        execute(["ar", "rvs", gmock_gtest, "gmock_gtest.o", "gmock_main.o",]);
+    mkdirRecurse(buildArtifacts.toString);
 
+    if (!exists(gmockLib.toString)) {
         scope (exit)
-            remove("gmock_gtest.o");
+            tryRemove(buildArtifacts ~ "gmock_gtest.o");
         scope (exit)
-            remove("gmock_main.o");
-
+            tryRemove(buildArtifacts ~ "gmock_main.o");
         scope (failure)
-            remove(gmock_gtest.toStringz);
+            tryRemove(gmockLib);
+
+        execute(["g++", "fused_gmock/main.cc", "-c", "-o",
+                (buildArtifacts ~ "gmock_main.o").toString, "-Ifused_gmock/"]);
+        execute(["g++", "fused_gmock/gmock-gtest-all.cc", "-c", "-o",
+                (buildArtifacts ~ "gmock_gtest.o").toString, "-Ifused_gmock/"]);
+        execute(["ar", "rvs", gmockLib.toString, (buildArtifacts ~ "gmock_gtest.o")
+                .toString, (buildArtifacts ~ "gmock_main.o").toString,]);
     }
 
     writeln(`Running tests`);
