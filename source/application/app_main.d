@@ -21,7 +21,7 @@ enum string main_opt = `usage:
  dextool <command> [options] [<args>...]
 
 options:
- -h, --help         show this global help, use "dextool <command> -h" for extended help on each command
+ -h, --help         show this global help
  -d, --debug        turn on debug output for detailed tracing
  --version          print the version of dextool
 
@@ -35,8 +35,7 @@ enum CliBasicOption basic_options = "
 
 enum string help_opt = "
 
-To show the extended help for a <command> use:
-dextool <command> -h
+See 'dextool <command> -h' to read about a specific subcommand.
 ";
 
 string cliMergeCategory() {
