@@ -5,16 +5,13 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module application.app_main;
 
-import std.typecons : Flag;
-
 import logger = std.experimental.logger;
 
-import dextool.type;
-import dextool.logger;
-import plugin.types : CliBasicOption;
+import dextool.type : FileName, ExitStatusType;
+import dextool.logger : ConfigureLog;
 
 version (unittest) {
-    import unit_threaded;
+    import unit_threaded : shouldEqual, Values, getValue;
 }
 
 enum string main_opt = `usage:
@@ -29,7 +26,7 @@ commands:
   help
 `;
 
-enum CliBasicOption basic_options = "
+enum string basic_options = "
  -h, --help         show this help
 ";
 
@@ -38,41 +35,94 @@ enum string help_opt = "
 See 'dextool <command> -h' to read about a specific subcommand.
 ";
 
-string cliMergeCategory() {
-    import std.algorithm : map, joiner, reduce, max;
-    import std.ascii : newline;
-    import std.conv : text;
-    import std.range : chain, only;
-    import std.string : leftJustifier;
-
-    import plugin.register;
-
-    // dfmt off
-    auto max_length = getRegisteredPlugins()
-        .map!(a => a.category.length)
-        .reduce!((a,b) => max(a,b));
-
-    return getRegisteredPlugins()
-        .map!(a =>
-              chain(only("  "),
-                    // +1 so there is a space left between category and info
-                    only(leftJustifier(a.category, max_length + 1).text),
-                    only(a.categoryCliInfo))
-              .joiner()
-             )
-        .joiner(newline)
-        .text();
-    // dfmt on
+private enum CLICategoryStatus {
+    Help,
+    Version,
+    NoCategory,
+    Category
 }
 
-ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] args) {
+private struct CLIResult {
+    CLICategoryStatus status;
+    string category;
+    ConfigureLog confLog;
+}
+
+/** Parse the raw command line.
+ */
+auto parseMainCLI(string[] args) {
+    import std.algorithm : findAmong, filter, among;
+    import std.array : array, empty;
+    import dextool.logger;
+
+    ConfigureLog loglevel = findAmong(args, ["-d", "--debug"]).empty
+        ? ConfigureLog.info : ConfigureLog.debug_;
+    // holds the remining arguments after -d/--debug has bee removed
+    auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
+
+    auto state = CLICategoryStatus.Category;
+
+    if (remining_args.length <= 1) {
+        state = CLICategoryStatus.NoCategory;
+    } else if (remining_args.length >= 2 && remining_args[1].among("help", "-h", "--help")) {
+        state = CLICategoryStatus.Help;
+    } else if (remining_args.length >= 2 && remining_args[1].among("--version")) {
+        state = CLICategoryStatus.Version;
+    }
+
+    string category = remining_args.length >= 2 ? remining_args[1] : "";
+
+    return CLIResult(state, category, loglevel);
+}
+
+version (unittest) {
+    import std.algorithm : findAmong;
+    import std.array : empty;
+
+    // May seem unnecessary testing to test the CLI but bugs have been
+    // introduced accidentaly in parseMainCLI.
+    // It is also easier to test "main CLI" here because it takes the least
+    // setup and has no side effects.
+
+    @("Should be no category")
+    unittest {
+        parseMainCLI(["dextool"]).status.shouldEqual(CLICategoryStatus.NoCategory);
+    }
+
+    @("Should flag that debug mode is to be activated")
+    @Values("-d", "--debug")
+    unittest {
+        auto result = parseMainCLI(["dextool", getValue!string]);
+        result.confLog.shouldEqual(ConfigureLog.debug_);
+    }
+
+    @("Should be the version category")
+    unittest {
+        auto result = parseMainCLI(["dextool", "--version"]);
+        result.status.shouldEqual(CLICategoryStatus.Version);
+    }
+
+    @("Should be the help category")
+    @Values("help", "-h", "--help")
+    unittest {
+        auto result = parseMainCLI(["dextool", getValue!string]);
+        result.status.shouldEqual(CLICategoryStatus.Help);
+    }
+}
+
+ExitStatusType runPlugin(CLIResult cli, string[] args) {
     import std.stdio : writeln;
+    import application.plugin;
+    import dextool.cli_help;
 
     auto exit_status = ExitStatusType.Errors;
 
-    final switch (status) with (CliCategoryStatus) {
+    auto plugins = scanForExecutables.filterValidPluginsThisExecutable
+        .toPlugins!executePluginForShortHelp;
+
+    final switch (cli.status) with (CLICategoryStatus) {
     case Help:
-        writeln(main_opt, cliMergeCategory(), help_opt);
+        writeln(main_opt, plugins.toShortHelp, help_opt);
         exit_status = ExitStatusType.Ok;
         break;
     case Version:
@@ -82,30 +132,32 @@ ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] 
         exit_status = ExitStatusType.Ok;
         break;
     case NoCategory:
-        logger.error("No such main category: " ~ category);
+        logger.error("No such main category: " ~ cli.category);
         logger.error("-h to list accetable categories");
         exit_status = ExitStatusType.Errors;
         break;
     case Category:
         import std.algorithm : filter;
+        import std.process : spawnProcess, wait;
         import std.range : takeOne;
-        import plugin.register : getRegisteredPlugins, CliArgs;
 
         bool match_found;
 
         // dfmt off
         // find the first plugin matching the category
-        foreach (p; getRegisteredPlugins()
-                 .filter!(p => p.category == category)
+        foreach (p; plugins
+                 .filter!(p => p.name == cli.category)
                  .takeOne) {
-            exit_status = p.func(basic_options, CliArgs(args[1 .. $]));
+            auto pid = spawnProcess([cast(string) p.path] ~ args[1 .. $]);
+            exit_status = wait(pid) == 0 ? ExitStatusType.Ok : ExitStatusType.Errors;
             match_found = true;
         }
         // dfmt on
 
         if (!match_found) {
             // print error message to user as if no category was found
-            exit_status = doTestDouble(CliCategoryStatus.NoCategory, category, []);
+            auto tmp = CLIResult(CLICategoryStatus.NoCategory);
+            exit_status = runPlugin(tmp, []);
         }
 
         break;
@@ -114,100 +166,19 @@ ExitStatusType doTestDouble(CliCategoryStatus status, string category, string[] 
     return exit_status;
 }
 
-private enum CliCategoryStatus {
-    Help,
-    Version,
-    NoCategory,
-    Category
-}
-
-private struct MainCliReturnType {
-    CliCategoryStatus status;
-    string category;
-    ConfigureLog confLog;
-    string[] args;
-}
-
-/** Parse the raw command line.
- *
- * Flags handled by parseMainCli are removed from the reminding args in the
- * return value.
- */
-auto parseMainCli(string[] args) {
-    import std.algorithm : findAmong, filter, among;
-    import std.array : array, empty;
-
-    ConfigureLog debug_ = findAmong(args, ["-d", "--debug"]).empty
-        ? ConfigureLog.info : ConfigureLog.debug_;
-    // holds the remining arguments after -d/--debug has bee removed
-    auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
-
-    string category = remining_args.length >= 2 ? remining_args[1] : "";
-    auto state = CliCategoryStatus.Category;
-    if (remining_args.length <= 1) {
-        state = CliCategoryStatus.NoCategory;
-        remining_args = [];
-    } else if (remining_args.length >= 2 && remining_args[1].among("help", "-h", "--help")) {
-        state = CliCategoryStatus.Help;
-        remining_args = [];
-    } else if (remining_args.length >= 2 && remining_args[1].among("--version")) {
-        state = CliCategoryStatus.Version;
-        remining_args = [];
-    }
-
-    return MainCliReturnType(state, category, debug_, remining_args);
-}
-
-version (unittest) {
-    import std.algorithm : findAmong;
-    import std.array : empty;
-
-    // May seem unnecessary testing to test the CLI but bugs have been
-    // introduced accidentaly in parseMainCli.
-    // It is also easier to test "main CLI" here because it takes the least
-    // setup and has no side effects.
-
-    @Name("Should be no category")
-    unittest {
-        parseMainCli(["dextool"]).status.shouldEqual(CliCategoryStatus.NoCategory);
-    }
-
-    @Name("Should flag that debug mode is to be activated")
-    @Values("-d", "--debug")
-    unittest {
-        auto result = parseMainCli(["dextool", getValue!string]);
-        result.confLog.shouldEqual(ConfigureLog.debug_);
-        findAmong(result.args, ["-d", "--debug"]).empty.shouldBeTrue;
-    }
-
-    @Name("Should be the version category")
-    unittest {
-        auto result = parseMainCli(["dextool", "--version"]);
-        result.status.shouldEqual(CliCategoryStatus.Version);
-        result.args.length.shouldEqual(0);
-    }
-
-    @Name("Should be the help category")
-    @Values("help", "-h", "--help")
-    unittest {
-        auto result = parseMainCli(["dextool", getValue!string]);
-        result.status.shouldEqual(CliCategoryStatus.Help);
-        result.args.length.shouldEqual(0);
-    }
-}
-
 int rmain(string[] args) nothrow {
-    import std.conv;
+    import std.conv : text;
     import std.exception;
+    import dextool.logger : confLogLevel;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
 
     try {
-        auto parsed = parseMainCli(args);
+        auto parsed = parseMainCLI(args);
         confLogLevel(parsed.confLog);
         logger.trace(parsed);
 
-        exit_status = doTestDouble(parsed.status, parsed.category, parsed.args);
+        exit_status = runPlugin(parsed, args);
     }
     catch (Exception ex) {
         collectException(logger.trace(text(ex)));
@@ -216,11 +187,11 @@ int rmain(string[] args) nothrow {
 
     if (exit_status != ExitStatusType.Ok) {
         try {
-            logger.errorf("Dextool exiting due to runtime error");
+            logger.errorf("exiting...");
         }
         catch (Exception ex) {
         }
     }
 
-    return cast(typeof(return)) exit_status;
+    return cast(int) exit_status;
 }

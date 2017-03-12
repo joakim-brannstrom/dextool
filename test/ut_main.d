@@ -15,6 +15,8 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "application.app_main",
+                          "application.app_main2",
+                          "application.plugin",
                           "cpptooling.analyzer.clang.ast",
                           "cpptooling.analyzer.clang.ast.node",
                           "cpptooling.analyzer.clang.ast.visitor",
