@@ -9,31 +9,11 @@ import logger = std.experimental.logger;
 
 import dextool.type : FileName, ExitStatusType;
 import dextool.logger : ConfigureLog;
+import dextool.cli_help;
 
 version (unittest) {
     import unit_threaded : shouldEqual, Values, getValue;
 }
-
-enum string main_opt = `usage:
- dextool <command> [options] [<args>...]
-
-options:
- -h, --help         show this global help
- -d, --debug        turn on debug output for detailed tracing
- --version          print the version of dextool
-
-commands:
-  help
-`;
-
-enum string basic_options = "
- -h, --help         show this help
-";
-
-enum string help_opt = "
-
-See 'dextool <command> -h' to read about a specific subcommand.
-";
 
 private enum CLICategoryStatus {
     Help,
@@ -122,7 +102,7 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 
     final switch (cli.status) with (CLICategoryStatus) {
     case Help:
-        writeln(main_opt, plugins.toShortHelp, help_opt);
+        writeln(mainOptions, plugins.toShortHelp, commandGrouptHelp);
         exit_status = ExitStatusType.Ok;
         break;
     case Version:
