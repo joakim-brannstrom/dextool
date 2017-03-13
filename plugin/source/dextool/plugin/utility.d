@@ -16,11 +16,7 @@ import logger = std.experimental.logger;
 import plugin.types : CliBasicOption, CliOptionParts;
 
 version (unittest) {
-    import unit_threaded : Name, shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
+    import unit_threaded : shouldEqual;
 }
 
 /** Make a static c'tor that creates an instance with all class members initialized.
@@ -109,7 +105,7 @@ struct MarkArray(T) {
     }
 }
 
-@Name("Should store item")
+@("Should store item")
 unittest {
     MarkArray!int arr;
 
@@ -119,7 +115,7 @@ unittest {
     arr.data[0].shouldEqual(10);
 }
 
-@Name("Should mark and remove items")
+@("Should mark and remove items")
 unittest {
     MarkArray!int arr;
     arr.put([10, 20, 30]);
@@ -132,24 +128,4 @@ unittest {
     arr.data.length.shouldEqual(2);
     arr.data[0].shouldEqual(10);
     arr.data[1].shouldEqual(30);
-}
-
-/** Merge basic options with the plugin specific to a docopt compatible string.
- *
- * Params:
- *  basic_options = options that are reused between plugins
- *  opt = specific options for the plugin
- */
-auto toDocopt(CliBasicOption basic, CliOptionParts opt) {
-    import std.format : format;
-    import plugin.types : CliDocoptOption;
-
-    auto r = format("%s
-
-options:%s%s
-
-%s", opt.usage, basic, opt.optional, opt.others);
-
-    debug logger.trace("raw: { Begin CLI\n", r, "\n} End CLI");
-    return CliDocoptOption(r);
 }
