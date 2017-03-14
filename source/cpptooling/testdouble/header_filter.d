@@ -21,21 +21,6 @@ enum LocationType {
  *
  * Filtered according to the user.
  *
- * TODO change to using a RedBlackTree to avoid duplications of files.
- *
- * States:
- *  - Normal.
- *      Start state.
- *      File are accepted and stored in buffer.
- *      Important that transitions FROM this state clears the internal buffer.
- *      Rational: The other states override data that was gathered during
- *      Normal.
- *  - HaveRoot.
- *      One or more roots have been found.
- *      Replaces all "Normal".
- *  - UserDefined.
- *      The user have supplied a list of includes which override any detected.
- *
  * State diagram in plantuml:
  * @startuml
  * [*] -> Waiting
@@ -66,6 +51,7 @@ enum LocationType {
  */
 struct TestDoubleIncludes {
     import std.regex : Regex;
+    import std.container : RedBlackTree;
 
     private enum State {
         waiting,
