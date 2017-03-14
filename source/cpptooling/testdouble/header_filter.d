@@ -63,7 +63,7 @@ struct TestDoubleIncludes {
     }
 
     private {
-        string[] permanent_pool;
+        RedBlackTree!string permanent_pool;
         string[] work_pool;
 
         State st;
@@ -74,15 +74,18 @@ struct TestDoubleIncludes {
     @disable this();
 
     this(Regex!char strip_incl) {
+        import std.container : make;
+
         this.strip_incl = strip_incl;
+        this.permanent_pool = make!(typeof(this.permanent_pool));
     }
 
-    string[] includes() @safe pure nothrow @nogc
+    auto includes() @safe pure nothrow @nogc
     in {
         assert(st == State.finalize);
     }
     body {
-        return permanent_pool;
+        return permanent_pool[];
     }
 
     /** Replace buffer of includes with argument.
@@ -90,10 +93,12 @@ struct TestDoubleIncludes {
      * See description of states to understand what UserDefined entitles.
      */
     void forceIncludes(string[] in_incls) {
+        import std.algorithm : each;
+
         st = State.forceInclude;
 
         /// Assuming user defined includes are good as they are so no stripping.
-        permanent_pool ~= in_incls;
+        () @trusted{ in_incls.each!(a => permanent_pool.insert(a)); }();
     }
 
     void finalize() @safe pure nothrow @nogc
@@ -113,11 +118,15 @@ struct TestDoubleIncludes {
         assert(st.among(State.rootInclude, State.symbolInclude, State.forceInclude));
     }
     body {
+        import std.algorithm : each;
+
         if (st == State.forceInclude)
             return;
 
         st = State.waiting;
-        permanent_pool ~= stripIncl(work_pool, strip_incl);
+        () @trusted{
+            stripIncl(work_pool, strip_incl).each!(a => permanent_pool.insert(a));
+        }();
         work_pool.length = 0;
     }
 
@@ -189,7 +198,7 @@ struct TestDoubleIncludes {
         put(w, newline);
         // dfmt off
         chain(work_pool.map!(a => cast(string) a),
-              permanent_pool.map!(a => cast(string) a))
+              permanent_pool[].map!(a => cast(string) a))
             .joiner(newline)
             .copy(w);
         // dfmt on
