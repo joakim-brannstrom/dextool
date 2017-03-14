@@ -3,8 +3,8 @@
 #ifndef test_double_hpp
 #define test_double_hpp
 extern "C" {
-#include "c.h"
 #include "b.h"
+#include "c.h"
 }
 
 namespace TestDouble {
