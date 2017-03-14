@@ -232,6 +232,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@("Includes shall be deduplicated to avoid the problem of multiple includes")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/bug_multiple_includes.h", testEnv);
+    p.dexParams ~= ["--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.h")
+        .toString, "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.h").toString];
+    runTestFile(p, testEnv);
+}
+
 // BEGIN Compilation Database Tests ##########################################
 
 @(testId ~ "Should load compiler settings from compilation database")

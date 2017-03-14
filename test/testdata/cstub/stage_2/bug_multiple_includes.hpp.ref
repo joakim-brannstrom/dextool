@@ -1,0 +1,24 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+extern "C" {
+#include "bug_multiple_includes.h"
+}
+
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void fun() = 0;
+    virtual ~I_TestDouble() {}
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble& inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+#endif // test_double_hpp
