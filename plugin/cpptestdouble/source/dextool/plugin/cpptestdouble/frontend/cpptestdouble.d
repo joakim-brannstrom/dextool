@@ -49,32 +49,32 @@ struct RawConfiguration {
 
         originalFlags = args.dup;
 
+        // dfmt off
         try {
-            // dfmt off
-        getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-               "short-plugin-help", &shortPluginHelp,
-               "main", &mainName,
-                "main-fname", &mainFileName,
-                "out", &out_,
-                "compile-db", &compileDb,
-                "prefix", &prefix,
-                "strip-incl", &stripInclude,
-                "header", &header,
-                "header-file", &headerFile,
-                "gmock", &gmock,
-                "gen-pre-incl", &generatePreInclude,
-                "gen-post-incl", &genPostInclude,
-                "td-include", &testDoubleInclude,
-                "file-exclude", &fileExclude,
-                "file-restrict", &fileRestrict,
-                "in", &inFiles,
-                "config", &config);
-        // dfmt on
+            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+                   "short-plugin-help", &shortPluginHelp,
+                   "main", &mainName,
+                   "main-fname", &mainFileName,
+                   "out", &out_,
+                   "compile-db", &compileDb,
+                   "prefix", &prefix,
+                   "strip-incl", &stripInclude,
+                   "header", &header,
+                   "header-file", &headerFile,
+                   "gmock", &gmock,
+                   "gen-pre-incl", &generatePreInclude,
+                   "gen-post-incl", &genPostInclude,
+                   "td-include", &testDoubleInclude,
+                   "file-exclude", &fileExclude,
+                   "file-restrict", &fileRestrict,
+                   "in", &inFiles,
+                   "config", &config);
         }
         catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
         }
+        // dfmt on
 
         // default arguments
         if (stripInclude.length == 0) {
