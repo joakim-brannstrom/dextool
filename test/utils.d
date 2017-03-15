@@ -8,7 +8,7 @@ import scriptlike;
 
 import std.typecons : Yes, No, Flag;
 
-enum dextoolExePath = "../build/dextool-debug";
+enum dextoolExePath = "../build/dextool_debug";
 
 auto buildArtifacts() {
     return Path("build");

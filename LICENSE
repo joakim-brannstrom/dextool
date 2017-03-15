@@ -376,7 +376,6 @@ scriptlike          test/scriptlike
 Google Test         test/testdata/stage_4/fused_gtest/
 deimos-libclang     libclang/
 dsrcgen             dsrcgen/
-docopt              docopt/
 dstep               clang/
 clang hdrs          clang/resources/
 unit-threaded       unit-threaded/
