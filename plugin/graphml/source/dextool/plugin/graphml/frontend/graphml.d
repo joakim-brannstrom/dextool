@@ -22,33 +22,6 @@ import dextool.utility;
 import plugin.types;
 import plugin.backend.graphml : Controller, Parameters, Products;
 
-auto runPlugin(CliBasicOption opt, CliArgs args) {
-    import docopt;
-    import plugin.utility : toDocopt;
-
-    auto parsed = docopt.docoptParse(opt.toDocopt(graphml_opt), args);
-
-    string[] cflags;
-    if (parsed["--"].isTrue) {
-        cflags = parsed["CFLAGS"].asList;
-    }
-
-    import plugin.docopt_util;
-
-    printArgs(parsed);
-
-    auto variant = GraphMLFrontend.makeVariant(parsed);
-
-    CompileCommandDB compile_db;
-    if (!parsed["--compile-db"].isEmpty) {
-        compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
-    }
-
-    auto skipFileError = cast(Flag!"skipFileError") parsed["--skip-file-error"].isTrue;
-
-    return pluginMain(variant, cflags, compile_db, InFiles(parsed["--in"].asList), skipFileError);
-}
-
 // dfmt off
 static auto graphml_opt = CliOptionParts(
     "usage:
@@ -64,20 +37,85 @@ static auto graphml_opt = CliOptionParts(
  --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
     // -------------
 "others:
- --in=              Input files to parse
+ --in=               Input files to parse
  --compile-db=j      Retrieve compilation parameters from the file
  --file-exclude=     Exclude files from generation matching the regex
  --file-restrict=    Restrict the scope of the test double to those files
                      matching the regex
+ --short-plugin-help Required by plugin architecture of dextool
 "
 );
 // dfmt on
+
+struct RawConfiguration {
+    string[] cflags;
+    string[] compileDb;
+    string[] fileExclude;
+    string[] fileRestrict;
+    string[] inFiles;
+    string filePrefix = "dextool_";
+    string out_;
+    bool classInheritDep;
+    bool classMemberDep;
+    bool classMethod;
+    bool classParamDep;
+    bool help;
+    bool shortPluginHelp;
+    bool skipFileError;
+
+    string[] originalFlags;
+
+    void parse(string[] args) {
+        import std.getopt;
+
+        originalFlags = args.dup;
+
+        // dfmt off
+        try {
+            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+                   "class-method", &classMethod,
+                   "class-paramdep", &classParamDep,
+                   "class-inheritdep", &classInheritDep,
+                   "class-memberdep", &classMemberDep,
+                   "compile-db", &compileDb,
+                   "file-exclude", &fileExclude,
+                   "file-prefix", &filePrefix,
+                   "file-restrict", &fileRestrict,
+                   "in", &inFiles,
+                   "out", &out_,
+                   "short-plugin-help", &shortPluginHelp,
+                   "skip-file-error", &skipFileError,
+                   );
+        }
+        catch (std.getopt.GetOptException ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
+        // dfmt on
+
+        import std.algorithm : find;
+        import std.array : array;
+        import std.range : drop;
+
+        // at this point args contain "what is left". What is interesting then is those after "--".
+        cflags = args.find("--").drop(1).array();
+    }
+
+    void printHelp() {
+        import std.stdio : writefln;
+
+        writefln("%s\n\n%s\n%s", graphml_opt.usage, graphml_opt.optional, graphml_opt.others);
+    }
+
+    void dump() {
+        logger.trace(this);
+    }
+}
 
 class GraphMLFrontend : Controller, Parameters, Products {
     import std.typecons : Tuple;
     import std.regex : regex, Regex;
     import dextool.type : FileName, DirName;
-    import docopt : ArgValue;
 
     private {
         static struct FileData {
@@ -104,23 +142,19 @@ class GraphMLFrontend : Controller, Parameters, Products {
     /// Data produced by the generatore intented to be written to specified file.
     FileData[] fileData;
 
-    static auto makeVariant(ref ArgValue[string] parsed) {
+    static auto makeVariant(ref RawConfiguration parsed) {
         import std.algorithm : map;
         import std.array : array;
 
-        Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
-        Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
+        Regex!char[] exclude = parsed.fileExclude.map!(a => regex(a)).array();
+        Regex!char[] restrict = parsed.fileRestrict.map!(a => regex(a)).array();
 
-        auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
-        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
-            .isTrue;
-        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed[
-        "--class-inheritdep"].isTrue;
-        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
-        "--class-memberdep"].isTrue;
+        auto gen_class_method = cast(Flag!"genClassMethod") parsed.classMethod;
+        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed.classParamDep;
+        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed.classInheritDep;
+        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed.classMemberDep;
 
-        auto variant = new GraphMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
-                DirName(parsed["--out"].toString),
+        auto variant = new GraphMLFrontend(FilePrefix(parsed.filePrefix), DirName(parsed.out_),
                 gen_class_method, gen_class_param_dep, gen_class_inherit_dep,
                 gen_class_member_dep);
 
@@ -198,7 +232,7 @@ struct Lookup {
 /// TODO cleaner split between frontend and backend is needed. Move most of the
 /// logic to the backend and leave the error handling in the frontend. E.g. by
 /// using callbacks.
-ExitStatusType pluginMain(GraphMLFrontend variant, in string[] in_cflags,
+ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files, Flag!"skipFileError" skipFileError) {
     import std.algorithm : map;
     import std.conv : text;

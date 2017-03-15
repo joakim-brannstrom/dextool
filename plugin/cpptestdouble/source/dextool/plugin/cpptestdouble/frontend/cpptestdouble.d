@@ -36,6 +36,7 @@ struct RawConfiguration {
     string stripInclude;
     string out_;
     string config;
+    bool shortPluginHelp;
     bool help;
     bool gmock;
     bool generatePreInclude;
@@ -51,6 +52,7 @@ struct RawConfiguration {
         try {
             // dfmt off
         getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+               "short-plugin-help", &shortPluginHelp,
                "main", &mainName,
                 "main-fname", &mainFileName,
                 "out", &out_,
@@ -128,44 +130,6 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
                 mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
                 help, testDoubleInclude, config, cflags, xmlConfig);
     }
-}
-
-auto runPlugin(CliBasicOption opt, CliArgs args) {
-    import std.array : appender;
-    import std.stdio : writeln;
-
-    RawConfiguration pargs;
-    pargs.parse(args);
-    pargs.dump;
-
-    if (pargs.help) {
-        pargs.printHelp;
-        return ExitStatusType.Ok;
-    } else if (pargs.inFiles.length == 0) {
-        writeln("Missing required argument --in");
-        return ExitStatusType.Errors;
-    } else if (pargs.fileExclude.length != 0 && pargs.fileRestrict.length != 0) {
-        writeln("Unable to combine both --file-exclude and --file-restrict");
-        return ExitStatusType.Errors;
-    }
-
-    auto variant = CppTestDoubleVariant.makeVariant(pargs);
-    {
-        auto app = appender!string();
-        variant.putFile(variant.getXmlLog, makeXmlLog(app, pargs.originalFlags).data);
-    }
-    {
-        auto app = appender!string();
-        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
-                variant.getCompileCommandFilter).data);
-    }
-
-    CompileCommandDB compile_db;
-    if (pargs.compileDb.length != 0) {
-        compile_db = pargs.compileDb.fromArgCompileDb;
-    }
-
-    return genCpp(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
 }
 
 // dfmt off

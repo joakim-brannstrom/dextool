@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -23,6 +22,118 @@ import dextool.utility;
 import plugin.types;
 import plugin.backend.plantuml : Controller, Parameters, Products;
 import cpptooling.data.representation : CppRoot, CppNamespace, CppClass;
+
+struct RawConfiguration {
+    string[] cflags;
+    string[] compileDb;
+    string[] fileExclude;
+    string[] fileRestrict;
+    string[] inFiles;
+    string componentStrip;
+    string filePrefix = "view_";
+    string out_;
+    bool classInheritDep;
+    bool classMemberDep;
+    bool classMethod;
+    bool classParamDep;
+    bool componentByFile;
+    bool generateDot;
+    bool generateStyleInclude;
+    bool help;
+    bool shortPluginHelp;
+    bool skipFileError;
+
+    string[] originalFlags;
+
+    void parse(string[] args) {
+        import std.getopt;
+
+        originalFlags = args.dup;
+
+        // dfmt off
+        try {
+            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
+                   "class-method", &classMethod,
+                   "class-paramdep", &classParamDep,
+                   "class-inheritdep", &classInheritDep,
+                   "class-memberdep", &classMemberDep,
+                   "compile-db", &compileDb,
+                   "comp-by-file", &componentByFile,
+                   "comp-strip", &componentStrip,
+                   "file-exclude", &fileExclude,
+                   "file-prefix", &filePrefix,
+                   "file-restrict", &fileRestrict,
+                   "gen-dot", &generateDot,
+                   "gen-style-incl", &generateStyleInclude,
+                   "in", &inFiles,
+                   "out", &out_,
+                   "short-plugin-help", &shortPluginHelp,
+                   "skip-file-error", &skipFileError,
+                   );
+        }
+        catch (std.getopt.GetOptException ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
+        // dfmt on
+
+        import std.algorithm : find;
+        import std.array : array;
+        import std.range : drop;
+
+        // at this point args contain "what is left". What is interesting then is those after "--".
+        cflags = args.find("--").drop(1).array();
+    }
+
+    void printHelp() {
+        import std.stdio : writefln;
+
+        writefln("%s\n\n%s\n%s", plantuml_opt.usage, plantuml_opt.optional, plantuml_opt.others);
+    }
+
+    void dump() {
+        logger.trace(this);
+    }
+}
+
+// dfmt off
+static auto plantuml_opt = CliOptionParts(
+    "usage:
+ dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
+ dextool uml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
+    // -------------
+    " --out=dir           directory for generated files [default: ./]
+ --file-prefix=p     Prefix used when generating test artifacts [default: view_]
+ --class-method      Include methods in the generated class diagram
+ --class-paramdep    Class method parameters as directed association in diagram
+ --class-inheritdep  Class inheritance in diagram
+ --class-memberdep   Class member as composition/aggregation in diagram
+ --comp-by-file      Components by file instead of directory
+ --comp-strip=r      Regex used to strip path used to derive component name
+ --gen-style-incl    Generate a style file and include in all diagrams
+ --gen-dot           Generate a dot graph block in the plantuml output
+ --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
+    // -------------
+"others:
+ --in=               Input files to parse
+ --compile-db=j      Retrieve compilation parameters from the file
+ --file-exclude=     Exclude files from generation matching the regex
+ --file-restrict=    Restrict the scope of the test double to those files
+                     matching the regex
+
+REGEX
+The regex syntax is found at http://dlang.org/phobos/std_regex.html
+
+Information about --file-exclude.
+  The regex must fully match the filename the AST node is located in.
+  If it matches all data from the file is excluded from the generated code.
+
+Information about --file-restrict.
+  The regex must fully match the filename the AST node is located in.
+  Only symbols from files matching the restrict affect the generated test double.
+"
+);
+// dfmt on
 
 /** Contains the file processing directives after parsing user arguments.
  *
@@ -49,83 +160,6 @@ struct FileProcess {
     FileName inputFile;
 }
 
-auto runPlugin(CliBasicOption opt, CliArgs args) {
-    import docopt;
-    import plugin.utility : toDocopt;
-
-    auto parsed = docopt.docoptParse(opt.toDocopt(plantuml_opt), args);
-
-    string[] cflags;
-    if (parsed["--"].isTrue) {
-        cflags = parsed["CFLAGS"].asList;
-    }
-
-    import plugin.docopt_util;
-
-    printArgs(parsed);
-
-    auto variant = PlantUMLFrontend.makeVariant(parsed);
-
-    CompileCommandDB compile_db;
-    if (!parsed["--compile-db"].isEmpty) {
-        compile_db = parsed["--compile-db"].asList.fromArgCompileDb;
-    }
-
-    FileProcess file_process;
-    if (parsed["--in"].isEmpty) {
-        file_process = FileProcess.make;
-    } else {
-        //TODO part of the multi file handling
-        file_process = FileProcess.make(FileName(parsed["--in"].asList[0]));
-    }
-
-    auto skipFileError = cast(Flag!"skipFileError") parsed["--skip-file-error"].isTrue;
-
-    return genUml(variant, cflags, compile_db, file_process, skipFileError);
-}
-
-// dfmt off
-static auto plantuml_opt = CliOptionParts(
-    "usage:
- dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
- dextool uml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
-    // -------------
-    " --out=dir           directory for generated files [default: ./]
- --file-prefix=p     Prefix used when generating test artifacts [default: view_]
- --class-method      Include methods in the generated class diagram
- --class-paramdep    Class method parameters as directed association in diagram
- --class-inheritdep  Class inheritance in diagram
- --class-memberdep   Class member as composition/aggregation in diagram
- --comp-by-file      Components by file instead of directory
- --comp-strip=r      Regex used to strip path used to derive component name
- --gen-style-incl    Generate a style file and include in all diagrams
- --gen-dot           Generate a dot graph block in the plantuml output
- --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
-    // -------------
-"others:
- --in=              Input files to parse
- --compile-db=j      Retrieve compilation parameters from the file
- --file-exclude=     Exclude files from generation matching the regex
- --file-restrict=    Restrict the scope of the test double to those files
-                     matching the regex
-
-REGEX
-The regex syntax is found at http://dlang.org/phobos/std_regex.html
-
-Information about --comp-strip.
-  Default regexp is: .*/(.*)
-
-Information about --file-exclude.
-  The regex must fully match the filename the AST node is located in.
-  If it matches all data from the file is excluded from the generated code.
-
-Information about --file-restrict.
-  The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
-"
-);
-// dfmt on
-
 /** Frontend for PlantUML generator.
  *
  * TODO implement --in=... for multi-file handling
@@ -137,7 +171,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import dextool.type : FileName, DirName, FilePrefix;
     import dextool.utility;
 
-    import docopt : ArgValue;
     import dsrcgen.plantuml;
 
     static struct FileData {
@@ -173,36 +206,31 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     /// Data produced by the generator intended to be written to specified file.
     FileData[] fileData;
 
-    static auto makeVariant(ref ArgValue[string] parsed) {
+    static auto makeVariant(ref RawConfiguration parsed) {
         import std.algorithm : map;
         import std.array : array;
 
-        Regex!char[] exclude = parsed["--file-exclude"].asList.map!(a => regex(a)).array();
-        Regex!char[] restrict = parsed["--file-restrict"].asList.map!(a => regex(a)).array();
+        Regex!char[] exclude = parsed.fileExclude.map!(a => regex(a)).array();
+        Regex!char[] restrict = parsed.fileRestrict.map!(a => regex(a)).array();
         Regex!char comp_strip;
 
-        if (!parsed["--comp-strip"].isNull) {
-            string strip_user = parsed["--comp-strip"].toString;
-            comp_strip = regex(strip_user);
-            logger.trace("User supplied regex via --comp-strip: ", strip_user);
+        if (parsed.componentStrip.length != 0) {
+            comp_strip = regex(parsed.componentStrip);
         }
 
-        auto gen_class_method = cast(Flag!"genClassMethod") parsed["--class-method"].isTrue;
-        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed["--class-paramdep"]
-            .isTrue;
-        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed[
-        "--class-inheritdep"].isTrue;
-        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed[
-        "--class-memberdep"].isTrue;
+        auto gen_class_method = cast(Flag!"genClassMethod") parsed.classMethod;
+        auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed.classParamDep;
+        auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed.classInheritDep;
+        auto gen_class_member_dep = cast(Flag!"genClassMemberDependency") parsed.classMemberDep;
 
-        auto gen_style_incl = cast(Flag!"doStyleIncl") parsed["--gen-style-incl"].isTrue;
-        auto gen_dot = cast(Flag!"doGenDot") parsed["--gen-dot"].isTrue;
-        auto do_comp_by_file = cast(Flag!"doComponentByFile") parsed["--comp-by-file"].isTrue;
+        auto gen_style_incl = cast(Flag!"doStyleIncl") parsed.generateStyleInclude;
+        auto gen_dot = cast(Flag!"doGenDot") parsed.generateDot;
+        auto do_comp_by_file = cast(Flag!"doComponentByFile") parsed.componentByFile;
 
-        auto variant = new PlantUMLFrontend(FilePrefix(parsed["--file-prefix"].toString),
-                DirName(parsed["--out"].toString), gen_style_incl,
-                gen_dot, gen_class_method, gen_class_param_dep,
-                gen_class_inherit_dep, gen_class_member_dep, do_comp_by_file);
+        auto variant = new PlantUMLFrontend(FilePrefix(parsed.filePrefix),
+                DirName(parsed.out_), gen_style_incl, gen_dot,
+                gen_class_method, gen_class_param_dep, gen_class_inherit_dep,
+                gen_class_member_dep, do_comp_by_file);
 
         variant.exclude = exclude;
         variant.restrict = restrict;

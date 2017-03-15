@@ -434,8 +434,6 @@ enum Kind {
 
 struct ImplData {
     import cpptooling.data.type : CppMethodName;
-    import plugin.backend.ctestdouble.adapter : AdapterKind;
-    import plugin.backend.ctestdouble.global : MutableGlobal;
 
     CppRoot root;
     alias root this;

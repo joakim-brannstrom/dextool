@@ -151,13 +151,12 @@ configuration "plugin_graphml" {
     dependency "dextool:libclang" version="*"
     dependency "dextool:clang" version="*"
     dependency "dextool:cpptooling" version="*"
-    dependency "dextool:docopt" version="*"
 
     targetName "dextool-graphml"
     targetType "executable"
 
-    sourcePaths "plugin/source" "plugin/graphml" "plugin/deprecated"
-    importPaths "source" "plugin/source" "plugin/graphml/source" "plugin/deprecated"
+    sourcePaths "plugin/source" "plugin/graphml"
+    importPaths "source" "plugin/source" "plugin/graphml/source"
     excludedSourceFiles "source/application/*" "source/test/*" "source/devtool/*" "source/cpptooling/*"
 }
 
@@ -166,13 +165,12 @@ configuration "plugin_graphml_debug" {
     dependency "dextool:libclang" version="*"
     dependency "dextool:clang" version="*"
     dependency "dextool:cpptooling" version="*"
-    dependency "dextool:docopt" version="*"
 
     targetName "dextool_debug-graphml"
     targetType "executable"
 
-    sourcePaths "plugin/source" "plugin/graphml" "plugin/deprecated"
-    importPaths "source" "plugin/source" "plugin/graphml/source" "plugin/deprecated"
+    sourcePaths "plugin/source" "plugin/graphml"
+    importPaths "source" "plugin/source" "plugin/graphml/source"
     excludedSourceFiles "source/application/*" "source/test/*" "source/devtool/*" "source/cpptooling/*"
 
     buildRequirements {
@@ -186,13 +184,12 @@ configuration "plugin_uml" {
     dependency "dextool:libclang" version="*"
     dependency "dextool:clang" version="*"
     dependency "dextool:cpptooling" version="*"
-    dependency "dextool:docopt" version="*"
 
     targetName "dextool-uml"
     targetType "executable"
 
-    sourcePaths "plugin/source" "plugin/uml" "plugin/deprecated"
-    importPaths "source" "plugin/source" "plugin/uml/source" "plugin/deprecated"
+    sourcePaths "plugin/source" "plugin/uml"
+    importPaths "source" "plugin/source" "plugin/uml/source"
     excludedSourceFiles "source/application/*" "source/test/*" "source/devtool/*" "source/cpptooling/*"
 }
 
@@ -201,13 +198,12 @@ configuration "plugin_uml_debug" {
     dependency "dextool:libclang" version="*"
     dependency "dextool:clang" version="*"
     dependency "dextool:cpptooling" version="*"
-    dependency "dextool:docopt" version="*"
 
     targetName "dextool_debug-uml"
     targetType "executable"
 
-    sourcePaths "plugin/source" "plugin/uml" "plugin/deprecated"
-    importPaths "source" "plugin/source" "plugin/uml/source" "plugin/deprecated"
+    sourcePaths "plugin/source" "plugin/uml"
+    importPaths "source" "plugin/source" "plugin/uml/source"
     excludedSourceFiles "source/application/*" "source/test/*" "source/devtool/*" "source/cpptooling/*"
 
     buildRequirements {
