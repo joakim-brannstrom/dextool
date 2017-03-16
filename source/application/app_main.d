@@ -8,7 +8,7 @@ module application.app_main;
 import logger = std.experimental.logger;
 
 import dextool.type : FileName, ExitStatusType;
-import dextool.logger : ConfigureLog;
+import dextool.logger_conf : ConfigureLog;
 import dextool.cli_help;
 
 version (unittest) {
@@ -149,7 +149,7 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 int rmain(string[] args) nothrow {
     import std.conv : text;
     import std.exception;
-    import dextool.logger : confLogLevel;
+    import dextool.logger_conf : confLogLevel;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
 

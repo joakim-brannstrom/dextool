@@ -21,7 +21,7 @@ import dextool.type : FileName, ExitStatusType;
 auto parseLogLevel(string[] args) {
     import std.algorithm : findAmong;
     import std.array : empty;
-    import dextool.logger : ConfigureLog;
+    import dextool.logger_conf : ConfigureLog;
 
     return findAmong(args, ["-d", "--debug"]).empty ? ConfigureLog.info : ConfigureLog.debug_;
 }
@@ -30,7 +30,7 @@ int main(string[] args) {
     import std.algorithm : filter, among;
     import std.array : array;
     import std.stdio : writeln;
-    import dextool.logger : confLogLevel;
+    import dextool.logger_conf : confLogLevel;
 
     confLogLevel(parseLogLevel(args));
 

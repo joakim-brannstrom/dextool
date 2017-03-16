@@ -171,7 +171,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         return toCompileCommand(directory.str, file.str, command.str, db_dir);
     }
     catch (Exception ex) {
-        import cpptooling.utility.logger : error;
+        import dextool.logger : error;
 
         error("Unable to parse json attribute: " ~ ex.msg);
     }
@@ -200,7 +200,7 @@ private Nullable!CompileCommand toCompileCommand(string directory, string file,
         rval = tmp;
     }
     catch (Exception ex) {
-        import cpptooling.utility.logger : error;
+        import dextool.logger : error;
 
         error("Unable to parse json attribute: " ~ ex.msg);
     }
@@ -221,7 +221,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
     static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
         import std.algorithm : map, filter;
         import std.array : array;
-        import logger = cpptooling.utility.logger;
+        import logger = dextool.logger;
 
         try {
             // dfmt off
@@ -246,12 +246,12 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
         put(json, as_dir, out_range);
     }
     catch (JSONException ex) {
-        import cpptooling.utility.logger : error;
+        import dextool.logger : error;
 
         error("Error while parsing compilation database: " ~ ex.msg);
     }
     catch (Exception ex) {
-        import cpptooling.utility.logger : error;
+        import dextool.logger : error;
 
         error("Error while parsing compilation database: " ~ ex.msg);
     }
@@ -297,13 +297,13 @@ CompileDbFile[] orDefaultDb(string[] cli_path) @safe pure nothrow {
 CompileCommandSearch find(CompileCommandDB db, string filename) @safe pure
 in {
     import std.path : isAbsolute;
-    import cpptooling.utility.logger;
+    import dextool.logger;
 
     debug trace("Looking for " ~ (filename.isAbsolute ? "absolute" : "relative") ~ " " ~ filename);
 }
 out (result) {
     import std.conv : to;
-    import cpptooling.utility.logger;
+    import dextool.logger;
 
     debug trace("Found " ~ to!string(result));
 }
