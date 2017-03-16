@@ -116,7 +116,7 @@ private void makeFallbackUSR(Writer)(scope Writer w, ref const(Cursor) c, in uin
 /// Returns: fallback USR from the cursor.
 private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent) @safe
 out (result) {
-    import cpptooling.utility.logger;
+    import dextool.logger;
 
     trace(result, this_indent);
     assert(result.length > 0);
@@ -133,7 +133,7 @@ body {
 /// Make a USR, never failing.
 USRType makeEnsuredUSR(const(Cursor) c, in uint this_indent) @safe
 out (result) {
-    import cpptooling.utility.logger;
+    import dextool.logger;
 
     trace(result, this_indent);
     assert(result.length > 0);
@@ -996,7 +996,7 @@ out (result) {
 body {
     import std.array;
     import std.range : dropBack;
-    import cpptooling.utility.logger;
+    import dextool.logger;
 
     immutable indent = this_indent + 1;
 
@@ -1549,7 +1549,7 @@ body {
             &handleTypeWithDecl, &fallback]) {
         debug {
             import std.conv : to;
-            import cpptooling.utility.logger : trace;
+            import dextool.logger : trace;
 
             trace(idx.to!string(), this_indent);
         }
@@ -1743,7 +1743,7 @@ body {
             &handleFuncProto, &handleDecl, &underlying, &fallback]) {
         debug {
             import std.conv : to;
-            import cpptooling.utility.logger : trace;
+            import dextool.logger : trace;
 
             trace(idx.to!string(), this_indent);
         }
@@ -1881,7 +1881,7 @@ in {
     assert(c.kind == CXCursorKind.CXCursor_CXXBaseSpecifier);
 }
 body {
-    import cpptooling.utility : trace;
+    import dextool.logger : trace;
 
     auto indent = this_indent + 1;
 
@@ -1986,7 +1986,7 @@ in {
     assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.CXType_FunctionNoProto);
 }
 out (result) {
-    import cpptooling.utility.logger : trace;
+    import dextool.logger : trace;
 
     foreach (p; result.params) {
         trace(p.result.type.toStringDecl(p.id), this_indent);

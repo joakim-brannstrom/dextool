@@ -20,7 +20,7 @@ SRC_CPPTESTDOUBLE := $(SRC) $(SRC_PLUGIN) $(shell find plugin/cpptestdouble -nam
 
 INCLUDE_PATHS := -Isource -Iclang -Ilibclang -Idsrcgen/source -Iplugin/source -Jclang/resources -Jresources
 VERSION_FLAGS := -version=Have_dextool
-COMMON_FLAGS := -w $(INCLUDE_PATHS) $(VERSION_FLAGS)
+COMMON_FLAGS := -w $(VERSION_FLAGS)
 DEBUG_FLAGS := -g
 
 DMD_FLAGS := -release -O -inline $(COMMON_FLAGS)
@@ -45,23 +45,23 @@ gen_version:
 	./gen_version_from_git.sh
 
 plugin_uml: $(SRC_UML)
-	time $(COMPILER) -Iplugin/uml/source $(COMPILER_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-uml
+	time $(COMPILER) -Iplugin/uml/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-uml
 	strip build/dextool-uml
 
 plugin_graphml: $(SRC_GRAPHML)
-	time $(COMPILER) -Iplugin/graphml/source $(COMPILER_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-graphml
+	time $(COMPILER) -Iplugin/graphml/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-graphml
 	strip build/dextool-graphml
 
 plugin_ctestdouble: $(SRC_CTESTDOUBLE)
-	time $(COMPILER) -Iplugin/ctestdouble/source $(COMPILER_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-ctestdouble
+	time $(COMPILER) -Iplugin/ctestdouble/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-ctestdouble
 	strip build/dextool-ctestdouble
 
 plugin_cpptestdouble: $(SRC_CPPTESTDOUBLE)
-	time $(COMPILER) -Iplugin/cpptestdouble/source $(COMPILER_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-cpptestdouble
+	time $(COMPILER) -Iplugin/cpptestdouble/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-cpptestdouble
 	strip build/dextool-cpptestdouble
 
-main_app: $(SRC_APP) $(SRC_CPPTOOLING) $(SRC) $(SRC_DEXTOOL)
-	time $(COMPILER) $(COMPILER_FLAGS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool
+main_app: $(SRC_APP) $(SRC_DEXTOOL)
+	time $(COMPILER) $(COMPILER_FLAGS) -Isource/application -Isource/dextool -Jresources $^ -ofbuild/dextool
 	strip build/dextool
 
 main_app_dep: gen_version main_app plugin_uml plugin_graphml plugin_ctestdouble plugin_cpptestdouble

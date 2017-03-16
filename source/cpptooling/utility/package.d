@@ -11,7 +11,6 @@ module cpptooling.utility;
 
 public import cpptooling.utility.clang;
 public import cpptooling.utility.dedup;
-public import cpptooling.utility.logger;
 public import cpptooling.utility.sort;
 public import cpptooling.utility.taggedalgebraic;
 public import cpptooling.utility.virtualfilesystem;

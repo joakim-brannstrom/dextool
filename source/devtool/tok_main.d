@@ -1,6 +1,5 @@
-// Written in the D programming language.
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -257,7 +256,7 @@ int dumpBody(string fname, string[] flags) {
 }
 
 int main(string[] args) {
-    import dextool.logger : confLogLevel, ConfigureLog;
+    import dextool.logger_conf : confLogLevel, ConfigureLog;
 
     confLogLevel(ConfigureLog.debug_);
 
