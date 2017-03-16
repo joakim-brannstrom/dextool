@@ -17,7 +17,7 @@ auto runPlugin(string[] args) {
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
-    import plugin.frontend.plantuml;
+    import dextool.plugin.frontend.plantuml;
 
     RawConfiguration pargs;
     pargs.parse(args);

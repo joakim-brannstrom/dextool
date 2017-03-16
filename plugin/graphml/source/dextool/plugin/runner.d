@@ -17,7 +17,7 @@ auto runPlugin(string[] args) {
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
-    import plugin.frontend.graphml;
+    import dextool.plugin.frontend.graphml;
 
     RawConfiguration pargs;
     pargs.parse(args);

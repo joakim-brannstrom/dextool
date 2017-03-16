@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 Generate a C test double implementation from data about the structural
 representation.
 */
-module plugin.backend.ctestdouble.cvariant;
+module dextool.plugin.backend.ctestdouble.cvariant;
 
 import std.typecons : Flag, Yes;
 import logger = std.experimental.logger;
@@ -145,7 +145,7 @@ struct Generator {
     import cpptooling.data.representation : CppRoot;
 
     private static struct Modules {
-        import plugin.utility : MakerInitializingClassMembers;
+        import dextool.plugin.utility : MakerInitializingClassMembers;
 
         // add a static c'tor
         mixin MakerInitializingClassMembers!Modules;
@@ -375,8 +375,8 @@ import dsrcgen.cpp : E;
  */
 struct ImplData {
     import cpptooling.data.type : CppMethodName;
-    import plugin.backend.ctestdouble.adapter : AdapterKind;
-    import plugin.backend.ctestdouble.global : MutableGlobal;
+    import dextool.plugin.backend.ctestdouble.adapter : AdapterKind;
+    import dextool.plugin.backend.ctestdouble.global : MutableGlobal;
 
     CppRoot root;
     alias root this;
@@ -490,8 +490,9 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
-    import plugin.backend.ctestdouble.adapter : makeSingleton, makeAdapter;
-    import plugin.backend.ctestdouble.global : makeGlobalInterface,
+    import dextool.plugin.backend.ctestdouble.adapter : makeSingleton,
+        makeAdapter;
+    import dextool.plugin.backend.ctestdouble.global : makeGlobalInterface,
         makeZeroGlobal, filterMutable;
 
     auto impl = ImplData.make;
@@ -564,7 +565,7 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
-    import plugin.backend.ctestdouble.adapter : generateSingleton;
+    import dextool.plugin.backend.ctestdouble.adapter : generateSingleton;
 
     generateWrapIncludeInExternC(ctrl, params, hdr);
     generateGlobal(data.globalRange, ctrl, params, container, globals);
@@ -704,9 +705,9 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
 
 void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl, CppModule mutable_extern_hook,
         ref ImplData data, StubPrefix prefix, ref const Container container) {
-    import plugin.backend.ctestdouble.global : generateGlobalExterns,
+    import dextool.plugin.backend.ctestdouble.global : generateGlobalExterns,
         generateInitGlobalsToZero;
-    import plugin.backend.ctestdouble.adapter : generateClassImplAdapter = generateImpl;
+    import dextool.plugin.backend.ctestdouble.adapter : generateClassImplAdapter = generateImpl;
 
     auto test_double_ns = impl.namespace(ns.name);
     test_double_ns.suppressIndent(1);

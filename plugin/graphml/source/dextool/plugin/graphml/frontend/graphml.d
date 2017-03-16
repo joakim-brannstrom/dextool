@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 Analyze C/C++ source code to generate a GraphML of the relations.
 */
-module plugin.frontend.graphml;
+module dextool.plugin.frontend.graphml;
 
 import std.typecons : Flag;
 
@@ -19,8 +19,8 @@ import dextool.compilation_db;
 import dextool.type;
 import dextool.utility;
 
-import plugin.types;
-import plugin.backend.graphml : Controller, Parameters, Products;
+import dextool.plugin.types;
+import dextool.plugin.backend.graphml : Controller, Parameters, Products;
 
 // dfmt off
 static auto graphml_opt = CliOptionParts(
@@ -244,7 +244,8 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
     import cpptooling.data.symbol.container : Container;
     import cpptooling.utility.virtualfilesystem : vfsFileName = FileName,
         vfsMode = Mode;
-    import plugin.backend.graphml : GraphMLAnalyzer, TransformToXmlStream;
+    import dextool.plugin.backend.graphml : GraphMLAnalyzer,
+        TransformToXmlStream;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "");
 
@@ -297,7 +298,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
         return ExitStatusType.Ok;
     }
 
-    import plugin.backend.graphml : xmlHeader, xmlFooter;
+    import dextool.plugin.backend.graphml : xmlHeader, xmlFooter;
 
     string[] skipped_files;
     ExitStatusType exit_status;

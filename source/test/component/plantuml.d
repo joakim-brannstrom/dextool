@@ -23,8 +23,8 @@ import cpptooling.analyzer.clang.ast : ClangAST;
 import cpptooling.analyzer.clang.context;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
-import plugin.frontend.plantuml : Lookup;
-import plugin.backend.plantuml;
+import dextool.plugin.frontend.plantuml : Lookup;
+import dextool.plugin.backend.plantuml;
 
 private:
 

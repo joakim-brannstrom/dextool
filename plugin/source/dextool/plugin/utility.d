@@ -9,11 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 
 Utility useful for plugins.
 */
-module plugin.utility;
+module dextool.plugin.utility;
 
 import logger = std.experimental.logger;
 
-import plugin.types : CliBasicOption, CliOptionParts;
+import dextool.plugin.types : CliBasicOption, CliOptionParts;
 
 version (unittest) {
     import unit_threaded : shouldEqual;
