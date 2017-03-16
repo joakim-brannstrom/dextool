@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -21,7 +21,7 @@ Overall design of the data flow when analyzing.
  - The generator forwards the content to a receiver, the registered Products.
  - Backend done. See frontend for what happens with the Products.
 */
-module plugin.backend.plantuml;
+module dextool.plugin.backend.plantuml;
 
 import std.meta : templateAnd, templateOr;
 import std.range : ElementType;
@@ -37,7 +37,7 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
 import cpptooling.analyzer.clang.analyze_helper : RecordResult;
-import plugin.utility : MarkArray;
+import dextool.plugin.utility : MarkArray;
 
 static import cpptooling.data.class_classification;
 
@@ -784,7 +784,7 @@ struct Generator {
             m.components_dot.suppressIndent(1);
         }
 
-        import plugin.utility : MakerInitializingClassMembers;
+        import dextool.plugin.utility : MakerInitializingClassMembers;
 
         mixin MakerInitializingClassMembers!(Modules, postInit);
 

@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 XML utility for generating GraphML content.
 Contains data structures and serializers.
 */
-module plugin.backend.graphml.xml;
+module dextool.plugin.backend.graphml.xml;
 
 import std.format : FormatSpec;
 import logger = std.experimental.logger;

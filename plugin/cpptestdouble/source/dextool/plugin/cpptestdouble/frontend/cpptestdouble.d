@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Generation of C++ test doubles.
 */
-module plugin.frontend.cpptestdouble;
+module dextool.plugin.frontend.cpptestdouble;
 
 import std.typecons : Nullable;
 
@@ -15,8 +15,8 @@ import dextool.compilation_db;
 import dextool.type;
 import dextool.utility;
 
-import plugin.types;
-import plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
+import dextool.plugin.types;
+import dextool.plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
     Products;
 
 struct RawConfiguration {
@@ -639,7 +639,8 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
-    import plugin.backend.cpptestdouble.cppvariant : Generator, CppVisitor;
+    import dextool.plugin.backend.cpptestdouble.cppvariant : Generator,
+        CppVisitor;
     import dextool.io : writeFileData;
 
     auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);

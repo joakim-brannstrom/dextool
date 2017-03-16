@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 Generate PlantUML diagrams of C/C++ source code.
 */
-module plugin.frontend.plantuml;
+module dextool.plugin.frontend.plantuml;
 
 import std.typecons : Flag, Yes, No;
 
@@ -19,8 +19,8 @@ import dextool.compilation_db;
 import dextool.type;
 import dextool.utility;
 
-import plugin.types;
-import plugin.backend.plantuml : Controller, Parameters, Products;
+import dextool.plugin.types;
+import dextool.plugin.backend.plantuml : Controller, Parameters, Products;
 import cpptooling.data.representation : CppRoot, CppNamespace, CppClass;
 
 struct RawConfiguration {
@@ -392,8 +392,8 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
-    import plugin.backend.plantuml : Generator, UMLVisitor, UMLClassDiagram,
-        UMLComponentDiagram, TransformToDiagram;
+    import dextool.plugin.backend.plantuml : Generator, UMLVisitor,
+        UMLClassDiagram, UMLComponentDiagram, TransformToDiagram;
 
     Container container;
     auto generator = Generator(variant, variant, variant);

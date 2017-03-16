@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module plugin.backend.graphml.base;
+module dextool.plugin.backend.graphml.base;
 
 import std.format : FormatSpec;
 import std.range : isOutputRange;
@@ -25,7 +25,7 @@ import cpptooling.data.symbol.container : Container;
 import cpptooling.data.type : CppAccess, LocationTag, Location, USRType,
     AccessType;
 
-import plugin.backend.graphml.xml;
+import dextool.plugin.backend.graphml.xml;
 
 version (unittest) {
     import unit_threaded;
@@ -960,7 +960,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     import cpptooling.analyzer.type : TypeKindAttr, TypeKind, TypeAttr,
         toStringDecl;
     import cpptooling.data.type : USRType, LocationTag, Location, CppNs;
-    import plugin.utility : MarkArray;
+    import dextool.plugin.utility : MarkArray;
 
     private {
         MarkArray!NodeData node_cache;

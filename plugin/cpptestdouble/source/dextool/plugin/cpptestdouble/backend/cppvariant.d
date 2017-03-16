@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Variant of C++ test double.
 */
-module plugin.backend.cpptestdouble.cppvariant;
+module dextool.plugin.backend.cpptestdouble.cppvariant;
 
 import std.typecons : No, Flag, Nullable, Yes;
 import logger = std.experimental.logger;
@@ -135,7 +135,7 @@ struct Generator {
     import cpptooling.data.symbol.container : Container;
 
     private static struct Modules {
-        import plugin.utility : MakerInitializingClassMembers;
+        import dextool.plugin.utility : MakerInitializingClassMembers;
 
         mixin MakerInitializingClassMembers!Modules;
 
@@ -560,7 +560,8 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     import std.array : empty;
     import cpptooling.data.representation : CppNs, CppClassName, makeUniqueUSR,
         nextUniqueID;
-    import plugin.backend.cpptestdouble.adapter : makeAdapter, makeSingleton;
+    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
+        makeSingleton;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
 
@@ -680,7 +681,7 @@ body {
             inner_impl_singleton.suppressIndent(1);
             break;
         case testDoubleSingleton:
-            import plugin.backend.cpptestdouble.adapter : generateSingleton;
+            import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
 
             generateSingleton(ns, impl_singleton);
             break;
@@ -742,7 +743,7 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
 
 void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl, ref ImplData data) {
     import std.algorithm : each;
-    import plugin.backend.cpptestdouble.adapter : generateImpl;
+    import dextool.plugin.backend.cpptestdouble.adapter : generateImpl;
 
     auto cpp_ns = impl.namespace(ns.name);
     cpp_ns.suppressIndent(1);
