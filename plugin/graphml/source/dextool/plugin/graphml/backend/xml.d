@@ -102,7 +102,8 @@ package enum ColorKind {
     namespace,
     func,
     class_,
-    field
+    field,
+    fallback
 }
 
 private struct FillColor {
@@ -142,6 +143,8 @@ private FillColor toInternal(ColorKind kind) @safe pure nothrow @nogc {
         return FillColor("FFCC33", null);
     case ColorKind.field:
         return FillColor("FFFF99", null);
+    case ColorKind.fallback:
+        return FillColor("99FF99", null);
     }
 }
 

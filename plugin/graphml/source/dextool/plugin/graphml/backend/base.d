@@ -898,6 +898,7 @@ package struct NodeData {
         NodeFile file;
         NodeNamespace namespace;
         NodeField field;
+        NodeFallback fallback;
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
@@ -963,6 +964,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     import dextool.plugin.utility : MarkArray;
 
     private {
+        /// Nodes cached during an analyze phase
         MarkArray!NodeData node_cache;
 
         /// nodes may never be duplicated. If they are it is a violation of the
@@ -1080,12 +1082,14 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
      */
     void put(const(USRType) src, const(USRType) dst) {
         addEdge(streamed_edges, recv, src, dst);
+        addFallbackNodes(streamed_nodes, node_cache, [src, dst]);
     }
 
     /** Create a raw relation between two types.
      */
     void put(const(TypeKindAttr) src, const(TypeKindAttr) dst) {
         edgeIfNotPrimitive(streamed_edges, recv, src, dst, lookup);
+        addFallbackNodes(streamed_nodes, node_cache, [src, dst]);
     }
 
     /** Create a raw node for a type.
@@ -1478,6 +1482,29 @@ private:
         xmlEdge(recv, src_usr, target_usr, kind);
         edges[edge_key] = true;
     }
+
+    static void addFallbackNodes(NoDupNodesT, NodeStoreT, NodeT)(
+            ref NoDupNodesT nodup_nodes, ref NodeStoreT node_store, NodeT[] nodes) {
+        foreach (ref n; nodes) {
+            NodeData data;
+
+            static if (is(Unqual!NodeT == TypeKindAttr)) {
+                if (n.kind.info.kind == TypeKind.Info.Kind.null_) {
+                    return;
+                }
+
+                data = NodeData(NodeData.Tag(NodeFallback(n.kind.usr)));
+            } else {
+                data = NodeData(NodeData.Tag(NodeFallback(n)));
+            }
+
+            if (data.usr in nodup_nodes) {
+                continue;
+            }
+
+            node_store.put(data);
+        }
+    }
 }
 
 private mixin template NodeLocationMixin() {
@@ -1737,6 +1764,21 @@ private @safe struct NodeNamespace {
 
     @Attr(IdT.nodegraphics) void graphics(scope StreamChar stream) {
         auto style = makeShapeNode(cast(string) usr, ColorKind.namespace);
+        style.toString(stream, FormatSpec!char("%s"));
+    }
+
+    mixin NodeIdMixin;
+}
+
+private @safe struct NodeFallback {
+    USRType usr;
+
+    mixin NodeLocationMixin;
+
+    @Attr(IdT.kind) enum kind = "fallback";
+
+    @Attr(IdT.nodegraphics) void graphics(scope StreamChar stream) {
+        auto style = makeShapeNode(usr, ColorKind.fallback);
         style.toString(stream, FormatSpec!char("%s"));
     }
 
