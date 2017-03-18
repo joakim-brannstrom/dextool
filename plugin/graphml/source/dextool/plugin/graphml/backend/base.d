@@ -1170,6 +1170,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
      * */
     void put(ref const(TypeKindAttr) src, ref const(VarDeclResult) result) {
         addEdge(streamed_edges, recv, src.kind.usr, result.instanceUSR);
+        addFallbackNodes(streamed_nodes, node_cache, [src]);
+        addFallbackNodes(streamed_nodes, node_cache, [result.instanceUSR]);
     }
 
     ///
@@ -1208,8 +1210,15 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
      * Only interested in the relation from src to the function.
      */
     void put(ref const(TypeKindAttr) src, ref const(FunctionDeclResult) result) {
+        // TODO this is a bug. The source node should have been added by the
+        // one calling this function.
+        addFallbackNodes(streamed_nodes, node_cache, [src]);
+
         // TODO investigate if the resolve is needed. I don't think so.
         auto target = resolveCanonicalType(result.type.kind, result.type.attr, lookup).front;
+
+        // TODO this should not be needed.
+        addFallbackNodes(streamed_nodes, node_cache, [target]);
 
         auto node = NodeFunction(result.type.kind.usr,
                 result.type.toStringDecl(result.name), result.name, result.location);
@@ -1250,6 +1259,9 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         import std.algorithm : map, filter, joiner;
         import cpptooling.data.representation : unpackParam;
 
+        // TODO this should not be needed. Fix caller of this function.
+        addFallbackNodes(streamed_nodes, node_cache, [src]);
+
         // dfmt off
         foreach (target; result.params
             .map!(a => a.unpackParam)
@@ -1275,6 +1287,9 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         import std.algorithm : map, filter, joiner;
         import std.range : only, chain;
         import cpptooling.data.representation : unpackParam;
+
+        // TODO this should not be needed. Fix caller of this function.
+        addFallbackNodes(streamed_nodes, node_cache, [src]);
 
         // dfmt off
         foreach (target; chain(only(cast(TypeKindAttr) result.returnType),
@@ -1306,6 +1321,9 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         if (!target.kind.isPrimitive(lookup)) {
             putToCache(NodeData(NodeData.Tag(NodeType(target))));
             addEdge(streamed_edges, recv, result.instanceUSR, target.kind.usr);
+
+            // TODO this should not be needed
+            addFallbackNodes(streamed_nodes, node_cache, [result.instanceUSR]);
         }
     }
 
