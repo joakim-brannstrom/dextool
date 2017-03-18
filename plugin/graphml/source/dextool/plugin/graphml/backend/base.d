@@ -1051,7 +1051,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         void putDefinition(ref const(NodeData) type, ref const(LocationTag) loc) {
             import std.algorithm : among;
 
-            if (type.tag.kind.among(NodeData.Tag.Kind.record, NodeData.Tag.Kind.record)) {
+            if (type.tag.kind.among(NodeData.Tag.Kind.record)) {
                 // do nothing. delaying until finalize.
                 // a struct/class (record) bypasses the cache.
             } else if (!type.isPrimitive(lookup)) {
@@ -1069,7 +1069,15 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         cb.definition = &putDefinition;
 
         foreach (ref item; node_cache.data) {
-            resolveLocation(cb, only(item), lookup);
+            if (item.tag.kind == NodeData.Tag.Kind.fallback) {
+                // a fallback node is most likely replaced by the correct node
+                if (item.tag.usr in streamed_nodes) {
+                    node_cache.markForRemoval(idx);
+                }
+            } else {
+                resolveLocation(cb, only(item), lookup);
+            }
+
             ++idx;
         }
 
