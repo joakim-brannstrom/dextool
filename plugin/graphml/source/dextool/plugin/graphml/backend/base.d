@@ -1671,7 +1671,7 @@ private @safe struct NodeType {
     @Attr(IdT.kind) enum kind = "type";
 
     @Attr(IdT.typeAttr) void typeAttr(scope StreamChar stream) {
-        ccdataWrap(stream, type.attr.toString());
+        ccdataWrap(stream, type.attr);
     }
 
     @Attr(IdT.signature) void signature(scope StreamChar stream) {
@@ -1705,7 +1705,20 @@ private @safe struct NodeVariable {
     }
 
     @Attr(IdT.typeAttr) void typeAttr(scope StreamChar stream) {
-        ccdataWrap(stream, type.attr.toString());
+        import std.algorithm : joiner, filter, copy;
+        import std.range : chain, only;
+        import std.array : appender;
+
+        auto app = appender!string();
+
+        // dfmt off
+        chain(type.attr.stringRange, only(color == ColorKind.globalStatic ? "static" : null))
+            .filter!(a => a !is null)
+            .joiner(";")
+            .copy(app);
+        // dfmt on
+
+        ccdataWrap(stream, app.data);
     }
 
     @Attr(IdT.nodegraphics) void graphics(scope StreamChar stream) {
@@ -1714,6 +1727,21 @@ private @safe struct NodeVariable {
     }
 
     mixin NodeIdMixin;
+}
+
+@("Static attribute is derived from the color and represented in the typeAttr field")
+unittest {
+    import std.array : appender;
+    import cpptooling.analyzer.type : makeSimple;
+    import unit_threaded : shouldEqual;
+
+    auto tk = makeSimple("int");
+    auto node = NodeVariable(USRType("usr"), "x", tk, ColorKind.globalStatic);
+    auto app = appender!string();
+
+    node.typeAttr((const(char)[] s) { app.put(s); });
+
+    app.data.shouldEqual("static");
 }
 
 /// A node for a field of a class/struct.
@@ -1735,7 +1763,7 @@ private @safe struct NodeField {
     }
 
     @Attr(IdT.typeAttr) void typeAttr(scope StreamChar stream) {
-        ccdataWrap(stream, type.attr.toString());
+        ccdataWrap(stream, type.attr);
     }
 
     @Attr(IdT.nodegraphics) void graphics(scope StreamChar stream) {

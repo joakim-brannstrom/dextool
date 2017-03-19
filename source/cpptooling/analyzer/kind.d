@@ -283,18 +283,27 @@ pure @safe nothrow @nogc:
     Flag!"isArray" isArray;
     Flag!"isDefinition" isDefinition;
 
-    ///
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
+    /// Returns: a string range of the attributes
+    auto stringRange() const {
         import std.range : chain, only;
-        import std.algorithm : filter, joiner, copy;
+        import std.algorithm : filter;
 
         // dfmt off
-        chain(only(isConst ? "const" : null),
+        return chain(only(isConst ? "const" : null),
               only(isRef ? "ref" : null),
               only(isPtr ? "ptr" : null),
               only(isFuncPtr ? "funcPtr" : null),
               only(isArray ? "array" : null))
-            .filter!(a => a !is null)
+            .filter!(a => a !is null);
+        // dfmt on
+    }
+
+    ///
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
+        import std.algorithm : joiner, copy;
+
+        // dfmt off
+        this.stringRange
             .joiner(";")
             .copy(w);
         // dfmt on
