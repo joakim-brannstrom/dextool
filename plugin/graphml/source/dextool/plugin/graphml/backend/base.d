@@ -1671,7 +1671,7 @@ private @safe struct NodeType {
     @Attr(IdT.kind) enum kind = "type";
 
     @Attr(IdT.typeAttr) void typeAttr(scope StreamChar stream) {
-        ccdataWrap(stream, type.attr.toString());
+        ccdataWrap(stream, type.attr);
     }
 
     @Attr(IdT.signature) void signature(scope StreamChar stream) {
@@ -1763,7 +1763,7 @@ private @safe struct NodeField {
     }
 
     @Attr(IdT.typeAttr) void typeAttr(scope StreamChar stream) {
-        ccdataWrap(stream, type.attr.toString());
+        ccdataWrap(stream, type.attr);
     }
 
     @Attr(IdT.nodegraphics) void graphics(scope StreamChar stream) {
