@@ -16,41 +16,45 @@ version (unittest) {
 }
 
 private enum CLICategoryStatus {
+    Category,
     Help,
     Version,
     NoCategory,
-    Category
+    PluginList,
 }
 
 private struct CLIResult {
     CLICategoryStatus status;
     string category;
     ConfigureLog confLog;
+    string[] args;
 }
 
 /** Parse the raw command line.
  */
-auto parseMainCLI(string[] args) {
-    import std.algorithm : findAmong, filter, among;
+auto parseMainCLI(const string[] args) {
+    import std.algorithm : among, filter, findAmong;
     import std.array : array, empty;
-    import dextool.logger;
 
     ConfigureLog loglevel = findAmong(args, ["-d", "--debug"]).empty
         ? ConfigureLog.info : ConfigureLog.debug_;
-    // holds the remining arguments after -d/--debug has bee removed
-    auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
+    // -d/--debug interferes with -h/--help/help and cli category therefore
+    // remove
+    string[] rem_args = args.dup.filter!(a => !a.among("-d", "--debug")).array();
 
-    auto state = CLICategoryStatus.Category;
+    CLICategoryStatus state;
 
-    if (remining_args.length <= 1) {
+    if (rem_args.length <= 1) {
         state = CLICategoryStatus.NoCategory;
-    } else if (remining_args.length >= 2 && remining_args[1].among("help", "-h", "--help")) {
+    } else if (rem_args.length >= 2 && rem_args[1].among("help", "-h", "--help")) {
         state = CLICategoryStatus.Help;
-    } else if (remining_args.length >= 2 && remining_args[1].among("--version")) {
+    } else if (rem_args.length >= 2 && rem_args[1].among("--version")) {
         state = CLICategoryStatus.Version;
+    } else if (rem_args.length >= 2 && rem_args[1].among("--plugin-list")) {
+        state = CLICategoryStatus.PluginList;
     }
 
-    string category = remining_args.length >= 2 ? remining_args[1] : "";
+    string category = rem_args.length >= 2 ? rem_args[1] : "";
 
     return CLIResult(state, category, loglevel);
 }
@@ -60,7 +64,7 @@ version (unittest) {
     import std.array : empty;
 
     // May seem unnecessary testing to test the CLI but bugs have been
-    // introduced accidentaly in parseMainCLI.
+    // introduced accidentally in parseMainCLI.
     // It is also easier to test "main CLI" here because it takes the least
     // setup and has no side effects.
 
@@ -115,6 +119,12 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
         logger.error("No such main category: " ~ cli.category);
         logger.error("-h to list accetable categories");
         exit_status = ExitStatusType.Errors;
+        break;
+    case PluginList:
+        foreach (const ref p; plugins) {
+            writeln(p.name);
+        }
+        exit_status = ExitStatusType.Ok;
         break;
     case Category:
         import std.algorithm : filter;
