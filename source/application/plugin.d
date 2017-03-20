@@ -236,7 +236,6 @@ string toShortHelp(Plugin[] plugins) @safe {
     auto app = appender!string();
 
     // dfmt off
-    app.put("(primary plugins)\n");
     plugins
         .filter!(a => a.kind == Kind.primary)
         .map!(a =>
@@ -249,7 +248,8 @@ string toShortHelp(Plugin[] plugins) @safe {
         .text()
         .copy(app);
 
-    app.put("\n(secondary plugins)\n");
+    app.put(newline);
+
     plugins
         .filter!(a => a.kind == Kind.secondary)
         .map!(a =>
@@ -313,6 +313,5 @@ string toShortHelp(Plugin[] plugins) @safe {
         Plugin("ctest", "c help text", FileName("dummy"), Kind.primary),
         Plugin("cpp", "c++ help text", FileName("dummy"), Kind.secondary)
     ];
-    plugins.toShortHelp.shouldEqual(
-            "(primary plugins)\n  ctest c help text\n(secondary plugins)\n  cpp   c++ help text");
+    plugins.toShortHelp.shouldEqual("  ctest c help text\n  cpp   c++ help text");
 }

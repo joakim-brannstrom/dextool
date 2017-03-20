@@ -18,6 +18,7 @@ options:
  -h, --help         show this global help
  -d, --debug        turn on debug output for detailed tracing
  --version          print the version of dextool
+ --plugin-list      print a list of plugins
 
 commands:
   help
