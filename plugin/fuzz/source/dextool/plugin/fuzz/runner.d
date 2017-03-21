@@ -2,7 +2,7 @@ module dextool.plugin.runner;
 
 auto runPlugin(string[] args) {
     import std.array : appender;
-    import std.stdio : writln;
+    import std.stdio : writeln;
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
