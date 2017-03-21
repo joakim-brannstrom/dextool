@@ -7,7 +7,7 @@ struct RawConfiguration {
     string[] compile_db;
 
     /* Predefined error messages, used for showing user */
-    string XML_ARG_MISSING = "Missing xmldir as argument";
+    string XML_ARG_MISSING = "Missing xml-dir as argument";
     string COMPILE_DB_MISSING = "Missing compile-db as argument";
 
     string help_msg = "Usage: dextool fuzz --compile-db=... --xml-dir=...";
@@ -20,6 +20,7 @@ struct RawConfiguration {
     */
     void parse(string[] args) {
         import std.getopt;
+        import std.stdio : writeln;
         try {
             auto helpInformation = getopt(args, std.getopt.config.keepEndOfOptions,
                     "xml-dir", "Base directories to XML interfaces", &xml_dir,
@@ -29,24 +30,25 @@ struct RawConfiguration {
             if (helpInformation.helpWanted) {
                 defaultGetoptPrinter("Usage.",
                     helpInformation.options);
+                return;
             }
 
             /* Check default arguments */
-            if(xml_dir.length == 0) {
+            if(!shortPluginHelp && xml_dir.length == 0) {
                 defaultGetoptPrinter(XML_ARG_MISSING,
                     helpInformation.options);
                 return;
             }
 
-            if(compile_db.length == 0) {
+            if(!shortPluginHelp && compile_db.length == 0) {
                 defaultGetoptPrinter(COMPILE_DB_MISSING,
                     helpInformation.options);
                 return;
             }
 
         } catch(GetOptException ex) {
-            defaultGetoptPrinter("ERROR: " + ex.msg,
-                    helpInformation.options);
+            writeln("ERROR: " ~ ex.msg);
+            return;
         }
     }
 }
