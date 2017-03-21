@@ -28,15 +28,6 @@ auto runPlugin(string[] args) {
     }
 
     auto variant = fuzzVariant.makeVariant(pargs);
-    {
-        auto app = appender!string();
-        variant.putFile(variant.getXmlLog, makeXmlLog(app, pargs.originalFlags).data);
-    }
-    {
-        auto app = appender!string();
-        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
-                variant.getCompileCommandFilter).data);
-    }
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
