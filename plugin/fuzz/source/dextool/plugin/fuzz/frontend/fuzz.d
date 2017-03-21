@@ -3,8 +3,8 @@ module dextool.plugin.frontend.fuzz;
 import logger = std.experimental.logger;
 
 struct RawConfiguration {
-    string xml_dir; //Base directory which contains XML interfaces
-    string compile_db;
+    string[] xml_dir; //Base directory which contains XML interfaces
+    string[] compile_db;
 
     /* Predefined error messages, used for showing user */
     string XML_ARG_MISSING = "Missing xmldir as argument";
@@ -12,36 +12,41 @@ struct RawConfiguration {
 
     string help_msg = "Usage: dextool fuzz --compile-db=... --xml-dir=...";
 
-    bool help;
+    bool shortPluginHelp;
 
     /*
     * Parses arguments from terminal
     * @param args Equal to argv
     */
     void parse(string[] args) {
-        import std.getopt : getopt, GetOptException;
-        try { 
+        import std.getopt;
+        try {
             auto helpInformation = getopt(args, std.getopt.config.keepEndOfOptions,
-                    "h|help", &help, "xml-dir", &xml_dir,
-                    "compile-db", &compile_db);
-        }
-        catch(GetOptException ex) {
-            logger.error(ex.msg);
-            printHelp();
-            return;
-        }
+                    "xml-dir", "Base directories to XML interfaces", &xml_dir,
+                    "compile-db", "Base directories to compilation databases", &compile_db,
+                    "short-plugin-help", &shortPluginHelp);
+            
+            if (helpInformation.helpWanted) {
+                defaultGetoptPrinter("Usage.",
+                    helpInformation.options);
+            }
 
-        if(xml_dir.length == 0) {
-            printHelp();
-            return;
-        }
-    }
-    /*
-     * Outputs a help message to the user
-     */
-    void printHelp(string err_msg) {
-        import std.stdio : writefln;
+            /* Check default arguments */
+            if(xml_dir.length == 0) {
+                defaultGetoptPrinter(XML_ARG_MISSING,
+                    helpInformation.options);
+                return;
+            }
 
-        writefln("%s\n%s", err_msg, help_msg);
+            if(compile_db.length == 0) {
+                defaultGetoptPrinter(COMPILE_DB_MISSING,
+                    helpInformation.options);
+                return;
+            }
+
+        } catch(GetOptException ex) {
+            defaultGetoptPrinter("ERROR: " + ex.msg,
+                    helpInformation.options);
+        }
     }
 }

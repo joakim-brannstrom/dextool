@@ -211,6 +211,20 @@ configuration "plugin_uml_debug" {
     }
 }
 
+configuration "plugin_fuzz" {
+    dependency "dextool:dsrcgen" version="*"
+    dependency "dextool:libclang" version="*"
+    dependency "dextool:clang" version="*"
+    dependency "dextool:cpptooling" version="*"
+
+    targetName "dextool-fuzz"
+    targetType "executable"
+    
+    sourcePaths "plugin/source" "plugin/fuzz"
+    importPaths "source" "plugin/source" "plugin/fuzz/source"
+    excludedSourceFiles "source/application/*" "source/test/*" "source/devtool/*" "source/cpptooling/*"
+}
+
 configuration "devtool" {
     targetName "devtool"
     targetType "executable"
