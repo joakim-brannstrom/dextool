@@ -1,9 +1,3 @@
-Building package dfmt in /home/tmp/.dub/packages/dfmt-0.5.0-beta4/dfmt/
-Performing "debug" build using dmd for x86_64.
-libdparse 0.7.0: target for configuration "library" is up to date.
-dfmt 0.5.0-beta4: target for configuration "application" is up to date.
-To force a rebuild of up-to-date targets, run again with --force.
-Running ../../../../../../../../.dub/packages/dfmt-0.5.0-beta4/dfmt/dfmt sutxml.d
 /*
     This will be changed to something else. This file should be considered a POC until this changes. 
 TODO: Should be more modular.
