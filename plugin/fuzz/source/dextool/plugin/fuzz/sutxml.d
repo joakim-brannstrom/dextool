@@ -3,7 +3,7 @@
 TODO: Should be more modular.
 */
 
-module test;
+module sutxml;
 
 import std.string;
 import std.file;
