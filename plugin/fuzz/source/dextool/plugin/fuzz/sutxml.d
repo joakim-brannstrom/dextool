@@ -29,6 +29,14 @@ struct XMLType {
     string max; ///Optional
 }
 
+//Generic interface struct(?)
+struct Interface {
+    ContinuesInterface ci;
+    //Add more interfaces here
+    alias ci this;
+    //Add more alias here
+}
+
 struct ContinuesInterface {
     int direction; //From = 0; To = 1;
     auto data_items = Array!DataItem();
