@@ -56,12 +56,16 @@ private:
     Array!XMLType[string] xmltypes;
 
     string namespace(string filename) {
+        ///TODO: Namespaces should probably only be added if there is any interface in the file
         //dfmt off
-            return dirName(filename)
-                    .chompPrefix(this.basedir)
-                    .replace(dirSeparator, "::")
-                    .chompPrefix("::")
-                    .chomp("::");
+        if (!initDocument(filename) || !checkInterface(filename)) {
+            return "";
+        }
+        return dirName(filename)
+                .chompPrefix(this.basedir)
+                .replace(dirSeparator, "::")
+                .chompPrefix("::")
+                ~ "::" ~ baseName(filename, ".xml");
             //dfmt on
     }
 
@@ -89,10 +93,9 @@ private:
     }
 
     @trusted bool checkInterface(string filename) {
-        auto fileinterfacename = baseName(filename, ".xml");
+        auto fileinterfacename = baseName(filename, ".xml").capitalize;
 
         if (doc.tag.name != "Interface") {
-            writeln("WARNING: Cannot find interface tag");
             return false;
         }
 
@@ -104,18 +107,19 @@ private:
             return false;
         }
 
-        return true;
+        return doc.tag.name == "Interface";
     }
 
-    @trusted void iinterfaces(string filename, Element iface_type) { /// tag = among(interfaces);
+    @trusted Array!ContinuesInterface iinterfaces(string filename, Element iface_type) { /// tag = among(interfaces);
         if (!initDocument(filename) || !checkInterface(filename)) {
-            return;
+            return Array!ContinuesInterface();
         }
 
         //if (iface_type.tag.name == "ContinuesInterface") { // Better solution here is required
-        ContinuesInterface ciface;
+        Array!ContinuesInterface cifaces;
         //}
         foreach (Element xml_interface; iface_type.elements) {
+            ContinuesInterface ciface;
             if (xml_interface.tag.name == "DataItem") { /// Ignore the rest
                 DataItem data_item = DataItem(xml_interface.tag.attr["name"],
                         xml_interface.tag.attr["type"]);
@@ -126,10 +130,12 @@ private:
                 if (xml_interface.tag.attr.get("startupValue", "-1NOTFOUND") != "-1NOTFOUND") {
                     data_item.startupVal = xml_interface.tag.attr["startupValue"];
                 }
-
                 ciface.data_items.insertBack(data_item);
             }
+            cifaces.insertBack(ciface);
         }
+
+        return cifaces;
     }
 
     @trusted bool initDocument(string filename) {
@@ -152,7 +158,7 @@ private:
                 writeln(getAllSubtypes(elem));
             } else {
                 //Handle interfaces
-
+                writeln(iinterfaces(filename, elem));
             }
         }
     }
@@ -162,15 +168,15 @@ public:
         this.basedir = basedir.chomp(dirSeparator);
         xmlinterfaces = (dirEntries(this.basedir, "*.xml", SpanMode.breadth).filter!(a => a.isFile)).map!(a => a.name)
             .array;
-        foundNamespaces = xmlinterfaces.map!(a => namespace(a)).array;
+        foundNamespaces = xmlinterfaces.map!(a => namespace(a)).filter!(a => a!= "").array;
     }
 
-    string[] getAllNamespaces() {
-        return this.foundNamespaces;
+    auto getAllNamespaces() {
+        return this.foundNamespaces.sort.uniq;
     }
 
-    string[] getAllXMLInterfaces() {
-        return this.xmlinterfaces;
+    auto getAllXMLInterfaces() {
+        return this.xmlinterfaces.sort.uniq;
     }
 
     void getTypesFromInterfaces() {
@@ -183,10 +189,10 @@ public:
 int main() {
     import std.stdio;
 
-    writeln(SutEnvironment("./xmltest/").getAllNamespaces);
-    writeln(SutEnvironment("./xmltest").getAllXMLInterfaces);
+    writeln(SutEnvironment("./sut_unittest/namespaces/").getAllNamespaces);
+    writeln(SutEnvironment("./sut_unittest/namespaces/").getAllXMLInterfaces);
 
-    SutEnvironment(".").getTypesFromInterfaces;
+    SutEnvironment("./sut_unittest/namespaces/").getTypesFromInterfaces;
 
     return 0;
 }
