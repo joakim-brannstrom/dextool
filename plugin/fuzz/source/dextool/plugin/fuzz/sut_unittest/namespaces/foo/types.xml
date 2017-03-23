@@ -1,0 +1,18 @@
+<Types>
+    <SubType name="MyHeight" type="RealT" min="0" max="50000" unit="meter"/>
+    <Record name="Bundle">
+        <Variable name="P0" type="RealT"/>
+        <Variable name="P1" type="MyHeight"/>
+    </Record>
+
+    <Enum name="Simple">
+        <EnumItem name="None" value="0"/>
+        <EnumItem name="S0" value="1"/>
+        <EnumItem name="S1" value="2"/>
+    </Enum>
+
+    <Enum name="WithHoles">
+        <EnumItem name="S0" value="1"/>
+        <EnumItem name="S2" value="10"/>
+    </Enum>
+</Types>

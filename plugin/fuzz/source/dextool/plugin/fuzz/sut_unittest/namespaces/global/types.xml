@@ -1,0 +1,23 @@
+<Types ignore="attributes_here">
+    <!-- It is expected that the `name` can be used as is to define a variable of the type. -->
+    <!-- The name is either a primitive type in the language or a typedef exist in the specified header. -->
+
+    <Primitive name="int64_t" type="SignedInteger" size="64" ignore="other attributes">
+        <CPPInterface header="stdint.hpp"/>
+        <Ignore other="tags"/>
+    </Primitive>
+
+    <Primitive name="uint8_t" type="UnsignedInteger" size="8">
+        <CPPInterface header="stdint.hpp"/>
+    </Primitive>
+
+    <Primitive name="FloatT" type="Real" size="32">
+        <CPPInterface header="reals.hpp"/>
+    </Primitive>
+
+    <Primitive name="RealT" type="Real" size="64">
+        <CPPInterface header="reals.hpp"/>
+    </Primitive>
+
+    <SubType name="IntT" type="int64_t" min="-9223372036854775808" max="9223372036854775807"/>
+</Types>

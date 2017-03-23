@@ -1,0 +1,22 @@
+<Interface name="Bar">
+    <Ignore unrecognized="tags" or="warn"/>
+
+    <Types>
+        <SubType name="MyInt" type="IntT" min="-1" max="10" unit="km"/>
+    </Types>
+
+    <ContinuesInterface name="Fun" direction="From_Provider">
+        <Ignore unrecognized="tags" or="warn"/>
+
+        <DataItem name="V0" type="IntT" more_tags="ignore"/>
+        <DataItem name="V1" type="MyInt"/>
+        <DataItem name="V2" type="MyInt" startupValue="3" defaultValue="5"/>
+        <DataItem name="V3" type="MyHeight"/>
+        <DataItem name="V4" type="Bundle"/>
+        <DataItem name="V5" type="Simple"/>
+        <DataItem name="V6" type="WithHoles"/>
+    </ContinuesInterface>
+    <ContinuesInterface name="Fum" direction="To_Provider">
+        <DataItem name="V0" type="IntT"/>
+    </ContinuesInterface>
+</Interface>
