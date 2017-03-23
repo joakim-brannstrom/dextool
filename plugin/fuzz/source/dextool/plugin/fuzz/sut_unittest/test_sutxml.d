@@ -1,29 +1,21 @@
 import sutxml;
+import std.array;
 
 //Test if we get expected namespaces
 unittest
 {
-    assert(SutEnvironment("../").getAllNamespaces
-	   == ["xmltest::anotherheyo", "xmltest", "xmltest::heyo::test2"]);
-}
-
-//Another case
-unittest
-{
-    assert(SutEnvironment("../xmltest/heyo").getAllNamespaces
-	   == ["test2"]);
+    assert(SutEnvironment("./namespaces").getAllNamespaces.array
+	   == ["foo::bar", "foo::wun::wug"]);
 }
 
 //Test if we get expected xml interfaces
 unittest
 {
-    assert(SutEnvironment("../").getAllXMLInterfaces
-	   ==  ["../xmltest/anotherheyo/global.xml", "../xmltest/test.xml", "../xmltest/heyo/test2/test2.xml"]);
-}
-
-//Another case
-unittest
-{
-    assert(SutEnvironment("../xmltest/heyo/test2").getAllXMLInterfaces
-	   == ["../xmltest/heyo/test2/test2.xml"]);  
+    assert(SutEnvironment("./namespaces").getAllXMLInterfaces.array
+	   ==  ["./namespaces/foo/bar.xml",
+		"./namespaces/foo/namespace.xml",
+		"./namespaces/foo/types.xml",
+		"./namespaces/foo/wun/wug.xml",
+		"./namespaces/global/namespace.xml",
+		"./namespaces/global/types.xml"]);
 }

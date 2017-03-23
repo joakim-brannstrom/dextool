@@ -187,12 +187,6 @@ public:
 }
 
 int main() {
-    import std.stdio;
-
-    writeln(SutEnvironment("./sut_unittest/namespaces/").getAllNamespaces);
-    writeln(SutEnvironment("./sut_unittest/namespaces/").getAllXMLInterfaces);
-
-    SutEnvironment("./sut_unittest/namespaces/").getTypesFromInterfaces;
 
     return 0;
 }
