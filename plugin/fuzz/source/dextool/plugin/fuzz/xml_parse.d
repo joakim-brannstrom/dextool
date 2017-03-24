@@ -8,6 +8,11 @@ import std.path;
 import std.string;
 import std.xml;
 
+enum Direction {
+    from,
+    to
+}
+
 struct BaseDir {
     string basedir;
     alias basedir this;
@@ -67,12 +72,12 @@ struct SubType {
 }
 
 struct ContinuesInterface {
-    int direction; //From = 0; To = 1;
+    Direction direction;
     auto data_items = Array!DataItem();
 }
 
-struct Interface {
-    ContinuesInterface ci;
+struct Interface_ {
+    Array!ContinuesInterface ci;
     //Add more interfaces here
     alias ci this;
     //Add more alias here
@@ -93,7 +98,7 @@ struct Namespace {
     string name;
 
     Types ns_types;
-    Array!Interface interfaces;
+    Interface_ interfaces;
 }
 
 struct Primitive {
@@ -176,12 +181,57 @@ private:
             return xml_types;
         }
 
+        auto getContinuesInterface(Element interface_elem) {
+            Interface_ ret;
+            ContinuesInterface cis;
+            //Add more interfaces here
+            foreach (Element elem; interface_elem.elements) {
+                switch (elem.tag.name) {
+                    case "DataItem":
+                        DataItem data_item = DataItem(elem.tag.attr["name"],
+                            elem.tag.attr["type"]);
+                        if (auto defaultVal = "defaultValue" in elem.tag.attr) {
+                            data_item.defaultVal = *defaultVal;
+                        }
+
+                        if (auto startupVal = "startupValue" in elem.tag.attr) {
+                            data_item.startupVal = *startupVal;
+                        }
+                        cis.data_items.insertBack(data_item);
+
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return cis;
+        }
+
         Types[] types(Document doc) {
             if (doc.tag.name == "Types") { //Everything is a type!
                 return [getTypes(doc)];
             } else {
                 return doc.elements.filter!(a => a.tag.name == "Types").map!(a => getTypes(a)).array;
             }
+        }
+
+        Interface_ interfaces(Document doc) {
+            Interface_ ret;
+            if (doc.tag.name != "Interface") {
+                return ret;
+            } else {
+                foreach(Element elem ; doc.elements) {
+                    switch (elem.tag.name) {
+                        case "ContinuesInterface":
+                            ret.ci.insertBack(getContinuesInterface(elem));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            return ret;
         }
 
         Types merge(Types[] old) {
@@ -204,6 +254,12 @@ private:
             return new_;
         }
 
+        Interface_ merge(Interface_ old, Interface_ new_) {
+            new_.ci = old.ci ~ new_.ci;
+
+            return new_;
+        } 
+
 public:
     this(BaseDir bdir)
     {
@@ -213,13 +269,14 @@ public:
         foundNamespaces = xml_files.map!(a => namespace(a)).filter!(a => a!= "").array;
     }
 
-    void parseBaseDir() {
-        Types[string] namespaces;
+    Namespace[string] parseBaseDir() {
+        Namespace[string] namespaces;
         Global glob;
         foreach(string xml_file ; xml_files) {
             string curr_ns = namespace(xml_file);
             auto doc = new Document(cast(string) std.file.read(xml_file));
             Types ntypes = merge(types(doc));
+            Interface_ ifaces = interfaces(doc);
 
             //This should be merge()
             if (curr_ns == "global::types") {
@@ -230,18 +287,21 @@ public:
 
                 continue;
             }
-
-            if (namespaces.get(curr_ns, Types()) != Types()) {
-                namespaces[curr_ns] = merge(ntypes, namespaces[curr_ns]);
+            if (auto ns = curr_ns in namespaces) {
+                namespaces[curr_ns].ns_types = merge(ntypes, ns.ns_types);
+                namespaces[curr_ns].interfaces = merge(ifaces, ns.interfaces);
             } else {
-                namespaces[curr_ns] = ntypes;
+                namespaces[curr_ns] = Namespace(curr_ns, ntypes, ifaces);
             }
         }
 
         foreach (string key ; namespaces.byKey) {
-            namespaces[key].glob = glob;
+            namespaces[key].ns_types.glob = glob;
         }
+
+        return namespaces;
     }
+
 }
 
 
