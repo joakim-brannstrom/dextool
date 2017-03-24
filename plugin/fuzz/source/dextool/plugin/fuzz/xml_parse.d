@@ -122,6 +122,7 @@ private:
         string basedir;
         string[] foundNamespaces;
         string[] xml_files;
+        Namespace[string] nsps;
 
         string namespace(string filename) {
         ///TODO: Namespaces should probably only be added if there is any interface in the file
@@ -267,6 +268,7 @@ public:
         xml_files = (dirEntries(this.basedir, "*.xml", SpanMode.breadth).filter!(a => a.isFile)).map!(a => a.name)
             .array;
         foundNamespaces = xml_files.map!(a => namespace(a)).filter!(a => a!= "").array;
+        nsps = parseBaseDir;
     }
 
     Namespace[string] parseBaseDir() {
@@ -300,6 +302,10 @@ public:
         }
 
         return namespaces;
+    }
+
+    Namespace[string] getNamespaces() {
+        return this.nsps;
     }
 
 }
