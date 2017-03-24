@@ -29,8 +29,6 @@ struct Types {
 
 }
 
-
-
 struct Record {
     string name;
     Variable[string] variables;
@@ -132,22 +130,22 @@ private:
         }
 
         Types getTypes(Element types) {
+            import std.stdio;
             Types xml_types;
             foreach (Element elem; types.elements) {
                 final switch (elem.tag.name) {
                     case "SubType":
                         SubType subtype = SubType(elem.tag.attr["name"], elem.tag.attr["type"]);
-
-                        if (elem.tag.attr.get("min", "-1NOTFOUND") != "-!NOTFOUND") {
-                            subtype.min = elem.tag.attr["min"];
+                        if (auto minVal = "min" in elem.tag.attr) {
+                            subtype.min = *minVal;
                         }
 
-                        if (elem.tag.attr.get("max", "-1NOTFOUND") != "-1NOTFOUND") {
-                            subtype.max = elem.tag.attr["max"];
+                        if (auto maxVal = "max" in elem.tag.attr) {
+                            subtype.max = *maxVal;
                         }
 
-                        if (elem.tag.attr.get("unit", "-1NOTFOUND") != "-1NOTFOUND") {
-                            subtype.unit = elem.tag.attr["unit"];
+                        if (auto unit = "unit" in elem.tag.attr) {
+                            subtype.unit = *unit;
                         }
                         xml_types.subtypes.insertBack(subtype);
                         break;
