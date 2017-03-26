@@ -1,5 +1,5 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -14,7 +14,7 @@ import std.typecons : Tuple, Nullable, Flag;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.data.type; // : LocationTag;
+import cpptooling.data.type : LocationTag;
 
 public import cpptooling.analyzer.kind;
 
@@ -65,13 +65,14 @@ void logTypeAttr(const ref TypeAttr attr, in uint indent = 0, in uint extra_spac
 
 /// Pretty loggning with indentation.
 void logTypeResult(ref const(TypeResult) result, in uint indent,
-        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
     import std.array : array;
     import std.conv : to;
     import std.range : repeat;
     import logger = std.experimental.logger;
 
     // dfmt off
+    try {
     debug {
         string indent_ = repeat(' ', indent).array();
         string extra;
@@ -119,12 +120,14 @@ void logTypeResult(ref const(TypeResult) result, in uint indent,
             default:
         }
     }
+    } catch (Exception ex) {
+    }
     // dfmt on
 }
 
 /// Pretty loggning with indentation.
 void logTypeResult(ref const(TypeResults) results, in uint indent = 0,
-        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
     import std.range : chain, only;
 
     // dfmt off
@@ -138,7 +141,7 @@ void logTypeResult(ref const(TypeResults) results, in uint indent = 0,
 
 /// Pretty loggning with indentation.
 void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
-        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
     debug {
         if (!results.isNull) {
             logTypeResult(results.get, indent, func, line);
