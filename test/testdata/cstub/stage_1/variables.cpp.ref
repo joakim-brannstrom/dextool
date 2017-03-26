@@ -5,7 +5,7 @@ extern int expect_b;
 extern int *expect_d;
 extern int **expect_e;
 extern const int *expect_f;
-extern const int *const *expect_i;
+extern const int *const*expect_i;
 extern my_int expect_my_int;
 
 namespace TestDouble {
@@ -54,7 +54,7 @@ void Test_ZeroGlobals::expect_my_int() {
     Test_memzero(&::expect_my_int, sizeof(::expect_my_int));
 }
 
-Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
+Adapter::Adapter(I_TestDouble_InitGlobals &init_globals) {
     init_globals.expect_b();
     init_globals.expect_d();
     init_globals.expect_e();

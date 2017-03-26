@@ -35,7 +35,7 @@ public:
 ///
 class Adapter {
 public:
-    Adapter(I_TestDouble_InitGlobals& init_globals);
+    Adapter(I_TestDouble_InitGlobals &init_globals);
     ~Adapter();
 };
 

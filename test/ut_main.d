@@ -23,6 +23,7 @@ int main(string[] args) {
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.analyzer.clang.utility",
                           "cpptooling.analyzer.type",
+                          "cpptooling.analyzer.type_format",
                           "cpptooling.data.representation",
                           "cpptooling.data.symbol.container",
                           "cpptooling.generator.classes",

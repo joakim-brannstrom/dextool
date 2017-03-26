@@ -3,11 +3,11 @@
 
 
 namespace {
-Stub::I_Stub* test_double_inst = 0;
+Stub::I_Stub *test_double_inst = 0;
 } //NS:
 
 namespace Stub {
-Adapter::Adapter(I_Stub& inst) {
+Adapter::Adapter(I_Stub &inst) {
     test_double_inst = &inst;
 }
 

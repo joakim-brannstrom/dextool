@@ -6,7 +6,7 @@ extern int var_c;
 extern int var_d;
 
 namespace {
-TestDouble::I_TestDouble* test_double_inst = 0;
+TestDouble::I_TestDouble *test_double_inst = 0;
 } //NS:
 
 namespace TestDouble {
@@ -28,7 +28,7 @@ void Test_ZeroGlobals::var_d() {
     ::var_d = 0;
 }
 
-Adapter::Adapter(I_TestDouble& inst) {
+Adapter::Adapter(I_TestDouble &inst) {
     test_double_inst = &inst;
     Test_ZeroGlobals init_globals;
     init_globals.var_b();
@@ -36,7 +36,7 @@ Adapter::Adapter(I_TestDouble& inst) {
     init_globals.var_d();
 }
 
-Adapter::Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals) {
+Adapter::Adapter(I_TestDouble &inst, I_TestDouble_InitGlobals &init_globals) {
     test_double_inst = &inst;
     init_globals.var_b();
     init_globals.var_c();

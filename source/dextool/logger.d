@@ -15,7 +15,7 @@ module dextool.logger;
 static import std.experimental.logger;
 
 /// Only use via the aliases
-auto internalLog(alias level)(const(char)[] txt, in uint indent = 0,
+auto internalLog(alias level)(const(char)[] txt, const uint indent = 0,
         string func = __FUNCTION__, uint line = __LINE__) nothrow {
     import std.algorithm : min;
     import std.array : array;

@@ -22,9 +22,9 @@ public:
     MOCK_METHOD0(func_exhibit_type_bug_variant2, ns::djur_type());
     MOCK_METHOD1(func_extern, int(int out));
     MOCK_METHOD1(func_one_named, int(int a));
-    MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int ), int b));
+    MOCK_METHOD2(func_ptr_arg, void(int (*a)(int p, int), int b));
     MOCK_METHOD1(func_ref, void(int &a));
-    MOCK_METHOD1(func_ref_array, void(int (&a)[10]));
+    MOCK_METHOD1(func_ref_array, void(int( &a)[10]));
     MOCK_METHOD2(func_ref_many, void(int &a, char &b));
     MOCK_METHOD1(func_ref_ptr, void(int *&a));
     MOCK_METHOD0(func_return, int());

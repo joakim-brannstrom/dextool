@@ -2,7 +2,7 @@
 
 namespace a_ns {
 namespace {
-TestDouble::I_TestDouble* test_double_inst = 0;
+TestDouble::I_TestDouble *test_double_inst = 0;
 } //NS:
 
 void a_ns_func() {
@@ -10,7 +10,7 @@ void a_ns_func() {
 }
 
 namespace TestDouble {
-Adapter::Adapter(I_TestDouble& inst) {
+Adapter::Adapter(I_TestDouble &inst) {
     test_double_inst = &inst;
 }
 

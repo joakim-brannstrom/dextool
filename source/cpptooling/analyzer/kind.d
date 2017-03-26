@@ -64,6 +64,7 @@ bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc
 struct TypeKind {
     import std.traits : isSomeString;
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import cpptooling.analyzer.type_format;
 
     this(T)(T info, USRType usr) @safe if (!is(T == TypeKind)) {
         this.info = info;
@@ -82,25 +83,19 @@ struct TypeKind {
             goto case;
         case Kind.dtor:
             assert(info.id.length > 0);
-            assert(info.fmt.length > 0);
             break;
+        case Kind.array:
+        case Kind.func:
+        case Kind.funcSignature:
         case Kind.primitive:
         case Kind.record:
         case Kind.simple:
         case Kind.typeRef:
-        case Kind.array:
-        case Kind.func:
-            assert(info.fmt.length > 0);
             break;
         case Kind.funcPtr:
-            assert(info.fmt.length > 0);
             assert(info.attrs.length > 0);
             break;
-        case Kind.funcSignature:
-            assert(info.fmt.length > 0);
-            break;
         case Kind.pointer:
-            assert(info.fmt.length > 0);
             assert(info.attrs.length > 0);
             break;
         case Kind.null_:
@@ -137,7 +132,7 @@ pure @safe nothrow @nogc:
      */
     static struct ArrayInfo {
         /// int %s%s
-        string fmt;
+        ArrayFmt fmt;
         /// [2, 3]
         ArrayInfoIndex[] indexes;
         /// usr for 'int'
@@ -154,7 +149,7 @@ pure @safe nothrow @nogc:
      */
     static struct FuncPtrInfo {
         /// int (%s %s)(int pa)
-        string fmt;
+        FuncPtrFmt fmt;
         /// USRs up the pointee
         USRType pointee;
         /// attributes of the pointer hierarchy. attr[0] is the right most ptr.
@@ -165,7 +160,7 @@ pure @safe nothrow @nogc:
      */
     static struct FuncSignatureInfo {
         /// void %s(int)
-        string fmt;
+        FuncSignatureFmt fmt;
         USRType return_;
         TypeAttr returnAttr;
         FuncInfoParam[] params;
@@ -187,7 +182,7 @@ pure @safe nothrow @nogc:
      */
     static struct FuncInfo {
         /// void %s(int)
-        string fmt;
+        FuncFmt fmt;
         USRType return_;
         TypeAttr returnAttr;
         FuncInfoParam[] params;
@@ -197,7 +192,7 @@ pure @safe nothrow @nogc:
      */
     static struct CtorInfo {
         /// %s(int)
-        string fmt;
+        CtorFmt fmt;
         /// Class
         string id;
         FuncInfoParam[] params;
@@ -207,7 +202,7 @@ pure @safe nothrow @nogc:
      */
     static struct DtorInfo {
         /// ~%s()
-        string fmt;
+        DtorFmt fmt;
         /// identifier, in the example it would be 'Class'
         string id;
     }
@@ -219,7 +214,7 @@ pure @safe nothrow @nogc:
      */
     static struct PointerInfo {
         /// int%s %s
-        string fmt;
+        PtrFmt fmt;
         /// USRs up the pointee
         USRType pointee;
         /// attributes of the pointer hierarchy. attr[0] is the left most ptr.
@@ -232,7 +227,7 @@ pure @safe nothrow @nogc:
      */
     static struct TypeRefInfo {
         /// tx %s
-        string fmt;
+        SimpleFmt fmt;
         /// usr of the child type
         USRType typeRef;
         /// usr of the canonical type
@@ -248,7 +243,7 @@ pure @safe nothrow @nogc:
      */
     static struct PrimitiveInfo {
         /// int %s
-        string fmt;
+        SimpleFmt fmt;
     }
 
     /** Textual representation of simple types.
@@ -260,14 +255,14 @@ pure @safe nothrow @nogc:
      */
     static struct SimpleInfo {
         /// int %s
-        string fmt;
+        SimpleFmt fmt;
     }
 
     /** The type 'const A'
      */
     static struct RecordInfo {
         /// A %s
-        string fmt;
+        SimpleFmt fmt;
     }
 }
 
@@ -436,27 +431,6 @@ auto resolvePointeeType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
     }
 
     return rval;
-}
-
-/// DO NOT USE.
-/// Internally used to get the fmt for debugging purpuse.
-auto internalGetFmt(ref const TypeKind t) {
-    final switch (t.info.kind) with (TypeKind.Info) {
-    case Kind.primitive:
-    case Kind.typeRef:
-    case Kind.simple:
-    case Kind.array:
-    case Kind.func:
-    case Kind.funcPtr:
-    case Kind.funcSignature:
-    case Kind.record:
-    case Kind.pointer:
-    case Kind.ctor:
-    case Kind.dtor:
-        return t.info.fmt;
-    case Kind.null_:
-        return "kind is @null@";
-    }
 }
 
 // Test instantiation

@@ -63,7 +63,7 @@ void Test_ZeroGlobals::extern_typedef_array() {
     Test_memzero((void*)(::extern_typedef_array), sizeof(::extern_typedef_array));
 }
 
-Adapter::Adapter(I_TestDouble_InitGlobals& init_globals) {
+Adapter::Adapter(I_TestDouble_InitGlobals &init_globals) {
     init_globals.expect_const_ptr_array();
     init_globals.extern_a();
     init_globals.extern_array();

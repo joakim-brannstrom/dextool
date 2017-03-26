@@ -15,7 +15,7 @@ public:
 ///
 class Adapter {
 public:
-    Adapter(I_Stub& inst);
+    Adapter(I_Stub &inst);
     ~Adapter();
 };
 
