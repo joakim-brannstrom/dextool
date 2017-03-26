@@ -17,11 +17,14 @@ static import std.experimental.logger;
 /// Only use via the aliases
 auto internalLog(alias level)(const(char)[] txt, in uint indent = 0,
         string func = __FUNCTION__, uint line = __LINE__) nothrow {
+    import std.algorithm : min;
     import std.array : array;
     import std.range : repeat;
 
+    immutable indent_prep = repeat(' ', 1024).array();
+
     try {
-        string indent_ = repeat(' ', indent).array();
+        string indent_ = indent_prep[0 .. min(indent_prep.length, indent)];
         std.experimental.logger.logf!(-1, "", "", "", "")(level,
                 "%d%s %s [%s:%d]", indent, indent_, txt, func, line);
     }
