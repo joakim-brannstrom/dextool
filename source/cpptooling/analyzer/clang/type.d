@@ -2173,6 +2173,8 @@ body {
     case CXType_MemberPointer:
         break;
 
+        // CXTypeKind == 119 is elaborated kind. From libclang 3.9+
+
     default:
         logger.trace("Unhandled type kind ", to!string(kind));
     }
