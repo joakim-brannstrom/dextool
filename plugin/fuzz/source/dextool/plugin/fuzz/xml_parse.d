@@ -8,9 +8,12 @@ import std.path;
 import std.string;
 import std.xml;
 
+    import std.stdio;
+
+
 enum Direction {
-    from,
-    to
+    from = "Requirer",
+    to = "Provider"
 }
 
 struct BaseDir {
@@ -186,6 +189,7 @@ private:
             Interface_ ret;
             ContinuesInterface cis;
             //Add more interfaces here
+            cis.direction = interface_elem.tag.attr["direction"] == "From_Provider" ? Direction.from : Direction.to;
             foreach (Element elem; interface_elem.elements) {
                 switch (elem.tag.name) {
                     case "DataItem":
@@ -272,6 +276,7 @@ public:
     }
 
     Namespace[string] parseBaseDir() {
+        import std.stdio;
         Namespace[string] namespaces;
         Global glob;
         foreach(string xml_file ; xml_files) {
@@ -280,7 +285,6 @@ public:
             Types ntypes = merge(types(doc));
             Interface_ ifaces = interfaces(doc);
 
-            //This should be merge()
             if (curr_ns == "global::types") {
                 glob.enums = ntypes.enums ~ glob.enums;
                 glob.prims = ntypes.prims ~ glob.prims;
@@ -289,11 +293,15 @@ public:
 
                 continue;
             }
-            if (auto ns = curr_ns in namespaces) {
-                namespaces[curr_ns].ns_types = merge(ntypes, ns.ns_types);
-                namespaces[curr_ns].interfaces = merge(ifaces, ns.interfaces);
-            } else {
-                namespaces[curr_ns] = Namespace(curr_ns, ntypes, ifaces);
+            foreach (ContinuesInterface c ; ifaces.ci) {
+            //This should be merge()
+                string tmp_ns = curr_ns ~ "::" ~ c.direction;
+                if (auto ns = tmp_ns in namespaces) {
+                    namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
+                    namespaces[tmp_ns].interfaces = merge(ifaces, ns.interfaces);
+                } else {
+                    namespaces[tmp_ns] = Namespace(tmp_ns, ntypes, ifaces);
+                }
             }
         }
 
@@ -311,9 +319,13 @@ public:
 }
 
 
-int main() {
-    xml_parse xml_p = new xml_parse(BaseDir("sut_unittest/namespaces"));
-    xml_p.parseBaseDir;
 
-    return 0;
+version(none) {
+    int main() {
+        xml_parse xml_p = new xml_parse(BaseDir("sut_unittest/namespaces"));
+        foreach (string ns ; xml_p.parseBaseDir.byKey) {
+            writeln(ns);
+        }
+    }
+    
 }
