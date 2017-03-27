@@ -1,4 +1,4 @@
-import sutxml;
+/*import sutxml;
 import std.array;
 
 //Test if we get expected namespaces
@@ -19,3 +19,4 @@ unittest
 		"./namespaces/global/namespace.xml",
 		"./namespaces/global/types.xml"]);
 }
+*/
