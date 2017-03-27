@@ -329,32 +329,25 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.utility : dedup;
-
     // setup
     static if (is(CppT == CppRoot)) {
         auto filtered = CppRoot.make;
     } 
     else static if (is(CppT == CppNamespace)) {
-	    auto ns = input.dup;
-
-	    if (ns.fullyQualifiedName in xmlp.getNamespaces()) {
-		auto filtered = CppNamespace.make(input.name);
-		writeln("rawFilter() - ns.fqn: " ~ ns.fullyQualifiedName);
-	    }
-	    else {
-		writeln("rawFilter(): invalid SUT");
-	    }
+	    auto filtered = input.dup;
 	}
 	else {
 	    static assert("Type not supported: " ~ CppT.stringof);
 	}    
 
+    static if (is(CppT == CppNamespace)) {
     // dfmt off
-    input.namespaceRange
-        .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, prod, lookup, xmlp))
-        .each!(a => filtered.put(a));
-
+        input.namespaceRange
+            .filter!(a => !a.isAnonymous)
+            .filter!(a => !(filtered.fullyQualifiedName in xmlp.getNamespaces()))
+            .map!(a => rawFilter(a, prod, lookup, xmlp)).array
+            .each!(a => filtered.put(a));
+    }
     // dfmt on
 
     return filtered;
