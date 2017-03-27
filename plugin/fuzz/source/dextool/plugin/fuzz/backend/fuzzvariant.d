@@ -389,25 +389,25 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     import cpptooling.generator.func : makeFuncInterface;
     //import cpptooling.utility : dedup;
 
-    auto ns = input.name;
+    auto ns = input.dup;
 
-    if (!input.funcRange.empty) {
-	// singleton instance must be before the functions
-	auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
-	data.tag(singleton.id, Kind.testDoubleSingleton);
-        ns.put(singleton);
+    // if (!input.funcRange.empty) {
+	// // singleton instance must be before the functions
+	// auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
+	// data.tag(singleton.id, Kind.testDoubleSingleton);
+    //     ns.put(singleton);
 
-        // output the functions using the singleton
-        input.funcRange.each!(a => ns.put(a));
+    //     // output the functions using the singleton
+    //     input.funcRange.each!(a => ns.put(a));
 
-    }
+    // }
 
     Nullable!CppNamespace rval;
     
 
     //dfmt off
     input.namespaceRange
-        .map!(a => translate(a, container, params, xmlp))
+        .map!(a => translate(a, data, container, params, xmlp))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
     
@@ -415,8 +415,8 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
         .each!(a => ns.put(a));
     // dfmt on
 
-    validNs(ns, params, rval, xmlp);
-    
+    //validNs(ns, params, rval, xmlp);
+    rval  = ns;
     return rval;
 }
 
@@ -438,9 +438,9 @@ body {
     import cpptooling.analyzer.type;
 
     //generateIncludes(ctrl, params, modules.hdr);
-    foreach (incl; params.getIncludes) {
+    /*foreach (incl; params.getIncludes) {
         modules.hdr.include(cast(string) incl);
-    }
+    }*/
     
     modules.hdr.include("testingenvironment.hpp");
     modules.hdr.include("portenvironment.hpp");
@@ -457,7 +457,7 @@ body {
         auto inner = modules;
         CppModule inner_impl_singleton;
 	   
-	final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+	/*final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
 	    case Normal:
 		inner.hdr = modules.hdr.namespace(ns.name);
 		//inner.hdr.suppressIndent(1);
@@ -468,7 +468,7 @@ body {
 	    case TestDouble:
 		break;
 	    }
-        
+    */    
 	foreach(a; ns.classRange) {
 	    string class_name = a.name[2..$];
 	    string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
@@ -495,10 +495,6 @@ body {
 	eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), classes);
     }
  }
-
-@trusted string[] getDataItems(xml_parse xmlp) {
-    return string[];
-}
 
 /*
 @trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, xml_parse xmlp) {
