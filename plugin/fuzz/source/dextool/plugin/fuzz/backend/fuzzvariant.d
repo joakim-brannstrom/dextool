@@ -321,7 +321,7 @@ struct ImplData {
     }
 }
 
-CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_parse xmlp) @safe {
+CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_parse xmlp) @trusted {
     import std.array : array;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
@@ -337,10 +337,9 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     else static if (is(CppT == CppNamespace)) {
 	    auto ns = input.dup;
 
-	    if ((!ns.namespaceRange.empty || !ns.classRange.empty)
-		&& ns.fullyQualifiedName in xmlp.getNamespaces()) {
+	    if (ns.fullyQualifiedName in xmlp.getNamespaces()) {
 		auto filtered = CppNamespace.make(input.name);
-		writeln("rawFilter(): " ~ currnsrp);
+		writeln("rawFilter() - ns.fqn: " ~ ns.fullyQualifiedName);
 	    }
 	    else {
 		writeln("rawFilter(): invalid SUT");
@@ -348,20 +347,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
 	}
 	else {
 	    static assert("Type not supported: " ~ CppT.stringof);
-	}
-
-    // type specific
-    static if (is(CppT == CppNamespace)) {
-        // dfmt off
-        input.funcRange
-            .array()
-            .dedup
-	    // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
-            .each!(a => filtered.put(a.value));
-        // dfmt on
-    }
-    
+	}    
 
     // dfmt off
     input.namespaceRange
@@ -469,6 +455,7 @@ body {
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
+    
     @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
 					 Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref CppModule[string] classes) {
         import std.variant;
@@ -494,11 +481,11 @@ body {
 	    string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
 	    foreach (b; a.methodPublicRange) {
 		if (!(fqn_class in classes)) {
-		    classes[fqn_class] = 
-			generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, sut);
+		    /*classes[fqn_class] = 
+		      generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload);*/
 		} 
                     
-		b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, sut),
+		b.visit!((const CppMethod a) => writeln("")/*generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName)*/,
 			 (const CppMethodOp a) => writeln(""),
 			 (const CppCtor a) => generateCtor(a, inner),
 			 (const CppDtor a) => generateDtor(a, inner));
@@ -519,14 +506,8 @@ body {
 @trusted string[] getDataItems(xml_parse xmlp) {
     return string[];
 }
+
 /*
-    import std.algorithm : map, joiner, each; 
-    import std.array;
-
-    return sut.iface.interfaces.array.map!(a => map!(b => b.name)(a.ditems.array)).joiner.array;
-}
-*/
-
 @trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, xml_parse xmlp) {
     //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
     import std.array;
@@ -543,7 +524,6 @@ body {
         base_class = "";
     }
 
-    /*
     with (inner_class) {
         with(private_) {
             foreach(ciface; sut.iface.interfaces) {
@@ -587,9 +567,8 @@ body {
             }
         }
     }
-    */
     return inner_class;
-}
+    }*/
 
 void generateCtor(const CppCtor a, Generator.Modules inner) {
     import std.array : split;
@@ -607,6 +586,7 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
 
 
 //Should probably return a class for implementation
+/*
 @trusted void generateCppMeth(const CppMethod a, CppModule inner, string class_name, string nsname, xml_parse xmlp) {
     //Get_Port, does it always exist?
     import std.string;
@@ -640,6 +620,7 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
 	}
     }
 }
+*/
 
 CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
     if (class_.inheritRange.length == 0) {
