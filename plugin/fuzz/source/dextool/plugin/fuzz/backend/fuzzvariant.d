@@ -12,8 +12,10 @@ import dsrcgen.cpp : CppModule, CppHModule;
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
     CustomHeader, MainNs, MainInterface;
 import cpptooling.analyzer.clang.ast : Visitor;
-//import cpptooling.testdouble.header_filter : LocationType;
-import sutenvironment.sutenvironment;
+//import application.types;
+import cpptooling.testdouble.header_filter : LocationType;
+
+import xml_parse;
 
 
 /*@safe interface Controller {
@@ -30,7 +32,6 @@ import sutenvironment.sutenvironment;
         FileName hdr;
         FileName impl;
         FileName globals;
-        FileName gmock;
         FileName pre_incl;
         FileName post_incl;
     }
@@ -42,7 +43,7 @@ import sutenvironment.sutenvironment;
     DextoolVersion getToolVersion();
     CustomHeader getCustomHeader();
 
-    SUTEnvironment getSut();
+    //SUTEnvironment getSut();
 }
 
 /// Data produced by the generator like files.
@@ -64,17 +65,19 @@ struct Generator {
 
         CppModule hdr;
         CppModule impl;
-        CppModule gmock;
     }
 
      void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
 
-        //auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr));
-        //logger.trace("Filtered:\n", fl.toString());
+	//TODO: Find a suitable name
+	xml_parse xmlp = new xml_parse(BaseDir("../sut_unittest/namespaces"));
 
-        //auto impl_data = translate(fl, container, params);
-        //logger.trace("Translated to implementation:\n", impl_data.toString());
+        auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr));
+        logger.trace("Filtered:\n", fl.toString());
+
+        auto impl_data = translate(root, container, params, xmlp);
+        logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
@@ -91,7 +94,7 @@ private:
             generatetPreInclude, generatePostInclude, makeHeader;
 
         static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver,
-                CustomHeader custom_hdr) {
+			      CustomHeader custom_hdr) {
             auto o = CppHModule(convToIncludeGuard(fname));
             o.header.append(makeHeader(fname, ver, custom_hdr));
             o.content.append(hdr);
@@ -100,7 +103,7 @@ private:
         }
 
         static auto output(CppModule code, FileName incl_fname, FileName dest,
-                DextoolVersion ver, CustomHeader custom_hdr) {
+			   DextoolVersion ver, CustomHeader custom_hdr) {
             import std.path : baseName;
 
             auto o = new CppModule;
@@ -155,7 +158,7 @@ final class CppVisitor(RootT, ProductT) : Visitor {
         }
     } else {
         this(ProductT prod, uint indent, CppNsStack ns_stack,
-                NullableRef!Container container) {
+	     NullableRef!Container container) {
             this.root = CppNamespace(ns_stack);
             this.prod = prod;
             this.indent = indent;
@@ -185,7 +188,7 @@ final class CppVisitor(RootT, ProductT) : Visitor {
         if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
             auto var = CxGlobalVariable(result.instanceUSR,
-                    TypeKindVariable(result.type, result.name));
+					TypeKindVariable(result.type, result.name));
             root.put(var);
         }
     }
@@ -196,7 +199,7 @@ final class CppVisitor(RootT, ProductT) : Visitor {
         auto result = analyzeFunctionDecl(v, container, indent);
         if (result.isValid) {
             auto func = CFunction(result.type.kind.usr, result.name, result.params,
-                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
+				  CxReturnType(result.returnType), result.isVariadic, result.storageClass);
             root.put(func);
         }
     }
@@ -320,32 +323,97 @@ struct ImplData {
 
 /*
   Will be implemented later
-CppT rawFilter() {}
+  CppT rawFilter() {}
 */
 
 
 
-/*
-  Will be implemented later
-auto translate() {}
-*/
+auto translate(CppRoot root, ref Container container,
+	       Parameters params, xml_parse xmlp) {
 
+    import std.algorithm : map, filter, each;
 
+    auto r = ImplData.make;
+
+    // dfmt off
+    root.namespaceRange
+        .map!(a => translate(a, r, container, params, xmlp))
+        .filter!(a => !a.isNull)
+        .each!(a => r.put(a.get));
+
+    foreach (a; root.classRange
+        .map!(a => mergeClassInherit(a, container))
+        // can happen that the result is a class with no methods, thus in state Unknown
+        .filter!(a => a.isVirtual)) {	
+	// r.tag(a.id, Kind.gmock);
+        r.put(a);
+    }
+    // dfmt on
+
+    return r;
+}
+
+Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
+				ref Container container, Parameters params, xml_parse xmlp) {
+    import std.algorithm : map, filter, each, uniq;
+    import std.array : empty, array, join;
+    import cpptooling.data.representation : CppNs;
+    //import cpptooling.generator.adapter : makeAdapter, makeSingleton;
+    import cpptooling.generator.func : makeFuncInterface;
+    //import cpptooling.utility : dedup;
+
+    auto ns = input.dup;
+
+    Nullable!CppNamespace rval;
+     
+    @trusted static void validNs(CppNamespace ns, Parameters params, Nullable!CppNamespace rval, xml_parse xmlp) {
+	string currnsrp;	
+	string currns = ns.fullyQualifiedName;
+
+	bool isReqOrPro = ns.resideInNs[$-1] == "Requirer" ||  ns.resideInNs[$-1] == "Provider";
+	if (isReqOrPro) {
+	    currnsrp = join(ns.resideInNs[0..$-1], "::");
+	} else {
+	    currnsrp = currns;
+	}
+
+	if ((!ns.namespaceRange.empty || !ns.classRange.empty)
+	    && currnsrp in xmlp.getNamespaces()) {
+	    rval = ns;
+	    writeln(ns.name);
+	}
+	else
+	    writeln("invalid SUT");
+    }
+ 
+    //dfmt off
+    input.namespaceRange
+        .map!(a => translate(a, container, params, xmlp))
+        .filter!(a => !a.isNull)
+        .each!(a => ns.put(a.get));
+    
+    input.classRange
+        .each!(a => ns.put(a));
+    // dfmt on
+
+    validNs(ns, params, rval, xmlp);
+    
+    return rval;
+}
 
 void generate(CppRoot r, Parameters params,
-        Generator.Modules modules, ref const(Container) container)
-in {
-    import std.array : empty;
+	      Generator.Modules modules, ref const(Container) container)
+    in {
+	import std.array : empty;
 
-    assert(r.funcRange.empty);
-}
+	assert(r.funcRange.empty);
+    }
 body {
     import std.algorithm : each, filter;
     import std.array;
     import std.typecons;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
-    import cpptooling.generator.gmock : generateGmock;
     import cpptooling.generator.includes : generateIncludes;
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
@@ -357,51 +425,43 @@ body {
     
     modules.hdr.include("testingenvironment.hpp");
     modules.hdr.include("portenvironment.hpp");
-    
-    static void gmockGlobal(T)(T r, CppModule gmock, Parameters params) {
-        foreach (a; r.filter!(a => cast(ClassType) a.kind == ClassType.Gmock)) {
-            generateGmock(a, gmock, params);
-        }
-    }
 
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
     @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
-            Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref CppModule[string] classes) {
+					 Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref CppModule[string] classes) {
         import std.variant;
         import std.algorithm : canFind, map, joiner;
 	    
         string currnsrp;	
         string currns = ns.fullyQualifiedName;
 
-        
-	    bool isReqOrPro = ns.resideInNs[$-1] == "Requirer" ||  ns.resideInNs[$-1] == "Provider";
+	bool isReqOrPro = ns.resideInNs[$-1] == "Requirer" ||  ns.resideInNs[$-1] == "Provider";
         if (isReqOrPro) {
             currnsrp = join(ns.resideInNs[0..$-1], "::");
         } else {
             currnsrp = currns;
         }
         
-        SUTEnv sut = params.getSut.GetSUTFromNamespace(currnsrp);
+        //SutEnvironment sut = null;//params.getSut.GetSUTFromNamespace(currnsrp);
         auto inner = modules;
         CppModule inner_impl_singleton;
-	    
-        if(sut.valid) {
-		    final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-	             case Normal:
-                         inner.hdr = modules.hdr.namespace(ns.name);
-                         //inner.hdr.suppressIndent(1);
-                         inner.impl = modules.impl.namespace(ns.name);
-                         break;
-                     case TestDoubleSingleton:
-                         break;
-                     case TestDouble:
-                         break;
-            }
-	    }
+	   
+	/*
+	    final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+		case Normal:
+		    inner.hdr = modules.hdr.namespace(ns.name);
+		    //inner.hdr.suppressIndent(1);
+		    inner.impl = modules.impl.namespace(ns.name);
+		    break;
+		case TestDoubleSingleton:
+		    break;
+		case TestDouble:
+		    break;
+		}
         
-        if (sut.valid && isReqOrPro)
+        if (isReqOrPro)
         {
             foreach(a; ns.classRange) {
                 string class_name = a.name[2..$];
@@ -413,12 +473,13 @@ body {
                     } 
                     
                     b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, sut),
-                        (const CppMethodOp a) => writeln(""),
-                        (const CppCtor a) => generateCtor(a, inner),
-                        (const CppDtor a) => generateDtor(a, inner));
+			     (const CppMethodOp a) => writeln(""),
+			     (const CppCtor a) => generateCtor(a, inner),
+			     (const CppDtor a) => generateDtor(a, inner));
                 }
             }
         }
+	*/
   
         foreach (a; ns.namespaceRange) { 
             eachNs(a, params, inner, inner_impl_singleton, lookup, classes);
@@ -429,16 +490,20 @@ body {
     foreach (a; r.namespaceRange()) {
         eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), classes);
     }
-}
+ }
 
-@trusted string[] getDataItems(SUTEnv sut) {
+@trusted string[] getDataItems(xml_parse xmlp) {
+    return string[];
+}
+/*
     import std.algorithm : map, joiner, each; 
     import std.array;
 
     return sut.iface.interfaces.array.map!(a => map!(b => b.name)(a.ditems.array)).joiner.array;
 }
+*/
 
-@trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, SUTEnv sut) {
+@trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, xml_parse xmlp) {
     //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf; 
@@ -454,6 +519,7 @@ body {
         base_class = "";
     }
 
+    /*
     with (inner_class) {
         with(private_) {
             foreach(ciface; sut.iface.interfaces) {
@@ -489,14 +555,15 @@ body {
                             //Add ranges here, non existent in current xml parser?
                          
                             stmt(E(ciface.name.toLower ~ "." ~ ditem.name) =    
-                                    E(`randomGenerator->generate("` ~
-                                        type ~ ` ` ~ ciface.name ~ ` ` ~ ditem.name ~ `")`));
+				 E(`randomGenerator->generate("` ~
+				   type ~ ` ` ~ ciface.name ~ ` ` ~ ditem.name ~ `")`));
                         }
                     }
                 }
             }
         }
     }
+    */
     return inner_class;
 }
 
@@ -516,14 +583,14 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
 
 
 //Should probably return a class for implementation
-@trusted void generateCppMeth(const CppMethod a, CppModule inner, string class_name, string nsname, SUTEnv sut) {
+@trusted void generateCppMeth(const CppMethod a, CppModule inner, string class_name, string nsname, xml_parse xmlp) {
     //Get_Port, does it always exist?
     import std.string;
     import std.array;
     import std.algorithm.searching : canFind;
     import cpptooling.analyzer.type;
 
-    auto ditems = getDataItems(sut);
+    auto ditems = getDataItems(xmlp);
     auto cppm_type = (cast(string)(a.name)).split("_")[0];
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$-1];  
     
@@ -545,8 +612,8 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
         }
 
         else if(cppm_type == "Get") {
-    		return_(cppm_ditem.toLower);
-	    }
+	    return_(cppm_ditem.toLower);
+	}
     }
 }
 
@@ -565,9 +632,9 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
         // dfmt off
         return method.visit!((const CppMethod a) => true,
-                        (const CppMethodOp a) => true,
-                        (const CppCtor a) => false,
-                        (const CppDtor a) => false);
+			     (const CppMethodOp a) => true,
+			     (const CppCtor a) => false,
+			     (const CppDtor a) => false);
         // dfmt on
     }
 
@@ -578,7 +645,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 
         // dfmt off
         auto local_methods = c.methodRange
-                .filter!(a => isMethodOrOperator(a));
+	    .filter!(a => isMethodOrOperator(a));
 
         auto inherit_methods = c.inheritRange
             .map!(a => container.find!CppClass(a.fullyQualifiedName))
