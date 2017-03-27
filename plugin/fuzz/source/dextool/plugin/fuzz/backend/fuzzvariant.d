@@ -73,10 +73,10 @@ struct Generator {
 	//TODO: Find a suitable name
 	xml_parse xmlp = new xml_parse(BaseDir("../sut_unittest/namespaces"));
 
-        auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr));
+        auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
         logger.trace("Filtered:\n", fl.toString());
 
-        auto impl_data = translate(root, container, params, xmlp);
+        auto impl_data = translate(fl, container, params, xmlp);
         logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
 
@@ -321,10 +321,58 @@ struct ImplData {
     }
 }
 
-/*
-  Will be implemented later
-  CppT rawFilter() {}
-*/
+CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_parse xmlp) @safe {
+    import std.array : array;
+    import std.algorithm : each, filter, map, filter;
+    import std.range : tee;
+    import dextool.type : FileName;
+    import cpptooling.data.representation : StorageClass;
+    import cpptooling.generator.utility : filterAnyLocation;
+    import cpptooling.utility : dedup;
+
+    // setup
+    static if (is(CppT == CppRoot)) {
+        auto filtered = CppRoot.make;
+    } 
+    else static if (is(CppT == CppNamespace)) {
+	    auto ns = input.dup;
+
+	    if ((!ns.namespaceRange.empty || !ns.classRange.empty)
+		&& ns.fullyQualifiedName in xmlp.getNamespaces()) {
+		auto filtered = CppNamespace.make(input.name);
+		writeln("rawFilter(): " ~ currnsrp);
+	    }
+	    else {
+		writeln("rawFilter(): invalid SUT");
+	    }
+	}
+	else {
+	    static assert("Type not supported: " ~ CppT.stringof);
+	}
+
+    // type specific
+    static if (is(CppT == CppNamespace)) {
+        // dfmt off
+        input.funcRange
+            .array()
+            .dedup
+	    // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .each!(a => filtered.put(a.value));
+        // dfmt on
+    }
+    
+
+    // dfmt off
+    input.namespaceRange
+        .filter!(a => !a.isAnonymous)
+        .map!(a => rawFilter(a, prod, lookup, xmlp))
+        .each!(a => filtered.put(a));
+
+    // dfmt on
+
+    return filtered;
+}
 
 
 
@@ -362,30 +410,22 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     import cpptooling.generator.func : makeFuncInterface;
     //import cpptooling.utility : dedup;
 
-    auto ns = input.dup;
+    auto ns = input.name;
+
+    if (!input.funcRange.empty) {
+	// singleton instance must be before the functions
+	auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
+	data.tag(singleton.id, Kind.testDoubleSingleton);
+        ns.put(singleton);
+
+        // output the functions using the singleton
+        input.funcRange.each!(a => ns.put(a));
+
+    }
 
     Nullable!CppNamespace rval;
-     
-    @trusted static void validNs(CppNamespace ns, Parameters params, Nullable!CppNamespace rval, xml_parse xmlp) {
-	string currnsrp;	
-	string currns = ns.fullyQualifiedName;
+    
 
-	bool isReqOrPro = ns.resideInNs[$-1] == "Requirer" ||  ns.resideInNs[$-1] == "Provider";
-	if (isReqOrPro) {
-	    currnsrp = join(ns.resideInNs[0..$-1], "::");
-	} else {
-	    currnsrp = currns;
-	}
-
-	if ((!ns.namespaceRange.empty || !ns.classRange.empty)
-	    && currnsrp in xmlp.getNamespaces()) {
-	    rval = ns;
-	    writeln(ns.name);
-	}
-	else
-	    writeln("invalid SUT");
-    }
- 
     //dfmt off
     input.namespaceRange
         .map!(a => translate(a, container, params, xmlp))
@@ -434,61 +474,45 @@ body {
         import std.variant;
         import std.algorithm : canFind, map, joiner;
 	    
-        string currnsrp;	
-        string currns = ns.fullyQualifiedName;
-
-	bool isReqOrPro = ns.resideInNs[$-1] == "Requirer" ||  ns.resideInNs[$-1] == "Provider";
-        if (isReqOrPro) {
-            currnsrp = join(ns.resideInNs[0..$-1], "::");
-        } else {
-            currnsrp = currns;
-        }
-        
-        //SutEnvironment sut = null;//params.getSut.GetSUTFromNamespace(currnsrp);
         auto inner = modules;
         CppModule inner_impl_singleton;
 	   
-	/*
-	    final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-		case Normal:
-		    inner.hdr = modules.hdr.namespace(ns.name);
-		    //inner.hdr.suppressIndent(1);
-		    inner.impl = modules.impl.namespace(ns.name);
-		    break;
-		case TestDoubleSingleton:
-		    break;
-		case TestDouble:
-		    break;
-		}
+	final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+	    case Normal:
+		inner.hdr = modules.hdr.namespace(ns.name);
+		//inner.hdr.suppressIndent(1);
+		inner.impl = modules.impl.namespace(ns.name);
+		break;
+	    case TestDoubleSingleton:
+		break;
+	    case TestDouble:
+		break;
+	    }
         
-        if (isReqOrPro)
-        {
-            foreach(a; ns.classRange) {
-                string class_name = a.name[2..$];
-                string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
-                foreach (b; a.methodPublicRange) {
-                    if (!(fqn_class in classes)) {
-                        classes[fqn_class] = 
-                            generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, sut);
-                    } 
+	foreach(a; ns.classRange) {
+	    string class_name = a.name[2..$];
+	    string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
+	    foreach (b; a.methodPublicRange) {
+		if (!(fqn_class in classes)) {
+		    classes[fqn_class] = 
+			generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, sut);
+		} 
                     
-                    b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, sut),
-			     (const CppMethodOp a) => writeln(""),
-			     (const CppCtor a) => generateCtor(a, inner),
-			     (const CppDtor a) => generateDtor(a, inner));
-                }
-            }
-        }
-	*/
+		b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, sut),
+			 (const CppMethodOp a) => writeln(""),
+			 (const CppCtor a) => generateCtor(a, inner),
+			 (const CppDtor a) => generateDtor(a, inner));
+	    }
+	}
   
-        foreach (a; ns.namespaceRange) { 
-            eachNs(a, params, inner, inner_impl_singleton, lookup, classes);
-        }
+	foreach (a; ns.namespaceRange) { 
+	    eachNs(a, params, inner, inner_impl_singleton, lookup, classes);
+	}
     }
 
     CppModule[string] classes;
     foreach (a; r.namespaceRange()) {
-        eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), classes);
+	eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), classes);
     }
  }
 
