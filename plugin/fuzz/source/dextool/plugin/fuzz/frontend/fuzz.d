@@ -185,14 +185,16 @@ ExitStatusType genCpp(FuzzVariant variant,
     import dextool.plugin.backend.fuzz.fuzzvariant : Generator,
         FuzzVisitor;
     import dextool.io : writeFileData;
+    import std.stdio;
 
     auto visitor = new FuzzVisitor!(CppRoot, Products)(variant);
     string[] use_cflags;
 
     auto hfiles = compile_db.getHeaderFiles();
-    
+    writeln(hfiles);
     string res;
     foreach(hfile ; hfiles) {
+        writeln(hfile);
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         if (analyzeFile(hfile, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
@@ -205,7 +207,7 @@ ExitStatusType genCpp(FuzzVariant variant,
             logger.trace(visitor);
         }
 
-        return writeFileData(variant.file_data);
+        writeFileData(variant.file_data);
     }
 
     return ExitStatusType.Ok;
