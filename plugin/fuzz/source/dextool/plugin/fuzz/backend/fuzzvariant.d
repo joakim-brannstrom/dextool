@@ -44,8 +44,6 @@ import xml_parse;
     StubPrefix getArtifactPrefix();
     DextoolVersion getToolVersion();
     CustomHeader getCustomHeader();
-
-    //SUTEnvironment getSut();
 }
 
 /// Data produced by the generator like files.
@@ -77,11 +75,12 @@ struct Generator {
      void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
 
-	    //TODO: Find a suitable name
-	    xml_parse xmlp = new xml_parse(params.getXMLBasedir);
+	//TODO: Find a suitable name
+	xml_parse xmlp = new xml_parse(params.getXMLBasedir);
 
-        auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
+	auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
         logger.trace("Filtered:\n", fl.toString());
+     
 
         /*auto impl_data = translate(fl, container, params, xmlp);
         logger.trace("Translated to implementation:\n", impl_data.toString());
@@ -91,7 +90,7 @@ struct Generator {
 	//translate is skipped for now, as tagging isn't necessary
 
         auto modules = Modules.make();
-        generate(fl, params, modules, container, xmlp);
+        generate(root, params, modules, container, xmlp);
         postProcess(params, products, modules);
     }
 
@@ -358,6 +357,8 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
             .filter!(a => !(filtered.fullyQualifiedName in xmlp.getNamespaces()))
             .map!(a => rawFilter(a, prod, lookup, xmlp)).array
             .each!(a => filtered.put(a));
+	input.classRange
+	    .each!(a => filtered.put(a));
     }
     // dfmt on
 
@@ -369,7 +370,7 @@ void generate(CppRoot r, Parameters params,
     in {
 	import std.array : empty;
 
-	assert(r.funcRange.empty);
+	//assert(r.funcRange.empty);
     }
 body {
     import std.algorithm : each, filter;
@@ -396,25 +397,34 @@ body {
     @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
 					 Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref CppModule[string] classes, xml_parse xmlp) {
         import std.variant;
+	import std.stdio;
+	import std.string : toLower;
         import std.algorithm : canFind, map, joiner;
 	    
         auto inner = modules;
         CppModule inner_impl_singleton;
-	   
-	/*final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-	    case none:
+     
+	//final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+	//  case none:
 		inner.hdr = modules.hdr.namespace(ns.name);
 		//inner.hdr.suppressIndent(1);
 		inner.impl = modules.impl.namespace(ns.name);
-		break;
-	    } */   
+		//	break;
+		// }   
 	foreach(a; ns.classRange) {
 	    string class_name = a.name[2..$];
-	    string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
+	    string fqn_class = ns.fullyQualifiedName;// ~ "::"  ~ class_name;
+	    writeln("class_name: " ~ class_name);
+	    writeln("fqn_class: " ~ fqn_class);
+	    
+	    Namespace nss;
+	    if (xmlp.exists(fqn_class.toLower)) {
+	        nss = xmlp.getNamespace(fqn_class.toLower);
+	    }
 	    foreach (b; a.methodPublicRange) {
-		    if (!(fqn_class in classes)) {
+		if (!(fqn_class in classes && !(nss.interfaces.ci.empty))) {
 		        classes[fqn_class] = 
-			        generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, xmlp);
+			        generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, nss);
 		    } 
                     
 		b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, xmlp),
@@ -435,7 +445,7 @@ body {
     }
  }
 
-@trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, xml_parse xmlp) {
+@trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, Namespace HopefullyThisWorks) {
     //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf; 
@@ -445,7 +455,7 @@ body {
     string fqn_ns = ns.join("::"); 
     
     auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name); 
-    if (class_name.endsWith("Requirer") || class_name.endsWith("Provider")) {
+    if (class_name.endsWith("requirer") || class_name.endsWith("provider")) {
         base_class = "I_" ~ class_name[0..class_name.indexOf(type)-1];
     } else {
         base_class = "";
@@ -453,10 +463,12 @@ body {
 
     with (inner_class) {
         with(private_) {
-            foreach(ciface; xmlp.getNamespace(fqn_ns).interfaces.ci) {
+	    writeln("class_name: "~class_name);
+	    writeln("generateClass fqn_ns: "~fqn_ns.toLower);
+            foreach(ciface; HopefullyThisWorks.interfaces.ci) {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
             }
-            if(class_name.endsWith("Requirer") || class_name.endsWith("Provider")) {
+            if(class_name.endsWith("requirer") || class_name.endsWith("provider")) {
                 stmt(E(base_class ~ "* port"));
             } else {
                 stmt(E("RandomGenerator* randomGenerator"));
@@ -464,12 +476,12 @@ body {
         }
         with(public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-                if (!(class_name.endsWith("Requirer") || class_name.endsWith("Provider"))) {
+                if (!(class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
                     stmt(E("randomGenerator") = E(`&TestingEnvironment::createRandomGenerator("`~ type  ~`")`));
                 }
             }
 
-            if ((class_name.endsWith("Requirer") || class_name.endsWith("Provider"))) {
+            if ((class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
                 with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
                     stmt(E("port") = E("p"));
                 }
@@ -478,10 +490,10 @@ body {
             with (func_body("", "~" ~ class_name ~"_Impl")) { //Generate destructor
              	    
             }
-            if (!(class_name.endsWith("Requirer") || class_name.endsWith("Provider"))) {
+            if (!(class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
 
                 with(func_body("void", "Regenerate")) {
-                    foreach(ciface; xmlp.getNamespace(fqn_ns).interfaces.ci) {
+                    foreach(ciface; HopefullyThisWorks.interfaces.ci) {
                         foreach(ditem; ciface.data_items) {
                             //Add ranges here, non existent in current xml parser?
                             stmt(E(ciface.name.toLower ~ "." ~ ditem.name) =    

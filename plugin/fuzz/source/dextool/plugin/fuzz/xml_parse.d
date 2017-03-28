@@ -12,8 +12,8 @@ import std.xml;
 
 
 enum Direction {
-    from = "Requirer",
-    to = "Provider"
+    from = "requirer",
+    to = "provider"
 }
 
 struct BaseDir {
@@ -318,6 +318,10 @@ public:
         return this.nsps;
     }
 
+    bool exists(string nsname) {
+	return this.nsps.get(nsname, Namespace()) != Namespace();
+    }
+
     Namespace getNamespace(string nsname) {
         return this.nsps[nsname];
     }
@@ -326,7 +330,7 @@ public:
 
 
 
-version(none) {
+/*version(none) {
     int main() {
         xml_parse xml_p = new xml_parse(BaseDir("sut_unittest/namespaces"));
         foreach (string ns ; xml_p.parseBaseDir.byKey) {
@@ -335,3 +339,4 @@ version(none) {
     }
     
 }
+*/
