@@ -76,12 +76,15 @@ struct Generator {
         auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
         logger.trace("Filtered:\n", fl.toString());
 
-        auto impl_data = translate(fl, container, params, xmlp);
+        /*auto impl_data = translate(fl, container, params, xmlp);
         logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
+	*/
+
+	//translate is skipped for now, as tagging isn't necessary
 
         auto modules = Modules.make();
-        generate(impl_data, params, modules, container);
+        generate(fl, params, modules, container);
         postProcess(params, products, modules);
     }
 
@@ -292,9 +295,8 @@ import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
 enum Kind {
-    CI_Requirer,
-    CI_Provider,
-    none
+    none,
+    ContinuesInterface,
 }
 
 struct ImplData {
@@ -355,73 +357,6 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     return filtered;
 }
 
-
-
-auto translate(CppRoot root, ref Container container,
-	       Parameters params, xml_parse xmlp) {
-
-    import std.algorithm : map, filter, each;
-
-    auto r = ImplData.make;
-
-    // dfmt off
-    root.namespaceRange
-        .map!(a => translate(a, r, container, xmlp))
-        .filter!(a => !a.isNull)
-        .each!(a => r.put(a.get));
-
-    foreach (a; root.classRange
-        .map!(a => mergeClassInherit(a, container))
-        // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)) {	
-	// r.tag(a.id, Kind.gmock);
-        r.put(a);
-    }
-    // dfmt on
-
-    return r;
-}
-
-Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
-				ref Container container, xml_parse xmlp) {
-    import std.algorithm : map, filter, each, uniq;
-    import std.array : empty, array, join;
-    import cpptooling.data.representation : CppNs;
-    //import cpptooling.generator.adapter : makeAdapter, makeSingleton;
-    import cpptooling.generator.func : makeFuncInterface;
-    //import cpptooling.utility : dedup;
-
-    auto ns = input.dup;
-
-    // if (!input.funcRange.empty) {
-	// // singleton instance must be before the functions
-	// auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
-	// data.tag(singleton.id, Kind.testDoubleSingleton);
-    //     ns.put(singleton);
-
-    //     // output the functions using the singleton
-    //     input.funcRange.each!(a => ns.put(a)); 
-
-    // }
-
-    Nullable!CppNamespace rval;
-    
-
-    //dfmt off
-    input.namespaceRange
-        .map!(a => translate(a, data, container, xmlp))
-        .filter!(a => !a.isNull)
-        .each!(a => ns.put(a.get));
-    
-    input.classRange
-        .each!(a => ns.put(a));
-    // dfmt on
-
-    //validNs(ns, params, rval, xmlp);
-    rval  = ns;
-    return rval;
-}
-
 void generate(CppRoot r, Parameters params,
 	      Generator.Modules modules, ref const(Container) container)
     in {
@@ -459,25 +394,20 @@ body {
         auto inner = modules;
         CppModule inner_impl_singleton;
 	   
-	/*final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-	    case Normal:
+	final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+	    case none:
 		inner.hdr = modules.hdr.namespace(ns.name);
 		//inner.hdr.suppressIndent(1);
 		inner.impl = modules.impl.namespace(ns.name);
 		break;
-	    case TestDoubleSingleton:
-		break;
-	    case TestDouble:
-		break;
-	    }
-    */    
+	    }    
 	foreach(a; ns.classRange) {
 	    string class_name = a.name[2..$];
 	    string fqn_class = ns.fullyQualifiedName ~ "::"  ~ class_name;
 	    foreach (b; a.methodPublicRange) {
 		if (!(fqn_class in classes)) {
-		    /*classes[fqn_class] = 
-		      generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload);*/
+		    classes[fqn_class] = 
+			generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload);
 		} 
                     
 		b.visit!((const CppMethod a) => writeln("")/*generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName)*/,
@@ -498,26 +428,30 @@ body {
     }
  }
 
-/*
-@trusted CppModule generateClass(Generator.Modules inner, string class_name, string[] ns, string type, xml_parse xmlp) {
+@trusted CppModule generateClass(Generator.Modules inner, string[] ns, string type, xml_parse xmlp) {
     //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf; 
     import std.algorithm : endsWith;
     
     string base_class; 
+    string direction = ns[$-1];
     string fqn_ns = ns.join("::"); 
     
-    auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name); 
-    if (class_name.endsWith("Requirer") || class_name.endsWith("Provider")) {
-        base_class = "I_" ~ class_name[0..class_name.indexOf(type)-1];
+    auto inner_class = inner.hdr.class_(namespace ~ "_Impl", "public I_" ~ class_name); 
+    if (direction == "Requirer" || direction == "Provider") {
+        base_class = "I_" ~ namespace[0..namespace.indexOf(type)-1];
     } else {
-        base_class = "";
+        base_class = ""; 
+	/*Namespace is invalid, should never happen and 
+	  error should be thrown in earlier stages?
+	  Do the check in rawFilter perhaps.
+	 */
     }
 
     with (inner_class) {
         with(private_) {
-            foreach(ciface; sut.iface.interfaces) {
+            foreach(ciface; xmlp.interfaces.ci /*sut.iface.interfaces*/) {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
             }
             if(class_name.endsWith("Requirer") || class_name.endsWith("Provider")) {
@@ -559,7 +493,7 @@ body {
         }
     }
     return inner_class;
-    }*/
+    }
 
 void generateCtor(const CppCtor a, Generator.Modules inner) {
     import std.array : split;
