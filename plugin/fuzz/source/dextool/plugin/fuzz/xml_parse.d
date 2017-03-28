@@ -75,6 +75,7 @@ struct SubType {
 }
 
 struct ContinuesInterface {
+    string name;
     Direction direction;
     auto data_items = Array!DataItem();
 }
@@ -189,6 +190,7 @@ private:
             Interface_ ret;
             ContinuesInterface cis;
             //Add more interfaces here
+            cis.name = interface_elem.tag.attr["name"];
             cis.direction = interface_elem.tag.attr["direction"] == "From_Provider" ? Direction.from : Direction.to;
             foreach (Element elem; interface_elem.elements) {
                 switch (elem.tag.name) {
