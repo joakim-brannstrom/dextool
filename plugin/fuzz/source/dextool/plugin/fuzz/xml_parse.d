@@ -318,6 +318,10 @@ public:
         return this.nsps;
     }
 
+    Namespace getNamespace(string nsname) {
+        return this.nsps[nsname];
+    }
+
 }
 
 

@@ -6,6 +6,11 @@ import dextool.plugin.backend.fuzz.fuzzvariant : Parameters,
     Products;
 import dextool.plugin.types;
 import dextool.type;
+import dextool.type;
+import dextool.utility;
+
+
+import dextool.compilation_db;
 
 
 struct RawConfiguration {
@@ -161,4 +166,41 @@ class FuzzVariant : Parameters, Products {
     void putFile(FileName fname, CppModule impl_data) {
         file_data ~= FileData(fname, impl_data.render());
     }
+}
+
+ExitStatusType genCpp(FuzzVariant variant,
+        CompileCommandDB compile_db) {
+    import std.conv : text;
+    import std.path : buildNormalizedPath, asAbsolutePath;
+    import std.typecons : Yes;
+
+    import cpptooling.analyzer.clang.context : ClangContext;
+    import cpptooling.data.representation : CppRoot;
+    import dextool.plugin.backend.fuzz.fuzzvariant : Generator,
+        FuzzVisitor;
+    import dextool.io : writeFileData;
+
+    auto visitor = new FuzzVisitor!(CppRoot, Products)(variant);
+    string[] use_cflags;
+
+    auto hfiles = compile_db.getHeaderFiles();
+    
+    string res;
+    foreach(hfile ; hfiles) {
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        if (analyzeFile(hfile, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+            return ExitStatusType.Errors;
+        }
+
+    // process and put the data in variant.
+        Generator(variant, variant).process(visitor.root, visitor.container);
+
+        debug {
+            logger.trace(visitor);
+        }
+
+        return writeFileData(variant.file_data);
+    }
+
+    return ExitStatusType.Ok;
 }

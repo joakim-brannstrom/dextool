@@ -17,13 +17,11 @@ auto runPlugin(string[] args) {
         return ExitStatusType.Ok;
     }
 
-    //auto variant = fuzzVariant.makeVariant(pargs); // 
+    auto variant = FuzzVariant.makeVariant(pargs); 
 
-    CompileCommandDB compile_db;
-    if (pargs.compile_db.length != 0) {
-        compile_db = pargs.compile_db.fromArgCompileDb;
-    }
+    CompileCommandDB compile_db = pargs.compile_db.fromArgCompileDb;
+    
 
-    return ExitStatusType.Ok;
-    //return genCpp(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
+    //return ExitStatusType.Ok;
+    return genCpp(variant, compile_db);
 }
