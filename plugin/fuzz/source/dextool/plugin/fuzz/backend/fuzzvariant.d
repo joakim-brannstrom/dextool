@@ -43,14 +43,12 @@ import xml_parse;
     DextoolVersion getToolVersion();
     CustomHeader getCustomHeader();
 
-    //SUTEnvironment getSut();
 }
 
 /// Data produced by the generator like files.
 @safe interface Products {
     void putFile(FileName fname, CppHModule hdr_data);
     void putFile(FileName fname, CppModule impl_data);
-    void putLocation(FileName loc, LocationType type);
 }
 
 /// Generator of test doubles for C++ code.
@@ -70,8 +68,8 @@ struct Generator {
      void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
 
-	//TODO: Find a suitable name
-	xml_parse xmlp = new xml_parse(BaseDir("../sut_unittest/namespaces"));
+	    //TODO: Find a suitable name
+	    xml_parse xmlp = new xml_parse(BaseDir("../sut_unittest/namespaces"));
 
         auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
         logger.trace("Filtered:\n", fl.toString());
@@ -355,33 +353,6 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     return filtered;
 }
 
-
-
-auto translate(CppRoot root, ref Container container,
-	       Parameters params, xml_parse xmlp) {
-
-    import std.algorithm : map, filter, each;
-
-    auto r = ImplData.make;
-
-    // dfmt off
-    root.namespaceRange
-        .map!(a => translate(a, r, container, xmlp))
-        .filter!(a => !a.isNull)
-        .each!(a => r.put(a.get));
-
-    foreach (a; root.classRange
-        .map!(a => mergeClassInherit(a, container))
-        // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)) {	
-	// r.tag(a.id, Kind.gmock);
-        r.put(a);
-    }
-    // dfmt on
-
-    return r;
-}
-
 Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
 				ref Container container, xml_parse xmlp) {
     import std.algorithm : map, filter, each, uniq;
@@ -421,6 +392,33 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     rval  = ns;
     return rval;
 }
+
+auto translate(CppRoot root, ref Container container,
+	       Parameters params, xml_parse xmlp) {
+
+    import std.algorithm : map, filter, each;
+
+    auto r = ImplData.make;
+
+    // dfmt off
+    root.namespaceRange
+        .map!(a => translate(a, r, container, xmlp))
+        .filter!(a => !a.isNull)
+        .each!(a => r.put(a.get));
+
+    foreach (a; root.classRange
+        .map!(a => mergeClassInherit(a, container))
+        // can happen that the result is a class with no methods, thus in state Unknown
+        .filter!(a => a.isVirtual)) {	
+	// r.tag(a.id, Kind.gmock);
+        r.put(a);
+    }
+    // dfmt on
+
+    return r;
+}
+
+
 
 void generate(CppRoot r, Parameters params,
 	      Generator.Modules modules, ref const(Container) container)
