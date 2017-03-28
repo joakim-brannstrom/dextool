@@ -8,10 +8,10 @@ import dextool.plugin.types;
 import dextool.type;
 import dextool.type;
 import dextool.utility;
-
-
 import dextool.compilation_db;
 
+
+import xml_parse;
 
 struct RawConfiguration {
     string[] xml_dir; //Base directory which contains XML interfaces
@@ -101,7 +101,7 @@ class FuzzVariant : Parameters, Products {
         MainNs main_ns;
         MainInterface main_if;
 
-        string xml_dir;
+        BaseDir xml_dir;
         string compile_db;
 
         FileData[] file_data;
@@ -124,6 +124,8 @@ class FuzzVariant : Parameters, Products {
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
         this.main_file_globals = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_global" ~ implExt));
+
+        this.xml_dir = BaseDir(xml_dir[0]);
     }
 
     //Parameter functions
@@ -156,6 +158,10 @@ class FuzzVariant : Parameters, Products {
 
     CustomHeader getCustomHeader() {
         return CustomHeader("");
+    }
+
+    BaseDir getXMLBasedir() {
+        return this.xml_dir;
     }
 
     //Product functions

@@ -36,6 +36,8 @@ import xml_parse;
         FileName post_incl;
     }
 
+    BaseDir getXMLBasedir();
+
     Files getFiles();
     MainNs getMainNs();
     MainInterface getMainInterface();
@@ -76,7 +78,7 @@ struct Generator {
         import cpptooling.data.symbol.types : USRType;
 
 	    //TODO: Find a suitable name
-	    xml_parse xmlp = new xml_parse(BaseDir("../sut_unittest/namespaces"));
+	    xml_parse xmlp = new xml_parse(params.getXMLBasedir);
 
         auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
         logger.trace("Filtered:\n", fl.toString());
