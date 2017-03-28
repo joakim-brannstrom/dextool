@@ -292,6 +292,8 @@ import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
 
 enum Kind {
+    CI_Requirer,
+    CI_Provider,
     none
 }
 
@@ -364,7 +366,7 @@ auto translate(CppRoot root, ref Container container,
 
     // dfmt off
     root.namespaceRange
-        .map!(a => translate(a, r, container, params, xmlp))
+        .map!(a => translate(a, r, container, xmlp))
         .filter!(a => !a.isNull)
         .each!(a => r.put(a.get));
 
@@ -381,7 +383,7 @@ auto translate(CppRoot root, ref Container container,
 }
 
 Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
-				ref Container container, Parameters params, xml_parse xmlp) {
+				ref Container container, xml_parse xmlp) {
     import std.algorithm : map, filter, each, uniq;
     import std.array : empty, array, join;
     import cpptooling.data.representation : CppNs;
@@ -398,7 +400,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     //     ns.put(singleton);
 
     //     // output the functions using the singleton
-    //     input.funcRange.each!(a => ns.put(a));
+    //     input.funcRange.each!(a => ns.put(a)); 
 
     // }
 
@@ -407,7 +409,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
 
     //dfmt off
     input.namespaceRange
-        .map!(a => translate(a, data, container, params, xmlp))
+        .map!(a => translate(a, data, container, xmlp))
         .filter!(a => !a.isNull)
         .each!(a => ns.put(a.get));
     
