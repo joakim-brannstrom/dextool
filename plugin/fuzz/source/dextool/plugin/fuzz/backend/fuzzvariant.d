@@ -405,38 +405,46 @@ body {
 	    
         auto inner = modules;
         CppModule inner_impl_singleton;
-     
+	
+	if (ns.fullyQualifiedName.toLower in xmlp.getNamespaces())
+	{
 	//final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
 	//  case none:
-		inner.hdr = modules.hdr.namespace(ns.name);
-		//inner.hdr.suppressIndent(1);
-		inner.impl = modules.impl.namespace(ns.name);
-		//	break;
-		// }   
+	    foreach (nss ; ns.resideInNs[0..$-1])
+	    {
+		inner.hdr = modules.hdr.namespace(nss);
+		inner.impl = modules.impl.namespace(nss);
+		    
+	    }
+
+	    
+	    
+	    //inner.hdr = modules.hdr.namespace(ns.name);
+	    //inner.impl = modules.impl.namespace(ns.name);
+		
 	foreach(a; ns.classRange) {
 	    string class_name = a.name[2..$];
 	    string fqn_class = ns.fullyQualifiedName;// ~ "::"  ~ class_name;
-	    if ((fqn_class.toLower in xmlp.getNamespaces()) != null)
-	    {
-		writeln("class_name: " ~ class_name);
-		writeln("fqn_class: " ~ fqn_class);
+	    writeln("class_name: " ~ class_name);
+	    writeln("fqn_class: " ~ fqn_class);
 	    
-		Namespace nss;
-		if (xmlp.exists(fqn_class.toLower)) {
-		    nss = xmlp.getNamespace(fqn_class.toLower);
-		}
-		foreach (b; a.methodPublicRange) {
-		    if (!(fqn_class.toLower in classes && !(nss.interfaces.ci.empty))) {
-		        classes[fqn_class] = 
-			    generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, nss);
-		    } 
+	     Namespace nss;
+	     if (xmlp.exists(fqn_class.toLower)) {
+		nss = xmlp.getNamespace(fqn_class.toLower);
+	     }
+	    foreach (b; a.methodPublicRange) {
+		if (!(fqn_class in classes) && !(nss.interfaces.ci.empty)) {
+		    classes[fqn_class] = 
+			generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, nss);
+		} 
                     
-		    b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, fqn_class, xmlp),
-			     (const CppMethodOp a) => writeln(""),
-			     (const CppCtor a) => generateCtor(a, inner),
-			     (const CppDtor a) => generateDtor(a, inner));
-		}
+		b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, fqn_class, xmlp),
+			 (const CppMethodOp a) => writeln(""),
+			 (const CppCtor a) => generateCtor(a, inner),
+			 (const CppDtor a) => generateDtor(a, inner));
+	     
 	    }
+	}
 	}
   
 	foreach (a; ns.namespaceRange) { 
@@ -459,8 +467,11 @@ body {
     string base_class; 
     string fqn_ns = ns.join("::"); 
     
+    auto ReqOrPro = class_name.toLower.endsWith("requirer") 
+	|| class_name.toLower.endsWith("provider");
+    
     auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name); 
-    if (class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider")) {
+    if (ReqOrPro) {
         base_class = "I_" ~ class_name[0..class_name.indexOf(type)-1];
     } else {
         base_class = "";
@@ -469,11 +480,11 @@ body {
     with (inner_class) {
         with(private_) {
 	    writeln("class_name: "~class_name);
-	    writeln("generateClass fqn_ns: "~fqn_ns.toLower);
+	    writeln("generateClass fqn_ns: "~fqn_ns);
             foreach(ciface; HopefullyThisWorks.interfaces.ci) {
-                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
+                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
             }
-            if(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider")) {
+            if(ReqOrPro) {
                 stmt(E(base_class ~ "* port"));
             } else {
                 stmt(E("RandomGenerator* randomGenerator"));
@@ -481,12 +492,12 @@ body {
         }
         with(public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-                if (!(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
+                if (!ReqOrPro) {
                     stmt(E("randomGenerator") = E(`&TestingEnvironment::createRandomGenerator("`~ type  ~`")`));
                 }
             }
 
-            if ((class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
+            if (ReqOrPro) {
                 with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
                     stmt(E("port") = E("p"));
                 }
@@ -495,13 +506,13 @@ body {
             with (func_body("", "~" ~ class_name ~"_Impl")) { //Generate destructor
              	    
             }
-            if (!(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
+            if (!ReqOrPro) {
 
                 with(func_body("void", "Regenerate")) {
                     foreach(ciface; HopefullyThisWorks.interfaces.ci) {
                         foreach(ditem; ciface.data_items) {
                             //Add ranges here, non existent in current xml parser?
-                            stmt(E(ciface.name.toLower ~ "." ~ ditem.name) =    
+                            stmt(E(ciface.name ~ "." ~ ditem.name) =    
                                     E(`randomGenerator->generate("` ~
                                         type ~ ` ` ~ ciface.name ~ ` ` ~ ditem.name ~ `")`));
                         }
@@ -544,21 +555,24 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
 	//Put something in something
     }
 
-    with(inner.func_body(a.returnType.toStringDecl, a.name)) {
+    if (class_name.toLower in xmlp.getNamespaces())
+    {
+	with(inner.func_body(a.returnType.toStringDecl, a.name)) {
 
-        if(cppm_type == "Get") {
-            auto cppm_ret_type = (cast(string)(a.name)).split("_")[$-2];
+	    if(cppm_type == "Get") {
+		auto cppm_ret_type = (cast(string)(a.name)).split("_")[$-2];
         
-            return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
-        }
+		return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
+	    }
 
-        else if (a.name == "Get_Port") {
-            return_("*port");
-        }
+	    else if (a.name == "Get_Port") {
+		return_("*port");
+	    }
 
-        else if(cppm_type == "Get") {
+	    else if(cppm_type == "Get") {
     		return_(cppm_ditem.toLower);
 	    }
+	}
     }
 }
 
