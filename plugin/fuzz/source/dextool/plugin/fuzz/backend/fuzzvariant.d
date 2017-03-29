@@ -82,10 +82,10 @@ struct Generator {
         logger.trace("Filtered:\n", fl.toString());
      
 
-        /*auto impl_data = translate(fl, container, params, xmlp);
-        logger.trace("Translated to implementation:\n", impl_data.toString());
-        logger.trace("kind:\n", impl_data.kind);
-	*/
+        //auto impl_data = translate(root, container, params, xmlp);
+        //logger.trace("Translated to implementation:\n", impl_data.toString());
+        //logger.trace("kind:\n", impl_data.kind);
+	
 
 	//translate is skipped for now, as tagging isn't necessary
 
@@ -336,6 +336,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
     import dextool.type : FileName;
+    import std.string : toLower;
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.utility : dedup;
@@ -354,7 +355,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
     // dfmt off
         input.namespaceRange
             .filter!(a => !a.isAnonymous)
-            .filter!(a => !(filtered.fullyQualifiedName in xmlp.getNamespaces()))
+            .filter!(a => (a.fullyQualifiedName.toLower in xmlp.getNamespaces()) != null)
             .map!(a => rawFilter(a, prod, lookup, xmlp)).array
             .each!(a => filtered.put(a));
 	input.classRange
@@ -364,6 +365,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
 
     return filtered;
 }
+
 
 void generate(CppRoot r, Parameters params,
 	      Generator.Modules modules, ref const(Container) container, xml_parse xmlp)
@@ -414,23 +416,26 @@ body {
 	foreach(a; ns.classRange) {
 	    string class_name = a.name[2..$];
 	    string fqn_class = ns.fullyQualifiedName;// ~ "::"  ~ class_name;
-	    writeln("class_name: " ~ class_name);
-	    writeln("fqn_class: " ~ fqn_class);
+	    if ((fqn_class.toLower in xmlp.getNamespaces()) != null)
+	    {
+		writeln("class_name: " ~ class_name);
+		writeln("fqn_class: " ~ fqn_class);
 	    
-	    Namespace nss;
-	    if (xmlp.exists(fqn_class.toLower)) {
-	        nss = xmlp.getNamespace(fqn_class.toLower);
-	    }
-	    foreach (b; a.methodPublicRange) {
-		if (!(fqn_class in classes && !(nss.interfaces.ci.empty))) {
+		Namespace nss;
+		if (xmlp.exists(fqn_class.toLower)) {
+		    nss = xmlp.getNamespace(fqn_class.toLower);
+		}
+		foreach (b; a.methodPublicRange) {
+		    if (!(fqn_class.toLower in classes && !(nss.interfaces.ci.empty))) {
 		        classes[fqn_class] = 
-			        generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, nss);
+			    generateClass(inner, class_name, cast(string[])ns.resideInNs[0..$-1], ns.resideInNs[$-1].payload, nss);
 		    } 
                     
-		b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, ns.fullyQualifiedName, xmlp),
-			 (const CppMethodOp a) => writeln(""),
-			 (const CppCtor a) => generateCtor(a, inner),
-			 (const CppDtor a) => generateDtor(a, inner));
+		    b.visit!((const CppMethod a) => generateCppMeth(a, classes[fqn_class], class_name, fqn_class, xmlp),
+			     (const CppMethodOp a) => writeln(""),
+			     (const CppCtor a) => generateCtor(a, inner),
+			     (const CppDtor a) => generateDtor(a, inner));
+		}
 	    }
 	}
   
@@ -455,7 +460,7 @@ body {
     string fqn_ns = ns.join("::"); 
     
     auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name); 
-    if (class_name.endsWith("requirer") || class_name.endsWith("provider")) {
+    if (class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider")) {
         base_class = "I_" ~ class_name[0..class_name.indexOf(type)-1];
     } else {
         base_class = "";
@@ -468,7 +473,7 @@ body {
             foreach(ciface; HopefullyThisWorks.interfaces.ci) {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
             }
-            if(class_name.endsWith("requirer") || class_name.endsWith("provider")) {
+            if(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider")) {
                 stmt(E(base_class ~ "* port"));
             } else {
                 stmt(E("RandomGenerator* randomGenerator"));
@@ -476,12 +481,12 @@ body {
         }
         with(public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-                if (!(class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
+                if (!(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
                     stmt(E("randomGenerator") = E(`&TestingEnvironment::createRandomGenerator("`~ type  ~`")`));
                 }
             }
 
-            if ((class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
+            if ((class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
                 with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
                     stmt(E("port") = E("p"));
                 }
@@ -490,7 +495,7 @@ body {
             with (func_body("", "~" ~ class_name ~"_Impl")) { //Generate destructor
              	    
             }
-            if (!(class_name.endsWith("requirer") || class_name.endsWith("provider"))) {
+            if (!(class_name.toLower.endsWith("requirer") || class_name.toLower.endsWith("provider"))) {
 
                 with(func_body("void", "Regenerate")) {
                     foreach(ciface; HopefullyThisWorks.interfaces.ci) {
