@@ -78,12 +78,12 @@ struct Generator {
 
         //TODO: Find a suitable name
         xml_parse xmlp = new xml_parse(params.getXMLBasedir);
-        CppNamespace[] out_;
         CppRoot new_root = CppRoot.make;
-        auto fl = rawFilter(root, products,
-            (USRType usr) => container.find!LocationTag(usr), xmlp, out_);
-        logger.trace("Filtered:\n", out_);
-        out_.each!(a => new_root.put(a));
+        CppNamespace[] cppn; 
+        
+        rawFilter(root, xmlp, cppn);
+        writeln("Filtered:\n", cppn);
+        cppn.each!(a => new_root.put(a));
 
         //auto impl_data = translate(root, container, params, xmlp);
         //logger.trace("Translated to implementation:\n", impl_data.toString());
@@ -337,30 +337,21 @@ struct ImplData {
     }
 }
 
-CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup,
-    xml_parse xmlp, ref CppNamespace[] out_) @trusted {
-    import std.array : array, join;
-    import std.algorithm : each, filter, map, filter;
-    import std.range : tee;
+CppT rawFilter(CppT)(CppT input, 
+        xml_parse xmlp, ref CppNamespace[] out_) @trusted {
+    import std.algorithm : each, map, filter;
     import dextool.type : FileName;
     import std.string : toLower;
-    import cpptooling.data.representation : StorageClass;
-    import cpptooling.generator.utility : filterAnyLocation;
-    import cpptooling.utility : dedup;
 
-    // setup
     static if (is(CppT == CppRoot)) {
         auto filtered = CppRoot.make;
     } else static if (is(CppT == CppNamespace)) {
         auto filtered = input.dup;
-    } else {
-        static assert("Type not supported: " ~ CppT.stringof);
     }
-
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, prod, lookup, xmlp, out_))
+        .map!(a => rawFilter(a, xmlp, out_))
         .filter!(a => a.fullyQualifiedName.toLower in xmlp.getNamespaces)
         .each!(a => out_ = out_ ~ a);
             
@@ -407,40 +398,43 @@ body {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
-        if (ns.fullyQualifiedName.toLower in xmlp.getNamespaces()) {
-            //final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-            //  case none:
-            inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
-            inner.impl = modules.impl.namespace(ns.resideInNs[0]);
-            foreach (nss; ns.resideInNs[1 .. $]) {
-                inner.hdr = inner.hdr.namespace(nss);
-                inner.impl = inner.impl.namespace(nss);
-            }
-
-            string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
-
-            foreach (a; ns.classRange) {
-                string class_name = a.name[2 .. $];
-                logger.trace("class_name: " ~ class_name);
-                logger.trace("fqn_class: " ~ fqn_class);
-
-                Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
-
-                foreach (b; a.methodPublicRange) {
-                    if (!(fqn_class in classes) && !(nss.interfaces.ci.empty)) {
-                        classes[fqn_class] = generateClass(inner, class_name,
-                            cast(string[]) ns.resideInNs[0 .. $ - 1],
-                            ns.resideInNs[$ - 1].payload, nss);
-                    }
-                    b.visit!((const CppMethod a) => generateCppMeth(a,
-                        classes[fqn_class], class_name, fqn_class, xmlp),
-                        (const CppMethodOp a) => writeln(""),
-                        (const CppCtor a) => generateCtor(a, inner),
-                        (const CppDtor a) => generateDtor(a, inner));
-                }
-            }
-
+        //final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
+        //  case none:
+        inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
+        inner.impl = modules.impl.namespace(ns.resideInNs[0]);
+        foreach (nss; ns.resideInNs[1 .. $]) {
+            inner.hdr = inner.hdr.namespace(nss);
+            inner.impl = inner.impl.namespace(nss);
         }
+
+        string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
+
+        foreach (a; ns.classRange) {
+            string class_name = a.name[2 .. $];
+            logger.trace("class_name: " ~ class_name);
+            logger.trace("fqn_class: " ~ fqn_class);
+
+            Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
+
+            foreach (b; a.methodPublicRange) {
+                //if (!(nss.interfaces.ci.empty)) {
+                    classes[fqn_class] = generateClass(inner, class_name,
+                        cast(string[]) ns.resideInNs[0 .. $ - 1],
+                        ns.resideInNs[$ - 1].payload, nss);
+                //}
+                b.visit!((const CppMethod a) => generateCppMeth(a,
+                    classes[fqn_class], class_name, fqn_class, xmlp),
+                    (const CppMethodOp a) => writeln(""),
+                    (const CppCtor a) => generateCtor(a, inner),
+                    (const CppDtor a) => generateDtor(a, inner));
+            }
+        }
+
+        foreach(a; ns.funcRange) {
+            writeln(a.name);
+        }
+
+        
         foreach (a; ns.namespaceRange) {
             eachNs(a, params, inner, inner_impl_singleton, lookup, classes, xmlp);
         }
@@ -460,7 +454,7 @@ body {
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
-    string base_class;
+    string base_class = "";
     string fqn_ns = ns.join("::");
 
     auto ReqOrPro = class_name.toLower.endsWith("requirer")
@@ -553,18 +547,19 @@ void generateDtor(const CppDtor a, Generator.Modules inner) {
         //Put something in something
     }
 
-    if (class_name.toLower in xmlp.getNamespaces()) {
-        with (inner.func_body(a.returnType.toStringDecl, a.name)) {
 
-            if (cppm_type == "Get") {
-                auto cppm_ret_type = (cast(string)(a.name)).split("_")[$ - 2];
+    with (inner.func_body(a.returnType.toStringDecl, a.name)) {
 
-                return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
-            } else if (a.name == "Get_Port") {
-                return_("*port");
-            } else if (cppm_type == "Get") {
-                return_(cppm_ditem.toLower);
-            }
+        if (cppm_type == "Get") {
+            auto cppm_ret_type = (cast(string)(a.name)).split("_")[$ - 2];
+
+            return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
+        } else if (a.name == "Get_Port") {
+            return_("*port");
+        } else if (cppm_type == "Get") {
+            return_(cppm_ditem.toLower);
+        } else {
+            return_("hello");
         }
     }
 }
