@@ -7,6 +7,7 @@ import std.typecons : No, Flag, Nullable, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
+import dsrcgen.cpp;
 
 //import application.types;
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
@@ -475,16 +476,20 @@ body {
             classes[fqn_class] = generateClass(inner, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
                         ns.resideInNs[$ - 1].payload, nss, data, a);
+
             foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,
                     classes[fqn_class], class_name, fqn_class, xmlp),
                     (const CppMethodOp a) => writeln(""),
-                    (const CppCtor a) => generateCtor(a, inner),
-                    (const CppDtor a) => generateDtor(a, inner));
+                    (const CppCtor a) => generateCtor(a, inner.impl),
+                    (const CppDtor a) => generateDtor(a, inner.impl));
             }
         }
 
         foreach(a; ns.funcRange) {
+            with(inner.impl.func_body("std::string", a.name)) {
+                return_(E(Et("PortEnv::createPort")("Bar_Provier, std::string"))("name, name"));
+            }
             writeln(a.name);
         }
 
@@ -510,7 +515,7 @@ body {
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
-    auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name);
+    auto inner_class = inner.impl.class_(class_name ~ "_Impl", "public I_" ~ class_name);
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
             generateNormalClass(inner_class, class_name, ns, ns_full, type);
@@ -592,17 +597,17 @@ body {
     return inner_class;
 }
 
-void generateCtor(const CppCtor a, Generator.Modules inner) {
+void generateCtor(const CppCtor a, CppModule inner) {
     import std.array : split;
 
-    with (inner.impl.ctor_body(a.name)) {
+    with (inner.ctor_body(a.name)) {
     }
 }
 
-void generateDtor(const CppDtor a, Generator.Modules inner) {
+void generateDtor(const CppDtor a, CppModule inner) {
     import std.array : split;
 
-    with (inner.impl.dtor_body(a.name[1 .. $])) {
+    with (inner.dtor_body(a.name[1 .. $])) {
     }
 }
 
