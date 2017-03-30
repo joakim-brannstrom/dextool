@@ -74,7 +74,7 @@ struct Generator {
     void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
         import std.algorithm;
-        import std.string;
+        import std.string : toLower;
 
         //TODO: Find a suitable name
         xml_parse xmlp = new xml_parse(params.getXMLBasedir);
@@ -82,17 +82,16 @@ struct Generator {
         CppNamespace[] cppn; 
         
         rawFilter(root, xmlp, cppn);
-        writeln("Filtered:\n", cppn);
         cppn.each!(a => new_root.put(a));
 
-        //auto impl_data = translate(root, container, params, xmlp);
+        auto impl_data = translate(new_root);
         //logger.trace("Translated to implementation:\n", impl_data.toString());
         //logger.trace("kind:\n", impl_data.kind);
 
         //translate is skipped for now, as tagging isn't necessary
 
         auto modules = Modules.make();
-        generate(new_root, params, modules, container, xmlp);
+        generate(new_root, params, modules, container, impl_data, xmlp);
         postProcess(params, products, modules);
     }
 
@@ -359,8 +358,58 @@ CppT rawFilter(CppT)(CppT input,
     return filtered;
 }
 
+
+ImplData translate(CppRoot root) {
+    import std.algorithm : map, filter, each;
+
+    auto r = ImplData.make;
+
+    // dfmt off
+    root.namespaceRange
+        .map!(a => translate(a, r))
+        .filter!(a => !a.isNull)
+        .each!(a => r.put(a.get));
+
+    root.classRange
+        .map!(a => translate(a, r))
+        .filter!(a=> !a.isNull)
+        .each!(a => r.put(a.get));
+
+    return r;
+}
+
+Nullable!CppClass translate(CppClass input, ref ImplData data) {
+    import std.algorithm : endsWith;
+    string name = input.name;
+    auto ReqOrPro = name.endsWith("Requirer") || name.endsWith("Provider");
+    Nullable!CppClass class_ = input;
+    if (ReqOrPro) {
+        data.tag(input.id, Kind.ContinuesInterface);
+    }
+
+    return class_;
+}
+
+Nullable!CppNamespace translate(CppNamespace input, ref ImplData data) {
+    import std.algorithm : map, filter, each;
+    auto ReqOrPro = input.name  == "Requirer"
+        || input.name == "Provider";
+    Nullable!CppNamespace ns = input;
+    if (ReqOrPro) {
+        data.tag(ns.id, Kind.ContinuesInterface);
+    }
+
+    input.classRange
+        .map!(a => translate(a, data))
+        .filter!(a => !a.isNull)
+        .each!(a => data.put(a.get));
+    return ns;
+}
+
+
+
 void generate(CppRoot r, Parameters params, Generator.Modules modules,
-    ref const(Container) container, xml_parse xmlp)
+    ref const(Container) container, ImplData data, xml_parse xmlp)
 in {
     import std.array : empty;
 
@@ -389,7 +438,7 @@ body {
     // use the instance.
 
     @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
-        Generator.Modules modules, CppModule impl_singleton, LookupT lookup,
+        Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ImplData data,
         ref CppModule[string] classes, xml_parse xmlp) {
         import std.variant;
         import std.stdio;
@@ -398,8 +447,15 @@ body {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
-        //final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
-        //  case none:
+
+        final switch(data.lookup(ns.id)) with (Kind) {
+          case none:
+            writeln("namespace is none!");
+            break;
+          case ContinuesInterface:
+            writeln("Namespace is continues");
+            break;
+        }
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
         foreach (nss; ns.resideInNs[1 .. $]) {
@@ -410,7 +466,8 @@ body {
         string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
 
         foreach (a; ns.classRange) {
-            string class_name = a.name[2 .. $];
+
+            string class_name = a.name[2 .. $]; //Removes I_ 
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
 
@@ -419,8 +476,8 @@ body {
             foreach (b; a.methodPublicRange) {
                 //if (!(nss.interfaces.ci.empty)) {
                     classes[fqn_class] = generateClass(inner, class_name,
-                        cast(string[]) ns.resideInNs[0 .. $ - 1],
-                        ns.resideInNs[$ - 1].payload, nss);
+                        ns.resideInNs[0 .. $ - 1].join("::"),
+                        ns.resideInNs[$ - 1].payload, nss, data, a);
                 //}
                 b.visit!((const CppMethod a) => generateCppMeth(a,
                     classes[fqn_class], class_name, fqn_class, xmlp),
@@ -436,79 +493,100 @@ body {
 
         
         foreach (a; ns.namespaceRange) {
-            eachNs(a, params, inner, inner_impl_singleton, lookup, classes, xmlp);
+            eachNs(a, params, inner, inner_impl_singleton, lookup, data, classes, xmlp);
         }
     }
 
     CppModule[string] classes;
     foreach (a; r.namespaceRange()) {
         eachNs(a, params, modules, null,
-            (USRType usr) => container.find!LocationTag(usr), classes, xmlp);
+            (USRType usr) => container.find!LocationTag(usr), data, classes, xmlp);
     }
-}
+} 
+
+
 
 @trusted CppModule generateClass(Generator.Modules inner, string class_name,
-    string[] ns, string type, Namespace HopefullyThisWorks) {
+    string ns_full, string type, Namespace ns, ImplData data, CppClass class_) {
     //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
-    string base_class = "";
-    string fqn_ns = ns.join("::");
-
-    auto ReqOrPro = class_name.toLower.endsWith("requirer")
-        || class_name.toLower.endsWith("provider");
-
     auto inner_class = inner.hdr.class_(class_name ~ "_Impl", "public I_" ~ class_name);
-    if (ReqOrPro) {
-        base_class = "I_" ~ class_name[0 .. class_name.indexOf(type) - 1];
-    } else {
-        base_class = "";
+    final switch(data.lookup(class_.id)) with (Kind) {
+        case none:
+            generateNormalClass(inner_class, class_name, ns, ns_full, type);
+            break;
+        case ContinuesInterface:
+            generatePortClass(inner_class, class_name, ns, ns_full, type);
+            break;
+        }
+
+    return inner_class;
+}
+@trusted CppModule generatePortClass(CppModule inner_class, string class_name, Namespace ns, 
+        string fqn_ns, string type) {
+    import std.array;
+    import std.string : toLower, indexOf;
+    import std.algorithm : endsWith;
+
+    string base_class = "I_" ~ class_name[0 .. class_name.indexOf(type) - 1];
+    with (inner_class) {
+        with (private_) {
+            logger.trace("class_name: " ~ class_name);
+            logger.trace("generateClass fqn_ns: " ~ fqn_ns);
+            foreach (ciface; ns.interfaces.ci) {
+                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
+            }
+
+            stmt(E(base_class ~ "* port"));
+        }
+        with (public_) {
+            with (func_body("", class_name ~ "_Impl")) { //Generate constructor
+            }
+            
+            with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
+                stmt(E("port") = E("p"));
+            }
+        }
     }
+    return inner_class;
+}
+
+
+@trusted CppModule generateNormalClass(CppModule inner_class, string class_name,
+        Namespace ns, string fqn_ns, string type) {
+    import std.array;
+    import std.string : toLower, indexOf;
+    import std.algorithm : endsWith;
 
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns);
-            foreach (ciface; HopefullyThisWorks.interfaces.ci) {
+            foreach (ciface; ns.interfaces.ci) {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
             }
-            if (ReqOrPro) {
-                stmt(E(base_class ~ "* port"));
-            } else {
-                stmt(E("RandomGenerator* randomGenerator"));
-            }
+            stmt(E("RandomGenerator* randomGenerator"));
         }
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-                if (!ReqOrPro) {
-                    stmt(
-                        E("randomGenerator") = E(
-                        `&TestingEnvironment::createRandomGenerator("` ~ type ~ `")`));
-                }
+                stmt(
+                    E("randomGenerator") = E(
+                    `&TestingEnvironment::createRandomGenerator("` ~ type ~ `")`));
             }
+            
+            with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
 
-            if (ReqOrPro) {
-                with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
-                    stmt(E("port") = E("p"));
-                }
-            }
-
-            with (func_body("", "~" ~ class_name ~ "_Impl")) { //Generate destructor
-
-            }
-            if (!ReqOrPro) {
-
-                with (func_body("void", "Regenerate")) {
-                    foreach (ciface; HopefullyThisWorks.interfaces.ci) {
-                        foreach (ditem; ciface.data_items) {
-                            //Add ranges here, non existent in current xml parser?
-                            stmt(
-                                E(ciface.name ~ "." ~ ditem.name) = E(
-                                `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-                                ~ ` ` ~ ditem.name ~ `")`));
-                        }
+            with (func_body("void", "Regenerate")) {
+                foreach (ciface; ns.interfaces.ci) {
+                    foreach (ditem; ciface.data_items) {
+                        //Add ranges here, non existent in current xml parser?
+                        stmt(
+                            E(ciface.name ~ "." ~ ditem.name) = E(
+                            `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
+                            ~ ` ` ~ ditem.name ~ `")`));
                     }
                 }
             }
