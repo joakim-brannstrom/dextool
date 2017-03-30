@@ -472,13 +472,10 @@ body {
             logger.trace("fqn_class: " ~ fqn_class);
 
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
-
-            foreach (b; a.methodPublicRange) {
-                //if (!(nss.interfaces.ci.empty)) {
-                    classes[fqn_class] = generateClass(inner, class_name,
+            classes[fqn_class] = generateClass(inner, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
                         ns.resideInNs[$ - 1].payload, nss, data, a);
-                //}
+            foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,
                     classes[fqn_class], class_name, fqn_class, xmlp),
                     (const CppMethodOp a) => writeln(""),
