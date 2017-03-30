@@ -487,10 +487,7 @@ body {
         }
 
         foreach(a; ns.funcRange) {
-            with(inner.impl.func_body("std::string", a.name)) {
-                return_(E(Et("PortEnv::createPort")("Bar_Provier, std::string"))("name, name"));
-            }
-            writeln(a.name);
+	    generateFunc(inner.impl, a.returnType.toStringDecl, a.name);
         }
 
         
@@ -506,7 +503,11 @@ body {
     }
 } 
 
-
+@trusted void generateFunc(CppModule inner, string return_type, string func_name) {
+    with(inner.func_body(return_type, func_name)) {
+	return_(E(Et("PortEnv::createPort")("Bar_Provider, std::string"))("name, name"));
+    }
+}
 
 @trusted CppModule generateClass(Generator.Modules inner, string class_name,
     string ns_full, string type, Namespace ns, ImplData data, CppClass class_) {
