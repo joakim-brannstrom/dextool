@@ -1426,9 +1426,10 @@ const:
     this(CppNs name, CppNsStack stack, CppClass[] classes, CFunction[] funcs, CppNamespace[] namespaces, CxGlobalVariable[] globals) {
 	    this.name_ = name;
         this.stack = stack;
-        /*this.classes = classes;
+        this.classes = classes;
         this.funcs = funcs;
-        this.globals = globals;*/
+        this.globals = globals;
+        this.namespaces = namespaces;
 	    //this.stack = CppNsStack(stack.dup);
     } 
 
@@ -1473,6 +1474,10 @@ const:
 
     void put(CxGlobalVariable g) pure nothrow {
         globals ~= g;
+    }
+
+    auto stack_() {
+        return stack;
     }
 
     /** Range of the fully qualified name starting from the top.
