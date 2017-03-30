@@ -82,9 +82,8 @@ struct Generator {
         CppRoot new_root = CppRoot.make;
         auto fl = rawFilter(root, products,
             (USRType usr) => container.find!LocationTag(usr), xmlp, out_);
-        logger.trace("Filtered:\n", fl.toString());
+        logger.trace("Filtered:\n", out_);
         out_.each!(a => new_root.put(a));
-        writeln(out_);
 
         //auto impl_data = translate(root, container, params, xmlp);
         //logger.trace("Translated to implementation:\n", impl_data.toString());
@@ -408,46 +407,40 @@ body {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
-
         if (ns.fullyQualifiedName.toLower in xmlp.getNamespaces()) {
             //final switch(cast(NamespaceType) ns.kind) with (NamespaceType) {
             //  case none:
-            foreach (nss; ns.resideInNs[0 .. $ - 1]) {
-                inner.hdr = modules.hdr.namespace(nss);
-                inner.impl = modules.impl.namespace(nss);
-
+            inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
+            inner.impl = modules.impl.namespace(ns.resideInNs[0]);
+            foreach (nss; ns.resideInNs[1 .. $]) {
+                inner.hdr = inner.hdr.namespace(nss);
+                inner.impl = inner.impl.namespace(nss);
             }
 
-            //inner.hdr = modules.hdr.namespace(ns.name);
-            //inner.impl = modules.impl.namespace(ns.name);
+            string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
 
             foreach (a; ns.classRange) {
                 string class_name = a.name[2 .. $];
-                string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
-                writeln("class_name: " ~ class_name);
-                writeln("fqn_class: " ~ fqn_class);
+                logger.trace("class_name: " ~ class_name);
+                logger.trace("fqn_class: " ~ fqn_class);
 
-                Namespace nss;
-                if (xmlp.exists(fqn_class.toLower)) {
-                    nss = xmlp.getNamespace(fqn_class.toLower);
-                }
+                Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
+
                 foreach (b; a.methodPublicRange) {
                     if (!(fqn_class in classes) && !(nss.interfaces.ci.empty)) {
                         classes[fqn_class] = generateClass(inner, class_name,
                             cast(string[]) ns.resideInNs[0 .. $ - 1],
                             ns.resideInNs[$ - 1].payload, nss);
                     }
-
                     b.visit!((const CppMethod a) => generateCppMeth(a,
                         classes[fqn_class], class_name, fqn_class, xmlp),
                         (const CppMethodOp a) => writeln(""),
                         (const CppCtor a) => generateCtor(a, inner),
                         (const CppDtor a) => generateDtor(a, inner));
-
                 }
             }
-        }
 
+        }
         foreach (a; ns.namespaceRange) {
             eachNs(a, params, inner, inner_impl_singleton, lookup, classes, xmlp);
         }
@@ -482,8 +475,8 @@ body {
 
     with (inner_class) {
         with (private_) {
-            writeln("class_name: " ~ class_name);
-            writeln("generateClass fqn_ns: " ~ fqn_ns);
+            logger.trace("class_name: " ~ class_name);
+            logger.trace("generateClass fqn_ns: " ~ fqn_ns);
             foreach (ciface; HopefullyThisWorks.interfaces.ci) {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
             }
