@@ -74,13 +74,17 @@ struct Generator {
 
      void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
+        import std.algorithm;
+        import std.string;
 
 	//TODO: Find a suitable name
 	xml_parse xmlp = new xml_parse(params.getXMLBasedir);
-
-	auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp);
+    CppNamespace[] out_;
+    CppRoot new_root = CppRoot.make;
+	auto fl = rawFilter(root, products, (USRType usr) => container.find!LocationTag(usr), xmlp, out_);
         logger.trace("Filtered:\n", fl.toString());
-     
+    out_.each!(a => new_root.put(a));
+    writeln(out_);
 
         //auto impl_data = translate(root, container, params, xmlp);
         //logger.trace("Translated to implementation:\n", impl_data.toString());
@@ -90,7 +94,7 @@ struct Generator {
 	//translate is skipped for now, as tagging isn't necessary
 
         auto modules = Modules.make();
-        generate(root, params, modules, container, xmlp);
+        generate(new_root, params, modules, container, xmlp);
         postProcess(params, products, modules);
     }
 
@@ -331,8 +335,8 @@ struct ImplData {
     }
 }
 
-CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_parse xmlp) @trusted {
-    import std.array : array;
+CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_parse xmlp, ref CppNamespace[] out_) @trusted {
+    import std.array : array, join;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
     import dextool.type : FileName;
@@ -351,18 +355,14 @@ CppT rawFilter(CppT, LookupT)(CppT input, Products prod, LookupT lookup, xml_par
 	    static assert("Type not supported: " ~ CppT.stringof);
 	}    
 
-    static if (is(CppT == CppNamespace)) {
     // dfmt off
-        input.namespaceRange
-            .filter!(a => !a.isAnonymous)
-            .filter!(a => (a.fullyQualifiedName.toLower in xmlp.getNamespaces()) != null)
-            .map!(a => rawFilter(a, prod, lookup, xmlp)).array
-            .each!(a => filtered.put(a));
-	input.classRange
-	    .each!(a => filtered.put(a));
-    }
+    input.namespaceRange
+        .filter!(a => !a.isAnonymous)
+        .map!(a => rawFilter(a, prod, lookup, xmlp, out_))
+        .filter!(a => a.fullyQualifiedName.toLower in xmlp.getNamespaces)
+        .each!(a => out_ = out_ ~ a);
+            
     // dfmt on
-
     return filtered;
 }
 
