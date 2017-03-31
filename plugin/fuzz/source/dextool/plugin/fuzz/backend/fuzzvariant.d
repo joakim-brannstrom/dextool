@@ -468,7 +468,7 @@ body {
 
         foreach (a; ns.classRange) {
 
-            string class_name = a.name[2 .. $]; //Removes I_ 
+            string class_name = a.name; //Removes I_ 
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
 
@@ -487,7 +487,7 @@ body {
         }
 
         foreach(a; ns.funcRange) {
-	    generateFunc(inner.impl, a.returnType.toStringDecl, a.name);
+	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name);
         }
 
         
@@ -511,15 +511,15 @@ body {
 
 @trusted CppModule generateClass(Generator.Modules inner, string class_name,
     string ns_full, string type, Namespace ns, ImplData data, CppClass class_) {
-    //Some assumptions are made. Does all interfaces start with I_? Does all providers and requirers end with Requirer or Provider?
+    //Some assumptions are made. Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
-    auto inner_class = inner.impl.class_(class_name ~ "_Impl", "public I_" ~ class_name);
+    auto inner_class = inner.impl.class_(class_name ~ "_Impl", "public " ~ class_name);
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
-            generateNormalClass(inner_class, class_name, ns, ns_full, type);
+            generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
             break;
         case ContinuesInterface:
             generatePortClass(inner_class, class_name, ns, ns_full, type);
@@ -528,7 +528,7 @@ body {
 
     return inner_class;
 }
-@trusted CppModule generatePortClass(CppModule inner_class, string class_name, Namespace ns, 
+@trusted CppModule generateCompIfaceClass(CppModule inner_class, string class_name, Namespace ns, 
         string fqn_ns, string type) {
     import std.array;
     import std.string : toLower, indexOf;
@@ -558,7 +558,7 @@ body {
 }
 
 
-@trusted CppModule generateNormalClass(CppModule inner_class, string class_name,
+@trusted CppModule generatePortClass(CppModule inner_class, string class_name,
         Namespace ns, string fqn_ns, string type) {
     import std.array;
     import std.string : toLower, indexOf;
