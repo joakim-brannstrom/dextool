@@ -52,7 +52,8 @@ struct Variable {
 struct Enum {
     string name;
     Array!EnumItem enumitems;
-
+    int min;
+    int max;
     this(string name) { this.name = name; }
 }
 
@@ -141,6 +142,9 @@ private:
 
         Types getTypes(Element types) {
             import std.stdio;
+            import std.conv;
+            import std.typecons;
+
             Types xml_types;
             foreach (Element elem; types.elements) {
                 final switch (elem.tag.name) {
@@ -170,10 +174,23 @@ private:
                         break;
                     case "Enum":
                         Enum enums = Enum(elem.tag.attr["name"]);
+                        Nullable!int min;
+                        Nullable!int max;                       
                         foreach(Element enumitem ; elem.elements) {
+                            auto val = to!int(enumitem.tag.attr["value"]);
+                            if (min.isNull && max.isNull) {
+                                min = val;
+                                max = val;
+                            } else if (max < val) {
+                                max = val;
+                            } else if (min > val) {
+                                min = val;
+                            }
                             enums.enumitems.insertBack(EnumItem(enumitem.tag.attr["name"],
                                 enumitem.tag.attr["value"]));
                         }
+                        enums.min = min;
+                        enums.max = max;
                         xml_types.enums.insertBack(enums);
                         break;
                     case "Primitive":
@@ -296,7 +313,6 @@ public:
                 continue;
             }
             foreach (ContinousInterface c ; ifaces.ci) {
-            //This should be merge()
                 string tmp_ns = curr_ns ~ "::" ~ c.direction;
                 if (auto ns = tmp_ns in namespaces) {
                     namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
