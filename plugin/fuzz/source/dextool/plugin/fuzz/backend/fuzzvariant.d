@@ -18,11 +18,14 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
 
 import xml_parse;
+import std.container.array;
 
-/*@safe interface Controller {
-    //Not needed atm
+struct nsclass {
+    bool isPort;
+    CppModule cppm;
+    string name;
+    string impl_name;
 }
-*/
 
 /** Parameters used during generation.
  *
@@ -420,6 +423,7 @@ body {
     import std.algorithm : each, filter;
     import std.array;
     import std.typecons;
+    import std.container.array;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateIncludes;
@@ -440,7 +444,7 @@ body {
 
     @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
         Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ImplData data,
-        ref CppModule[string] classes, xml_parse xmlp) {
+        ref Array!nsclass[string] classes, xml_parse xmlp) {
         import std.variant;
         import std.stdio;
         import std.string : toLower;
@@ -471,15 +475,15 @@ body {
             string class_name = a.name; //Removes I_ 
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
-
+            classes[fqn_class] = Array!nsclass();
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
-            classes[fqn_class] = generateClass(inner, class_name,
+            classes[fqn_class].insertBack(generateClass(inner, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
-                        ns.resideInNs[$ - 1].payload, nss, data, a);
+                        ns.resideInNs[$ - 1].payload, nss, data, a));
 
             foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,
-                    classes[fqn_class], class_name, fqn_class, xmlp),
+                    classes[fqn_class][$-1].cppm, class_name, fqn_class, xmlp),
                     (const CppMethodOp a) => writeln(""),
                     (const CppCtor a) => generateCtor(a, inner.impl),
                     (const CppDtor a) => generateDtor(a, inner.impl));
@@ -487,7 +491,7 @@ body {
         }
 
         foreach(a; ns.funcRange) {
-	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name);
+	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name, classes[fqn_class]);
         }
 
         
@@ -496,20 +500,34 @@ body {
         }
     }
 
-    CppModule[string] classes;
+    Array!nsclass[string] classes;
     foreach (a; r.namespaceRange()) {
         eachNs(a, params, modules, null,
             (USRType usr) => container.find!LocationTag(usr), data, classes, xmlp);
     }
 } 
 
-@trusted void generateFunc(CppModule inner, string return_type, string func_name) {
+@trusted void generateFunc(CppModule inner, string return_type, string func_name, Array!nsclass classes) {
+    string port_name = "";
+    string port_implname = "";
+    string compif_name = "";
+    string compif_implname = "";
+
+    foreach(ns ; classes) {
+        if (ns.isPort) {
+            port_name = ns.name;
+            port_implname = ns.impl_name;
+        } else {
+            compif_name = ns.name;
+            compif_implname = ns.impl_name;
+        }
+    }
     with(inner.func_body(return_type, func_name)) {
-	return_(E(Et("PortEnv::createPort")("Bar_Provider, std::string"))("name, name"));
+	    return_(E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", std::string"))("name, name"));
     }
 }
 
-@trusted CppModule generateClass(Generator.Modules inner, string class_name,
+@trusted nsclass generateClass(Generator.Modules inner, string class_name,
     string ns_full, string type, Namespace ns, ImplData data, CppClass class_) {
     //Some assumptions are made. Does all providers and requirers end with Requirer or Provider?
     import std.array;
@@ -517,16 +535,19 @@ body {
     import std.algorithm : endsWith;
 
     auto inner_class = inner.impl.class_(class_name ~ "_Impl", "public " ~ class_name);
+    nsclass sclass = nsclass(false, inner_class, class_name, class_name ~ "_Impl");
+    
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
-            generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
+            sclass.isPort = true;
+            generatePortClass(inner_class, class_name, ns, ns_full, type);
             break;
         case ContinousInterface:
-            generatePortClass(inner_class, class_name, ns, ns_full, type);
+            generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
             break;
         }
 
-    return inner_class;
+    return sclass;
 }
 @trusted CppModule generateCompIfaceClass(CppModule inner_class, string class_name, Namespace ns, 
         string fqn_ns, string type) {
@@ -534,15 +555,19 @@ body {
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
+    string port_name = class_name;
+    if (class_name.endsWith("Requirer")) {
+        port_name = class_name[0..$-("_Requirer".length)];
+    } else if (class_name.endsWith("Provider")) {
+        port_name = class_name[0..$-("_Provider".length)];
+    }
+
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns);
-            foreach (ciface; ns.interfaces.ci) {
-                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
-            }
 
-            stmt(E(class_name ~ "* port"));
+            stmt(E(port_name ~ "* port"));
         }
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
@@ -630,12 +655,11 @@ void generateDtor(const CppDtor a, CppModule inner) {
 
     with (inner.func_body(a.returnType.toStringDecl, a.name)) {
 
-        if (cppm_type == "Get") {
-            auto cppm_ret_type = (cast(string)(a.name)).split("_")[$ - 2];
-
-            return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
-        } else if (a.name == "Get_Port") {
+        if (a.name == "Get_Port") {
             return_("*port");
+        } else if (cppm_type == "Get") {
+            auto cppm_ret_type = (cast(string)(a.name)).split("_")[$ - 2];
+            return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
         } else if (cppm_type == "Get") {
             return_(cppm_ditem.toLower);
         } else {
