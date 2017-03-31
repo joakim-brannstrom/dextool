@@ -449,6 +449,7 @@ body {
         import std.stdio;
         import std.string : toLower;
         import std.algorithm : canFind, map, joiner;
+        import std.array : join;
 
         auto inner = modules;
         CppModule inner_impl_singleton;
@@ -469,13 +470,16 @@ body {
         }
 
         string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
+        
+        if (!(fqn_class in classes))
+            classes[fqn_class] = Array!nsclass();
 
         foreach (a; ns.classRange) {
 
             string class_name = a.name; //Removes I_ 
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
-            classes[fqn_class] = Array!nsclass();
+            
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
             classes[fqn_class].insertBack(generateClass(inner, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
@@ -491,7 +495,8 @@ body {
         }
 
         foreach(a; ns.funcRange) {
-	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name, classes[fqn_class]);
+	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name, 
+                paramTypeToString(a.paramRange[0]), paramNameToString(a.paramRange[0]),classes[fqn_class]);
         }
 
         
@@ -507,23 +512,24 @@ body {
     }
 } 
 
-@trusted void generateFunc(CppModule inner, string return_type, string func_name, Array!nsclass classes) {
+import cpptooling.data.type;
+@trusted void generateFunc(CppModule inner, string return_type, string func_name, 
+             string paramType, string paramName, Array!nsclass classes) {
     string port_name = "";
     string port_implname = "";
     string compif_name = "";
     string compif_implname = "";
-
-    foreach(ns ; classes) {
-        if (ns.isPort) {
-            port_name = ns.name;
-            port_implname = ns.impl_name;
+    foreach(nss ; classes) {
+        if (nss.isPort) {
+            port_name = nss.name;
+            port_implname = nss.impl_name;
         } else {
-            compif_name = ns.name;
-            compif_implname = ns.impl_name;
+            compif_name = nss.name;
+            compif_implname = nss.impl_name;
         }
     }
-    with(inner.func_body(return_type, func_name)) {
-	    return_(E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", std::string"))("name, name"));
+    with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
+	    return_(E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", " ~ paramType))(paramName ~ ", " ~ paramName));
     }
 }
 
@@ -546,7 +552,6 @@ body {
             generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
             break;
         }
-
     return sclass;
 }
 @trusted CppModule generateCompIfaceClass(CppModule inner_class, string class_name, Namespace ns, 
