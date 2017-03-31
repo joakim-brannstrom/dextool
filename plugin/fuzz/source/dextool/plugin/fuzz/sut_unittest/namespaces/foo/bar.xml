@@ -5,7 +5,7 @@
         <SubType name="MyInt" type="IntT" min="-1" max="10" unit="km"/>
     </Types>
 
-    <ContinuesInterface name="Fun" direction="From_Provider">
+    <ContinousInterface name="Fun" direction="From_Provider">
         <Ignore unrecognized="tags" or="warn"/>
 
         <DataItem name="V0" type="IntT" more_tags="ignore"/>
@@ -15,8 +15,8 @@
         <DataItem name="V4" type="Bundle"/>
         <DataItem name="V5" type="Simple"/>
         <DataItem name="V6" type="WithHoles"/>
-    </ContinuesInterface>
-    <ContinuesInterface name="Fum" direction="To_Provider">
+    </ContinousInterface>
+    <ContinousInterface name="Fum" direction="To_Provider">
         <DataItem name="V0" type="IntT"/>
-    </ContinuesInterface>
+    </ContinousInterface>
 </Interface>

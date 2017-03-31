@@ -74,14 +74,14 @@ struct SubType {
     string max; ///Optional
 }
 
-struct ContinuesInterface {
+struct ContinousInterface {
     string name;
     Direction direction;
     auto data_items = Array!DataItem();
 }
 
 struct Interface_ {
-    Array!ContinuesInterface ci;
+    Array!ContinousInterface ci;
     //Add more interfaces here
     alias ci this;
     //Add more alias here
@@ -186,9 +186,9 @@ private:
             return xml_types;
         }
 
-        auto getContinuesInterface(Element interface_elem) {
+        auto getContinousInterface(Element interface_elem) {
             Interface_ ret;
-            ContinuesInterface cis;
+            ContinousInterface cis;
             //Add more interfaces here
             cis.name = interface_elem.tag.attr["name"];
             cis.direction = interface_elem.tag.attr["direction"] == "From_Provider" ? Direction.from : Direction.to;
@@ -230,8 +230,8 @@ private:
             } else {
                 foreach(Element elem ; doc.elements) {
                     switch (elem.tag.name) {
-                        case "ContinuesInterface":
-                            ret.ci.insertBack(getContinuesInterface(elem));
+                        case "ContinousInterface":
+                            ret.ci.insertBack(getContinousInterface(elem));
                             break;
                         default:
                             break;
@@ -295,7 +295,7 @@ public:
 
                 continue;
             }
-            foreach (ContinuesInterface c ; ifaces.ci) {
+            foreach (ContinousInterface c ; ifaces.ci) {
             //This should be merge()
                 string tmp_ns = curr_ns ~ "::" ~ c.direction;
                 if (auto ns = tmp_ns in namespaces) {

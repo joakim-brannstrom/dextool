@@ -308,7 +308,7 @@ import dsrcgen.cpp : E;
 
 enum Kind {
     none,
-    ContinuesInterface,
+    ContinousInterface,
 }
 
 struct ImplData {
@@ -385,7 +385,7 @@ Nullable!CppClass translate(CppClass input, ref ImplData data) {
     auto ReqOrPro = name.endsWith("Requirer") || name.endsWith("Provider");
     Nullable!CppClass class_ = input;
     if (ReqOrPro) {
-        data.tag(input.id, Kind.ContinuesInterface);
+        data.tag(input.id, Kind.ContinousInterface);
     }
 
     return class_;
@@ -397,7 +397,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data) {
         || input.name == "Provider";
     Nullable!CppNamespace ns = input;
     if (ReqOrPro) {
-        data.tag(ns.id, Kind.ContinuesInterface);
+        data.tag(ns.id, Kind.ContinousInterface);
     }
 
     input.classRange
@@ -453,8 +453,8 @@ body {
           case none:
             writeln("namespace is none!");
             break;
-          case ContinuesInterface:
-            writeln("Namespace is continues");
+          case ContinousInterface:
+            writeln("Namespace is continous");
             break;
         }
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
@@ -521,7 +521,7 @@ body {
         case none:
             generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
             break;
-        case ContinuesInterface:
+        case ContinousInterface:
             generatePortClass(inner_class, class_name, ns, ns_full, type);
             break;
         }
@@ -534,7 +534,6 @@ body {
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
-    string base_class = "I_" ~ class_name[0 .. class_name.indexOf(type) - 1];
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
@@ -543,13 +542,13 @@ body {
                 stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
             }
 
-            stmt(E(base_class ~ "* port"));
+            stmt(E(class_name ~ "* port"));
         }
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
             }
             
-            with (func_body("", class_name ~ "_Impl", base_class ~ "* p")) {
+            with (func_body("", class_name ~ "_Impl", class_name ~ "* p")) {
                 stmt(E("port") = E("p"));
             }
         }
