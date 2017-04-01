@@ -235,7 +235,7 @@ mixin template CModuleX(T) {
     auto func(T...)(string return_type, string name, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = stmt(format("%s %s(%s)", return_type, name, params));
         return e;
@@ -251,7 +251,7 @@ mixin template CModuleX(T) {
     auto func_body(T...)(string return_type, string name, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = suite(format("%s %s(%s)", return_type, name, params));
         return e;
@@ -292,22 +292,21 @@ mixin template CModuleX(T) {
         auto e = stmt("#else");
         return e;
     }
+}
 
-private:
-    string paramsToString(T...)(auto ref T args) {
-        import std.conv : to;
+string paramsToString(T...)(auto ref T args) {
+    import std.conv : to;
 
-        string params;
-        if (args.length >= 1) {
-            params = to!string(args[0]);
-        }
-        if (args.length >= 2) {
-            foreach (v; args[1 .. $]) {
-                params ~= ", " ~ to!string(v);
-            }
-        }
-        return params;
+    string params;
+    if (args.length >= 1) {
+        params = to!string(args[0]);
     }
+    if (args.length >= 2) {
+        foreach (v; args[1 .. $]) {
+            params ~= ", " ~ to!string(v);
+        }
+    }
+    return params;
 }
 
 /// Represent a semantic item in C source.

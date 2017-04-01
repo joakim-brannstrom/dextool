@@ -74,7 +74,7 @@ mixin template CppModuleX(T) {
     auto ctor(T...)(string class_name, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = stmt(format("%s(%s)", class_name, params));
         return e;
@@ -88,7 +88,7 @@ mixin template CppModuleX(T) {
     auto ctor_body(T...)(string class_name, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = class_suite(class_name, format("%s(%s)", class_name, params));
         return e;
@@ -192,7 +192,7 @@ mixin template CppModuleX(T) {
             string name, Flag!"isConst" isConst, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = stmt(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
                 return_type, name, params, isConst ? " const" : ""));
@@ -211,7 +211,7 @@ mixin template CppModuleX(T) {
             Flag!"isConst" isConst, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = class_suite(return_type, class_name, format("%s(%s)%s", name,
                 params, isConst ? " const" : ""));
@@ -231,7 +231,7 @@ mixin template CppModuleX(T) {
             string name, Flag!"isConst" isConst, auto ref T args) {
         import std.format : format;
 
-        string params = this.paramsToString(args);
+        string params = paramsToString(args);
 
         auto e = suite(format("%s%s %s(%s)%s", isVirtual ? "virtual " : "",
                 return_type, name, params, isConst ? " const" : ""));
@@ -317,21 +317,27 @@ pure:
      * Example:
      * 'static_cast'<int>'
      * | ----------|-----
-     * |tmpl       |params
+     * |template   |params
      */
     static struct Ett {
         private string tmpl_;
         private string params;
 
-        /// Represent a template with parameters.
+        /// Represent a template.
         this(string tmpl_, string params) pure nothrow {
             this.tmpl_ = tmpl_;
             this.params = params;
         }
 
+        /// Represent a template with multiple parameters.
+        this(T...)(string tmpl_, auto ref T args) pure nothrow if (args.length > 1) {
+            this.tmpl_ = tmpl_;
+            this.params = paramsToString(args);
+        }
+
         /// Represent the semantic meaning of Identifier(..) as text.
-        auto opCall(T)(T value) pure const nothrow {
-            return E(this.toString)(value);
+        auto opCall(T...)(auto ref T args) pure const nothrow {
+            return E(this.toString)(paramsToString(args));
         }
 
         /** String representation.
@@ -373,8 +379,8 @@ pure:
     }
 
     /// Represent the semantic meaning of "template name"("params").
-    auto opCall(T)(T params) pure const nothrow {
-        return Ett(tmpl, to!string(params));
+    auto opCall(T...)(auto ref T params) pure const nothrow {
+        return Ett(tmpl, params);
     }
 }
 
@@ -451,10 +457,12 @@ unittest {
 
     auto expect = "static_cast<char*>(foo);
 static_cast<char*>(bar);
+pair<int, bool>(3, true);
 ";
     auto a = Et("static_cast")("char*");
     m.stmt(a("foo"));
     m.stmt(a("bar"));
+    m.stmt(Et("pair")("int", "bool")(3, true));
     assert(expect == m.render, m.render);
 
     m = new CppModule;
