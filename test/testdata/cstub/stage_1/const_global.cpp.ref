@@ -16,7 +16,7 @@
 #define TEST_INIT_d const int *const d
 #endif // TEST_INIT_d
 #ifndef TEST_INIT_e
-#define TEST_INIT_e const int *const *e
+#define TEST_INIT_e const int *const*e
 #endif // TEST_INIT_e
 #ifndef TEST_INIT_extern_array
 #define TEST_INIT_extern_array const int extern_array[3]
@@ -25,10 +25,10 @@
 #define TEST_INIT_extern_const_typedef_array const MyIntType extern_const_typedef_array[2]
 #endif // TEST_INIT_extern_const_typedef_array
 #ifndef TEST_INIT_f
-#define TEST_INIT_f const int *const *const f
+#define TEST_INIT_f const int *const*const f
 #endif // TEST_INIT_f
 #ifndef TEST_INIT_g
-#define TEST_INIT_g int *const *const g
+#define TEST_INIT_g int *const*const g
 #endif // TEST_INIT_g
 
 TEST_INIT_a;

@@ -69,6 +69,7 @@ private struct BuildAdapter {
             CppDtor, CppAccess, CppVirtualMethod, CppVariable, makeUniqueUSR,
             makeCxParam, MemberVirtualType, TypeAttr, TypeKind, TypeKindAttr,
             TypeKindVariable;
+        import cpptooling.analyzer.type_format : TypeId, PtrFmt;
 
         auto c = CppClass(className);
         c.comment("Adapter connecting an interface with an implementation.");
@@ -79,7 +80,7 @@ private struct BuildAdapter {
         if (hasTestDouble) {
             auto attr = TypeAttr.init;
             attr.isRef = Yes.isRef;
-            auto kind = TypeKind(TypeKind.PointerInfo(interfaceName ~ "%s %s",
+            auto kind = TypeKind(TypeKind.PointerInfo(PtrFmt(TypeId(interfaceName)),
                     makeUniqueUSR, [attr]));
 
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
@@ -89,7 +90,7 @@ private struct BuildAdapter {
         if (hasGlobalInitializer) {
             auto attr = TypeAttr.init;
             attr.isRef = Yes.isRef;
-            auto kind = TypeKind(TypeKind.PointerInfo(interfaceInitGlobal ~ "%s %s",
+            auto kind = TypeKind(TypeKind.PointerInfo(PtrFmt(TypeId(interfaceInitGlobal)),
                     makeUniqueUSR, [attr]));
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
                     TypeAttr.init), CppVariable("init_globals")));
@@ -150,10 +151,11 @@ CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string 
     import std.typecons : Yes;
     import cpptooling.data.representation : CppVariable, CxGlobalVariable,
         makeUniqueUSR, TypeAttr, TypeKind, USRType, TypeKindAttr;
+    import cpptooling.analyzer.type_format : TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
-    auto kind = TypeKind(TypeKind.PointerInfo(namespace_name ~ "::" ~ type_name ~ "%s %s",
+    auto kind = TypeKind(TypeKind.PointerInfo(PtrFmt(TypeId(namespace_name ~ "::" ~ type_name)),
             USRType(namespace_name ~ "::" ~ type_name ~ "*"), [attr]));
 
     auto v = CxGlobalVariable(makeUniqueUSR, TypeKindAttr(kind, TypeAttr.init),

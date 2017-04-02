@@ -32,7 +32,7 @@ public:
 /// The lifetime of the connection is the same as the instance of the adapter.
 class Adapter {
 public:
-    Adapter(I_TestDouble_InitGlobals& init_globals);
+    Adapter(I_TestDouble_InitGlobals &init_globals);
     ~Adapter();
 };
 

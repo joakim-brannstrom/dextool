@@ -28,7 +28,7 @@
 #define TEST_INIT_expect_h const int *const expect_h
 #endif // TEST_INIT_expect_h
 #ifndef TEST_INIT_expect_i
-#define TEST_INIT_expect_i const int *const *expect_i
+#define TEST_INIT_expect_i const int *const*expect_i
 #endif // TEST_INIT_expect_i
 #ifndef TEST_INIT_expect_my_int
 #define TEST_INIT_expect_my_int my_int expect_my_int

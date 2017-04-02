@@ -46,6 +46,7 @@ import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
 import cpptooling.analyzer.clang.utility : logType;
+import cpptooling.analyzer.type_format : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data.type : Location, LocationTag;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.data.symbol.types : USRType;
@@ -385,7 +386,7 @@ body {
         rval.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;
-        rval.type.kind.info = TypeKind.RecordInfo(spell ~ " %s");
+        rval.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(spell)));
         rval.type.kind.usr = USRType(c.usr);
         rval.location = makeLocation(c);
         break;
@@ -433,7 +434,7 @@ body {
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
-        rval.type.kind.info = TypeKind.RecordInfo(nextSequence ~ " %s");
+        rval.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(nextSequence)));
         rval.type.kind.usr = USRType(c.usr);
         rval.location = makeLocation(c);
         break;
@@ -441,7 +442,7 @@ body {
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
-        rval.type.kind.info = TypeKind.SimpleInfo(nextSequence ~ " %s");
+        rval.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(nextSequence)));
         rval.type.kind.usr = USRType(c.usr);
         rval.location = makeLocation(c);
         break;
@@ -771,7 +772,7 @@ body {
     }
 
     TypeKind.TypeRefInfo info;
-    info.fmt = spell ~ " %s";
+    info.fmt = SimpleFmt(TypeId(spell));
     info.typeRef = type_ref;
     info.canonicalRef = canonical_ref;
 
@@ -817,7 +818,7 @@ body {
 
     auto rval = makeTypeKindAttr(type, c);
 
-    auto info = TypeKind.SimpleInfo(spell ~ " %s");
+    auto info = TypeKind.SimpleInfo(SimpleFmt(TypeId(spell)));
     rval.kind.info = info;
 
     // a typedef like __va_list has a null usr
@@ -848,7 +849,7 @@ body {
 
     if (maybe_primitive.isNull) {
         string spell = type.spelling;
-        rval.kind.info = TypeKind.SimpleInfo(spell ~ " %s");
+        rval.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(spell)));
 
         rval.kind.usr = c.usr;
         if (rval.kind.usr.length == 0) {
@@ -857,7 +858,7 @@ body {
         loc = makeLocation(c);
     } else {
         string spell = maybe_primitive.get;
-        rval.kind.info = TypeKind.PrimitiveInfo(spell ~ " %s");
+        rval.kind.info = TypeKind.PrimitiveInfo(SimpleFmt(TypeId(spell)));
 
         rval.kind.usr = USRType(maybe_primitive.get);
         loc = LocationTag(null);
@@ -921,7 +922,7 @@ body {
     auto spell = makeSpelling(c, type);
 
     TypeKind.TypeRefInfo info;
-    info.fmt = spell ~ " %s";
+    info.fmt = SimpleFmt(TypeId(spell));
     info.typeRef = typeRef;
     info.canonicalRef = canonicalRef;
 
@@ -962,7 +963,7 @@ body {
     }
 
     TypeKind.RecordInfo info;
-    info.fmt = spell ~ " %s";
+    info.fmt = SimpleFmt(TypeId(spell));
 
     auto rval = makeTypeKindAttr(type, c);
     rval.kind.info = info;
@@ -981,7 +982,7 @@ body {
  * Returns: TypeResults.primary.attr is the pointed at attribute.
  */
 private TypeResults typeToPointer(ref const(Cursor) c, ref Type type,
-        ref const(Container) container, in uint this_indent)
+        ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -994,9 +995,7 @@ out (result) {
     }
 }
 body {
-    import std.array;
-    import std.range : dropBack;
-    import dextool.logger;
+    import cpptooling.analyzer.type_format : PtrFmt, Left, Right;
 
     immutable indent = this_indent + 1;
 
@@ -1068,10 +1067,11 @@ body {
 
     switch (pointee.primary.type.kind.info.kind) with (TypeKind.Info) {
     case Kind.array:
-        info.fmt = pointee.primary.type.kind.toStringDecl(TypeAttr.init, "(%s%s)");
+        auto type_id = pointee.primary.type.kind.splitTypeId(indent);
+        info.fmt = PtrFmt(TypeIdLR(Left(type_id.left ~ "("), Right(")" ~ type_id.right)));
         break;
     default:
-        info.fmt = pointee.primary.type.kind.toStringDecl(TypeAttr.init, "%s%s");
+        info.fmt = PtrFmt(pointee.primary.type.kind.splitTypeId(indent));
     }
 
     TypeResults rval;
@@ -1097,7 +1097,7 @@ body {
  * Return: correct formatting and attributes for a function pointer.
  */
 private TypeResults typeToFuncPtr(ref const(Cursor) c, ref Type type,
-        ref const(Container) container, in uint this_indent)
+        ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -1112,7 +1112,9 @@ out (result) {
     }
 }
 body {
-    auto indent = this_indent + 1;
+    import cpptooling.analyzer.type_format : FuncPtrFmt, Left, Right;
+
+    immutable indent = this_indent + 1;
 
     // find the underlying function prototype
     auto pointee_type = type;
@@ -1129,7 +1131,10 @@ body {
     TypeKind.FuncPtrInfo info;
     info.pointee = pointee.primary.type.kind.usr;
     info.attrs = attrs.ptrs;
-    info.fmt = pointee.primary.type.kind.toStringDecl(TypeAttr.init, "(%s%s)");
+    info.fmt = () {
+        auto tid = pointee.primary.type.kind.splitTypeId(indent);
+        return FuncPtrFmt(TypeIdLR(Left(tid.left ~ "("), Right(")" ~ tid.right)));
+    }();
 
     TypeResults rval;
     rval.primary.type.kind.info = info;
@@ -1156,9 +1161,11 @@ out (result) {
     logTypeResult(result, this_indent);
 }
 body {
-    import std.array;
+    import std.array : array;
     import std.algorithm : map;
     import std.string : strip;
+    import cpptooling.analyzer.type_format : FuncFmt, Left, Right,
+        FuncSignatureFmt;
 
     const auto indent = this_indent + 1;
 
@@ -1193,7 +1200,13 @@ body {
     primary.type.attr.isConst = cast(Flag!"isConst") c.func.isConst;
 
     InfoT info;
-    info.fmt = format("%s %s(%s)", return_t.toStringDecl.strip, "%s", params.params.joinParamId());
+    static if (is(InfoT == TypeKind.FuncInfo)) {
+        info.fmt = FuncFmt(TypeIdLR(Left(return_t.toStringDecl.strip),
+                Right("(" ~ params.params.joinParamId ~ ")")));
+    } else {
+        info.fmt = FuncSignatureFmt(TypeIdLR(Left(return_t.toStringDecl.strip),
+                Right("(" ~ params.params.joinParamId ~ ")")));
+    }
     info.return_ = return_t.kind.usr;
     info.returnAttr = return_t.attr;
     info.params = params.params.map!(a => FuncInfoParam(a.result.type.kind.usr,
@@ -1234,7 +1247,8 @@ out (result) {
 }
 body {
     import std.algorithm : map;
-    import std.array;
+    import std.array : array;
+    import cpptooling.analyzer.type_format : CtorFmt;
 
     TypeResults rval;
     auto params = extractParams(c, type, container, indent);
@@ -1242,7 +1256,7 @@ body {
     primary.type = makeTypeKindAttr(type, c);
 
     TypeKind.CtorInfo info;
-    info.fmt = format("%s(%s)", "%s", params.params.joinParamId());
+    info.fmt = CtorFmt(TypeId(format("(%s)", params.params.joinParamId())));
     info.params = params.params.map!(a => FuncInfoParam(a.result.type.kind.usr,
             a.result.type.attr, a.id, a.isVariadic)).array();
     info.id = c.spelling;
@@ -1271,7 +1285,6 @@ body {
     auto primary = makeTypeKindAttr(type, c);
 
     TypeKind.DtorInfo info;
-    info.fmt = format("~%s()", "%s");
     info.id = c.spelling[1 .. $]; // remove the leading ~
 
     primary.kind.info = info;
@@ -1328,18 +1341,21 @@ body {
 
 /// TODO this function is horrible. Refactor
 private TypeResults typeToArray(ref const(Cursor) c, ref Type type,
-        ref const(Container) container, in uint indent)
+        ref const(Container) container, const uint this_indent)
 in {
-    logNode(c, indent);
-    logType(type, indent);
+    logNode(c, this_indent);
+    logType(type, this_indent);
 }
 out (result) {
-    logTypeResult(result, indent);
+    logTypeResult(result, this_indent);
     assert(result.primary.type.kind.info.kind == TypeKind.Info.Kind.array);
 }
 body {
     import std.format : format;
+    import cpptooling.analyzer.type_format : ArrayFmt;
     import cpptooling.data.type : LocationTag, Location;
+
+    immutable indent = this_indent + 1;
 
     static void gatherIndexesToElement(Type start, ref ArrayInfoIndex[] indexes, ref Type element) {
         Type curr = start;
@@ -1414,16 +1430,14 @@ body {
     LocationTag primary_loc;
 
     determineElement(element_type, index_nr, c, container, primary_usr,
-            primary_loc, element, indent + 1);
+            primary_loc, element, indent);
 
     // step 3, put together the result
 
     TypeKind.ArrayInfo info;
     info.element = element.primary.type.kind.usr;
     info.indexes = index_nr;
-    // TODO probably need to adjust elementType and format to allow ptr to
-    // array etc. int * const x[10];
-    info.fmt = element.primary.type.kind.toStringDecl(TypeAttr.init, "%s%s");
+    info.fmt = ArrayFmt(element.primary.type.kind.splitTypeId(indent));
 
     TypeResults rval;
 
@@ -1780,7 +1794,7 @@ body {
  * Otherwise case b and c.
  */
 private Nullable!TypeResults retrieveFunc(ref const(Cursor) c,
-        ref const(Container) container, in uint this_indent)
+        ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
     assert(c.kind.among(CXCursorKind.CXCursor_FunctionDecl, CXCursorKind.CXCursor_CXXMethod));
@@ -1791,8 +1805,9 @@ out (result) {
 body {
     import std.algorithm : filter;
     import std.range : chain, only;
+    import cpptooling.analyzer.type_format : FuncFmt;
 
-    const uint indent = this_indent + 1;
+    immutable indent = this_indent + 1;
     typeof(return) rval;
 
     // distinguish between a child node that is for the return value from those
@@ -1831,7 +1846,7 @@ body {
 
                     auto prim = k;
                     auto info = k.type.kind.info;
-                    prim.type.kind.info = TypeKind.FuncInfo(info.fmt,
+                    prim.type.kind.info = TypeKind.FuncInfo(FuncFmt(k.type.kind.splitTypeId(indent)),
                             info.return_, info.returnAttr, info.params);
                     prim.location = makeLocation(c);
                     prim.type.kind.usr = makeFallbackUSR(c, this_indent);
@@ -1867,7 +1882,7 @@ body {
 
     auto type = c.type;
     rval.primary.type = makeTypeKindAttr(type, c);
-    rval.primary.type.kind.info = TypeKind.SimpleInfo(c.spelling ~ " %s");
+    rval.primary.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(c.spelling)));
     rval.primary.type.kind.usr = c.usr;
     rval.primary.location = makeLocation(c);
 
@@ -1908,7 +1923,7 @@ body {
         auto type = c.type;
         rval.primary.type = makeTypeKindAttr(type, c);
 
-        rval.primary.type.kind.info = TypeKind.SimpleInfo(c.spelling ~ " %s");
+        rval.primary.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(c.spelling)));
         rval.primary.type.kind.usr = makeEnsuredUSR(c, indent);
         rval.primary.location = makeLocation(c);
 
@@ -2019,7 +2034,7 @@ body {
 
             TypeResult result;
 
-            auto info = TypeKind.SimpleInfo("...%s");
+            auto info = TypeKind.SimpleInfo(SimpleFmt(TypeId("...")));
             result.type.kind.info = info;
             result.type.kind.usr = "..." ~ c.location.toString();
             result.location = makeLocation(c);
@@ -2172,6 +2187,8 @@ body {
     case CXType_DependentSizedArray:
     case CXType_MemberPointer:
         break;
+
+        // CXTypeKind == 119 is elaborated kind. From libclang 3.9+
 
     default:
         logger.trace("Unhandled type kind ", to!string(kind));

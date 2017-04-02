@@ -35,8 +35,8 @@ public:
 ///
 class Adapter {
 public:
-    Adapter(I_TestDouble& inst);
-    Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals);
+    Adapter(I_TestDouble &inst);
+    Adapter(I_TestDouble &inst, I_TestDouble_InitGlobals &init_globals);
     ~Adapter();
 };
 
