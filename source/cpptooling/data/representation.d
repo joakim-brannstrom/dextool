@@ -60,22 +60,11 @@ version (unittest) {
     }
 }
 
-private size_t _nextUSR;
-
-static this() {
-    // Keeping it fixed to make it easier to debug, read the logs. Aka
-    // reproduce the result.
-    _nextUSR = 42;
-}
-
-/// Generate the next thread unique ID.
+/// Generate the next globally unique ID.
 size_t nextUniqueID() @safe nothrow {
-    if (_nextUSR == size_t.max) {
-        _nextUSR = size_t.min;
-    }
+    import cpptooling.utility.global_unique : nextNumber;
 
-    _nextUSR += 1;
-    return _nextUSR;
+    return nextNumber;
 }
 
 /** Construct a USR that is ensured to be unique.

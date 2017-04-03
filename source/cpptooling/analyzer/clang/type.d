@@ -52,29 +52,11 @@ import cpptooling.data.symbol.container : Container;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.utility.clang : logNode;
 
-private size_t _nextSequence;
-
-static this() {
-    // Use a fixed number to minimize the difference between two generated
-    // diagrams. For example makes it possible to diff the generated data.
-    //
-    // It is extremly important to minimize differences.
-    // Diffs are used as the basis to evaluate changes.
-    // No diff, no evaluation needed from an architectural point of view.
-    // A change? Further inspection needed.
-    _nextSequence = 42;
-}
-
 private string nextSequence() @safe {
     import std.conv : text;
+    import cpptooling.utility.global_unique : nextNumber;
 
-    if (_nextSequence == size_t.max) {
-        _nextSequence = size_t.min;
-    }
-
-    _nextSequence += 1;
-
-    return text(_nextSequence);
+    return text(nextNumber);
 }
 
 /// Returns: Filter node to only return those that are a typeref.
