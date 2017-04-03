@@ -963,7 +963,7 @@ const:
         this.ns ~= ns;
     }
 
-    auto nsRange() @nogc @safe pure nothrow {
+    auto nsRange() @nogc @safe pure nothrow inout {
         return ns;
     }
 
@@ -1048,13 +1048,19 @@ const:
         assert(name_.length > 0);
     }
     body {
+        import std.array : array;
+        import std.algorithm : map, each;
+
         this.name_ = name;
         this.reside_in_ns = CppNsStack(ns.dup);
 
-        () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
+        this.inherits_ = inherits.map!((a) {
+            auto r = CppInherit(a.name, a.access);
+            a.nsRange.each!(b => r.put(b));
+            return r;
+        }).array();
 
-        ///TODO consider update so the identifier also depend on the namespace.
-        setUniqueId(this.name_);
+        setUniqueId(fullyQualifiedName);
     }
 
     //TODO remove
