@@ -527,7 +527,7 @@ import cpptooling.data.type;
         }
     }
     with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
-	    return_(E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", " ~ paramType))(paramName ~ ", " ~ paramName));
+	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
     }
 }
 
@@ -620,6 +620,7 @@ import cpptooling.data.type;
 			    string min = minmax["min"];
 			    string max = minmax["max"];
 			    string type_type = minmax["type"];
+                string type_ns = minmax["namespace"];
 
 			    //foo.V5 = static_cast<Foo::SimpleT::Enum>(randomGenerator->generate("Provider foo V5", 0, 2));
 			    //foo.V6 = static_cast<Foo::WithHolesT::Enum>(randomGenerator->generate("Provider foo V6", 1, 10));
@@ -631,9 +632,11 @@ import cpptooling.data.type;
 									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`)`));
 				break;
 			    case "Enum":
-				stmt(E(ciface.name ~ "." ~ ditem.name) = E(
-									   `static_cast<`~`Lunch` ~`>(randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`))`));
+                string fqns_type = type_ns.capitalize ~ "::" ~ ditem.type ~ "T::Enum";
+				stmt(E(ciface.name ~ "." ~ ditem.name) = E(Et("static_cast")(fqns_type))(`randomGenerator->generate("`~type~` ` ~ ciface.name ~ ` ` ~ ditem.name~`", ` ~ min ~ `, ` ~ max ~ `)`));
+                
+                //E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", " ~ paramType))(paramName ~ ", " ~ paramName))
+                //E(Et("static_cast")(fqns_type))("randomGenerator->generate"("` ~ type ~ ` ` ~ ciface.name~ ` ` ~ ditem.name ~ `", `~min~`, ~max~)));
 				break;
 			    }
 			}

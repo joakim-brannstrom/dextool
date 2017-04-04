@@ -40,10 +40,12 @@ struct Types {
 
 struct Record {
     string name;
+    string namespace;
     Variable[string] variables;
 
-    this(string name) {
+    this(string name, string ns) {
         this.name = name;
+        this.namespace = ns;
     }
 }
 
@@ -57,8 +59,10 @@ struct Enum {
     Array!EnumItem enumitems;
     string min;
     string max;
-    this(string name) {
+    string namespace;
+    this(string name, string ns) {
         this.name = name;
+        this.namespace = ns;
     }
 }
 
@@ -68,13 +72,15 @@ struct EnumItem {
 }
 
 struct SubType {
-    this(string name, string type) {
+    this(string name, string type, string ns) {
         this.name = name;
         this.type = type;
+        this.namespace = ns;
     }
 
     string name;
     string type;
+    string namespace;
     string unit; ///Optional
     string min; ///Optional
     string max; ///Optional
@@ -148,7 +154,7 @@ private:
         //dfmt on
     }
 
-    Types getTypes(Element types) {
+    Types getTypes(Element types, string curr_ns) {
         import std.stdio;
         import std.conv;
         import std.typecons;
@@ -157,7 +163,7 @@ private:
         foreach (Element elem; types.elements) {
             final switch (elem.tag.name) {
             case "SubType":
-                SubType subtype = SubType(elem.tag.attr["name"], elem.tag.attr["type"]);
+                SubType subtype = SubType(elem.tag.attr["name"], elem.tag.attr["type"], curr_ns);
                 if (auto minVal = "min" in elem.tag.attr) {
                     subtype.min = *minVal;
                 }
@@ -173,7 +179,7 @@ private:
                 break;
 
             case "Record":
-                Record rec = Record(elem.tag.attr["name"]);
+                Record rec = Record(elem.tag.attr["name"], curr_ns);
                 foreach (Element variable; elem.elements) {
                     Variable var = Variable(variable.tag.attr["name"], variable.tag.attr["type"]);
                     rec.variables[variable.tag.attr["name"]] = var;
@@ -181,7 +187,7 @@ private:
                 xml_types.record.insertBack(rec);
                 break;
             case "Enum":
-                Enum enums = Enum(elem.tag.attr["name"]);
+                Enum enums = Enum(elem.tag.attr["name"], curr_ns);
                 Nullable!int min;
                 Nullable!int max;
                 foreach (Element enumitem; elem.elements) {
@@ -241,11 +247,14 @@ private:
         return cis;
     }
 
-    Types[] types(Document doc) {
+    Types[] types(Document doc, string curr_ns) {
         if (doc.tag.name == "Types") { //Everything is a type!
-            return [getTypes(doc)];
+            if (curr_ns.endsWith("::types")) {
+                curr_ns = curr_ns[0..$-("::types").length];
+            }
+            return [getTypes(doc, curr_ns)];
         } else {
-            return doc.elements.filter!(a => a.tag.name == "Types").map!(a => getTypes(a)).array;
+            return doc.elements.filter!(a => a.tag.name == "Types").map!(a => getTypes(a, curr_ns)).array;
         }
     }
 
@@ -311,10 +320,10 @@ public:
         foreach (string xml_file; xml_files) {
             string curr_ns = namespace(xml_file);
             auto doc = new Document(cast(string) std.file.read(xml_file));
-            Types ntypes = merge(types(doc));
+            Types ntypes = merge(types(doc, curr_ns));
             Nullable!Interface_ ifaces = interfaces(doc);
 
-            if (curr_ns == "global") {
+            if (curr_ns == "global::types") {
                 namespaces["global"] = Namespace("global", ntypes, Interface_());
                 glob.enums = ntypes.enums ~ glob.enums;
                 glob.prims = ntypes.prims ~ glob.prims;
@@ -380,11 +389,6 @@ public:
         Types out_types = Types();
         out_types = traverseNamespace(topns, out_types);
 
-        writeln(topns);
-        /*Array!Primitive prims;
-	  Array!SubType subtypes;
-	  Array!Record record;
-	  Array!Enum enums;*/
         foreach (SubType t; out_types.subtypes) {
             writeln(t.name);
             writeln(type_name);
@@ -392,6 +396,7 @@ public:
                 ret["min"] = t.min;
                 ret["max"] = t.max;
                 ret["type"] = "SubType";
+                ret["namespace"] = t.namespace;
                 return ret;
             }
         }
@@ -400,6 +405,7 @@ public:
                 ret["min"] = t.min;
                 ret["max"] = t.max;
                 ret["type"] = "Enum";
+                ret["namespace"] = t.namespace;
                 return ret;
             }
         }
