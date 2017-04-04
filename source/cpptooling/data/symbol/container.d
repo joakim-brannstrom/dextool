@@ -264,7 +264,7 @@ struct Container {
         import std.format : formattedWrite, formatValue;
         import std.range.primitives : put;
         import std.conv : to;
-        import cpptooling.analyzer.type : internalGetFmt;
+        import cpptooling.analyzer.type : splitTypeId;
         import cpptooling.data.type : LocationTag;
 
         // avoid allocating
@@ -279,7 +279,7 @@ struct Container {
         put(w, "types [");
         foreach (a; types[]) {
             formattedWrite(w, "\n  %s %s -> %s", a.info.kind.to!string(),
-                    cast(string) a.usr, a.internalGetFmt);
+                    cast(string) a.usr, a.splitTypeId);
         }
         put(w, "]\n");
         put(w, "locations [");
@@ -435,7 +435,7 @@ unittest {
     "Class".shouldEqual(cast(string) found_class.name);
 }
 
-@Name("should list all contained items")
+@("given a list of items they shall all be included in the output")
 unittest {
     import std.conv : to;
     import cpptooling.data.representation : CppClass, CppClassName;
@@ -455,16 +455,16 @@ unittest {
         cont.put(kind);
     }
 
-    cont.toString.shouldEqualPretty("classes [
+    cont.toString.shouldEqualPretty(`classes [
   Class0
   Class1]
 types [
-  null_ key0 -> kind is @null@
-  null_ key1 -> kind is @null@]
+  null_ key0 -> TypeIdLR("", "")
+  null_ key1 -> TypeIdLR("", "")]
 locations [
   key1 ->
     File:file1 Line:1 Column:2
-  key0 -> File:file0 Line:1 Column:2]");
+  key0 -> File:file0 Line:1 Column:2]`);
 }
 
 @Name("Should allow only one definition location but multiple declaration locations")

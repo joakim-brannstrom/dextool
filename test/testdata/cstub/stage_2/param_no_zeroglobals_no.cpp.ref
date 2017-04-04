@@ -1,15 +1,15 @@
 #include "test_double.hpp"
 
 namespace {
-TestDouble::I_TestDouble* test_double_inst = 0;
+TestDouble::I_TestDouble *test_double_inst = 0;
 } //NS:
 
 namespace TestDouble {
-Adapter::Adapter(I_TestDouble& inst) {
+Adapter::Adapter(I_TestDouble &inst) {
     test_double_inst = &inst;
 }
 
-Adapter::Adapter(I_TestDouble& inst, I_TestDouble_InitGlobals& init_globals) {
+Adapter::Adapter(I_TestDouble &inst, I_TestDouble_InitGlobals &init_globals) {
     test_double_inst = &inst;
     init_globals.the_lonely_warrior();
 }

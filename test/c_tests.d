@@ -232,7 +232,7 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@("Includes shall be deduplicated to avoid the problem of multiple includes")
+@(testId ~ "Includes shall be deduplicated to avoid the problem of multiple includes")
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/bug_multiple_includes.h", testEnv);

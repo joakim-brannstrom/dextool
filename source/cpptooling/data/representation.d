@@ -60,22 +60,11 @@ version (unittest) {
     }
 }
 
-private size_t _nextUSR;
-
-static this() {
-    // Keeping it fixed to make it easier to debug, read the logs. Aka
-    // reproduce the result.
-    _nextUSR = 42;
-}
-
-/// Generate the next thread unique ID.
+/// Generate the next globally unique ID.
 size_t nextUniqueID() @safe nothrow {
-    if (_nextUSR == size_t.max) {
-        _nextUSR = size_t.min;
-    }
+    import cpptooling.utility.global_unique : nextNumber;
 
-    _nextUSR += 1;
-    return _nextUSR;
+    return nextNumber;
 }
 
 /** Construct a USR that is ensured to be unique.
@@ -974,7 +963,7 @@ const:
         this.ns ~= ns;
     }
 
-    auto nsRange() @nogc @safe pure nothrow {
+    auto nsRange() @nogc @safe pure nothrow inout {
         return ns;
     }
 
@@ -1059,13 +1048,19 @@ const:
         assert(name_.length > 0);
     }
     body {
+        import std.array : array;
+        import std.algorithm : map, each;
+
         this.name_ = name;
         this.reside_in_ns = CppNsStack(ns.dup);
 
-        () @trusted{ inherits_ = (cast(CppInherit[]) inherits).dup; }();
+        this.inherits_ = inherits.map!((a) {
+            auto r = CppInherit(a.name, a.access);
+            a.nsRange.each!(b => r.put(b));
+            return r;
+        }).array();
 
-        ///TODO consider update so the identifier also depend on the namespace.
-        setUniqueId(this.name_);
+        setUniqueId(fullyQualifiedName);
     }
 
     //TODO remove

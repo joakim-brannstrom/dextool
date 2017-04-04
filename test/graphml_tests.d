@@ -507,3 +507,12 @@ unittest {
     dg.countNode("c:@SA@D@FI@x").shouldEqual(1);
     dg.countNode("c:@SA@D@FI@y").shouldEqual(1);
 }
+
+version (Have_Cpp_Boost) {
+    @(testId ~ "the plugin shall not crash on CXTypeKind_Elaborated nodes")
+    unittest {
+        mixin(EnvSetup(globalTestdir));
+        auto p = genTestParams("bug_elaborate_kind_clang_3_9_and_up.hpp", testEnv);
+        runTestFile(p, testEnv);
+    }
+}

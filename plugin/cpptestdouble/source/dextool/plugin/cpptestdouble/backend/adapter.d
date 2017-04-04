@@ -31,6 +31,7 @@ private struct BuildAdapter {
 
     CppClass finalize() {
         import cpptooling.data.representation;
+        import cpptooling.analyzer.type_format : SimpleFmt, TypeId, PtrFmt;
 
         auto c = CppClass(className);
 
@@ -39,7 +40,7 @@ private struct BuildAdapter {
         if (hasTestDouble) {
             auto attr = TypeAttr.init;
             attr.isRef = Yes.isRef;
-            auto kind = TypeKind(TypeKind.PointerInfo(interfaceName ~ "%s %s",
+            auto kind = TypeKind(TypeKind.PointerInfo(PtrFmt(TypeId(interfaceName)),
                     USRType(interfaceName ~ "&"), [attr]));
 
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
@@ -47,7 +48,7 @@ private struct BuildAdapter {
         }
 
         if (hasGlobalInitializer) {
-            auto kind = TypeKind(TypeKind.SimpleInfo(interfaceInitGlobal ~ " %s"));
+            auto kind = TypeKind(TypeKind.SimpleInfo(SimpleFmt(TypeId(interfaceInitGlobal))));
             params ~= makeCxParam(TypeKindVariable(TypeKindAttr(kind,
                     TypeAttr.init), CppVariable("init_globals")));
         }
@@ -84,10 +85,11 @@ BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
 CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data.representation : CppVariable, CxGlobalVariable,
         makeUniqueUSR;
+    import cpptooling.analyzer.type_format : TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
-    auto kind = TypeKind(TypeKind.PointerInfo(main_ns ~ "::" ~ main_if ~ "%s %s",
+    auto kind = TypeKind(TypeKind.PointerInfo(PtrFmt(TypeId(main_ns ~ "::" ~ main_if)),
             USRType(main_ns ~ "::" ~ main_if ~ "*"), [attr]));
 
     auto v = CxGlobalVariable(makeUniqueUSR, TypeKindAttr(kind, TypeAttr.init),
