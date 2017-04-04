@@ -83,8 +83,8 @@ struct Generator {
         //TODO: Find a suitable name
         xml_parse xmlp = new xml_parse(params.getXMLBasedir);
         CppRoot new_root = CppRoot.make;
-        CppNamespace[] cppn; 
-        
+        CppNamespace[] cppn;
+
         rawFilter(root, xmlp, cppn);
         cppn.each!(a => new_root.put(a));
 
@@ -340,8 +340,7 @@ struct ImplData {
     }
 }
 
-CppT rawFilter(CppT)(CppT input, 
-        xml_parse xmlp, ref CppNamespace[] out_) @trusted {
+CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trusted {
     import std.algorithm : each, map, filter;
     import dextool.type : FileName;
     import std.string : toLower;
@@ -361,7 +360,6 @@ CppT rawFilter(CppT)(CppT input,
     // dfmt on
     return filtered;
 }
-
 
 ImplData translate(CppRoot root) {
     import std.algorithm : map, filter, each;
@@ -615,7 +613,7 @@ import cpptooling.data.type;
                 foreach (ciface; ns.interfaces.ci) {
                     foreach (ditem; ciface.data_items) {
                         //Add ranges here, non existent in current xml parser?
-			string[string] minmax = xmlp.findMinMax(fqn_ns, ditem.type);
+			string[string] minmax = xmlp.findMinMax(ns.name, ditem.type);
 		       
      
 			if (minmax.length > 0) {
@@ -717,14 +715,14 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
 			     (const CppCtor a) => false,
 			     (const CppDtor a) => false);
         // dfmt on
-    }
+}
 
-    static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) @safe {
-        import std.array : array, appender;
-        import std.algorithm : copy, filter, map, each, cache;
-        import std.range : chain;
+static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) @safe {
+    import std.array : array, appender;
+    import std.algorithm : copy, filter, map, each, cache;
+    import std.range : chain;
 
-        // dfmt off
+    // dfmt off
         auto local_methods = c.methodRange
 	    .filter!(a => isMethodOrOperator(a));
 
@@ -737,40 +735,40 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
             .map!(a => getMethods(a.get, container));
         // dfmt on
 
-        auto methods = appender!(CppClass.CppFunc[])();
-        () @trusted{ local_methods.copy(methods); inherit_methods.copy(methods); }();
+    auto methods = appender!(CppClass.CppFunc[])();
+    () @trusted{ local_methods.copy(methods); inherit_methods.copy(methods); }();
 
-        return methods.data;
-    }
+    return methods.data;
+}
 
-    static auto dedup(CppClass.CppFunc[] methods) {
-        import std.algorithm : makeIndex, uniq, map;
+static auto dedup(CppClass.CppFunc[] methods) {
+    import std.algorithm : makeIndex, uniq, map;
 
-        static auto getUniqeId(T)(ref T method) @trusted {
-            import std.variant : visit;
-            import cpptooling.data.representation : CppMethod, CppMethodOp,
-                CppCtor, CppDtor;
+    static auto getUniqeId(T)(ref T method) @trusted {
+        import std.variant : visit;
+        import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor,
+            CppDtor;
 
-            // dfmt off
+        // dfmt off
             return method.visit!((CppMethod a) => a.id,
                                  (CppMethodOp a) => a.id,
                                  (CppCtor a) => a.id,
                                  (CppDtor a) => a.id);
             // dfmt on
-        }
-
-        return methods.uniq!((a, b) => getUniqeId(a) == getUniqeId(b));
     }
 
-    auto methods = dedup(getMethods(class_, container));
+    return methods.uniq!((a, b) => getUniqeId(a) == getUniqeId(b));
+}
 
-    auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
-    // dfmt off
+auto methods = dedup(getMethods(class_, container));
+
+auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
+// dfmt off
     () @trusted {
         import std.algorithm : each;
         methods.each!(a => c.put(a));
     }();
     // dfmt on
 
-    return c;
+return c;
 }
