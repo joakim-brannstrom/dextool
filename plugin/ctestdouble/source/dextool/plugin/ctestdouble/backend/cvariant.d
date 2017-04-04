@@ -487,7 +487,8 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
     import std.algorithm : filter;
     import std.array : array;
     import cpptooling.data.representation : CppNamespace, CppNs, CppClassName,
-        CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID;
+        CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID,
+        MergeMode;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
     import dextool.plugin.backend.ctestdouble.adapter : makeSingleton,
@@ -496,7 +497,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         makeZeroGlobal, filterMutable;
 
     auto impl = ImplData.make;
-    impl.root.merge(root);
+    impl.root.merge(root, MergeMode.shallow);
 
     impl.globals = impl.globalRange.filterMutable(container).array();
 
