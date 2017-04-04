@@ -612,18 +612,13 @@ import cpptooling.data.type;
             with (func_body("void", "Regenerate")) {
                 foreach (ciface; ns.interfaces.ci) {
                     foreach (ditem; ciface.data_items) {
-                        //Add ranges here, non existent in current xml parser?
 			string[string] minmax = xmlp.findMinMax(ns.name, ditem.type);
-		       
-     
+		      
 			if (minmax.length > 0) {
 			    string min = minmax["min"];
 			    string max = minmax["max"];
 			    string type_type = minmax["type"];
                 string type_ns = minmax["namespace"];
-
-			    //foo.V5 = static_cast<Foo::SimpleT::Enum>(randomGenerator->generate("Provider foo V5", 0, 2));
-			    //foo.V6 = static_cast<Foo::WithHolesT::Enum>(randomGenerator->generate("Provider foo V6", 1, 10));
 			    
 			    final switch (type_type) {
 			    case "SubType":
@@ -632,11 +627,25 @@ import cpptooling.data.type;
 									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`)`));
 				break;
 			    case "Enum":
-                string fqns_type = type_ns.capitalize ~ "::" ~ ditem.type ~ "T::Enum";
+				string fqns_type = type_ns.capitalize ~ "::" ~ ditem.type ~ "T::Enum";
 				stmt(E(ciface.name ~ "." ~ ditem.name) = E(Et("static_cast")(fqns_type))(`randomGenerator->generate("`~type~` ` ~ ciface.name ~ ` ` ~ ditem.name~`", ` ~ min ~ `, ` ~ max ~ `)`));
-                
-                //E(Et("PortEnvironment::createPort")(compif_implname ~ ", " ~ port_name ~ ", " ~ port_implname ~ ", " ~ paramType))(paramName ~ ", " ~ paramName))
-                //E(Et("static_cast")(fqns_type))("randomGenerator->generate"("` ~ type ~ ` ` ~ ciface.name~ ` ` ~ ditem.name ~ `", `~min~`, ~max~)));
+				break;
+			    case "Record":
+				Variable[string] vars = xmlp.findVariables(type_ns, ditem.type);
+				foreach (var_name ; vars) {
+				    auto var_minmax = xmlp.findMinMax(ns.name, var_name.type);
+				    if (var_minmax.length > 0) {
+				    	stmt(E(ciface.name ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
+									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
+									   ~ ` ` ~ ditem.name ~`", `~var_minmax["min"]~`, `~var_minmax["max"]~`)`));
+				    }
+				    else {
+					stmt(E(ciface.name ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
+										   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
+										   ~ ` ` ~ ditem.name ~ `"`~`)`));
+				    }
+				}  
+				
 				break;
 			    }
 			}

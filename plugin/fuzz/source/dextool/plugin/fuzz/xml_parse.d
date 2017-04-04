@@ -409,10 +409,40 @@ public:
                 return ret;
             }
         }
+	foreach (Record t; out_types.record) {
+	    if (t.name == type_name) {
+		ret["min"] = "fun";
+		ret["max"] = "fun";
+		ret["namespace"] = t.namespace;
+		ret["type"] = "Record";
+		return ret;
+	    }
+	}
 
         return ret;
     }
 
+    Variable[string] findVariables(string ns, string type_name) {
+	writeln(ns);
+	Variable[string] ret;
+        Types out_types = Types();
+	if (auto nsp = ns in getNamespaces()) {
+	    out_types = nsp.ns_types;
+	}
+	else if (auto nsp = ns~"::types" in getNamespaces()) {
+	    out_types = nsp.ns_types;
+	} 
+	foreach (Record t; out_types.record) {
+	    if (t.name == type_name) {
+		
+		ret = t.variables;
+		return ret;
+
+	    }
+	}
+	return ret;
+    }
+    
 }
 
 version (none) {
