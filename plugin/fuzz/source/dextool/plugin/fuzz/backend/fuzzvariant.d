@@ -483,7 +483,7 @@ body {
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
             classes[fqn_class].insertBack(generateClass(inner, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
-                        ns.resideInNs[$ - 1].payload, nss, data, a));
+							ns.resideInNs[$ - 1].payload, nss, data, a, xmlp));
 
             foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,
@@ -534,7 +534,7 @@ import cpptooling.data.type;
 }
 
 @trusted nsclass generateClass(Generator.Modules inner, string class_name,
-    string ns_full, string type, Namespace ns, ImplData data, CppClass class_) {
+			       string ns_full, string type, Namespace ns, ImplData data, CppClass class_, xml_parse xmlp) {
     //Some assumptions are made. Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf;
@@ -546,7 +546,7 @@ import cpptooling.data.type;
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
             sclass.isPort = true;
-            generatePortClass(inner_class, class_name, ns, ns_full, type);
+            generatePortClass(inner_class, class_name, ns, ns_full, type, xmlp);
             break;
         case ContinousInterface:
             generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
@@ -588,8 +588,8 @@ import cpptooling.data.type;
 
 
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
-        Namespace ns, string fqn_ns, string type) {
-    import std.array;
+				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
+    import std.array : empty;
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
@@ -615,10 +615,35 @@ import cpptooling.data.type;
                 foreach (ciface; ns.interfaces.ci) {
                     foreach (ditem; ciface.data_items) {
                         //Add ranges here, non existent in current xml parser?
-                        stmt(
-                            E(ciface.name ~ "." ~ ditem.name) = E(
+			string[string] minmax = xmlp.findMinMax(fqn_ns, ditem.type);
+		       
+     
+			if (minmax.length > 0) {
+			    string min = minmax["min"];
+			    string max = minmax["max"];
+			    string type_type = minmax["type"];
+
+			    //foo.V5 = static_cast<Foo::SimpleT::Enum>(randomGenerator->generate("Provider foo V5", 0, 2));
+			    //foo.V6 = static_cast<Foo::WithHolesT::Enum>(randomGenerator->generate("Provider foo V6", 1, 10));
+			    
+			    final switch (type_type) {
+			    case "SubType":
+				stmt(E(ciface.name ~ "." ~ ditem.name) = E(
+									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
+									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`)`));
+				break;
+			    case "Enum":
+				stmt(E(ciface.name ~ "." ~ ditem.name) = E(
+									   `static_cast<`~`Lunch` ~`>(randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
+									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`))`));
+				break;
+			    }
+			}
+			else {
+			    stmt(E(ciface.name ~ "." ~ ditem.name) = E(
                             `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-                            ~ ` ` ~ ditem.name ~ `")`));
+                            ~ ` ` ~ ditem.name ~ `"`~`)`));
+			}
                     }
                 }
             }

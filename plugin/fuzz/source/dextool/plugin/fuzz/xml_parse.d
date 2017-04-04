@@ -53,8 +53,8 @@ struct Variable {
 struct Enum {
     string name;
     Array!EnumItem enumitems;
-    int min;
-    int max;
+    string min;
+    string max;
     this(string name) { this.name = name; }
 }
 
@@ -197,8 +197,8 @@ private:
                             enums.enumitems.insertBack(EnumItem(enumitem.tag.attr["name"],
                                 enumitem.tag.attr["value"]));
                         }
-                        enums.min = min;
-                        enums.max = max;
+                        enums.min = to!string(min);
+                        enums.max = to!string(max);
                         xml_types.enums.insertBack(enums);
                         break;
                     case "Primitive":
@@ -372,11 +372,43 @@ public:
         return out_types;
     }
 
+    string[string] findMinMax(string topns, string type_name) {
+	string[string] ret;
+	Types out_types;
+	out_types = traverseNamespace(topns, out_types);
+
+	/*Array!Primitive prims;
+	  Array!SubType subtypes;
+	  Array!Record record;
+	  Array!Enum enums;*/
+	foreach (SubType t ; out_types.subtypes) {
+	    if (t.name == type_name) {
+		ret["min"] = t.min;
+		ret["max"] = t.max;
+		ret["type"] = "SubType";
+		return ret;
+	    }
+	}
+	foreach (Enum t ; out_types.enums) {
+	    if (t.name == type_name) {
+		ret["min"] = t.min;
+		ret["max"] = t.max;
+		ret["type"] = "Enum";
+		return ret;
+	    }
+	}
+
+	return ret;
+    }
+
+    
+    
+
 }
 
 
 
-version(all) {
+version(none) {
     int main() {
         Types out_t = Types();
         xml_parse xml_p = new xml_parse(BaseDir("sut_unittest/namespaces"));
