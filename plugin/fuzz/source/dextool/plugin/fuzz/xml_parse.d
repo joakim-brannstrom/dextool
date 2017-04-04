@@ -7,8 +7,9 @@ import std.file;
 import std.path;
 import std.string;
 import std.xml;
+import std.typecons;
 
-    import std.stdio;
+import std.stdio;
 
 
 enum Direction {
@@ -132,6 +133,13 @@ private:
         string namespace(string filename) {
         ///TODO: Namespaces should probably only be added if there is any interface in the file
         //dfmt off
+            if (baseName(filename, ".xml") == "types") {
+                return dirName(filename)
+                    .chompPrefix(this.basedir)
+                    .replace(dirSeparator, "::")
+                    .chompPrefix("::");
+            }
+
             return dirName(filename)
                 .chompPrefix(this.basedir)
                 .replace(dirSeparator, "::")
@@ -240,11 +248,12 @@ private:
             }
         }
 
-        Interface_ interfaces(Document doc) {
-            Interface_ ret;
+        Nullable!Interface_ interfaces(Document doc) {
+            Nullable!Interface_ ret;
             if (doc.tag.name != "Interface") {
                 return ret;
             } else {
+                ret = Interface_();
                 foreach(Element elem ; doc.elements) {
                     switch (elem.tag.name) {
                         case "ContinousInterface":
@@ -269,7 +278,7 @@ private:
             return new_;
         }
 
-        Types merge(Types old, Types new_) {
+        Types merge(Types old, ref Types new_) {
             new_.enums = old.enums ~ new_.enums;
             new_.prims = old.prims ~ new_.prims;
             new_.record = old.record ~ new_.record;
@@ -302,14 +311,19 @@ public:
             string curr_ns = namespace(xml_file);
             auto doc = new Document(cast(string) std.file.read(xml_file));
             Types ntypes = merge(types(doc));
-            Interface_ ifaces = interfaces(doc);
+            Nullable!Interface_ ifaces = interfaces(doc);
 
-            if (curr_ns == "global::types") {
+            if (curr_ns == "global") {
+                namespaces["global"] = Namespace("global", ntypes, Interface_());
                 glob.enums = ntypes.enums ~ glob.enums;
                 glob.prims = ntypes.prims ~ glob.prims;
                 glob.record = ntypes.record ~ glob.record;
                 glob.subtypes = ntypes.subtypes ~ glob.subtypes;
 
+                continue;
+            }
+            if(ifaces.isNull) {
+                namespaces[curr_ns] = Namespace(curr_ns, ntypes, Interface_()); //Add nullable to interface_ as standard?
                 continue;
             }
             foreach (ContinousInterface c ; ifaces.ci) {
@@ -342,17 +356,38 @@ public:
         return this.nsps[nsname];
     }
 
+    Types traverseNamespace(string topns, ref Types out_types) {
+        auto ns_spl = topns.split("::");
+        if(auto ns = ns_spl.join("::") in getNamespaces) {
+            out_types = merge(ns.ns_types, out_types);
+            return traverseNamespace(ns_spl[0..$-1].join("::"), out_types);
+        }
+        else if (ns_spl.length >= 1) {
+            return traverseNamespace(ns_spl[0..$-1].join("::"), out_types);
+        }
+
+        if(auto ns = "global" in getNamespaces) {
+            return merge(ns.ns_types, out_types);
+        }
+        return out_types;
+    }
+
 }
 
 
 
-/*version(none) {
+version(all) {
     int main() {
+        Types out_t = Types();
         xml_parse xml_p = new xml_parse(BaseDir("sut_unittest/namespaces"));
-        foreach (string ns ; xml_p.parseBaseDir.byKey) {
-            writeln(ns);
+
+        xml_p.traverseNamespace("foo::bar::requirer", out_t);
+        foreach (a ; out_t.prims) {
+            writeln(a);
         }
+
+        return 0;
     }
     
 }
-*/
+
