@@ -588,7 +588,7 @@ import cpptooling.data.type;
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
 				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
     import std.array : empty;
-    import std.string : toLower, indexOf;
+    import std.string : toLower, indexOf, capitalize;
     import std.algorithm : endsWith;
 
     with (inner_class) {
