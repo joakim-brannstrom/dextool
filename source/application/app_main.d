@@ -7,9 +7,9 @@ module application.app_main;
 
 import logger = std.experimental.logger;
 
-import dextool.type : FileName, ExitStatusType;
-import dextool.logger_conf : ConfigureLog;
 import dextool.cli_help;
+import dextool.logger_conf : ConfigureLog;
+import dextool.type : FileName, ExitStatusType;
 
 version (unittest) {
     import unit_threaded : shouldEqual, Values, getValue;
