@@ -173,11 +173,11 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 @safe:
 
     static if (is(IDType == size_t)) {
-        private void setUniqueId(string identifier) nothrow {
+        private void setUniqueId(string identifier) @safe pure nothrow {
             this.id_ = makeHash(identifier);
         }
     } else static if (is(IDType == string)) {
-        private void setUniqueId(Char)(Char[] identifier) {
+        private void setUniqueId(Char)(Char[] identifier) @safe pure nothrow {
             this.id_ = identifier.idup;
         }
     } else {
@@ -365,7 +365,7 @@ private void assertVisit(ref const(CxParam) p) @trusted {
 }
 
 struct CxGlobalVariable {
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
 
     private TypeKindVariable variable;
 
@@ -562,7 +562,7 @@ struct CppMethodGeneric {
 /// Information about free functions.
 /// TODO: rename to CxFreeFunction
 struct CFunction {
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
 
     Nullable!USRType usr;
 
@@ -677,7 +677,7 @@ nothrow pure @nogc:
  */
 @safe struct CppCtor {
     mixin mixinCommentHelper;
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.Parameters;
 
     Nullable!USRType usr;
@@ -731,7 +731,7 @@ const:
 
 @safe struct CppDtor {
     mixin mixinCommentHelper;
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.StringHelperVirtual;
 
@@ -771,7 +771,7 @@ const:
 
 @safe struct CppMethod {
     mixin mixinCommentHelper;
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
@@ -805,7 +805,10 @@ const:
         char[] buf;
         buf.reserve(100);
         signatureToString((const(char)[] s) { buf ~= s; });
-        setUniqueId(buf);
+
+        import std.exception : assumeUnique;
+
+        setUniqueId(() @trusted{ return assumeUnique(buf); }());
     }
 
     /// Function with no parameters.
@@ -852,7 +855,7 @@ const:
 
 @safe struct CppMethodOp {
     mixin mixinCommentHelper;
-    mixin mixinUniqueId!string;
+    mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
@@ -1528,6 +1531,18 @@ const:
     }
 }
 
+/// Use to get sorting in e.g. a binary tree by a string.
+private struct SortByString(T) {
+    mixin mixinUniqueId!string;
+    T payload;
+    alias payload this;
+
+    this(T a, string sort_by) {
+        payload = a;
+        setUniqueId(sort_by);
+    }
+}
+
 /** The root of the data structure of the semantic representation of the
  * analyzed C++ source.
  */
@@ -1537,8 +1552,8 @@ struct CppRoot {
     private {
         CppNamespace[] ns;
         CppClass[] classes;
-        RedBlackTree!(CxGlobalVariable, "a.id < b.id") globals;
-        RedBlackTree!(CFunction, "a.id < b.id") funcs;
+        RedBlackTree!(SortByString!CxGlobalVariable, "a.id < b.id") globals;
+        RedBlackTree!(SortByString!CFunction, "a.id < b.id") funcs;
     }
 
     /// Returns: An initialized CppRootX
@@ -1587,7 +1602,8 @@ struct CppRoot {
 
     /// Put item in storage.
     void put(CFunction f) {
-        () @trusted{ funcs.insert(f); }();
+        auto tmp = SortByString!CFunction(f, f.usr);
+        () @trusted{ funcs.insert(tmp); }();
     }
 
     /// ditto
@@ -1602,7 +1618,8 @@ struct CppRoot {
 
     /// ditto
     void put(CxGlobalVariable g) {
-        () @trusted{ globals.insert(g); }();
+        auto tmp = SortByString!CxGlobalVariable(g, g.name);
+        () @trusted{ globals.insert(tmp); }();
     }
 
     /// Range of contained data.
