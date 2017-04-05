@@ -54,10 +54,6 @@ version (unittest) {
     import unit_threaded : writelnUt;
 
     private enum dummyUSR = USRType("dummyUSR");
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 /// Generate the next globally unique ID.
@@ -184,7 +180,7 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
         static assert(false, "IDType must be either size_t or string");
     }
 
-    IDType id() const {
+    IDType id() @safe pure const nothrow {
         return id_;
     }
 
@@ -1385,6 +1381,14 @@ const:
     }
 }
 
+/// Dictates how the namespaces are merged.
+enum MergeMode {
+    /// Merge everything except nested namespaces.
+    shallow,
+    /// Merge everything.
+    full
+}
+
 @safe struct CppNamespace {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
@@ -1414,11 +1418,29 @@ const:
     }
 
     this(const CppNsStack stack) nothrow {
+        import std.algorithm : joiner;
+        import std.digest.crc : crc32Of;
+        import std.utf : byChar;
+
+        this.stack = CppNsStack(stack.dup);
+
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
+
+            try {
+                ubyte[4] hash = () @trusted{
+                    return this.stack.joiner.byChar.crc32Of();
+                }();
+                this.id_ = ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
+            }
+            catch (Exception ex) {
+                this.setUniqueId(makeUniqueUSR);
+            }
+        } else {
+            // anonymous namespace
+            this.setUniqueId(makeUniqueUSR);
         }
-        this.stack = CppNsStack(stack.dup);
-        this.setUniqueId(makeUniqueUSR);
+
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
@@ -1443,18 +1465,100 @@ const:
         formattedWrite(w, "} //NS:%s", ns_top_name);
     }
 
+    /** Merge the content of other_ns into this.
+     *
+     * The namespaces do NOT become nested. Use `put` instead.
+     *
+     * The order of the items are preserved.
+     * The items are deduplicated via the `id` attribute.
+     *
+     * Implemented to be cheap but we aware that after this operation the two
+     * namespaces will point to the same elements.  A mutation in one of them
+     * will affect both.
+     */
+    void merge(ref CppNamespace other_ns, MergeMode mode) @safe pure nothrow {
+        import std.meta : AliasSeq;
+
+        bool[size_t] exists;
+
+        // update list of items that are in this namespace
+        foreach (kind; AliasSeq!("classRange", "funcRange", "globalRange")) {
+            foreach (ref item; __traits(getMember, this, kind)) {
+                exists[item.id] = true;
+            }
+        }
+
+        // only copy items from other NS that are NOT in this NS.
+        // assumption: two items with the same ID are the same content wise.
+        foreach (kind; AliasSeq!("classRange", "funcRange", "globalRange")) {
+            foreach (ref item; __traits(getMember, other_ns, kind)) {
+                if (item.id !in exists) {
+                    put(item);
+                }
+            }
+        }
+
+        if (mode == MergeMode.full) {
+            mergeRecursive(other_ns);
+        }
+    }
+
+    private void mergeRecursive(ref CppNamespace other_ns) @safe pure nothrow {
+        void slowMerge(ref CppNamespace other_ns) @safe pure nothrow {
+            foreach (ref item; namespaceRange) {
+                if (item.id == other_ns.id) {
+                    item.merge(other_ns, MergeMode.full);
+                    return;
+                }
+            }
+
+            // should NEVER happen. If it happens then some mutation has
+            // happened in parallel.
+            // It has already been proven via exists that the namespace exist
+            // among the namespaces this object have.
+            assert(0);
+        }
+
+        bool[size_t] exists;
+
+        foreach (ref item; namespaceRange) {
+            exists[item.id] = true;
+        }
+
+        foreach (ref item; other_ns.namespaceRange) {
+            if (item.id in exists) {
+                slowMerge(item);
+            } else {
+                this.put(item);
+            }
+        }
+    }
+
+    /// Put item in storage.
     void put(CFunction f) pure nothrow {
         funcs ~= f;
     }
 
+    /// ditto
     void put(CppClass s) pure nothrow {
         classes ~= s;
     }
 
+    /// ditto
     void put(CppNamespace ns) pure nothrow {
+        // TODO this is slow.
+
+        foreach (ref item; namespaceRange) {
+            if (item.id == ns.id) {
+                item.merge(ns, MergeMode.full);
+                return;
+            }
+        }
+
         namespaces ~= ns;
     }
 
+    /// ditto
     void put(CxGlobalVariable g) pure nothrow {
         globals ~= g;
     }
@@ -1590,36 +1694,103 @@ struct CppRoot {
      * root's will point to the same elements.  A mutation in one of them will
      * affect both.
      */
-    void merge(ref CppRoot root) {
+    void merge(ref CppRoot root, MergeMode mode) pure nothrow {
         import std.meta : AliasSeq;
 
-        foreach (kind; AliasSeq!("namespaceRange", "classRange", "funcRange", "globalRange")) {
+        foreach (kind; AliasSeq!("funcRange", "globalRange")) {
             foreach (item; __traits(getMember, root, kind)) {
                 put(item);
+            }
+        }
+
+        // not a RedBlackTree so must ensure deduplication via a AA
+
+        bool[size_t] exists;
+        foreach (ref item; classRange) {
+            exists[item.id] = true;
+        }
+
+        foreach (ref item; root.classRange) {
+            if (item.id !in exists) {
+                put(item);
+            }
+        }
+
+        if (mode == MergeMode.full) {
+            mergeRecursive(root);
+        }
+    }
+
+    private void mergeRecursive(ref CppRoot root) @safe pure nothrow {
+        void slowMerge(ref CppNamespace other_ns) @safe pure nothrow {
+            foreach (ref item; namespaceRange) {
+                if (item.id == other_ns.id) {
+                    item.merge(other_ns, MergeMode.full);
+                    return;
+                }
+            }
+
+            // should NEVER happen. If it happens then some mutation has
+            // happened in parallel.
+            // It has already been proven via exists that the namespace exist
+            // among the namespaces this object have.
+            assert(0);
+        }
+
+        bool[size_t] exists;
+
+        foreach (ref item; namespaceRange) {
+            exists[item.id] = true;
+        }
+
+        foreach (ref item; root.namespaceRange) {
+            if (item.id in exists) {
+                slowMerge(item);
+            } else {
+                this.put(item);
             }
         }
     }
 
     /// Put item in storage.
-    void put(CFunction f) {
+    void put(CFunction f) pure nothrow {
         auto tmp = SortByString!CFunction(f, f.usr);
-        () @trusted{ funcs.insert(tmp); }();
+
+        try {
+            () @trusted pure{ funcs.insert(tmp); }();
+        }
+        catch (Exception ex) {
+        }
     }
 
     /// ditto
-    void put(CppClass s) {
+    void put(CppClass s) pure nothrow {
         classes ~= s;
     }
 
     /// ditto
-    void put(CppNamespace ns) {
+    void put(CppNamespace ns) pure nothrow {
+        // TODO this is slow.
+
+        foreach (ref item; namespaceRange) {
+            if (item.id == ns.id) {
+                item.merge(ns, MergeMode.full);
+                return;
+            }
+        }
+
         this.ns ~= ns;
     }
 
     /// ditto
-    void put(CxGlobalVariable g) {
+    void put(CxGlobalVariable g) pure nothrow {
         auto tmp = SortByString!CxGlobalVariable(g, g.name);
-        () @trusted{ globals.insert(tmp); }();
+
+        try {
+            () @trusted pure{ globals.insert(tmp); }();
+        }
+        catch (Exception ex) {
+        }
     }
 
     /// Range of contained data.
@@ -1650,7 +1821,7 @@ struct CppRoot {
     mixin(standardToString);
 }
 
-@Name("Test of c-function")
+@("Test of c-function")
 unittest {
     { // simple version, no return or parameters.
         auto f = CFunction(dummyUSR, CFunctionName("nothing"));
@@ -1679,7 +1850,7 @@ unittest {
     }
 }
 
-@Name("Test of creating simples CppMethod")
+@("Test of creating simples CppMethod")
 unittest {
     auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     shouldEqual(m.isConst, false);
@@ -1690,7 +1861,7 @@ unittest {
     shouldEqual(m.accessType, AccessType.Public);
 }
 
-@Name("Test creating a CppMethod with multiple parameters")
+@("Test creating a CppMethod with multiple parameters")
 unittest {
     auto tk = makeSimple("char*");
     tk.attr.isPtr = Yes.isPtr;
@@ -1703,21 +1874,21 @@ unittest {
     shouldEqual(format("%u", m), "virtual char* none(char* x, char* x) const; // dummyUSR");
 }
 
-@Name("should represent the operator as a string")
+@("should represent the operator as a string")
 unittest {
     auto m = CppMethodOp(dummyUSR, CppMethodName("operator="), CppAccess(AccessType.Public));
 
     shouldEqual(format("%u", m), "void operator=(); // dummyUSR");
 }
 
-@Name("should separate the operator keyword from the actual operator")
+@("should separate the operator keyword from the actual operator")
 unittest {
     auto m = CppMethodOp(dummyUSR, CppMethodName("operator="), CppAccess(AccessType.Public));
 
     shouldEqual(m.op, "=");
 }
 
-@Name("should represent a class with one public method")
+@("should represent a class with one public method")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
@@ -1729,7 +1900,7 @@ public:
 }; //Class:Foo");
 }
 
-@Name("should represent a class with one public operator overload")
+@("should represent a class with one public operator overload")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto op = CppMethodOp(dummyUSR, CppMethodName("operator="), CppAccess(AccessType.Public));
@@ -1741,14 +1912,14 @@ public:
 }; //Class:Foo");
 }
 
-@Name("Create an anonymous namespace struct")
+@("Create an anonymous namespace struct")
 unittest {
     auto n = CppNamespace(CppNsStack.init);
     shouldEqual(n.name.length, 0);
     shouldEqual(n.isAnonymous, true);
 }
 
-@Name("Create a namespace struct two deep")
+@("Create a namespace struct two deep")
 unittest {
     auto stack = CppNsStack([CppNs("foo"), CppNs("bar")]);
     auto n = CppNamespace(stack);
@@ -1756,7 +1927,7 @@ unittest {
     shouldEqual(n.isAnonymous, false);
 }
 
-@Name("Test of iterating over parameters in a class")
+@("Test of iterating over parameters in a class")
 unittest {
     import std.array : appender;
 
@@ -1773,7 +1944,7 @@ unittest {
     shouldEqual(app.data, "void voider(); // dummyUSR");
 }
 
-@Name("Test of toString for a free function")
+@("Test of toString for a free function")
 unittest {
     auto ptk = makeSimple("char*");
     ptk.attr.isPtr = Yes.isPtr;
@@ -1785,7 +1956,7 @@ unittest {
     shouldEqualPretty(format("%u", f), "int nothing(char* x, char* y); // None dummyUSR");
 }
 
-@Name("Test of Ctor's")
+@("Test of Ctor's")
 unittest {
     auto tk = makeSimple("char*");
     tk.attr.isPtr = Yes.isPtr;
@@ -1796,7 +1967,7 @@ unittest {
     shouldEqual(format("%u", ctor), "ctor(char* x, char* x); // dummyUSR");
 }
 
-@Name("Test of Dtor's")
+@("Test of Dtor's")
 unittest {
     auto dtor = CppDtor(dummyUSR, CppMethodName("~dtor"),
             CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Virtual));
@@ -1804,7 +1975,7 @@ unittest {
     shouldEqual(format("%u", dtor), "virtual ~dtor(); // dummyUSR");
 }
 
-@Name("Test of toString for CppClass")
+@("Test of toString for CppClass")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.put(CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public)));
@@ -1853,7 +2024,7 @@ private:
 }; //Class:Foo");
 }
 
-@Name("should be a class in a ns in the comment")
+@("should be a class in a ns in the comment")
 unittest {
     auto ns = CppNsStack([CppNs("a_ns"), CppNs("another_ns")]);
     auto c = CppClass(CppClassName("A_Class"), CppInherit[].init, ns);
@@ -1862,7 +2033,7 @@ unittest {
 }; //Class:a_ns::another_ns::A_Class");
 }
 
-@Name("should contain the inherited classes")
+@("should contain the inherited classes")
 unittest {
     CppInherit[] inherit;
     inherit ~= CppInherit(CppClassName("pub"), CppAccess(AccessType.Public));
@@ -1876,7 +2047,7 @@ unittest {
 }; //Class:Foo");
 }
 
-@Name("should contain nested classes")
+@("should contain nested classes")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1897,7 +2068,7 @@ class Priv { // Unknown
 }; //Class:Foo");
 }
 
-@Name("should be a virtual class")
+@("should be a virtual class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1926,7 +2097,7 @@ public:
 }; //Class:Foo");
 }
 
-@Name("should be a pure virtual class")
+@("should be a pure virtual class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -1955,7 +2126,7 @@ public:
 }; //Class:Foo");
 }
 
-@Name("Test of toString for CppNamespace")
+@("Test of toString for CppNamespace")
 unittest {
     auto ns = CppNamespace.make(CppNs("simple"));
 
@@ -1971,7 +2142,7 @@ public:
 } //NS:simple");
 }
 
-@Name("Should show nesting of namespaces as valid C++ code")
+@("Should show nesting of namespaces as valid C++ code")
 unittest {
     auto stack = CppNsStack([CppNs("foo"), CppNs("bar")]);
     auto n = CppNamespace(stack);
@@ -1979,7 +2150,7 @@ unittest {
 } //NS:bar");
 }
 
-@Name("Test of toString for CppRoot")
+@("Test of toString for CppRoot")
 unittest {
     auto root = CppRoot.make();
 
@@ -2005,7 +2176,7 @@ namespace simple { //simple
 ");
 }
 
-@Name("CppNamespace.toString should return nested namespace")
+@("CppNamespace.toString should return nested namespace")
 unittest {
     auto stack = [CppNs("Depth1"), CppNs("Depth2"), CppNs("Depth3")];
     auto depth1 = CppNamespace(CppNsStack(stack[0 .. 1]));
@@ -2023,7 +2194,7 @@ namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth1");
 }
 
-@Name("Create anonymous namespace")
+@("Create anonymous namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
 
@@ -2031,7 +2202,7 @@ unittest {
 } //NS:");
 }
 
-@Name("Add a C-func to a namespace")
+@("Add a C-func to a namespace")
 unittest {
     auto n = CppNamespace.makeAnonymous();
     auto f = CFunction(dummyUSR, CFunctionName("nothing"));
@@ -2042,7 +2213,7 @@ void nothing(); // None dummyUSR
 } //NS:");
 }
 
-@Name("should be a hash value based on string representation")
+@("should be a hash value based on string representation")
 unittest {
     struct A {
         mixin mixinUniqueId!size_t;
@@ -2058,7 +2229,7 @@ unittest {
     shouldEqual(a.id(), b.id());
 }
 
-@Name("should be a global definition")
+@("should be a global definition")
 unittest {
     auto v0 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto v1 = CxGlobalVariable(dummyUSR, makeSimple("int"), CppVariable("y"));
@@ -2067,7 +2238,7 @@ unittest {
     shouldEqualPretty(format("%u", v1), "int y; // dummyUSR");
 }
 
-@Name("Should be globals stored in the root object")
+@("Should be globals stored in the root object")
 unittest {
     auto v = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto n = CppNamespace.makeAnonymous();
@@ -2083,7 +2254,7 @@ int x; // dummyUSR
 ");
 }
 
-@Name("should be possible to sort the data structures")
+@("should be possible to sort the data structures")
 unittest {
     import std.array : array;
 
@@ -2098,7 +2269,7 @@ unittest {
     shouldEqual(s.array().length, 1);
 }
 
-@Name("should be proper access specifiers for a inherit reference, no nesting")
+@("should be proper access specifiers for a inherit reference, no nesting")
 unittest {
     auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
     shouldEqual("public Class", ih.toString);
@@ -2110,7 +2281,7 @@ unittest {
     shouldEqual("private Class", ih.toString);
 }
 
-@Name("should be a inheritances of a class in namespaces")
+@("should be a inheritances of a class in namespaces")
 unittest {
     auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
     ih.put(CppNs("ns1"));
@@ -2123,7 +2294,7 @@ unittest {
     ih.toString.shouldEqual("public ns1::ns2::ns3::Class");
 }
 
-@Name("should be a class that inherits")
+@("should be a class that inherits")
 unittest {
     auto ih = CppInherit(CppClassName("Class"), CppAccess(AccessType.Public));
     ih.put(CppNs("ns1"));
@@ -2135,7 +2306,7 @@ unittest {
 }; //Class:A");
 }
 
-@Name("Should be a class with a data member")
+@("Should be a class with a data member")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     auto tk = makeSimple("int");
@@ -2147,7 +2318,7 @@ public:
 }; //Class:Foo");
 }
 
-@Name("Should be an abstract class")
+@("Should be an abstract class")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
 
@@ -2177,7 +2348,7 @@ public:
 
 }
 
-@Name("Should be a class with comments")
+@("Should be a class with comments")
 unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.comment("A comment");
@@ -2196,4 +2367,116 @@ unittest {
     shouldEqual(ctor.toString, "// a multiline
 // comment
 Foo();");
+}
+
+@("Shall merge two namespaces and preserve the order of the items")
+unittest {
+    import std.array : array;
+    import std.algorithm : map;
+
+    auto ns1 = CppNamespace(CppNsStack([CppNs("ns1")]));
+    ns1.put(CppClass(CppClassName("ns1_class")));
+    ns1.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
+            CppVariable("ns1_var"))));
+    ns1.put(CFunction(makeUniqueUSR, CFunctionName("ns1_func")));
+
+    auto ns2 = CppNamespace(CppNsStack([CppNs("ns2")]));
+    ns2.put(CppClass(CppClassName("ns2_class")));
+    ns2.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
+            CppVariable("ns2_var"))));
+    ns2.put(CFunction(makeUniqueUSR, CFunctionName("ns2_func")));
+
+    ns2.merge(ns1, MergeMode.shallow);
+
+    ns2.classRange.map!(a => a.name).array().shouldEqual(["ns2_class", "ns1_class"]);
+    ns2.globalRange.map!(a => a.name).array().shouldEqual(["ns2_var", "ns1_var"]);
+    ns2.funcRange.map!(a => a.name).array().shouldEqual(["ns2_func", "ns1_func"]);
+}
+
+@("Shall merge two namespaces recursively")
+unittest {
+    import std.array : array;
+    import std.algorithm : map;
+
+    // Arrange
+    auto ns1 = CppNamespace(CppNsStack([CppNs("ns1")]));
+    auto ns2 = CppNamespace(CppNsStack([CppNs("ns2")]));
+    auto ns3 = CppNamespace(CppNsStack([CppNs("ns3")]));
+
+    // Act
+    ns1.put(ns3);
+    ns2.merge(ns1, MergeMode.shallow);
+
+    // Assert
+    // shallow do NOT merge
+    ns2.namespaceRange.length.shouldEqual(0);
+
+    // Act
+    ns2.merge(ns1, MergeMode.full);
+    ns2.namespaceRange.length.shouldEqual(1);
+    ns2.namespaceRange.map!(a => a.name).array().shouldEqual(["ns3"]);
+}
+
+@("Shall merge two namespaces recursively with common namespaces merged to ensure no duplication")
+unittest {
+    import std.array : array;
+    import std.algorithm : map;
+
+    // Arrange
+    auto ns1 = CppNamespace(CppNsStack([CppNs("ns1")]));
+    auto ns4 = CppNamespace(CppNsStack([CppNs("ns4")]));
+
+    auto ns2 = CppNamespace(CppNsStack([CppNs("ns2")]));
+    ns2.put(CppClass(CppClassName("ns2_class")));
+    ns2.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
+            CppVariable("ns2_var"))));
+    ns2.put(CFunction(makeUniqueUSR, CFunctionName("ns2_func")));
+
+    auto ns3_a = CppNamespace(CppNsStack([CppNs("ns3")]));
+    ns3_a.put(CppClass(CppClassName("ns3_class")));
+    ns3_a.put(CxGlobalVariable(USRType("ns3_var"),
+            TypeKindVariable(makeSimple("int"), CppVariable("ns3_var"))));
+    ns3_a.put(CFunction(USRType("ns3_func"), CFunctionName("ns3_func")));
+
+    auto ns3_b = CppNamespace(CppNsStack([CppNs("ns3")]));
+    // expected do be deduplicated
+    ns3_b.put(CppClass(CppClassName("ns3_class")));
+    ns3_b.put(CxGlobalVariable(USRType("ns3_var"),
+            TypeKindVariable(makeSimple("int"), CppVariable("ns3_var"))));
+    ns3_b.put(CFunction(USRType("ns3_func"), CFunctionName("ns3_func")));
+
+    // expected to be merged in ns2 into the already existing ns3
+    ns3_b.put(CppClass(CppClassName("ns3_b_class")));
+    ns3_b.put(CxGlobalVariable(makeUniqueUSR,
+            TypeKindVariable(makeSimple("int"), CppVariable("ns3_b_var"))));
+    ns3_b.put(CFunction(makeUniqueUSR, CFunctionName("ns3_b_func")));
+
+    // Act
+    ns1.put(ns3_a);
+    ns2.merge(ns1, MergeMode.shallow);
+
+    // Assert
+    // because of a shallow merge no namespaces are expected
+    ns2.namespaceRange.length.shouldEqual(0);
+
+    // Act
+    ns2.merge(ns1, MergeMode.full);
+
+    // Assert
+    ns2.namespaceRange.length.shouldEqual(1);
+    ns2.namespaceRange.map!(a => a.name).array().shouldEqual(["ns3"]);
+    ns2.namespaceRange[0].classRange.length.shouldEqual(1);
+    ns2.namespaceRange[0].funcRange.length.shouldEqual(1);
+    ns2.namespaceRange[0].globalRange.length.shouldEqual(1);
+
+    // Act
+    ns4.put(ns3_b);
+    ns2.merge(ns4, MergeMode.full);
+
+    // Assert
+    ns2.namespaceRange.length.shouldEqual(1);
+    ns2.namespaceRange.map!(a => a.name).array().shouldEqual(["ns3"]);
+    ns2.namespaceRange[0].classRange.length.shouldEqual(2);
+    ns2.namespaceRange[0].funcRange.length.shouldEqual(2);
+    ns2.namespaceRange[0].globalRange.length.shouldEqual(2);
 }
