@@ -1,0 +1,31 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "ns_merge.hpp"
+
+namespace ns1 {
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void batman() = 0;
+    virtual void fun() = 0;
+    virtual ~I_TestDouble() {}
+};
+
+///
+///
+class Adapter {
+public:
+    Adapter(I_TestDouble &inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
+
+namespace TestDouble {
+} //NS:TestDouble
+
+namespace TestDouble {
+} //NS:TestDouble
+
+} //NS:ns1
+#endif // test_double_hpp
