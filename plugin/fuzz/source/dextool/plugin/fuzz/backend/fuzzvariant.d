@@ -41,7 +41,7 @@ struct nsclass {
     }
 
     BaseDir getXMLBasedir();
-
+    @trusted string[] getIncludes();
     Files getFiles();
     MainNs getMainNs();
     MainInterface getMainInterface();
@@ -428,10 +428,10 @@ body {
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
 
-    //generateIncludes(ctrl, params, modules.hdr);
-    /*foreach (incl; params.getIncludes) {
-        modules.hdr.include(cast(string) incl);
-    }*/
+
+    foreach (incl; params.getIncludes) {
+        modules.hdr.include(incl);
+    }
 
     modules.hdr.include("testingenvironment.hpp");
     modules.hdr.include("portenvironment.hpp");
@@ -460,10 +460,10 @@ body {
             writeln("Namespace is continous");
             break;
         }
-        inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
+//        inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
         foreach (nss; ns.resideInNs[1 .. $]) {
-            inner.hdr = inner.hdr.namespace(nss);
+//            inner.hdr = inner.hdr.namespace(nss);
             inner.impl = inner.impl.namespace(nss);
         }
 

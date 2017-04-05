@@ -102,8 +102,9 @@ class FuzzVariant : Parameters, Products {
         MainInterface main_if;
 
         BaseDir xml_dir;
-        string compile_db;
-
+        CompileCommandDB compile_db;
+        
+        FileName[] includes;
         FileData[] file_data;
     }
 
@@ -126,9 +127,19 @@ class FuzzVariant : Parameters, Products {
                 base_filename ~ "_global" ~ implExt));
 
         this.xml_dir = BaseDir(xml_dir[0]);
+        this.compile_db = compile_db.fromArgCompileDb;
     }
 
-    //Parameter functions
+    //Parameter functionis
+    @trusted string[] getIncludes() {
+        import std.algorithm : map;
+        import std.array;
+        import std.path : baseName;
+
+        return this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
+
+
+    }
     Parameters.Files getFiles() {
         return Parameters.Files(main_file_hdr, main_file_impl,
                 main_file_globals);
@@ -191,10 +202,8 @@ ExitStatusType genCpp(FuzzVariant variant,
     string[] use_cflags;
 
     auto hfiles = compile_db.getHeaderFiles();
-    writeln(hfiles);
     string res;
     foreach(hfile ; hfiles) {
-        writeln(hfile);
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         if (analyzeFile(hfile, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
