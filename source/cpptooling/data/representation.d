@@ -382,7 +382,7 @@ struct CxGlobalVariable {
     this(USRType usr, TypeKindVariable var) @safe pure nothrow {
         this.usr = usr;
         this.variable = var;
-        setUniqueId(variable.name);
+        setUniqueId(usr);
     }
 
     this(USRType usr, TypeKindAttr type, CppVariable name) @safe pure nothrow {
