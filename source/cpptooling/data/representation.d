@@ -699,20 +699,35 @@ nothrow pure @nogc:
         this.accessType_ = access;
         this.params_ = params.dup;
 
-        setUniqueId(toString);
+        import std.array : appender;
+
+        auto buf = appender!string();
+        signatureToString(buf);
+        setUniqueId(buf.data);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
+        import std.range.primitives : put;
 
         helperPutComments(w);
-        formattedWrite(w, "%s(%s);", name_, paramRange.joinParams);
+        signatureToString(w);
+        put(w, ";");
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
         }
     }
 
 const:
+
+    /// Signature of the method.
+    private void signatureToString(Writer)(scope Writer w) const {
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+
+        put(w, name_);
+        formattedWrite(w, "(%s)", paramRange.joinParams);
+    }
 
     mixin(standardToString);
 
