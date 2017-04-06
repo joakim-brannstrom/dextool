@@ -378,7 +378,15 @@ struct CxGlobalVariable {
     this(USRType usr, TypeKindVariable var) @safe pure nothrow {
         this.usr = usr;
         this.variable = var;
-        setUniqueId(usr);
+
+        if (var.name.length != 0) {
+            // Prefer using the name because it is also the c/c++ identifier.
+            // The same name in a namespace would mean a collition. Breakin the
+            // one definition rule.
+            setUniqueId(var.name);
+        } else {
+            setUniqueId(usr);
+        }
     }
 
     this(USRType usr, TypeKindAttr type, CppVariable name) @safe pure nothrow {
