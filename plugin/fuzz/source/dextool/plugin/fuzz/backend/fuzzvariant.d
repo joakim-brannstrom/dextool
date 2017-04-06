@@ -460,10 +460,10 @@ body {
             writeln("Namespace is continous");
             break;
         }
-//        inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
+        inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
         foreach (nss; ns.resideInNs[1 .. $]) {
-//            inner.hdr = inner.hdr.namespace(nss);
+            inner.hdr = inner.hdr.namespace(nss);
             inner.impl = inner.impl.namespace(nss);
         }
 
@@ -710,9 +710,12 @@ void generateDtor(const CppDtor a, CppModule inner) {
             }
         }
     }
-
-    with (inner.func_body(a.returnType.toStringDecl, a.name)) {
-
+    
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl,  a.name, meth_const)) {
+        import std.stdio;
+        writeln(a.name);
+        writeln(a.isConst);
         if (a.name == "Get_Port") {
             return_("*port");
         } else if (cppm_type == "Get") {

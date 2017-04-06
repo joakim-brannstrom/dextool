@@ -390,8 +390,6 @@ public:
         out_types = traverseNamespace(topns, out_types);
 
         foreach (SubType t; out_types.subtypes) {
-            writeln(t.name);
-            writeln(type_name);
             if (t.name == type_name) {
                 ret["min"] = t.min;
                 ret["max"] = t.max;
