@@ -485,7 +485,7 @@ body {
 
             foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,
-                    classes[fqn_class][$-1].cppm, class_name, fqn_class, xmlp),
+                    classes[fqn_class][$-1].cppm, class_name, fqn_class, nss),
                     (const CppMethodOp a) => writeln(""),
                     (const CppCtor a) => generateCtor(a, inner.impl),
                     (const CppDtor a) => generateDtor(a, inner.impl));
@@ -596,7 +596,7 @@ import cpptooling.data.type;
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns);
             foreach (ciface; ns.interfaces.ci) {
-                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name));
+                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
             }
             stmt(E("RandomGenerator* randomGenerator"));
         }
@@ -622,25 +622,25 @@ import cpptooling.data.type;
 			    
 			    final switch (type_type) {
 			    case "SubType":
-				stmt(E(ciface.name ~ "." ~ ditem.name) = E(
+				stmt(E(ciface.name.toLower ~ "." ~ ditem.name) = E(
 									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
 									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`)`));
 				break;
 			    case "Enum":
 				string fqns_type = type_ns.capitalize ~ "::" ~ ditem.type ~ "T::Enum";
-				stmt(E(ciface.name ~ "." ~ ditem.name) = E(Et("static_cast")(fqns_type))(`randomGenerator->generate("`~type~` ` ~ ciface.name ~ ` ` ~ ditem.name~`", ` ~ min ~ `, ` ~ max ~ `)`));
+				stmt(E(ciface.name.toLower ~ "." ~ ditem.name) = E(Et("static_cast")(fqns_type))(`randomGenerator->generate("`~type~` ` ~ ciface.name ~ ` ` ~ ditem.name~`", ` ~ min ~ `, ` ~ max ~ `)`));
 				break;
 			    case "Record":
 				Variable[string] vars = xmlp.findVariables(type_ns, ditem.type);
 				foreach (var_name ; vars) {
 				    auto var_minmax = xmlp.findMinMax(ns.name, var_name.type);
 				    if (var_minmax.length > 0) {
-				    	stmt(E(ciface.name ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
+				    	stmt(E(ciface.name.toLower ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
 									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
 									   ~ ` ` ~ ditem.name ~`", `~var_minmax["min"]~`, `~var_minmax["max"]~`)`));
 				    }
 				    else {
-					stmt(E(ciface.name ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
+					stmt(E(ciface.name.toLower ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
 										   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
 										   ~ ` ` ~ ditem.name ~ `"`~`)`));
 				    }
@@ -656,7 +656,7 @@ import cpptooling.data.type;
 			}
                     }
                 }
-            }
+    }
         }
     }
     return inner_class;
@@ -678,7 +678,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
 
 //Should probably return a class for implementation
 @trusted void generateCppMeth(const CppMethod a, CppModule inner,
-    string class_name, string nsname, xml_parse xmlp) {
+    string class_name, string nsname, Namespace ns) {
     //Get_Port, does it always exist?
     import std.string;
     import std.array;
@@ -691,19 +691,65 @@ void generateDtor(const CppDtor a, CppModule inner) {
     if (cppm_type == "Put") {
         //Put something in something
     }
-
+    int type_func = -1; 
+    ContinousInterface ci;
+    DataItem di;
+    if (cppm_type == "Get") {
+        type_func = 0;
+        string func_name = a.name["Get_".length .. $];
+        ci = getInterface(ns, func_name);
+        if(ci.name != "") {
+            func_name = func_name[ci.name.length .. $];
+            if(func_name != "" && func_name[0] == '_') 
+                func_name = func_name[1..$];
+            di = getDataItem(ns, ci, func_name);
+            if (di.name == "") {
+                type_func = 1;
+            } else {
+                type_func = 2;
+            }
+        }
+    }
 
     with (inner.func_body(a.returnType.toStringDecl, a.name)) {
 
         if (a.name == "Get_Port") {
             return_("*port");
         } else if (cppm_type == "Get") {
-            auto cppm_ret_type = (cast(string)(a.name)).split("_")[$ - 2];
-            return_(cppm_ret_type.toLower ~ "." ~ cppm_ditem);
-        } else if (cppm_type == "Get") {
-            return_(cppm_ditem.toLower);
+            if (type_func == 0) {
+                return_(cppm_ditem);
+            } else if(type_func == 1) {
+                return_(ci.name.toLower);
+            } else if(type_func == 2) {
+                return_(ci.name.toLower ~ "." ~ di.name);
+            }
         } else {
-            return_("hello");
+            stmt("return");
         }
     }
+}
+
+@trusted ContinousInterface getInterface(Namespace ns, string func_name) {
+    ///func_name should have removed get_ or put_
+    import std.string : indexOf;
+    foreach(ci ; ns.interfaces.ci) {
+        if(indexOf(func_name, ci.name) == 0) {
+            return ci;
+        } 
+    }
+
+    return ContinousInterface();   
+}
+
+
+@trusted DataItem getDataItem(Namespace ns, ContinousInterface ci, string func_name) {
+    ///func_name should have removed Get_ or Put_ AND ci.name
+    import std.string : indexOf;
+
+    foreach(di; ci.data_items) {
+        if (indexOf(func_name, di.name) == 0) {
+            return di;
+        }
+    }
+    return DataItem();
 }
