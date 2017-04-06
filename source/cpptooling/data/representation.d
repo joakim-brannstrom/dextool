@@ -770,7 +770,7 @@ const:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
-        //helperPutComments(w);
+        helperPutComments(w);
         formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_);
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
