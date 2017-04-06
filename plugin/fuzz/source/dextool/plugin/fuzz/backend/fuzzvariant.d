@@ -445,7 +445,7 @@ body {
         ref Array!nsclass[string] classes, xml_parse xmlp) {
         import std.variant;
         import std.stdio;
-        import std.string : toLower;
+        import std.string : toLower, indexOf;
         import std.algorithm : canFind, map, joiner;
         import std.array : join;
 
@@ -493,8 +493,14 @@ body {
         }
 
         foreach(a; ns.funcRange) {
+            string paramType;
+            if(paramTypeToString(a.paramRange[0]).indexOf("basic_string")) { //Fulhack until resolved...
+                paramType = "std::string";
+            } else {
+                paramType = paramTypeToString(a.paramRange[0]);
+            }
 	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name, 
-                paramTypeToString(a.paramRange[0]), paramNameToString(a.paramRange[0]),classes[fqn_class]);
+                paramType, paramNameToString(a.paramRange[0]),classes[fqn_class]);
         }
 
         
@@ -576,7 +582,7 @@ import cpptooling.data.type;
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
             }
             
-            with (func_body("", class_name ~ "_Impl", class_name ~ "* p")) {
+            with (func_body("", class_name ~ "_Impl", port_name ~ "* p")) {
                 stmt(E("port") = E("p"));
             }
         }
@@ -682,13 +688,20 @@ void generateDtor(const CppDtor a, CppModule inner) {
     //Get_Port, does it always exist?
     import std.string;
     import std.array;
+    import std.algorithm : map;
     import std.algorithm.searching : canFind;
     import cpptooling.analyzer.type;
+    import cpptooling.data.representation;
 
     auto cppm_type = (cast(string)(a.name)).split("_")[0];
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
 
     if (cppm_type == "Put") {
+//        paramTypeToString(a.paramRange[0]), paramNameToString(a.paramRange[0])
+        auto params = joinParams(a.paramRange); //a.paramRange.map!(b => paramTypeToString(b) ~ ", " ~ paramNametoString(b)); 
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
+            stmt("return");
+        } 
         //Put something in something
     }
     int type_func = -1; 
@@ -712,10 +725,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     }
     
     Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl,  a.name, meth_const)) {
-        import std.stdio;
-        writeln(a.name);
-        writeln(a.isConst);
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
         if (a.name == "Get_Port") {
             return_("*port");
         } else if (cppm_type == "Get") {
