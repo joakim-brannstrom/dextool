@@ -495,7 +495,7 @@ body {
         foreach(a; ns.funcRange) {
             string paramType;
             if(paramTypeToString(a.paramRange[0]).indexOf("basic_string")) { //Fulhack until resolved...
-                paramType = "std::string";
+                paramType = "const std::string &";
             } else {
                 paramType = paramTypeToString(a.paramRange[0]);
             }
@@ -533,7 +533,7 @@ import cpptooling.data.type;
         }
     }
     with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
-	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
+	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType[0..$-1]))(paramName ~ ", " ~ paramName)); //paramType[0..$-1] == part of fulhack
     }
 }
 
