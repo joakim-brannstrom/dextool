@@ -48,6 +48,43 @@ auto sourcePath() {
     // dfmt on
 }
 
+auto gitHEAD() {
+    // Initial commit: diff against an empty tree object
+    string against = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+    auto res = tryRunCollect("git rev-parse --verify HEAD");
+    if (res.status == 0) {
+        against = res.output;
+    }
+
+    return against;
+}
+
+auto gitChangdedFiles(string[] file_extensions) {
+    import std.ascii : newline;
+
+    Args a;
+    a ~= "git";
+    a ~= "diff-index";
+    a ~= "--name-status";
+    a ~= ["--cached", gitHEAD];
+
+    auto res = tryRunCollect(a.data);
+    if (res.status != 0) {
+        writeln("error: ", res.output);
+    }
+
+    // dfmt off
+    return res.output
+        .splitter(newline)
+        .map!(a => a.splitter.array())
+        .filter!(a => a.length == 2)
+        .filter!(a => a[0].among("M", "A"))
+        .filter!(a => canFind(file_extensions, std.path.extension(a[1])))
+        .map!(a => a[1]);
+    // dfmt on
+}
+
 auto sourceAsInclude() {
     // dfmt off
     return only(
@@ -258,8 +295,6 @@ struct Fsm {
     Flag!"CompileError" flagCompileError;
     Flag!"TotalTestPassed" flagTotalTestPassed;
     uint docCount;
-    // Lowest number of dscanner issues since started
-    ulong lowestDscannerAnalyzeCount = ulong.max;
 
     alias ErrorMsg = Tuple!(Path, "fname", string, "msg", string, "output");
     ErrorMsg[] testErrorLog;
@@ -607,7 +642,7 @@ struct Fsm {
 
         static import core.stdc.stdlib;
 
-        printStatus(Status.Run, "Static analyse");
+        printStatus(Status.Run, "Static analyze");
 
         string phobos_path = core.stdc.stdlib.getenv("DLANG_PHOBOS_PATH".toStringz)
             .fromStringz.idup;
@@ -629,7 +664,7 @@ struct Fsm {
         }
 
         a ~= sourceAsInclude;
-        a ~= sourcePath;
+        a ~= gitChangdedFiles([".d"]);
 
         auto r = tryRunCollect(thisExePath.dirName, a.data);
 
@@ -644,19 +679,6 @@ struct Fsm {
             // dump to file
             auto fout = File(reportFile, "w");
             fout.write(a.data ~ "\n" ~ r.output);
-
-            // nudge the user with actionable information if the errors have
-            // increase
-            if (dscanner_count > lowestDscannerAnalyzeCount) {
-                printStatus(Status.Warn, "Error(s) increased by ",
-                        dscanner_count - lowestDscannerAnalyzeCount);
-            } else if (dscanner_count < lowestDscannerAnalyzeCount) {
-                auto diff = lowestDscannerAnalyzeCount - dscanner_count;
-                if (lowestDscannerAnalyzeCount != ulong.max) {
-                    printStatus(Status.Ok, "Fixed ", diff, " error(s)");
-                }
-                lowestDscannerAnalyzeCount = dscanner_count;
-            }
 
             printStatus(Status.Fail, "Static analyze failed. Found ",
                     dscanner_count, " error(s). See report ", reportFile);

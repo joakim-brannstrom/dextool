@@ -299,20 +299,6 @@ auto toStringDecl(T)(const T value)
  *
  * TODO duplicate code between this and toStringDecl.
  */
-auto splitTypeId(ref const TypeKind t, const uint indent = 0) @safe pure
-out (result) {
-    import dextool.logger : trace;
-    import std.conv : to;
-
-    debug {
-        trace(result.to!string(), indent);
-    }
-}
-body {
-    return splitTypeId(t);
-}
-
-/// ditto
 auto splitTypeId(ref const TypeKind t) @safe pure {
     import std.array : appender, Appender;
     import cpptooling.analyzer.type_format;
@@ -399,4 +385,18 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
     }
 
     return rval;
+}
+
+/// ditto
+auto splitTypeId(ref const TypeKind t, const uint indent = 0) @safe pure
+out (result) {
+    import dextool.logger : trace;
+    import std.conv : to;
+
+    debug {
+        trace(result.to!string(), indent);
+    }
+}
+body {
+    return splitTypeId(t);
 }

@@ -253,6 +253,14 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@(testId ~ "Shall merge all occurences of namespace ns1")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/ns_merge.hpp", testEnv);
+    p.skipCompile = Yes.skipCompile;
+    runTestFile(p, testEnv);
+}
+
 // BEGIN CLI Tests ###########################################################
 
 @Name(testId ~ "Should be a custom header via CLI as string")

@@ -337,7 +337,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         ///TODO add metadata to the class if it is a definition or declaration
 
         mixin(mixinNodeLog!());
-        logger.info("class: ", v.cursor.spelling);
+        logger.trace("class: ", v.cursor.spelling);
 
         if (v.cursor.isDefinition) {
             auto visitor = scoped!ClassVisitor(v, ns_stack, container, indent + 1);
