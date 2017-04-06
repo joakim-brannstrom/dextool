@@ -15,11 +15,12 @@ auto dedup(T)(T[] arr) {
     import std.algorithm : makeIndex, uniq, map;
 
     auto index = new size_t[arr.length];
+    // sorting the indexes
     makeIndex(arr, index);
 
     // dfmt off
     return index
-        // sorting the indexes
+        // dedup the sorted index
         .uniq!((a,b) => arr[a] == arr[b])
         // reconstruct an array from the sorted indexes
         .map!(a => arr[a]);

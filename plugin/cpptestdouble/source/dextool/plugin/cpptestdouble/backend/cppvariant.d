@@ -805,10 +805,14 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
         return methods.data;
     }
 
-    static auto dedup(CppClass.CppFunc[] methods) {
-        import std.algorithm : makeIndex, uniq, map;
+    //TODO this function is inefficient. So many allocations...
+    static auto dedup(CppClass.CppFunc[] methods) @trusted {
+        import std.array : array;
+        import std.algorithm : makeIndex, uniq, map, sort;
+        import cpptooling.utility.dedup : dedup;
+        import cpptooling.data.representation : funcToString;
 
-        static auto getUniqeId(T)(ref T method) @trusted {
+        static auto getUniqeId(T)(ref T method) {
             import std.variant : visit;
             import cpptooling.data.representation : CppMethod, CppMethodOp,
                 CppCtor, CppDtor;
@@ -821,7 +825,28 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
             // dfmt on
         }
 
-        return methods.uniq!((a, b) => getUniqeId(a) == getUniqeId(b));
+        auto arr = methods.map!(a => getUniqeId(a)).array();
+
+        auto index = new size_t[arr.length];
+        // sorting the indexes
+        makeIndex(arr, index);
+
+        // dfmt off
+        // contains a list of indexes into methods
+        auto deduped_methods =
+            index
+            // dedup the sorted index
+            .uniq!((a,b) => arr[a] == arr[b])
+            .array();
+
+        // deterministic sorting by function signature
+        deduped_methods.sort!((a,b) { return methods[a].funcToString < methods[b].funcToString; });
+
+        return deduped_methods
+            // reconstruct an array from the sorted indexes
+            .map!(a => methods[a])
+            .array();
+        // dfmt on
     }
 
     auto methods = dedup(getMethods(class_, container));

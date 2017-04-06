@@ -378,7 +378,15 @@ struct CxGlobalVariable {
     this(USRType usr, TypeKindVariable var) @safe pure nothrow {
         this.usr = usr;
         this.variable = var;
-        setUniqueId(usr);
+
+        if (var.name.length != 0) {
+            // Prefer using the name because it is also the c/c++ identifier.
+            // The same name in a namespace would mean a collition. Breakin the
+            // one definition rule.
+            setUniqueId(var.name);
+        } else {
+            setUniqueId(usr);
+        }
     }
 
     this(USRType usr, TypeKindAttr type, CppVariable name) @safe pure nothrow {
@@ -699,20 +707,35 @@ nothrow pure @nogc:
         this.accessType_ = access;
         this.params_ = params.dup;
 
-        setUniqueId(toString);
+        import std.array : appender;
+
+        auto buf = appender!string();
+        signatureToString(buf);
+        setUniqueId(buf.data);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
+        import std.range.primitives : put;
 
         helperPutComments(w);
-        formattedWrite(w, "%s(%s);", name_, paramRange.joinParams);
+        signatureToString(w);
+        put(w, ";");
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
         }
     }
 
 const:
+
+    /// Signature of the method.
+    private void signatureToString(Writer)(scope Writer w) const {
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+
+        put(w, name_);
+        formattedWrite(w, "(%s)", paramRange.joinParams);
+    }
 
     mixin(standardToString);
 
@@ -755,7 +778,7 @@ const:
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
-        //helperPutComments(w);
+        helperPutComments(w);
         formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_);
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
@@ -798,13 +821,11 @@ const:
 
         this.params_ = params.dup;
 
-        char[] buf;
-        buf.reserve(100);
-        signatureToString((const(char)[] s) { buf ~= s; });
+        import std.array : appender;
 
-        import std.exception : assumeUnique;
-
-        setUniqueId(() @trusted{ return assumeUnique(buf); }());
+        auto buf = appender!string();
+        signatureToString(buf);
+        setUniqueId(buf.data);
     }
 
     /// Function with no parameters.
@@ -881,6 +902,12 @@ const:
         this.returnType_ = return_type;
 
         this.params_ = params.dup;
+
+        import std.array : appender;
+
+        auto buf = appender!string();
+        signatureToString(buf);
+        setUniqueId(buf.data);
     }
 
     /// Operator with no parameters.
@@ -904,7 +931,7 @@ const:
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
-        put(w, signatureToString);
+        signatureToString(w);
         put(w, helperVirtualPost(classification_));
         put(w, ";");
 
@@ -917,10 +944,13 @@ const:
 @safe const:
 
     /// Signature of the method.
-    private string signatureToString() {
-        import std.format : format;
+    private void signatureToString(Writer)(scope Writer w) const {
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
 
-        return format("%s(%s)%s", name_, paramRange.joinParams, helperConst(isConst));
+        put(w, name_);
+        formattedWrite(w, "(%s)", paramRange.joinParams);
+        put(w, helperConst(isConst));
     }
 
     mixin(standardToString);

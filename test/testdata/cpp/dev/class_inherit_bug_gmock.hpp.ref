@@ -1,0 +1,37 @@
+#ifndef test_double_gmock_hpp
+#define test_double_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace barf {
+namespace Interface {
+namespace TestDouble {
+class MockI1 : public ::barf::Interface::I1 {
+public:
+    virtual ~MockI1() {}
+
+    MOCK_METHOD1(a, void(bool x0));
+};
+} //NS:TestDouble
+
+} //NS:Interface
+namespace TestDouble {
+class MockA : public ::barf::A {
+public:
+    virtual ~MockA() {}
+
+    MOCK_METHOD1(a, void(bool x0));
+};
+} //NS:TestDouble
+
+namespace TestDouble {
+class MockB : public ::barf::B {
+public:
+    virtual ~MockB() {}
+
+    MOCK_METHOD1(a, void(bool x0));
+};
+} //NS:TestDouble
+
+} //NS:barf
+#endif // test_double_gmock_hpp

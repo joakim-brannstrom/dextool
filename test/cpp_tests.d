@@ -128,6 +128,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId
+        ~ "Shall be gmocks without duplicated methods resulting in compilation error when multiple inheritance is used")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/class_inherit_bug.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Should be gmock with member methods and operators")
 unittest {
     mixin(EnvSetup(globalTestdir));
