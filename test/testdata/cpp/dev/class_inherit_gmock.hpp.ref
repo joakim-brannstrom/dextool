@@ -26,8 +26,8 @@ class MockVirtB : public VirtB {
 public:
     virtual ~MockVirtB() {}
 
-    MOCK_METHOD0(virtB, void());
     MOCK_METHOD0(virtA, void());
+    MOCK_METHOD0(virtB, void());
 };
 } //NS:TestDouble
 
@@ -36,9 +36,9 @@ class MockVirtC : public VirtC {
 public:
     virtual ~MockVirtC() {}
 
-    MOCK_METHOD0(virtC, void());
-    MOCK_METHOD0(virtB, void());
     MOCK_METHOD0(virtA, void());
+    MOCK_METHOD0(virtB, void());
+    MOCK_METHOD0(virtC, void());
 };
 } //NS:TestDouble
 
