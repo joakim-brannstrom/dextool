@@ -694,6 +694,13 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
 
     if (cppm_type == "Get") {
+        if(a.name == "Get_Port") {
+            with(inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst)) {
+                return_("*port");
+            }
+            return;
+        }
+
         Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
         with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
             string func_name = a.name["Get_".length .. $];
