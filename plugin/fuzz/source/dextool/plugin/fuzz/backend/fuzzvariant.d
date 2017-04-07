@@ -693,47 +693,48 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto cppm_type = (cast(string)(a.name)).split("_")[0];
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
 
-    if (cppm_type == "Put") {
-        auto params = joinParams(a.paramRange); //a.paramRange.map!(b => paramTypeToString(b) ~ ", " ~ paramNametoString(b)); 
-        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
-            
-            stmt("return");
-        } 
-        //Put something in something
-    }
-    int type_func = -1; 
-    ContinousInterface ci;
-    DataItem di;
     if (cppm_type == "Get") {
-        type_func = 0;
-        string func_name = a.name["Get_".length .. $];
-        ci = getInterface(ns, func_name);
-        if(ci.name != "") {
-            func_name = func_name[ci.name.length .. $];
-            if(func_name != "" && func_name[0] == '_') 
-                func_name = func_name[1..$];
-            di = getDataItem(ns, ci, func_name);
-            if (di.name == "") {
-                type_func = 1;
-            } else {
-                type_func = 2;
+        Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
+            string func_name = a.name["Get_".length .. $];
+            ContinousInterface ci = getInterface(ns, func_name);
+            if(ci.name != "") {
+                func_name = func_name[ci.name.length .. $];
+                if(func_name != "" && func_name[0] == '_') 
+                    func_name = func_name[1..$];
+
+                DataItem di = getDataItem(ns, ci, func_name);
+                if (di.name == "") {
+                    return_(ci.name.toLower);
+                } else {
+                    return_(ci.name.toLower ~ "." ~ di.name);
+                }
             }
         }
-    }
-    
-    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
-        if (a.name == "Get_Port") {
-            return_("*port");
-        } else if (cppm_type == "Get") {
-            if (type_func == 0) {
-                return_(cppm_ditem);
-            } else if(type_func == 1) {
-                return_(ci.name.toLower);
-            } else if(type_func == 2) {
-                return_(ci.name.toLower ~ "." ~ di.name);
+    } else if (cppm_type == "Put") {
+        auto params = joinParams(a.paramRange); 
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
+            string func_name = a.name["Get_".length .. $];
+            ContinousInterface ci = getInterface(ns, func_name);
+            if(ci.name != "") {
+                func_name = func_name[ci.name.length .. $];
+                if(func_name != "" && func_name[0] == '_') 
+                    func_name = func_name[1..$];
+
+                DataItem di = getDataItem(ns, ci, func_name);
+                if (di.name == "") {
+                    foreach(param ; a.paramRange) {
+                        string paramName = paramNameToString(param);
+                        stmt(E(ci.name.toLower ~ "." ~paramName) = E(paramName));
+                    }
+                } else {
+                    stmt(E(ci.name.toLower ~ "." ~ di.name) = E(di.name));
+                }
             }
-        } else {
+        }
+    } else {
+        Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
             stmt("return");
         }
     }
