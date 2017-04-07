@@ -493,14 +493,8 @@ body {
         }
 
         foreach(a; ns.funcRange) {
-            string paramType;
-            if(paramTypeToString(a.paramRange[0]).indexOf("basic_string")) { //Fulhack until resolved...
-                paramType = "const std::string &";
-            } else {
-                paramType = paramTypeToString(a.paramRange[0]);
-            }
 	        generateFunc(inner.impl, a.returnType.toStringDecl, a.name, 
-                paramType, paramNameToString(a.paramRange[0]),classes[fqn_class]);
+                paramTypeToString(a.paramRange[0]), paramNameToString(a.paramRange[0]),classes[fqn_class]);
         }
 
         
@@ -533,7 +527,10 @@ import cpptooling.data.type;
         }
     }
     with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
-	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType[0..$-1]))(paramName ~ ", " ~ paramName)); //paramType[0..$-1] == part of fulhack
+        if (paramType[$-1] == '&') {
+            paramType = paramType[0..$-1]; //Remove reference
+        }
+	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
     }
 }
 
@@ -697,9 +694,9 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
 
     if (cppm_type == "Put") {
-//        paramTypeToString(a.paramRange[0]), paramNameToString(a.paramRange[0])
         auto params = joinParams(a.paramRange); //a.paramRange.map!(b => paramTypeToString(b) ~ ", " ~ paramNametoString(b)); 
         with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
+            
             stmt("return");
         } 
         //Put something in something
