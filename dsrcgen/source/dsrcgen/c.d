@@ -99,6 +99,10 @@ mixin template CModuleX(T) {
         return stmt("continue");
     }
 
+    auto return_() {
+        return stmt("return");
+    }
+
     auto return_(string expr) {
         return stmt("return " ~ expr);
     }
@@ -955,6 +959,18 @@ unittest {
     auto e = E("a");
     e = E("p");
     m.stmt(e);
+
+    assert(expect == m.render, m.render);
+}
+
+unittest {
+    auto expect = "    return;
+    return a;
+";
+
+    auto m = new CModule;
+    m.return_();
+    m.return_("a");
 
     assert(expect == m.render, m.render);
 }
