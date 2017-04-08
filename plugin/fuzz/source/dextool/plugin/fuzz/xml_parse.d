@@ -421,7 +421,6 @@ public:
     }
 
     Variable[string] findVariables(string ns, string type_name) {
-	writeln(ns);
 	Variable[string] ret;
         Types out_types = Types();
 	if (auto nsp = ns in getNamespaces()) {

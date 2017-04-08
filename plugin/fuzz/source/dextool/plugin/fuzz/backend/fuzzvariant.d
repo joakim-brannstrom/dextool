@@ -86,10 +86,7 @@ struct Generator {
         CppNamespace[] cppn;
 
         rawFilter(root, xmlp, cppn);
-        foreach(s ; cppn) {
-            writeln("WOWO " ~ s.fullyQualifiedName);
-            writeln(s.id);
-        }
+
         cppn.each!(a => new_root.put(a));
         auto impl_data = translate(new_root);
 
@@ -236,7 +233,7 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
         ///TODO add metadata to the class if it is a definition or declaration
 
         mixin(mixinNodeLog!());
-        logger.info("class: ", v.cursor.spelling);
+        logger.trace("class: ", v.cursor.spelling);
 
         if (v.cursor.isDefinition) {
             auto visitor = scoped!ClassVisitor(v, ns_stack, container, indent + 1);
@@ -460,15 +457,6 @@ body {
         auto inner = modules;
         CppModule inner_impl_singleton;
 
-        final switch(data.lookup(ns.id)) with (Kind) {
-          case none:
-            writeln("namespace is none!");
-            break;
-          case ContinousInterface:
-            writeln("Namespace is continous");
-            break;
-        }
-        writeln("wooo2 " ~ ns.fullyQualifiedName);
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
         foreach (nss; ns.resideInNs[1 .. $]) {
@@ -535,6 +523,12 @@ import cpptooling.data.type;
             compif_implname = nss.impl_name;
         }
     }
+
+    assert(port_name != "");
+    assert(port_implname != "");
+    assert(compif_name != "");
+    assert(compif_implname != "");
+
     with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
         if (paramType[$-1] == '&') {
             paramType = paramType[0..$-1]; //Remove reference
@@ -597,6 +591,8 @@ import cpptooling.data.type;
 }
 
 
+//TODO: See if this can be split into multiple functions
+//TODO: Check if functions can "look better", maybe with string formatting?
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
 				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
     import std.array : empty;
@@ -688,10 +684,10 @@ void generateDtor(const CppDtor a, CppModule inner) {
     }
 }
 
-//Should probably return a class for implementation
+//TODO: Split this function to multiple and add cppm_type as a tag in translate()
 @trusted void generateCppMeth(const CppMethod a, CppModule inner,
     string class_name, string nsname, Namespace ns) {
-    //Get_Port, does it always exist?
+
     import std.string;
     import std.array;
     import std.algorithm : map;
@@ -708,22 +704,22 @@ void generateDtor(const CppDtor a, CppModule inner) {
                 return_("*port");
             }
             return;
-        }
+        } else {
+            Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+            with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
+                string func_name = a.name["Get_".length .. $];
+                ContinousInterface ci = getInterface(ns, func_name);
+                if(ci.name != "") {
+                    func_name = func_name[ci.name.length .. $];
+                    if(func_name != "" && func_name[0] == '_') 
+                        func_name = func_name[1..$];
 
-        Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
-            string func_name = a.name["Get_".length .. $];
-            ContinousInterface ci = getInterface(ns, func_name);
-            if(ci.name != "") {
-                func_name = func_name[ci.name.length .. $];
-                if(func_name != "" && func_name[0] == '_') 
-                    func_name = func_name[1..$];
-
-                DataItem di = getDataItem(ns, ci, func_name);
-                if (di.name == "") {
-                    return_(ci.name.toLower);
-                } else {
-                    return_(ci.name.toLower ~ "." ~ di.name);
+                    DataItem di = getDataItem(ns, ci, func_name);
+                    if (di.name == "") {
+                        return_(ci.name.toLower);
+                    } else {
+                        return_(ci.name.toLower ~ "." ~ di.name);
+                    }
                 }
             }
         }
