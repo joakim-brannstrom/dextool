@@ -747,7 +747,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     } else {
         Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
         with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
-            stmt("return");
+            return_;
         }
     }
 }
