@@ -86,10 +86,15 @@ struct Generator {
         CppNamespace[] cppn;
 
         rawFilter(root, xmlp, cppn);
+        foreach(s ; cppn) {
+            writeln("WOWO " ~ s.fullyQualifiedName);
+            writeln(s.id);
+        }
         cppn.each!(a => new_root.put(a));
-
         auto impl_data = translate(new_root);
-        //logger.trace("Translated to implementation:\n", impl_data.toString());
+
+
+        //writeln("Translated to implementation:\n", impl_data.toString());
         //logger.trace("kind:\n", impl_data.kind);
 
         //translate is skipped for now, as tagging isn't necessary
@@ -344,12 +349,15 @@ CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trust
     import std.algorithm : each, map, filter;
     import dextool.type : FileName;
     import std.string : toLower;
+    import cpptooling.data.representation : MergeMode;
 
     static if (is(CppT == CppRoot)) {
         auto filtered = CppRoot.make;
     } else static if (is(CppT == CppNamespace)) {
-        auto filtered = input.dup;
+        auto filtered = CppNamespace(input.resideInNs);
+        filtered.merge(input, MergeMode.full);
     }
+
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
@@ -460,6 +468,7 @@ body {
             writeln("Namespace is continous");
             break;
         }
+        writeln("wooo2 " ~ ns.fullyQualifiedName);
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
         foreach (nss; ns.resideInNs[1 .. $]) {
