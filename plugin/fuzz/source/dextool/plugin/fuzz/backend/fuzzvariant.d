@@ -524,10 +524,10 @@ import cpptooling.data.type;
         }
     }
 
-    assert(port_name != "");
-    assert(port_implname != "");
-    assert(compif_name != "");
-    assert(compif_implname != "");
+    assert(port_name.length != 0);
+    assert(port_implname.length != 0);
+    assert(compif_name.length != 0);
+    assert(compif_implname.length != 0);
 
     with(inner.func_body(return_type, func_name, paramType ~ " " ~ paramName)) {
         if (paramType[$-1] == '&') {
@@ -709,13 +709,13 @@ void generateDtor(const CppDtor a, CppModule inner) {
             with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
                 string func_name = a.name["Get_".length .. $];
                 ContinousInterface ci = getInterface(ns, func_name);
-                if(ci.name != "") {
+                if(ci.name.length != 0) {
                     func_name = func_name[ci.name.length .. $];
-                    if(func_name != "" && func_name[0] == '_') 
+                    if(func_name.length != 0 && func_name[0] == '_') 
                         func_name = func_name[1..$];
 
                     DataItem di = getDataItem(ns, ci, func_name);
-                    if (di.name == "") {
+                    if (di.name.length == 0) {
                         return_(ci.name.toLower);
                     } else {
                         return_(ci.name.toLower ~ "." ~ di.name);
@@ -728,13 +728,13 @@ void generateDtor(const CppDtor a, CppModule inner) {
         with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
             string func_name = a.name["Get_".length .. $];
             ContinousInterface ci = getInterface(ns, func_name);
-            if(ci.name != "") {
+            if(ci.name.length != 0) {
                 func_name = func_name[ci.name.length .. $];
-                if(func_name != "" && func_name[0] == '_') 
+                if(func_name.length != 0 && func_name[0] == '_') 
                     func_name = func_name[1..$];
 
                 DataItem di = getDataItem(ns, ci, func_name);
-                if (di.name == "") {
+                if (di.name.length == 0) {
                     foreach(param ; a.paramRange) {
                         string paramName = paramNameToString(param);
                         stmt(E(ci.name.toLower ~ "." ~paramName) = E(paramName));
