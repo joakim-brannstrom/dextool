@@ -18,7 +18,8 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
 
 import xml_parse;
-import generators;
+import backend.fuzz.generators;
+import backend.fuzz.types;
 import std.container.array;
 
 
@@ -419,7 +420,7 @@ body {
         import std.string : toLower, indexOf;
         import std.algorithm : canFind, map, joiner;
         import std.array : join;
-        import generators;
+        import backend.fuzz.generators;
 
         auto inner = modules;
         CppModule inner_impl_singleton;
