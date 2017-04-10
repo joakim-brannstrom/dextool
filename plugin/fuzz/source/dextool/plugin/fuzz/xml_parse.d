@@ -146,7 +146,8 @@ private:
 
     string namespace(string filename) {
         ///TODO: Namespaces should probably only be added if there is any interface in the file
-        //dfmt off
+        //dfmt off            doc_raw.validate();
+
             return dirName(filename)
                 .chompPrefix(this.basedir)
                 .replace(dirSeparator, "::")
@@ -314,8 +315,6 @@ public:
     }
 
     Namespace[string] parseBaseDir() {
-        import std.utf : validate;
-
         Namespace[string] namespaces;
         Global glob;
         foreach (string xml_file; xml_files) {
