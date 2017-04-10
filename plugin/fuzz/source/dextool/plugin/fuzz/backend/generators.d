@@ -107,8 +107,7 @@ import backend.fuzz.types;
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns);
             foreach (ciface; ns.interfaces.ci) {
-		        string expr = format("%s::%sT %s", fqn_ns, ciface.name, ciface.name.toLower);
-                stmt(E(expr));
+                stmt(E(format("%s::%sT %s", fqn_ns, ciface.name, ciface.name.toLower)));
             }
             stmt(E("RandomGenerator* randomGenerator"));
         }
