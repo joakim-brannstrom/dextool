@@ -115,7 +115,7 @@ import backend.fuzz.types;
 
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-		        string expr = format("%s::%s(\"%s\")", "&TestingEnvironment", "createRandomGenerator", type);
+		        string expr = format(`%s::%s("%s")`, "&TestingEnvironment", "createRandomGenerator", type);
                 stmt(E("randomGenerator") = E(expr));
             }
             
@@ -145,7 +145,7 @@ import backend.fuzz.types;
                             }
                         } else {
                             string var = format("%s.%s", ciface.name.toLower, ditem.name);
-                            string expr = format("randomGenerator->generate(\"%s %s %s\")",
+                            string expr = format(`randomGenerator->generate("%s %s %s")`,
                                         type, ciface.name, ditem.name);
                             stmt(E(var) = E(expr));
                         }
@@ -162,7 +162,7 @@ import backend.fuzz.types;
     import std.string : toLower;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
-    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
 			 type, ciface_name, ditem_name, min, max);
 
     with (func) { stmt(E(var) = E(expr)); }
@@ -175,7 +175,7 @@ import backend.fuzz.types;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem_type);
-    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)", 
+    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`, 
 			 type, ciface_name, ditem_name, min, max);
 
     with (func) { stmt(E(var) = E(Et("static_cast")(fqns_type))(expr)); }
@@ -191,14 +191,14 @@ import backend.fuzz.types;
 	auto var_minmax = xmlp.findMinMax(ns_name, var_name.type);
 	if (var_minmax.length > 0) {
 	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
-	    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+	    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
 				 type, ciface_name, ditem_name, var_minmax["min"], var_minmax["max"]);
 
 	    with (func) { stmt(E(var) = E(expr)); }
 	}
 	else {
 	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
-	    string expr = format("randomGenerator->generate(\"%s %s %s\")",
+	    string expr = format(`randomGenerator->generate("%s %s %s")`,
 				 type, ciface_name, ditem_name);
 
 	    with (func) { stmt(E(var) = E(expr)); }
