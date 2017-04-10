@@ -590,8 +590,6 @@ import cpptooling.data.type;
     return inner_class;
 }
 
-
-//TODO: See if this can be split into multiple functions
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
 				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
     import std.array : empty;
@@ -612,70 +610,95 @@ import cpptooling.data.type;
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
 		string expr = format("%s::%s(\"%s\")", "&TestingEnvironment", "createRandomGenerator", type);
-                stmt(
-                    E("randomGenerator") = E(expr));
+                stmt(E("randomGenerator") = E(expr));
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
 
-            with (func_body("void", "Regenerate")) {
-                foreach (ciface; ns.interfaces.ci) {
-                    foreach (ditem; ciface.data_items) {
-			string[string] minmax = xmlp.findMinMax(ns.name, ditem.type);
+            auto func = func_body("void", "Regenerate"); 
+	    foreach (ciface; ns.interfaces.ci) {
+		foreach (ditem; ciface.data_items) {
+		    string[string] minmax = xmlp.findMinMax(ns.name, ditem.type);
 		      
-			if (minmax.length > 0) {
-			    string min = minmax["min"];
-			    string max = minmax["max"];
-			    string type_type = minmax["type"];
-			    string type_ns = minmax["namespace"];
+		    if (minmax.length > 0) {
+			string min = minmax["min"];
+			string max = minmax["max"];
+			string type_type = minmax["type"];
+			string type_ns = minmax["namespace"];
 			    
-			    final switch (type_type) {
-			    case "SubType":
-				string var = format("%s.%s", ciface.name.toLower, ditem.name);
-				string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
-						     type, ciface.name, ditem.name, min, max);
-				stmt(E(var) = E(expr));
-				break;
-			    case "Enum":
-				string var = format("%s.%s", ciface.name.toLower, ditem.name);
-				string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem.type);
-				string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)", 
-						     type, ciface.name, ditem.name, min, max);
-				stmt(E(var) = E(Et("static_cast")(fqns_type))(expr));
-				break;
-			    case "Record":
-				Variable[string] vars = xmlp.findVariables(type_ns, ditem.type);
-				foreach (var_name ; vars) {
-				    auto var_minmax = xmlp.findMinMax(ns.name, var_name.type);
-				    if (var_minmax.length > 0) {
-					string var = format("%s.%s.%s", ciface.name.toLower, ditem.name, var_name.name);
-					string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
-							     type, ciface.name, ditem.name, var_minmax["min"], var_minmax["max"]);
-				    	stmt(E(var) = E(expr));
-				    }
-				    else {
-					string var = format("%s.%s.%s", ciface.name.toLower, ditem.name, var_name.name);
-					string expr = format("randomGenerator->generate(\"%s %s %s\")",
-							     type, ciface.name, ditem.name);
-					stmt(E(var) = E(expr));
-				    }
-				}  
-				
-				break;
-			    }
+			final switch (type_type) {
+			case "SubType":
+			    generateSubType(func, ciface.name, ditem.name, type, min, max);
+			    break;
+			case "Enum":
+			    generateEnum(func, ciface.name, ditem.name, type_ns, type, ditem.type, min, max);
+			    break;
+			case "Record":			
+			    generateRecord(func, ciface.name, ditem.name, ns.name, type_ns, type, ditem.type, xmlp);
+			    break;
 			}
-			else {
-			    string var = format("%s.%s", ciface.name.toLower, ditem.name);
-			    string expr = format("randomGenerator->generate(\"%s %s %s\")",
-						 type, ciface.name, ditem.name);
-			    stmt(E(var) = E(expr));
-			}
-                    }
-                }
-	    }
+		    }
+		    else {
+			string var = format("%s.%s", ciface.name.toLower, ditem.name);
+			string expr = format("randomGenerator->generate(\"%s %s %s\")",
+					     type, ciface.name, ditem.name);
+			stmt(E(var) = E(expr));
+		    }
+		}
+	    }    
         }
     }
     return inner_class;
+}
+
+@trusted void generateSubType(CppModule func, string ciface_name, string ditem_name, string type,
+		     string min, string max) {
+    import std.format : format;
+    import std.string : toLower;
+
+    string var = format("%s.%s", ciface_name.toLower, ditem_name);
+    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+			 type, ciface_name, ditem_name, min, max);
+
+    with (func) { stmt(E(var) = E(expr)); }
+}
+
+@trusted void generateEnum(CppModule func, string ciface_name, string ditem_name, string type_ns,
+		  string type,  string ditem_type, string min, string max) { 
+    import std.format : format;
+    import std.string : toLower, capitalize;
+
+    string var = format("%s.%s", ciface_name.toLower, ditem_name);
+    string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem_type);
+    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)", 
+			 type, ciface_name, ditem_name, min, max);
+
+    with (func) { stmt(E(var) = E(Et("static_cast")(fqns_type))(expr)); }
+}
+
+@trusted void generateRecord(CppModule func, string ciface_name, string ditem_name, string ns_name,
+		    string type_ns, string type, string ditem_type, xml_parse xmlp) { 
+    import std.format : format;
+    import std.string : toLower;
+
+    Variable[string] vars = xmlp.findVariables(type_ns, ditem_type);
+    foreach (var_name ; vars) {
+	auto var_minmax = xmlp.findMinMax(ns_name, var_name.type);
+	if (var_minmax.length > 0) {
+	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
+	    string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+				 type, ciface_name, ditem_name, var_minmax["min"], var_minmax["max"]);
+
+	    with (func) { stmt(E(var) = E(expr)); }
+	}
+	else {
+	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
+	    string expr = format("randomGenerator->generate(\"%s %s %s\")",
+				 type, ciface_name, ditem_name);
+
+	    with (func) { stmt(E(var) = E(expr)); }
+	}
+    }  
 }
 
 void generateCtor(const CppCtor a, CppModule inner) {
