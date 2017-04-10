@@ -11,6 +11,8 @@ import std.typecons;
 
 import std.stdio;
 
+@safe:
+
 enum Direction {
     from = "requirer",
     to = "provider"
@@ -22,18 +24,17 @@ struct BaseDir {
 }
 
 struct Global {
-    Array!Primitive prims;
-    Array!SubType subtypes;
-    Array!Record record;
-    Array!Enum enums;
-
+    Primitive[] prims;
+    SubType[] subtypes;
+    Record[] record;
+    Enum[] enums;
 }
 
 struct Types {
-    Array!Primitive prims;
-    Array!SubType subtypes;
-    Array!Record record;
-    Array!Enum enums;
+    Primitive[] prims;
+    SubType[] subtypes;
+    Record[] record;
+    Enum[] enums;
     Global glob;
 
 }
@@ -56,7 +57,7 @@ struct Variable {
 
 struct Enum {
     string name;
-    Array!EnumItem enumitems;
+    EnumItem[] enumitems;
     string min;
     string max;
     string namespace;
@@ -89,11 +90,11 @@ struct SubType {
 struct ContinousInterface {
     string name;
     Direction direction;
-    auto data_items = Array!DataItem();
+    DataItem[] data_items;
 }
 
 struct Interface_ {
-    Array!ContinousInterface ci;
+    ContinousInterface[] ci;
     //Add more interfaces here
     alias ci this;
     //Add more alias here
@@ -175,7 +176,7 @@ private:
                 if (auto unit = "unit" in elem.tag.attr) {
                     subtype.unit = *unit;
                 }
-                xml_types.subtypes.insertBack(subtype);
+                xml_types.subtypes ~= subtype;
                 break;
 
             case "Record":
@@ -184,7 +185,7 @@ private:
                     Variable var = Variable(variable.tag.attr["name"], variable.tag.attr["type"]);
                     rec.variables[variable.tag.attr["name"]] = var;
                 }
-                xml_types.record.insertBack(rec);
+                xml_types.record ~= rec;
                 break;
             case "Enum":
                 Enum enums = Enum(elem.tag.attr["name"], curr_ns);
@@ -200,18 +201,18 @@ private:
                     } else if (min > val) {
                         min = val;
                     }
-                    enums.enumitems.insertBack(EnumItem(enumitem.tag.attr["name"],
-                        enumitem.tag.attr["value"]));
+                    enums.enumitems ~= EnumItem(enumitem.tag.attr["name"],
+                        enumitem.tag.attr["value"]);
                 }
                 enums.min = to!string(min);
                 enums.max = to!string(max);
-                xml_types.enums.insertBack(enums);
+                xml_types.enums ~= enums;
                 break;
             case "Primitive":
                 Primitive prim = Primitive(elem.tag.attr["name"],
                     elem.tag.attr["type"], elem.tag.attr["size"]);
                 prim.cppint = CPPInterface(elem.elements[0].tag.attr["header"]);
-                xml_types.prims.insertBack(prim);
+                xml_types.prims ~= prim;
                 break;
             }
         }
@@ -236,7 +237,7 @@ private:
                 if (auto startupVal = "startupValue" in elem.tag.attr) {
                     data_item.startupVal = *startupVal;
                 }
-                cis.data_items.insertBack(data_item);
+                cis.data_items ~= data_item;
 
                 break;
             default:
@@ -267,7 +268,7 @@ private:
             foreach (Element elem; doc.elements) {
                 switch (elem.tag.name) {
                 case "ContinousInterface":
-                    ret.ci.insertBack(getContinousInterface(elem));
+                    ret.ci ~= getContinousInterface(elem);
                     break;
                 default:
                     break;
@@ -306,20 +307,23 @@ private:
 public:
     this(BaseDir bdir) {
         basedir = bdir;
-        xml_files = (dirEntries(this.basedir, "*.xml", SpanMode.breadth).filter!(a => a.isFile)).map!(
-            a => a.name).array;
+        xml_files = () @trusted { return (dirEntries(this.basedir, "*.xml", SpanMode.breadth)
+                                        .filter!(a => a.isFile)).map!(a => a.name).array; } ();
         foundNamespaces = xml_files.map!(a => namespace(a)).filter!(a => a != "").array;
         nsps = parseBaseDir;
     }
 
     Namespace[string] parseBaseDir() {
-        import std.stdio;
+        import std.utf : validate;
 
         Namespace[string] namespaces;
         Global glob;
         foreach (string xml_file; xml_files) {
             string curr_ns = namespace(xml_file);
-            auto doc = new Document(cast(string) std.file.read(xml_file));
+            
+            string doc_raw = std.file.readText(xml_file);
+            auto doc = () @trusted {return new Document(doc_raw); } ();
+
             Types ntypes = merge(types(doc, curr_ns));
             Nullable!Interface_ ifaces = interfaces(doc);
 
@@ -347,8 +351,8 @@ public:
             }
         }
 
-        foreach (string key; namespaces.byKey) {
-            namespaces[key].ns_types.glob = glob;
+        foreach (Namespace ns; namespaces) {
+            ns.ns_types.glob = glob;
         }
 
         return namespaces;
