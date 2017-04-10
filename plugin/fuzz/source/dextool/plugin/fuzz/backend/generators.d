@@ -132,7 +132,7 @@ import backend.fuzz.types;
                         string type_type = minmax["type"];
                         string type_ns = minmax["namespace"];
 			    
-                        final switch (type_type) {
+                        switch (type_type) {
                             case "SubType":
                                 generateSubType(func, ciface.name, ditem.name, type, min, max);
                                 break;
@@ -141,6 +141,8 @@ import backend.fuzz.types;
                                 break;
                             case "Record":			
                                 generateRecord(func, ciface.name, ditem.name, ns.name, type_ns, type, ditem.type, xmlp);
+                                break;
+                            default:
                                 break;
                             }
                         } else {
