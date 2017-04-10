@@ -111,7 +111,7 @@ import backend.fuzz.types;
             }
             stmt(E("RandomGenerator* randomGenerator"));
         }
-
+        
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
 		        string expr = format(`%s::%s("%s")`, "&TestingEnvironment", "createRandomGenerator", type);
