@@ -533,7 +533,7 @@ import cpptooling.data.type;
         if (paramType[$-1] == '&') {
             paramType = paramType[0..$-1]; //Remove reference
         }
-	    return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
+	return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
     }
 }
 
@@ -592,27 +592,28 @@ import cpptooling.data.type;
 
 
 //TODO: See if this can be split into multiple functions
-//TODO: Check if functions can "look better", maybe with string formatting?
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
 				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
     import std.array : empty;
     import std.string : toLower, indexOf, capitalize;
     import std.algorithm : endsWith;
+    import std.format : format;
 
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns);
             foreach (ciface; ns.interfaces.ci) {
-                stmt(E(fqn_ns ~ "::" ~ ciface.name ~ "T " ~ ciface.name.toLower));
+		string expr = format("%s::%sT %s", fqn_ns, ciface.name, ciface.name.toLower);
+                stmt(E(expr));
             }
             stmt(E("RandomGenerator* randomGenerator"));
         }
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
+		string expr = format("%s::%s(\"%s\")", "&TestingEnvironment", "createRandomGenerator", type);
                 stmt(
-                    E("randomGenerator") = E(
-                    `&TestingEnvironment::createRandomGenerator("` ~ type ~ `")`));
+                    E("randomGenerator") = E(expr));
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
@@ -626,31 +627,37 @@ import cpptooling.data.type;
 			    string min = minmax["min"];
 			    string max = minmax["max"];
 			    string type_type = minmax["type"];
-                string type_ns = minmax["namespace"];
+			    string type_ns = minmax["namespace"];
 			    
 			    final switch (type_type) {
 			    case "SubType":
-				stmt(E(ciface.name.toLower ~ "." ~ ditem.name) = E(
-									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-									   ~ ` ` ~ ditem.name ~ `", `~min~`, `~max~`)`));
+				string var = format("%s.%s", ciface.name.toLower, ditem.name);
+				string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+						     type, ciface.name, ditem.name, min, max);
+				stmt(E(var) = E(expr));
 				break;
 			    case "Enum":
-				string fqns_type = type_ns.capitalize ~ "::" ~ ditem.type ~ "T::Enum";
-				stmt(E(ciface.name.toLower ~ "." ~ ditem.name) = E(Et("static_cast")(fqns_type))(`randomGenerator->generate("`~type~` ` ~ ciface.name ~ ` ` ~ ditem.name~`", ` ~ min ~ `, ` ~ max ~ `)`));
+				string var = format("%s.%s", ciface.name.toLower, ditem.name);
+				string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem.type);
+				string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)", 
+						     type, ciface.name, ditem.name, min, max);
+				stmt(E(var) = E(Et("static_cast")(fqns_type))(expr));
 				break;
 			    case "Record":
 				Variable[string] vars = xmlp.findVariables(type_ns, ditem.type);
 				foreach (var_name ; vars) {
 				    auto var_minmax = xmlp.findMinMax(ns.name, var_name.type);
 				    if (var_minmax.length > 0) {
-				    	stmt(E(ciface.name.toLower ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
-									   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-									   ~ ` ` ~ ditem.name ~`", `~var_minmax["min"]~`, `~var_minmax["max"]~`)`));
+					string var = format("%s.%s.%s", ciface.name.toLower, ditem.name, var_name.name);
+					string expr = format("randomGenerator->generate(\"%s %s %s\", %s, %s)",
+							     type, ciface.name, ditem.name, var_minmax["min"], var_minmax["max"]);
+				    	stmt(E(var) = E(expr));
 				    }
 				    else {
-					stmt(E(ciface.name.toLower ~ "." ~ ditem.name ~ "." ~ var_name.name) = E(
-										   `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-										   ~ ` ` ~ ditem.name ~ `"`~`)`));
+					string var = format("%s.%s.%s", ciface.name.toLower, ditem.name, var_name.name);
+					string expr = format("randomGenerator->generate(\"%s %s %s\")",
+							     type, ciface.name, ditem.name);
+					stmt(E(var) = E(expr));
 				    }
 				}  
 				
@@ -658,13 +665,14 @@ import cpptooling.data.type;
 			    }
 			}
 			else {
-			    stmt(E(ciface.name ~ "." ~ ditem.name) = E(
-                            `randomGenerator->generate("` ~ type ~ ` ` ~ ciface.name
-                            ~ ` ` ~ ditem.name ~ `"`~`)`));
+			    string var = format("%s.%s", ciface.name.toLower, ditem.name);
+			    string expr = format("randomGenerator->generate(\"%s %s %s\")",
+						 type, ciface.name, ditem.name);
+			    stmt(E(var) = E(expr));
 			}
                     }
                 }
-    }
+	    }
         }
     }
     return inner_class;
