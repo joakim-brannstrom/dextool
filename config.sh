@@ -13,9 +13,9 @@ elif [[ -d "/usr/lib/llvm-3.6/lib" ]]; then
 elif [[ -d "/usr/lib64/llvm" ]]; then
     export LFLAG_CLANG_PATH="-L/usr/lib64/llvm"
 elif [[ -d "/Applications/Xcode.app/Contents/Frameworks" ]]; then
-    export LFLAG_CLANG_PATH="-L/Applications/Xcode.app/Contents/Frameworks"
+    export LFLAG_CLANG_PATH="-L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/"
     export LFLAG_CLANG_LIB="clang"
-    export LFLAG_CLANG_ABS_PATH="/Applications/Xcode.app/Contents/Frameworks"
+    export LFLAG_CLANG_ABS_PATH="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/"
 fi
 
 if [[ -n "$LFLAG_CLANG_LIB" ]]; then

@@ -123,9 +123,10 @@ import backend.fuzz.types;
             auto func = func_body("void", "Regenerate"); 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
-		            string[string] minmax = xmlp.findMinMax(ns.name, ditem.type);
+		            string[string] minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
 		      
 		            if (minmax.length > 0) {
+                        string defVal = minmax["defVal"];
 			            string min = minmax["min"];
                         string max = minmax["max"];
                         string type_type = minmax["type"];
@@ -133,7 +134,7 @@ import backend.fuzz.types;
 			    
                         switch (type_type) {
                             case "SubType":
-                                generateSubType(func, ciface.name, ditem.name, type, min, max);
+                                generateSubType(func, ciface.name, ditem.name, type, min, max, defVal);
                                 break;
                             case "Enum":
                                 generateEnum(func, ciface.name, ditem.name, type_ns, type, ditem.type, min, max);
@@ -158,13 +159,18 @@ import backend.fuzz.types;
 }
 
 @trusted void generateSubType(CppModule func, string ciface_name, string ditem_name, string type,
-		     string min, string max) {
+		     string min, string max, string defVal) {
     import std.format : format;
     import std.string : toLower;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
-    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
-			 type, ciface_name, ditem_name, min, max);
+    string expr;
+    if (defVal.length == 0) {
+        expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
+                type, ciface_name, ditem_name, min, max);
+    } else {
+        expr = defVal;
+    }
 
     with (func) { stmt(E(var) = E(expr)); }
 }
@@ -189,21 +195,26 @@ import backend.fuzz.types;
 
     Variable[string] vars = xmlp.findVariables(type_ns, ditem_type);
     foreach (var_name ; vars) {
-	auto var_minmax = xmlp.findMinMax(ns_name, var_name.type);
-	if (var_minmax.length > 0) {
-	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
-	    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
-				 type, ciface_name, ditem_name, var_minmax["min"], var_minmax["max"]);
+        auto var_minmax = xmlp.findMinMax(ns_name, var_name.type, DataItem());
+        if (var_minmax.length > 0) {
+            string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
+            string expr;
+            if (var_minmax["defVal"].length == 0) {
+                expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
+                    type, ciface_name, ditem_name, var_minmax["min"], var_minmax["max"]);
+            } else {
+                expr = var_minmax["defVal"];
+            }
 
-	    with (func) { stmt(E(var) = E(expr)); }
-	}
-	else {
-	    string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
-	    string expr = format(`randomGenerator->generate("%s %s %s")`,
-				 type, ciface_name, ditem_name);
+            with (func) { stmt(E(var) = E(expr)); }
+        }
+        else {
+            string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
+            string expr = format(`randomGenerator->generate("%s %s %s")`,
+                    type, ciface_name, ditem_name);
 
-	    with (func) { stmt(E(var) = E(expr)); }
-	}
+            with (func) { stmt(E(var) = E(expr)); }
+        }
     }  
 }
 
