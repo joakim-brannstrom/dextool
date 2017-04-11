@@ -134,21 +134,20 @@ import backend.fuzz.types;
 			    
                         switch (type_type) {
                             case "SubType":
-                                generateSubType(func, ciface.name, ditem.name, type, min, max, defVal);
+                                generateSubType(func, ciface.name, ditem.name, min, max, defVal);
                                 break;
                             case "Enum":
-                                generateEnum(func, ciface.name, ditem.name, type_ns, type, ditem.type, min, max);
+                                generateEnum(func, ciface.name, ditem.name, type_ns, ditem.type, min, max);
                                 break;
                             case "Record":			
-                                generateRecord(func, ciface.name, ditem.name, ns.name, type_ns, type, ditem.type, xmlp);
+                                generateRecord(func, ciface.name, ditem.name, ns.name, type_ns, ditem.type, xmlp);
                                 break;
                             default:
                                 break;
                             }
                         } else {
                             string var = format("%s.%s", ciface.name.toLower, ditem.name);
-                            string expr = format(`randomGenerator->generate("%s %s %s")`,
-                                        type, ciface.name, ditem.name);
+                            string expr = `randomGenerator->generate()`;
                             stmt(E(var) = E(expr));
                         }
 		        }   
@@ -158,16 +157,14 @@ import backend.fuzz.types;
     return inner_class;
 }
 
-@trusted void generateSubType(CppModule func, string ciface_name, string ditem_name, string type,
-		     string min, string max, string defVal) {
+@trusted void generateSubType(CppModule func, string ciface_name, string ditem_name, string min, string max, string defVal) {
     import std.format : format;
     import std.string : toLower;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string expr;
     if (defVal.length == 0) {
-        expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
-                type, ciface_name, ditem_name, min, max);
+        expr = format(`randomGenerator->generate(%s, %s)`, min, max);
     } else {
         expr = defVal;
     }
@@ -176,20 +173,19 @@ import backend.fuzz.types;
 }
 
 @trusted void generateEnum(CppModule func, string ciface_name, string ditem_name, string type_ns,
-		  string type,  string ditem_type, string min, string max) { 
+			   string ditem_type, string min, string max) { 
     import std.format : format;
     import std.string : toLower, capitalize;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem_type);
-    string expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`, 
-			 type, ciface_name, ditem_name, min, max);
+    string expr = format(`randomGenerator->generate(%s, %s)`, min, max);
 
     with (func) { stmt(E(var) = E(Et("static_cast")(fqns_type))(expr)); }
 }
 
 @trusted void generateRecord(CppModule func, string ciface_name, string ditem_name, string ns_name,
-		    string type_ns, string type, string ditem_type, xml_parse xmlp) { 
+		    string type_ns, string ditem_type, xml_parse xmlp) { 
     import std.format : format;
     import std.string : toLower;
 
@@ -200,8 +196,7 @@ import backend.fuzz.types;
             string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
             string expr;
             if (var_minmax["defVal"].length == 0) {
-                expr = format(`randomGenerator->generate("%s %s %s", %s, %s)`,
-                    type, ciface_name, ditem_name, var_minmax["min"], var_minmax["max"]);
+                expr = format(`randomGenerator->generate(%s, %s)`, var_minmax["min"], var_minmax["max"]);
             } else {
                 expr = var_minmax["defVal"];
             }
@@ -210,8 +205,7 @@ import backend.fuzz.types;
         }
         else {
             string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
-            string expr = format(`randomGenerator->generate("%s %s %s")`,
-                    type, ciface_name, ditem_name);
+            string expr = `randomGenerator->generate()`;
 
             with (func) { stmt(E(var) = E(expr)); }
         }
