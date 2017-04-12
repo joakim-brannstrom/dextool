@@ -53,6 +53,10 @@ struct Record {
 struct Variable {
     string name;
     string type;
+
+    string defaultVal;
+    string min;
+    string max;
 }
 
 struct Enum {
@@ -146,7 +150,7 @@ private:
 
     string namespace(string filename) {
         ///TODO: Namespaces should probably only be added if there is any interface in the file
-        //dfmt off            doc_raw.validate();
+        //dfmt off
 
             return dirName(filename)
                 .chompPrefix(this.basedir)
@@ -184,6 +188,18 @@ private:
                 Record rec = Record(elem.tag.attr["name"], curr_ns);
                 foreach (Element variable; elem.elements) {
                     Variable var = Variable(variable.tag.attr["name"], variable.tag.attr["type"]);
+                    
+                    if (auto minVal = "min" in variable.tag.attr) {
+                        var.min = *minVal;
+                    }
+
+                    if (auto maxVal = "max" in variable.tag.attr) {
+                        var.max = *maxVal;
+                    }
+
+                    if (auto defaultVal = "defaultValue" in variable.tag.attr) {
+                        var.defaultVal = *defaultVal;
+                    }
                     rec.variables[variable.tag.attr["name"]] = var;
                 }
                 xml_types.record ~= rec;

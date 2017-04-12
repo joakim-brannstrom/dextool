@@ -191,9 +191,20 @@ import backend.fuzz.types;
 
     Variable[string] vars = xmlp.findVariables(type_ns, ditem_type);
     foreach (var_name ; vars) {
+        string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
+        if(var_name.defaultVal.length != 0) {
+            with (func) { stmt(E(var) = E(var_name.defaultVal)); }
+            return;
+        }
+        else if (var_name.min.length != 0 && var_name.max.length != 0) {
+            string expr = format(`randomGenerator->generate(%s, %s)`, var_name.min, var_name.max);
+            with (func) { stmt(E(var) = E(expr)); }
+            return;
+        }
+
+        //Highly unsure if subtype should be handled at all
         auto var_minmax = xmlp.findMinMax(ns_name, var_name.type, DataItem());
         if (var_minmax.length > 0) {
-            string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
             string expr;
             if (var_minmax["defVal"].length == 0) {
                 expr = format(`randomGenerator->generate(%s, %s)`, var_minmax["min"], var_minmax["max"]);
@@ -204,7 +215,6 @@ import backend.fuzz.types;
             with (func) { stmt(E(var) = E(expr)); }
         }
         else {
-            string var = format("%s.%s.%s", ciface_name.toLower, ditem_name, var_name.name);
             string expr = `randomGenerator->generate()`;
 
             with (func) { stmt(E(var) = E(expr)); }

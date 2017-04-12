@@ -1,7 +1,7 @@
 <Types>
     <SubType name="MyHeight" type="RealT" min="0" max="50000" unit="meter"/>
     <Record name="Bundle">
-        <Variable name="P0" type="RealT"/>
+        <Variable name="P0" type="RealT" min="10" max="2000"/>
         <Variable name="P1" type="MyHeight"/>
     </Record>
 
