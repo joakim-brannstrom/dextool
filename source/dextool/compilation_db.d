@@ -495,13 +495,26 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
         return flag.length >= 1 && flag[0] != '-';
     }
 
+    /// Flags that take an argument that is a path that need to be transformed
+    /// to an absolute path.
+    static bool isFlagAndPath(string flag) @safe {
+        import std.algorithm : among;
+
+        return 0 != flag.among("-I", "-idirafter", "-iframework", "-imacros",
+                "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
+    }
+
     static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
             const FilterClangFlag[] flag_filter) @safe {
         enum State {
+            /// keep the next flag IF none of the other transitions happens
             keep,
+            /// keep the next argument and transform to an absolute path
+            pathArgumentToAbsolute,
+            /// skip the next flag
             skip,
+            /// skip the next flag, if it is not a flag
             skipIfNotFlag,
-            isInclude
         }
 
         import std.path : buildNormalizedPath, absolutePath;
@@ -512,31 +525,38 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
         auto rval = appender!(ElementType!T[]);
 
         foreach (arg; r) {
+            // First states and how to handle those.
+            // Then transitions from the state keep, which is the default state.
+            //
+            // The user controlled excludeStartWith must be before any other
+            // conditions after the states. It is to give the user the ability
+            // to filter out any flag.
+
             if (st == State.skip) {
                 st = State.keep;
             } else if (st == State.skipIfNotFlag && isNotAFlag(arg)) {
                 st = State.keep;
-            } else if (st == State.isInclude) {
+            } else if (st == State.pathArgumentToAbsolute) {
                 st = State.keep;
-                // if an include flag make it absolute
-                rval.put("-I");
                 rval.put(buildNormalizedPath(workdir, arg).absolutePath);
+            } else if (st == State.pathArgumentToAbsolute) {
+                rval.put(arg);
+                st = State.keep;
+            } else if (excludeStartWith(arg, flag_filter)) {
+                st = State.skipIfNotFlag;
             } else if (isCombindedIncludeFlag(arg)) {
                 rval.put("-I");
                 rval.put(buildNormalizedPath(workdir, arg[2 .. $]).absolutePath);
-            } else if (arg.among("-I")) {
-                st = State.isInclude;
+            } else if (isFlagAndPath(arg)) {
+                rval.put(arg);
+                st = State.pathArgumentToAbsolute;
             }  // parameter that seem to be filenames, remove
-            else if (arg.among("-isysroot")) {
-                st = State.isInclude;
-            }
-            else if (excludeStartWith(arg, flag_filter)) {
-                st = State.skipIfNotFlag;
-            } else if (isNotAFlag(arg)) {
+            else if (isNotAFlag(arg)) {
                 // skipping
             } else {
                 rval.put(arg);
             }
+
         }
 
         return rval.data;
