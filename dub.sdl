@@ -231,7 +231,7 @@ configuration "plugin_fuzz_debug" {
     dependency "dextool:clang" version="*"
     dependency "dextool:cpptooling" version="*"
 
-    targetName "dextool-fuzz"
+    targetName "dextool_debug-fuzz"
     targetType "executable"
 
     sourcePaths "plugin/source" "plugin/fuzz"

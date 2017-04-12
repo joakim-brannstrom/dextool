@@ -17,6 +17,8 @@ SRC_UML := $(SRC) $(SRC_PLUGIN) $(shell find plugin/uml -name "*.d")
 SRC_GRAPHML := $(SRC) $(SRC_PLUGIN) $(shell find plugin/graphml -name "*.d")
 SRC_CTESTDOUBLE := $(SRC) $(SRC_PLUGIN) $(shell find plugin/ctestdouble -name "*.d")
 SRC_CPPTESTDOUBLE := $(SRC) $(SRC_PLUGIN) $(shell find plugin/cpptestdouble -name "*.d")
+SRC_FUZZ := $(SRC) $(SRC_PLUGIN) $(shell find plugin/fuzz -name "*.d")
+
 
 INCLUDE_PATHS := -Isource -Iclang -Ilibclang -Idsrcgen/source -Iplugin/source -Jclang/resources -Jresources
 VERSION_FLAGS := -version=Have_dextool
@@ -59,6 +61,10 @@ plugin_ctestdouble: $(SRC_CTESTDOUBLE)
 plugin_cpptestdouble: $(SRC_CPPTESTDOUBLE)
 	time $(COMPILER) -Iplugin/cpptestdouble/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-cpptestdouble
 	strip build/dextool-cpptestdouble
+
+plugin_fuzz: $(SRC_FUZZ)
+	time $(COMPILER) -Iplugin/fuzz/source $(COMPILER_FLAGS) $(INCLUDE_PATHS) $(LINK_DMD_CLANG) $^ -ofbuild/dextool-fuzz
+	strip build/dextool-fuzz
 
 main_app: $(SRC_APP) $(SRC_DEXTOOL)
 	time $(COMPILER) $(COMPILER_FLAGS) -Isource/application -Isource/dextool -Jresources $^ -ofbuild/dextool

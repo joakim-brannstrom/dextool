@@ -20,12 +20,14 @@ elif [[ ( $# -eq 1 ) && ( $1 == "debug_build" ) ]]; then
     dub build -c plugin_cpptestdouble_debug -b debug
     dub build -c plugin_graphml_debug -b debug
     dub build -c plugin_uml_debug -b debug
+    dub build -c plugin_fuzz_debug -b debug
 elif [[ ( $# -eq 1 ) && ( $1 == "release_build" ) ]]; then
     dub build -c application
     dub build -c plugin_ctestdouble
     dub build -c plugin_cpptestdouble
     dub build -c plugin_graphml
     dub build -c plugin_uml
+    dub build -c plugin_fuzz
 elif [[ ( $# -eq 1 ) && ( $1 == "make" ) ]]; then
     # release build is always from makefile
     make $DC
