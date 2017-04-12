@@ -70,7 +70,7 @@ main_app: $(SRC_APP) $(SRC_DEXTOOL)
 	time $(COMPILER) $(COMPILER_FLAGS) -Isource/application -Isource/dextool -Jresources $^ -ofbuild/dextool
 	strip build/dextool
 
-main_app_dep: gen_version main_app plugin_uml plugin_graphml plugin_ctestdouble plugin_cpptestdouble
+main_app_dep: gen_version main_app plugin_uml plugin_graphml plugin_ctestdouble plugin_cpptestdouble plugin_fuzz
 
 dmd_compiler:
 	$(eval COMPILER = $(DC))
