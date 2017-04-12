@@ -126,6 +126,10 @@ class FuzzVariant : Parameters, Products {
         this.main_file_globals = FileName(buildPath(cast(string) output_dir,
                 base_filename ~ "_global" ~ implExt));
 
+        if(xml_dir.length == 0)
+            return;
+        if(compile_db.length == 0)
+            return;
         this.xml_dir = BaseDir(xml_dir[0]);
         this.compile_db = compile_db.fromArgCompileDb;
     }
@@ -175,6 +179,10 @@ class FuzzVariant : Parameters, Products {
         return this.xml_dir;
     }
 
+    CompileCommandDB getCompileDB() {
+        return this.compile_db;
+    }
+
     //Product functions
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
@@ -185,8 +193,7 @@ class FuzzVariant : Parameters, Products {
     }
 }
 
-ExitStatusType genCpp(FuzzVariant variant,
-        CompileCommandDB compile_db) {
+ExitStatusType genCpp(FuzzVariant variant) {
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
@@ -201,7 +208,7 @@ ExitStatusType genCpp(FuzzVariant variant,
     auto visitor = new FuzzVisitor!(CppRoot, Products)(variant);
     string[] use_cflags;
 
-    auto hfiles = compile_db.getHeaderFiles();
+    auto hfiles = variant.getCompileDB.getHeaderFiles();
     string res;
     foreach(hfile ; hfiles) {
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
@@ -209,7 +216,7 @@ ExitStatusType genCpp(FuzzVariant variant,
             return ExitStatusType.Errors;
         }
 
-    // process and put the data in variant.
+    // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
         Generator(variant, variant).process(visitor.root, visitor.container);
 
         debug {

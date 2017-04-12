@@ -17,11 +17,8 @@ auto runPlugin(string[] args) {
         return ExitStatusType.Ok;
     }
 
-    auto variant = FuzzVariant.makeVariant(pargs); 
-
-    CompileCommandDB compile_db = pargs.compile_db.fromArgCompileDb;
-    
+    auto variant = FuzzVariant.makeVariant(pargs);     
 
     //return ExitStatusType.Ok;
-    return genCpp(variant, compile_db);
+    return genCpp(variant);
 }
