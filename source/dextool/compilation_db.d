@@ -527,6 +527,9 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
             } else if (arg.among("-I")) {
                 st = State.isInclude;
             }  // parameter that seem to be filenames, remove
+            else if (arg.among("-isysroot")) {
+                st = State.isInclude;
+            }
             else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
             } else if (isNotAFlag(arg)) {
