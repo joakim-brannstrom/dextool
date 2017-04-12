@@ -151,7 +151,7 @@ struct CompileCommandSearch {
     alias payload this;
 }
 
-string[] getHeaderFiles(CompileCommandDB compile_db)
+string[][] getHeaderFiles(CompileCommandDB compile_db)
 {
     import std.algorithm: canFind, filter, each;
     import std.range : chain;
@@ -159,19 +159,19 @@ string[] getHeaderFiles(CompileCommandDB compile_db)
     import std.array : appender;
     import std.stdio;
 
-    auto rval = appender!(string[])();
+    string[][] rval;
     auto directories = new string[0];
     foreach (cmd ; compile_db)
     {
          auto flags = parseFlag(cmd, CompileCommandFilter());
          flags.filter!(a => a[0] != '-' && !directories.canFind(a))
             .each!(dir => (dirEntries(dir, "*_factory.{h,hpp}", SpanMode.depth))
-                .each!(file => rval.put(file)));
+                .each!(file => rval = rval ~ [file, cmd.absoluteFile]));
         
         directories ~= flags;
     }
 
-    return rval.data;
+    return rval;
 }
 
 private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow {

@@ -139,8 +139,16 @@ class FuzzVariant : Parameters, Products {
         import std.algorithm : map;
         import std.array;
         import std.path : baseName;
+        import std.stdio;
 
-        return this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
+        string[] ret;
+
+        foreach(a ; this.compile_db.getHeaderFiles) {
+            writeln(a);
+            ret ~= a;
+        }
+
+        return ret; //this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
 
 
     }
@@ -200,6 +208,7 @@ ExitStatusType genCpp(FuzzVariant variant) {
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
+    import dextool.compilation_db : defaultCompilerFlagFilter;
     import dextool.plugin.backend.fuzz.fuzzvariant : Generator,
         FuzzVisitor;
     import dextool.io : writeFileData;
@@ -207,12 +216,23 @@ ExitStatusType genCpp(FuzzVariant variant) {
 
     auto visitor = new FuzzVisitor!(CppRoot, Products)(variant);
     string[] use_cflags;
+    string[] in_cflags;
+    auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
 
     auto hfiles = variant.getCompileDB.getHeaderFiles();
+    //auto range = variant.getCompileDB.map!(a => a.absoluteFile).enumerate;
+
     string res;
-    foreach(hfile ; hfiles) {
+    writeln(hfiles);
+    //
+    foreach(hfile, cmd; hfiles) {
+        auto db_search_result = variant.getCompileDB.appendOrError(user_cflags, cmd[1],
+                CompileCommandFilter(defaultCompilerFlagFilter, 1));
+
+        use_cflags = db_search_result.get.cflags;
+
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        if (analyzeFile(hfile, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+        if (analyzeFile(cmd[0], use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
