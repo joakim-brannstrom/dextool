@@ -223,15 +223,17 @@ ExitStatusType genCpp(FuzzVariant variant) {
     //auto range = variant.getCompileDB.map!(a => a.absoluteFile).enumerate;
 
     string res;
-    writeln(hfiles);
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     //
     foreach(hfile, cmd; hfiles) {
         auto db_search_result = variant.getCompileDB.appendOrError(user_cflags, cmd[1],
                 CompileCommandFilter(defaultCompilerFlagFilter, 1));
 
+        if (db_search_result.isNull) {
+            return ExitStatusType.Errors;
+        }
         use_cflags = db_search_result.get.cflags;
 
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         if (analyzeFile(cmd[0], use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
