@@ -446,7 +446,7 @@ body {
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
             classes[fqn_class].insertBack(generateClass(inner.impl, class_name,
                         ns.resideInNs[0 .. $ - 1].join("::"),
-							ns.resideInNs[$ - 1].payload, nss, data, a, xmlp));
+							nss, data, a, xmlp));
 
             foreach (b; a.methodPublicRange) {
                 b.visit!((const CppMethod a) => generateCppMeth(a,

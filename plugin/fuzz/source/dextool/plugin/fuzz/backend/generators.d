@@ -43,7 +43,7 @@ import backend.fuzz.types;
 }
 
 @trusted nsclass generateClass(CppModule inner, string class_name,
-			       string ns_full, string type, Namespace ns, ImplData data, CppClass class_, xml_parse xmlp) {
+			       string ns_full, Namespace ns, ImplData data, CppClass class_, xml_parse xmlp) {
     //Some assumptions are made. Does all providers and requirers end with Requirer or Provider?
     import std.array;
     import std.string : toLower, indexOf;
@@ -55,16 +55,16 @@ import backend.fuzz.types;
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
             sclass.isPort = true;
-            generatePortClass(inner_class, class_name, ns, ns_full, type, xmlp);
+            generatePortClass(inner_class, class_name, ns, ns_full, xmlp);
             break;
         case ContinousInterface:
-            generateCompIfaceClass(inner_class, class_name, ns, ns_full, type);
+            generateCompIfaceClass(inner_class, class_name, ns, ns_full);
             break;
         }
     return sclass;
 }
 @trusted CppModule generateCompIfaceClass(CppModule inner_class, string class_name, Namespace ns, 
-        string fqn_ns, string type) {
+        string fqn_ns) {
     import std.array;
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
@@ -96,7 +96,7 @@ import backend.fuzz.types;
 }
 
 @trusted CppModule generatePortClass(CppModule inner_class, string class_name,
-				     Namespace ns, string fqn_ns, string type, xml_parse xmlp) {
+				     Namespace ns, string fqn_ns, xml_parse xmlp) {
     import std.array : empty;
     import std.string : toLower, indexOf, capitalize;
     import std.algorithm : endsWith;
@@ -114,7 +114,7 @@ import backend.fuzz.types;
         
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
-		        string expr = format(`%s::%s("%s")`, "&TestingEnvironment", "createRandomGenerator", type);
+		        string expr = format(`%s::%s()`, "&TestingEnvironment", "createRandomGenerator");
                 stmt(E("randomGenerator") = E(expr));
             }
             
