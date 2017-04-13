@@ -1,32 +1,54 @@
 # Generic Build Instructions
 
-# Setup
-To build deXtool you need a [D compiler] installed. You also need to tell the
-build system where libclang is. For most users it is enough to source config.sh.
-If that doesn't work export the following variables to point to the directory
-and name of the libclang.so to use:
+# Dependencies
+To build deXtool you need a [D compiler] installed and libclang.
 
- - LFLAG_CLANG_PATH, example "-Lsome/path/to/where/$LFLAG_CLANG_LIB".
- - LFLAG_CLANG_LIB, example ":libclang.so.1". It is the exact name of the lib.
+## Ubuntu
+
+To install the libclang dependency on ubuntu (the libclang version depend on
+your ubuntu version):
+```sh
+sudo apt install libclang-3.9-dev
+```
+
+## Libclang Not Found
+
+If you have libclang installed in a different location from
+/usr/lib/llvm-3.X/lib it is possible to tell cmake where the library.
+
+To supply a new search path use:
+```sh
+cmake -DUSER_LIBCLANG_SEARCH_PATH=/path/to/directy/where/libclang.so/is ..
+```
+
+If cmake still can't find the library then it is possible to force cmake to use
+the absolute path an absolute path to _a_ libclang.so.
+```sh
+cmake -DLIBCLANG_LIB_PATH=/path/to/libclang.so ..
+```
 
 # Build
 
-## Make
-```bash
-source ./config.sh
-
-make dmd
-# or
-make ldc2
+The simple way:
+```sh
+make all
+make install
 ```
 
-## Dub
-```bash
-source ./config.sh
+To change any of the defaults of cmake or the deXtool installation scripts user the following way to configure cmake:
+Reminder, see the Generic section if you get warnings that libclang isn't
+found.
 
-dub build
-# or
-./build.sh
+```bash
+mkdir build
+cd build
+cmake -D<your config options> ..
+make
+```
+
+To install in a different directory than the default by cmake:
+```sh
+cmake -DCMAKE_INSTALL_PREFIX=/your/path
 ```
 
 [D compiler]: <https://dlang.org/download.html>

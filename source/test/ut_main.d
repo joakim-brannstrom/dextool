@@ -11,10 +11,12 @@ import std.stdio;
 import unit_threaded.runner;
 
 int main(string[] args) {
-    writeln(`Running unit tests`);
+    writeln(`Running component tests`);
     //dfmt off
     return args.runTests!(
-                          // component tests
+                          "test.component.analyzer.type",
+                          "test.component.analyzer.utility",
+                          "test.component.scratch",
                           );
     //dfmt on
 }
