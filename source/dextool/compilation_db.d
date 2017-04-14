@@ -164,8 +164,9 @@ string[][] getHeaderFiles(CompileCommandDB compile_db)
     foreach (cmd ; compile_db)
     {
          auto flags = parseFlag(cmd, CompileCommandFilter());
-         flags.filter!(a => a[0] != '-' && !directories.canFind(a))
+            flags.filter!(a => a[0] != '-' && !directories.canFind(a))
             .each!(dir => (dirEntries(dir, "*_factory.{h,hpp}", SpanMode.depth))
+                .filter!(a => !rval.canFind([a, cmd.absoluteFile]))
                 .each!(file => rval = rval ~ [file, cmd.absoluteFile]));
         
         directories ~= flags;

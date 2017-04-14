@@ -141,17 +141,9 @@ class FuzzVariant : Parameters, Products {
         import std.path : baseName;
         import std.stdio;
 
-        string[] ret;
-
-        foreach(a ; this.compile_db.getHeaderFiles) {
-            writeln(a);
-            ret ~= a;
-        }
-
-        return ret; //this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
-
-
+        return this.compile_db.getHeaderFiles.map!(a => baseName(a[0])).array;
     }
+    
     Parameters.Files getFiles() {
         return Parameters.Files(main_file_hdr, main_file_impl,
                 main_file_globals);
@@ -220,12 +212,10 @@ ExitStatusType genCpp(FuzzVariant variant) {
     auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
 
     auto hfiles = variant.getCompileDB.getHeaderFiles();
-    //auto range = variant.getCompileDB.map!(a => a.absoluteFile).enumerate;
 
-    string res;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     //
-    foreach(hfile, cmd; hfiles) {
+    foreach(cmd; hfiles) {
         auto db_search_result = variant.getCompileDB.appendOrError(user_cflags, cmd[1],
                 CompileCommandFilter(defaultCompilerFlagFilter, 1));
 
