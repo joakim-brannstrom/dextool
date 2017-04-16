@@ -13,6 +13,35 @@ import dextool.compilation_db;
 
 import xml_parse;
 
+//Search and get headers from specific file
+auto getHeaderFiles(CompileCommandDB compile_db, CompileCommand file) @safe {
+    import std.range : array;
+    import std.algorithm : uniq, filter, map, sort;
+    import std.file : dirEntries, SpanMode;
+    import std.conv : to;
+
+    string[] flags = parseFlag(file, CompileCommandFilter()).filter!(a => a[0] != '-').array;
+    string[] files;
+
+    foreach(dir ; flags) { //Should return every directory
+        files ~= () @trusted { return dirEntries(dir, "*_factory.{h,hpp}", SpanMode.breadth).map!(a => to!string(a)).array; } ();
+    }
+    return files.array;
+}
+
+auto getHeaderFiles(CompileCommandDB compile_db) @safe {
+    import std.algorithm : uniq;
+    import std.range : array;
+
+    string[] hfiles;
+    foreach(cmd ; compile_db) {
+        hfiles ~= compile_db.getHeaderFiles(cmd);
+    }
+
+    return hfiles.sort.uniq.array;
+}
+
+
 struct RawConfiguration {
     string[] xml_dir; //Base directory which contains XML interfaces
     string[] compile_db;
@@ -135,13 +164,13 @@ class FuzzVariant : Parameters, Products {
     }
 
     //Parameter functionis
-    @trusted string[] getIncludes() {
-        import std.algorithm : map;
-        import std.array;
+    @safe string[] getIncludes() {
+        import std.algorithm : map, uniq, sort;
+        import std.range : array;
         import std.path : baseName;
         import std.stdio;
 
-        return this.compile_db.getHeaderFiles.map!(a => baseName(a[0])).array;
+        return this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
     }
     
     Parameters.Files getFiles() {
@@ -194,9 +223,9 @@ class FuzzVariant : Parameters, Products {
 }
 
 ExitStatusType genCpp(FuzzVariant variant) {
-    import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
+    import std.algorithm : canFind;
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
@@ -204,38 +233,45 @@ ExitStatusType genCpp(FuzzVariant variant) {
     import dextool.plugin.backend.fuzz.fuzzvariant : Generator,
         FuzzVisitor;
     import dextool.io : writeFileData;
-    import std.stdio;
 
     auto visitor = new FuzzVisitor!(CppRoot, Products)(variant);
     string[] use_cflags;
     string[] in_cflags;
-    auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
-
-    auto hfiles = variant.getCompileDB.getHeaderFiles();
+    auto user_cflags = prependDefaultFlags(in_cflags, "");
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     //
-    foreach(cmd; hfiles) {
-        auto db_search_result = variant.getCompileDB.appendOrError(user_cflags, cmd[1],
+    string[] analyzed_files;
+    foreach(cmd; variant.getCompileDB) {
+        auto hfiles = variant.getCompileDB.getHeaderFiles(cmd);
+        auto db_search_result = variant.getCompileDB.appendOrError(user_cflags, cmd.absoluteFile,
                 CompileCommandFilter(defaultCompilerFlagFilter, 1));
 
         if (db_search_result.isNull) {
             return ExitStatusType.Errors;
         }
+        
         use_cflags = db_search_result.get.cflags;
 
-        if (analyzeFile(cmd[0], use_cflags, visitor, ctx) == ExitStatusType.Errors) {
-            return ExitStatusType.Errors;
+        foreach(hfile ; hfiles) {
+            if (analyzed_files.canFind(hfile)) {
+                continue;
+            }
+
+            if (analyzeFile(hfile, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+                return ExitStatusType.Errors;
+            }
+            analyzed_files ~= hfile;
+            
+            // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
+            Generator(variant, variant).process(visitor.root, visitor.container);
+            
+            debug {
+                logger.trace(visitor);
+            }
+
+            writeFileData(variant.file_data);
         }
-
-    // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
-        Generator(variant, variant).process(visitor.root, visitor.container);
-
-        debug {
-            logger.trace(visitor);
-        }
-
-        writeFileData(variant.file_data);
     }
 
     return ExitStatusType.Ok;
