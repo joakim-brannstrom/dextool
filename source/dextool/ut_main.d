@@ -14,7 +14,8 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          // component tests
+                          "dextool.compilation_db",
+                          "dextool.utility",
                           );
     //dfmt on
 }

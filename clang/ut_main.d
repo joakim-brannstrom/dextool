@@ -14,7 +14,8 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          // component tests
+                          "clang.Cursor",
+                          "clang.SourceRange",
                           );
     //dfmt on
 }

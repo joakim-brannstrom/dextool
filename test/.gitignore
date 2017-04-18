@@ -1,9 +1,3 @@
 .profile_test
-external_tests
-.external_tests.bin
 *.log
 trace.*
-
-build/
-
-dub.selections.json

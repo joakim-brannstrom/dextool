@@ -14,7 +14,8 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          // component tests
+                          "dextool.plugin.frontend.ctestdouble",
+                          "dextool.plugin.backend.ctestdouble.global",
                           );
     //dfmt on
 }

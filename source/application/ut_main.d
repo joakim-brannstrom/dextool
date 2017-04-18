@@ -14,7 +14,9 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          // component tests
+                          "application.app",
+                          "application.app_main",
+                          "application.plugin",
                           );
     //dfmt on
 }

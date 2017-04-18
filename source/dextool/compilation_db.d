@@ -401,8 +401,8 @@ auto defaultCompilerFlagFilter() @safe {
 
     // dfmt off
     foreach (f; [
-             // allow warnings. too much difference between gcc and clang to be
-             // of use.
+             // removed because there are too many  difference between gcc and
+             // clang to be of use.
              "-Werror",
              // remove basic compile flag irrelevant for AST generation
              "-c", "-o",
@@ -412,13 +412,13 @@ auto defaultCompilerFlagFilter() @safe {
              "-nodevicelib", "-Waddr-space-convert",
              // machine dependent flags, VxWorks
              "-non-static", "-Bstatic", "-Bdynamic", "-Xbind-lazy", "-Xbind-now",
-             // blacklist all -f, add to whitelist those that are compatible with clang
+             // blacklist all -f because most aren not compatible with clang
              "-f",
-             // linker flags
+             // linker flags, irrelevant for the AST
              "-static", "-shared", "-rdynamic", "-s", "-l", "-L", "-z", "-u", "-T", "-Xlinker",
-             // a linker flag with filename as one argument, determined by checking length
+             // a linker flag with filename as one argument
              "-l",
-             // remove some of the preprocessor flags.
+             // remove some of the preprocessor flags, irrelevant for the AST
              "-MT", "-MF", "-MD", "-MQ", "-MMD", "-MP", "-MG", "-E", "-cc1", "-S", "-M", "-MM", "-###",
              ]) {
         app.put(FilterClangFlag(f));
@@ -461,7 +461,7 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
         // dfmt on
     }
 
-    static bool isCombindedIncludeFlag(string flag) @safe {
+    static bool isCombinedIncludeFlag(string flag) @safe {
         // if an include flag make it absolute, as one argument by checking
         // length. 3 is to only match those that are -Ixyz
         return flag.length >= 3 && flag[0 .. 2] == "-I";
@@ -477,6 +477,7 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
     static bool isFlagAndPath(string flag) @safe {
         import std.algorithm : among;
 
+        // list derived from clang --help
         return 0 != flag.among("-I", "-idirafter", "-iframework", "-imacros",
                 "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
     }
@@ -521,7 +522,7 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
                 st = State.keep;
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
-            } else if (isCombindedIncludeFlag(arg)) {
+            } else if (isCombinedIncludeFlag(arg)) {
                 rval.put("-I");
                 rval.put(buildNormalizedPath(workdir, arg[2 .. $]).absolutePath);
             } else if (isFlagAndPath(arg)) {
