@@ -15,4 +15,4 @@ build_d_executable(
 
 collect_binary_in_root(${EXE_NAME})
 
-install(PROGRAMS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
