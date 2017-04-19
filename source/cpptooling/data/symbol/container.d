@@ -23,10 +23,6 @@ import cpptooling.data.type : LocationTag;
 version (unittest) {
     import unit_threaded : Name;
     import unit_threaded : shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 /** Wrapper for the results from the find-methods in Container.
@@ -112,7 +108,7 @@ private struct FastLookup(T, K) {
     }
 }
 
-@Name("Should be a zero-length range")
+@("Should be a zero-length range")
 unittest {
     auto inst = FastLookup!(int, int)();
     auto result = inst.find(0);
@@ -376,7 +372,7 @@ struct Container {
     }
 }
 
-@Name("Should find the value corresponding to the key")
+@("Should find the value corresponding to the key")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -399,7 +395,7 @@ unittest {
     }
 }
 
-@Name("Should skip inserting the value if it already exist in the container")
+@("Should skip inserting the value if it already exist in the container")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -416,7 +412,7 @@ unittest {
         cont.find!LocationTag(USRType("file")).length.shouldEqual(1);
 }
 
-@Name("should be able to use the found class")
+@("should be able to use the found class")
 unittest {
     import cpptooling.data.representation : CppClass, CppClassName;
 
@@ -467,7 +463,7 @@ locations [
   key0 -> File:file0 Line:1 Column:2]`);
 }
 
-@Name("Should allow only one definition location but multiple declaration locations")
+@("Should allow only one definition location but multiple declaration locations")
 unittest {
     import cpptooling.data.type : Location;
 
