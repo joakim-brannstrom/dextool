@@ -3,7 +3,18 @@ Date: 2016-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Variant of C++ test double.
+This file contains the backend for analyzing C++ code to generate a test
+double.
+
+Responsible for:
+ - Analyze of the C++ code.
+ - Transform the clang AST to data structures suitable for code generation.
+ - Generate a C++ test double.
+ - Error reporting to the frontend.
+ - Provide an interface to the frontend for such data that a user can control.
+    - What all the test doubles should be prefixed with.
+    - Filename prefix.
+    - To generate a gmock or not.
 */
 module dextool.plugin.backend.cpptestdouble.cppvariant;
 

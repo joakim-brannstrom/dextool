@@ -3,7 +3,16 @@ Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Generation of C++ test doubles.
+This file contains the frontend for generating a C++ test double.
+
+Responsible for:
+ - Receiving the call from the main to start working.
+ - User interaction.
+    - Error reporting in a way that the user understand the error.
+    - Writing files to the filesystem.
+    - Parsing arguments and other interaction information from the user.
+    - Configuration file handling.
+ - Provide user data to the backend via the interface the backend own.
 */
 module dextool.plugin.frontend.cpptestdouble;
 
