@@ -51,10 +51,16 @@ Validated[] scanForExecutables() {
 
     static bool isExecutable(uint attrs) {
         import core.sys.posix.sys.stat;
+        import std.file : attrIsSymlink;
 
         // is a regular file and any of owner/group/other have execute
-        // permission
-        return (attrs & S_IFMT) == S_IFREG && ((attrs & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0);
+        // permission.
+        // symlinks are NOT checked but accepted as they are.
+        //  - simplifies the logic
+        //  - makes it possible for the user to use symlinks.
+        //      it is the users responsibility that the symlink is correct.
+        return attrIsSymlink(attrs) || (attrs & S_IFMT) == S_IFREG
+            && ((attrs & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0);
     }
 
     static FileName[] safeDirEntries(string path) nothrow {
@@ -92,10 +98,10 @@ Validated[] scanForExecutables() {
         import std.algorithm : splitter, joiner, map;
         import std.process : environment;
 
-        auto PATH = environment.get("DEXTOOL_PLUGINS", null);
+        auto env_plugin = environment.get("DEXTOOL_PLUGINS", null);
 
         // dfmt off
-        return PATH.splitter(":")
+        return env_plugin.splitter(":")
             .map!(a => safeDirEntries(a))
             .joiner
             .map!(a => Validated(a, Kind.secondary));
@@ -107,7 +113,8 @@ Validated[] scanForExecutables() {
         import std.path : baseName;
         import std.range : chain;
 
-        // remove any duplications in primary from secondary
+        // remove secondary that clash with primary.
+        // secondaries may never override a primary.
         bool[string] prim;
         foreach (p; primary.save) {
             prim[p.path.baseName] = true;

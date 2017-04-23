@@ -17,7 +17,12 @@ build_d_executable(
     "dextool_dextool"
 )
 
-collect_binary_in_root(${DEXTOOL_MAIN_EXE})
+add_custom_command(
+    TARGET ${DEXTOOL_MAIN_EXE}
+    POST_BUILD
+    COMMAND cp --reflink=auto ${CMAKE_CURRENT_BINARY_DIR}/${DEXTOOL_MAIN_EXE} ${CMAKE_BINARY_DIR}/${DEXTOOL_MAIN_EXE}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
 
 install(TARGETS ${DEXTOOL_MAIN_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
