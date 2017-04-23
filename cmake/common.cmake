@@ -37,7 +37,7 @@ function(collect_binary_in_root name)
     add_custom_command(
         TARGET ${name}
         POST_BUILD
-        COMMAND cp --reflink=auto ${name} ${CMAKE_BINARY_DIR}/
+        COMMAND ln -sfT ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 endfunction()
