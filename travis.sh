@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export ROOT=$PWD
+
 if [[ "$DC" == "dmd" ]]; then
     echo "ok"
 elif [[ "$DC" == "ldc2" ]]; then
@@ -11,24 +13,38 @@ fi
 
 git clone --depth 1 -b binary_clang https://github.com/joakim-brannstrom/dextool.git lib
 
-# source ./config.sh
-export LFLAG_CLANG_LIB=":libclang.so.3.7"
-export LFLAG_CLANG_PATH="-Llib/"
-export LD_LIBRARY_PATH="$PWD/lib"
-
-./autobuild.sh --run_and_exit
-TEST_STATUS=$?
-
-if [[ $TEST_STATUS -ne 0 ]]; then
-    echo "#####################"
-    echo "#### External #######"
-    echo "#####################"
-    cat ./test/external_tests.log
-    exit 1
-fi
+CLANG_PATH=$ROOT/lib
+export LD_LIBRARY_PATH="$CLANG_PATH"
 
 set -e
 
-./build.sh build -c debug -b debug
-./build.sh build -c devtool -b debug
-./build.sh make
+mkdir build
+pushd build
+cmake -DLIBCLANG_LIB_PATH=$CLANG_PATH/libclang.so.3.7 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+make all -j3
+make test ARGS="--output-on-failure"
+popd
+
+# Copy coverage data so codecov finds it
+# Coverage is only generated when the dmd compiler is used so must ensure that
+# the command always passes. Therefore a "|| true"
+# The coverage files are copied to the project root to allow codecov to find
+# them.
+set +e
+cp -- build/*.lst . || true
+ls
+set -e
+
+# Ensure release build works.
+# Assuming that the tests for release do NOT need to be reran.
+# Testing the install target because it has had problems before
+make clean
+mkdir build
+pushd build
+cmake -DLIBCLANG_LIB_PATH=$CLANG_PATH/libclang.so.3.7 -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool ..
+make all -j3
+make install
+popd
+
+# The installation shall be to test_install_of_dextool/ containing binaries
+ls test_install_of_dextool

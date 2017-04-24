@@ -202,6 +202,10 @@ void consoleToFile(Path fname, string console) {
     f.write(console);
 }
 
+Path cmakeDir() {
+    return thisExePath.dirName ~ "build";
+}
+
 void setup() {
     //echoOn;
 
@@ -209,6 +213,9 @@ void setup() {
         tryRemove("build");
         mkdir("build");
     }
+
+    auto r = tryRunCollect(cmakeDir, "cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..");
+    writeln(r.output);
 
     import core.stdc.signal;
 
@@ -489,24 +496,21 @@ struct Fsm {
     void stateUt_run() {
         printStatus(Status.Run, "Compile and run unittest");
 
-        Args a;
-        a ~= thisExePath.dirName ~ "build.sh";
-        a ~= "test";
-        a ~= ["-c", "unittest"];
-        a ~= ["-b", "unittest-cov"];
-
-        if (flagUtDebug) {
-            a ~= ["--", "-d", "--trace", "--chrono"];
+        auto r = tryRunCollect(cmakeDir, "make");
+        if (r.status != 0) {
+            writeln(r.output);
+            flagUtTestPassed = cast(Flag!"UtTestPassed") false;
+            return;
         }
 
-        auto r = tryRunCollect(thisExePath.dirName, a.data);
+        r = tryRunCollect(cmakeDir, `make test ARGS="--output-on-failure -R .*unittest_"`);
         flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
 
         if (!flagUtTestPassed || flagUtDebug) {
             writeln(r.output);
         }
 
-        consoleToFile(thisExePath.dirName ~ "test" ~ "unittest" ~ Ext(".log"), r.output);
+        consoleToFile(cmakeDir ~ "test" ~ "unittest" ~ Ext(".log"), r.output);
         printExitStatus(r.status, "Compile and run unittest");
     }
 
@@ -535,11 +539,7 @@ struct Fsm {
     void stateDebug_build() {
         printStatus(Status.Run, "Debug build");
 
-        Args a;
-        a ~= thisExePath.dirName ~ "build.sh";
-        a ~= "debug_build";
-
-        auto r = tryRunCollect(thisExePath.dirName, a.data);
+        auto r = tryRunCollect(cmakeDir, "make all");
         flagCompileError = cast(Flag!"CompileError")(r.status != 0);
 
         writeln(r.output);
@@ -548,32 +548,20 @@ struct Fsm {
     }
 
     void stateDebug_test() {
-        void runTest(string name) {
-            Args a;
-            a ~= "./" ~ name;
-
-            auto test_dir = thisExePath.dirName ~ "test";
-
-            echoOn;
-            scope (exit)
-                echoOff;
-            auto r = tryRunCollect(test_dir, a.data);
-
-            auto logfile = test_dir ~ name ~ Ext(".log");
-            consoleToFile(logfile, r.output);
-
-            if (r.status != 0) {
-                testErrorLog ~= ErrorMsg(logfile, name, r.output);
-            }
-        }
-
         printStatus(Status.Run, "Test of code generation");
-        // dfmt off
-        only(
-             "external_tests.sh"
-            )
-            .each!(a => runTest(a));
-        // dfmt on
+
+        echoOn;
+        scope (exit)
+            echoOff;
+        auto r = tryRunCollect(cmakeDir,
+                `make test ARGS="--output-on-failure -R integration_test_"`);
+
+        auto logfile = cmakeDir ~ "integration_test.log";
+        consoleToFile(logfile, r.output);
+
+        if (r.status != 0) {
+            testErrorLog ~= ErrorMsg(logfile, "integration_test", r.output);
+        }
     }
 
     void stateTest_passed() {
@@ -596,27 +584,6 @@ struct Fsm {
     }
 
     void stateDoc_build() {
-        printStatus(Status.Run, "Generate Documenation");
-        scope (exit)
-            printStatus(Status.Ok, "Generate Documenation");
-
-        docCount = 0;
-
-        Args a;
-        a ~= thisExePath.dirName ~ "build.sh";
-        a ~= "build";
-        a ~= ["-c", "debug"];
-
-        auto ddox_a = a;
-        ddox_a ~= ["-b", "ddox"];
-
-        auto status = tryRun(thisExePath.dirName, ddox_a.data);
-        if (status != 0) {
-            // fallback to basic documentation generator
-            auto docs_a = a;
-            docs_a ~= ["-b", "docs"];
-            tryRun(thisExePath.dirName, docs_a.data);
-        }
     }
 
     void stateSlocs() {
@@ -757,8 +724,6 @@ options:
     // dfmt on
 
     import std.stdio;
-
-    keep_cov = cast(Flag!"keepCoverage") run_and_exit;
 
     (Fsm()).run(inotify_paths, cast(Flag!"Travis") run_and_exit,
             cast(Flag!"utDebug") ut_debug, cast(Flag!"utSkip") ut_skip);

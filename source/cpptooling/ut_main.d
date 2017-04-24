@@ -14,8 +14,6 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          "application.app_main",
-                          "application.plugin",
                           "cpptooling.analyzer.clang.ast",
                           "cpptooling.analyzer.clang.ast.node",
                           "cpptooling.analyzer.clang.ast.visitor",
@@ -36,19 +34,6 @@ int main(string[] args) {
                           "cpptooling.utility.sort",
                           "cpptooling.utility.taggedalgebraic",
                           "cpptooling.utility.virtualfilesystem",
-                          "dextool.utility",
-                          "dextool.compilation_db",
-                          "dextool.plugin.frontend.ctestdouble",
-                          "dextool.plugin.backend.ctestdouble.global",
-                          "dextool.plugin.utility",
-                          //"plugin.backend.graphml.base",
-                          "dextool.plugin.backend.graphml.xml",
-                          "dextool.plugin.backend.plantuml",
-                          // component tests
-                          "test.component.analyzer.type",
-                          "test.component.analyzer.utility",
-                          "test.component.plantuml",
-                          "test.component.scratch",
                           );
     //dfmt on
 }
