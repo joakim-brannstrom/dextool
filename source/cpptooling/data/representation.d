@@ -1483,7 +1483,13 @@ enum MergeMode {
         auto ns_top_name = stack.payload.retro.takeOne.map!(a => cast(string) a).joiner();
         auto ns_full_name = stack.payload.map!(a => cast(string) a).joiner("::");
 
-        formattedWrite(w, "namespace %s { //%s\n", ns_top_name, ns_full_name);
+        formattedWrite(w, "namespace %s { //%s", ns_top_name, ns_full_name);
+
+        if (fmt.spec == 'u') {
+            formattedWrite(w, " %s", id);
+        }
+
+        put(w, newline);
 
         foreach (range; AliasSeq!("globals[]", "funcs[]", "classes", "namespaces")) {
             foreach (a; mixin(range)) {
@@ -2164,10 +2170,10 @@ unittest {
     c.put(CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public)));
     ns.put(c);
 
-    shouldEqualPretty(format("%u", ns), "namespace simple { //simple
+    shouldEqualPretty(format("%s", ns), "namespace simple { //simple
 class Foo { // Normal
 public:
-  void voider(); // dummyUSR
+  void voider();
 }; //Class:Foo
 } //NS:simple");
 }
@@ -2196,10 +2202,10 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    shouldEqualPretty(format("%u", root), "void nothing(); // None dummyUSR
+    shouldEqualPretty(format("%s", root), "void nothing(); // None
 class Foo { // Normal
 public:
-  void voider(); // dummyUSR
+  void voider();
 }; //Class:Foo
 namespace simple { //simple
 } //NS:simple
@@ -2238,8 +2244,8 @@ unittest {
     auto f = CFunction(dummyUSR, CFunctionName("nothing"));
     n.put(f);
 
-    shouldEqualPretty(format("%u", n), "namespace  { //
-void nothing(); // None dummyUSR
+    shouldEqualPretty(format("%s", n), "namespace  { //
+void nothing(); // None
 } //NS:");
 }
 
@@ -2277,9 +2283,9 @@ unittest {
     r.put(v);
     r.put(n);
 
-    shouldEqualPretty(format("%u", r), "int x; // dummyUSR
+    shouldEqualPretty(format("%s", r), "int x;
 namespace  { //
-int x; // dummyUSR
+int x;
 } //NS:
 ");
 }
