@@ -53,11 +53,11 @@ endif()
 if(NOT LIBCLANG_LDFLAGS)
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
-
-    if(UNIX AND NOT APPLE)
-        set(LIBCLANG_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=. -L--no-as-needed -L-l:${LIBCLANG_LIB}")
-    elseif(UNIX AND APPLE)
+    if(APPLE)
         set(LIBCLANG_LDFLAGS_OS "-L-rpath -L${LIBCLANG_DIR_PATH} -L-lclang")
+
+    elseif(UNIX)
+        set(LIBCLANG_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=. -L--no-as-needed -L-l:${LIBCLANG_LIB}")
     else()
     endif()
 
