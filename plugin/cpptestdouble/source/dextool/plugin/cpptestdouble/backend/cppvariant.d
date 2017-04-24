@@ -59,9 +59,6 @@ import cpptooling.testdouble.header_filter : LocationType;
 
     /// Generate a #include of the post include header
     bool doIncludeOfPostIncludes();
-
-    /// Event that filtering on locations is done
-    void locationFilterDone();
 }
 
 /** Parameters used during generation.
@@ -163,21 +160,32 @@ struct Generator {
 
     ///
     this(Controller ctrl, Parameters params, Products products) {
+        this.file_analyze_result = CppRoot.make;
         this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
-        this.visitor = new CppVisitor!(CppRoot, Controller, Products)(ctrl, products);
     }
 
     ExitStatusType analyzeFile(const string abs_in_file, const string[] use_cflags) {
+        import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
+        import cpptooling.data.representation : MergeMode;
+
+        NullableRef!Container cont_ = &container;
+        auto visitor = new CppVisitor!(VisitorKind.root, Controller, Products)(ctrl,
+                products, cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
-        debug logger.trace(visitor);
+        debug logger.tracef("%u", visitor.root);
+
+        auto fl = rawFilter(visitor.root, ctrl, products,
+                (USRType usr) => container.find!LocationTag(usr));
+
+        file_analyze_result.merge(fl, MergeMode.full);
 
         return ExitStatusType.Ok;
     }
@@ -200,27 +208,30 @@ struct Generator {
     void process() {
         import cpptooling.data.symbol.types : USRType;
 
-        auto fl = rawFilter(visitor.root, ctrl, products,
-                (USRType usr) => visitor.container.find!LocationTag(usr));
-        logger.trace("Filtered:\n", fl.toString());
+        assert(!file_analyze_result.isNull);
 
-        ctrl.locationFilterDone;
+        debug logger.trace(container.toString);
 
-        auto impl_data = translate(fl, visitor.container, ctrl, params);
+        logger.tracef("Filtered:\n%u", file_analyze_result.get);
+
+        auto impl_data = translate(file_analyze_result, container, ctrl, params);
+        file_analyze_result.nullify();
+
         logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
-        generate(impl_data, ctrl, params, modules, visitor.container);
+        generate(impl_data, ctrl, params, modules, container);
         postProcess(ctrl, params, products, modules);
     }
 
 private:
     ClangContext ctx;
     Controller ctrl;
+    Container container;
+    Nullable!CppRoot file_analyze_result;
     Parameters params;
     Products products;
-    CppVisitor!(CppRoot, Controller, Products) visitor;
 
     static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
@@ -277,7 +288,12 @@ private:
 
 private:
 
-final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
+enum VisitorKind {
+    root,
+    child
+}
+
+final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
@@ -294,7 +310,6 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
 
     mixin generateIndentIncrDecr;
 
-    RootT root;
     NullableRef!Container container;
 
     private {
@@ -303,18 +318,18 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         CppNsStack ns_stack;
     }
 
-    static if (is(RootT == CppRoot)) {
-        // The container used is stored in the root.
-        // All other visitors references the roots container.
-        Container container_;
+    static if (RootT == VisitorKind.root) {
+        CppRoot root;
 
-        this(ControllerT ctrl, ProductT prod) {
+        this(ControllerT ctrl, ProductT prod, NullableRef!Container container) {
             this.ctrl = ctrl;
             this.prod = prod;
+            this.container = container;
             this.root = CppRoot.make;
-            this.container = &container_;
         }
     } else {
+        CppNamespace root;
+
         this(ControllerT ctrl, ProductT prod, uint indent, CppNsStack ns_stack,
                 NullableRef!Container container) {
             this.root = CppNamespace(ns_stack);
@@ -395,7 +410,7 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         scope (exit)
             ns_stack = ns_stack[0 .. $ - 1];
 
-        auto ns_visitor = scoped!(CppVisitor!(CppNamespace, ControllerT, ProductT))(ctrl,
+        auto ns_visitor = scoped!(CppVisitor!(VisitorKind.child, ControllerT, ProductT))(ctrl,
                 prod, indent, ns_stack, container);
 
         v.accept(ns_visitor);
@@ -419,31 +434,6 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
         }
 
         v.accept(this);
-    }
-
-    void toString(Writer)(scope Writer w) @safe const {
-        import std.format : FormatSpec;
-        import std.range.primitives : put;
-
-        auto fmt = FormatSpec!char("%u");
-        fmt.writeUpToNextSpec(w);
-
-        root.toString(w, fmt);
-        put(w, "\n");
-        container.get.toString(w, FormatSpec!char("%s"));
-    }
-
-    override string toString() const {
-        import std.exception : assumeUnique;
-
-        char[] buf;
-        buf.reserve(100);
-        toString((const(char)[] s) { buf ~= s; });
-        auto trustedUnique(T)(T t) @trusted {
-            return assumeUnique(t);
-        }
-
-        return trustedUnique(buf);
     }
 }
 
@@ -516,7 +506,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     static if (is(CppT == CppRoot)) {
         auto filtered = CppRoot.make;
     } else static if (is(CppT == CppNamespace)) {
-        auto filtered = CppNamespace.make(input.name);
+        auto filtered = CppNamespace(input.resideInNs);
         assert(!input.isAnonymous);
         assert(input.name.length > 0);
     } else {
