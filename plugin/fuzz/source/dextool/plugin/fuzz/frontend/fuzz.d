@@ -20,7 +20,7 @@ auto getHeaderFiles(CompileCommandDB compile_db, CompileCommand file) @safe {
     import std.file : dirEntries, SpanMode;
     import std.conv : to;
 
-    string[] flags = parseFlag(file, CompileCommandFilter()).filter!(a => a[0] != '-').array;
+    string[] flags = parseFlag(file, defaultCompilerFilter).filter!(a => a[0] != '-').array;
     string[] files;
 
     foreach(dir ; flags) { //Should return every directory
