@@ -3,7 +3,18 @@ Date: 2016-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Variant of C++ test double.
+This file contains the backend for analyzing C++ code to generate a test
+double.
+
+Responsible for:
+ - Analyze of the C++ code.
+ - Transform the clang AST to data structures suitable for code generation.
+ - Generate a C++ test double.
+ - Error reporting to the frontend.
+ - Provide an interface to the frontend for such data that a user can control.
+    - What all the test doubles should be prefixed with.
+    - Filename prefix.
+    - To generate a gmock or not.
 */
 module dextool.plugin.backend.cpptestdouble.cppvariant;
 
@@ -129,10 +140,16 @@ import cpptooling.testdouble.header_filter : LocationType;
 }
 
 /** Generator of test doubles for C++ code.
+ *
+ * Responsible for carrying data between processing steps.
+ *
+ * TODO postProcess shouldn't be a member method.
  */
 struct Generator {
+    import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
+    import dextool.type : ExitStatusType;
 
     private static struct Modules {
         import dextool.plugin.utility : MakerInitializingClassMembers;
@@ -146,9 +163,23 @@ struct Generator {
 
     ///
     this(Controller ctrl, Parameters params, Products products) {
+        this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
+        this.visitor = new CppVisitor!(CppRoot, Controller, Products)(ctrl, products);
+    }
+
+    ExitStatusType analyzeFile(const string abs_in_file, const string[] use_cflags) {
+        import dextool.utility : analyzeFile;
+
+        if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+            return ExitStatusType.Errors;
+        }
+
+        debug logger.trace(visitor);
+
+        return ExitStatusType.Ok;
     }
 
     /** Process structural data to a test double.
@@ -166,27 +197,30 @@ struct Generator {
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      */
-    void process(ref CppRoot root, ref Container container) {
+    void process() {
         import cpptooling.data.symbol.types : USRType;
 
-        auto fl = rawFilter(root, ctrl, products, (USRType usr) => container.find!LocationTag(usr));
+        auto fl = rawFilter(visitor.root, ctrl, products,
+                (USRType usr) => visitor.container.find!LocationTag(usr));
         logger.trace("Filtered:\n", fl.toString());
 
         ctrl.locationFilterDone;
 
-        auto impl_data = translate(fl, container, ctrl, params);
+        auto impl_data = translate(fl, visitor.container, ctrl, params);
         logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
-        generate(impl_data, ctrl, params, modules, container);
+        generate(impl_data, ctrl, params, modules, visitor.container);
         postProcess(ctrl, params, products, modules);
     }
 
 private:
+    ClangContext ctx;
     Controller ctrl;
     Parameters params;
     Products products;
+    CppVisitor!(CppRoot, Controller, Products) visitor;
 
     static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
@@ -240,6 +274,8 @@ private:
         }
     }
 }
+
+private:
 
 final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     import std.typecons : scoped, NullableRef;
@@ -411,7 +447,6 @@ final class CppVisitor(RootT, ControllerT, ProductT) : Visitor {
     }
 }
 
-private:
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
