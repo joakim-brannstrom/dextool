@@ -270,6 +270,15 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@(testId ~ "Includes shall be deduplicated to avoid the problem of multiple includes")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/bug_multiple_includes.hpp", testEnv);
+    p.dexParams ~= ["--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp")
+        .toString, "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp").toString];
+    runTestFile(p, testEnv);
+}
+
 // BEGIN CLI Tests ###########################################################
 
 @Name(testId ~ "Should be a custom header via CLI as string")
