@@ -144,11 +144,10 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 // dfmt off
 static auto cpptestdouble_opt = CliOptionParts(
     "usage:
- dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
- dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
+ dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] [--in=...} [--] [CFLAGS...]
+ dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] [--in=...] [--] [CFLAGS...]",
     // -------------
-    " --out=dir          directory for generated files [default: ./]
- --main=name        Used as part of interface, namespace etc [default: TestDouble]
+    "--main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regex used to strip the include paths
@@ -160,7 +159,8 @@ static auto cpptestdouble_opt = CliOptionParts(
  --config=path      Use configuration file",
     // -------------
 "others:
- --in=              Input files to parse
+ --in=              Input file to parse
+ --out=dir          directory for generated files [default: ./]
  --compile-db=j     Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex
  --file-restrict=   Restrict the scope of the test double to those files
@@ -410,6 +410,16 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         file_data ~= FileData(fname, data);
     }
 
+    /// Signal that a file has finished analyzing.
+    void processIncludes() {
+        td_includes.process();
+    }
+
+    /// Signal that all files have been analyzed.
+    void finalizeIncludes() {
+        td_includes.finalize();
+    }
+
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
@@ -463,11 +473,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     bool doIncludeOfPostIncludes() {
         return post_incl;
-    }
-
-    void locationFilterDone() {
-        td_includes.process();
-        td_includes.finalize();
     }
 
     // -- Parameters --
@@ -651,29 +656,35 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import dextool.io : writeFileData;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto in_file = cast(string) in_files[0];
-    logger.trace("Input file: ", in_file);
-    string[] use_cflags;
-    string abs_in_file;
-
+    const auto total_files = in_files.length;
     auto generator = Generator(variant, variant, variant);
 
-    if (compile_db.length > 0) {
-        auto db_search_result = compile_db.appendOrError(user_cflags, in_file,
-                variant.getCompileCommandFilter);
-        if (db_search_result.isNull) {
+    foreach (idx, in_file; in_files) {
+        logger.infof("File %d/%d ", idx + 1, total_files);
+        string[] use_cflags;
+        string abs_in_file;
+
+        if (compile_db.length > 0) {
+            auto db_search_result = compile_db.appendOrError(user_cflags,
+                    in_file, variant.getCompileCommandFilter);
+            if (db_search_result.isNull) {
+                return ExitStatusType.Errors;
+            }
+            use_cflags = db_search_result.get.cflags;
+            abs_in_file = db_search_result.get.absoluteFile;
+        } else {
+            use_cflags = user_cflags.dup;
+            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+        }
+
+        if (generator.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-        use_cflags = db_search_result.get.cflags;
-        abs_in_file = db_search_result.get.absoluteFile;
-    } else {
-        use_cflags = user_cflags.dup;
-        abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+
+        variant.processIncludes;
     }
 
-    if (generator.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {
-        return ExitStatusType.Errors;
-    }
+    variant.finalizeIncludes;
 
     // All files analyzed, process and generate artifacts.
     generator.process();

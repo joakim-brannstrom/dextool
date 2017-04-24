@@ -59,9 +59,6 @@ import cpptooling.testdouble.header_filter : LocationType;
 
     /// Generate a #include of the post include header
     bool doIncludeOfPostIncludes();
-
-    /// Event that filtering on locations is done
-    void locationFilterDone();
 }
 
 /** Parameters used during generation.
@@ -171,25 +168,24 @@ struct Generator {
     }
 
     ExitStatusType analyzeFile(const string abs_in_file, const string[] use_cflags) {
-        import std.typecons : NullableRef;
+        import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
         import cpptooling.data.representation : MergeMode;
 
-        assert(!file_analyze_result.isNull);
-
         NullableRef!Container cont_ = &container;
-        NullableRef!CppRoot root_ = &file_analyze_result.get();
         auto visitor = new CppVisitor!(VisitorKind.root, Controller, Products)(ctrl,
-                products, root_, cont_);
+                products, cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
-        debug {
-            logger.tracef("%u", file_analyze_result);
-            logger.trace(container.toString);
-        }
+        debug logger.tracef("%u", visitor.root);
+
+        auto fl = rawFilter(visitor.root, ctrl, products,
+                (USRType usr) => container.find!LocationTag(usr));
+
+        file_analyze_result.merge(fl, MergeMode.full);
 
         return ExitStatusType.Ok;
     }
@@ -214,14 +210,13 @@ struct Generator {
 
         assert(!file_analyze_result.isNull);
 
-        auto fl = rawFilter(file_analyze_result.get(), ctrl, products,
-                (USRType usr) => container.find!LocationTag(usr));
+        debug logger.trace(container.toString);
+
+        logger.tracef("Filtered:\n%u", file_analyze_result.get);
+
+        auto impl_data = translate(file_analyze_result, container, ctrl, params);
         file_analyze_result.nullify();
-        logger.trace("Filtered:\n", fl.toString());
 
-        ctrl.locationFilterDone;
-
-        auto impl_data = translate(fl, container, ctrl, params);
         logger.trace("Translated to implementation:\n", impl_data.toString());
         logger.trace("kind:\n", impl_data.kind);
 
@@ -324,15 +319,13 @@ final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
     }
 
     static if (RootT == VisitorKind.root) {
-        NullableRef!CppRoot root;
+        CppRoot root;
 
-        this(ControllerT ctrl, ProductT prod, NullableRef!CppRoot root,
-                NullableRef!Container container) {
+        this(ControllerT ctrl, ProductT prod, NullableRef!Container container) {
             this.ctrl = ctrl;
             this.prod = prod;
-            this.root = root;
             this.container = container;
-            this.root = root;
+            this.root = CppRoot.make;
         }
     } else {
         CppNamespace root;
@@ -513,7 +506,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     static if (is(CppT == CppRoot)) {
         auto filtered = CppRoot.make;
     } else static if (is(CppT == CppNamespace)) {
-        auto filtered = CppNamespace.make(input.name);
+        auto filtered = CppNamespace(input.resideInNs);
         assert(!input.isAnonymous);
         assert(input.name.length > 0);
     } else {
