@@ -34,12 +34,21 @@ endfunction()
 # Copy/link the target to the binary directory.
 # Useful to collect all the binaries in one directory for testing purpose.
 function(collect_binary_in_root name)
+   if(UNIX AND NOT APPLE)
     add_custom_command(
         TARGET ${name}
         POST_BUILD
         COMMAND ln -sfT ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
+   elseif(UNIX AND APPLE) 
+    add_custom_command(
+        TARGET ${name}
+        POST_BUILD
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+   endif()
 endfunction()
 
 #=============================================================================#
