@@ -22,7 +22,7 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility;
+import dextool.utility : prependDefaultFlags;
 
 import dextool.plugin.types;
 import dextool.plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
@@ -646,18 +646,17 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
-    import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.representation : CppRoot;
     import dextool.plugin.backend.cpptestdouble.cppvariant : Generator,
         CppVisitor;
     import dextool.io : writeFileData;
 
-    auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
     auto in_file = cast(string) in_files[0];
     logger.trace("Input file: ", in_file);
     string[] use_cflags;
     string abs_in_file;
+
+    auto generator = Generator(variant, variant, variant);
 
     if (compile_db.length > 0) {
         auto db_search_result = compile_db.appendOrError(user_cflags, in_file,
@@ -672,17 +671,12 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
         abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
     }
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+    if (generator.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {
         return ExitStatusType.Errors;
     }
 
-    // process and put the data in variant.
-    Generator(variant, variant, variant).process(visitor.root, visitor.container);
-
-    debug {
-        logger.trace(visitor);
-    }
+    // All files analyzed, process and generate artifacts.
+    generator.process();
 
     return writeFileData(variant.file_data);
 }
