@@ -99,6 +99,8 @@ struct ContinousInterface {
 
 struct Interface_ {
     ContinousInterface[] ci;
+    EventGroupInterface[] ei;
+
     //Add more interfaces here
     alias ci this;
     //Add more alias here
@@ -114,6 +116,37 @@ struct DataItem {
         this.name = name;
         this.type = type;
     }
+}
+
+struct MonitoredItem { //Same as DataItem and Event
+    string name;
+    string type;
+
+    string startupVal;
+    string defaultVal;
+    this(string name, string type) {
+        this.name = name;
+        this.type = type;
+    }
+}
+
+struct MonitoredChange {
+    string name; //Should be empty.
+}
+
+struct EventGroupInterface {
+    string name;
+    string direction;
+    Event[] events;
+}
+
+struct Event { //Same as DataItem and MonitoredItem
+    string name;
+    DataItem[] data_items;
+    this(string name) {
+        this.name = name;
+    }
+
 }
 
 struct Namespace {
@@ -246,16 +279,7 @@ private:
         foreach (Element elem; interface_elem.elements) {
             switch (elem.tag.name) {
             case "DataItem":
-                DataItem data_item = DataItem(elem.tag.attr["name"], elem.tag.attr["type"]);
-                if (auto defaultVal = "defaultValue" in elem.tag.attr) {
-                    data_item.defaultVal = *defaultVal;
-                }
-
-                if (auto startupVal = "startupValue" in elem.tag.attr) {
-                    data_item.startupVal = *startupVal;
-                }
-                cis.data_items ~= data_item;
-
+                cis.data_items ~= getDataItem(elem);
                 break;
             default:
                 break;
@@ -263,6 +287,47 @@ private:
         }
 
         return cis;
+    }
+
+    auto getDataItem(Element ditem_elem) {
+        DataItem data_item = DataItem(ditem_elem.tag.attr["name"], ditem_elem.tag.attr["type"]);
+        if (auto defaultVal = "defaultValue" in ditem_elem.tag.attr) {
+            data_item.defaultVal = *defaultVal;
+        }
+
+        if (auto startupVal = "startupValue" in ditem_elem.tag.attr) {
+            data_item.startupVal = *startupVal;
+        }
+
+        return data_item;
+    }
+
+    auto getEventGroupInterface(Element interface_elem) {
+        Interface_ ret;
+        EventGroupInterface eis;
+        eis.name = interface_elem.tag.attr["name"];
+        eis.direction = interface_elem.tag.attr["direction"] == "From_Provider"
+            ? Direction.from : Direction.to;
+        foreach (Element elem; interface_elem.elements) {
+            switch (elem.tag.name) {
+                case "Event":
+                    Event event = Event(elem.tag.attr["name"]);
+                    foreach(item_elem ; elem.elements) {
+                        switch(item_elem.tag.name) {
+                            case "DataItem": 
+                                event.data_items ~= getDataItem(item_elem);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    eis.events ~= event;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return eis;
     }
 
     Types[] types(Document doc, string curr_ns) {
@@ -286,6 +351,9 @@ private:
                 switch (elem.tag.name) {
                 case "ContinousInterface":
                     ret.ci ~= getContinousInterface(elem);
+                    break;
+                case "EventGroupInterface":
+                    ret.ei ~= getEventGroupInterface(elem);
                     break;
                 default:
                     break;

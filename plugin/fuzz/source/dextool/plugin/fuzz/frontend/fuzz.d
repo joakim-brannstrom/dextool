@@ -30,7 +30,7 @@ auto getHeaderFiles(CompileCommandDB compile_db, CompileCommand file) @safe {
 }
 
 auto getHeaderFiles(CompileCommandDB compile_db) @safe {
-    import std.algorithm : uniq;
+    import std.algorithm : uniq, sort;
     import std.range : array;
 
     string[] hfiles;
@@ -38,7 +38,7 @@ auto getHeaderFiles(CompileCommandDB compile_db) @safe {
         hfiles ~= compile_db.getHeaderFiles(cmd);
     }
 
-    return hfiles.sort.uniq.array;
+    return hfiles.sort().uniq.array;
 }
 
 
