@@ -189,6 +189,18 @@ mixin template CModuleX(T) {
         return suite("else");
     }
 
+    auto enum_() {
+        return suite("enum")[$.end = "};"];
+    }
+
+    auto enum_(string identifier) {
+        return suite("enum " ~ identifier)[$.end = "};"];
+    }
+
+    auto enum_const(string name) {
+        return stmt(name)[$.end = ","];
+    }
+
     auto for_(string init, string cond, string next) {
         import std.format : format;
 
@@ -318,31 +330,29 @@ class CModule : BaseModule {
     mixin CModuleX!(CModule);
 }
 
-private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow {
+private string stmt_append_end(string s, ref const string[string] attrs) pure nothrow {
     import std.string : inPattern;
 
     //TODO too much null checking, refactor.
 
     if (s is null) {
         string end = ";";
-        if ("end" in attrs) {
-            end = attrs["end"];
+        if (auto v = "end" in attrs) {
+            end = *v;
         }
         s ~= end;
     } else {
         bool in_pattern = false;
-        if (s !is null) {
-            try {
-                in_pattern = inPattern(s[$ - 1], ";:,{");
-            }
-            catch (Exception e) {
-            }
+        try {
+            in_pattern = inPattern(s[$ - 1], ";:,{");
+        }
+        catch (Exception e) {
         }
 
         if (!in_pattern && s[0] != '#') {
             string end = ";";
-            if ("end" in attrs) {
-                end = attrs["end"];
+            if (auto v = "end" in attrs) {
+                end = *v;
             }
             s ~= end;
         }
@@ -366,7 +376,7 @@ class Stmt(T) : T {
     override string renderIndent(int parent_level, int level) {
         string r = stmt_append_end(headline, attrs);
 
-        if (!("noindent" in attrs)) {
+        if ("noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
 
@@ -393,8 +403,8 @@ class Suite(T) : T {
         import std.ascii : newline;
 
         string r = headline ~ " {" ~ newline;
-        if ("begin" in attrs) {
-            r = headline ~ attrs["begin"];
+        if (auto v = "begin" in attrs) {
+            r = headline ~ *v;
         }
 
         if (r.length > 0 && !("noindent" in attrs)) {
@@ -405,11 +415,11 @@ class Suite(T) : T {
 
     override string renderPostRecursive(int parent_level, int level) {
         string r = "}";
-        if ("end" in attrs) {
-            r = attrs["end"];
+        if (auto v = "end" in attrs) {
+            r = *v;
         }
 
-        if (r.length > 0 && !("noindent" in attrs)) {
+        if (r.length > 0 && "noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
         return r;
@@ -548,7 +558,7 @@ struct CHModule {
     }
 }
 
-//@name("Test of statements")
+@("Test of statements")
 unittest {
     string expect = "    77;
     break;
@@ -579,7 +589,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of preprocess statements")
+@("Test of preprocess statements")
 unittest {
     string expect = "    #if foo
     inside;
@@ -624,7 +634,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of suites")
+@("Test of suites")
 unittest {
     string expect = "
     foo {
@@ -677,7 +687,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of complicated switch")
+@("Test of complicated switch")
 unittest {
     string expect = "
     switch (x) {
@@ -714,13 +724,13 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of empty CSuite")
+@("Test of empty CSuite")
 unittest {
     auto x = new Suite!CModule("test");
     assert(x.render == "test {\n}", x.render);
 }
 
-//@name("Test of stmt_append_end")
+@("Test of stmt_append_end")
 unittest {
     string[string] attrs;
     string stmt = "some_line";
@@ -735,13 +745,13 @@ unittest {
     assert(stmt ~ "{" == result, result);
 }
 
-//@name("Test of CSuite with formatting")
+@("Test of CSuite with formatting")
 unittest {
     auto x = new Suite!CModule("if (x > 5)");
     assert(x.render() == "if (x > 5) {\n}", x.render);
 }
 
-//@name("Test of CSuite with simple text")
+@("Test of CSuite with simple text")
 unittest {
     // also test that text(..) do NOT add a linebreak
     auto x = new Suite!CModule("foo");
@@ -751,7 +761,7 @@ unittest {
     assert(x.render() == "foo {\nbar}", x.render);
 }
 
-//@name("Test of CSuite with simple text and changed begin")
+@("Test of CSuite with simple text and changed begin")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x[$.begin = "_:_"]) {
@@ -760,7 +770,7 @@ unittest {
     assert(x.render() == "foo_:_bar}", x.render);
 }
 
-//@name("Test of CSuite with simple text and changed end")
+@("Test of CSuite with simple text and changed end")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x[$.end = "_:_"]) {
@@ -769,7 +779,7 @@ unittest {
     assert(x.render() == "foo {\nbar_:_", x.render);
 }
 
-//@name("Test of nested CSuite")
+@("Test of nested CSuite")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x) {
@@ -787,7 +797,7 @@ bar
 }", x.render);
 }
 
-//@name("Test of text in CModule with guard")
+@("Test of text in CModule with guard")
 unittest {
     auto hdr = CHModule("somefile_hpp");
 
@@ -812,7 +822,7 @@ content text
 ", hdr.render);
 }
 
-//@name("Test of Expression. Type conversion")
+@("Test of Expression. Type conversion")
 unittest {
     import std.conv : to;
 
@@ -826,7 +836,7 @@ unittest {
     assert("foo(77)" == to_string, to_string);
 }
 
-//@name("Test of Expression")
+@("Test of Expression")
 unittest {
     string expect = "foo
 foo(77)
@@ -861,7 +871,7 @@ int x = 7
     assert(rval == expect, rval);
 }
 
-//@name("Test of indent")
+@("Test of indent")
 unittest {
     string expect = "    L2 1 {
         L3 1.1 {
@@ -888,7 +898,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of single suppressing of indent")
+@("Test of single suppressing of indent")
 unittest {
     string expect = "L1 1 {
 L1 1.1 {
@@ -916,7 +926,7 @@ L1 1.2 {
     assert(rval == expect, rval);
 }
 
-//@name("Test of nested suppressing of indent")
+@("Test of nested suppressing of indent")
 unittest {
     string expect = "L1 1 {
 L1 1.1 {
@@ -951,6 +961,7 @@ L1 1.2.1 {
     assert(rval == expect, rval);
 }
 
+@("shall be an expression assignment")
 unittest {
     auto expect = "    a = p;
 ";
@@ -963,6 +974,7 @@ unittest {
     assert(expect == m.render, m.render);
 }
 
+@("shall be a return with and without value")
 unittest {
     auto expect = "    return;
     return a;
@@ -973,4 +985,25 @@ unittest {
     m.return_("a");
 
     assert(expect == m.render, m.render);
+}
+
+@("shall be a C enum definition")
+unittest {
+    auto expect = "    enum {
+    }
+    enum A {
+    };
+    enum B {
+        L0,
+        L1 = 2,
+    }
+";
+
+    auto m = new CModule;
+    m.enum_;
+    m.enum_("A");
+    with (m.enum_("B")) {
+        enum_const("L0");
+        enum_const(E("L1") = E("2"));
+    }
 }
