@@ -419,7 +419,6 @@ body {
         import std.stdio;
         import std.string : toLower, indexOf;
         import std.algorithm : canFind, map, joiner;
-        import std.array : join;
         import backend.fuzz.generators;
 
         auto inner = modules;
@@ -432,7 +431,7 @@ body {
             inner.impl = inner.impl.namespace(nss);
         }
 
-        string fqn_class = ns.fullyQualifiedName; // ~ "::"  ~ class_name;
+        string fqn_class = ns.fullyQualifiedName;
         
         if (!(fqn_class in classes))
             classes[fqn_class] = Array!nsclass();
@@ -445,7 +444,7 @@ body {
             
             Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
             classes[fqn_class].insertBack(generateClass(inner.impl, class_name,
-                        ns.resideInNs[0 .. $ - 1].join("::"),
+                        ns.resideInNs,
 							nss, data, a, xmlp));
 
             foreach (b; a.methodPublicRange) {
