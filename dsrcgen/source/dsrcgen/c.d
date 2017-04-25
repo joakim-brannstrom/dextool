@@ -325,8 +325,8 @@ private string stmt_append_end(string s, in ref string[string] attrs) pure nothr
 
     if (s is null) {
         string end = ";";
-        if ("end" in attrs) {
-            end = attrs["end"];
+        if (auto v = "end" in attrs) {
+            end = *v;
         }
         s ~= end;
     } else {
@@ -341,8 +341,8 @@ private string stmt_append_end(string s, in ref string[string] attrs) pure nothr
 
         if (!in_pattern && s[0] != '#') {
             string end = ";";
-            if ("end" in attrs) {
-                end = attrs["end"];
+            if (auto v = "end" in attrs) {
+                end = *v;
             }
             s ~= end;
         }
@@ -393,8 +393,8 @@ class Suite(T) : T {
         import std.ascii : newline;
 
         string r = headline ~ " {" ~ newline;
-        if ("begin" in attrs) {
-            r = headline ~ attrs["begin"];
+        if (auto v = "begin" in attrs) {
+            r = headline ~ *v;
         }
 
         if (r.length > 0 && !("noindent" in attrs)) {
@@ -405,8 +405,8 @@ class Suite(T) : T {
 
     override string renderPostRecursive(int parent_level, int level) {
         string r = "}";
-        if ("end" in attrs) {
-            r = attrs["end"];
+        if (auto v = "end" in attrs) {
+            r = *v;
         }
 
         if (r.length > 0 && !("noindent" in attrs)) {
