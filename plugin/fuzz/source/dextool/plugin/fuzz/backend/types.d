@@ -40,3 +40,8 @@ struct ImplData {
         return Kind.none;
     }
 }
+
+struct AppName {
+    string payload;
+    alias payload this;
+}

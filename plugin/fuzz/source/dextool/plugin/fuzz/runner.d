@@ -6,10 +6,12 @@ auto runPlugin(string[] args) {
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
-    import dextool.plugin.frontend.fuzz;
+    import frontend.fuzz.fuzz;
     
     RawConfiguration pargs;
-    pargs.parse(args);
+    if(pargs.parse(args) == -1)
+        return ExitStatusType.Errors;
+    
 
     if (pargs.shortPluginHelp) {
         writeln("fuzz");

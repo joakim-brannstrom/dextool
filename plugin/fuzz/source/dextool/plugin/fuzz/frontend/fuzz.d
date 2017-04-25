@@ -1,9 +1,11 @@
-module dextool.plugin.frontend.fuzz;
+module frontend.fuzz.fuzz;
 
 import logger = std.experimental.logger;
 
-import dextool.plugin.backend.fuzz.fuzzvariant : Parameters,
+import backend.fuzz.fuzzvariant : Parameters,
     Products;
+import backend.fuzz.types;
+
 import dextool.plugin.types;
 import dextool.type;
 import dextool.type;
@@ -41,12 +43,12 @@ auto getHeaderFiles(CompileCommandDB compile_db) @safe {
     return hfiles.sort().uniq.array;
 }
 
-
 struct RawConfiguration {
     string[] xml_dir; //Base directory which contains XML interfaces
     string[] compile_db;
     string output_dir;
     string mainFileName = "fuzz";
+    string app_name;
 
 
     /* Predefined error messages, used for showing user */
@@ -61,7 +63,7 @@ struct RawConfiguration {
     * Parses arguments from terminal
     * @param args Equal to argv
     */
-    void parse(string[] args) {
+    int parse(string[] args) {
         import std.getopt;
         import std.stdio : writeln;
         try {
@@ -70,31 +72,40 @@ struct RawConfiguration {
                     "compile-db", "Base directories to compilation databases", &compile_db,
                     "out", "Output directory", &output_dir,
                     "main-fname", &mainFileName,
+                    "app-name", &app_name,
                     "short-plugin-help", &shortPluginHelp);
             
             if (helpInformation.helpWanted) {
                 defaultGetoptPrinter("Usage.",
                     helpInformation.options);
-                return;
+                return -1;
             }
 
             /* Check default arguments */
             if(!shortPluginHelp && xml_dir.length == 0) {
                 defaultGetoptPrinter(XML_ARG_MISSING,
                     helpInformation.options);
-                return;
+                return -1;
             }
 
             if(!shortPluginHelp && compile_db.length == 0) {
                 defaultGetoptPrinter(COMPILE_DB_MISSING,
                     helpInformation.options);
-                return;
+                return -1;
+            }
+
+            if(!shortPluginHelp && app_name.length == 0) {
+                defaultGetoptPrinter("app-name missing.",
+                    helpInformation.options);
+                return -1;
             }
 
         } catch(GetOptException ex) {
             writeln("ERROR: " ~ ex.msg);
-            return;
+            return -1;
         }
+
+        return 0;
     }
 }
 
@@ -121,10 +132,13 @@ class FuzzVariant : Parameters, Products {
 
         StubPrefix prefix;
 
+        AppName app_name;
+
         DirName output_dir;
         FileName main_file_hdr;
         FileName main_file_impl;
-        FileName main_file_globals;        
+        FileName main_file_main;       
+        FileName main_file_main_hdr;        
 
         MainName main_name;
         MainNs main_ns;
@@ -138,12 +152,13 @@ class FuzzVariant : Parameters, Products {
     }
 
     static auto makeVariant(ref RawConfiguration conf) {
-        auto variant = new FuzzVariant(MainFileName(conf.mainFileName), conf.xml_dir, conf.compile_db, DirName(conf.output_dir));
+        auto variant = new FuzzVariant(MainFileName(conf.mainFileName), conf.xml_dir, conf.compile_db, DirName(conf.output_dir), AppName(conf.app_name));
 
         return variant;
     }
 
-    this(MainFileName main_fname, string[] xml_dir, string[] compile_db, DirName output_dir) {
+    this(MainFileName main_fname, string[] xml_dir, string[] compile_db,
+            DirName output_dir, AppName app_name) {
         import std.path : baseName, buildPath, stripExtension;
 
         this.output_dir = output_dir;
@@ -152,8 +167,12 @@ class FuzzVariant : Parameters, Products {
 
         this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
         this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
-        this.main_file_globals = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_global" ~ implExt));
+        this.main_file_main = FileName(buildPath(cast(string) output_dir,
+                "main" ~ implExt));
+        this.main_file_main_hdr = FileName(buildPath(cast(string) output_dir,
+                "main" ~ hdrExt));
+
+        this.app_name = app_name;
 
         if(xml_dir.length == 0)
             return;
@@ -175,11 +194,15 @@ class FuzzVariant : Parameters, Products {
     
     Parameters.Files getFiles() {
         return Parameters.Files(main_file_hdr, main_file_impl,
-                main_file_globals);
+                main_file_main, main_file_main_hdr);
     }
 
     MainName getMainName() {
         return main_name;
+    }
+
+    AppName getAppName() {
+        return app_name;
     }
 
     MainNs getMainNs() {
@@ -230,7 +253,7 @@ ExitStatusType genCpp(FuzzVariant variant) {
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import dextool.compilation_db : defaultCompilerFlagFilter;
-    import dextool.plugin.backend.fuzz.fuzzvariant : Generator,
+    import backend.fuzz.fuzzvariant : Generator,
         FuzzVisitor;
     import dextool.io : writeFileData;
 
@@ -264,7 +287,8 @@ ExitStatusType genCpp(FuzzVariant variant) {
             analyzed_files ~= hfile;
             
             // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
-            Generator(variant, variant).process(visitor.root, visitor.container);
+            auto gen = Generator(variant, variant);
+            gen.process(visitor.root, visitor.container);
             
             debug {
                 logger.trace(visitor);

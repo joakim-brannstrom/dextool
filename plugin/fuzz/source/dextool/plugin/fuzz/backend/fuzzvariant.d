@@ -1,4 +1,4 @@
-module dextool.plugin.backend.fuzz.fuzzvariant;
+module backend.fuzz.fuzzvariant;
 
 import std.stdio;
 
@@ -32,7 +32,8 @@ import std.container.array;
     static struct Files {
         FileName hdr;
         FileName impl;
-        FileName globals;
+        FileName main;
+        FileName main_hdr;
         FileName pre_incl;
         FileName post_incl;
     }
@@ -45,6 +46,7 @@ import std.container.array;
     StubPrefix getArtifactPrefix();
     DextoolVersion getToolVersion();
     CustomHeader getCustomHeader();
+    AppName getAppName();
 }
 
 /// Data produced by the generator like files.
@@ -53,7 +55,6 @@ import std.container.array;
     void putFile(FileName fname, CppModule impl_data);
 }
 
-/// Generator of test doubles for C++ code.
 struct Generator {
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
@@ -65,6 +66,8 @@ struct Generator {
 
         CppModule hdr;
         CppModule impl;
+        CppModule main;
+        CppModule main_hdr;
     }
 
     this(Parameters params, Products products) {
@@ -87,15 +90,15 @@ struct Generator {
         cppn.each!(a => new_root.put(a));
         auto impl_data = translate(new_root);
 
-
-        //writeln("Translated to implementation:\n", impl_data.toString());
-        //logger.trace("kind:\n", impl_data.kind);
-
-        //translate is skipped for now, as tagging isn't necessary
-
         auto modules = Modules.make();
+        makeMain(modules);
         generate(new_root, params, modules, container, impl_data, xmlp);
         postProcess(params, products, modules);
+    }
+
+    void makeMain(Modules modules) {
+        generateMainFunc(modules.main, params.getAppName);
+        generateMainHdr(modules.main_hdr);
     }
 
 private:
@@ -115,6 +118,15 @@ private:
             return o;
         }
 
+        static auto outputMainHdr(CppModule hdr, FileName fname, DextoolVersion ver) {
+            auto o = CppHModule(convToIncludeGuard(fname));
+            o.header.append(makeHeader(fname, ver, CustomHeader()));
+            o.content.append(hdr);
+
+            return o;
+        }
+
+
         static auto output(CppModule code, FileName incl_fname, FileName dest,
             DextoolVersion ver, CustomHeader custom_hdr) {
             import std.path : baseName;
@@ -129,11 +141,32 @@ private:
             return o;
         }
 
+        static auto outputMain(CppModule code, FileName main_incl, FileName dest, DextoolVersion ver) {
+            import std.path : baseName;
+
+            auto o = new CppModule;
+            o.suppressIndent(1);
+            o.append(makeHeader(dest, ver, CustomHeader()));
+            o.include(main_incl.baseName);
+            o.sep(2);
+            o.append(code);
+
+            return o;
+        }
+
+
         prods.putFile(params.getFiles.hdr, outputHdr(modules.hdr,
             params.getFiles.hdr, params.getToolVersion, params.getCustomHeader));
+
+        prods.putFile(params.getFiles.main_hdr, outputMainHdr(modules.main_hdr,
+            params.getFiles.main_hdr, params.getToolVersion));
+        
         prods.putFile(params.getFiles.impl, output(modules.impl,
             params.getFiles.hdr, params.getFiles.impl, params.getToolVersion,
             params.getCustomHeader));
+
+        prods.putFile(params.getFiles.main, outputMain(modules.main,
+            params.getFiles.main_hdr, params.getFiles.main, params.getToolVersion));
     }
 }
 
@@ -423,6 +456,7 @@ body {
 
         auto inner = modules;
         CppModule inner_impl_singleton;
+
 
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);

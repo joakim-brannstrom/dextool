@@ -13,6 +13,34 @@ import dsrcgen.cpp;
 import xml_parse;
 import backend.fuzz.types;
 
+@trusted void generateMainFunc(CppModule main_inner, string app_name) {
+    with(main_inner.func_body("int", "main", "int argc, char** argv")) {
+        with(if_("!TestingEnvironment::Init()")) {
+            continue_;
+        }
+
+        stmt("APP_" ~ app_name ~ "_Initialize()");
+        with(for_("int n = 0", "n < TestingEnvironment::getCycles()", "n++")) {
+            stmt("PortStorage::Regenerate()");
+            stmt("APP_" ~ app_name ~ "_Execute()");
+        }
+
+        stmt("APP_" ~ app_name ~ "_Terminate()");
+        stmt("PortStorage::CleanUp()");
+
+        return_("0");
+    }
+}
+
+@trusted void generateMainHdr(CppModule main_hdr_inner) {
+    main_hdr_inner.include("testingenvironment.hpp");
+    main_hdr_inner.include("portenvironment.hpp");
+    main_hdr_inner.include("app_main.hpp");
+    main_hdr_inner.include("<iostream>");
+    main_hdr_inner.include("<map>");
+    main_hdr_inner.include("<string>");
+}
+
 @trusted void generateCreateInstance(CppModule inner, string return_type, string func_name, 
              string paramType, string paramName, Array!nsclass classes) {
     string port_name = "";
@@ -122,7 +150,7 @@ import backend.fuzz.types;
             auto func2 = func_body("void", "Regenerate");
             auto func1 = func_body("void", "Regenerate",
                                      "const std::map<std::string, std::vector<int>> &vars"); 
-                                     
+
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
 		            string[string] minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
