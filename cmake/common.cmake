@@ -37,7 +37,8 @@ function(collect_binary_in_root name)
     add_custom_command(
         TARGET ${name}
         POST_BUILD
-        COMMAND ln -sfT ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
+        COMMAND rm -f ${CMAKE_BINARY_DIR}/${name}
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 endfunction()

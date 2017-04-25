@@ -28,6 +28,7 @@ function(try_find_libclang)
         "/usr/lib/llvm-3.8/lib"
         "/usr/lib/llvm-3.7/lib"
         # MacOSX
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
         "/Applications/Xcode.app/Contents/Frameworks"
         # fallback
         "/usr/lib64/llvm"
@@ -52,15 +53,15 @@ endif()
 if(NOT LIBCLANG_LDFLAGS)
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
+    if(APPLE)
+        set(LIBCLANG_LDFLAGS_OS "-L-rpath -L${LIBCLANG_DIR_PATH} -L-lclang")
 
-    if(UNIX)
-        set(LIBCLANG_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=.")
-    elseif(APPLE)
-        set(LIBCLANG_LDFLAGS_OS "-L-rpath=${LIBCLANG_DIR_PATH}")
+    elseif(UNIX)
+        set(LIBCLANG_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=. -L--no-as-needed -L-l:${LIBCLANG_LIB}")
     else()
     endif()
 
-    set(LIBCLANG_LDFLAGS "-L--no-as-needed -L-L${LIBCLANG_DIR_PATH} -L-l:${LIBCLANG_LIB} ${LIBCLANG_LDFLAGS_OS}")
+    set(LIBCLANG_LDFLAGS "-L-L${LIBCLANG_DIR_PATH} ${LIBCLANG_LDFLAGS_OS}")
 endif()
 
 message(STATUS "libclang: ${LIBCLANG_LIB_PATH}")
