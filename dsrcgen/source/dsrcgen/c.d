@@ -189,6 +189,18 @@ mixin template CModuleX(T) {
         return suite("else");
     }
 
+    auto enum_() {
+        return suite("enum")[$.end = "};"];
+    }
+
+    auto enum_(string identifier) {
+        return suite("enum " ~ identifier)[$.end = "};"];
+    }
+
+    auto enum_const(string name) {
+        return stmt(name)[$.end = ","];
+    }
+
     auto for_(string init, string cond, string next) {
         import std.format : format;
 
@@ -973,4 +985,25 @@ unittest {
     m.return_("a");
 
     assert(expect == m.render, m.render);
+}
+
+@("shall be a C enum definition")
+unittest {
+    auto expect = "    enum {
+    }
+    enum A {
+    };
+    enum B {
+        L0,
+        L1 = 2,
+    }
+";
+
+    auto m = new CModule;
+    m.enum_;
+    m.enum_("A");
+    with (m.enum_("B")) {
+        enum_const("L0");
+        enum_const(E("L1") = E("2"));
+    }
 }

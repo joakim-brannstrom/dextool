@@ -125,6 +125,10 @@ mixin template CppModuleX(T) {
         return e;
     }
 
+    auto enum_class(string identifier) {
+        return suite("enum class " ~ identifier)[$.end = "};"];
+    }
+
     /// Definition for a dtor.
     auto dtor_body(string class_name) {
         import std.format : format;
@@ -489,4 +493,17 @@ unittest {
     m.method_inline(No.isVirtual, "void", "bar", No.isConst, "int foo");
 
     assert(expect == m.render, m.render);
+}
+
+@("shall be a enum class")
+unittest {
+    auto expect = "    enum class A {
+        L0,
+    }
+";
+
+    auto m = new CppModule;
+    with (m.enum_class("X")) {
+        enum_const("L0");
+    }
 }
