@@ -364,7 +364,7 @@ class Stmt(T) : T {
     override string renderIndent(int parent_level, int level) {
         string r = stmt_append_end(headline, attrs);
 
-        if (!("noindent" in attrs)) {
+        if ("noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
 
@@ -407,7 +407,7 @@ class Suite(T) : T {
             r = *v;
         }
 
-        if (r.length > 0 && !("noindent" in attrs)) {
+        if (r.length > 0 && "noindent" !in attrs) {
             r = indent(r, parent_level, level);
         }
         return r;
