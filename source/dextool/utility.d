@@ -55,8 +55,8 @@ unittest {
  *
  * Returns: if the analyze was performed ok or errors occured
  */
-ExitStatusType analyzeFile(VisitorT, ClangContextT)(in string input_file,
-        in string[] cflags, VisitorT visitor, ref ClangContextT ctx) {
+ExitStatusType analyzeFile(VisitorT, ClangContextT)(const string input_file,
+        const string[] cflags, VisitorT visitor, ref ClangContextT ctx) {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.ast : ClangAST;

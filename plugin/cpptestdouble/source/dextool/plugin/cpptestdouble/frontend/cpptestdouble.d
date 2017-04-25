@@ -3,7 +3,16 @@ Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-Generation of C++ test doubles.
+This file contains the frontend for generating a C++ test double.
+
+Responsible for:
+ - Receiving the call from the main to start working.
+ - User interaction.
+    - Error reporting in a way that the user understand the error.
+    - Writing files to the filesystem.
+    - Parsing arguments and other interaction information from the user.
+    - Configuration file handling.
+ - Provide user data to the backend via the interface the backend own.
 */
 module dextool.plugin.frontend.cpptestdouble;
 
@@ -13,7 +22,7 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility;
+import dextool.utility : prependDefaultFlags;
 
 import dextool.plugin.types;
 import dextool.plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
@@ -135,11 +144,10 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 // dfmt off
 static auto cpptestdouble_opt = CliOptionParts(
     "usage:
- dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
- dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
+ dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] [--in=...} [--] [CFLAGS...]
+ dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] [--in=...] [--] [CFLAGS...]",
     // -------------
-    " --out=dir          directory for generated files [default: ./]
- --main=name        Used as part of interface, namespace etc [default: TestDouble]
+    "--main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regex used to strip the include paths
@@ -151,7 +159,8 @@ static auto cpptestdouble_opt = CliOptionParts(
  --config=path      Use configuration file",
     // -------------
 "others:
- --in=              Input files to parse
+ --in=              Input file to parse
+ --out=dir          directory for generated files [default: ./]
  --compile-db=j     Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex
  --file-restrict=   Restrict the scope of the test double to those files
@@ -401,6 +410,16 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         file_data ~= FileData(fname, data);
     }
 
+    /// Signal that a file has finished analyzing.
+    void processIncludes() {
+        td_includes.process();
+    }
+
+    /// Signal that all files have been analyzed.
+    void finalizeIncludes() {
+        td_includes.finalize();
+    }
+
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
@@ -454,11 +473,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     bool doIncludeOfPostIncludes() {
         return post_incl;
-    }
-
-    void locationFilterDone() {
-        td_includes.process();
-        td_includes.finalize();
     }
 
     // -- Parameters --
@@ -637,43 +651,43 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
-    import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.representation : CppRoot;
     import dextool.plugin.backend.cpptestdouble.cppvariant : Generator,
         CppVisitor;
     import dextool.io : writeFileData;
 
-    auto visitor = new CppVisitor!(CppRoot, Controller, Products)(variant, variant);
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
-    auto in_file = cast(string) in_files[0];
-    logger.trace("Input file: ", in_file);
-    string[] use_cflags;
-    string abs_in_file;
+    const auto total_files = in_files.length;
+    auto generator = Generator(variant, variant, variant);
 
-    if (compile_db.length > 0) {
-        auto db_search_result = compile_db.appendOrError(user_cflags, in_file,
-                variant.getCompileCommandFilter);
-        if (db_search_result.isNull) {
+    foreach (idx, in_file; in_files) {
+        logger.infof("File %d/%d ", idx + 1, total_files);
+        string[] use_cflags;
+        string abs_in_file;
+
+        if (compile_db.length > 0) {
+            auto db_search_result = compile_db.appendOrError(user_cflags,
+                    in_file, variant.getCompileCommandFilter);
+            if (db_search_result.isNull) {
+                return ExitStatusType.Errors;
+            }
+            use_cflags = db_search_result.get.cflags;
+            abs_in_file = db_search_result.get.absoluteFile;
+        } else {
+            use_cflags = user_cflags.dup;
+            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+        }
+
+        if (generator.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-        use_cflags = db_search_result.get.cflags;
-        abs_in_file = db_search_result.get.absoluteFile;
-    } else {
-        use_cflags = user_cflags.dup;
-        abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+
+        variant.processIncludes;
     }
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
-        return ExitStatusType.Errors;
-    }
+    variant.finalizeIncludes;
 
-    // process and put the data in variant.
-    Generator(variant, variant, variant).process(visitor.root, visitor.container);
-
-    debug {
-        logger.trace(visitor);
-    }
+    // All files analyzed, process and generate artifacts.
+    generator.process();
 
     return writeFileData(variant.file_data);
 }

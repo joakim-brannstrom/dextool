@@ -145,8 +145,8 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
- dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
- dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] [--in=...] [--] [CFLAGS...]
+ dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] [--in=...] [--] [CFLAGS...]",
     // -------------
     "--main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
@@ -163,7 +163,7 @@ static auto ctestdouble_opt = CliOptionParts(
  --config=path      Use configuration file",
     // -------------
 "others:
- --in=              Input files to parse
+ --in=              Input file to parse
  --out=dir          directory for generated files [default: ./]
  --compile-db=      Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex
