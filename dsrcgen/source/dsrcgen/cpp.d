@@ -384,7 +384,7 @@ pure:
     }
 }
 
-//@name("Test of C++ suits")
+@("Test of C++ suits")
 unittest {
     string expect = "
     namespace foo {
@@ -432,7 +432,7 @@ private:
     assert(rval == expect, rval);
 }
 
-//@name("Test new and delete")
+@("Test new and delete")
 unittest {
     auto expect = "    new foo;
     delete bar;
@@ -450,7 +450,7 @@ unittest {
     assert(expect == r, r);
 }
 
-// Test Et composition.
+@("Test Et composition")
 unittest {
     auto m = new CppModule;
     m.suppressIndent(1);
@@ -476,7 +476,7 @@ vector<int>(bar);
     assert(expect == m.render, m.render);
 }
 
-// should generate an inlined class method
+@("should generate an inlined class method")
 unittest {
     auto expect = "    void foo() {
     }

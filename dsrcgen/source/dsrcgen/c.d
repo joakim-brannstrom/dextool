@@ -548,7 +548,7 @@ struct CHModule {
     }
 }
 
-//@name("Test of statements")
+@("Test of statements")
 unittest {
     string expect = "    77;
     break;
@@ -579,7 +579,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of preprocess statements")
+@("Test of preprocess statements")
 unittest {
     string expect = "    #if foo
     inside;
@@ -624,7 +624,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of suites")
+@("Test of suites")
 unittest {
     string expect = "
     foo {
@@ -677,7 +677,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of complicated switch")
+@("Test of complicated switch")
 unittest {
     string expect = "
     switch (x) {
@@ -714,13 +714,13 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of empty CSuite")
+@("Test of empty CSuite")
 unittest {
     auto x = new Suite!CModule("test");
     assert(x.render == "test {\n}", x.render);
 }
 
-//@name("Test of stmt_append_end")
+@("Test of stmt_append_end")
 unittest {
     string[string] attrs;
     string stmt = "some_line";
@@ -735,13 +735,13 @@ unittest {
     assert(stmt ~ "{" == result, result);
 }
 
-//@name("Test of CSuite with formatting")
+@("Test of CSuite with formatting")
 unittest {
     auto x = new Suite!CModule("if (x > 5)");
     assert(x.render() == "if (x > 5) {\n}", x.render);
 }
 
-//@name("Test of CSuite with simple text")
+@("Test of CSuite with simple text")
 unittest {
     // also test that text(..) do NOT add a linebreak
     auto x = new Suite!CModule("foo");
@@ -751,7 +751,7 @@ unittest {
     assert(x.render() == "foo {\nbar}", x.render);
 }
 
-//@name("Test of CSuite with simple text and changed begin")
+@("Test of CSuite with simple text and changed begin")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x[$.begin = "_:_"]) {
@@ -760,7 +760,7 @@ unittest {
     assert(x.render() == "foo_:_bar}", x.render);
 }
 
-//@name("Test of CSuite with simple text and changed end")
+@("Test of CSuite with simple text and changed end")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x[$.end = "_:_"]) {
@@ -769,7 +769,7 @@ unittest {
     assert(x.render() == "foo {\nbar_:_", x.render);
 }
 
-//@name("Test of nested CSuite")
+@("Test of nested CSuite")
 unittest {
     auto x = new Suite!CModule("foo");
     with (x) {
@@ -787,7 +787,7 @@ bar
 }", x.render);
 }
 
-//@name("Test of text in CModule with guard")
+@("Test of text in CModule with guard")
 unittest {
     auto hdr = CHModule("somefile_hpp");
 
@@ -812,7 +812,7 @@ content text
 ", hdr.render);
 }
 
-//@name("Test of Expression. Type conversion")
+@("Test of Expression. Type conversion")
 unittest {
     import std.conv : to;
 
@@ -826,7 +826,7 @@ unittest {
     assert("foo(77)" == to_string, to_string);
 }
 
-//@name("Test of Expression")
+@("Test of Expression")
 unittest {
     string expect = "foo
 foo(77)
@@ -861,7 +861,7 @@ int x = 7
     assert(rval == expect, rval);
 }
 
-//@name("Test of indent")
+@("Test of indent")
 unittest {
     string expect = "    L2 1 {
         L3 1.1 {
@@ -888,7 +888,7 @@ unittest {
     assert(rval == expect, rval);
 }
 
-//@name("Test of single suppressing of indent")
+@("Test of single suppressing of indent")
 unittest {
     string expect = "L1 1 {
 L1 1.1 {
@@ -916,7 +916,7 @@ L1 1.2 {
     assert(rval == expect, rval);
 }
 
-//@name("Test of nested suppressing of indent")
+@("Test of nested suppressing of indent")
 unittest {
     string expect = "L1 1 {
 L1 1.1 {
@@ -951,6 +951,7 @@ L1 1.2.1 {
     assert(rval == expect, rval);
 }
 
+@("shall be an expression assignment")
 unittest {
     auto expect = "    a = p;
 ";
@@ -963,6 +964,7 @@ unittest {
     assert(expect == m.render, m.render);
 }
 
+@("shall be a return with and without value")
 unittest {
     auto expect = "    return;
     return a;
