@@ -318,7 +318,7 @@ class CModule : BaseModule {
     mixin CModuleX!(CModule);
 }
 
-private string stmt_append_end(string s, in ref string[string] attrs) pure nothrow {
+private string stmt_append_end(string s, ref const string[string] attrs) pure nothrow {
     import std.string : inPattern;
 
     //TODO too much null checking, refactor.
