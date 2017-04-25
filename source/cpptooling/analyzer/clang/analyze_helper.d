@@ -24,9 +24,9 @@ import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
 import cpptooling.analyzer.clang.ast : ClassTemplate,
-       ClassTemplatePartialSpecialization, Constructor, CXXMethod, ClassDecl,
-       CXXBaseSpecifier, Destructor, FieldDecl, FunctionDecl,
-       StructDecl, TranslationUnit, UnionDecl, VarDecl, Visitor;
+    ClassTemplatePartialSpecialization, Constructor, CXXMethod, ClassDecl,
+    CXXBaseSpecifier, Destructor, FieldDecl, FunctionDecl, StructDecl,
+    TranslationUnit, UnionDecl, VarDecl, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.utility : put;
@@ -478,15 +478,13 @@ struct RecordResult {
     LocationTag location;
 }
 
-RecordResult analyzeRecord(T)(const(T) decl, ref Container container,
-        in uint indent)
+RecordResult analyzeRecord(T)(const(T) decl, ref Container container, in uint indent)
         if (staticIndexOf!(T, ClassDecl, StructDecl, ClassTemplate,
             ClassTemplatePartialSpecialization, UnionDecl) != -1) {
     return analyzeRecord(decl.cursor, container, indent);
 }
 
-RecordResult analyzeRecord(const(Cursor) cursor,
-        ref Container container, in uint indent) @safe {
+RecordResult analyzeRecord(const(Cursor) cursor, ref Container container, in uint indent) @safe {
     auto type = () @trusted{ return retrieveType(cursor, container, indent); }();
     put(type, container, indent);
 
@@ -508,7 +506,7 @@ auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, 
 /** Reconstruct the semantic clang AST with dextool data structures suitable
  * for code generation.
  *
- * Note that it also traverses the inheritance chain.
+ * Note that it do NOT traverses the inheritance chain.
  */
 final class ClassVisitor : Visitor {
     import clang.Cursor : Cursor;
@@ -625,22 +623,5 @@ final class ClassVisitor : Visitor {
         root.put(TypeKindVariable(result.type, result.name), accessType);
 
         logger.trace("member: ", cast(string) result.name);
-    }
-
-    override void visit(const(ClassDecl) v) @trusted {
-        import std.typecons : scoped;
-
-        mixin(mixinNodeLog!());
-        logger.info("class: ", v.cursor.spelling);
-
-        if (v.cursor.isDefinition) {
-            auto visitor = scoped!ClassVisitor(v, root.resideInNs, *container, indent + 1);
-            v.accept(visitor);
-            root.put(visitor.root, accessType);
-            container.put(visitor.root, visitor.root.fullyQualifiedName);
-        } else {
-            auto type = retrieveType(v.cursor, *container, indent);
-            put(type, *container, indent);
-        }
     }
 }
