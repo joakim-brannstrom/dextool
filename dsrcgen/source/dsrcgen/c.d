@@ -331,12 +331,10 @@ private string stmt_append_end(string s, in ref string[string] attrs) pure nothr
         s ~= end;
     } else {
         bool in_pattern = false;
-        if (s !is null) {
-            try {
-                in_pattern = inPattern(s[$ - 1], ";:,{");
-            }
-            catch (Exception e) {
-            }
+        try {
+            in_pattern = inPattern(s[$ - 1], ";:,{");
+        }
+        catch (Exception e) {
         }
 
         if (!in_pattern && s[0] != '#') {
