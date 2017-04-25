@@ -19,5 +19,5 @@
         <CPPInterface header="reals.hpp"/>
     </Primitive>
 
-    <SubType name="IntT" type="int64_t" min="-9223372036854775808" max="9223372036854775807"/>
+    <SubType name="IntT" type="int64_t" min="-9223372036854775807" max="9223372036854775807"/>
 </Types>
