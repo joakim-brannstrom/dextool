@@ -174,10 +174,39 @@ struct CppNs {
     alias payload this;
 }
 
-/// Stack of nested C++ namespaces.
+/** Stack of nested C++ namespaces.
+ *
+ * So A::B::C would be a range of [A, B, C].
+ */
 struct CppNsStack {
     CppNs[] payload;
     alias payload this;
+
+    this(CppNs[] fqn) @safe pure nothrow {
+        payload = fqn;
+    }
+
+    this(CppNs[] reside_in_ns, CppNs name) @safe pure nothrow {
+        payload = reside_in_ns ~ name;
+    }
+
+    void put()(CppNs n) {
+        payload ~= n;
+    }
+
+    CppNs front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return payload[$ - 1];
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        payload = payload[0 .. $ - 1];
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return payload.length == 0;
+    }
 }
 
 /// Nesting of C++ namespaces as a string.
