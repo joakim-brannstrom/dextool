@@ -18,7 +18,7 @@ Responsible for:
 */
 module dextool.plugin.backend.cpptestdouble.cppvariant;
 
-import std.typecons : No, Flag, Nullable, Yes;
+import std.typecons : No, Flag, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -143,6 +143,7 @@ import cpptooling.testdouble.header_filter : LocationType;
  * TODO postProcess shouldn't be a member method.
  */
 struct Generator {
+    import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
@@ -613,8 +614,8 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
     // dfmt off
     foreach (a; root.namespaceRange
         .map!(a => translate(a, impl, container, ctrl, params))
-        .filter!(a => !a.isNull)) {
-        impl.root.put(a.get);
+        .filter!(a => !a.empty)) {
+        impl.root.put(a);
     }
 
     foreach (a; root.classRange
@@ -630,7 +631,7 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
 
 /** Translate namspaces and the content to test double implementations.
  */
-Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
+CppNamespace translate(CppNamespace input, ref ImplData data,
         ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
@@ -686,8 +687,8 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     //dfmt off
     input.namespaceRange()
         .map!(a => translate(a, data, container, ctrl, params))
-        .filter!(a => !a.isNull)
-        .each!(a => ns.put(a.get));
+        .filter!(a => !a.empty)
+        .each!(a => ns.put(a));
 
     foreach (class_; input.classRange
         .map!(a => mergeClassInherit(a, container, data))
@@ -698,12 +699,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
     }
     // dfmt on
 
-    Nullable!CppNamespace rval;
-    if (!ns.namespaceRange.empty || !ns.classRange.empty) {
-        rval = ns;
-    }
-
-    return rval;
+    return ns;
 }
 
 /** Translate the structure to code.
