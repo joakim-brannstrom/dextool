@@ -21,11 +21,5 @@ public:
 
 } //NS:TestDouble
 
-namespace TestDouble {
-} //NS:TestDouble
-
-namespace TestDouble {
-} //NS:TestDouble
-
 } //NS:ns1
 #endif // test_double_hpp
