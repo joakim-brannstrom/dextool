@@ -1443,7 +1443,6 @@ enum MergeMode {
     /// A namespace without any nesting.
     static auto make(CppNs name) nothrow {
         auto rval = CppNamespace(CppNsStack([name]));
-        rval.setUniqueId(makeUniqueUSR);
         return rval;
     }
 
@@ -1700,8 +1699,7 @@ struct CppRoot {
     static auto make() @safe {
         import std.container : make;
 
-        typeof(this) r;
-
+        CppRoot r;
         r.globals = make!(typeof(this.globals));
         r.funcs = make!(typeof(this.funcs));
 
