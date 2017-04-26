@@ -1634,8 +1634,13 @@ const:
     mixin(standardToString);
 
     /// If the namespace is anonymous, aka has no name.
-    auto isAnonymous() pure nothrow {
+    bool isAnonymous() pure nothrow {
         return name_.length == 0;
+    }
+
+    /// Returns: True if completely empty.
+    bool empty() pure nothrow {
+        return !(classes.length || funcs.length || namespaces.length || globals.length);
     }
 
     /// Name of the namespace
