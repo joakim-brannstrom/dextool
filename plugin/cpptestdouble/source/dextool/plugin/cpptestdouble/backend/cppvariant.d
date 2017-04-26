@@ -26,6 +26,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
     CustomHeader, MainNs, MainInterface;
 import cpptooling.analyzer.clang.ast : Visitor;
+import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
 /** Control various aspectes of the analyze and generation like what nodes to
@@ -220,7 +221,7 @@ struct Generator {
         translate(analyze.root, container, ctrl, params, impl_data);
         analyze.nullify();
 
-        logger.trace("Translated to implementation:\n", impl_data.root.toString());
+        logger.tracef("Translated to implementation:\n%u", impl_data.root);
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
@@ -635,12 +636,13 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
+    import cpptooling.data.type : CppNsStack, CppNs;
 
-    static auto makeGmockInNs(CppClass c, MainNs main_ns, ref ImplData data) {
+    static auto makeGmockInNs(CppClass c, CppNsStack ns_hier, ref ImplData data) {
         import cpptooling.data.representation : CppNs;
         import cpptooling.generator.gmock : makeGmock;
 
-        auto ns = CppNamespace.make(CppNs(cast(string) main_ns));
+        auto ns = CppNamespace(ns_hier);
         data.tag(ns.id, Kind.testDoubleNamespace);
         auto mock = makeGmock(c);
         data.tag(mock.id, Kind.gmock);
@@ -648,12 +650,11 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         return ns;
     }
 
-    auto ns = CppNamespace.make(input.name);
+    auto ns = CppNamespace(input.resideInNs);
 
     if (!input.funcRange.empty) {
-        translateToTestDoubleForFreeFunctions(input, data,
-                cast(Flag!"doGoogleMock") ctrl.doGoogleMock, params.getMainNs,
-                params.getMainInterface, ns);
+        translateToTestDoubleForFreeFunctions(input, data, cast(Flag!"doGoogleMock") ctrl.doGoogleMock,
+                ns.resideInNs, params.getMainNs, params.getMainInterface, ns);
     }
 
     //dfmt off
@@ -666,7 +667,7 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         .map!(a => mergeClassInherit(a, container, data))
         // can happen that the result is a class with no methods, thus in state Unknown
         .filter!(a => a.isVirtual)) {
-        auto mock = makeGmockInNs(class_, params.getMainNs, data);
+        auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup, CppNs(params.getMainNs)), data);
         ns.put(mock);
     }
     // dfmt on
@@ -674,8 +675,8 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     return ns;
 }
 
-void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData data,
-        Flag!"doGoogleMock" do_gmock, MainNs main_ns, MainInterface main_if, ref CppNamespace ns) {
+void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData data, Flag!"doGoogleMock" do_gmock,
+        const CppNsStack reside_in_ns, MainNs main_ns, MainInterface main_if, ref CppNamespace ns) {
     import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
         makeSingleton;
@@ -691,7 +692,7 @@ void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData 
     // output the functions using the singleton
     input.funcRange.each!(a => ns.put(a));
 
-    auto td_ns = CppNamespace.make(CppNs(cast(string) main_ns));
+    auto td_ns = CppNamespace(CppNsStack(reside_in_ns.dup, CppNs(main_ns)));
     data.tag(td_ns.id, Kind.testDoubleNamespace);
 
     auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(main_if));
