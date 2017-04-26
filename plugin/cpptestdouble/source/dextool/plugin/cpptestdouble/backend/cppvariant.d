@@ -636,11 +636,11 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     import std.algorithm : map, filter, each;
     import std.array : empty;
 
-    static auto makeGmockInNs(CppClass c, Parameters params, ref ImplData data) {
+    static auto makeGmockInNs(CppClass c, MainNs main_ns, ref ImplData data) {
         import cpptooling.data.representation : CppNs;
         import cpptooling.generator.gmock : makeGmock;
 
-        auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
+        auto ns = CppNamespace.make(CppNs(cast(string) main_ns));
         data.tag(ns.id, Kind.testDoubleNamespace);
         auto mock = makeGmock(c);
         data.tag(mock.id, Kind.gmock);
@@ -666,7 +666,7 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         .map!(a => mergeClassInherit(a, container, data))
         // can happen that the result is a class with no methods, thus in state Unknown
         .filter!(a => a.isVirtual)) {
-        auto mock = makeGmockInNs(class_, params, data);
+        auto mock = makeGmockInNs(class_, params.getMainNs, data);
         ns.put(mock);
     }
     // dfmt on
