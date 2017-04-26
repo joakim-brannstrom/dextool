@@ -635,15 +635,10 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data.representation : CppNs, CppClassName, makeUniqueUSR,
-        nextUniqueID;
-    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
-        makeSingleton;
-    import cpptooling.generator.func : makeFuncInterface;
-    import cpptooling.generator.gmock : makeGmock;
 
     static auto makeGmockInNs(CppClass c, Parameters params, ref ImplData data) {
         import cpptooling.data.representation : CppNs;
+        import cpptooling.generator.gmock : makeGmock;
 
         auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
         data.tag(ns.id, Kind.testDoubleNamespace);
@@ -656,32 +651,9 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     auto ns = CppNamespace.make(input.name);
 
     if (!input.funcRange.empty) {
-        // singleton instance must be before the functions
-        auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
-        data.tag(singleton.id, Kind.testDoubleSingleton);
-        ns.put(singleton);
-
-        // output the functions using the singleton
-        input.funcRange.each!(a => ns.put(a));
-
-        auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
-        data.tag(td_ns.id, Kind.testDoubleNamespace);
-
-        auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(params.getMainInterface));
-        data.tag(i_free_func.id, Kind.testDoubleInterface);
-        td_ns.put(i_free_func);
-
-        auto adapter = makeAdapter(params.getMainInterface).makeTestDouble(true).finalize;
-        data.tag(adapter.id, Kind.adapter);
-        td_ns.put(adapter);
-
-        if (ctrl.doGoogleMock) {
-            auto mock = makeGmock(i_free_func);
-            data.tag(mock.id, Kind.gmock);
-            td_ns.put(mock);
-        }
-
-        ns.put(td_ns);
+        translateToTestDoubleForFreeFunctions(input, data,
+                cast(Flag!"doGoogleMock") ctrl.doGoogleMock, params.getMainNs,
+                params.getMainInterface, ns);
     }
 
     //dfmt off
@@ -700,6 +672,43 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     // dfmt on
 
     return ns;
+}
+
+void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData data,
+        Flag!"doGoogleMock" do_gmock, MainNs main_ns, MainInterface main_if, ref CppNamespace ns) {
+    import std.algorithm : each;
+    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
+        makeSingleton;
+    import cpptooling.data.representation : CppNs, CppClassName;
+    import cpptooling.generator.func : makeFuncInterface;
+    import cpptooling.generator.gmock : makeGmock;
+
+    // singleton instance must be before the functions
+    auto singleton = makeSingleton(main_ns, main_if);
+    data.tag(singleton.id, Kind.testDoubleSingleton);
+    ns.put(singleton);
+
+    // output the functions using the singleton
+    input.funcRange.each!(a => ns.put(a));
+
+    auto td_ns = CppNamespace.make(CppNs(cast(string) main_ns));
+    data.tag(td_ns.id, Kind.testDoubleNamespace);
+
+    auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(main_if));
+    data.tag(i_free_func.id, Kind.testDoubleInterface);
+    td_ns.put(i_free_func);
+
+    auto adapter = makeAdapter(main_if).makeTestDouble(true).finalize;
+    data.tag(adapter.id, Kind.adapter);
+    td_ns.put(adapter);
+
+    if (do_gmock) {
+        auto mock = makeGmock(i_free_func);
+        data.tag(mock.id, Kind.gmock);
+        td_ns.put(mock);
+    }
+
+    ns.put(td_ns);
 }
 
 /** Translate the structure to code.
