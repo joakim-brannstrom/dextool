@@ -45,6 +45,7 @@ struct RawConfiguration {
     string stripInclude;
     string out_;
     string config;
+    bool doFreeFuncs;
     bool shortPluginHelp;
     bool help;
     bool gmock;
@@ -70,6 +71,7 @@ struct RawConfiguration {
                    "strip-incl", &stripInclude,
                    "header", &header,
                    "header-file", &headerFile,
+                   "gen-free-func", &doFreeFuncs,
                    "gmock", &gmock,
                    "gen-pre-incl", &generatePreInclude,
                    "gen-post-incl", &genPostInclude,
@@ -127,6 +129,7 @@ struct RawConfiguration {
 --main-fname        :%s
 --in                :%s
 --compile-db        :%s
+--gen-free-func     :%s
 --gen-post-incl     :%s
 --gen-pre-incl      :%s
 --help              :%s
@@ -134,10 +137,9 @@ struct RawConfiguration {
 --config            :%s
 CFLAGS              :%s
 
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
-                out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
-                help, testDoubleInclude, config, cflags, xmlConfig);
+xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude, mainName,
+                stripInclude, mainFileName, inFiles, compileDb, doFreeFuncs, genPostInclude,
+                generatePreInclude, help, testDoubleInclude, config, cflags, xmlConfig);
     }
 }
 
@@ -152,6 +154,7 @@ static auto cpptestdouble_opt = CliOptionParts(
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regex used to strip the include paths
  --gmock            Generate a gmock implementation of test double interface
+ --gen-free-func    Generate test doubles of free functions
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
  --header=s         Prepend generated files with the string
@@ -235,6 +238,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         MainName main_name;
         MainNs main_ns;
         MainInterface main_if;
+        Flag!"FreeFunction" do_free_funcs;
         Flag!"Gmock" gmock;
         Flag!"PreInclude" pre_incl;
         Flag!"PostInclude" post_incl;
@@ -258,6 +262,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
                 regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
+            .argGenFreeFunction(args.doFreeFuncs)
             .argGmock(args.gmock)
             .argPreInclude(args.generatePreInclude)
             .argPostInclude(args.genPostInclude)
@@ -348,6 +353,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             this.custom_hdr = CustomHeader(content);
         }
 
+        return this;
+    }
+
+    auto argGenFreeFunction(bool a) {
+        this.do_free_funcs = cast(Flag!"FreeFunction") a;
         return this;
     }
 
@@ -474,6 +484,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     bool doIncludeOfPostIncludes() {
         return post_incl;
+    }
+
+    bool doFreeFunction() {
+        return do_free_funcs;
     }
 
     // -- Parameters --

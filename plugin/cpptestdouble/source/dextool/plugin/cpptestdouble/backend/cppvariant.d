@@ -60,6 +60,9 @@ import cpptooling.testdouble.header_filter : LocationType;
 
     /// Generate a #include of the post include header
     bool doIncludeOfPostIncludes();
+
+    /// Generate test doubles of free functions
+    bool doFreeFunction();
 }
 
 /** Parameters used during generation.
@@ -566,16 +569,18 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         static assert("Type not supported: " ~ CppT.stringof);
     }
 
-    // dfmt off
-    input.funcRange
-        // by definition static functions can't be replaced by test doubles
-        .filter!(a => a.storageClass != StorageClass.Static)
-        // ask controller if the file should be mocked, and thus the node
-        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
-        // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
-        .each!(a => filtered.put(a.value));
-    // dfmt on
+    if (ctrl.doFreeFunction) {
+        // dfmt off
+        input.funcRange
+            // by definition static functions can't be replaced by test doubles
+            .filter!(a => a.storageClass != StorageClass.Static)
+            // ask controller if the file should be mocked, and thus the node
+            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+            // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .each!(a => filtered.put(a.value));
+        // dfmt on
+    }
 
     // Assuming that namespaces are never duplicated at this stage.
     // The assumption comes from the structure of the clang AST.
