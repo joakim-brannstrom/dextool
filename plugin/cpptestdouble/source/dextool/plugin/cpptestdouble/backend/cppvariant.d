@@ -18,7 +18,7 @@ Responsible for:
 */
 module dextool.plugin.backend.cpptestdouble.cppvariant;
 
-import std.typecons : No, Flag, Nullable, Yes;
+import std.typecons : No, Flag, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -26,6 +26,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
     CustomHeader, MainNs, MainInterface;
 import cpptooling.analyzer.clang.ast : Visitor;
+import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
 /** Control various aspectes of the analyze and generation like what nodes to
@@ -143,6 +144,7 @@ import cpptooling.testdouble.header_filter : LocationType;
  * TODO postProcess shouldn't be a member method.
  */
 struct Generator {
+    import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
@@ -160,7 +162,7 @@ struct Generator {
 
     ///
     this(Controller ctrl, Parameters params, Products products) {
-        this.file_analyze_result = CppRoot.make;
+        this.analyze = AnalyzeData.make;
         this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
@@ -173,8 +175,8 @@ struct Generator {
         import cpptooling.data.representation : MergeMode;
 
         NullableRef!Container cont_ = &container;
-        auto visitor = new CppVisitor!(VisitorKind.root, Controller, Products)(ctrl,
-                products, cont_);
+        NullableRef!AnalyzeData analyz = &analyze.get();
+        auto visitor = new CppVisitor!(VisitorKind.root)(ctrl, products, analyz, cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
@@ -185,7 +187,7 @@ struct Generator {
         auto fl = rawFilter(visitor.root, ctrl, products,
                 (USRType usr) => container.find!LocationTag(usr));
 
-        file_analyze_result.merge(fl, MergeMode.full);
+        analyze.root.merge(fl, MergeMode.full);
 
         return ExitStatusType.Ok;
     }
@@ -208,16 +210,18 @@ struct Generator {
     void process() {
         import cpptooling.data.symbol.types : USRType;
 
-        assert(!file_analyze_result.isNull);
+        assert(!analyze.isNull);
 
         debug logger.trace(container.toString);
 
-        logger.tracef("Filtered:\n%u", file_analyze_result.get);
+        logger.tracef("Filtered:\n%u", analyze.root);
 
-        auto impl_data = translate(file_analyze_result, container, ctrl, params);
-        file_analyze_result.nullify();
+        auto impl_data = ImplData.make();
+        impl_data.putForLookup(analyze.classes);
+        translate(analyze.root, container, ctrl, params, impl_data);
+        analyze.nullify();
 
-        logger.trace("Translated to implementation:\n", impl_data.toString());
+        logger.tracef("Translated to implementation:\n%u", impl_data.root);
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = Modules.make();
@@ -229,7 +233,7 @@ private:
     ClangContext ctx;
     Controller ctrl;
     Container container;
-    Nullable!CppRoot file_analyze_result;
+    Nullable!AnalyzeData analyze;
     Parameters params;
     Products products;
 
@@ -293,7 +297,7 @@ enum VisitorKind {
     child
 }
 
-final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
+final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
@@ -311,32 +315,36 @@ final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
     mixin generateIndentIncrDecr;
 
     NullableRef!Container container;
+    NullableRef!AnalyzeData analyze_data;
 
     private {
-        ControllerT ctrl;
-        ProductT prod;
+        Controller ctrl;
+        Products prod;
         CppNsStack ns_stack;
     }
 
     static if (RootT == VisitorKind.root) {
         CppRoot root;
 
-        this(ControllerT ctrl, ProductT prod, NullableRef!Container container) {
+        this(Controller ctrl, Products prod, NullableRef!AnalyzeData analyze,
+                NullableRef!Container container) {
             this.ctrl = ctrl;
             this.prod = prod;
+            this.analyze_data = analyze;
             this.container = container;
             this.root = CppRoot.make;
         }
     } else {
         CppNamespace root;
 
-        this(ControllerT ctrl, ProductT prod, uint indent, CppNsStack ns_stack,
-                NullableRef!Container container) {
+        this(Controller ctrl, Products prod, uint indent, CppNsStack ns_stack,
+                NullableRef!AnalyzeData analyze, NullableRef!Container container) {
             this.root = CppNamespace(ns_stack);
             this.ctrl = ctrl;
             this.prod = prod;
             this.indent = indent;
             this.ns_stack = ns_stack;
+            this.analyze_data = analyze;
             this.container = container;
         }
     }
@@ -395,7 +403,7 @@ final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
             v.accept(visitor);
 
             root.put(visitor.root);
-            container.put(visitor.root, visitor.root.fullyQualifiedName);
+            analyze_data.putForLookup(visitor.root);
         } else {
             auto type = retrieveType(v.cursor, container, indent);
             put(type, container, indent);
@@ -410,8 +418,8 @@ final class CppVisitor(VisitorKind RootT, ControllerT, ProductT) : Visitor {
         scope (exit)
             ns_stack = ns_stack[0 .. $ - 1];
 
-        auto ns_visitor = scoped!(CppVisitor!(VisitorKind.child, ControllerT, ProductT))(ctrl,
-                prod, indent, ns_stack, container);
+        auto ns_visitor = scoped!(CppVisitor!(VisitorKind.child))(ctrl, prod,
+                indent, ns_stack, analyze_data, container);
 
         v.accept(ns_visitor);
 
@@ -457,14 +465,37 @@ enum Kind {
     testDoubleInterface,
 }
 
-struct ImplData {
-    import cpptooling.data.type : CppMethodName;
+/// Data derived during analyze
+struct AnalyzeData {
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
+    static auto make() {
+        AnalyzeData r;
+        r.root = CppRoot.make;
+        return r;
+    }
 
     CppRoot root;
-    alias root this;
 
-    /// Tagging of nodes in the root
-    Kind[size_t] kind;
+    /// Classes found during src analysis.
+    CppClass[FullyQualifiedNameType] classes;
+
+    void putForLookup(CppClass c) {
+        classes[c.fullyQualifiedName] = c;
+    }
+}
+
+struct ImplData {
+    import cpptooling.data.type : CppMethodName;
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
+
+    CppRoot root;
+
+    /// Tagging of nodes in the root determining how they are handled by the
+    /// code generator step.
+    private Kind[size_t] kind;
+    /// Classes found during src analysis.
+    private CppClass[FullyQualifiedNameType] classes;
 
     static auto make() {
         return ImplData(CppRoot.make);
@@ -480,6 +511,29 @@ struct ImplData {
         }
 
         return Kind.none;
+    }
+
+    void putForLookup(ref CppClass[FullyQualifiedNameType] other) @trusted {
+        foreach (v; other.byKeyValue) {
+            classes[v.key] = v.value;
+        }
+    }
+
+    void putForLookup(CppClass c) {
+        classes[c.fullyQualifiedName] = c;
+    }
+
+    /// Returns: a range containing the class matching fqn, if found.
+    auto lookupClass(FullyQualifiedNameType fqn) @safe {
+        import std.range : only;
+        import std.typecons : NullableRef;
+
+        typeof(only(NullableRef!CppClass())) rval;
+        if (auto c = fqn in classes) {
+            rval = only(NullableRef!CppClass(c));
+        }
+
+        return rval;
     }
 }
 
@@ -554,46 +608,41 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     return filtered;
 }
 
-auto translate(CppRoot root, ref Container container, Controller ctrl, Parameters params) {
+void translate(CppRoot root, ref Container container, Controller ctrl,
+        Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
 
-    auto r = ImplData.make;
-
     // dfmt off
-    root.namespaceRange
-        .map!(a => translate(a, r, container, ctrl, params))
-        .filter!(a => !a.isNull)
-        .each!(a => r.put(a.get));
+    foreach (a; root.namespaceRange
+        .map!(a => translate(a, impl, container, ctrl, params))
+        .filter!(a => !a.empty)) {
+        impl.root.put(a);
+    }
 
     foreach (a; root.classRange
-        .map!(a => mergeClassInherit(a, container))
+        .map!(a => mergeClassInherit(a, container, impl))
         // can happen that the result is a class with no methods, thus in state Unknown
         .filter!(a => a.isVirtual)) {
-        r.tag(a.id, Kind.gmock);
-        r.put(a);
+        impl.tag(a.id, Kind.gmock);
+        impl.root.put(a);
+        impl.putForLookup(a);
     }
     // dfmt on
-
-    return r;
 }
 
 /** Translate namspaces and the content to test double implementations.
  */
-Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
+CppNamespace translate(CppNamespace input, ref ImplData data,
         ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data.representation : CppNs, CppClassName, makeUniqueUSR,
-        nextUniqueID;
-    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
-        makeSingleton;
-    import cpptooling.generator.func : makeFuncInterface;
-    import cpptooling.generator.gmock : makeGmock;
+    import cpptooling.data.type : CppNsStack, CppNs;
 
-    static auto makeGmockInNs(CppClass c, Parameters params, ref ImplData data) {
+    static auto makeGmockInNs(CppClass c, CppNsStack ns_hier, ref ImplData data) {
         import cpptooling.data.representation : CppNs;
+        import cpptooling.generator.gmock : makeGmock;
 
-        auto ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
+        auto ns = CppNamespace(ns_hier);
         data.tag(ns.id, Kind.testDoubleNamespace);
         auto mock = makeGmock(c);
         data.tag(mock.id, Kind.gmock);
@@ -601,58 +650,66 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data,
         return ns;
     }
 
-    auto ns = CppNamespace.make(input.name);
+    auto ns = CppNamespace(input.resideInNs);
 
     if (!input.funcRange.empty) {
-        // singleton instance must be before the functions
-        auto singleton = makeSingleton(params.getMainNs, params.getMainInterface);
-        data.tag(singleton.id, Kind.testDoubleSingleton);
-        ns.put(singleton);
-
-        // output the functions using the singleton
-        input.funcRange.each!(a => ns.put(a));
-
-        auto td_ns = CppNamespace.make(CppNs(cast(string) params.getMainNs));
-        data.tag(td_ns.id, Kind.testDoubleNamespace);
-
-        auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(params.getMainInterface));
-        data.tag(i_free_func.id, Kind.testDoubleInterface);
-        td_ns.put(i_free_func);
-
-        auto adapter = makeAdapter(params.getMainInterface).makeTestDouble(true).finalize;
-        data.tag(adapter.id, Kind.adapter);
-        td_ns.put(adapter);
-
-        if (ctrl.doGoogleMock) {
-            auto mock = makeGmock(i_free_func);
-            data.tag(mock.id, Kind.gmock);
-            td_ns.put(mock);
-        }
-
-        ns.put(td_ns);
+        translateToTestDoubleForFreeFunctions(input, data, cast(Flag!"doGoogleMock") ctrl.doGoogleMock,
+                ns.resideInNs, params.getMainNs, params.getMainInterface, ns);
     }
 
     //dfmt off
     input.namespaceRange()
         .map!(a => translate(a, data, container, ctrl, params))
-        .filter!(a => !a.isNull)
-        .each!(a => ns.put(a.get));
+        .filter!(a => !a.empty)
+        .each!(a => ns.put(a));
 
     foreach (class_; input.classRange
-        .map!(a => mergeClassInherit(a, container))
+        .map!(a => mergeClassInherit(a, container, data))
         // can happen that the result is a class with no methods, thus in state Unknown
         .filter!(a => a.isVirtual)) {
-        auto mock = makeGmockInNs(class_, params, data);
+        auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup, CppNs(params.getMainNs)), data);
         ns.put(mock);
     }
     // dfmt on
 
-    Nullable!CppNamespace rval;
-    if (!ns.namespaceRange.empty || !ns.classRange.empty) {
-        rval = ns;
+    return ns;
+}
+
+void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData data, Flag!"doGoogleMock" do_gmock,
+        const CppNsStack reside_in_ns, MainNs main_ns, MainInterface main_if, ref CppNamespace ns) {
+    import std.algorithm : each;
+    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
+        makeSingleton;
+    import cpptooling.data.representation : CppNs, CppClassName;
+    import cpptooling.generator.func : makeFuncInterface;
+    import cpptooling.generator.gmock : makeGmock;
+
+    // singleton instance must be before the functions
+    auto singleton = makeSingleton(main_ns, main_if);
+    data.tag(singleton.id, Kind.testDoubleSingleton);
+    ns.put(singleton);
+
+    // output the functions using the singleton
+    input.funcRange.each!(a => ns.put(a));
+
+    auto td_ns = CppNamespace(CppNsStack(reside_in_ns.dup, CppNs(main_ns)));
+    data.tag(td_ns.id, Kind.testDoubleNamespace);
+
+    auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(main_if));
+    data.tag(i_free_func.id, Kind.testDoubleInterface);
+    td_ns.put(i_free_func);
+
+    auto adapter = makeAdapter(main_if).makeTestDouble(true).finalize;
+    data.tag(adapter.id, Kind.adapter);
+    td_ns.put(adapter);
+
+    if (do_gmock) {
+        auto mock = makeGmock(i_free_func);
+        data.tag(mock.id, Kind.gmock);
+        td_ns.put(mock);
     }
 
-    return rval;
+    ns.put(td_ns);
 }
 
 /** Translate the structure to code.
@@ -667,7 +724,7 @@ void generate(ref ImplData r, Controller ctrl, Parameters params,
 in {
     import std.array : empty;
 
-    assert(r.funcRange.empty);
+    assert(r.root.funcRange.empty);
 }
 body {
     import std.algorithm : each, filter;
@@ -728,10 +785,10 @@ body {
         }
     }
 
-    gmockGlobal(r.classRange, modules.gmock, params, r);
+    gmockGlobal(r.root.classRange, modules.gmock, params, r);
 
     // no singleton in global namespace thus null
-    foreach (a; r.namespaceRange()) {
+    foreach (a; r.root.namespaceRange()) {
         eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), r);
     }
 }
@@ -785,7 +842,7 @@ void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl, ref ImplData data
     }
 }
 
-CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
+CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref ImplData impl) {
     if (class_.inheritRange.length == 0) {
         return class_;
     }
@@ -806,9 +863,10 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
         // dfmt on
     }
 
-    static CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container) @safe {
+    static CppClass.CppFunc[] getMethods(const ref CppClass c,
+            ref Container container, ref ImplData impl) @safe {
         import std.array : array, appender;
-        import std.algorithm : copy, filter, map, each, cache;
+        import std.algorithm : cache, copy, each, filter, joiner, map;
         import std.range : chain;
 
         // dfmt off
@@ -816,12 +874,10 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
                 .filter!(a => isMethodOrOperator(a));
 
         auto inherit_methods = c.inheritRange
-            .map!(a => container.find!CppClass(a.fullyQualifiedName))
+            .map!(a => impl.lookupClass(a.fullyQualifiedName))
             // some classes do not exist in AST thus no methods returned
-            .filter!(a => a.length > 0)
-            .cache
-            .map!(a => a.front)
-            .map!(a => getMethods(a.get, container));
+            .joiner
+            .map!(a => getMethods(a, container, impl));
         // dfmt on
 
         auto methods = appender!(CppClass.CppFunc[])();
@@ -874,7 +930,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container) {
         // dfmt on
     }
 
-    auto methods = dedup(getMethods(class_, container));
+    auto methods = dedup(getMethods(class_, container, impl));
 
     auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
     // dfmt off

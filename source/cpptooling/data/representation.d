@@ -1443,7 +1443,6 @@ enum MergeMode {
     /// A namespace without any nesting.
     static auto make(CppNs name) nothrow {
         auto rval = CppNamespace(CppNsStack([name]));
-        rval.setUniqueId(makeUniqueUSR);
         return rval;
     }
 
@@ -1635,8 +1634,13 @@ const:
     mixin(standardToString);
 
     /// If the namespace is anonymous, aka has no name.
-    auto isAnonymous() pure nothrow {
+    bool isAnonymous() pure nothrow {
         return name_.length == 0;
+    }
+
+    /// Returns: True if completely empty.
+    bool empty() pure nothrow {
+        return !(classes.length || funcs.length || namespaces.length || globals.length);
     }
 
     /// Name of the namespace
@@ -1700,8 +1704,7 @@ struct CppRoot {
     static auto make() @safe {
         import std.container : make;
 
-        typeof(this) r;
-
+        CppRoot r;
         r.globals = make!(typeof(this.globals));
         r.funcs = make!(typeof(this.funcs));
 

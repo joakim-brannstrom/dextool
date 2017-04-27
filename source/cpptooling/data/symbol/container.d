@@ -16,17 +16,12 @@ import logger = std.experimental.logger;
 //TODO move TypeKind to .data
 import cpptooling.analyzer.type : TypeKind;
 
-import cpptooling.data.representation : CppClass;
 import cpptooling.data.symbol.types;
 import cpptooling.data.type : LocationTag;
 
 version (unittest) {
     import unit_threaded : Name;
     import unit_threaded : shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 /** Wrapper for the results from the find-methods in Container.
@@ -112,7 +107,7 @@ private struct FastLookup(T, K) {
     }
 }
 
-@Name("Should be a zero-length range")
+@("Should be a zero-length range")
 unittest {
     auto inst = FastLookup!(int, int)();
     auto result = inst.find(0);
@@ -120,7 +115,7 @@ unittest {
     result.length.shouldEqual(0);
 }
 
-/** Location of all declarations.
+/** Location of all definitions (fallback, declaration).
  *
  * Assuming that there can only be one definition but multiple declarations.
  *
@@ -131,7 +126,7 @@ unittest {
  * occasions when a definition isn't found.
  *
  * Remember that for those users of DeclLocation that do not have a
- * cache/delaying the decision until all files have been analyzed base may base
+ * cache/delaying the decision until all files have been analyzed may base
  * their decision on the first occurens. Therefor to be less surprising to the
  * user the first one is saved and the rest discarded.
  *
@@ -209,7 +204,6 @@ struct Container {
     import std.format : FormatSpec;
 
     private {
-        FastLookup!(CppClass, FullyQualifiedNameType) classes;
         FastLookup!(TypeKind, USRType) types;
         FastLookup!(DeclLocation, USRType) locations;
     }
@@ -249,15 +243,6 @@ struct Container {
         return locations.find(usr);
     }
 
-    /// Find the class with the fully qualified name as key.
-    auto find(T)(FullyQualifiedNameType fqn) if (is(T == CppClass))
-    out (result) {
-        logger.tracef(result.length == 0, "No symbol found for '%s'", cast(string) fqn);
-    }
-    body {
-        return classes.find(fqn);
-    }
-
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.algorithm : map, copy;
         import std.ascii : newline;
@@ -269,13 +254,6 @@ struct Container {
 
         // avoid allocating
 
-        put(w, "classes [");
-        foreach (a; classes[]) {
-            put(w, newline);
-            put(w, "  ");
-            put(w, cast(string) a.fullyQualifiedName);
-        }
-        put(w, "]\n");
         put(w, "types [");
         foreach (a; types[]) {
             formattedWrite(w, "\n  %s %s -> %s", a.info.kind.to!string(),
@@ -339,18 +317,6 @@ struct Container {
         }
     }
 
-    /** Store the CppClass.
-     *
-     * Assuming that the fully qualified name is unique throughout the program.
-     */
-    void put(T)(ref T cl, FullyQualifiedNameType fqn) if (is(T : CppClass)) {
-        if (fqn in classes.lookup) {
-            return;
-        }
-
-        classes.put(cl, fqn);
-    }
-
     void put(LocationTag location, USRType usr, Flag!"isDefinition" is_definition) @safe {
         auto found_decl = usr in locations.lookup;
 
@@ -376,7 +342,7 @@ struct Container {
     }
 }
 
-@Name("Should find the value corresponding to the key")
+@("Should find the value corresponding to the key")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -399,7 +365,7 @@ unittest {
     }
 }
 
-@Name("Should skip inserting the value if it already exist in the container")
+@("Should skip inserting the value if it already exist in the container")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -416,25 +382,6 @@ unittest {
         cont.find!LocationTag(USRType("file")).length.shouldEqual(1);
 }
 
-@Name("should be able to use the found class")
-unittest {
-    import cpptooling.data.representation : CppClass, CppClassName;
-
-    auto c = CppClass(CppClassName("Class"));
-
-    Container cont;
-    cont.put(c, c.fullyQualifiedName);
-
-    // not really needed test but independent at two places, see the invariant.
-    1.shouldEqual(cont.classes[].length);
-
-    // should be able to find a stored class by the FQN
-    auto found_class = cont.find!CppClass(FullyQualifiedNameType("Class")).front;
-
-    // should be able to use the found class
-    "Class".shouldEqual(cast(string) found_class.name);
-}
-
 @("given a list of items they shall all be included in the output")
 unittest {
     import std.conv : to;
@@ -445,9 +392,6 @@ unittest {
     Container cont;
 
     for (auto i = 0; i < 2; ++i) {
-        auto c = CppClass(CppClassName("Class" ~ to!string(i)));
-        cont.put(c, c.fullyQualifiedName);
-
         auto loc = LocationTag(Location("file" ~ to!string(i), 1, 2));
         cont.put(loc, USRType("key" ~ to!string(i)), cast(Flag!"isDefinition")(i % 2 == 0));
 
@@ -455,10 +399,7 @@ unittest {
         cont.put(kind);
     }
 
-    cont.toString.shouldEqualPretty(`classes [
-  Class0
-  Class1]
-types [
+    cont.toString.shouldEqualPretty(`types [
   null_ key0 -> TypeIdLR("", "")
   null_ key1 -> TypeIdLR("", "")]
 locations [
@@ -467,7 +408,7 @@ locations [
   key0 -> File:file0 Line:1 Column:2]`);
 }
 
-@Name("Should allow only one definition location but multiple declaration locations")
+@("Should allow only one definition location but multiple declaration locations")
 unittest {
     import cpptooling.data.type : Location;
 

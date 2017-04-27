@@ -11,15 +11,6 @@ TODO remove the trailing s in the module name, ....symbol.types <---
 */
 module cpptooling.data.symbol.types;
 
-/** The type of C++ symbol that is referenced.
- * The class must exist.
- */
-enum Kind {
-    None,
-    TypeKind,
-    CppClass
-}
-
 struct FullyQualifiedNameType {
     string payload;
     alias payload this;
