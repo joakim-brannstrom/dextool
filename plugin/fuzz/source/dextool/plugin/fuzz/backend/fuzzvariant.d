@@ -270,7 +270,7 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
             v.accept(visitor);
 
             root.put(visitor.root);
-            container.put(visitor.root, visitor.root.fullyQualifiedName);
+            //container.put(visitor.root, visitor.root.fullyQualifiedName);
         } else {
             auto type = retrieveType(v.cursor, container, indent);
             put(type, container, indent);

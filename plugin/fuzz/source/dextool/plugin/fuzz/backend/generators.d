@@ -39,6 +39,11 @@ import backend.fuzz.types;
     main_hdr_inner.include("<iostream>");
     main_hdr_inner.include("<map>");
     main_hdr_inner.include("<string>");
+
+    with (main_hdr_inner.enum_) {
+        enum_const("RANDOM_GENERATOR");
+        enum_const("STATIC_GENERATOR");
+    }
 }
 
 @trusted void generateCreateInstance(CppModule inner, string return_type, string func_name, 
@@ -149,7 +154,7 @@ import backend.fuzz.types;
 
             auto func2 = func_body("void", "Regenerate");
             auto func1 = func_body("void", "Regenerate",
-                                     "const std::map<std::string, std::vector<int>> &vars"); 
+                                     "const std::map<std::string, std::vector<std::vector<int>>> &vars"); 
 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
