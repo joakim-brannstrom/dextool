@@ -554,7 +554,6 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     import dextool.type : FileName;
     import cpptooling.data.representation : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
-    import cpptooling.utility : dedup;
 
     // setup
     static if (is(CppT == CppRoot)) {
@@ -567,21 +566,16 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         static assert("Type not supported: " ~ CppT.stringof);
     }
 
-    // type specific
-    static if (is(CppT == CppNamespace)) {
-        // dfmt off
-        input.funcRange
-            .array()
-            .dedup
-            // by definition static functions can't be replaced by test doubles
-            .filter!(a => a.storageClass != StorageClass.Static)
-            // ask controller if the file should be mocked, and thus the node
-            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
-            // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
-            .each!(a => filtered.put(a.value));
-        // dfmt on
-    }
+    // dfmt off
+    input.funcRange
+        // by definition static functions can't be replaced by test doubles
+        .filter!(a => a.storageClass != StorageClass.Static)
+        // ask controller if the file should be mocked, and thus the node
+        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+        // pass on location as a product to be used to calculate #include
+        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .each!(a => filtered.put(a.value));
+    // dfmt on
 
     // Assuming that namespaces are never duplicated at this stage.
     // The assumption comes from the structure of the clang AST.
@@ -611,6 +605,11 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
 void translate(CppRoot root, ref Container container, Controller ctrl,
         Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
+
+    if (!root.funcRange.empty) {
+        translateToTestDoubleForFreeFunctions(root, impl, cast(Flag!"doGoogleMock") ctrl.doGoogleMock,
+                CppNsStack.init, params.getMainNs, params.getMainInterface, impl.root);
+    }
 
     // dfmt off
     foreach (a; root.namespaceRange
@@ -675,8 +674,9 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     return ns;
 }
 
-void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData data, Flag!"doGoogleMock" do_gmock,
-        const CppNsStack reside_in_ns, MainNs main_ns, MainInterface main_if, ref CppNamespace ns) {
+void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplData data,
+        Flag!"doGoogleMock" do_gmock, const CppNsStack reside_in_ns,
+        MainNs main_ns, MainInterface main_if, ref OutT ns) {
     import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
         makeSingleton;
@@ -714,82 +714,88 @@ void translateToTestDoubleForFreeFunctions(ref CppNamespace input, ref ImplData 
 
 /** Translate the structure to code.
  *
- * order is important, affects code layout:
- *  - anonymouse for test double instance.
- *  - implementations using double.
- *  - adapter.
+ * Generates:
+ *  - #include's needed by the test double
+ *  - recursive starting with the root:
+ *    order is important, affects code layout:
+ *      - anonymouse instance of the adapter for the test double
+ *      - free function implementations using the registered test double
+ *      - adapter registering a test double instance
  */
-void generate(ref ImplData r, Controller ctrl, Parameters params,
-        Generator.Modules modules, ref const(Container) container)
-in {
-    import std.array : empty;
-
-    assert(r.root.funcRange.empty);
-}
-body {
-    import std.algorithm : each, filter;
-    import cpptooling.data.symbol.types : USRType;
+void generate(ref ImplData impl, Controller ctrl, Parameters params,
+        Generator.Modules modules, ref const Container container) {
+    import std.algorithm : filter;
+    import cpptooling.generator.includes : generateIncludes;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
-    import cpptooling.generator.includes : generateIncludes;
 
     generateIncludes(ctrl, params, modules.hdr);
 
-    static void gmockGlobal(T)(T r, CppModule gmock, Parameters params, ref ImplData data) {
-        foreach (a; r.filter!(a => data.lookup(a.id) == Kind.gmock)) {
-            generateGmock(a, gmock, params);
-        }
+    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
+        generateGmock(a, modules.gmock, params);
     }
 
-    // recursive to handle nested namespaces.
-    // the singleton ns must be the first code generate or the impl can't
-    // use the instance.
-    static void eachNs(LookupT)(CppNamespace ns, Parameters params,
-            Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ref ImplData data) {
+    auto td_singleton = modules.impl.base;
+    td_singleton.suppressIndent(1);
 
-        auto inner = modules;
-        CppModule inner_impl_singleton;
-
-        switch (data.lookup(ns.id)) with (Kind) {
-        case none:
-            //TODO how to do this with meta-programming?
-            inner.hdr = modules.hdr.namespace(ns.name);
-            inner.hdr.suppressIndent(1);
-            inner.impl = modules.impl.namespace(ns.name);
-            inner.impl.suppressIndent(1);
-            inner.gmock = modules.gmock.namespace(ns.name);
-            inner.gmock.suppressIndent(1);
-            inner_impl_singleton = inner.impl.base;
-            inner_impl_singleton.suppressIndent(1);
-            break;
-        case testDoubleSingleton:
-            import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
-
-            generateSingleton(ns, impl_singleton);
-            break;
-        case testDoubleInterface:
-            break;
-        case testDoubleNamespace:
-            generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock, lookup, data);
-            generateNsTestDoubleImpl(ns, modules.impl, data);
-            break;
-        default:
-            break;
-        }
-
-        foreach (a; ns.funcRange) {
-            generateFuncImpl(a, inner.impl);
-        }
-        foreach (a; ns.namespaceRange) {
-            eachNs(a, params, inner, inner_impl_singleton, lookup, data);
-        }
+    foreach (a; impl.root.funcRange) {
+        generateFuncImpl(a, modules.impl);
     }
-
-    gmockGlobal(r.root.classRange, modules.gmock, params, r);
 
     // no singleton in global namespace thus null
-    foreach (a; r.root.namespaceRange()) {
-        eachNs(a, params, modules, null, (USRType usr) => container.find!LocationTag(usr), r);
+    foreach (a; impl.root.namespaceRange()) {
+        generateForEach(impl, a, params, modules, td_singleton, container);
+    }
+}
+
+/**
+ * recursive to handle nested namespaces.
+ * the singleton ns must be the first code generate or the impl can't use the
+ * instance.
+ */
+void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
+        Generator.Modules modules, CppModule impl_singleton, ref const Container container) {
+    import cpptooling.data.symbol.types : USRType;
+    import cpptooling.generator.func : generateFuncImpl;
+    import cpptooling.generator.gmock : generateGmock;
+
+    auto inner = modules;
+    CppModule inner_impl_singleton;
+
+    switch (impl.lookup(ns.id)) with (Kind) {
+    case none:
+        //TODO how to do this with meta-programming?
+        inner.hdr = modules.hdr.namespace(ns.name);
+        inner.hdr.suppressIndent(1);
+        inner.impl = modules.impl.namespace(ns.name);
+        inner.impl.suppressIndent(1);
+        inner.gmock = modules.gmock.namespace(ns.name);
+        inner.gmock.suppressIndent(1);
+        inner_impl_singleton = inner.impl.base;
+        inner_impl_singleton.suppressIndent(1);
+        break;
+    case testDoubleSingleton:
+        import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
+
+        generateSingleton(ns, impl_singleton);
+        break;
+    case testDoubleInterface:
+        break;
+    case testDoubleNamespace:
+        generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock,
+                (USRType usr) => container.find!LocationTag(usr), impl);
+        generateNsTestDoubleImpl(ns, modules.impl, impl);
+        break;
+    default:
+        break;
+    }
+
+    foreach (a; ns.funcRange) {
+        generateFuncImpl(a, inner.impl);
+    }
+
+    foreach (a; ns.namespaceRange) {
+        generateForEach(impl, a, params, inner, inner_impl_singleton, container);
     }
 }
 

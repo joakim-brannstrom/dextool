@@ -1,0 +1,20 @@
+#include "test_double.hpp"
+
+namespace {
+TestDouble::I_TestDouble *test_double_inst = 0;
+} //NS:
+
+void fun() {
+    test_double_inst->fun();
+}
+
+namespace TestDouble {
+Adapter::Adapter(I_TestDouble &inst) {
+    test_double_inst = &inst;
+}
+
+Adapter::~Adapter() {
+    test_double_inst = 0;
+}
+
+} //NS:TestDouble
