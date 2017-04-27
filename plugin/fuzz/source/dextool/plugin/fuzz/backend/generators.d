@@ -38,6 +38,8 @@ import backend.fuzz.types;
                 }
             
             }
+
+            stmt("APP_"~app_name~"_Execute()");
         }
 
         stmt("APP_" ~ app_name ~ "_Terminate()");
