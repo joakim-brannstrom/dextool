@@ -606,6 +606,11 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
         Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
 
+    if (!root.funcRange.empty) {
+        translateToTestDoubleForFreeFunctions(root, impl, cast(Flag!"doGoogleMock") ctrl.doGoogleMock,
+                CppNsStack.init, params.getMainNs, params.getMainInterface, impl.root);
+    }
+
     // dfmt off
     foreach (a; root.namespaceRange
         .map!(a => translate(a, impl, container, ctrl, params))
