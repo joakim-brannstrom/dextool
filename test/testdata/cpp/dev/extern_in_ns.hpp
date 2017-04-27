@@ -20,5 +20,3 @@ void fun_level1();
 } // NS: level1
 
 } // NS: level0
-
-void free_func();

@@ -108,6 +108,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_wchar.hpp", testEnv);
+    p.dexParams ~= ["--file-restrict=.*bug_wchar.hpp"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -193,6 +194,14 @@ unittest {
 
     p.dexFlags = p.compileIncls;
 
+    runTestFile(p, testEnv);
+}
+
+@Name(testId ~ "Shall generate a test double for the free function")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/one_free_func.hpp", testEnv);
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
 

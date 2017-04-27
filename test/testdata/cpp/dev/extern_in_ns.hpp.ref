@@ -11,8 +11,6 @@ public:
     virtual ~I_TestDouble() {}
 };
 
-///
-///
 class Adapter {
 public:
     Adapter(I_TestDouble &inst);
@@ -31,8 +29,6 @@ public:
     virtual ~I_TestDouble() {}
 };
 
-/// Adapter connecting an interface with an implementation.
-/// The lifetime of the connection is the same as the instance of the adapter.
 class Adapter {
 public:
     Adapter(I_TestDouble &inst);
