@@ -1420,6 +1420,7 @@ enum MergeMode {
 }
 
 @safe struct CppNamespace {
+    import std.container : RedBlackTree;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     mixin mixinUniqueId!size_t;
@@ -1428,10 +1429,11 @@ enum MergeMode {
         CppNs name_;
 
         CppNsStack stack;
+
         CppClass[] classes;
-        CFunction[] funcs;
         CppNamespace[] namespaces;
-        CxGlobalVariable[] globals;
+        RedBlackTree!(SortByString!CxGlobalVariable, "a.id < b.id") globals;
+        RedBlackTree!(SortByString!CFunction, "a.id < b.id") funcs;
     }
 
     static auto makeAnonymous() nothrow {
@@ -1448,10 +1450,13 @@ enum MergeMode {
 
     this(const CppNsStack stack) nothrow {
         import std.algorithm : joiner;
+        import std.container : make;
         import std.digest.crc : crc32Of;
         import std.utf : byChar;
 
         this.stack = CppNsStack(stack.dup);
+        this.globals = make!(typeof(this.globals));
+        this.funcs = make!(typeof(this.funcs));
 
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
@@ -1514,22 +1519,24 @@ enum MergeMode {
     void merge(ref CppNamespace other_ns, MergeMode mode) @safe pure nothrow {
         import std.meta : AliasSeq;
 
-        bool[size_t] exists;
-
-        // update list of items that are in this namespace
-        foreach (kind; AliasSeq!("classRange", "funcRange", "globalRange")) {
-            foreach (ref item; __traits(getMember, this, kind)) {
-                exists[item.id] = true;
+        foreach (kind; AliasSeq!("funcRange", "globalRange")) {
+            foreach (ref item; __traits(getMember, other_ns, kind)) {
+                put(item);
             }
+        }
+
+        // not a RedBlackTree so must ensure deduplication via a AA
+
+        bool[size_t] exists;
+        foreach (ref item; classRange) {
+            exists[item.id] = true;
         }
 
         // only copy items from other NS that are NOT in this NS.
         // assumption: two items with the same ID are the same content wise.
-        foreach (kind; AliasSeq!("classRange", "funcRange", "globalRange")) {
-            foreach (ref item; __traits(getMember, other_ns, kind)) {
-                if (item.id !in exists) {
-                    put(item);
-                }
+        foreach (ref item; other_ns.classRange) {
+            if (item.id !in exists) {
+                put(item);
             }
         }
 
@@ -1571,7 +1578,13 @@ enum MergeMode {
 
     /// Put item in storage.
     void put(CFunction f) pure nothrow {
-        funcs ~= f;
+        auto tmp = SortByString!CFunction(f, f.usr);
+
+        try {
+            () @trusted pure{ funcs.insert(tmp); }();
+        }
+        catch (Exception ex) {
+        }
     }
 
     /// ditto
@@ -1595,7 +1608,13 @@ enum MergeMode {
 
     /// ditto
     void put(CxGlobalVariable g) pure nothrow {
-        globals ~= g;
+        auto tmp = SortByString!CxGlobalVariable(g, g.name);
+
+        try {
+            () @trusted pure{ globals.insert(tmp); }();
+        }
+        catch (Exception ex) {
+        }
     }
 
     /** Range of the fully qualified name starting from the top.
@@ -1616,7 +1635,7 @@ enum MergeMode {
 
     /// Range of free functions residing in this namespace.
     auto funcRange() @nogc pure nothrow {
-        return funcs;
+        return funcs[];
     }
 
     /// Range of namespaces residing in this namespace.
@@ -1626,7 +1645,7 @@ enum MergeMode {
 
     /// Global variables residing in this namespace.
     auto globalRange() @nogc pure nothrow {
-        return globals;
+        return globals[];
     }
 
 const:
@@ -1737,7 +1756,7 @@ struct CppRoot {
         import std.meta : AliasSeq;
 
         foreach (kind; AliasSeq!("funcRange", "globalRange")) {
-            foreach (item; __traits(getMember, root, kind)) {
+            foreach (ref item; __traits(getMember, root, kind)) {
                 put(item);
             }
         }
@@ -2428,8 +2447,8 @@ unittest {
     ns2.merge(ns1, MergeMode.shallow);
 
     ns2.classRange.map!(a => a.name).array().shouldEqual(["ns2_class", "ns1_class"]);
-    ns2.globalRange.map!(a => a.name).array().shouldEqual(["ns2_var", "ns1_var"]);
-    ns2.funcRange.map!(a => a.name).array().shouldEqual(["ns2_func", "ns1_func"]);
+    ns2.globalRange.array().map!(a => a.name).array().shouldEqual(["ns1_var", "ns2_var"]);
+    ns2.funcRange.array().map!(a => a.name).array().shouldEqual(["ns1_func", "ns2_func"]);
 }
 
 @("Shall merge two namespaces recursively")
@@ -2505,8 +2524,8 @@ unittest {
     ns2.namespaceRange.length.shouldEqual(1);
     ns2.namespaceRange.map!(a => a.name).array().shouldEqual(["ns3"]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(1);
-    ns2.namespaceRange[0].funcRange.length.shouldEqual(1);
-    ns2.namespaceRange[0].globalRange.length.shouldEqual(1);
+    ns2.namespaceRange[0].funcRange.array().length.shouldEqual(1);
+    ns2.namespaceRange[0].globalRange.array().length.shouldEqual(1);
 
     // Act
     ns4.put(ns3_b);
@@ -2516,6 +2535,6 @@ unittest {
     ns2.namespaceRange.length.shouldEqual(1);
     ns2.namespaceRange.map!(a => a.name).array().shouldEqual(["ns3"]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(2);
-    ns2.namespaceRange[0].funcRange.length.shouldEqual(2);
-    ns2.namespaceRange[0].globalRange.length.shouldEqual(2);
+    ns2.namespaceRange[0].funcRange.array().length.shouldEqual(2);
+    ns2.namespaceRange[0].globalRange.array().length.shouldEqual(2);
 }
