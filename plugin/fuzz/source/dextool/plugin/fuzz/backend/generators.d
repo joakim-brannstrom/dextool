@@ -21,8 +21,23 @@ import backend.fuzz.types;
 
         stmt("APP_" ~ app_name ~ "_Initialize()");
         with(for_("int n = 0", "n < TestingEnvironment::getCycles()", "n++")) {
-            stmt("PortStorage::Regenerate()");
-            stmt("APP_" ~ app_name ~ "_Execute()");
+            with(switch_("TestingEnvironment::getRandType()")) {
+                with(case_("RANDOM_GENERATOR")) {
+                    stmt("PortStorage::Regenerate()");
+                    stmt("break");
+                }
+                with(case_("STATIC_GENERATOR")) {
+                    stmt("TestingEnvironment::readConfig(n)");
+                    stmt("PortStorage::Regenerate(TestingEnvironment::getConfig())");
+                    stmt("break");
+                }
+
+                with(default_) {
+                    stmt("PortStorage::Regenerate()");
+                    stmt("break");
+                }
+            
+            }
         }
 
         stmt("APP_" ~ app_name ~ "_Terminate()");
