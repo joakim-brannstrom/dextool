@@ -289,6 +289,7 @@ private:
             case "DataItem":
                 cis.data_items ~= getDataItem(elem);
                 break;
+
             default:
                 break;
             }
@@ -357,7 +358,7 @@ private:
             ret = Interface_();
             foreach (Element elem; doc.elements) {
                 switch (elem.tag.name) {
-                case "ContinousInterface":
+                case "ContinuousInterface":
                     ret.ci ~= getContinousInterface(elem);
                     break;
                 case "EventGroupInterface":
@@ -407,10 +408,11 @@ public:
     }
 
     Namespace[string] parseBaseDir() {
+        import std.string : toLower;
         Namespace[string] namespaces;
         Global glob;
         foreach (string xml_file; xml_files) {
-            string curr_ns = namespace(xml_file);
+            string curr_ns = namespace(xml_file).toLower;
             
             string doc_raw = std.file.readText(xml_file);
             auto doc = () @trusted {return new Document(doc_raw); } ();
