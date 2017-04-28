@@ -371,7 +371,13 @@ void generateDtor(const CppDtor a, CppModule inner) {
 
                 DataItem di = getDataItem(ns, ci, func_name);
                 if (di.name.length == 0) {
-                    return_(ci.name.toLower);
+                    MonitoredItem mi = getMonitoredItem(ns, ci, func_name);
+                    if (mi.name.length == 0) {
+                        return_(ci.name.toLower);
+                    } else {
+                        return_(ci.name.toLower ~ "." ~ mi.name);
+                    }
+                    
                 } else {
                     return_(ci.name.toLower ~ "." ~ di.name);
                 }
@@ -430,4 +436,16 @@ void generateDtor(const CppDtor a, CppModule inner) {
         }
     }
     return DataItem();
+}
+
+@trusted MonitoredItem getMonitoredItem(Namespace ns, ContinousInterface ci, string func_name) {
+    import std.string : indexOf;
+
+    foreach(mi; ci.mon_items) {
+        if (indexOf(func_name, mi.name) == 0) {
+            return mi;
+        }
+    }
+    return MonitoredItem();
+
 }

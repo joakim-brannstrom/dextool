@@ -306,8 +306,6 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(Inclusion))
-
     void toString(Writer)(scope Writer w) @safe const {
         import std.format : FormatSpec;
         import std.range.primitives : put;

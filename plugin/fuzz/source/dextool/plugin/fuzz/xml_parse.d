@@ -95,6 +95,7 @@ struct ContinousInterface {
     string name;
     Direction direction;
     DataItem[] data_items;
+    MonitoredItem[] mon_items;
 }
 
 struct Interface_ {
@@ -289,7 +290,9 @@ private:
             case "DataItem":
                 cis.data_items ~= getDataItem(elem);
                 break;
-
+            case "MonitoredItem":
+                cis.mon_items ~= getMonitoredItem(elem);
+                break;
             default:
                 break;
             }
@@ -309,6 +312,19 @@ private:
         }
 
         return data_item;
+    }
+
+    auto getMonitoredItem(Element mitem_elem) {
+        MonitoredItem mon_item = MonitoredItem(mitem_elem.tag.attr["name"], mitem_elem.tag.attr["type"]);
+        if (auto defaultVal = "defaultValue" in mitem_elem.tag.attr) {
+            mon_item.defaultVal = *defaultVal;
+        }
+
+        if (auto startupVal = "startupValue" in mitem_elem.tag.attr) {
+            mon_item.startupVal = *startupVal;
+        }
+
+        return mon_item;
     }
 
     auto getEventGroupInterface(Element interface_elem) {
