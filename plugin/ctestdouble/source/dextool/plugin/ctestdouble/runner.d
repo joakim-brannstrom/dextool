@@ -31,9 +31,6 @@ auto runPlugin(string[] args) {
     } else if (pargs.inFiles.length == 0) {
         writeln("Missing required argument --in");
         return ExitStatusType.Errors;
-    } else if (pargs.fileExclude.length != 0 && pargs.fileRestrict.length != 0) {
-        writeln("Unable to combine both --file-exclude and --file-restrict");
-        return ExitStatusType.Errors;
     }
 
     auto variant = CTestDoubleVariant.makeVariant(pargs);
