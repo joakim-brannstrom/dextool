@@ -241,16 +241,24 @@ private:
                 Enum enums = Enum(elem.tag.attr["name"], curr_ns);
                 Nullable!int min;
                 Nullable!int max;
+                int val, enumcount = 0;
                 foreach (Element enumitem; elem.elements) {
-                    auto val = to!int(enumitem.tag.attr["value"]);
+                    if(auto val_ = "value" in enumitem.tag.attr) {
+                        val = to!int(*val_);
+                    } else {
+                        val = enumcount;
+                        enumcount++;
+                    }
+
                     if (min.isNull && max.isNull) {
-                        min = val;
-                        max = val;
+                            min = val;
+                            max = val;
                     } else if (max < val) {
                         max = val;
                     } else if (min > val) {
                         min = val;
                     }
+
                     enums.enumitems ~= EnumItem(enumitem.tag.attr["name"],
                         enumitem.tag.attr["value"]);
                 }

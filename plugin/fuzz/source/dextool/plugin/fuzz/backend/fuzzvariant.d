@@ -92,7 +92,7 @@ struct Generator {
 
         auto modules = Modules.make();
         makeMain(modules);
-        generate(new_root, params, modules, container, impl_data, xmlp);
+        generate(new_root, params, modules, impl_data, xmlp);
         postProcess(params, products, modules);
     }
 
@@ -306,6 +306,8 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
         v.accept(this);
     }
 
+    override void visit(const(Inclusion))
+
     void toString(Writer)(scope Writer w) @safe const {
         import std.format : FormatSpec;
         import std.range.primitives : put;
@@ -417,7 +419,7 @@ Nullable!CppNamespace translate(CppNamespace input, ref ImplData data) {
 
 
 void generate(CppRoot r, Parameters params, Generator.Modules modules,
-    ref const(Container) container, ImplData data, xml_parse xmlp)
+    ImplData data, xml_parse xmlp)
 in {
     import std.array : empty;
 
@@ -428,8 +430,6 @@ body {
     import std.array;
     import std.typecons;
     import std.container.array;
-    import cpptooling.data.symbol.types : USRType;
-    import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
 
@@ -445,8 +445,8 @@ body {
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
 
-    @trusted static void eachNs(LookupT)(CppNamespace ns, Parameters params,
-        Generator.Modules modules, CppModule impl_singleton, LookupT lookup, ImplData data,
+    @trusted static void eachNs(CppNamespace ns, Parameters params,
+        Generator.Modules modules, ImplData data,
         ref Array!nsclass[string] classes, xml_parse xmlp) {
         import std.variant;
         import std.stdio;
@@ -455,8 +455,6 @@ body {
         import backend.fuzz.generators;
 
         auto inner = modules;
-        CppModule inner_impl_singleton;
-
 
         inner.hdr = modules.hdr.namespace(ns.resideInNs[0]);
         inner.impl = modules.impl.namespace(ns.resideInNs[0]);
@@ -498,13 +496,12 @@ body {
 
         
         foreach (a; ns.namespaceRange) {
-            eachNs(a, params, inner, inner_impl_singleton, lookup, data, classes, xmlp);
+            eachNs(a, params, inner, data, classes, xmlp);
         }
     }
 
     Array!nsclass[string] classes;
     foreach (a; r.namespaceRange()) {
-        eachNs(a, params, modules, null,
-            (USRType usr) => container.find!LocationTag(usr), data, classes, xmlp);
+        eachNs(a, params, modules, data, classes, xmlp);
     }
 } 
