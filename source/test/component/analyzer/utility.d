@@ -52,7 +52,7 @@ final class TestVisitor : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility;
+        import cpptooling.analyzer.clang.cursor_backtrack;
 
         if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
             globalsFound ~= USRType(v.usr);
@@ -63,7 +63,7 @@ final class TestVisitor : Visitor {
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility;
+        import cpptooling.analyzer.clang.cursor_backtrack;
 
         if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
             globalsFound ~= USRType(v.usr);
@@ -74,7 +74,7 @@ final class TestVisitor : Visitor {
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility;
+        import cpptooling.analyzer.clang.cursor_backtrack;
 
         if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
             globalsFound ~= USRType(v.usr);
