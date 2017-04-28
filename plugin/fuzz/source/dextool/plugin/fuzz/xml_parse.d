@@ -261,7 +261,7 @@ private:
                     }
 
                     enums.enumitems ~= EnumItem(enumitem.tag.attr["name"],
-                        enumitem.tag.attr["value"]);
+                        to!string(val));
                 }
                 enums.min = to!string(min);
                 enums.max = to!string(max);

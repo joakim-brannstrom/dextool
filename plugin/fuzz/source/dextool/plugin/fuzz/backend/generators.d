@@ -431,7 +431,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     import std.string : indexOf;
 
     foreach(di; ci.data_items) {
-        if (indexOf(func_name, di.name) == 0) {
+        if (indexOf(func_name, di.name) == 0 && func_name[di.name.length .. $].length == 0) {
             return di;
         }
     }
@@ -442,7 +442,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     import std.string : indexOf;
 
     foreach(mi; ci.mon_items) {
-        if (indexOf(func_name, mi.name) == 0) {
+        if (indexOf(func_name, mi.name) == 0 && func_name[mi.name.length .. $].length == 0) {
             return mi;
         }
     }
