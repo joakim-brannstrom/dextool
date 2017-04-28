@@ -136,7 +136,8 @@ int dumpBody(string fname, string[] flags) {
     import cpptooling.analyzer.clang.analyze_helper;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.utility : hasParseErrors, logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
+        logDiagnostic;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
     import cpptooling.data.symbol.container : Container;
 

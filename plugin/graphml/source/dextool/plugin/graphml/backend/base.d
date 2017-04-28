@@ -610,7 +610,7 @@ private final class BodyVisitor(ReceiveT) : Visitor {
 
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility : isGlobalOrNamespaceScope;
+        import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
 
         // accessing a global
         if (v.cursor.isGlobalOrNamespaceScope) {
@@ -752,7 +752,7 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility : isGlobalOrNamespaceScope;
+        import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
 
         // the root node for the visitor is a reference.
         // it may therefor be an access to a global variable.

@@ -61,7 +61,8 @@ ExitStatusType analyzeFile(VisitorT, ClangContextT)(const string input_file,
 
     import cpptooling.analyzer.clang.ast : ClangAST;
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.analyzer.clang.utility : hasParseErrors, logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
+        logDiagnostic;
 
     if (!exists(input_file)) {
         logger.errorf("File '%s' do not exist", input_file);

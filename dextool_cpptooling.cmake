@@ -6,8 +6,13 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/type_format.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/analyze_helper.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/check_parse_result.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/context.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/cursor_backtrack.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/cursor_visitor.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/type.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/type_logger.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/store.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/utility.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/attribute.d

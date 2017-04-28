@@ -393,7 +393,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         import std.typecons : scoped;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
         import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.utility : put;
+        import cpptooling.analyzer.clang.store : put;
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
