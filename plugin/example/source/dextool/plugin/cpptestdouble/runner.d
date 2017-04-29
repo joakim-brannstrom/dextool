@@ -147,4 +147,9 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
 }
