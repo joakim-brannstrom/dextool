@@ -496,7 +496,12 @@ struct Fsm {
     void stateUt_run() {
         printStatus(Status.Run, "Compile and run unittest");
 
-        auto r = tryRunCollect(cmakeDir, `make check`);
+        if (tryRun(cmakeDir, "make check") != 0) {
+            flagUtTestPassed = cast(Flag!"UtTestPassed") false;
+            return;
+        }
+
+        auto r = tryRunCollect(cmakeDir, `make test ARGS="--output-on-failure -R .*unittest_"`);
         flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
 
         if (!flagUtTestPassed || flagUtDebug) {
@@ -532,12 +537,9 @@ struct Fsm {
     void stateDebug_build() {
         printStatus(Status.Run, "Debug build");
 
-        auto r = tryRunCollect(cmakeDir, "make all");
-        flagCompileError = cast(Flag!"CompileError")(r.status != 0);
-
-        writeln(r.output);
-
-        printExitStatus(r.status, "Debug build with debug symbols");
+        auto r = tryRun(cmakeDir, "make all");
+        flagCompileError = cast(Flag!"CompileError")(r != 0);
+        printExitStatus(r, "Debug build with debug symbols");
     }
 
     void stateDebug_test() {
