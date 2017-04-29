@@ -16,7 +16,7 @@ Responsible for:
     - Filename prefix.
     - To generate a gmock or not.
 */
-module dextool.plugin.backend.cpptestdouble.cppvariant;
+module dextool.plugin.cpptestdouble.backend.cppvariant;
 
 import std.typecons : No, Flag, Yes;
 import logger = std.experimental.logger;
