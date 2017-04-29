@@ -23,8 +23,14 @@ The basic plugins for deXtool are:
    Call chains, type usage, classes as _groups_ of methods and members.
 
 # Dependencies
- - libclang 3.7+.
-deXtool has been tested with versions [3.7, 3.8].
+ - libclang-3.7+
+ - cmake-2.8+
+
+one of:
+ - dmd-2.072+
+ - ldc-1.1.0+
+
+deXtool has been tested with libclang [3.7, 3.8, 3.9].
 
 # Building and installing
 See INSTALL.md
