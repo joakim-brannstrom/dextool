@@ -18,6 +18,6 @@ This gives access to the make target _test_.
 
 To run the tests:
 ```sh
-make -j4
-make test ARGS="--output-on-failure"
+make check # runs unittests
+make check_integration
 ```

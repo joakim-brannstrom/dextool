@@ -496,14 +496,7 @@ struct Fsm {
     void stateUt_run() {
         printStatus(Status.Run, "Compile and run unittest");
 
-        auto r = tryRunCollect(cmakeDir, "make");
-        if (r.status != 0) {
-            writeln(r.output);
-            flagUtTestPassed = cast(Flag!"UtTestPassed") false;
-            return;
-        }
-
-        r = tryRunCollect(cmakeDir, `make test ARGS="--output-on-failure -R .*unittest_"`);
+        auto r = tryRunCollect(cmakeDir, `make check`);
         flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
 
         if (!flagUtTestPassed || flagUtDebug) {
@@ -553,8 +546,7 @@ struct Fsm {
         echoOn;
         scope (exit)
             echoOff;
-        auto r = tryRunCollect(cmakeDir,
-                `make test ARGS="--output-on-failure -R integration_test_"`);
+        auto r = tryRunCollect(cmakeDir, `make check_integration`);
 
         auto logfile = cmakeDir ~ "integration_test.log";
         consoleToFile(logfile, r.output);
