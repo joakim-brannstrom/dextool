@@ -18,6 +18,7 @@ import dextool.plugin.types : CliOptionParts;
 static import dextool.xml;
 
 struct RawConfiguration {
+    import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
     import dextool.type : FileName;
 
     Nullable!XmlConfig xmlConfig;
@@ -45,38 +46,41 @@ struct RawConfiguration {
 
     string[] originalFlags;
 
+    private GetoptResult help_info;
+
     void parse(string[] args) {
-        import std.getopt;
+        static import std.getopt;
 
         originalFlags = args.dup;
 
-        // dfmt off
         try {
-            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-                   "short-plugin-help", &shortPluginHelp,
-                   "main", &mainName,
-                   "main-fname", &mainFileName,
-                   "out", &out_,
-                   "compile-db", &compileDb,
-                   "prefix", &prefix,
-                   "strip-incl", &stripInclude,
-                   "header", &header,
-                   "header-file", &headerFile,
-                   "gen-free-func", &doFreeFuncs,
-                   "gmock", &gmock,
-                   "gen-pre-incl", &generatePreInclude,
-                   "gen-post-incl", &genPostInclude,
-                   "td-include", &testDoubleInclude,
-                   "file-exclude", &fileExclude,
-                   "file-restrict", &fileRestrict,
-                   "in", &inFiles,
-                   "config", &config);
+            // dfmt off
+            help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
+                   "main", "Used as part of interface, namespace etc [default: TestDouble]", &mainName,
+                   "main-fname", "Used as part of filename for generated files [default: test_double]", &mainFileName,
+                   "out", "directory for generated files [default: ./]", &out_,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
+                   "strip-incl", "A regex used to strip the include paths", &stripInclude,
+                   "header", "Prepend generated files with the string", &header,
+                   "header-file", "Prepend generated files with the header read from the file", &headerFile,
+                   "free-func", "Generate test doubles of free functions", &doFreeFuncs,
+                   "gmock", "Generate a gmock implementation of test double interface", &gmock,
+                   "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
+                   "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
+                   "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
+                   "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
+                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
+                   "in", "Input file to parse (at least one)", &inFiles,
+                   "config", "Use configuration file", &config);
+            // dfmt on
+            help = help_info.helpWanted;
         }
         catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
         }
-        // dfmt on
 
         // default arguments
         if (stripInclude.length == 0) {
@@ -100,66 +104,12 @@ struct RawConfiguration {
     }
 
     void printHelp() {
-        import std.stdio : writefln;
+        import std.stdio : writeln;
 
-        writefln("%s\n\n%s\n%s", cpptestdouble_opt.usage,
-                cpptestdouble_opt.optional, cpptestdouble_opt.others);
-    }
+        defaultGetoptPrinter("Usage: dextool cpptestdouble [options] [--in=] [-- CFLAGS...]",
+                help_info.options);
 
-    void dump() {
-        logger.tracef("args:
---header            :%s
---header-file       :%s
---file-restrict     :%s
---prefix            :%s
---gmock             :%s
---out               :%s
---file-exclude      :%s
---main              :%s
---strip-incl        :%s
---main-fname        :%s
---in                :%s
---compile-db        :%s
---gen-free-func     :%s
---gen-post-incl     :%s
---gen-pre-incl      :%s
---help              :%s
---td-include        :%s
---config            :%s
-CFLAGS              :%s
-
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude, mainName,
-                stripInclude, mainFileName, inFiles, compileDb, doFreeFuncs, genPostInclude,
-                generatePreInclude, help, testDoubleInclude, config, cflags, xmlConfig);
-    }
-}
-
-// dfmt off
-static auto cpptestdouble_opt = CliOptionParts(
-    "usage:
- dextool cpptestdouble [options] [--in=] [-- CFLAGS...]",
-    // -------------
-    " --main=name        Used as part of interface, namespace etc [default: TestDouble]
- --main-fname=n     Used as part of filename for generated files [default: test_double]
- --prefix=p         Prefix used when generating test artifacts [default: Test_]
- --strip-incl=r     A regex used to strip the include paths
- --gmock            Generate a gmock implementation of test double interface
- --gen-free-func    Generate test doubles of free functions
- --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it
- --header=s         Prepend generated files with the string
- --header-file=f    Prepend generated files with the header read from the file
- --config=path      Use configuration file",
-    // -------------
-"others:
- --in=              Input file to parse
- --out=dir          directory for generated files [default: ./]
- --compile-db=j     Retrieve compilation parameters from the file
- --file-exclude=    Exclude files from generation matching the regex
- --file-restrict=   Restrict the scope of the test double to those files
-                    matching the regex.
- --td-include=      User supplied includes used instead of those found
-
+        writeln("
 REGEX
 The regex syntax is found at http://dlang.org/phobos/std_regex.html
 
@@ -180,9 +130,36 @@ Information about --file-exclude.
 Information about --file-restrict.
   The regex must fully match the filename the AST node is located in.
   Only symbols from files matching the restrict affect the generated test double.
-"
-);
-// dfmt on
+");
+    }
+
+    void dump() {
+        logger.tracef("args:
+--header            :%s
+--header-file       :%s
+--file-restrict     :%s
+--prefix            :%s
+--gmock             :%s
+--out               :%s
+--file-exclude      :%s
+--main              :%s
+--strip-incl        :%s
+--main-fname        :%s
+--in                :%s
+--compile-db        :%s
+--free-func         :%s
+--gen-post-incl     :%s
+--gen-pre-incl      :%s
+--help              :%s
+--td-include        :%s
+--config            :%s
+CFLAGS              :%s
+
+xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude, mainName,
+                stripInclude, mainFileName, inFiles, compileDb, doFreeFuncs, genPostInclude,
+                generatePreInclude, help, testDoubleInclude, config, cflags, xmlConfig);
+    }
+}
 
 /** Extracted configuration data from an XML file.
  *

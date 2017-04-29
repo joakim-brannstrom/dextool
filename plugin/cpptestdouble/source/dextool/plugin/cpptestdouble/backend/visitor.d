@@ -178,6 +178,8 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     override void visit(const(TranslationUnit) v) {
         import std.algorithm : filter;
         import cpptooling.analyzer.clang.type : makeLocation;
+        import cpptooling.testdouble.header_filter : LocationType;
+        import dextool.type : FileName;
 
         mixin(mixinNodeLog!());
 

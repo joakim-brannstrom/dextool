@@ -31,7 +31,7 @@ auto runPlugin(string[] args) {
         pargs.printHelp;
         return ExitStatusType.Ok;
     } else if (pargs.inFiles.length == 0) {
-        writeln("Missing required argument --in");
+        writeln("Missing required argument --in (at least one)");
         return ExitStatusType.Errors;
     }
 
