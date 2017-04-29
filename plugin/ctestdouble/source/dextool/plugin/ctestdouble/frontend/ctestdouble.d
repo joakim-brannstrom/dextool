@@ -145,8 +145,7 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
- dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] --in=... [--] [CFLAGS...]
- dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] --in=... [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--in=] [-- CFLAGS]",
     // -------------
     " --main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
