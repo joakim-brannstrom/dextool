@@ -91,7 +91,7 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
     endif()
 
     set(target_name ${name}_unittest)
-    set(dflags "${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/unit-threaded/source")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/unit-threaded/source")
     set(lflags "${linker_args}")
 
     if("${D_COMPILER_ID}" STREQUAL "DigitalMars")
@@ -101,10 +101,26 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
     conv_to_proper_args(dflags "${dflags}")
     conv_to_proper_args(lflags "${lflags}")
 
-    build_d_executable(${target_name} "${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" "${lflags}" "${libs};dextool_unit_threaded")
+    # create the executable
+    set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
+    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
+    set_target_properties(${target_name} PROPERTIES
+        LINKER_LANGUAGE D
+        COMPILE_FLAGS ""
+        LINK_FLAGS "${lflags}"
+        )
+
+    # link libraries to executable
+    foreach (lib "${libs};dextool_unit_threaded")
+        target_link_libraries(${target_name} ${lib})
+    endforeach()
+
+    # add the test
     add_test(NAME ${target_name}_
         COMMAND ${target_name}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    add_dependencies(check ${target_name})
 endfunction()
 
 #=============================================================================#
