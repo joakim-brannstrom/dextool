@@ -676,21 +676,19 @@ int main(string[] args) {
 
     import std.getopt;
 
-    bool help;
     bool run_and_exit;
     bool ut_debug;
     bool ut_skip;
-    getopt(args, "h|help", &help, "run_and_exit", &run_and_exit, "ut_debug",
-            &ut_debug, "ut_skip", &ut_skip);
 
-    if (help) {
-        writeln("Usage: autobuild.sh [options]
+    // dfmt off
+    auto help_info = getopt(args,
+        "run_and_exit", "run the tests in one pass and exit", &run_and_exit,
+        "ut_debug", "run tests in single threaded debug mode", &ut_debug,
+        "ut_skip", "skip unittests to go straight to the integration tests", &ut_skip);
+    // dfmt on
 
-options:
--h,--help           this help
---run_and_exit      run the tests in one pass and exit
---ut_debug          run tests in single threaded debug mode
---ut_skip           skip unittests to go straight to the integration tests");
+    if (help_info.helpWanted) {
+        defaultGetoptPrinter("Usage: autobuild.sh [options]", help_info.options);
         return 0;
     }
 
