@@ -222,10 +222,12 @@ struct ImplData {
         return ImplData(CppRoot.make);
     }
 
+    /// Tag an ID with a kind.
     void tag(size_t id, Kind kind_) {
         kind[id] = kind_;
     }
 
+    /// Lookup the tag for an ID.
     Kind lookup(size_t id) {
         if (auto k = id in kind) {
             return *k;
@@ -234,12 +236,14 @@ struct ImplData {
         return Kind.none;
     }
 
+    /// Copy an AA of classes.
     void putForLookup(ref CppClass[FullyQualifiedNameType] other) @trusted {
         foreach (v; other.byKeyValue) {
             classes[v.key] = v.value;
         }
     }
 
+    /// Store a class that can later be retrieved via its FQN.
     void putForLookup(CppClass c) {
         classes[c.fullyQualifiedName] = c;
     }
@@ -258,15 +262,14 @@ struct ImplData {
     }
 }
 
-/** Structurally transform the input to a stub implementation.
+/** Filter the raw IR according to the users desire.
  *
  * TODO should handle StorageClass like cvariant do.
  *
- * Ignoring C functions and globals by ignoring the root ranges funcRange and
- * globalRange.
+ * Ignoring globals by ignoring the root ranges globalRange.
  *
  * Params:
- *  ctrl: removes according to directives via ctrl
+ *  ctrl = removes according to directives via ctrl
  */
 CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, LookupT lookup) @safe {
     import std.array : array;
@@ -300,9 +303,6 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         // dfmt on
     }
 
-    // Assuming that namespaces are never duplicated at this stage.
-    // The assumption comes from the structure of the clang AST.
-
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
@@ -325,6 +325,11 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     return filtered;
 }
 
+/** Structurally transform the input to a test double implementation.
+ *
+ * In other words it the input IR (that has been filtered) is transformed to an
+ * IR representing what code to generate.
+ */
 void translate(CppRoot root, ref Container container, Controller ctrl,
         Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
