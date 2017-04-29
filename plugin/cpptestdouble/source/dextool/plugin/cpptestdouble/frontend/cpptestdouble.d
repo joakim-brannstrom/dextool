@@ -25,7 +25,7 @@ import dextool.type;
 import dextool.utility : prependDefaultFlags;
 
 import dextool.plugin.types;
-import dextool.plugin.cpptestdouble.backend.cppvariant : Controller, Parameters,
+import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
     Products;
 import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
     XmlConfig;
@@ -452,8 +452,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
-    import dextool.plugin.cpptestdouble.backend.cppvariant : Generator,
-        CppVisitor;
+    import dextool.plugin.cpptestdouble.backend.cppvariant : Generator;
     import dextool.io : writeFileData;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");

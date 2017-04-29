@@ -25,120 +25,11 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
     CustomHeader, MainNs, MainInterface;
-import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
-/** Control various aspectes of the analyze and generation like what nodes to
- * process.
- */
-@safe interface Controller {
-    /// Query the controller with the filename of the AST node for a decision
-    /// if it shall be processed.
-    bool doFile(in string filename, in string info);
-
-    /** A list of includes for the test double header.
-     *
-     * Part of the controller because they are dynamic, may change depending on
-     * for example calls to doFile.
-     */
-    FileName[] getIncludes();
-
-    // TODO Move the doXXX to Parameters
-
-    /// If any google mocks are generated.
-    bool doGoogleMock();
-
-    /// Generate a pre_include header file from internal template?
-    bool doPreIncludes();
-
-    /// Generate a #include of the pre include header
-    bool doIncludeOfPreIncludes();
-
-    /// Generate a post_include header file from internal template?
-    bool doPostIncludes();
-
-    /// Generate a #include of the post include header
-    bool doIncludeOfPostIncludes();
-
-    /// Generate test doubles of free functions
-    bool doFreeFunction();
-}
-
-/** Parameters used during generation.
- *
- * Important aspact that they do NOT change, therefore it is pure.
- */
-@safe pure interface Parameters {
-    static struct Files {
-        FileName hdr;
-        FileName impl;
-        FileName globals;
-        FileName gmock;
-        FileName pre_incl;
-        FileName post_incl;
-    }
-
-    /// Source files used to generate the stub.
-    FileName[] getIncludes();
-
-    /// Output directory to store files in.
-    DirName getOutputDirectory();
-
-    /// Files to write generated test double data to.
-    Files getFiles();
-
-    /// Name affecting interface, namespace and output file.
-    MainName getMainName();
-
-    /** Namespace for the generated test double.
-     *
-     * Contains the adapter, C++ interface, gmock etc.
-     */
-    MainNs getMainNs();
-
-    /** Name of the interface of the test double.
-     *
-     * Used in Adapter.
-     */
-    MainInterface getMainInterface();
-
-    /// Prefix used for test artifacts.
-    StubPrefix getArtifactPrefix();
-
-    /// Dextool Tool version.
-    DextoolVersion getToolVersion();
-
-    /// Custom header to prepend generated files with.
-    CustomHeader getCustomHeader();
-}
-
-/// Data produced by the generator like files.
-@safe interface Products {
-    /** Data pushed from the generator to be written to files.
-     *
-     * The put value is the code generation tree. It allows the caller of
-     * Generator to inject more data in the tree before writing. For example a
-     * custom header.
-     *
-     * Params:
-     *   fname = file the content is intended to be written to.
-     *   hdr_data = data to write to the file.
-     */
-    void putFile(FileName fname, CppHModule hdr_data);
-
-    /// ditto.
-    void putFile(FileName fname, CppModule impl_data);
-
-    /** During the translation phase the location of symbols that aren't
-     * filtered out are pushed to the variant.
-     *
-     * It is intended that the variant control the #include directive strategy.
-     * Just the files that was input?
-     * Deduplicated list of files where the symbols was found?
-     */
-    void putLocation(FileName loc, LocationType type);
-}
+import dextool.plugin.cpptestdouble.backend.interface_;
+import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
 /** Generator of test doubles for C++ code.
  *
@@ -179,7 +70,7 @@ struct Generator {
 
         NullableRef!Container cont_ = &container;
         NullableRef!AnalyzeData analyz = &analyze.get();
-        auto visitor = new CppVisitor!(VisitorKind.root)(ctrl, products, analyz, cont_);
+        auto visitor = new CppTUVisitor(ctrl, products, analyz, cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
@@ -295,159 +186,6 @@ private:
 
 private:
 
-enum VisitorKind {
-    root,
-    child
-}
-
-final class CppVisitor(VisitorKind RootT) : Visitor {
-    import std.typecons : scoped, NullableRef;
-
-    import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
-        analyzeVarDecl;
-    import cpptooling.data.representation : CppRoot, CxGlobalVariable;
-    import cpptooling.data.type : CppNsStack, CxReturnType, CppNs,
-        TypeKindVariable;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
-
-    alias visit = Visitor.visit;
-
-    mixin generateIndentIncrDecr;
-
-    NullableRef!Container container;
-    NullableRef!AnalyzeData analyze_data;
-
-    private {
-        Controller ctrl;
-        Products prod;
-        CppNsStack ns_stack;
-    }
-
-    static if (RootT == VisitorKind.root) {
-        CppRoot root;
-
-        this(Controller ctrl, Products prod, NullableRef!AnalyzeData analyze,
-                NullableRef!Container container) {
-            this.ctrl = ctrl;
-            this.prod = prod;
-            this.analyze_data = analyze;
-            this.container = container;
-            this.root = CppRoot.make;
-        }
-    } else {
-        CppNamespace root;
-
-        this(Controller ctrl, Products prod, uint indent, CppNsStack ns_stack,
-                NullableRef!AnalyzeData analyze, NullableRef!Container container) {
-            this.root = CppNamespace(ns_stack);
-            this.ctrl = ctrl;
-            this.prod = prod;
-            this.indent = indent;
-            this.ns_stack = ns_stack;
-            this.analyze_data = analyze;
-            this.container = container;
-        }
-    }
-
-    override void visit(const(UnexposedDecl) v) {
-        mixin(mixinNodeLog!());
-
-        // An unexposed may be:
-
-        // an extern "C"
-        // UnexposedDecl "" extern "C" {...
-        //   FunctionDecl "fun_c_linkage" void func_c_linkage
-        v.accept(this);
-    }
-
-    override void visit(const(VarDecl) v) @trusted {
-        import deimos.clang.index : CX_StorageClass;
-
-        mixin(mixinNodeLog!());
-
-        // TODO investigate if linkage() == CXLinkage_External should be used
-        // instead.
-        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
-            auto result = analyzeVarDecl(v, container, indent);
-            auto var = CxGlobalVariable(result.instanceUSR,
-                    TypeKindVariable(result.type, result.name));
-            root.put(var);
-        }
-    }
-
-    override void visit(const(FunctionDecl) v) {
-        mixin(mixinNodeLog!());
-
-        auto result = analyzeFunctionDecl(v, container, indent);
-        if (result.isValid) {
-            auto func = CFunction(result.type.kind.usr, result.name, result.params,
-                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
-            root.put(func);
-        }
-    }
-
-    override void visit(const(ClassDecl) v) @trusted {
-        import std.typecons : scoped;
-        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
-        import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.store : put;
-
-        ///TODO add information if it is a public/protected/private class.
-        ///TODO add metadata to the class if it is a definition or declaration
-
-        mixin(mixinNodeLog!());
-        logger.trace("class: ", v.cursor.spelling);
-
-        if (v.cursor.isDefinition) {
-            auto visitor = scoped!ClassVisitor(v, ns_stack, container, indent + 1);
-            v.accept(visitor);
-
-            root.put(visitor.root);
-            analyze_data.putForLookup(visitor.root);
-        } else {
-            auto type = retrieveType(v.cursor, container, indent);
-            put(type, container, indent);
-        }
-    }
-
-    override void visit(const(Namespace) v) @trusted {
-        mixin(mixinNodeLog!());
-
-        () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
-        // pop the stack when done
-        scope (exit)
-            ns_stack = ns_stack[0 .. $ - 1];
-
-        auto ns_visitor = scoped!(CppVisitor!(VisitorKind.child))(ctrl, prod,
-                indent, ns_stack, analyze_data, container);
-
-        v.accept(ns_visitor);
-
-        // fill the namespace with content from the analysis
-        root.put(ns_visitor.root);
-    }
-
-    override void visit(const(TranslationUnit) v) {
-        import std.algorithm : filter;
-        import cpptooling.analyzer.clang.type : makeLocation;
-
-        mixin(mixinNodeLog!());
-
-        LocationTag tu_loc;
-        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
-
-        if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
-                "root " ~ tu_loc.toString)) {
-            prod.putLocation(FileName(tu_loc.file), LocationType.Root);
-        }
-
-        v.accept(this);
-    }
-}
-
 @safe:
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
@@ -466,26 +204,6 @@ enum Kind {
     testDoubleNamespace,
     testDoubleSingleton,
     testDoubleInterface,
-}
-
-/// Data derived during analyze
-struct AnalyzeData {
-    import cpptooling.data.symbol.types : FullyQualifiedNameType;
-
-    static auto make() {
-        AnalyzeData r;
-        r.root = CppRoot.make;
-        return r;
-    }
-
-    CppRoot root;
-
-    /// Classes found during src analysis.
-    CppClass[FullyQualifiedNameType] classes;
-
-    void putForLookup(CppClass c) {
-        classes[c.fullyQualifiedName] = c;
-    }
 }
 
 struct ImplData {
