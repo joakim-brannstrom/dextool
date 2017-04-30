@@ -7,11 +7,11 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-This file contains an example plugin.
+This file contains an example plugin that prints the AST to the console when
+debugging is activated by the user.
+It is purely intended as an example to get started developing **your** plugin.
 */
 
-// for the generic main function to find the plugin the module must have this
-// name.
 module dextool.plugin.runner;
 
 import std.stdio;
@@ -19,18 +19,27 @@ import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType;
 
-// called by the generic main function in standard.d
+/** _main_ plugin function.
+
+Called by the generic main function.
+
+See plugin/source/dextool/plugin/main/standard.d for how the optional main
+function work and what it requires.
+
+As can be seen in standard.d, args are the program arguments.
+It is up to the plugin for further interpretation.
+*/
 ExitStatusType runPlugin(string[] args) {
     RawConfiguration pargs;
     pargs.parse(args);
 
     // the dextool plugin architecture requires that two lines are printed upon
     // request by the main function.
-    // a name of the plugin.
-    // a oneliner description.
+    //  - a name of the plugin.
+    //  - a oneliner description.
     if (pargs.shortPluginHelp) {
         writeln("example");
-        writeln("plugin description");
+        writeln("print all AST nodes of some c/c++ source code");
         return ExitStatusType.Ok;
     } else if (pargs.help) {
         pargs.printHelp;
@@ -57,9 +66,12 @@ ExitStatusType runPlugin(string[] args) {
     return analyzeFile(pargs.file, cflags, visitor, ctx);
 }
 
-// It is a good idea to separate the configuration parsing from the main function.
-// It will become complex enough, soon enough.
+/** Handle parsing of user arguments.
 
+For a simple plugin this is overly complex. But a plugin very seldom stays
+simple. By keeping the user input parsing and validation separate from the rest
+of the program it become more robust to future changes.
+*/
 struct RawConfiguration {
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
 
@@ -104,7 +116,22 @@ struct RawConfiguration {
 
 import cpptooling.analyzer.clang.ast : Visitor;
 
-/// A basic visitor showing all the main categories of nodes.
+/** A basic visitor showing all the main categories of nodes.
+
+# AST Traversal
+The visitor logic of the AST is structured in node groups via dynamic dipatch.
+See the Visitor class for the implementation details
+
+To catch all Statements it is enough to implement, as in this example, an
+override for the Statement node.
+
+But this isn't always desired.
+To separate the node WhileStmt from the group Statement it is enough to
+implement the following override:
+---
+override void visit(const WhileStmt) {...}
+---
+*/
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
