@@ -39,7 +39,7 @@ Download the D compiler of your choice, extract it and add to your PATH shell
 variable.
 ```sh
 # example with an extracted DMD
-export PATH=/path/to/dmd/linux/bin64/
+export PATH=/path/to/dmd/linux/bin64/:$PATH
 ```
 
 Once the dependencies are installed it is time to download the source code and
