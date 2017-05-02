@@ -7,8 +7,11 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-This file contains an example plugin that prints the AST to the console when
-debugging is activated by the user.
+This file contains an example plugin that demonstrate how to:
+ - interact with the clang AST
+ - print the AST nodes when debugging is activated by the user via the command line
+ - find all free functions and generate a dummy implementation.
+
 It is purely intended as an example to get started developing **your** plugin.
 */
 
@@ -63,7 +66,13 @@ ExitStatusType runPlugin(string[] args) {
 
     import dextool.utility : analyzeFile;
 
-    return analyzeFile(pargs.file, cflags, visitor, ctx);
+    auto exit_status = analyzeFile(pargs.file, cflags, visitor, ctx);
+
+    if (exit_status == ExitStatusType.Ok) {
+        writeln(visitor.generatedCode.render);
+    }
+
+    return exit_status;
 }
 
 /** Handle parsing of user arguments.
@@ -134,11 +143,24 @@ override void visit(const WhileStmt) {...}
 */
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
+    import cpptooling.data.symbol.container : Container;
     import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import dsrcgen.cpp;
 
     alias visit = Visitor.visit;
 
     mixin generateIndentIncrDecr;
+
+    CppHModule generatedCode;
+    private CppModule generatedFunctions;
+    private Container container;
+
+    this() {
+        this.generatedCode = CppHModule("a_ifdef_guard");
+        this.generatedFunctions = generatedCode.content.base;
+
+        generatedCode.header.comment("A file header");
+    }
 
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
@@ -152,6 +174,39 @@ final class TUVisitor : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+        import cpptooling.analyzer.clang.analyze_helper;
+        import cpptooling.analyzer.type;
+        import cpptooling.data.representation;
+
+        // the purpose of dsrcgen is to get a semens of semantic equivalence
+        // between the statements and expressions in D and the then resulting
+        // C++ code.
+
+        auto res = analyzeFunctionDecl(v, container, indent + 1);
+        if (res.isValid && !res.isVariadic) {
+            // .func_body generate a body. D's with-statement makes all
+            // operations inside the with-stmt to operate on the object
+            // returned from func_body.
+            with (generatedFunctions.func_body(res.returnType.toStringDecl(""),
+                    res.name, res.params.joinParams)) {
+                // example of creating a vector
+                stmt(Et("std::vector")("int") ~ E("x"));
+
+                // a function must return something when the return value isn't
+                // void.
+                if (res.returnType.kind.info.kind == TypeKind.Info.Kind.primitive
+                        && res.returnType.toStringDecl("") != "void") {
+                    // try to instantiate and return a value of the return type
+                    return_(E(res.returnType.toStringDecl(""))(""));
+                }
+            }
+        }
+
         v.accept(this);
     }
 
