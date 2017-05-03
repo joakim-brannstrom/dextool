@@ -437,7 +437,7 @@ public:
             logger.info("Reading XML file: " ~ xml_file);
             string doc_raw = std.file.readText(xml_file);
             auto doc = () @trusted {return new Document(doc_raw); } ();
-
+            logger.info("XML read correctly");
             Types ntypes = merge(types(doc, curr_ns));
             Nullable!Interface_ ifaces = interfaces(doc);
 
@@ -455,6 +455,16 @@ public:
                 continue;
             }
             foreach (ContinousInterface c; ifaces.ci) {
+                string tmp_ns = curr_ns ~ "::" ~ c.direction;
+                if (auto ns = tmp_ns in namespaces) {
+                    namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
+                    namespaces[tmp_ns].interfaces = merge(ifaces, ns.interfaces);
+                } else {
+                    namespaces[tmp_ns] = Namespace(tmp_ns, ntypes, ifaces);
+                }
+            }
+
+            foreach (EventGroupInterface c; ifaces.ei) {
                 string tmp_ns = curr_ns ~ "::" ~ c.direction;
                 if (auto ns = tmp_ns in namespaces) {
                     namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
