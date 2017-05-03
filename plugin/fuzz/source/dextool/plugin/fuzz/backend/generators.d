@@ -157,16 +157,19 @@ import backend.fuzz.types;
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns.array.join("::"));
             foreach (ciface; ns.interfaces.ci) {
-                stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
+                stmt(E(format("%s::%sType %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
+            }
+            foreach (eiface; ns.interfaces.ei) {
+                stmt(E(format("%s::%sType %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
             }
             stmt(E("RandomGenerator* randomGenerator"));
+            stmt(Et("std::vector")("std::string") ~ E("clients"));
         }
         
         with (public_) {
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
 		        string expr = format(`%s::%s()`, "&TestingEnvironment", "createRandomGenerator");
                 stmt(E("randomGenerator") = E(expr));
-                expr = Et("std::vector")("std::string") ~ E("clients");
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
@@ -206,6 +209,8 @@ import backend.fuzz.types;
                         }
 		        }   
 	        }
+
+            //TODO: How to do regenerate for Events?!
 
             with (func_body("std::string", "getNamespace")) {
                 return_(format(`"%s"`, fqn_ns.array.join("::")));
