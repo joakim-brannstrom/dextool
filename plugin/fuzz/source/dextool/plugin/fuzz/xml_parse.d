@@ -11,6 +11,8 @@ import std.typecons;
 
 import std.stdio;
 
+import logger = std.experimental.logger;
+
 @safe:
 
 enum Direction {
@@ -419,8 +421,11 @@ public:
         basedir = bdir;
         xml_files = () @trusted { return (dirEntries(this.basedir, "*.xml", SpanMode.breadth)
                                         .filter!(a => a.isFile)).map!(a => a.name).array; } ();
+
         foundNamespaces = xml_files.map!(a => namespace(a)).filter!(a => a != "").array;
+
         nsps = parseBaseDir;
+
     }
 
     Namespace[string] parseBaseDir() {
@@ -429,7 +434,7 @@ public:
         Global glob;
         foreach (string xml_file; xml_files) {
             string curr_ns = namespace(xml_file).toLower;
-            
+            logger.info("Reading XML file: " ~ xml_file);
             string doc_raw = std.file.readText(xml_file);
             auto doc = () @trusted {return new Document(doc_raw); } ();
 

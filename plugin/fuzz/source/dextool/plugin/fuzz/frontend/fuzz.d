@@ -289,11 +289,10 @@ ExitStatusType genCpp(FuzzVariant variant) {
             // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
             auto gen = Generator(variant, variant);
             gen.process(visitor.root, visitor.container);
-            
+
             debug {
                 logger.trace(visitor);
             }
-
             writeFileData(variant.file_data);
         }
     }

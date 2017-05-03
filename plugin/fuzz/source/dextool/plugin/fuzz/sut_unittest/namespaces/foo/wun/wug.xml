@@ -1,5 +1,5 @@
 <Interface name="Wug">
-    <ContinousInterface name="Wig" direction="To_Provider">
+    <ContinuousInterface name="Wig" direction="To_Provider">
         <DataItem name="V0" type="IntT"/>
-    </ContinousInterface>
+    </ContinuousInterface>
 </Interface>

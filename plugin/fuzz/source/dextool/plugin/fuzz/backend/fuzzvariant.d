@@ -79,14 +79,19 @@ struct Generator {
         import cpptooling.data.symbol.types : USRType;
         import std.algorithm;
         import std.string : toLower;
+        import std.conv : to;
 
         //TODO: Find a suitable name
         xml_parse xmlp = new xml_parse(params.getXMLBasedir);
+        logger.info("Found namespaces from XML: " ~ to!string(xmlp.getNamespaces.length));
+        foreach(n ; xmlp.getNamespaces.keys) {
+            logger.info("Namespace name from XML: " ~ n);
+        }
         CppRoot new_root = CppRoot.make;
         CppNamespace[] cppn;
 
         rawFilter(root, xmlp, cppn);
-
+        logger.info("Filtered down to " ~ to!string(cppn.length) ~ " namespaces");
         cppn.each!(a => new_root.put(a));
         auto impl_data = translate(new_root);
 
@@ -193,12 +198,13 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
     private {
         ProductT prod;
         CppNsStack ns_stack;
+                Container container_;
+
     }
 
     static if (is(RootT == CppRoot)) {
         // The container used is stored in the root.
         // All other visitors references the roots container.
-        Container container_;
 
         this(ProductT prod) {
             this.prod = prod;
@@ -242,6 +248,8 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
     }
 
     override void visit(const(FunctionDecl) v) {
+        import cpptooling.analyzer.clang.store : put;
+
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
@@ -257,12 +265,13 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
         import std.typecons : scoped;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
         import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.utility : put;
+        import cpptooling.analyzer.clang.store : put;
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
 
         mixin(mixinNodeLog!());
+
         logger.trace("class: ", v.cursor.spelling);
 
         if (v.cursor.isDefinition) {
@@ -270,10 +279,10 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
             v.accept(visitor);
 
             root.put(visitor.root);
-            //container.put(visitor.root, visitor.root.fullyQualifiedName);
+            //container.put(visitor.root);
         } else {
-            auto type = retrieveType(v.cursor, container, indent);
-            put(type, container, indent);
+            //auto type = retrieveType(v.cursor, container, indent);
+            //put(type, container, indent);
         }
     }
 
@@ -299,6 +308,7 @@ final class FuzzVisitor(RootT, ProductT) : Visitor {
         import cpptooling.analyzer.clang.type : makeLocation;
 
         mixin(mixinNodeLog!());
+
 
         LocationTag tu_loc;
         () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
@@ -392,6 +402,7 @@ Nullable!CppClass translate(CppClass input, ref ImplData data) {
     auto ReqOrPro = name.endsWith("Requirer") || name.endsWith("Provider");
     Nullable!CppClass class_ = input;
     if (ReqOrPro) {
+        logger.info("Found ContinuousInterface: " ~ name);
         data.tag(input.id, Kind.ContinousInterface);
     }
 
