@@ -21,8 +21,9 @@ set -e
 mkdir build
 pushd build
 cmake -DLIBCLANG_LIB_PATH=$CLANG_PATH/libclang.so.3.7 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+make check -j3
 make all -j3
-make test ARGS="--output-on-failure"
+make check_integration
 popd
 
 # Copy coverage data so codecov finds it

@@ -45,7 +45,7 @@ import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
-import cpptooling.analyzer.clang.utility : logType;
+import cpptooling.analyzer.clang.type_logger : logType;
 import cpptooling.analyzer.type_format : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data.type : Location, LocationTag;
 import cpptooling.data.symbol.container : Container;
@@ -886,7 +886,7 @@ body {
             // this check.
             // Example: typedef struct {} Struct;
 
-            import cpptooling.analyzer.clang.utility : backtrackScopeRange;
+            import cpptooling.analyzer.clang.cursor_backtrack : backtrackScopeRange;
 
             // dfmt off
             spell = cast(string) chain(only(spell), backtrackScopeRange(c).map!(a => a.spelling))
@@ -1489,7 +1489,7 @@ body {
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
         import std.algorithm : until;
-        import cpptooling.analyzer.clang.utility : visitBreathFirst;
+        import cpptooling.analyzer.clang.cursor_visitor : visitBreathFirst;
 
         // example of tree analyzed:
         // VarDecl -> TypedefDecl

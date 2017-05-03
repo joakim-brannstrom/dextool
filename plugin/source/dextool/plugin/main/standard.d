@@ -7,10 +7,14 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-Main function suitable for plugins.
+This file contains an optional main function suitable for plugins.
 
-A plugin using this module shall have a module named dextool.plugin.runner;
+It takes care of configuring the logging level in std.experimental.logger if
+the user call the program with "-d|--debug".
 
+This optional main function requires that:
+ - the module is named dextool.plugin.runner
+ - the module provides a function runPlugin that takes the program arguments.
 */
 module dextool.plugin.main.standard;
 

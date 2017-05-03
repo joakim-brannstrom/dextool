@@ -15,8 +15,11 @@ include(BuildD)
 #
 
 set(BUILD_TEST false CACHE BOOL "true to build and run unittests")
+set(INTEGRATION_TEST "integration_test_")
 if(BUILD_TEST)
     enable_testing()
+    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R ".*unittest_")
+    add_custom_target(check_integration COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "${INTEGRATION_TEST}")
 endif()
 
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when

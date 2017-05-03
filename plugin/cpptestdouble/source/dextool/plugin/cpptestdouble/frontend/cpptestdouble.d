@@ -14,7 +14,7 @@ Responsible for:
     - Configuration file handling.
  - Provide user data to the backend via the interface the backend own.
 */
-module dextool.plugin.frontend.cpptestdouble;
+module dextool.plugin.cpptestdouble.frontend.cpptestdouble;
 
 import std.typecons : Nullable;
 
@@ -25,171 +25,10 @@ import dextool.type;
 import dextool.utility : prependDefaultFlags;
 
 import dextool.plugin.types;
-import dextool.plugin.backend.cpptestdouble.cppvariant : Controller, Parameters,
+import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
     Products;
-
-struct RawConfiguration {
-    Nullable!XmlConfig xmlConfig;
-
-    string[] fileExclude;
-    string[] fileRestrict;
-    string[] testDoubleInclude;
-    string[] inFiles;
-    string[] cflags;
-    string[] compileDb;
-    string header;
-    string headerFile;
-    string mainName = "TestDouble";
-    string mainFileName = "test_double";
-    string prefix = "Test_";
-    string stripInclude;
-    string out_;
-    string config;
-    bool shortPluginHelp;
-    bool help;
-    bool gmock;
-    bool generatePreInclude;
-    bool genPostInclude;
-
-    string[] originalFlags;
-
-    void parse(string[] args) {
-        import std.getopt;
-
-        originalFlags = args.dup;
-
-        // dfmt off
-        try {
-            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-                   "short-plugin-help", &shortPluginHelp,
-                   "main", &mainName,
-                   "main-fname", &mainFileName,
-                   "out", &out_,
-                   "compile-db", &compileDb,
-                   "prefix", &prefix,
-                   "strip-incl", &stripInclude,
-                   "header", &header,
-                   "header-file", &headerFile,
-                   "gmock", &gmock,
-                   "gen-pre-incl", &generatePreInclude,
-                   "gen-post-incl", &genPostInclude,
-                   "td-include", &testDoubleInclude,
-                   "file-exclude", &fileExclude,
-                   "file-restrict", &fileRestrict,
-                   "in", &inFiles,
-                   "config", &config);
-        }
-        catch (std.getopt.GetOptException ex) {
-            logger.error(ex.msg);
-            help = true;
-        }
-        // dfmt on
-
-        // default arguments
-        if (stripInclude.length == 0) {
-            stripInclude = r".*/(.*)";
-            logger.trace("--strip-incl: using default regex to strip include path (basename)");
-        }
-
-        if (config.length != 0) {
-            xmlConfig = readRawConfig(FileName(config));
-            if (xmlConfig.isNull) {
-                help = true;
-            }
-        }
-
-        import std.algorithm : find;
-        import std.array : array;
-        import std.range : drop;
-
-        // at this point args contain "what is left". What is interesting then is those after "--".
-        cflags = args.find("--").drop(1).array();
-    }
-
-    void printHelp() {
-        import std.stdio : writefln;
-
-        writefln("%s\n\n%s\n%s", cpptestdouble_opt.usage,
-                cpptestdouble_opt.optional, cpptestdouble_opt.others);
-    }
-
-    void dump() {
-        logger.tracef("args:
---header            :%s
---header-file       :%s
---file-restrict     :%s
---prefix            :%s
---gmock             :%s
---out               :%s
---file-exclude      :%s
---main              :%s
---strip-incl        :%s
---main-fname        :%s
---in                :%s
---compile-db        :%s
---gen-post-incl     :%s
---gen-pre-incl      :%s
---help              :%s
---td-include        :%s
---config            :%s
-CFLAGS              :%s
-
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
-                out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude,
-                help, testDoubleInclude, config, cflags, xmlConfig);
-    }
-}
-
-// dfmt off
-static auto cpptestdouble_opt = CliOptionParts(
-    "usage:
- dextool cpptestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] [--in=...} [--] [CFLAGS...]
- dextool cpptestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] [--in=...] [--] [CFLAGS...]",
-    // -------------
-    "--main=name        Used as part of interface, namespace etc [default: TestDouble]
- --main-fname=n     Used as part of filename for generated files [default: test_double]
- --prefix=p         Prefix used when generating test artifacts [default: Test_]
- --strip-incl=r     A regex used to strip the include paths
- --gmock            Generate a gmock implementation of test double interface
- --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
- --gen-post-incl    Generate a post include header file if it doesn't exist and use it
- --header=s         Prepend generated files with the string
- --header-file=f    Prepend generated files with the header read from the file
- --config=path      Use configuration file",
-    // -------------
-"others:
- --in=              Input file to parse
- --out=dir          directory for generated files [default: ./]
- --compile-db=j     Retrieve compilation parameters from the file
- --file-exclude=    Exclude files from generation matching the regex
- --file-restrict=   Restrict the scope of the test double to those files
-                    matching the regex.
- --td-include=      User supplied includes used instead of those found
-
-REGEX
-The regex syntax is found at http://dlang.org/phobos/std_regex.html
-
-Information about --strip-incl.
-  Default regexp is: .*/(.*)
-
-  To allow the user to selectively extract parts of the include path dextool
-  applies the regex and then concatenates all the matcher groups found.  It is
-  turned into the replacement include path.
-
-  Important to remember then is that this approach requires that at least one
-  matcher group exists.
-
-Information about --file-exclude.
-  The regex must fully match the filename the AST node is located in.
-  If it matches all data from the file is excluded from the generated code.
-
-Information about --file-restrict.
-  The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
-"
-);
-// dfmt on
+import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
+    XmlConfig;
 
 struct FileData {
     import dextool.type : FileName;
@@ -235,6 +74,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         MainName main_name;
         MainNs main_ns;
         MainInterface main_if;
+        Flag!"FreeFunction" do_free_funcs;
         Flag!"Gmock" gmock;
         Flag!"PreInclude" pre_incl;
         Flag!"PostInclude" post_incl;
@@ -258,6 +98,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
                 regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
+            .argGenFreeFunction(args.doFreeFuncs)
             .argGmock(args.gmock)
             .argPreInclude(args.generatePreInclude)
             .argPostInclude(args.genPostInclude)
@@ -351,6 +192,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    auto argGenFreeFunction(bool a) {
+        this.do_free_funcs = cast(Flag!"FreeFunction") a;
+        return this;
+    }
+
     auto argGmock(bool a) {
         this.gmock = cast(Flag!"Gmock") a;
         return this;
@@ -426,29 +272,30 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
-        bool r = true;
+        bool restrict_pass = true;
+        bool exclude_pass = true;
 
-        // blocks during parsing so both restrict and exclude cannot be set at
-        // the same time.
         if (restrict.length > 0) {
-            r = canFind!((a) {
+            restrict_pass = canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(restrict);
             debug {
-                logger.tracef(!r, "--file-restrict skipping %s", info);
+                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
             }
-        } else if (exclude.length > 0) {
-            r = !canFind!((a) {
+        }
+
+        if (exclude.length > 0) {
+            exclude_pass = !canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(exclude);
             debug {
-                logger.tracef(!r, "--file-exclude skipping %s", info);
+                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
             }
         }
 
-        return r;
+        return restrict_pass && exclude_pass;
     }
 
     bool doGoogleMock() {
@@ -473,6 +320,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     bool doIncludeOfPostIncludes() {
         return post_incl;
+    }
+
+    bool doFreeFunction() {
+        return do_free_funcs;
     }
 
     // -- Parameters --
@@ -532,56 +383,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     void putLocation(FileName fname, LocationType type) {
         td_includes.put(fname, type);
     }
-}
-
-/** Extracted configuration data from an XML file.
- *
- * It is not inteded to be used as is but rather further processed.
- */
-struct XmlConfig {
-    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
-
-    DextoolVersion version_;
-    int skipCompilerArgs;
-    RawCliArguments command;
-    FilterClangFlag[] filterClangFlags;
-}
-
-static import dextool.xml;
-
-alias readRawConfig = dextool.xml.readRawConfig!(XmlConfig, parseRawConfig);
-
-auto parseRawConfig(T)(T xml) @trusted {
-    import std.conv : to, ConvException;
-    import std.xml;
-
-    DextoolVersion version_;
-    int skip_flags = 1;
-    RawCliArguments command;
-    FilterClangFlag[] filter_clang_flags;
-
-    if (auto tag = "version" in xml.tag.attr) {
-        version_ = *tag;
-    }
-
-    // dfmt off
-    xml.onStartTag["compiler_flag_filter"] = (ElementParser filter_flags) {
-        if (auto tag = "skip_compiler_args" in xml.tag.attr) {
-            try {
-                skip_flags = (*tag).to!int;
-            }
-            catch (ConvException ex) {
-                logger.info(ex.msg);
-                logger.info("   using fallback '1'");
-            }
-        }
-
-        xml.onEndTag["exclude"] = (const Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
-    };
-    // dfmt on
-    xml.parse();
-
-    return XmlConfig(version_, skip_flags, command, filter_clang_flags);
 }
 
 /** Store the input in a configuration file to make it easy to regenerate the
@@ -651,8 +452,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
-    import dextool.plugin.backend.cpptestdouble.cppvariant : Generator,
-        CppVisitor;
+    import dextool.plugin.cpptestdouble.backend.cppvariant : Generator;
     import dextool.io : writeFileData;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");

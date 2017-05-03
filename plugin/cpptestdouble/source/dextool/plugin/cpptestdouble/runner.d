@@ -15,7 +15,9 @@ auto runPlugin(string[] args) {
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
-    import dextool.plugin.frontend.cpptestdouble;
+    import dextool.plugin.cpptestdouble.frontend.cpptestdouble : genCpp,
+        CppTestDoubleVariant, makeXmlLog, makeXmlConfig;
+    import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration;
 
     RawConfiguration pargs;
     pargs.parse(args);
@@ -29,10 +31,7 @@ auto runPlugin(string[] args) {
         pargs.printHelp;
         return ExitStatusType.Ok;
     } else if (pargs.inFiles.length == 0) {
-        writeln("Missing required argument --in");
-        return ExitStatusType.Errors;
-    } else if (pargs.fileExclude.length != 0 && pargs.fileRestrict.length != 0) {
-        writeln("Unable to combine both --file-exclude and --file-restrict");
+        writeln("Missing required argument --in (at least one)");
         return ExitStatusType.Errors;
     }
 

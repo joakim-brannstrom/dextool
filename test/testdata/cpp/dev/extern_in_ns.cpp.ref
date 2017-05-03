@@ -5,12 +5,12 @@ namespace {
 TestDouble::I_TestDouble *test_double_inst = 0;
 } //NS:
 
-void fun_cpp_linkage() {
-    test_double_inst->fun_cpp_linkage();
-}
-
 void fun_c_linkage() {
     test_double_inst->fun_c_linkage();
+}
+
+void fun_cpp_linkage() {
+    test_double_inst->fun_cpp_linkage();
 }
 
 namespace TestDouble {

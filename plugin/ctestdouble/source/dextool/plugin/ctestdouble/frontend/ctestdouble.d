@@ -145,10 +145,9 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 // dfmt off
 static auto ctestdouble_opt = CliOptionParts(
     "usage:
- dextool ctestdouble [options] [--compile-db=...] [--file-exclude=...] [--td-include=...] [--in=...] [--] [CFLAGS...]
- dextool ctestdouble [options] [--compile-db=...] [--file-restrict=...] [--td-include=...] [--in=...] [--] [CFLAGS...]",
+ dextool ctestdouble [options] [--in=] [-- CFLAGS]",
     // -------------
-    "--main=name        Used as part of interface, namespace etc [default: TestDouble]
+    " --main=name        Used as part of interface, namespace etc [default: TestDouble]
  --main-fname=n     Used as part of filename for generated files [default: test_double]
  --prefix=p         Prefix used when generating test artifacts [default: Test_]
  --strip-incl=r     A regexp used to strip the include paths
@@ -470,29 +469,30 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         import std.algorithm : canFind;
         import std.regex : matchFirst;
 
-        bool decision = true;
+        bool restrict_pass = true;
+        bool exclude_pass = true;
 
-        // blocks during arg parsing so both restrict and exclude cannot be set
-        // at the same time.
         if (restrict.length > 0) {
-            decision = canFind!((a) {
+            restrict_pass = canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(restrict);
             debug {
-                logger.tracef(!decision, "--file-restrict skipping %s", info);
+                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
             }
-        } else if (exclude.length > 0) {
-            decision = !canFind!((a) {
+        }
+
+        if (exclude.length > 0) {
+            exclude_pass = !canFind!((a) {
                 auto m = matchFirst(filename, a);
                 return !m.empty && m.pre.length == 0 && m.post.length == 0;
             })(exclude);
             debug {
-                logger.tracef(!decision, "--file-exclude skipping %s", info);
+                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
             }
         }
 
-        return decision;
+        return restrict_pass && exclude_pass;
     }
 
     bool doSymbol(string symbol) {

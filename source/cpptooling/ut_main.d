@@ -19,7 +19,6 @@ int main(string[] args) {
                           "cpptooling.analyzer.clang.ast.visitor",
                           "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
-                          "cpptooling.analyzer.clang.utility",
                           "cpptooling.analyzer.type",
                           "cpptooling.analyzer.type_format",
                           "cpptooling.data.representation",

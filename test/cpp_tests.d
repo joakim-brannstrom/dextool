@@ -108,6 +108,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/bug_wchar.hpp", testEnv);
+    p.dexParams ~= ["--file-restrict=.*bug_wchar.hpp", "--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -175,7 +176,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/exclude_self.hpp", testEnv);
-    p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString];
+    p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString, "--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
 
@@ -188,6 +189,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/extern_in_ns.hpp", testEnv);
+    p.dexParams ~= ["--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
 
@@ -196,10 +198,20 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@Name(testId ~ "Shall generate a test double for the free function")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto p = genTestParams("dev/one_free_func.hpp", testEnv);
+    p.dexParams ~= ["--free-func"];
+    p.compileFlags ~= ["-DTEST_INCLUDE"];
+    runTestFile(p, testEnv);
+}
+
 @Name(testId ~ "Should only generate impl for those functions in ns")
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/functions_in_ns.hpp", testEnv);
+    p.dexParams ~= ["--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -208,6 +220,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/have_root.hpp", testEnv);
+    p.dexParams ~= ["--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
 
@@ -236,7 +249,7 @@ unittest {
     auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
 
     // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
+    p.dexParams ~= ["--free-func", "--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
         .toString, "--file-restrict=.*/single_file.hpp"];
 
     p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
@@ -266,6 +279,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestParams("dev/ns_merge.hpp", testEnv);
+    p.dexParams ~= ["--free-func"];
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
@@ -274,7 +288,7 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/bug_multiple_includes.hpp", testEnv);
-    p.dexParams ~= ["--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp")
+    p.dexParams ~= ["--free-func", "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp")
         .toString, "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp").toString];
     runTestFile(p, testEnv);
 }

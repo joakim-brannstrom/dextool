@@ -63,29 +63,3 @@ function(Print_Dir_Properties)
         message(STATUS "${_variableName}=${${_variableName}}")
     endforeach()
 endfunction()
-
-#=============================================================================#
-# [PUBLIC]
-# Add a named executable that depends on libraries, built from source and is a
-# test with name NAME.
-# It do NOT add the test to be ran when cross compiling.
-#   NAME        - Target name for the executable
-#   CXX_FLAGS   - Compiler flags to build source with.
-#   SRC         - List of a source file or many quoted and separated by ;
-#   LIBS        - List of a library or many quoted and separated by ; to link with
-function(add_test_from_source_with_flags name d_flags src libs)
-    add_exe_with_flags(${name} "-unittest ${d_flags}" "${src}" "${libs}" ${ARGN})
-    add_test(ut_${name} ${name})
-endfunction()
-
-#=============================================================================#
-# [PUBLIC]
-# Add a named executable that depends on libraries, built from source and is a
-# test with name NAME.
-#   NAME        - Target name for the executable
-#   SRC         - List of a source file or many quoted and separated by ;
-#   LIBS        - List of a library or many quoted and separated by ; to link with
-function(add_test_from_source name src libs)
-    add_test_from_source_with_flags(${name} "" "${src}" "${libs}" ${ARGN})
-endfunction()
-

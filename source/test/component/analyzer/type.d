@@ -133,7 +133,7 @@ final class TestDeclVisitor : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.analyzer.clang.utility : put;
+        import cpptooling.analyzer.clang.store : put;
 
         auto type = () @trusted{
             return retrieveType(v.cursor, container, indent);
@@ -167,6 +167,7 @@ final class TestFunctionBodyVisitor : Visitor {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
+
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
         v.accept(this);

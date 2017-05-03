@@ -29,7 +29,7 @@ import cpptooling.analyzer.clang.ast : ClassTemplate,
     TranslationUnit, UnionDecl, VarDecl, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
-import cpptooling.analyzer.clang.utility : put;
+import cpptooling.analyzer.clang.store : put;
 import cpptooling.data.type : AccessType, VariadicType, CxParam,
     TypeKindVariable, CppVariable, LocationTag, Location, CxReturnType,
     CppVirtualMethod, CppMethodName, CppClassName, CppNs, USRType, CppAccess,
@@ -166,7 +166,6 @@ body {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : TypeKind, retrieveType,
         logTypeResult;
-    import cpptooling.analyzer.clang.utility : put;
     import cpptooling.data.type : TypeResult, TypeKindAttr;
     import cpptooling.data.representation : CxParam, CFunctionName,
         CxReturnType, CFunction, VariadicType, LocationTag, StorageClass;
@@ -293,7 +292,6 @@ in {
 body {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : retrieveType;
-    import cpptooling.analyzer.clang.utility : put;
     import cpptooling.data.representation : CppVariable;
 
     auto type = () @trusted{ return retrieveType(v, container, indent); }();
@@ -442,7 +440,7 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     import std.array : array;
     import std.algorithm : map;
     import cpptooling.data.type : CppAccess;
-    import cpptooling.analyzer.clang.utility : backtrackScopeRange;
+    import cpptooling.analyzer.clang.cursor_backtrack : backtrackScopeRange;
     import cpptooling.analyzer.type : toStringDecl;
 
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
