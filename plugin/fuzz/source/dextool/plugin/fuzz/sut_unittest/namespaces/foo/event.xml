@@ -1,0 +1,12 @@
+<Interface name="Event_Status">
+    <Types>
+        <SubType name="Event_Status_Num_Type" type="unsigned" min="1" max="999">
+    </Types>    
+
+    <EventGroupInterface name="Event_Status_" direction="To_Provider">
+        <Event name="Event">
+            <DataItem name="Event_number" type="Event_Status_Num_Type">
+            <DataItem name="Stranded" type="bool">
+        </Event>
+    </EventGroupInterface>
+</Interface>
