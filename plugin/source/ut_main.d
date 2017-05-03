@@ -15,6 +15,7 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "dextool.plugin.utility",
+                          "dextool.plugin.regex_matchers",
                           );
     //dfmt on
 }
