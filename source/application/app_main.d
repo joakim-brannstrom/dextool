@@ -20,6 +20,7 @@ private enum CLICategoryStatus {
     Help,
     Version,
     NoCategory,
+    UnknownPlugin,
     PluginList,
 }
 
@@ -116,8 +117,15 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
         exit_status = ExitStatusType.Ok;
         break;
     case NoCategory:
-        logger.error("No such main category: " ~ cli.category);
-        logger.error("-h to list accetable categories");
+        logger.error("No plugin specified");
+        writeln("Available plugins:", plugins.toShortHelp);
+        writeln("-h for further help");
+        exit_status = ExitStatusType.Errors;
+        break;
+    case UnknownPlugin:
+        logger.errorf("No such plugin found: '%s'", cli.category);
+        writeln("Available plugins:\n", plugins.toShortHelp);
+        writeln("-h for further help");
         exit_status = ExitStatusType.Errors;
         break;
     case PluginList:
@@ -146,8 +154,8 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 
         if (!match_found) {
             // print error message to user as if no category was found
-            auto tmp = CLIResult(CLICategoryStatus.NoCategory);
-            exit_status = runPlugin(tmp, []);
+            cli.status = CLICategoryStatus.UnknownPlugin;
+            exit_status = runPlugin(cli, args);
         }
 
         break;

@@ -576,8 +576,8 @@ unittest {
 
 // This test could be anywhere. It just happens to be placed in the suite of C
 // tests.
-@(testId ~ "Should exit with a help message that no matching category was found")
-@Values(["invalid_category"], [""])
+@(testId ~ "Shall exit with a help message that no such plugin is found")
+@Values(["invalid_plugin"], [""])
 @Values([""], ["--debug"])
 unittest {
     mixin(envSetup(globalTestdir));
@@ -595,7 +595,7 @@ unittest {
     }
     exit_status_is_failed.shouldBeTrue;
 
-    stdoutContains("No such main category: ").shouldBeTrue;
+    stdoutContains("No such plugin found:").shouldBeTrue;
 }
 
 // END   Unspecified CLI Test ################################################
