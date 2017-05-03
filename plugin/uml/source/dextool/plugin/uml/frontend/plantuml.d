@@ -269,32 +269,26 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import std.algorithm : canFind;
-        import std.regex : matchFirst;
+        import dextool.plugin.regex_matchers : matchAny;
 
-        bool r = true;
+        bool restrict_pass = true;
+        bool exclude_pass = true;
 
-        // docopt blocks during parsing so both restrict and exclude cannot be
-        // set at the same time.
         if (restrict.length > 0) {
-            r = canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(restrict);
+            restrict_pass = matchAny(filename, restrict);
             debug {
-                logger.tracef(!r, "--file-restrict skipping %s", info);
-            }
-        } else if (exclude.length > 0) {
-            r = !canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(exclude);
-            debug {
-                logger.tracef(!r, "--file-exclude skipping %s", info);
+                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
             }
         }
 
-        return r;
+        if (exclude.length > 0) {
+            exclude_pass = !matchAny(filename, exclude);
+            debug {
+                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
+            }
+        }
+
+        return restrict_pass && exclude_pass;
     }
 
     Flag!"genStyleInclFile" genStyleInclFile() {

@@ -466,27 +466,20 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import std.algorithm : canFind;
-        import std.regex : matchFirst;
+        import dextool.plugin.regex_matchers : matchAny;
 
         bool restrict_pass = true;
         bool exclude_pass = true;
 
         if (restrict.length > 0) {
-            restrict_pass = canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(restrict);
+            restrict_pass = matchAny(filename, restrict);
             debug {
                 logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
             }
         }
 
         if (exclude.length > 0) {
-            exclude_pass = !canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(exclude);
+            exclude_pass = !matchAny(filename, exclude);
             debug {
                 logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
             }
