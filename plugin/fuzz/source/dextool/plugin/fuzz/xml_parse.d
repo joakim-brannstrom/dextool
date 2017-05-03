@@ -20,6 +20,11 @@ enum Direction {
     to = "provider"
 }
 
+enum InterfaceType {
+    E_iface = "eiface",
+    C_iface = "ciface"
+}
+
 struct BaseDir {
     string basedir;
     alias basedir this;

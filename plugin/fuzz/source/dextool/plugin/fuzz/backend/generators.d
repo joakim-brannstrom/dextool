@@ -118,6 +118,7 @@ import backend.fuzz.types;
     import std.string : toLower, indexOf;
     import std.algorithm : endsWith;
 
+    logger.info("Generating component interface class: " ~ class_name);
     string port_name = class_name;
     if (class_name.endsWith("Requirer")) {
         port_name = class_name[0..$-("_Requirer".length)];
@@ -150,7 +151,7 @@ import backend.fuzz.types;
     import std.algorithm : endsWith;
     import std.format : format;
     
-
+    logger.info("Generating port class: " ~ class_name);
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
@@ -165,6 +166,7 @@ import backend.fuzz.types;
             with (func_body("", class_name ~ "_Impl")) { //Generate constructor
 		        string expr = format(`%s::%s()`, "&TestingEnvironment", "createRandomGenerator");
                 stmt(E("randomGenerator") = E(expr));
+                expr = Et("std::vector")("std::string") ~ E("clients");
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
@@ -341,6 +343,9 @@ void generateDtor(const CppDtor a, CppModule inner) {
         case "Put":
             generatePutFunc(a, inner, ns);
             break;
+        case "Will":
+            generateWillFunc(a, inner);
+            break;
         default:
             Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
             with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
@@ -410,6 +415,16 @@ void generateDtor(const CppDtor a, CppModule inner) {
                 stmt(E(ci.name.toLower ~ "." ~ di.name) = E(di.name));
             }
         }
+    }
+}
+
+@trusted void generateWillFunc(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        return_(E("randomGenerator->generate")("0, 1"));
     }
 }
 

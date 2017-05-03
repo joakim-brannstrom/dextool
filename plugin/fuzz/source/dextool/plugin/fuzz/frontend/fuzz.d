@@ -101,7 +101,7 @@ struct RawConfiguration {
             }
 
         } catch(GetOptException ex) {
-            writeln("ERROR: " ~ ex.msg);
+            logger.error("ERROR: " ~ ex.msg);
             return -1;
         }
 
@@ -287,15 +287,18 @@ ExitStatusType genCpp(FuzzVariant variant) {
             analyzed_files ~= hfile;
             
             // Maybe move rawFilter (now in process) to a new function for less memory? Do some memory checks perhaps
-            auto gen = Generator(variant, variant);
-            gen.process(visitor.root, visitor.container);
-
-            debug {
-                logger.trace(visitor);
-            }
-            writeFileData(variant.file_data);
+            
         }
     }
+
+    auto gen = Generator(variant, variant);
+    gen.process(visitor.root, visitor.container);
+
+    debug {
+        logger.trace(visitor);
+    }
+    writeFileData(variant.file_data);
+
 
     return ExitStatusType.Ok;
 }

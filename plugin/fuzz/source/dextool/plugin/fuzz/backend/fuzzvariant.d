@@ -402,7 +402,6 @@ Nullable!CppClass translate(CppClass input, ref ImplData data) {
     auto ReqOrPro = name.endsWith("Requirer") || name.endsWith("Provider");
     Nullable!CppClass class_ = input;
     if (ReqOrPro) {
-        logger.info("Found ContinuousInterface: " ~ name);
         data.tag(input.id, Kind.ContinousInterface);
     }
 
