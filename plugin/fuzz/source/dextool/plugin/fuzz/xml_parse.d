@@ -286,6 +286,7 @@ private:
     }
 
     auto getContinousInterface(Element interface_elem) {
+        import std.algorithm : canFind;
         Interface_ ret;
         ContinousInterface cis;
         //Add more interfaces here
@@ -295,7 +296,9 @@ private:
         foreach (Element elem; interface_elem.elements) {
             switch (elem.tag.name) {
             case "DataItem":
-                cis.data_items ~= getDataItem(elem);
+                DataItem di = getDataItem(elem);
+                if(!cis.data_items.canFind(di))
+                    cis.data_items ~= getDataItem(elem);
                 break;
             case "MonitoredItem":
                 cis.mon_items ~= getMonitoredItem(elem);
@@ -416,7 +419,8 @@ private:
     }
 
     Interface_ merge(Interface_ old, Interface_ new_) {
-        new_.ci = old.ci ~ new_.ci;
+        if(old.ci != new_.ci)
+            new_.ci = old.ci ~ new_.ci;
 
         return new_;
     }
@@ -460,7 +464,7 @@ public:
                 continue;
             }
             foreach (ContinousInterface c; ifaces.ci) {
-                string tmp_ns = curr_ns ~ "::" ~ c.direction;
+                string tmp_ns = curr_ns;
                 if (auto ns = tmp_ns in namespaces) {
                     namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
                     namespaces[tmp_ns].interfaces = merge(ifaces, ns.interfaces);
@@ -470,7 +474,7 @@ public:
             }
 
             foreach (EventGroupInterface c; ifaces.ei) {
-                string tmp_ns = curr_ns ~ "::" ~ c.direction;
+                string tmp_ns = curr_ns;
                 if (auto ns = tmp_ns in namespaces) {
                     namespaces[tmp_ns].ns_types = merge(ntypes, ns.ns_types);
                     namespaces[tmp_ns].interfaces = merge(ifaces, ns.interfaces);

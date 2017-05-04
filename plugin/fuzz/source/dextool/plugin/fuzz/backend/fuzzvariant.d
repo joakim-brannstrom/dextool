@@ -350,10 +350,23 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
 import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
+import cpptooling.data.representation;
 
+string rmReqOrPro(const(CppNsStack) fullyQualifiedName) {
+    import std.array : join, array;
+    if(fullyQualifiedName[$-1] == "Requirer" || fullyQualifiedName[$-1] == "Provider") {
+        return fullyQualifiedName[0..$-1].array.join("::");
+    } else {
+        return fullyQualifiedName.array.join("::");
+    }
+}
 
+bool isReqOrPro(const(CppNsStack) fullyQualifiedName) {
+    return fullyQualifiedName[$-1] == "Requirer" || fullyQualifiedName[$-1] == "Provider";
+}
 
 CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trusted {
+    import std.array : array;
     import std.algorithm : each, map, filter;
     import dextool.type : FileName;
     import std.string : toLower;
@@ -370,7 +383,8 @@ CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trust
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
         .map!(a => rawFilter(a, xmlp, out_))
-        .filter!(a => a.fullyQualifiedName.toLower in xmlp.getNamespaces)
+        .filter!(a => isReqOrPro(a.resideInNs))
+        .filter!(a => rmReqOrPro(a.resideInNs).toLower in xmlp.getNamespaces)
         .each!(a => out_ = out_ ~ a);
             
     // dfmt on
@@ -456,6 +470,7 @@ body {
     @trusted static void eachNs(CppNamespace ns, Parameters params,
         Generator.Modules modules, ImplData data,
         ref Array!nsclass[string] classes, xml_parse xmlp) {
+        import std.array : array, join;
         import std.variant;
         import std.stdio;
         import std.string : toLower, indexOf;
@@ -482,7 +497,7 @@ body {
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
             
-            Namespace nss =  xmlp.getNamespace(ns.fullyQualifiedName.toLower);
+            Namespace nss =  xmlp.getNamespace(ns.resideInNs[0..$-1].array.join("::").toLower);
             classes[fqn_class].insertBack(generateClass(inner.impl, class_name,
                         ns.resideInNs,
 							nss, data, a, xmlp));
