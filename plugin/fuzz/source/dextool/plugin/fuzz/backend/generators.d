@@ -203,10 +203,21 @@ import backend.fuzz.types;
                                 break;
                             }
                         } else {
+                            string expr1, expr2;
                             string var = format("%s.%s", ciface.name.toLower, ditem.name);
-                            string expr = `randomGenerator->generate()`;
-                            stmt(E(var) = E(expr));
+
+                            if(ditem.defaultVal.length != 0) {
+                                expr1 = ditem.defaultVal;
+                                expr2 = ditem.defaultVal;
+                            } else {
+                                expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", 
+                                                                                            ciface.name.toLower, ditem.name);
+                                expr2 = `randomGenerator->generate()`;
+                            }
+                            with (func1) { stmt(E(var) = E(expr1)); }
+                            with (func2) { stmt(E(var) = E(expr2)); }
                         }
+                    }
 		        }   
 	        }
 
@@ -216,7 +227,6 @@ import backend.fuzz.types;
                 return_(format(`"%s"`, fqn_ns.array.join("::")));
             }    
         }
-    }
     return inner_class;
 }
 

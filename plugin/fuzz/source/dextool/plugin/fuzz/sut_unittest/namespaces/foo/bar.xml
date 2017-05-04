@@ -13,7 +13,7 @@
         <DataItem name="V2" type="MyInt" startupValue="3" defaultValue="5"/>
         <DataItem name="V3" type="MyHeight"/>
         <DataItem name="V4" type="Bundle"/>
-        <DataItem name="V5" type="Simple"/>
+        <DataItem name="V5" type="Bool" defaultValue="false"/>
         <DataItem name="V6" type="WithHoles"/>
     </ContinuousInterface>
     <ContinuousInterface name="Fum" direction="To_Provider">
