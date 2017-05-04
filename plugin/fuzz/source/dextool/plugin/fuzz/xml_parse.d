@@ -438,11 +438,10 @@ public:
     }
 
     Namespace[string] parseBaseDir() {
-        import std.string : toLower;
         Namespace[string] namespaces;
         Global glob;
         foreach (string xml_file; xml_files) {
-            string curr_ns = namespace(xml_file).toLower;
+            string curr_ns = namespace(xml_file);
             logger.info("Reading XML file: " ~ xml_file);
             string doc_raw = std.file.readText(xml_file);
             auto doc = () @trusted {return new Document(doc_raw); } ();

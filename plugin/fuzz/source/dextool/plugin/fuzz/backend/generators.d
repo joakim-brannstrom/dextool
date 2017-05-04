@@ -255,7 +255,7 @@ import backend.fuzz.types;
     import std.string : toLower, capitalize;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
-    string fqns_type = format("%s::%sT::Enum", type_ns.capitalize, ditem_type);
+    string fqns_type = format("%s::%sType::Enum", type_ns, ditem_type);
     string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
                                                                                 ditem_name, min, max);

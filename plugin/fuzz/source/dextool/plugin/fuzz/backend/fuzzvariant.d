@@ -78,7 +78,6 @@ struct Generator {
     void process(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
         import std.algorithm;
-        import std.string : toLower;
         import std.conv : to;
 
         //TODO: Find a suitable name
@@ -369,7 +368,6 @@ CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trust
     import std.array : array;
     import std.algorithm : each, map, filter;
     import dextool.type : FileName;
-    import std.string : toLower;
     import cpptooling.data.representation : MergeMode;
 
     static if (is(CppT == CppRoot)) {
@@ -384,7 +382,7 @@ CppT rawFilter(CppT)(CppT input, xml_parse xmlp, ref CppNamespace[] out_) @trust
         .filter!(a => !a.isAnonymous)
         .map!(a => rawFilter(a, xmlp, out_))
         .filter!(a => isReqOrPro(a.resideInNs))
-        .filter!(a => rmReqOrPro(a.resideInNs).toLower in xmlp.getNamespaces)
+        .filter!(a => rmReqOrPro(a.resideInNs) in xmlp.getNamespaces)
         .each!(a => out_ = out_ ~ a);
             
     // dfmt on
@@ -473,7 +471,6 @@ body {
         import std.array : array, join;
         import std.variant;
         import std.stdio;
-        import std.string : toLower, indexOf;
         import std.algorithm : canFind, map, joiner;
         import backend.fuzz.generators;
 
@@ -497,7 +494,7 @@ body {
             logger.trace("class_name: " ~ class_name);
             logger.trace("fqn_class: " ~ fqn_class);
             
-            Namespace nss =  xmlp.getNamespace(ns.resideInNs[0..$-1].array.join("::").toLower);
+            Namespace nss =  xmlp.getNamespace(ns.resideInNs[0..$-1].array.join("::"));
             classes[fqn_class].insertBack(generateClass(inner.impl, class_name,
                         ns.resideInNs,
 							nss, data, a, xmlp));
