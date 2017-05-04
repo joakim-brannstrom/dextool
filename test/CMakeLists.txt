@@ -4,4 +4,5 @@
 # units. Keep this file simple.
 
 include(dextool_dextool_test.cmake)
+include(dextool_scriptlike.cmake)
 include(dextool_integration_test.cmake)

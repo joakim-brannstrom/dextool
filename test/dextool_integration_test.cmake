@@ -1,11 +1,5 @@
 # vim: filetype=cmake
 
-file(GLOB_RECURSE SCRIPTLIKE_FILES
-    ${CMAKE_CURRENT_LIST_DIR}/scriptlike/src/*.d
-)
-
-compile_d_static_lib(dextool_scriptlike "${SCRIPTLIKE_FILES}" "" "" "")
-
 file(GLOB SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/external_main.d
     ${CMAKE_CURRENT_LIST_DIR}/c_tests.d
@@ -14,7 +8,7 @@ file(GLOB SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/plantuml_tests.d
 )
 
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/scriptlike/src -I${CMAKE_CURRENT_LIST_DIR}/source")
 
 compile_d_test(integration "${SRC_FILES}" "${flags}" "" "dextool_scriptlike")
 
