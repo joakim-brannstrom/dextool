@@ -118,17 +118,20 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
         break;
     case NoCategory:
         logger.error("No plugin specified");
-        writeln("Available plugins:", plugins.toShortHelp);
+        writeln("Available plugins:");
+        writeln(plugins.toShortHelp);
         writeln("-h for further help");
         exit_status = ExitStatusType.Errors;
         break;
     case UnknownPlugin:
         logger.errorf("No such plugin found: '%s'", cli.category);
-        writeln("Available plugins:\n", plugins.toShortHelp);
+        writeln("Available plugins:");
+        writeln(plugins.toShortHelp);
         writeln("-h for further help");
         exit_status = ExitStatusType.Errors;
         break;
     case PluginList:
+        // intended to be used in automation. Akin to git "porcelain" commands"
         foreach (const ref p; plugins) {
             writeln(p.name);
         }
