@@ -8,7 +8,6 @@ module autobuild;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import utils;
 
 Flag!"SignalInterrupt" signalInterrupt;
 Flag!"TestsPassed" signalExitStatus;
@@ -702,7 +701,7 @@ int main(string[] args) {
                               "test/plantuml_tests.d",
                               "test/graphml_tests.d",
                               "test/external_main.d",
-                              "test/utils.d"
+                              "test/source"
         )
         .map!(a => thisExePath.dirName ~ a)
         .array;

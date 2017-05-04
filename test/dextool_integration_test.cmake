@@ -12,10 +12,9 @@ file(GLOB SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/cpp_tests.d
     ${CMAKE_CURRENT_LIST_DIR}/graphml_tests.d
     ${CMAKE_CURRENT_LIST_DIR}/plantuml_tests.d
-    ${CMAKE_CURRENT_LIST_DIR}/utils.d
 )
 
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/scriptlike/src")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source")
 
 compile_d_test(integration "${SRC_FILES}" "${flags}" "" "dextool_scriptlike")
 

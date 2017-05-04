@@ -12,4 +12,4 @@ dflags "-dip25"
 targetName "../.autobuild.bin"
 targetType "executable"
 
-sourceFiles "../autobuild.d" "../test/utils.d"
+sourceFiles "../autobuild.d"
