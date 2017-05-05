@@ -1,0 +1,13 @@
+<Interface name="Ops_Mode">
+    <ContinuousInterface name="Ops_State" direction="From_Provider">
+        <MonitoredItem name="Ops_State" type="Ops_State_Type" defaultValue="Failed">
+            <MonitorChange/>
+        </MonitoredItem>
+        <MonitoredItem name="Ops_State_Quality" type="Ops_State_Quality_Type" defaultValue="Failed">
+            <MonitorChange/>
+        </MonitoredItem>
+    </ContinuousInterface>
+</Interface>
+
+
+
