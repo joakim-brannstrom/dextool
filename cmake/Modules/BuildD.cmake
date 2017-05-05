@@ -146,3 +146,45 @@ function(compile_d_test name input_d compiler_args linker_args libs)
     build_d_executable(${target_name} "${input_d}" "${dflags}" "${lflags}" "${libs};dextool_unit_threaded")
     add_test(NAME ${target_name}_ COMMAND ${target_name})
 endfunction()
+
+#=============================================================================#
+# [PUBLIC]
+# Build a D integration test.
+# It is added as a named executable with suffix _integration that depends on the
+# supplied libraries.
+#   name        - Target name for the executable
+#   input_d     - List of a source file or many quoted and separated by ;
+#   libs        - List of a library or many quoted and separated by ; to link with
+function(compile_d_integration_test name input_d compiler_args linker_args libs)
+    if(NOT BUILD_TEST)
+        return()
+    endif()
+
+    set(target_name ${name}_integration)
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/unit-threaded/source -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/test/scriptlike/src")
+    set(lflags "${linker_args}")
+
+    conv_to_proper_args(dflags "${dflags}")
+    conv_to_proper_args(lflags "${lflags}")
+
+    # create the executable
+    set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
+    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
+    set_target_properties(${target_name} PROPERTIES
+        LINKER_LANGUAGE D
+        COMPILE_FLAGS ""
+        LINK_FLAGS "${lflags}"
+        )
+
+    # link libraries to executable
+    foreach (lib "${libs};dextool_unit_threaded;dextool_scriptlike;dextool_dextool_test")
+        target_link_libraries(${target_name} ${lib})
+    endforeach()
+
+    # add the test
+    add_test(NAME ${target_name}_
+        COMMAND ${target_name}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    add_dependencies(check_integration ${target_name})
+endfunction()
