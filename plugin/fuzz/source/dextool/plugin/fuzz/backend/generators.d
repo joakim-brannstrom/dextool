@@ -157,10 +157,10 @@ import backend.fuzz.types;
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns.array.join("::"));
             foreach (ciface; ns.interfaces.ci) {
-                stmt(E(format("%s::%sType %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
+                stmt(E(format("%s::%s %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
             }
             foreach (eiface; ns.interfaces.ei) {
-                stmt(E(format("%s::%sType %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
+                stmt(E(format("%s::%s %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
             }
             stmt(E("RandomGenerator* randomGenerator"));
             stmt(Et("std::vector")("std::string") ~ E("clients"));
@@ -176,7 +176,7 @@ import backend.fuzz.types;
 
             auto func2 = func_body("void", "Regenerate");
             auto func1 = func_body("void", "Regenerate",
-                                     "const std::map<std::string, std::vector<std::vector<int>>> &vars"); 
+                                     "const std::map<std::string, std::vector<std::vector<int>>> &vars, const int64_t & curr_cycles"); 
 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
@@ -210,8 +210,9 @@ import backend.fuzz.types;
                                 expr1 = ditem.defaultVal;
                                 expr2 = ditem.defaultVal;
                             } else {
-                                expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", 
-                                                                                            ciface.name.toLower, ditem.name);
+                                expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
+                                                                                            ciface.name.toLower, ditem.name,
+                                                                                            "curr_cycles");
                                 expr2 = `randomGenerator->generate()`;
                             }
                             with (func1) { stmt(E(var) = E(expr1)); }
@@ -256,9 +257,9 @@ import backend.fuzz.types;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sType::Enum", type_ns, ditem_type);
-    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
+    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
-                                                                                ditem_name, min, max);
+                                                                                ditem_name, min, max, "curr_cycles");
     string expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
     with (func1) { stmt(E(var) = E(Et("static_cast")(fqns_type))(expr1)); }
     with (func2) { stmt(E(var) = E(Et("static_cast")(fqns_type))(expr2)); }
@@ -278,12 +279,13 @@ import backend.fuzz.types;
             return;
         }
         else if (var_name.min.length != 0 && var_name.max.length != 0) {
-            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s, %s)`, "vars", 
+            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s, %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
                                                                                 ditem_name,
                                                                                 var_name.name,
                                                                                 var_name.min,
-                                                                                var_name.max);
+                                                                                var_name.max,
+                                                                                "curr_cycles");
             string expr2 = format(`randomGenerator->generate(%s, %s)`, var_name.min, var_name.max);
 
             with (func1) { stmt(E(var) = E(expr1)); }
@@ -296,12 +298,12 @@ import backend.fuzz.types;
         if (var_minmax.length > 0) {
             string expr1, expr2;
             if (var_minmax["defVal"].length == 0) {
-                expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s, %s)`, "vars", 
+                expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s, %s, %s)`, "vars",
                                                                                 ciface_name.toLower,
                                                                                 ditem_name, 
                                                                                 var_name.name,
                                                                                 var_minmax["min"],
-                                                                                var_minmax["max"]);
+                                                                                var_minmax["max"], "curr_cycles");
                 expr2 = format(`randomGenerator->generate(%s, %s)`, var_minmax["min"], var_minmax["max"]);
             } else {
                 expr1 = var_minmax["defVal"];
@@ -312,9 +314,10 @@ import backend.fuzz.types;
             with (func2) { stmt(E(var) = E(expr2)); }
         }
         else {
-            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s")`, "vars", ciface_name.toLower,                                                                               ciface_name.toLower,
+            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s)`, "vars", ciface_name.toLower,                                                                               ciface_name.toLower,
                                                                                 ditem_name, 
-                                                                                var_name.name);
+                                                                                var_name.name,
+                                                                                "curr_cycles");
             string expr2 = `randomGenerator->generate()`;
 
             with (func1) { stmt(E(var) = E(expr1)); }
