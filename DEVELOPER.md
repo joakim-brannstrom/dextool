@@ -18,6 +18,9 @@ This gives access to the make target _test_.
 
 To run the tests:
 ```sh
-make check # runs unittests
+# builds and runs the unittests
+make check
+
+# builds and runs the integration tests
 make check_integration
 ```
