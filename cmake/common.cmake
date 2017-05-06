@@ -63,3 +63,21 @@ function(Print_Dir_Properties)
         message(STATUS "${_variableName}=${${_variableName}}")
     endforeach()
 endfunction()
+
+#=============================================================================#
+# [PUBLIC]
+# Setup environment (symlinks) for integration testing
+macro(setup_integration_testing_env)
+    if (BUILD_TEST)
+        execute_process(
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/fused_gmock
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/testdata
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/path_to_dextool
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
+            COMMAND ln -sf ${CMAKE_BINARY_DIR}/fused_gmock ${CMAKE_CURRENT_BINARY_DIR}/fused_gmock
+            COMMAND ln -sf ${CMAKE_BINARY_DIR}/testdata ${CMAKE_CURRENT_BINARY_DIR}/testdata
+            COMMAND ln -sf ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/path_to_dextool
+            COMMAND ln -sf ${CMAKE_BINARY_DIR}/libgmock_gtest.a ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
+            )
+    endif()
+endmacro()

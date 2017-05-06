@@ -8,10 +8,11 @@ module autobuild;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import utils;
 
 Flag!"SignalInterrupt" signalInterrupt;
 Flag!"TestsPassed" signalExitStatus;
+
+bool skipStaticAnalysis = true;
 
 void echoOn() {
     .scriptlikeEcho = true;
@@ -89,14 +90,9 @@ auto sourceAsInclude() {
     // dfmt off
     return only(
                 "dsrcgen/source",
-                "",
                 "source",
                 "clang",
                 "libclang",
-                "unit-threaded/source",
-                "docopt/source",
-                "test",
-                "test/scriptlike/src"
                )
         .map!(a => thisExePath.dirName ~ a)
         .map!(a => "-I" ~ a.toString)
@@ -530,7 +526,7 @@ struct Fsm {
     void stateDebug_build() {
         printStatus(Status.Run, "Debug build");
 
-        auto r = tryRun(cmakeDir, "make all");
+        auto r = tryRun(cmakeDir, "make all -j $(nproc)");
         flagCompileError = cast(Flag!"CompileError")(r != 0);
         printExitStatus(r, "Debug build with debug symbols");
     }
@@ -538,17 +534,13 @@ struct Fsm {
     void stateDebug_test() {
         printStatus(Status.Run, "Test of code generation");
 
-        echoOn;
-        scope (exit)
-            echoOff;
-        auto r = tryRunCollect(cmakeDir, `make check_integration`);
-
-        auto logfile = cmakeDir ~ "integration_test.log";
-        consoleToFile(logfile, r.output);
-
-        if (r.status != 0) {
-            testErrorLog ~= ErrorMsg(logfile, "integration_test", r.output);
+        if (tryRun(cmakeDir, `make check_integration`) != 0) {
+            testErrorLog ~= ErrorMsg(Path(""), "integration_test", "failed building");
+            printExitStatus(1, "Test of code generation");
+            return;
         }
+
+        printExitStatus(0, "Test of code generation");
     }
 
     void stateTest_passed() {
@@ -597,6 +589,10 @@ struct Fsm {
         static import core.stdc.stdlib;
 
         printStatus(Status.Run, "Static analyze");
+
+        // dscanner hangs during analysis
+        if (skipStaticAnalysis)
+            return;
 
         string phobos_path = core.stdc.stdlib.getenv("DLANG_PHOBOS_PATH".toStringz)
             .fromStringz.idup;
@@ -697,12 +693,7 @@ int main(string[] args) {
                               "dsrcgen/source",
                               "test/testdata",
                               "unit-threaded",
-                              "test/c_tests.d",
-                              "test/cpp_tests.d",
-                              "test/plantuml_tests.d",
-                              "test/graphml_tests.d",
-                              "test/external_main.d",
-                              "test/utils.d"
+                              "test/source"
         )
         .map!(a => thisExePath.dirName ~ a)
         .array;
