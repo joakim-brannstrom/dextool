@@ -15,7 +15,7 @@ auto runPlugin(string[] args) {
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
-    import dextool.plugin.frontend.ctestdouble;
+    import dextool.plugin.ctestdouble.frontend.ctestdouble;
 
     RawConfiguration pargs;
     pargs.parse(args);

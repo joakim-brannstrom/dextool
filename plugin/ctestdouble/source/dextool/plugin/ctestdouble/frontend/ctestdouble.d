@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.frontend.ctestdouble;
+module dextool.plugin.ctestdouble.frontend.ctestdouble;
 
 import std.typecons : Nullable;
 
@@ -18,7 +18,7 @@ import dextool.type;
 import dextool.utility;
 
 import dextool.plugin.types;
-import dextool.plugin.backend.ctestdouble.cvariant : Controller, Parameters,
+import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
     Products;
 
 struct RawConfiguration {
@@ -780,7 +780,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
-    import dextool.plugin.backend.ctestdouble.cvariant : CVisitor, Generator;
+    import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
     const auto total_files = in_files.length;

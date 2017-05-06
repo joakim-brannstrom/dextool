@@ -3,7 +3,7 @@ Date: 2015-2017, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module dextool.plugin.backend.ctestdouble.adapter;
+module dextool.plugin.ctestdouble.backend.adapter;
 
 import logger = std.experimental.logger;
 
@@ -12,7 +12,7 @@ import dsrcgen.cpp : CppModule;
 import dextool.type : StubPrefix;
 import cpptooling.data.representation : CppClass, CppClassName, CppNamespace,
     CppNs;
-import dextool.plugin.backend.ctestdouble.global : MutableGlobal;
+import dextool.plugin.ctestdouble.backend.global : MutableGlobal;
 
 @safe:
 
