@@ -8,8 +8,7 @@ module dextool_test.integration;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import unit_threaded : Name, shouldEqual, ShouldFail, shouldBeTrue,
-    shouldBeFalse;
+import unit_threaded : shouldEqual, ShouldFail, shouldBeTrue, shouldBeFalse;
 import dextool_test.utils;
 
 enum globalTestdir = "graphml_tests";
