@@ -74,10 +74,12 @@ macro(setup_integration_testing_env)
             COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/testdata
             COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/path_to_dextool
             COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
+            COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/plugin_testdata
             COMMAND ln -sf ${CMAKE_BINARY_DIR}/fused_gmock ${CMAKE_CURRENT_BINARY_DIR}/fused_gmock
             COMMAND ln -sf ${CMAKE_BINARY_DIR}/testdata ${CMAKE_CURRENT_BINARY_DIR}/testdata
             COMMAND ln -sf ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/path_to_dextool
             COMMAND ln -sf ${CMAKE_BINARY_DIR}/libgmock_gtest.a ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
+            COMMAND ln -sf ${CMAKE_CURRENT_LIST_DIR}/testdata ${CMAKE_CURRENT_BINARY_DIR}/plugin_testdata
             )
     endif()
 endmacro()
