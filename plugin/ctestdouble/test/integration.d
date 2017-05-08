@@ -3,11 +3,12 @@ Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
-module c_tests;
+module dextool_test.integration;
+
+import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import utils;
-import std.typecons : Flag, Yes, No;
+import dextool_test.utils;
 
 import unit_threaded;
 
@@ -576,8 +577,8 @@ unittest {
 
 // This test could be anywhere. It just happens to be placed in the suite of C
 // tests.
-@(testId ~ "Should exit with a help message that no matching category was found")
-@Values(["invalid_category"], [""])
+@(testId ~ "Shall exit with a help message that no such plugin is found")
+@Values(["invalid_plugin"], [""])
 @Values([""], ["--debug"])
 unittest {
     mixin(envSetup(globalTestdir));
@@ -595,7 +596,7 @@ unittest {
     }
     exit_status_is_failed.shouldBeTrue;
 
-    stdoutContains("No such main category: ").shouldBeTrue;
+    stdoutContains("No such plugin found:").shouldBeTrue;
 }
 
 // END   Unspecified CLI Test ################################################

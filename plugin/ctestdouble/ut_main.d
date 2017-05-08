@@ -1,11 +1,7 @@
 /**
-Copyright: Copyright (c) 2015-2017, Joakim Brännström. All rights reserved.
-License: MPL-2
+Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at http://mozilla.org/MPL/2.0/.
 */
 import std.stdio;
 import unit_threaded.runner;
@@ -14,8 +10,8 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          "dextool.plugin.frontend.ctestdouble",
-                          "dextool.plugin.backend.ctestdouble.global",
+                          "dextool.plugin.ctestdouble.frontend.ctestdouble",
+                          "dextool.plugin.ctestdouble.backend.global",
                           );
     //dfmt on
 }

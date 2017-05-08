@@ -525,7 +525,7 @@ void testWithGTest(const Path[] src, const Path binary, const ref TestEnv testEn
     args ~= src.dup;
     args ~= "-l" ~ "gmock_gtest";
     args ~= "-lpthread";
-    args ~= "-L" ~ buildArtifacts.toString;
+    args ~= "-L.";
 
     runAndLog(args.data);
 }

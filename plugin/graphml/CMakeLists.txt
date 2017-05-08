@@ -25,3 +25,6 @@ list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
 compile_d_unittest(graphml "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility")
+
+setup_integration_testing_env()
+compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_scriptlike;dextool_dextool_test")

@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.frontend.ctestdouble;
+module dextool.plugin.ctestdouble.frontend.ctestdouble;
 
 import std.typecons : Nullable;
 
@@ -18,7 +18,7 @@ import dextool.type;
 import dextool.utility;
 
 import dextool.plugin.types;
-import dextool.plugin.backend.ctestdouble.cvariant : Controller, Parameters,
+import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
     Products;
 
 struct RawConfiguration {
@@ -466,27 +466,20 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import std.algorithm : canFind;
-        import std.regex : matchFirst;
+        import dextool.plugin.regex_matchers : matchAny;
 
         bool restrict_pass = true;
         bool exclude_pass = true;
 
         if (restrict.length > 0) {
-            restrict_pass = canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(restrict);
+            restrict_pass = matchAny(filename, restrict);
             debug {
                 logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
             }
         }
 
         if (exclude.length > 0) {
-            exclude_pass = !canFind!((a) {
-                auto m = matchFirst(filename, a);
-                return !m.empty && m.pre.length == 0 && m.post.length == 0;
-            })(exclude);
+            exclude_pass = !matchAny(filename, exclude);
             debug {
                 logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
             }
@@ -787,7 +780,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
-    import dextool.plugin.backend.ctestdouble.cvariant : CVisitor, Generator;
+    import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
     const auto total_files = in_files.length;
