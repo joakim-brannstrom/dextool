@@ -1,0 +1,3 @@
+[submodule "plugin/fuzz/source/dextool/plugin/fuzz/compidb"]
+	path = plugin/fuzz/source/dextool/plugin/fuzz/compidb
+	url = git@github.com:ploq/compidb.git
