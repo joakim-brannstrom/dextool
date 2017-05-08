@@ -1007,3 +1007,13 @@ unittest {
         enum_const(E("L1") = E("2"));
     }
 }
+
+@("shall be a extern func")
+unittest {
+    auto expect = `    extern var;
+`;
+    auto m = new CModule;
+    m.extern_("var");
+
+    assert(expect == m.render, m.render);
+}
