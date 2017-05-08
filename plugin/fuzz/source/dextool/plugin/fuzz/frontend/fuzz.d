@@ -12,7 +12,7 @@ import dextool.type;
 import dextool.utility;
 import dextool.compilation_db;
 
-
+import compidb;
 import xml_parse;
 
 //Search and get headers from specific file
@@ -146,6 +146,7 @@ class FuzzVariant : Parameters, Products {
 
         BaseDir xml_dir;
         CompileCommandDB compile_db;
+        string compile_db_name;
         
         FileName[] includes;
         FileData[] file_data;
@@ -180,6 +181,7 @@ class FuzzVariant : Parameters, Products {
             return;
         this.xml_dir = BaseDir(xml_dir[0]);
         this.compile_db = compile_db.fromArgCompileDb;
+        this.compile_db_name = compile_db[0];
     }
 
     //Parameter functionis
@@ -189,7 +191,7 @@ class FuzzVariant : Parameters, Products {
         import std.path : baseName;
         import std.stdio;
 
-        return this.compile_db.getHeaderFiles.map!(a => baseName(a)).array;
+        return this.compile_db.getHeaderFiles.array;
     }
     
     Parameters.Files getFiles() {
@@ -235,6 +237,10 @@ class FuzzVariant : Parameters, Products {
         return this.compile_db;
     }
 
+    string getCompileDBName() {
+        return this.compile_db_name;
+    }
+
     //Product functions
     void putFile(FileName fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
@@ -248,7 +254,9 @@ class FuzzVariant : Parameters, Products {
 ExitStatusType genCpp(FuzzVariant variant) {
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
-    import std.algorithm : canFind;
+    import std.algorithm : canFind, joiner;
+    import std.file : write;
+    import std.conv : to;
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
@@ -297,8 +305,16 @@ ExitStatusType genCpp(FuzzVariant variant) {
     debug {
         logger.trace(visitor);
     }
+
     writeFileData(variant.file_data);
 
+    CompilationDatabase comp_db = parse(CDBFileName(variant.getCompileDBName));
+    Makefile mkfile = toMakefile(comp_db, true);
+    Compiler cc = getCompiler(mkfile);
+    mkfile.rules ~= MakefileRule(RuleName("fuzz_main"), 
+            Command(cc ~ " -std=gnu++11 fuzz.cpp main.cpp fuzz_out/portenvironment.cpp fuzz_out/portstorage.cpp fuzz_out/mt1337.cpp fuzz_out/testingenvironment.cpp " ~ to!string(mkfile.rules_name.joiner(" "))));
+    mkfile.rules_name ~= RuleName("fuzz_main");
+    write("Makefile_fuzz", (generate(mkfile)));
 
     return ExitStatusType.Ok;
 }

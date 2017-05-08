@@ -47,6 +47,7 @@ import std.container.array;
     DextoolVersion getToolVersion();
     CustomHeader getCustomHeader();
     AppName getAppName();
+    string getCompileDBName();
 }
 
 /// Data produced by the generator like files.
@@ -458,8 +459,8 @@ body {
         modules.hdr.include(incl);
     }
 
-    modules.hdr.include("testingenvironment.hpp");
-    modules.hdr.include("portenvironment.hpp");
+    modules.hdr.include("fuzz_out/testingenvironment.hpp");
+    modules.hdr.include("fuzz_out/portenvironment.hpp");
 
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't

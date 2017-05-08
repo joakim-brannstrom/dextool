@@ -15,11 +15,11 @@ import backend.fuzz.types;
 
 @trusted void generateMainFunc(CppModule main_inner, string app_name) {
     with(main_inner.func_body("int", "main", "int argc, char** argv")) {
-        with(if_("!TestingEnvironment::Init()")) {
-            continue_;
+        with(if_("!TestingEnvironment::init()")) {
+            return_("0");
         }
 
-        stmt("APP_" ~ app_name ~ "_Initialize()");
+        stmt(app_name ~ "_Initialize()");
         with(for_("int n = 0", "n < TestingEnvironment::getCycles()", "n++")) {
             with(switch_("TestingEnvironment::getRandType()")) {
                 with(case_("RANDOM_GENERATOR")) {
@@ -27,8 +27,8 @@ import backend.fuzz.types;
                     stmt("break");
                 }
                 with(case_("STATIC_GENERATOR")) {
-                    stmt("TestingEnvironment::readConfig(n)");
-                    stmt("PortStorage::Regenerate(TestingEnvironment::getConfig())");
+                    stmt("TestingEnvironment::readConfig()");
+                    stmt("PortStorage::Regenerate(TestingEnvironment::getConfig(), n)");
                     stmt("break");
                 }
 
@@ -39,10 +39,10 @@ import backend.fuzz.types;
             
             }
 
-            stmt("APP_"~app_name~"_Execute()");
+            stmt(app_name~"_Execute()");
         }
 
-        stmt("APP_" ~ app_name ~ "_Terminate()");
+        stmt(app_name ~ "_Terminate()");
         stmt("PortStorage::CleanUp()");
 
         return_("0");
@@ -50,8 +50,8 @@ import backend.fuzz.types;
 }
 
 @trusted void generateMainHdr(CppModule main_hdr_inner) {
-    main_hdr_inner.include("testingenvironment.hpp");
-    main_hdr_inner.include("portenvironment.hpp");
+    main_hdr_inner.include("fuzz_out/testingenvironment.hpp");
+    main_hdr_inner.include("fuzz_out/portenvironment.hpp");
     main_hdr_inner.include("app_main.hpp");
     main_hdr_inner.include("<iostream>");
     main_hdr_inner.include("<map>");
@@ -157,26 +157,28 @@ import backend.fuzz.types;
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns.array.join("::"));
             foreach (ciface; ns.interfaces.ci) {
-                stmt(E(format("%s::%s %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
+                stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
             }
-            foreach (eiface; ns.interfaces.ei) {
-                stmt(E(format("%s::%s %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
-            }
+            //foreach (eiface; ns.interfaces.ei) {
+            //    stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
+            //}
             stmt(E("RandomGenerator* randomGenerator"));
             stmt(Et("std::vector")("std::string") ~ E("clients"));
+            stmt(E("std::string name"));
         }
         
         with (public_) {
-            with (func_body("", class_name ~ "_Impl")) { //Generate constructor
+            with (func_body("", class_name ~ "_Impl", "std::string n")) { //Generate constructor
 		        string expr = format(`%s::%s()`, "&TestingEnvironment", "createRandomGenerator");
                 stmt(E("randomGenerator") = E(expr));
+                stmt(E("name") = E("n"));
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
 
             auto func2 = func_body("void", "Regenerate");
             auto func1 = func_body("void", "Regenerate",
-                                     "const std::map<std::string, std::vector<std::vector<int>>> &vars, const int64_t & curr_cycles"); 
+                                     "const std::map<std::string, std::vector<std::vector<int> > > &vars, const int64_t & curr_cycles"); 
 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
@@ -238,8 +240,8 @@ import backend.fuzz.types;
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string expr1, expr2;
     if (defVal.length == 0) {
-        expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", ciface_name.toLower,
-                                                                                 ditem_name, min, max);
+        expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", ciface_name.toLower,
+                                                                                 ditem_name, min, max, "curr_cycles");
         expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
     } else {
         expr1 = defVal;
@@ -256,7 +258,7 @@ import backend.fuzz.types;
     import std.string : toLower, capitalize;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
-    string fqns_type = format("%s::%sType::Enum", type_ns, ditem_type);
+    string fqns_type = format("%s::%sT::Enum", type_ns, ditem_type);
     string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
                                                                                 ditem_name, min, max, "curr_cycles");
@@ -353,6 +355,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
 
     auto cppm_type = (cast(string)(a.name)).split("_")[0];
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
+    auto cppm_end_type = (cast(string)(a.name)).split("_")[$ - 1];
 
     switch(cppm_type) {
         case "Get":
@@ -365,16 +368,23 @@ void generateDtor(const CppDtor a, CppModule inner) {
             generateWillFunc(a, inner);
             break;
         default:
-            Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-            with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
-                return_;
+            switch(a.name) {
+                case "Is_Client_Connected":
+                    generateClientConnect(a, inner);
+                    break;
+                default:
+                    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+                    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, joinParams(a.paramRange))) {
+                        return_;
+                    }
             }
             break;
     }
 }
 
 @trusted void generateGetFunc(const CppMethod a, CppModule inner, Namespace ns) {
-    import std.string : toLower;
+    import std.string : toLower, endsWith;
+    import std.conv : to;
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
 
@@ -382,9 +392,17 @@ void generateDtor(const CppDtor a, CppModule inner) {
         with(inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst)) {
             return_("*port");
         }
+    } else if(a.name == "Get_Client_Id") {
+        generateClientId(a, inner);
+    } else if (a.name == "Get_Client_Name") {
+        generateClientName(a, inner);
+    } else if (a.name == "Get_Number_Of_Clients") {
+        generateNumClients(a, inner);
+    } else if ((to!string(a.name)).endsWith("_Bandwidth")) {
+        generateBandwidth(a, inner);
     } else {
         Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const)) {
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, joinParams(a.paramRange))) {
             string func_name = a.name["Get_".length .. $];
             ContinousInterface ci = getInterface(ns, func_name);
             if(ci.name.length != 0) {
@@ -445,6 +463,88 @@ void generateDtor(const CppDtor a, CppModule inner) {
         return_(E("randomGenerator->generate")("0, 1"));
     }
 }
+
+@trusted void generateClientId(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        with(for_("int n = 0", "n < clients.size()", "n++")) {
+            with(if_("clients[n] == client_name")) {
+                return_("n");
+            }
+        }
+        return_("-1");
+    }
+}
+
+@trusted void generateClientName(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        with(if_("clients.size() != 0 && client_id < clients.size() && client_id > 0")) {
+            return_("clients.at(client_id)");
+        } 
+        with(else_) {
+            return_(`""`);
+        }
+    } 
+}
+
+@trusted void generateClientConnect(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+
+
+
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        with(for_("int n = 0", "n < clients.size()", "n++")) {
+            with(if_("clients[n] == client_name")) {
+                    return_("true");
+            }
+        }
+        return_("false");
+    }
+}
+
+@trusted void generateNumClients(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+
+
+
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        return_(E("clients.size")(""));
+    }
+}
+
+@trusted void generateBandwidth(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+
+
+
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        return_("1");
+    }
+}
+
+
 
 @trusted ContinousInterface getInterface(Namespace ns, string func_name) {
     ///func_name should have removed get_ or put_
