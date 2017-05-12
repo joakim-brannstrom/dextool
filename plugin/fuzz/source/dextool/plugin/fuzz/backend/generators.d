@@ -190,10 +190,11 @@ import backend.fuzz.types;
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
                     string arr = xmlp.isArray(ditem, ns.name);
+                    string[string] minmax;
                     if (arr.length > 0) {
-                        string[string] minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
+                        minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
                     } else {
-                        string[string] minmax = xmlp.findMinMax(ns.name, arr, ditem);
+                        minmax = xmlp.findMinMax(ns.name, arr, ditem);
                     }
 		            
 		            if (minmax.length > 0) {
@@ -263,8 +264,8 @@ import backend.fuzz.types;
             with(func1) { stmt(expr1); }
             with(func2) { stmt(expr2); }
         } else {
-            expr1 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ defVal);
-            expr2 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ rand_expr2);
+            expr1 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ defVal);
+            expr2 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ defVal);
             
             with(func1) { stmt(expr1); }
             with(func2) { stmt(expr2); }
