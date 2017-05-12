@@ -184,7 +184,7 @@ struct CPPInterface {
 
 class xml_parse {
 private:
-    string basedir;
+    BaseDir[] basedir;
     string[] foundNamespaces;
     string[] xml_files;
     Namespace[string] nsps;
@@ -192,13 +192,17 @@ private:
     string namespace(string filename) {
         ///TODO: Namespaces should probably only be added if there is any interface in the file
         //dfmt off
-
-            return dirName(filename)
-                .chompPrefix(this.basedir)
-                .replace(dirSeparator, "::")
-                .chompPrefix("::")
-                ~ "::" ~ baseName(filename, ".xml");
+        foreach(n; this.basedir) {
+            if(filename.canFind(n.basedir)) {
+                return dirName(filename)
+                    .chompPrefix(n.basedir)
+                    .replace(dirSeparator, "::")
+                    .chompPrefix("::")
+                    ~ "::" ~ baseName(filename, ".xml");
+            }
+        }
         //dfmt on
+        return "";
     }
 
     Types getTypes(Element types, string curr_ns) {
@@ -426,10 +430,12 @@ private:
     }
 
 public:
-    this(BaseDir bdir) {
+    this(BaseDir[] bdir) {
         basedir = bdir;
-        xml_files = () @trusted { return (dirEntries(this.basedir, "*.xml", SpanMode.breadth)
+        foreach(dir ; bdir) {
+            xml_files ~= () @trusted { return (dirEntries(dir.basedir, "*.xml", SpanMode.breadth)
                                         .filter!(a => a.isFile)).map!(a => a.name).array; } ();
+        }
 
         foundNamespaces = xml_files.map!(a => namespace(a)).filter!(a => a != "").array;
 

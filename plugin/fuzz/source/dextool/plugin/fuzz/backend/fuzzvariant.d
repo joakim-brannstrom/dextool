@@ -38,7 +38,7 @@ import std.container.array;
         FileName post_incl;
     }
 
-    BaseDir getXMLBasedir();
+    BaseDir[] getXMLBasedir();
     @trusted string[] getIncludes();
     Files getFiles();
     MainNs getMainNs();

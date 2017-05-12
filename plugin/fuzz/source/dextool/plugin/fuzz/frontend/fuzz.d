@@ -144,7 +144,7 @@ class FuzzVariant : Parameters, Products {
         MainNs main_ns;
         MainInterface main_if;
 
-        BaseDir xml_dir;
+        BaseDir[] xml_dir;
         CompileCommandDB compile_db;
         string compile_db_name;
         
@@ -179,7 +179,9 @@ class FuzzVariant : Parameters, Products {
             return;
         if(compile_db.length == 0)
             return;
-        this.xml_dir = BaseDir(xml_dir[0]);
+        foreach(dir ; xml_dir) {
+            this.xml_dir ~= BaseDir(dir);
+        }
         this.compile_db = compile_db.fromArgCompileDb;
         this.compile_db_name = compile_db[0];
     }
@@ -229,7 +231,7 @@ class FuzzVariant : Parameters, Products {
         return CustomHeader("");
     }
 
-    BaseDir getXMLBasedir() {
+    BaseDir[] getXMLBasedir() {
         return this.xml_dir;
     }
 
