@@ -579,6 +579,20 @@ public:
         return ret;
     }
 
+    //Returns the array type instead of array
+    string isArray(DataItem ditem, string topns) {
+        Types out_types = Types();
+        out_types = traverseNamespace(topns, out_types);
+
+        foreach (Array_ t; out_types.arrs) {
+            if(t.name == ditem.type) {
+                return t.type;
+            }
+        }
+
+        return "";
+    }
+
     Variable[string] findVariables(string ns, string type_name) {
         Variable[string] ret;
             Types out_types = Types();

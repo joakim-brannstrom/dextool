@@ -189,8 +189,13 @@ import backend.fuzz.types;
 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
-		            string[string] minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
-		      
+                    string arr = xmlp.isArray(ditem, ns.name);
+                    if (arr.length > 0) {
+                        string[string] minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
+                    } else {
+                        string[string] minmax = xmlp.findMinMax(ns.name, arr, ditem);
+                    }
+		            
 		            if (minmax.length > 0) {
                         string defVal = minmax["defVal"];
 			            string min = minmax["min"];
@@ -200,7 +205,7 @@ import backend.fuzz.types;
 			    
                         switch (type_type) {
                             case "SubType":
-                                generateSubType(func1, func2, ciface.name, ditem.name, min, max, defVal);
+                                generateSubType(func1, func2, ciface.name, ditem.name, min, max, defVal, arr.length > 0);
                                 break;
                             case "Enum":
                                 generateEnum(func1, func2, ciface.name, ditem.name, type_ns, ditem.type, min, max);
@@ -240,23 +245,44 @@ import backend.fuzz.types;
     return inner_class;
 }
 
-@trusted void generateSubType(CppModule func1, CppModule func2, string ciface_name, string ditem_name, string min, string max, string defVal) {
+@trusted void generateSubType(CppModule func1, CppModule func2, string ciface_name, string ditem_name, string min, string max, string defVal, bool isArray) {
     import std.format : format;
     import std.string : toLower;
 
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string expr1, expr2;
-    if (defVal.length == 0) {
-        expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", ciface_name.toLower,
-                                                                                 ditem_name, min, max, "curr_cycles");
-        expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
-    } else {
-        expr1 = defVal;
-        expr2 = defVal;
-    }
 
-    with (func1) { stmt(E(var) = E(expr1)); }
-    with (func2) { stmt(E(var) = E(expr2)); }
+    if (isArray) {
+        if (defVal.length == 0) {
+            string rand_expr1 = format(`i = randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", ciface_name.toLower,
+                                                                                    ditem_name, min, max, "curr_cycles");
+            string rand_expr2 = format(`i = randomGenerator->generate(%s, %s)`, min, max);
+            expr1 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, rand_expr1);
+            expr2 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, rand_expr2);
+
+            with(func1) { stmt(expr1); }
+            with(func2) { stmt(expr2); }
+        } else {
+            expr1 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ defVal);
+            expr2 = format("for(auto &i : %s.%s)\n\t%s", ciface_name.toLower, ditem_name, "i = " ~ rand_expr2);
+            
+            with(func1) { stmt(expr1); }
+            with(func2) { stmt(expr2); }
+        }
+    } else {
+        if (defVal.length == 0) {
+            expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", ciface_name.toLower,
+                                                                                    ditem_name, min, max, "curr_cycles");
+            expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
+        } else {
+            expr1 = defVal;
+            expr2 = defVal;
+        }
+
+        with (func1) { stmt(E(var) = E(expr1)); }
+        with (func2) { stmt(E(var) = E(expr2)); }
+
+    }
 }
 
 @trusted void generateEnum(CppModule func1, CppModule func2, string ciface_name, string ditem_name, string type_ns,
@@ -267,7 +293,7 @@ import backend.fuzz.types;
     ///>>>
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sT::Enum", type_ns, ditem_type);
-    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
+    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
                                                                                 ditem_name, min, max, "curr_cycles");
     string expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
