@@ -49,10 +49,10 @@ import backend.fuzz.types;
     }
 }
 
-@trusted void generateMainHdr(CppModule main_hdr_inner) {
+@trusted void generateMainHdr(CppModule main_hdr_inner, string app_name) {
     main_hdr_inner.include("fuzz_out/testingenvironment.hpp");
     main_hdr_inner.include("fuzz_out/portenvironment.hpp");
-    main_hdr_inner.include("app_main.hpp");
+    main_hdr_inner.include(app_name ~ "_main.hpp");
     main_hdr_inner.include("<iostream>");
     main_hdr_inner.include("<map>");
     main_hdr_inner.include("<string>");
@@ -88,11 +88,12 @@ import backend.fuzz.types;
         if (paramType[$-1] == '&') {
             paramType = paramType[0..$-1]; //Remove reference
         }
+    ///>>>
 	return_(E(Et("PortEnvironment::createPort")(compif_implname, port_name, port_implname, paramType))(paramName ~ ", " ~ paramName));
     }
 }
 
-@trusted nsclass generateClass(CppModule inner, string class_name,
+@trusted nsclass generateClass(CppModule main_hdr_inner, CppModule inner, string class_name,
 			       const CppNsStack fqn_ns, Namespace ns, ImplData data, CppClass class_, xml_parse xmlp) {
     //Some assumptions are made. Does all providers and requirers end with Requirer or Provider?
     import std.array;
@@ -101,11 +102,12 @@ import backend.fuzz.types;
 
     auto inner_class = inner.class_(class_name ~ "_Impl", "public " ~ class_name);
     nsclass sclass = nsclass(false, inner_class, class_name, class_name ~ "_Impl");
+
     
     final switch(data.lookup(class_.id)) with (Kind) {
         case none:
             sclass.isPort = true;
-            generatePortClass(inner_class, class_name, ns, fqn_ns, xmlp);
+            generatePortClass(main_hdr_inner, inner_class, class_name, ns, fqn_ns, xmlp);
             break;
         case ContinousInterface:
             generateCompIfaceClass(inner_class, class_name, ns);
@@ -144,21 +146,26 @@ import backend.fuzz.types;
     return inner_class;
 }
 
-@trusted CppModule generatePortClass(CppModule inner_class, string class_name,
+@trusted CppModule generatePortClass(CppModule main_hdr_inner, CppModule inner_class, string class_name,
 				     Namespace ns, const CppNsStack fqn_ns, xml_parse xmlp) {
     import std.array : empty, join, array;
     import std.string : toLower, indexOf, capitalize;
     import std.algorithm : endsWith;
     import std.format : format;
-    
+
+    with(main_hdr_inner) {
+        foreach (ciface; ns.interfaces.ci) {
+        ///>>>
+            stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
+        } 
+    }
+
+
     logger.info("Generating port class: " ~ class_name);
     with (inner_class) {
         with (private_) {
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns.array.join("::"));
-            foreach (ciface; ns.interfaces.ci) {
-                stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
-            }
             //foreach (eiface; ns.interfaces.ei) {
             //    stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
             //}
@@ -257,6 +264,7 @@ import backend.fuzz.types;
     import std.format : format;
     import std.string : toLower, capitalize;
 
+    ///>>>
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sT::Enum", type_ns, ditem_type);
     string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
@@ -343,7 +351,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
 }
 
 //TODO: Split this function to multiple and add cppm_type as a tag in translate()
-@trusted void generateCppMeth(const CppMethod a, CppModule inner,
+@trusted void generateCppMeth(CppModule fuzz_, const CppMethod a, CppModule inner,
     string class_name, string nsname, Namespace ns) {
 
     import std.string;
@@ -357,9 +365,16 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
     auto cppm_end_type = (cast(string)(a.name)).split("_")[$ - 1];
 
+    logger.info(class_name);
+
     switch(cppm_type) {
         case "Get":
-            generateGetFunc(a, inner, ns);
+            if(a.isPure) {
+                generateGetFunc(a, inner, ns, class_name);
+            } else {
+                generateGetFunc(a, fuzz_, ns, class_name);
+            }
+            
             break;
         case "Put":
             generatePutFunc(a, inner, ns);
@@ -382,7 +397,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     }
 }
 
-@trusted void generateGetFunc(const CppMethod a, CppModule inner, Namespace ns) {
+@trusted void generateGetFunc(const CppMethod a, CppModule inner, Namespace ns, string class_name) {
     import std.string : toLower, endsWith;
     import std.conv : to;
     import cpptooling.data.representation;
@@ -402,7 +417,16 @@ void generateDtor(const CppDtor a, CppModule inner) {
         generateBandwidth(a, inner);
     } else {
         Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, joinParams(a.paramRange))) {
+        string new_func_name; 
+        
+        if (a.isPure) {
+            new_func_name = a.name;
+        } else {
+            new_func_name = class_name ~ "::" ~ a.name;
+        }
+
+        auto meth = inner.method_inline(No.isVirtual, a.returnType.toStringDecl, new_func_name, meth_const, joinParams(a.paramRange));
+        with (meth) {
             string func_name = a.name["Get_".length .. $];
             ContinousInterface ci = getInterface(ns, func_name);
             if(ci.name.length != 0) {
@@ -433,7 +457,8 @@ void generateDtor(const CppDtor a, CppModule inner) {
     import cpptooling.analyzer.type;
 
     auto params = joinParams(a.paramRange); 
-    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, No.isConst, params)) {
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
         string func_name = a.name["Get_".length .. $];
         ContinousInterface ci = getInterface(ns, func_name);
         if(ci.name.length != 0) {

@@ -103,7 +103,7 @@ struct Generator {
 
     void makeMain(Modules modules) {
         generateMainFunc(modules.main, params.getAppName);
-        generateMainHdr(modules.main_hdr);
+        generateMainHdr(modules.main_hdr, params.getAppName);
     }
 
 private:
@@ -462,6 +462,7 @@ body {
     modules.hdr.include("fuzz_out/testingenvironment.hpp");
     modules.hdr.include("fuzz_out/portenvironment.hpp");
 
+
     // recursive to handle nested namespaces.
     // the singleton ns must be the first code generate or the impl can't
     // use the instance.
@@ -496,12 +497,12 @@ body {
             logger.trace("fqn_class: " ~ fqn_class);
             
             Namespace nss =  xmlp.getNamespace(ns.resideInNs[0..$-1].array.join("::"));
-            classes[fqn_class].insertBack(generateClass(inner.impl, class_name,
+            classes[fqn_class].insertBack(generateClass(inner.hdr, inner.impl, class_name,
                         ns.resideInNs,
 							nss, data, a, xmlp));
 
             foreach (b; a.methodPublicRange) {
-                b.visit!((const CppMethod a) => generateCppMeth(a,
+                b.visit!((const CppMethod a) => generateCppMeth(inner.impl, a,
                     classes[fqn_class][$-1].cppm, class_name, fqn_class, nss),
                     (const CppMethodOp a) => writeln(""),
                     (const CppCtor a) => generateCtor(a, inner.impl),

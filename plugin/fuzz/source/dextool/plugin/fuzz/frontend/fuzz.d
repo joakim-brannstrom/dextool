@@ -312,7 +312,7 @@ ExitStatusType genCpp(FuzzVariant variant) {
     Makefile mkfile = toMakefile(comp_db, true);
     Compiler cc = getCompiler(mkfile);
     mkfile.rules ~= MakefileRule(RuleName("fuzz_main"), 
-            Command(cc ~ " -std=gnu++11 " ~ to!string(mkfile.outputs.joiner(" ")) ~ " fuzz.cpp main.cpp fuzz_out/portenvironment.cpp fuzz_out/portstorage.cpp fuzz_out/mt1337.cpp fuzz_out/testingenvironment.cpp"));
+            Command("clang++ " ~ to!string(mkfile.outputs.joiner(" ")) ~ " fuzz.cpp main.cpp fuzz_out/portenvironment.cpp fuzz_out/portstorage.cpp fuzz_out/mt1337.cpp fuzz_out/testingenvironment.cpp"));
     mkfile.rules_name ~= RuleName("fuzz_main");
     write("Makefile_fuzz", (generate(mkfile)));
 
