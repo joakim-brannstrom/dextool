@@ -42,8 +42,16 @@ struct Types {
     SubType[] subtypes;
     Record[] record;
     Enum[] enums;
+    Array_[] arrs;
     Global glob;
 
+}
+
+struct Array_ {
+    string name;
+    string type;
+    string namespace;
+    string noOfElements;
 }
 
 struct Record {
@@ -284,6 +292,10 @@ private:
                 prim.cppint = CPPInterface(elem.elements[0].tag.attr["header"]);
                 xml_types.prims ~= prim;
                 break;
+            case "Array":
+                Array_ arr = Array_(elem.tag.attr["name"], elem.tag.attr["type"], curr_ns, elem.tag.attr["noOfElements"]);
+                xml_types.arrs ~= arr;
+                break;
             }
         }
         return xml_types;
@@ -409,6 +421,7 @@ private:
             new_.prims = old_types.prims ~ new_.prims;
             new_.record = old_types.record ~ new_.record;
             new_.subtypes = old_types.subtypes ~ new_.subtypes;
+            new_.arrs = old_types.arrs ~ new_.arrs;
         }
         return new_;
     }
@@ -418,6 +431,7 @@ private:
         new_.prims = old.prims ~ new_.prims;
         new_.record = old.record ~ new_.record;
         new_.subtypes = old.subtypes ~ new_.subtypes;
+        new_.arrs = old.arrs ~ new_.arrs;
 
         return new_;
     }
