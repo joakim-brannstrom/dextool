@@ -14,6 +14,7 @@ int main(string[] args) {
     writeln(`Running component tests`);
     //dfmt off
     return args.runTests!(
+                          "test.component.analyzer.cpp_class_visitor",
                           "test.component.analyzer.type",
                           "test.component.analyzer.utility",
                           "test.component.scratch",
