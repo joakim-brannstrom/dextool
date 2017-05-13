@@ -43,11 +43,13 @@ void logNode(ref const(Cursor) c, in int indent = 0, string func = __FUNCTION__,
 }
 
 /// logNode can't take a rvalue so creating a temporary and then logging.
+/// -3 because there are 3 lines until the call to logNoe. By subtracting it is
+/// kept semantic equivalent to the mixin line.
 template mixinNodeLog() {
     enum mixinNodeLog = q{debug {
             {
                 auto c = v.cursor;
-                logNode(c, indent);
+                logNode(c, indent, __FUNCTION__, __LINE__-3);
             }
         }
     };
