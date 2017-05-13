@@ -582,25 +582,18 @@ final class ClassVisitor : Visitor {
 
         mixin(mixinNodeLog!());
 
-        auto type = retrieveType(v.cursor, *container, indent);
-        assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
-        put(type, *container, indent);
+        auto result = analyzeCXXMethod(v, *container, indent);
 
-        auto params = toCxParam(type.primary.type.kind, *container);
-        auto name = CppMethodName(v.cursor.spelling);
-        auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
-                type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
-        auto is_virtual = classify(v.cursor);
-
-        if (name.isOperator) {
-            auto op = CppMethodOp(type.primary.type.kind.usr, name, params, return_type,
-                    accessType, CppConstMethod(type.primary.type.attr.isConst), is_virtual);
+        if (result.isOperator) {
+            auto op = CppMethodOp(result.type.kind.usr, result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
             root.put(op);
             logger.trace("operator: ", op.toString);
         } else {
-            auto method = CppMethod(type.primary.type.kind.usr, name, params,
-                    return_type, accessType,
-                    CppConstMethod(type.primary.type.attr.isConst), is_virtual);
+            auto method = CppMethod(result.type.kind.usr, result.name, result.params,
+                    result.returnType, accessType,
+                    CppConstMethod(result.isConst), result.virtualKind);
             root.put(method);
             logger.trace("method: ", method.toString);
         }
