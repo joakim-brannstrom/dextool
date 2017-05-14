@@ -41,7 +41,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
     import std.array : array;
     import std.algorithm : each, map, joiner;
     import std.variant : visit;
-    import std.utf : toUTF8;
+    import std.utf : byChar;
     import cpptooling.data.representation;
     import cpptooling.utility.sort : indexSort;
 
@@ -84,7 +84,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
 
     in_c.commentRange().each!(a => hdr.comment(a)[$.begin = "/// "]);
     auto c = hdr.class_(in_c.name, in_c.inherits.map!(a => a.toString)
-            .joiner(", ").array().toUTF8);
+            .joiner(", ").byChar.array().idup);
     auto pub = c.public_();
 
     // dfmt off
