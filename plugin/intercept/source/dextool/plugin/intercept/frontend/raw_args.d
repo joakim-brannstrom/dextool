@@ -39,16 +39,11 @@ struct RawConfiguration {
     string config;
     bool help;
     bool shortPluginHelp;
-    bool locationAsComment;
-
-    string[] originalFlags;
 
     private GetoptResult help_info;
 
     void parse(string[] args) {
         static import std.getopt;
-
-        originalFlags = args.dup;
 
         try {
             // dfmt off
