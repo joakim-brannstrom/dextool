@@ -872,7 +872,7 @@ body {
         import std.array : array;
         import std.algorithm : canFind, map, joiner;
         import std.range : retro, chain, only;
-        import std.utf : byChar, toUTF8;
+        import std.utf : byChar;
 
         string spell = type.spelling;
 

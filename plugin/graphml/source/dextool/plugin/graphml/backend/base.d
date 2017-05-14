@@ -128,7 +128,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.utility : put;
+        import cpptooling.analyzer.clang.store : put;
 
         auto type = () @trusted{
             return retrieveType(v.cursor, *container, indent);
@@ -534,7 +534,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(TypedefDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.utility : put;
+        import cpptooling.analyzer.clang.store : put;
 
         auto result = () @trusted{
             return retrieveType(v.cursor, *container, indent + 1);

@@ -109,7 +109,6 @@ auto makeHeader(FileName fname, DextoolVersion ver, CustomHeader custom = Custom
     import std.array : appender;
     import std.ascii : newline;
     import std.path : baseName;
-    import std.utf : toUTF8;
     import dsrcgen.cpp : CppModule;
 
     auto base_fname = fname.baseName;
@@ -127,7 +126,7 @@ auto makeHeader(FileName fname, DextoolVersion ver, CustomHeader custom = Custom
                         if (auto w = word in kw) return *w;
                         else return word;
                         })
-                  .map!(a => a.toUTF8)
+                  .map!(a => a.dup)
                   .joiner(" ")
                  )
             .joiner(newline)
