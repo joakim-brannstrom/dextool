@@ -33,22 +33,17 @@ struct RawConfiguration {
     string header;
     string headerFile;
     string mainFileName = "intercept";
-    string prefix;
+    string prefix = "intercept_";
     string stripInclude;
     string out_;
     string config;
     bool help;
     bool shortPluginHelp;
-    bool locationAsComment;
-
-    string[] originalFlags;
 
     private GetoptResult help_info;
 
     void parse(string[] args) {
         static import std.getopt;
-
-        originalFlags = args.dup;
 
         try {
             // dfmt off
@@ -57,7 +52,7 @@ struct RawConfiguration {
                    "main-fname", "Used as part of filename for generated files [default: intercept]", &mainFileName,
                    "out", "directory for generated files [default: ./]", &out_,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
-                   "prefix", "Prefix all function calls to the intercepted target", &prefix,
+                   "prefix", "Prefix all function calls to the intercepted target [default: intercept_]", &prefix,
                    "strip-incl", "A regex used to strip the include paths", &stripInclude,
                    "header", "Prepend generated files with the string", &header,
                    "header-file", "Prepend generated files with the header read from the file", &headerFile,
