@@ -994,7 +994,9 @@ body {
         TypeResults rval;
 
         // find the underlying type information
-        if (pointee.kind == CXTypeKind.CXType_Unexposed) {
+        if (c_pointee.kind == CXCursorKind.CXCursor_TypedefDecl) {
+            rval = retrieveType(c_pointee, container, indent).get;
+        } else if (pointee.kind == CXTypeKind.CXType_Unexposed) {
             pointee = type.canonicalType;
             while (pointee.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
                 pointee = pointee.pointeeType;
