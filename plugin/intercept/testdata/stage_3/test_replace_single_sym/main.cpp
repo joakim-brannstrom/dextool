@@ -7,5 +7,5 @@ int intercepted() {
 }
 
 int main(int argc, char** argv) {
-    return intercepted() != 667 && normal() == 43;
+    return intercepted() == 667 && normal() == 42 ? 0 : 1;
 }
