@@ -42,7 +42,7 @@ import backend.fuzz.types;
             stmt(app_name~"_Execute()");
         }
 
-        stmt(app_name ~ "_Terminate()");
+        //stmt(app_name ~ "_Terminate()");
         stmt("PortStorage::CleanUp()");
 
         return_("0");
@@ -166,9 +166,6 @@ import backend.fuzz.types;
         with (private_) {
             logger.trace("class_name: " ~ class_name);
             logger.trace("generateClass fqn_ns: " ~ fqn_ns.array.join("::"));
-            //foreach (eiface; ns.interfaces.ei) {
-            //    stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), eiface.name, eiface.name.toLower)));
-            //}
             stmt(E("RandomGenerator* randomGenerator"));
             stmt(Et("std::vector")("std::string") ~ E("clients"));
             stmt(E("std::string name"));
@@ -189,56 +186,64 @@ import backend.fuzz.types;
 
 	        foreach (ciface; ns.interfaces.ci) {
 		        foreach (ditem; ciface.data_items) {
-                    string arr = xmlp.isArray(ditem, ns.name);
-                    string[string] minmax;
-                    if (arr.length > 0) {
-                        minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
-                    } else {
-                        minmax = xmlp.findMinMax(ns.name, arr, ditem);
-                    }
+                            string arr = xmlp.isArray(ditem, ns.name);
+                            string[string] minmax;
+                            if (arr.length > 0) {
+                                minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
+                            } else {
+                                minmax = xmlp.findMinMax(ns.name, arr, ditem);
+                            }
 		            
 		            if (minmax.length > 0) {
-                        string defVal = minmax["defVal"];
-			            string min = minmax["min"];
-                        string max = minmax["max"];
-                        string type_type = minmax["type"];
-                        string type_ns = minmax["namespace"];
+                                string defVal = minmax["defVal"];
+			        string min = minmax["min"];
+                                string max = minmax["max"];
+                                string type_type = minmax["type"];
+                                string type_ns = minmax["namespace"];
 			    
-                        switch (type_type) {
-                            case "SubType":
-                                generateSubType(func1, func2, ciface.name, ditem.name, min, max, defVal, arr.length > 0);
-                                break;
-                            case "Enum":
-                                generateEnum(func1, func2, ciface.name, ditem.name, type_ns, ditem.type, min, max);
-                                break;
-                            case "Record":			
-                                generateRecord(func1, func2, ciface.name, ditem.name, ns.name, type_ns, ditem.type, xmlp);
-                                break;
-                            default:
-                                break;
-                            }
-                        } else {
-                            string expr1, expr2;
-                            string var = format("%s.%s", ciface.name.toLower, ditem.name);
+                                switch (type_type) {
+                                    case "SubType":
+                                        generateSubType(func1, func2, ciface.name, ditem.name, min, max, defVal, arr.length > 0);
+                                        break;
+                                    case "Enum":
+                                        generateEnum(func1, func2, ciface.name, ditem.name, type_ns, ditem.type, min, max);
+                                        break;
+                                    case "Record":			
+                                        generateRecord(func1, func2, ciface.name, ditem.name, ns.name, type_ns, ditem.type, xmlp);
+                                        break;
+                                    default:
+                                        break;
+                                    }
+                                } else {
+                                    string expr1, expr2;
+                                    string var = format("%s.%s", ciface.name.toLower, ditem.name);
 
-                            if(ditem.defaultVal.length != 0) {
-                                expr1 = ditem.defaultVal;
-                                expr2 = ditem.defaultVal;
-                            } else {
-                                expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
-                                                                                            ciface.name.toLower, ditem.name,
-                                                                                            "curr_cycles");
-                                expr2 = `randomGenerator->generate()`;
+                                    if(ditem.defaultVal.length != 0) {
+                                        expr1 = ditem.defaultVal;
+                                        expr2 = ditem.defaultVal;
+                                    } else {
+                                        expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", 
+                                                                                                    ciface.name.toLower, ditem.name,
+                                                                                                    "curr_cycles");
+                                        expr2 = `randomGenerator->generate()`;
+                                    }
+                                    with (func1) { stmt(E(var) = E(expr1)); }
+                                    with (func2) { stmt(E(var) = E(expr2)); }
+                                }
                             }
-                            with (func1) { stmt(E(var) = E(expr1)); }
-                            with (func2) { stmt(E(var) = E(expr2)); }
-                        }
-                    }
 		        }   
-	        }
 
+                foreach(eiface; ns.interfaces.ei) {
+                    foreach(event; eiface.events) {
+                        generateEvent(func1, func2, event, eiface.name, xmlp, ns);
+                    }
+                }   
+       
+        }
+        
+    
             //TODO: How to do regenerate for Events?!
-
+            
             with (func_body("std::string", "getNamespace")) {
                 return_(format(`"%s"`, fqn_ns.array.join("::")));
             }    
@@ -286,6 +291,48 @@ import backend.fuzz.types;
     }
 }
 
+@trusted void generateEvent(CppModule func1, CppModule func2, Event event, string eiface_name, xml_parse xmlp, Namespace ns) {
+    import std.format : format;
+    import std.string : toLower;
+    import std.algorithm : joiner;
+    import std.conv : to; 
+
+    string func_name = event.name ~ "_Event";
+    string[] params1, params2;
+    string expr1, expr2;
+    //lookup min, max for all ditems in event;
+    foreach(ditem ; event.data_items) {
+        string arr = xmlp.isArray(ditem, ns.name);
+        string[string] minmax;
+        if (arr.length > 0) {
+            minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
+        } else {
+            minmax = xmlp.findMinMax(ns.name, arr, ditem);
+        }
+
+        if (minmax.length > 0) {
+            string min = minmax["min"];
+            string max = minmax["max"];
+            string defVal = minmax["defVal"];
+            if (defVal.length > 0) {
+                params1 ~= defVal;
+                params2 ~= defVal;
+            } else {
+                params2 ~= format("randomGenerator->generate(%s, %s)", min, max);
+                params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", eiface_name.toLower, event.name, min, max, "curr_cycles");
+            }
+        } else {
+            params2 ~= "randomGenerator->generate()";
+            params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", eiface_name.toLower, event.name, "curr_cycles");
+        }
+    }
+
+    expr1 = func_name ~ "(" ~ to!string(params1.joiner(", ")) ~ ")";
+    expr2 = func_name ~ "(" ~ to!string(params2.joiner(", ")) ~ ")";
+    with(func1) { stmt(expr1); }
+    with(func2) { stmt(expr2); }
+}
+
 @trusted void generateEnum(CppModule func1, CppModule func2, string ciface_name, string ditem_name, string type_ns,
 			   string ditem_type, string min, string max) { 
     import std.format : format;
@@ -294,7 +341,7 @@ import backend.fuzz.types;
     ///>>>
     string var = format("%s.%s", ciface_name.toLower, ditem_name);
     string fqns_type = format("%s::%sT::Enum", type_ns, ditem_type);
-    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s)`, "vars", 
+    string expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
                                                                                 ciface_name.toLower,
                                                                                 ditem_name, min, max, "curr_cycles");
     string expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
@@ -351,7 +398,7 @@ import backend.fuzz.types;
             with (func2) { stmt(E(var) = E(expr2)); }
         }
         else {
-            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s)`, "vars", ciface_name.toLower,                                                                               ciface_name.toLower,
+            string expr1 = format(`randomGenerator->generate(%s, "%s.%s.%s", %s)`, "vars", ciface_name.toLower,
                                                                                 ditem_name, 
                                                                                 var_name.name,
                                                                                 "curr_cycles");
