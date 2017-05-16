@@ -435,13 +435,28 @@ struct CompileCommandFilter {
     int skipCompilerArgs = 1;
 }
 
+/// Parsed compiler flags.
+struct ParseFlags {
+    /// The includes used in the compile command
+    static struct Includes {
+        string[] payload;
+        alias payload this;
+    }
+
+    ///
+    Includes includes;
+
+    string[] flags;
+    alias flags this;
+}
+
 /** Filter and normalize the compiler flags.
  *
  *  - Sanitize the compiler command by removing flags matching the filter.
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
     import dextool.type : FilterClangFlag;
 
     static bool excludeStartWith(string flag, const FilterClangFlag[] flag_filter) @safe {
@@ -482,8 +497,8 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
                 "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
     }
 
-    static auto filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
-            const FilterClangFlag[] flag_filter) @safe {
+    static ParseFlags filterPair(T)(ref T r,
+            CompileCommand.AbsoluteDirectory workdir, const FilterClangFlag[] flag_filter) @safe {
         enum State {
             /// keep the next flag IF none of the other transitions happens
             keep,
@@ -500,7 +515,8 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
         import std.range : ElementType;
 
         State st;
-        auto rval = appender!(ElementType!T[]);
+        auto rval = appender!(string[]);
+        auto includes = appender!(string[]);
 
         foreach (arg; r) {
             // First states and how to handle those.
@@ -516,15 +532,16 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
                 st = State.keep;
             } else if (st == State.pathArgumentToAbsolute) {
                 st = State.keep;
-                rval.put(buildNormalizedPath(workdir, arg).absolutePath);
-            } else if (st == State.pathArgumentToAbsolute) {
-                rval.put(arg);
-                st = State.keep;
+                auto p = buildNormalizedPath(workdir, arg).absolutePath;
+                rval.put(p);
+                includes.put(p);
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
             } else if (isCombinedIncludeFlag(arg)) {
                 rval.put("-I");
-                rval.put(buildNormalizedPath(workdir, arg[2 .. $]).absolutePath);
+                auto p = buildNormalizedPath(workdir, arg[2 .. $]).absolutePath;
+                rval.put(p);
+                includes.put(p);
             } else if (isFlagAndPath(arg)) {
                 rval.put(arg);
                 st = State.pathArgumentToAbsolute;
@@ -537,7 +554,7 @@ string[] parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @
 
         }
 
-        return rval.data;
+        return ParseFlags(ParseFlags.Includes(includes.data), rval.data);
     }
 
     import std.algorithm : filter, among, splitter;
@@ -566,6 +583,7 @@ unittest {
             AbsoluteCompileDbDirectory("/home"));
     auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with some excess spacing")
@@ -576,6 +594,7 @@ unittest {
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with machine dependent removed")
@@ -586,6 +605,7 @@ unittest {
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with all -f removed")
@@ -596,6 +616,7 @@ unittest {
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
 }
 
 version (unittest) {

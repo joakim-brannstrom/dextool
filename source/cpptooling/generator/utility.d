@@ -17,10 +17,6 @@ import std.range : ElementType;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 /** Filter according to location existence and predicate.
@@ -61,7 +57,7 @@ template filterAnyLocation(alias predicate) {
     }
 }
 
-@Name("Should only let USRs with a location pass")
+@("Should only let USRs with a location pass")
 unittest {
     import std.algorithm : joiner;
     import std.array : array;

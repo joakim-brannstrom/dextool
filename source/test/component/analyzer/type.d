@@ -612,3 +612,28 @@ struct A {
     visitor.records.length.shouldEqual(1);
     visitor.records[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.record);
 }
+
+@("shall be the first level of typedef as the typeref")
+unittest {
+    immutable code = "
+typedef unsigned int ll;
+typedef ll some_array[1];
+const some_array& some_func();
+";
+
+    // arrange
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+    auto visitor = new TestVisitor;
+    visitor.find = "c:@F@some_func#";
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.funcs.length.shouldEqual(1);
+    visitor.funcs[0].returnType.toStringDecl("x").shouldEqual("const some_array &x");
+}

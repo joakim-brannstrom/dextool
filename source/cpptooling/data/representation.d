@@ -1398,7 +1398,7 @@ const:
         import std.array : array;
         import std.algorithm : map, joiner;
         import std.range : takeOne, only, chain, takeOne;
-        import std.utf : byChar, toUTF8;
+        import std.utf : byChar;
 
         // dfmt off
         auto fqn = chain(
@@ -1406,7 +1406,7 @@ const:
                          reside_in_ns.payload.takeOne.map!(a => "::").joiner(),
                          only(cast(string) name_).joiner()
                         );
-        return FullyQualifiedNameType(fqn.array().toUTF8);
+        return FullyQualifiedNameType(fqn.byChar.array().idup);
         // dfmt on
     }
 }
@@ -1685,11 +1685,11 @@ const:
 
         import std.array : array;
         import std.algorithm : map, joiner;
-        import std.utf : toUTF8;
+        import std.utf : byChar;
 
         // dfmt off
         auto fqn = stack.payload.map!(a => cast(string) a).joiner("::");
-        return FullyQualifiedNameType(fqn.array().toUTF8);
+        return FullyQualifiedNameType(fqn.byChar.array().idup);
         // dfmt on
     }
 }

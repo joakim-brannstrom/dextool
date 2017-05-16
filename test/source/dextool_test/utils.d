@@ -225,7 +225,6 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
         Flag!"skipComments" skipComments = Yes.skipComments) {
     import std.algorithm : joiner, map;
     import std.stdio : File;
-    import std.utf : toUTF8;
 
     yap("Comparing gold:", gold.raw);
     yap("        result:", result.raw);
@@ -259,12 +258,12 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     foreach (g, r;
              lockstep(maybeSort(goldf
                                 .byLine()
-                                .map!(a => a.toUTF8)
+                                .map!(a => a.dup)
                                 .removeJunk(skipComments)
                                 .enumerate),
                       maybeSort(resultf
                                 .byLine()
-                                .map!(a => a.toUTF8)
+                                .map!(a => a.dup)
                                 .removeJunk(skipComments)
                                 .enumerate)
                       )) {

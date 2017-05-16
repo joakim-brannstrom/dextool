@@ -387,7 +387,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
     import std.file : thisExePath;
     import std.format : format;
     import std.path : baseName;
-    import std.utf : toUTF8;
+    import std.utf : byChar;
     import std.xml;
     import dextool.utility : dextoolVersion;
     import dextool.xml : makePrelude;
@@ -397,7 +397,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
     {
         auto command = new Element("command");
         command ~= new CData(format("%s %s", thisExePath.baseName,
-                raw_cli_flags.joiner(" ").array().toUTF8));
+                raw_cli_flags.joiner(" ").byChar.array().idup));
         doc ~= new Comment("command line when dextool was executed");
         doc ~= command;
     }

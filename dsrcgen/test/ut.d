@@ -6,5 +6,6 @@ import unit_threaded;
 int main(string[] args) {
     writeln("\nAutomatically generated file build/ut.d");
     writeln(`Running unit tests from dirs ["../source"]`);
-    return runTests!("dsrcgen.base", "dsrcgen.c", "dsrcgen.cpp", "dsrcgen.plantuml")(args);
+    return runTests!("dsrcgen.base", "dsrcgen.c", "dsrcgen.cpp", "dsrcgen.plantuml", "dsrcgen.sh")(
+            args);
 }
