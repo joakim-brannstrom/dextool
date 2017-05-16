@@ -9,6 +9,7 @@ import cpptooling.data.type;
 import cpptooling.data.representation;
 
 import dsrcgen.cpp;
+import dsrcgen.c;
 
 import xml_parse;
 import backend.fuzz.types;
@@ -141,6 +142,10 @@ import backend.fuzz.types;
             with (func_body("", class_name ~ "_Impl", port_name ~ "* p")) {
                 stmt(E("port") = E("p"));
             }
+
+            with(func_body(class_name~"_Impl", "Get_Port_Impl")) {
+                return_(E(Et("*static_cast")(port_name ~ "_Impl*"))("port"));
+            }
         }
     }
     return inner_class;
@@ -158,6 +163,13 @@ import backend.fuzz.types;
         ///>>>
             stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), ciface.name, ciface.name.toLower)));
         } 
+
+        foreach (eiface; ns.interfaces.ei) {
+        ///>>>
+            foreach(event ; eiface.events) {
+                stmt(E(format("%s::%sT %s", fqn_ns.array[0..$-1].join("::"), event.name, event.name.toLower)));
+            } 
+        } 
     }
 
 
@@ -169,6 +181,7 @@ import backend.fuzz.types;
             stmt(E("RandomGenerator* randomGenerator"));
             stmt(Et("std::vector")("std::string") ~ E("clients"));
             stmt(E("std::string name"));
+            stmt(E(class_name ~ "*") ~ E("other") = E("0"));
         }
         
         with (public_) {
@@ -176,10 +189,18 @@ import backend.fuzz.types;
 		        string expr = format(`%s::%s()`, "&TestingEnvironment", "createRandomGenerator");
                 stmt(E("randomGenerator") = E(expr));
                 stmt(E("name") = E("n"));
+                stmt(E("randomGenerator->generateClients")("clients, 1024"));
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
+            with(func_body(class_name, "Get_Other_End")) {
+                return_("*other");
+            }
 
+            with(method_inline(No.isVirtual, "void", "Set_Other_End", No.isConst, class_name~"* other_end")) {
+                stmt(E("other") = E(Et("static_cast")(class_name ~ "_Impl*"))("other_end"));
+
+            }
             auto func2 = func_body("void", "Regenerate");
             auto func1 = func_body("void", "Regenerate",
                                      "const std::map<std::string, std::vector<std::vector<int> > > &vars, const int64_t & curr_cycles"); 
@@ -232,13 +253,11 @@ import backend.fuzz.types;
                                 }
                             }
 		        }   
-
                 foreach(eiface; ns.interfaces.ei) {
                     foreach(event; eiface.events) {
                         generateEvent(func1, func2, event, eiface.name, xmlp, ns);
                     }
-                }   
-       
+                }  
         }
         
     
@@ -297,7 +316,7 @@ import backend.fuzz.types;
     import std.algorithm : joiner;
     import std.conv : to; 
 
-    string func_name = event.name ~ "_Event";
+    string func_name = "Get_Other_End()." ~ event.name ~ "_Event";
     string[] params1, params2;
     string expr1, expr2;
     //lookup min, max for all ditems in event;
@@ -305,9 +324,9 @@ import backend.fuzz.types;
         string arr = xmlp.isArray(ditem, ns.name);
         string[string] minmax;
         if (arr.length > 0) {
-            minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
-        } else {
             minmax = xmlp.findMinMax(ns.name, arr, ditem);
+        } else {
+            minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
         }
 
         if (minmax.length > 0) {
@@ -319,18 +338,18 @@ import backend.fuzz.types;
                 params2 ~= defVal;
             } else {
                 params2 ~= format("randomGenerator->generate(%s, %s)", min, max);
-                params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", eiface_name.toLower, event.name, min, max, "curr_cycles");
+                params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", event.name.toLower, ditem.name, min, max, "curr_cycles");
             }
         } else {
             params2 ~= "randomGenerator->generate()";
-            params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", eiface_name.toLower, event.name, "curr_cycles");
+            params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s)`, "vars", event.name.toLower, ditem.name, "curr_cycles");
         }
     }
 
     expr1 = func_name ~ "(" ~ to!string(params1.joiner(", ")) ~ ")";
     expr2 = func_name ~ "(" ~ to!string(params2.joiner(", ")) ~ ")";
-    with(func1) { stmt(expr1); }
-    with(func2) { stmt(expr2); }
+    with(func1.if_("other")) { stmt(expr1); } 
+    with(func2.if_("other")) { stmt(expr2); } 
 }
 
 @trusted void generateEnum(CppModule func1, CppModule func2, string ciface_name, string ditem_name, string type_ns,
@@ -439,8 +458,6 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto cppm_ditem = (cast(string)(a.name)).split("_")[$ - 1];
     auto cppm_end_type = (cast(string)(a.name)).split("_")[$ - 1];
 
-    logger.info(class_name);
-
     switch(cppm_type) {
         case "Get":
             if(a.isPure) {
@@ -457,15 +474,28 @@ void generateDtor(const CppDtor a, CppModule inner) {
             generateWillFunc(a, inner);
             break;
         default:
-            switch(a.name) {
-                case "Is_Client_Connected":
-                    generateClientConnect(a, inner);
+            switch(cppm_end_type) {
+                case "Event": 
+                    generateEventMeth(a, inner, ns);
+                    break;
+                case "Changed":
+                    //generateChangedMeth();
                     break;
                 default:
-                    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
-                    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, joinParams(a.paramRange))) {
-                        return_;
+                    switch(a.name) {
+                        case "Connect_Port":
+                            generateConnectPort(a, inner);
+                            break;
+                        case "Is_Client_Connected":
+                            generateClientConnect(a, inner);
+                            break;
+                        default:
+                            Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+                            with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, joinParams(a.paramRange))) {
+                                return_;
+                            }
                     }
+                    break;
             }
             break;
     }
@@ -525,6 +555,29 @@ void generateDtor(const CppDtor a, CppModule inner) {
     }
 }
 
+@trusted void generateEventMeth(const CppMethod a, CppModule inner, Namespace ns) {
+    import std.string : toLower;
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange);
+    string func_name = a.name[0 .. $-"_Event".length];
+    Event event = getEvent(ns, func_name);
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    if (event.name.length == 0) {
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+            return_;
+        }
+    } else {
+        with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+            foreach(param ; a.paramRange) {
+                string paramName = paramNameToString(param);
+                stmt(E(event.name.toLower ~ "." ~ paramName) = E(paramName));
+            }
+        }
+    }
+}
+
 @trusted void generatePutFunc(const CppMethod a, CppModule inner, Namespace ns) {
     import std.string : toLower;
     import cpptooling.data.representation;
@@ -533,7 +586,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto params = joinParams(a.paramRange); 
     Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
     with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
-        string func_name = a.name["Get_".length .. $];
+        string func_name = a.name["Put_".length .. $];
         ContinousInterface ci = getInterface(ns, func_name);
         if(ci.name.length != 0) {
             func_name = func_name[ci.name.length .. $];
@@ -556,10 +609,28 @@ void generateDtor(const CppDtor a, CppModule inner) {
 @trusted void generateWillFunc(const CppMethod a, CppModule inner) {
     import cpptooling.data.representation;
     import cpptooling.analyzer.type;
+
     auto params = joinParams(a.paramRange); 
     Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
     with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
         return_(E("randomGenerator->generate")("0, 1"));
+    }
+}
+
+@trusted void generateConnectPort(const CppMethod a, CppModule inner) {
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+    /* if (Other_End.Is_Client_Connected(Get_Port_Impl().getName())) {
+			Get_Port_Impl().Set_Other_End(&Other_End);
+		}
+    */
+    auto params = joinParams(a.paramRange); 
+    auto port_name = paramNameToString(a.paramRange[0]);
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        with (if_(E(port_name ~ ".Is_Client_Connected")("Get_Port_Impl().getName()"))) {
+            stmt(E("Get_Port_Impl().Set_Other_End")("&" ~ port_name));
+        }
     }
 }
 
@@ -643,7 +714,19 @@ void generateDtor(const CppDtor a, CppModule inner) {
     }
 }
 
+@trusted Event getEvent(Namespace ns, string func_name) {
+        import std.string : indexOf;
 
+        foreach(ei ; ns.interfaces.ei) {
+            foreach(event ; ei.events) {
+                if(indexOf(func_name, event.name) == 0) {
+                    return event;
+                } 
+            }
+        }
+
+    return Event("");
+}
 
 @trusted ContinousInterface getInterface(Namespace ns, string func_name) {
     ///func_name should have removed get_ or put_
