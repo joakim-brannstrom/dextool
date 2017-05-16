@@ -196,10 +196,6 @@ class InterceptFrontend : Controller, Parameters, Products {
         return StubPrefix("");
     }
 
-    StubPrefix getFuncCallPrefix() {
-        return prefix;
-    }
-
     DextoolVersion getToolVersion() {
         import dextool.utility : dextoolVersion;
 

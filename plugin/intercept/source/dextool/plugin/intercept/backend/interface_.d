@@ -52,9 +52,6 @@ struct FileData {
     /// Custom header to prepend generated files with.
     CustomHeader getCustomHeader();
 
-    /// Prefix used for prefixing functions calling into the original lib.
-    StubPrefix getFuncCallPrefix();
-
     /** A list of includes for the test double header.
      *
      * Part of the controller because they are dynamic, may change depending on
