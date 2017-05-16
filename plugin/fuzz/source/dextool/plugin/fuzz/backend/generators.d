@@ -499,7 +499,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
                     generateEventMeth(a, inner, ns);
                     break;
                 case "Changed":
-                    //generateChangedMeth();
+                    generateChangedFunc(a, inner, ns);
                     break;
                 default:
                     switch(a.name) {
@@ -519,6 +519,35 @@ void generateDtor(const CppDtor a, CppModule inner) {
             }
             break;
     }
+}
+
+@trusted void generateChangedFunc(const CppMethod a, CppModule inner, Namespace ns) {
+    import std.string : toLower;
+    import cpptooling.data.representation;
+    import cpptooling.analyzer.type;
+
+    auto params = joinParams(a.paramRange); 
+    Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
+    with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
+        string func_name = a.name[0.. $-"_Changed".length];
+        ContinousInterface ci = getInterface(ns, func_name);
+        if(ci.name.length != 0) {
+            func_name = func_name[ci.name.length .. $];
+            if(func_name.length != 0 && func_name[0] == '_') 
+                func_name = func_name[1..$];
+
+            DataItem di = getDataItem(ns, ci, func_name);
+            if (di.name.length == 0) {
+                foreach(param ; a.paramRange) {
+                    string paramName = paramNameToString(param);
+                    stmt(E(ci.name.toLower ~ "." ~paramName) = E(paramName));
+                }
+            } else {
+                stmt(E(ci.name.toLower ~ "." ~ di.name) = E(di.name));
+            }
+        }
+    }
+
 }
 
 @trusted void generateGetFunc(const CppMethod a, CppModule inner, Namespace ns, string class_name) {
