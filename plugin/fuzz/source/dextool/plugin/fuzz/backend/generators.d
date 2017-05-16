@@ -51,6 +51,7 @@ import backend.fuzz.types;
 }
 
 @trusted void generateMainHdr(CppModule main_hdr_inner, string app_name) {
+    ///>>>
     main_hdr_inner.include("fuzz_out/testingenvironment.hpp");
     main_hdr_inner.include("fuzz_out/portenvironment.hpp");
     main_hdr_inner.include(app_name ~ "_main.hpp");
@@ -181,7 +182,7 @@ import backend.fuzz.types;
             stmt(E("RandomGenerator* randomGenerator"));
             stmt(Et("std::vector")("std::string") ~ E("clients"));
             stmt(E("std::string name"));
-            stmt(E(class_name ~ "*") ~ E("other") = E("0"));
+            stmt(E(class_name ~ "*") ~ E("other"));
         }
         
         with (public_) {
@@ -190,11 +191,16 @@ import backend.fuzz.types;
                 stmt(E("randomGenerator") = E(expr));
                 stmt(E("name") = E("n"));
                 stmt(E("randomGenerator->generateClients")("clients, 1024"));
+                stmt(E("other") = E("0"));
             }
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
             with(func_body(class_name, "Get_Other_End")) {
                 return_("*other");
+            }
+
+            with(func_body("std::string", "getName")) {
+                return_("name");
             }
 
             with(method_inline(No.isVirtual, "void", "Set_Other_End", No.isConst, class_name~"* other_end")) {
@@ -217,7 +223,7 @@ import backend.fuzz.types;
 		            
 		            if (minmax.length > 0) {
                                 string defVal = minmax["defVal"];
-			        string min = minmax["min"];
+			                    string min = minmax["min"];
                                 string max = minmax["max"];
                                 string type_type = minmax["type"];
                                 string type_ns = minmax["namespace"];
@@ -333,12 +339,26 @@ import backend.fuzz.types;
             string min = minmax["min"];
             string max = minmax["max"];
             string defVal = minmax["defVal"];
+            string ns_type = minmax["namespace"];
+            string type_type = minmax["type"];
             if (defVal.length > 0) {
                 params1 ~= defVal;
                 params2 ~= defVal;
             } else {
-                params2 ~= format("randomGenerator->generate(%s, %s)", min, max);
-                params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", event.name.toLower, ditem.name, min, max, "curr_cycles");
+                if (type_type == "Enum") {
+                    ///>>>
+                    string var = format("%s.%s", event.name.toLower, ditem.name);
+                    string fqns_type = format("%s::%sT::Enum", ns_type, ditem.type);
+                    expr1 = format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", 
+                                                                                event.name.toLower,
+                                                                                ditem.name, min, max, "curr_cycles");
+                    expr2 = format(`randomGenerator->generate(%s, %s)`, min, max);
+                    params1 ~= E(Et("static_cast")(fqns_type))(expr1).toString;
+                    params2 ~= E(Et("static_cast")(fqns_type))(expr2).toString;
+                } else {
+                    params2 ~= format("randomGenerator->generate(%s, %s)", min, max);
+                    params1 ~= format(`randomGenerator->generate(%s, "%s.%s", %s, %s, %s)`, "vars", event.name.toLower, ditem.name, min, max, "curr_cycles");
+                }
             }
         } else {
             params2 ~= "randomGenerator->generate()";
@@ -628,9 +648,9 @@ void generateDtor(const CppDtor a, CppModule inner) {
     auto port_name = paramNameToString(a.paramRange[0]);
     Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
     with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
-        with (if_(E(port_name ~ ".Is_Client_Connected")("Get_Port_Impl().getName()"))) {
+        //with (if_(E(port_name ~ ".Is_Client_Connected")("Get_Port_Impl().getName()"))) {
             stmt(E("Get_Port_Impl().Set_Other_End")("&" ~ port_name));
-        }
+        //}
     }
 }
 
