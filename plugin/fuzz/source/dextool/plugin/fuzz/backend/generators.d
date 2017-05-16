@@ -144,8 +144,8 @@ import backend.fuzz.types;
                 stmt(E("port") = E("p"));
             }
 
-            with(func_body(class_name~"_Impl", "Get_Port_Impl")) {
-                return_(E(Et("*static_cast")(port_name ~ "_Impl*"))("port"));
+            with(func_body(port_name~"_Impl*", "Get_Port_Impl")) {
+                return_(E(Et("static_cast")(port_name ~ "_Impl*"))("port"));
             }
         }
     }
@@ -196,7 +196,7 @@ import backend.fuzz.types;
             
             with (func_body("", "~" ~ class_name ~ "_Impl")) { /* Generate destructor */ }
             with(func_body(class_name, "Get_Other_End")) {
-                return_("*other");
+                return_("other");
             }
 
             with(func_body("std::string", "getName")) {
@@ -216,9 +216,9 @@ import backend.fuzz.types;
                             string arr = xmlp.isArray(ditem, ns.name);
                             string[string] minmax;
                             if (arr.length > 0) {
-                                minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
-                            } else {
                                 minmax = xmlp.findMinMax(ns.name, arr, ditem);
+                            } else {
+                                minmax = xmlp.findMinMax(ns.name, ditem.type, ditem);
                             }
 		            
 		            if (minmax.length > 0) {
@@ -322,7 +322,7 @@ import backend.fuzz.types;
     import std.algorithm : joiner;
     import std.conv : to; 
 
-    string func_name = "Get_Other_End()." ~ event.name ~ "_Event";
+    string func_name = "Get_Other_End()->" ~ event.name ~ "_Event";
     string[] params1, params2;
     string expr1, expr2;
     //lookup min, max for all ditems in event;
@@ -649,7 +649,7 @@ void generateDtor(const CppDtor a, CppModule inner) {
     Flag!"isConst" meth_const = a.isConst ? Yes.isConst : No.isConst;
     with (inner.method_inline(No.isVirtual, a.returnType.toStringDecl, a.name, meth_const, params)) {
         //with (if_(E(port_name ~ ".Is_Client_Connected")("Get_Port_Impl().getName()"))) {
-            stmt(E("Get_Port_Impl().Set_Other_End")("&" ~ port_name));
+            stmt(E("Get_Port_Impl()->Set_Other_End")("&" ~ port_name));
         //}
     }
 }
@@ -751,7 +751,9 @@ void generateDtor(const CppDtor a, CppModule inner) {
 @trusted ContinousInterface getInterface(Namespace ns, string func_name) {
     ///func_name should have removed get_ or put_
     import std.string : indexOf;
-    foreach(ci ; ns.interfaces.ci) {
+    import std.algorithm : sort;
+
+    foreach(ci ; ns.interfaces.ci.sort!("a.name.length > b.name.length")) {
         if(indexOf(func_name, ci.name) == 0) {
             return ci;
         } 
