@@ -115,7 +115,7 @@ struct TestDoubleIncludes {
     in {
         import std.algorithm : among;
 
-        assert(st.among(State.rootInclude, State.symbolInclude, State.forceInclude));
+        assert(st.among(State.waiting, State.rootInclude, State.symbolInclude, State.forceInclude));
     }
     body {
         import std.algorithm : each;
@@ -124,6 +124,11 @@ struct TestDoubleIncludes {
             return;
 
         st = State.waiting;
+
+        // no paths added, nothing to do
+        if (work_pool.length == 0)
+            return;
+
         () @trusted{
             stripIncl(work_pool, strip_incl).each!(a => permanent_pool.insert(a));
         }();
