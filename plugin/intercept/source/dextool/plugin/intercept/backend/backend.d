@@ -201,7 +201,7 @@ void generate(ref ImplData impl, ref GeneratedData gen, Parameters params,
     auto code_impl = gen.make(Code.Kind.impl).cpp;
     auto script = gen.make(Code.Kind.script).script;
 
-    generateRewriteScriptPreamble(script, params.getFuncCallPrefix);
+    generateRewriteScriptPreamble(script);
 
     foreach (f; impl.root.funcRange) {
         StubPrefix prefix = impl.symbolPrefix[SymbolName(f.name)];
@@ -259,7 +259,7 @@ void generateRewriteSymbol(CFunction f, ShModule sh, StubPrefix prefix) {
     sh.stmt(`objcopy --redefine-sym ` ~ f.name ~ "=" ~ prefix ~ f.name ~ ` "$DEST"`);
 }
 
-void generateRewriteScriptPreamble(ShModule sh, StubPrefix prefix) {
+void generateRewriteScriptPreamble(ShModule sh) {
     import std.ascii : newline;
 
     sh.stmt("set -e");
