@@ -99,8 +99,6 @@ import dsrcgen.sh : ShModule, ShScriptModule;
 import dextool.plugin.intercept.type : SymbolName;
 
 struct ImplData {
-    import cpptooling.data.type : CppMethodName;
-
     CppRoot root;
 
     static auto make() {
