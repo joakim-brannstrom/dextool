@@ -313,6 +313,23 @@ string getName()(ref const(CppClass.CppFunc) method) @trusted {
     // dfmt on
 }
 
+/// Get the name of a parameter or the default.
+string getName(CxParam p, string default_) @safe {
+    static string getName(const CxParam p, string default_) @trusted {
+        import std.variant : visit;
+
+        // dfmt off
+        return p.visit!(
+            (const TypeKindVariable tk) {return tk.name;},
+            (const TypeKindAttr t) { return default_; },
+            (const VariadicType a) { return default_; }
+            );
+        // dfmt on
+    }
+
+    return getName(p, default_);
+}
+
 /// Make a variadic parameter.
 CxParam makeCxParam() @trusted {
     return CxParam(VariadicType.yes);
