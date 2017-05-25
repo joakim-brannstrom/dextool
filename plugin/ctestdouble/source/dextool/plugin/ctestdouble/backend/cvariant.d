@@ -458,7 +458,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         // note: using the fact that C do NOT have name mangling.
         .filter!(a => ctrl.doSymbol(a.name))
         // ask controller if to generate a test double for the function
-        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
         .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
         .each!(a => filtered.put(a.value));
@@ -468,7 +468,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         // note: using the fact that C do NOT have name mangling.
         .filter!(a => ctrl.doSymbol(a.name))
         // ask controller if to generate a test double for the function
-        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+        .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
         .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
         .each!(a => filtered.put(a.value));
