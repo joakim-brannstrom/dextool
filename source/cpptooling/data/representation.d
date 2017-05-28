@@ -383,6 +383,7 @@ struct CxGlobalVariable {
     private TypeKindVariable variable;
 
     Nullable!USRType usr;
+    Nullable!Language language;
 
     invariant {
         assert(usr.isNull || usr.length > 0);
@@ -586,6 +587,7 @@ struct CFunction {
     mixin mixinUniqueId!size_t;
 
     Nullable!USRType usr;
+    Nullable!Language language;
 
     private {
         CFunctionName name_;
