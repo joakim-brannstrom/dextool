@@ -24,6 +24,7 @@ function(try_find_libclang)
         # User search path
         "${USER_LIBCLANG_SEARCH_PATH}"
         # Ubuntu
+        "/usr/lib/llvm-4.0/lib"
         "/usr/lib/llvm-3.9/lib"
         "/usr/lib/llvm-3.8/lib"
         "/usr/lib/llvm-3.7/lib"
