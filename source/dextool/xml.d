@@ -39,8 +39,6 @@ Nullable!T readRawConfig(T, alias parseFunc)(FileName fname) @trusted nothrow {
         check(fin);
         auto xml = new DocumentParser(fin);
 
-        debug logger.trace(xml);
-
         rval = parseFunc(xml);
         return rval;
     }
