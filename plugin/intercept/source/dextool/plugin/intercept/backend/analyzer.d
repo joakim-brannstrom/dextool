@@ -46,14 +46,7 @@ final class TUVisitor : Visitor {
     NullableRef!Container container;
     AnalyzeData root;
 
-    private {
-        Controller ctrl;
-        Products prod;
-    }
-
-    this(Controller ctrl, Products prod, NullableRef!Container container) {
-        this.ctrl = ctrl;
-        this.prod = prod;
+    this(NullableRef!Container container) {
         this.container = container;
         this.root = AnalyzeData.make;
     }
@@ -82,10 +75,6 @@ final class TUVisitor : Visitor {
 
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
-
-        LocationTag tu_loc;
-        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
-
         v.accept(this);
     }
 }

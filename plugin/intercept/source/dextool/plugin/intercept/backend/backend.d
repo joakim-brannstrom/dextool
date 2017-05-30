@@ -38,7 +38,7 @@ struct Backend {
         import cpptooling.data.representation : MergeMode;
 
         NullableRef!Container cont_ = &container;
-        auto visitor = new TUVisitor(ctrl, products, cont_);
+        auto visitor = new TUVisitor(cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
@@ -99,8 +99,6 @@ import dsrcgen.sh : ShModule, ShScriptModule;
 import dextool.plugin.intercept.type : SymbolName;
 
 struct ImplData {
-    import cpptooling.data.type : CppMethodName;
-
     CppRoot root;
 
     static auto make() {
