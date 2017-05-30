@@ -17,8 +17,8 @@ include(BuildD)
 set(BUILD_TEST false CACHE BOOL "true to build and run unittests")
 if(BUILD_TEST)
     enable_testing()
-    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R ".*unittest_")
-    add_custom_target(check_integration COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R ".*integration_")
+    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} -j2 --output-on-failure -R ".*unittest_")
+    add_custom_target(check_integration COMMAND ${CMAKE_CTEST_COMMAND} -j2 --output-on-failure -R ".*integration_")
     add_custom_target(check_integration_make_all
         COMMAND cmake --build ${CMAKE_BINARY_DIR}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
