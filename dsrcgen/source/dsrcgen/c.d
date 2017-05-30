@@ -136,10 +136,27 @@ mixin template CModuleX(T) {
         return e;
     }
 
-    auto extern_(string value) {
+    auto extern_decl(string value) {
         import std.format : format;
 
-        return stmt(format("extern %s", value));
+        return stmt(format(`extern %s`, value));
+    }
+
+    /// Wrap the supplied module in an extern statement.
+    auto extern_(string kind = null) {
+        import std.format : format;
+
+        T e;
+
+        if (kind.length == 0) {
+            e = stmt("extern ", No.addSep);
+        } else {
+            e = stmt(format(`extern "%s" `, kind), No.addSep);
+        }
+
+        e.suppressIndent(1);
+        e[$.end = ""];
+        return e;
     }
 
     auto include(string filename) {
@@ -335,7 +352,7 @@ private string stmt_append_end(string s, ref const string[string] attrs) pure no
 
     //TODO too much null checking, refactor.
 
-    if (s is null) {
+    if (s.length == 0) {
         string end = ";";
         if (auto v = "end" in attrs) {
             end = *v;
@@ -1008,12 +1025,22 @@ unittest {
     }
 }
 
-@("shall be a extern func")
+@("shall be an extern var")
 unittest {
     auto expect = `    extern var;
 `;
     auto m = new CModule;
-    m.extern_("var");
+    m.extern_decl("var");
+
+    assert(expect == m.render, m.render);
+}
+
+@("shall be an extern C function")
+unittest {
+    auto expect = `    extern "C"     void f();
+`;
+    auto m = new CModule;
+    m.extern_("C").func("void", "f");
 
     assert(expect == m.render, m.render);
 }
