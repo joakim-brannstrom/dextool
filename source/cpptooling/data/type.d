@@ -299,3 +299,10 @@ enum StorageClass {
     Extern,
     Static
 }
+
+/// The kind of language which influences name mangling.
+enum Language {
+    unknown,
+    c,
+    cpp
+}

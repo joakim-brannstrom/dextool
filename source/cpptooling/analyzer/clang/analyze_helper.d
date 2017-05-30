@@ -19,7 +19,7 @@ import std.traits : Unqual;
 import std.typecons : Nullable, tuple, Flag, Yes, No;
 import std.meta : staticIndexOf;
 
-import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass;
+import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
@@ -33,7 +33,7 @@ import cpptooling.analyzer.clang.store : put;
 import cpptooling.data.type : AccessType, VariadicType, CxParam,
     TypeKindVariable, CppVariable, LocationTag, Location, CxReturnType,
     CppVirtualMethod, CppMethodName, CppClassName, CppNs, USRType, CppAccess,
-    StorageClass, CFunctionName;
+    StorageClass, CFunctionName, Language;
 import cpptooling.data.representation : CFunction, CxGlobalVariable;
 import cpptooling.data.symbol.container : Container;
 
@@ -137,6 +137,34 @@ private bool isOperator(CppMethodName name_) @safe {
     return false;
 }
 
+/** Correctly determine the language of a libclang Cursor.
+ *
+ * Combines an analysis of the name USR and a cursor query.
+ */
+Language toLanguage(const Cursor c) @safe
+in {
+    assert(c.isValid);
+}
+body {
+    import std.algorithm : canFind;
+
+    // assuming that the C++ USR always contains a '#'.
+    if (c.usr.canFind('#')) {
+        return Language.cpp;
+    }
+
+    final switch (c.language) with (CXLanguageKind) {
+    case CXLanguage_Invalid:
+        return Language.unknown;
+    case CXLanguage_C:
+        return Language.c;
+    case CXLanguage_ObjC:
+        return Language.unknown;
+    case CXLanguage_CPlusPlus:
+        return Language.cpp;
+    }
+}
+
 struct FunctionDeclResult {
     Flag!"isValid" isValid;
     TypeKindAttr type;
@@ -147,6 +175,7 @@ struct FunctionDeclResult {
     CxParam[] params;
     LocationTag location;
     Flag!"isDefinition" isDefinition;
+    Language language;
 }
 
 FunctionDeclResult analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @safe {
@@ -211,16 +240,17 @@ body {
         VariadicType isVariadic;
         StorageClass storageClass;
         Flag!"isDefinition" is_definition;
+        Language language;
     }
 
     ComposeData getCursorData(TypeResults tr) @safe {
         auto data = ComposeData(tr);
 
         data.name = CFunctionName(c_in.spelling);
-        //data.name = CFunctionName("foo");
         data.loc = locToTag(c_in.location());
         data.is_definition = cast(Flag!"isDefinition") c_in.isDefinition;
         data.storageClass = c_in.storageClass().toStorageClass;
+        data.language = c_in.toLanguage;
 
         return data;
     }
@@ -247,7 +277,7 @@ body {
 
         return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
                 TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr),
-                is_variadic, data.storageClass, params, data.loc, data.is_definition);
+                is_variadic, data.storageClass, params, data.loc, data.is_definition, data.language);
     }
 
     // dfmt off

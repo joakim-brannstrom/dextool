@@ -8,6 +8,7 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 Various utilities used by generators.
+TODO change the name of this module to location_filter.
 */
 module cpptooling.generator.utility;
 
@@ -16,7 +17,7 @@ import std.traits;
 import std.range : ElementType;
 
 version (unittest) {
-    import unit_threaded : Name, shouldEqual;
+    import unit_threaded : shouldEqual;
 }
 
 /** Filter according to location existence and predicate.

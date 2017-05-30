@@ -21,6 +21,13 @@ import dextool.plugin.types;
 import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
     Products;
 
+// workaround for ldc-1.1.0 and dmd-2.071.2
+auto workaround_linker_error() {
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes, GenericTestDoubleIncludes, DummyPayload;
+
+    return typeid(GenericTestDoubleIncludes!DummyPayload).toString();
+}
+
 struct RawConfiguration {
     Nullable!XmlConfig xmlConfig;
 
