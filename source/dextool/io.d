@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool.io;
 
 import std.stdio : File;
-import std.string : strip;
 import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType;
@@ -35,10 +34,10 @@ auto tryOpenFile(string filename, string mode) @trusted {
 }
 
 ///TODO don't catch Exception, catch the specific.
-auto tryWriting(string fname, string data) @trusted nothrow {
+auto tryWriting(T)(string fname, T data) @trusted nothrow {
     import std.exception;
 
-    static auto action(string fname, string data) {
+    static auto action(T)(string fname, T data) {
         auto f = tryOpenFile(fname, "w");
 
         if (f.isEmpty) {
@@ -47,7 +46,7 @@ auto tryWriting(string fname, string data) @trusted nothrow {
         scope (exit)
             f.close();
 
-        f.write(data);
+        f.rawWrite(cast(void[]) data);
 
         return ExitStatusType.Ok;
     }
