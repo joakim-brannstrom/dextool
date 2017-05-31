@@ -16,7 +16,7 @@ using namespace std;
 TestingEnvironment::parameters TestingEnvironment::params = {};
 int TestingEnvironment::progress = 0;
 vector<RandomGenerator*> TestingEnvironment::generators;
-map<string, map<string, vector<vector<int> > > > TestingEnvironment::namespaces;
+map<string, map<string, vector<vector<int>>>> TestingEnvironment::namespaces;
 
 TestingEnvironment::TestingEnvironment() {}
 
@@ -43,16 +43,16 @@ bool TestingEnvironment::init() {
        The amount is specified by the first byte of the cycles range.
        The first byte of cycles range is found in afl_data[2].
      */
+    if (afl_data[0] < 3)
+	return false;
     unsigned char CYCLES_MAX_BYTES = afl_data[2];
     unsigned int cycles;
 
-    if (CYCLES_MAX_BYTES > 50)
-	return false;
-
     int offset = 3;
+    if (CYCLES_MAX_BYTES > 50 || CYCLES_MAX_BYTES+offset > afl_data[0])
+	return false;
     for (int i = 0; i < CYCLES_MAX_BYTES ; i++) {
-        cycles += afl_data[offset + i];
-      
+        cycles += afl_data[offset + i]; //CRASH
     }
 
     TestingEnvironment::params.cycles = cycles;
@@ -61,13 +61,14 @@ bool TestingEnvironment::init() {
        The amount is specified by the first byte of the seed range.
        The first byte of seed range is found in afl_data[3 + CYCLES_MAX_BYTES].
      */
-    unsigned char SEED_MAX_BYTES = afl_data[3+CYCLES_MAX_BYTES];
+    unsigned char SEED_MAX_BYTES = afl_data[3+CYCLES_MAX_BYTES]; //63
     unsigned int seed;
 
     offset = 3 + CYCLES_MAX_BYTES + 1;
-    if (SEED_MAX_BYTES > 50)
+    if (SEED_MAX_BYTES > 50 || SEED_MAX_BYTES+offset >= afl_data[0])
 	return false;
     for (int i = 0; i < SEED_MAX_BYTES ; i++) {
+       
         seed += afl_data[offset + i];
     }
 
@@ -88,7 +89,7 @@ void TestingEnvironment::quit()
 
 void TestingEnvironment::readConfig() {
     ifstream config;
-    config.open("flat/config.txt");
+    config.open("../config.txt");
 
     if (!config.is_open() || config.fail()) {
 	return;
@@ -112,26 +113,13 @@ void TestingEnvironment::readConfig() {
 	ss >> max_cycles;
 	ss >> val;
 
-	vector<int> vec = {min_cycles, max_cycles, val};
+	vector<int> vec;
+	vec.push_back(min_cycles);
+	vec.push_back(max_cycles);
+	vec.push_back(val);
 	TestingEnvironment::namespaces[ns][var].push_back(vec);
     }
-    /*
-      for (auto it : namespaces) {
-      std::cout << it.first << " contains: " << std::endl;
-      for (auto iter : it.second) {
-      std::cout << iter.first << " =>";
-      for (auto vec : iter.second) {
-      std::cout << " {";
-      for (auto i : vec) {
-      std::cout << " " << i; 
-      } 
-      std::cout << "}";
-      }
-      std::cout << std::endl;
-      }
-      std::cout << std::endl;
-      }*/
-    
+	
     config.close();
 }
 
@@ -147,7 +135,7 @@ char TestingEnvironment::getRandType() {
     return params.randtype;
 }
 
-const map<string, map<string, vector<vector<int> > > > &TestingEnvironment::getConfig() {
+const map<string, map<string, vector<vector<int>>>> &TestingEnvironment::getConfig() {
     return namespaces;
 }
 
