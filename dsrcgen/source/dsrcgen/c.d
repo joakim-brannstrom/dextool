@@ -476,8 +476,8 @@ struct E {
     }
 
     /// Represent the semantic function call.
-    auto opCall(T)(T value) pure const {
-        return E(content ~ "(" ~ to!string(value) ~ ")");
+    auto opCall(T...)(auto ref T value) pure const {
+        return E(content ~ "(" ~ paramsToString(value) ~ ")");
     }
 
     // implicit
