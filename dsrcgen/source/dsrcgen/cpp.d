@@ -39,6 +39,10 @@ mixin template CppModuleX(T) {
         return stmt("delete [] " ~ expr);
     }
 
+    auto template_(string value) {
+        return stmt("template<" ~ value ~ ">")[$.end = ""];
+    }
+
     // Suites
     /** Suites for C++ definitions for a class.
      * Useful for implementiong ctor, dtor and member methods for a class.
