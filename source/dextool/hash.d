@@ -10,10 +10,10 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.hash;
 
 /// Make a hash out of the raw data.
-size_t makeHash(T)(T raw) @safe pure nothrow @nogc {
+ulong makeHash(T)(T raw) @safe pure nothrow @nogc {
     import std.digest.crc;
 
-    size_t value = 0;
+    ulong value = 0;
 
     if (raw is null)
         return value;
