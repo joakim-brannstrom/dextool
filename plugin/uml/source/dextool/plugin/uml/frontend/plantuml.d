@@ -174,8 +174,10 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import dsrcgen.plantuml;
 
     static struct FileData {
+        import dextool.type : WriteStrategy;
         FileName filename;
         string data;
+        WriteStrategy strategy;
     }
 
     static const fileExt = ".pu";

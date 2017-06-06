@@ -19,10 +19,11 @@ import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
 import cpptooling.data.type : LocationTag;
 
 struct FileData {
-    import dextool.type : FileName;
+    import dextool.type : FileName, WriteStrategy;
 
     FileName filename;
     string data;
+    WriteStrategy strategy;
 }
 
 /** Control various aspectes of the analyze and generation like what nodes to
