@@ -48,7 +48,6 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/clang.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/dedup.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/global_unique.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/hash.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/sort.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/taggedalgebraic.d

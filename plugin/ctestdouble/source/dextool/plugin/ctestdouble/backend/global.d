@@ -294,7 +294,7 @@ void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Conta
     impl.sep;
 
     foreach (ref global; range) {
-        externs.extern_(variableToString(global.name, global.type));
+        externs.stmt("extern " ~ variableToString(global.name, global.type));
     }
 }
 

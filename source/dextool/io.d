@@ -8,7 +8,7 @@ module dextool.io;
 import std.stdio : File;
 import logger = std.experimental.logger;
 
-import dextool.type : ExitStatusType;
+import dextool.type : ExitStatusType, WriteStrategy;
 
 ///TODO don't catch Exception, catch the specific.
 auto tryOpenFile(string filename, string mode) @trusted {
@@ -34,10 +34,19 @@ auto tryOpenFile(string filename, string mode) @trusted {
 }
 
 ///TODO don't catch Exception, catch the specific.
-auto tryWriting(T)(string fname, T data) @trusted nothrow {
+auto tryWriting(T)(string fname, T data, WriteStrategy strategy = WriteStrategy.overwrite) @trusted nothrow {
     import std.exception;
 
-    static auto action(T)(string fname, T data) {
+    static auto action(T)(string fname, T data, WriteStrategy strategy) {
+        import std.file : exists;
+
+        debug logger.tracef("Trying to write to (%s): %s", strategy, fname);
+
+        if (strategy == WriteStrategy.skip && exists(fname)) {
+            logger.info("File already exist, skipping: ", fname);
+            return ExitStatusType.Ok;
+        }
+
         auto f = tryOpenFile(fname, "w");
 
         if (f.isEmpty) {
@@ -54,7 +63,7 @@ auto tryWriting(T)(string fname, T data) @trusted nothrow {
     auto status = ExitStatusType.Errors;
 
     try {
-        status = action(fname, data);
+        status = action(fname, data, strategy);
     }
     catch (Exception ex) {
     }
@@ -64,7 +73,7 @@ auto tryWriting(T)(string fname, T data) @trusted nothrow {
         case Ok:
             break;
         case Errors:
-            logger.error("Failed to write to file ", fname);
+            logger.error("Failed to write file: ", fname);
             break;
         }
     }
@@ -107,7 +116,7 @@ ExitStatusType writeFileData(T)(ref T data) {
             logger.error("Unable to create destination directory: ", p.filename.dirName);
         }
 
-        auto status = tryWriting(cast(string) p.filename, p.data);
+        auto status = tryWriting(p.filename, p.data, p.strategy);
         if (status != ExitStatusType.Ok) {
             return ExitStatusType.Errors;
         }

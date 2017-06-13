@@ -15,7 +15,7 @@ module dextool.plugin.backend.graphml.xml;
 import std.format : FormatSpec;
 import logger = std.experimental.logger;
 
-import cpptooling.utility.hash : makeHash;
+import dextool.hash : makeHash;
 
 version (unittest) {
     import unit_threaded : shouldEqual;

@@ -215,9 +215,14 @@ class BaseModule : BaseElement {
         import std.algorithm : max;
 
         level = max(0, parent_level, level);
+
+        char filler = ' ';
+        // use for debug purpose
+        //filler = cast(char) ('0' + level);
+
         char[] indent;
         indent.length = indent_width * level;
-        indent[] = ' ';
+        indent[] = filler;
 
         return indent.idup ~ s;
     }

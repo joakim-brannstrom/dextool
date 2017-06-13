@@ -125,7 +125,9 @@ struct TestEnv {
             // tryRemove can fail, usually duo to I/O when tests are ran in
             // parallel.
             try {
-                dirEntries(outdir, SpanMode.shallow).each!(a => tryRemove(Path(a)));
+                dirEntries(outdir, SpanMode.shallow)
+                    .filter!(a => a.isFile)
+                    .each!(a => tryRemove(Path(a)));
             }
             catch (FileException ex) {
                 yap(ex.msg);

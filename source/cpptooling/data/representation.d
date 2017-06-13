@@ -43,7 +43,7 @@ public import cpptooling.data.type;
 
 import cpptooling.analyzer.type;
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.utility.hash;
+import dextool.hash : makeHash;
 
 static import cpptooling.data.class_classification;
 

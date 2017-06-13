@@ -221,10 +221,11 @@ Generate a C test double excluding data from specified files.
 // dfmt on
 
 struct FileData {
-    import dextool.type : FileName;
+    import dextool.type : FileName, WriteStrategy;
 
     FileName filename;
     string data;
+    WriteStrategy strategy;
 }
 
 /** Test double generation of C code.

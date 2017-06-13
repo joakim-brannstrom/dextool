@@ -93,3 +93,9 @@ struct FilterClangFlag {
 
     Kind kind;
 }
+
+/// Used when writing data to files on the filesystem.
+enum WriteStrategy {
+    overwrite,
+    skip
+}

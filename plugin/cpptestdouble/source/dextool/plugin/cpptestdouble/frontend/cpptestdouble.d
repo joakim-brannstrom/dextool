@@ -31,10 +31,11 @@ import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
     XmlConfig;
 
 struct FileData {
-    import dextool.type : FileName;
+    import dextool.type : FileName, WriteStrategy;
 
     FileName filename;
     string data;
+    WriteStrategy strategy;
 }
 
 /** Test double generation of C++ code.
