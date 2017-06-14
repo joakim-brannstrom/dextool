@@ -5,16 +5,13 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool.utility;
 
-import std.regex : Regex;
-import std.stdio : File;
-import std.string : strip;
-import std.typecons : Unique, Nullable, NullableRef;
 import logger = std.experimental.logger;
 
-import dextool.type;
-import dextool.compilation_db;
+import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
+import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb,
+    fromFiles;
 
-auto prependDefaultFlags(const string[] in_cflags, const string prefer_lang) {
+pure auto prependDefaultFlags(const string[] in_cflags, const string prefer_lang) {
     import std.algorithm : canFind;
 
     immutable syntax_only = "-fsyntax-only";
@@ -26,7 +23,7 @@ auto prependDefaultFlags(const string[] in_cflags, const string prefer_lang) {
 }
 
 ///TODO move to clang module.
-auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
+pure auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
     import std.algorithm : findAmong;
 
     auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
@@ -38,7 +35,7 @@ auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
     return in_cflags.dup;
 }
 
-unittest {
+@system unittest {
     import test.extra_should : shouldEqualPretty;
 
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
@@ -60,7 +57,6 @@ ExitStatusType analyzeFile(VisitorT, ClangContextT)(const AbsolutePath input_fil
     import std.file : exists;
 
     import cpptooling.analyzer.clang.ast : ClangAST;
-    import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
         logDiagnostic;
 
@@ -94,6 +90,8 @@ CompileCommandDB fromArgCompileDb(string[] paths) {
 }
 
 /// Version derived from the git archive.
+import std.string : strip;
+
 enum dextoolVersion = DextoolVersion(import("version.txt").strip);
 
 static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");
