@@ -20,7 +20,7 @@ module dextool.plugin.runner;
 import std.stdio;
 import logger = std.experimental.logger;
 
-import dextool.type : ExitStatusType;
+import dextool.type : ExitStatusType, FileName, AbsolutePath;
 
 /** _main_ plugin function.
 
@@ -66,7 +66,7 @@ ExitStatusType runPlugin(string[] args) {
 
     import dextool.utility : analyzeFile;
 
-    auto exit_status = analyzeFile(pargs.file, cflags, visitor, ctx);
+    auto exit_status = analyzeFile(AbsolutePath(FileName(pargs.file)), cflags, visitor, ctx);
 
     if (exit_status == ExitStatusType.Ok) {
         writeln(visitor.generatedCode.render);

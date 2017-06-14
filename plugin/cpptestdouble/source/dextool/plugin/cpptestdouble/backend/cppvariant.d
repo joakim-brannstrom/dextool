@@ -42,7 +42,7 @@ struct Generator {
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
-    import dextool.type : ExitStatusType;
+    import dextool.type : ExitStatusType, AbsolutePath;
 
     private static struct Modules {
         import dextool.plugin.utility : MakerInitializingClassMembers;
@@ -63,7 +63,7 @@ struct Generator {
         this.products = products;
     }
 
-    ExitStatusType analyzeFile(const string abs_in_file, const string[] use_cflags) {
+    ExitStatusType analyzeFile(const AbsolutePath abs_in_file, const string[] use_cflags) {
         import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
         import cpptooling.data.representation : MergeMode;

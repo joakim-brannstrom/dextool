@@ -442,12 +442,11 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
 /// TODO refactor, doing too many things.
 ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
-    import std.conv : text;
-    import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
     import dextool.plugin.cpptestdouble.backend.cppvariant : Generator;
     import dextool.io : writeFileData;
+    import dextool.type : AbsolutePath;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
     const auto total_files = in_files.length;
@@ -456,7 +455,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
         string[] use_cflags;
-        string abs_in_file;
+        AbsolutePath abs_in_file;
 
         if (compile_db.length > 0) {
             auto db_search_result = compile_db.appendOrError(user_cflags,
@@ -468,7 +467,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+            abs_in_file = AbsolutePath(FileName(in_file));
         }
 
         if (generator.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {

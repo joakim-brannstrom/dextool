@@ -175,6 +175,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     static struct FileData {
         import dextool.type : WriteStrategy;
+
         FileName filename;
         string data;
         WriteStrategy strategy;
@@ -413,8 +414,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             logger.infof("File %d/%d ", idx + 1, total_files);
             auto entry_cflags = cflags ~ parseFlag(entry, defaultCompilerFilter);
 
-            auto analyze_status = analyzeFile(cast(string) entry.absoluteFile,
-                    entry_cflags, visitor, ctx);
+            auto analyze_status = analyzeFile(entry.absoluteFile, entry_cflags, visitor, ctx);
 
             // compile error, let user decide how to proceed.
             if (analyze_status == ExitStatusType.Errors && skipFileError) {
@@ -440,7 +440,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         const auto user_cflags = prependDefaultFlags(in_cflags, "");
 
         string[] use_cflags;
-        string abs_in_file;
+        AbsolutePath abs_in_file;
         string input_file = cast(string) file_process.inputFile;
 
         logger.trace("Input file: ", input_file);
@@ -454,7 +454,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            abs_in_file = buildNormalizedPath(input_file).asAbsolutePath.text;
+            abs_in_file = AbsolutePath(FileName(input_file));
         }
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {

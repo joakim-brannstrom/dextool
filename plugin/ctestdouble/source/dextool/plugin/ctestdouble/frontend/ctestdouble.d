@@ -23,7 +23,8 @@ import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
 
 // workaround for ldc-1.1.0 and dmd-2.071.2
 auto workaround_linker_error() {
-    import cpptooling.testdouble.header_filter : TestDoubleIncludes, GenericTestDoubleIncludes, DummyPayload;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
+        GenericTestDoubleIncludes, DummyPayload;
 
     return typeid(GenericTestDoubleIncludes!DummyPayload).toString();
 }
@@ -782,8 +783,6 @@ auto parseRawConfig(T)(T xml) @trusted {
 /// TODO refactor, doing too many things.
 ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
-    import std.conv : text;
-    import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
     import cpptooling.analyzer.clang.context : ClangContext;
@@ -799,7 +798,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
         string[] use_cflags;
-        string abs_in_file;
+        AbsolutePath abs_in_file;
 
         // TODO duplicate code in c, c++ and plantuml. Fix it.
         if (compile_db.length > 0) {
@@ -812,7 +811,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+            abs_in_file = AbsolutePath(FileName(in_file));
         }
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
