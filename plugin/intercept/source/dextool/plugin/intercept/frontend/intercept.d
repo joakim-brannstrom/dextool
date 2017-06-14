@@ -253,7 +253,7 @@ ExitStatusType genIntercept(InterceptFrontend frontend, in string[] in_cflags,
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
         string[] use_cflags;
-        string abs_in_file;
+        AbsolutePath abs_in_file;
 
         if (compile_db.length > 0) {
             auto db_search_result = compile_db.appendOrError(user_cflags,
@@ -265,7 +265,7 @@ ExitStatusType genIntercept(InterceptFrontend frontend, in string[] in_cflags,
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            abs_in_file = buildNormalizedPath(in_file).asAbsolutePath.text;
+            abs_in_file = AbsolutePath(FileName(in_file));
         }
 
         if (backend.analyzeFile(abs_in_file, use_cflags) == ExitStatusType.Errors) {

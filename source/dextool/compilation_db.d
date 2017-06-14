@@ -15,6 +15,8 @@ import std.json : JSONValue;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
+import dextool.type : AbsolutePath;
+
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
     import test.extra_should : shouldEqualPretty;
@@ -46,45 +48,30 @@ version (unittest) {
  * the compilation database file is read from.
  */
 @safe struct CompileCommand {
+    import dextool.type : DirName;
+
+    static import dextool.type;
+
     /// The raw filename from the tuples "file" value.
-    static struct FileName {
-        string payload;
-        alias payload this;
-    }
+    alias FileName = dextool.type.FileName;
 
     /// The combination of the tuples "file" and "directory" value.
     static struct AbsoluteFileName {
-        string payload;
+        AbsolutePath payload;
         alias payload this;
 
-        invariant {
-            import std.path : isAbsolute;
-
-            assert(payload.isAbsolute);
-        }
-
         this(AbsoluteDirectory work_dir, string raw_path) {
-            import std.path : buildNormalizedPath, absolutePath;
-
-            payload = buildNormalizedPath(work_dir, raw_path).absolutePath;
+            payload = AbsolutePath(FileName(raw_path), DirName(work_dir));
         }
     }
 
     /// The tuples "directory" value converted to the absolute path.
     static struct AbsoluteDirectory {
-        string payload;
+        AbsolutePath payload;
         alias payload this;
 
-        invariant {
-            import std.path : isAbsolute;
-
-            assert(payload.isAbsolute);
-        }
-
         this(AbsoluteCompileDbDirectory db_path, string raw_path) {
-            import std.path : buildNormalizedPath, absolutePath;
-
-            payload = buildNormalizedPath(db_path, raw_path).absolutePath;
+            payload = AbsolutePath(FileName(raw_path), DirName(db_path));
         }
     }
 
@@ -331,7 +318,7 @@ body {
 
 private struct SearchResult {
     string[] cflags;
-    string absoluteFile;
+    AbsolutePath absoluteFile;
 }
 
 /** Append the compiler flags if a match is found in the DB or error out.
@@ -364,7 +351,7 @@ Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
     } else {
         rval = SearchResult.init;
         rval.cflags = cflags ~ compile_commands[0].parseFlag(flag_filter);
-        rval.absoluteFile = cast(string) compile_commands[0].absoluteFile;
+        rval.absoluteFile = compile_commands[0].absoluteFile;
     }
 
     return rval;
