@@ -13,7 +13,6 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/type.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/type_logger.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/store.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/utility.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/attribute.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/base_visitor.d
