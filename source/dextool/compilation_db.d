@@ -57,7 +57,7 @@ version (unittest) {
 
     /// The combination of the tuples "file" and "directory" value.
     static struct AbsoluteFileName {
-        AbsolutePath payload;
+        dextool.type.AbsoluteFileName payload;
         alias payload this;
 
         this(AbsoluteDirectory work_dir, string raw_path) {
@@ -67,7 +67,7 @@ version (unittest) {
 
     /// The tuples "directory" value converted to the absolute path.
     static struct AbsoluteDirectory {
-        AbsolutePath payload;
+        dextool.type.AbsoluteDirectory payload;
         alias payload this;
 
         this(AbsoluteCompileDbDirectory db_path, string raw_path) {
