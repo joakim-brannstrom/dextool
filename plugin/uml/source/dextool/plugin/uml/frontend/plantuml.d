@@ -17,7 +17,6 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility;
 
 import dextool.plugin.types;
 import dextool.plugin.backend.plantuml : Controller, Parameters, Products;
@@ -391,6 +390,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import dextool.io : writeFileData;
     import dextool.plugin.backend.plantuml : Generator, UMLVisitor,
         UMLClassDiagram, UMLComponentDiagram, TransformToDiagram;
+    import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
     Container container;
     auto generator = Generator(variant, variant, variant);
@@ -405,7 +405,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
-        const auto cflags = prependDefaultFlags(in_cflags, "");
+        const auto cflags = prependDefaultFlags(in_cflags, PreferLang.none);
         CompileCommand.AbsoluteFileName[] unable_to_parse;
 
         const auto total_files = compile_db.length;
@@ -437,7 +437,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
         break;
 
     case FileProcess.Directive.Single:
-        const auto user_cflags = prependDefaultFlags(in_cflags, "");
+        const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.none);
 
         string[] use_cflags;
         AbsolutePath abs_in_file;

@@ -22,7 +22,6 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility : prependDefaultFlags;
 
 import dextool.plugin.types;
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
@@ -448,8 +447,9 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import dextool.plugin.cpptestdouble.backend.cppvariant : Generator;
     import dextool.io : writeFileData;
     import dextool.type : AbsolutePath;
+    import dextool.utility : prependDefaultFlags, PreferLang;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, "-xc++");
+    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
     const auto total_files = in_files.length;
     auto generator = Generator(variant, variant, variant);
 

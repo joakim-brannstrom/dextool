@@ -11,25 +11,31 @@ import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb,
     fromFiles;
 
-pure auto prependDefaultFlags(const string[] in_cflags, const string prefer_lang) {
+enum PreferLang : string {
+    none = "",
+    c = "-xc",
+    cpp = "-xc++"
+}
+
+pure string[] prependDefaultFlags(const string[] in_cflags, const PreferLang lang) {
     import std.algorithm : canFind;
 
     immutable syntax_only = "-fsyntax-only";
     if (in_cflags.canFind(syntax_only)) {
-        return prependLangFlagIfMissing(in_cflags, prefer_lang);
+        return prependLangFlagIfMissing(in_cflags, lang);
     } else {
-        return syntax_only ~ prependLangFlagIfMissing(in_cflags, prefer_lang);
+        return syntax_only ~ prependLangFlagIfMissing(in_cflags, lang);
     }
 }
 
 ///TODO move to clang module.
-pure auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang) {
+pure string[] prependLangFlagIfMissing(in string[] in_cflags, const PreferLang lang) {
     import std.algorithm : findAmong;
 
-    auto v = findAmong(in_cflags, ["-xc", "-xc++"]);
+    auto v = findAmong(in_cflags, [PreferLang.c, PreferLang.cpp]);
 
     if (v.length == 0) {
-        return [prefer_lang] ~ in_cflags;
+        return [cast(string) lang] ~ in_cflags;
     }
 
     return in_cflags.dup;
@@ -39,7 +45,7 @@ pure auto prependLangFlagIfMissing(in string[] in_cflags, in string prefer_lang)
     import test.extra_should : shouldEqualPretty;
 
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
-    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, "-xc"));
+    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, PreferLang.c));
 }
 
 /** Apply the visitor on the clang AST derived from the input_file.

@@ -15,7 +15,6 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility;
 
 import dextool.plugin.types;
 import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
@@ -789,8 +788,9 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
+    import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, "-xc");
+    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.c);
     const auto total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);

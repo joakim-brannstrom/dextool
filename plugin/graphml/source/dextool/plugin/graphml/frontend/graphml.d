@@ -17,7 +17,6 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
-import dextool.utility;
 
 import dextool.plugin.types;
 import dextool.plugin.backend.graphml : Controller, Parameters, Products;
@@ -246,8 +245,9 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
         vfsMode = Mode;
     import dextool.plugin.backend.graphml : GraphMLAnalyzer,
         TransformToXmlStream;
+    import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, "");
+    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.none);
 
     Container container;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
