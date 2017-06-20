@@ -72,7 +72,7 @@ string convToIncludeGuard(FileT)(FileT fname) {
     return translate((cast(string) fname).baseName, table);
 }
 
-auto generatetPreInclude(FileT)(FileT fname) {
+auto generatePreInclude(FileT)(FileT fname) {
     import dsrcgen.cpp : CppHModule;
 
     auto o = CppHModule(convToIncludeGuard(fname));

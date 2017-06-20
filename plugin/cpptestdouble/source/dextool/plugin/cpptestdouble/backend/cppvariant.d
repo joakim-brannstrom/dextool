@@ -133,7 +133,7 @@ private:
 
     static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
-            generatetPreInclude, generatePostInclude, makeHeader;
+            generatePreInclude, generatePostInclude, makeHeader;
 
         //TODO copied code from cstub. consider separating from this module to
         // allow reuse.
@@ -167,7 +167,7 @@ private:
                 params.getToolVersion, params.getCustomHeader));
 
         if (ctrl.doPreIncludes) {
-            prods.putFile(params.getFiles.pre_incl, generatetPreInclude(params.getFiles.pre_incl));
+            prods.putFile(params.getFiles.pre_incl, generatePreInclude(params.getFiles.pre_incl));
         }
         if (ctrl.doPostIncludes) {
             prods.putFile(params.getFiles.post_incl,
