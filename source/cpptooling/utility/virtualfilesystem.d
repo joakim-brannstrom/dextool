@@ -13,8 +13,8 @@ An user of Clang and especially SourceRanges/SourceLocation shouldn't need to
 keep track of which files are from the filesystem, which are from the in-memory
 cache.
 
-The VFS provides an agnostic access to both in-memory and filesystem with
-helper functions for SourceRange/SourceLocation.
+The VFS provides an agnostic access to files both in-memory and on the
+filesystem with helper functions for SourceRange/SourceLocation.
 */
 module cpptooling.utility.virtualfilesystem;
 
@@ -29,10 +29,6 @@ import deimos.clang.index : CXUnsavedFile;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 // dfmt off
@@ -165,7 +161,7 @@ struct VirtualFileSystem {
     }
 }
 
-@Name("Should be an in-memory mapped file")
+@("Should be an in-memory mapped file")
 @safe unittest {
     VirtualFileSystem vfs;
     string code = "some code";
@@ -177,7 +173,7 @@ struct VirtualFileSystem {
     vfs.slice(filename).shouldEqual(code);
 }
 
-@Name("Should be a file from the filesystem")
+@("Should be a file from the filesystem")
 unittest {
     import std.path;
     import std.stdio;
