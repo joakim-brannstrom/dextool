@@ -785,6 +785,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
     import std.typecons : Yes;
 
+    import dextool.clang : findFlags, ParseData = SearchResult;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
@@ -797,24 +798,22 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
-        string[] use_cflags;
-        AbsolutePath abs_in_file;
+        ParseData pdata;
 
         // TODO duplicate code in c, c++ and plantuml. Fix it.
         if (compile_db.length > 0) {
-            auto db_search_result = compile_db.appendOrError(user_cflags,
-                    in_file, variant.getCompileCommandFilter);
-            if (db_search_result.isNull) {
+            auto tmp = compile_db.findFlags(FileName(in_file), user_cflags,
+                    variant.getCompileCommandFilter);
+            if (tmp.isNull) {
                 return ExitStatusType.Errors;
             }
-            use_cflags = db_search_result.get.cflags;
-            abs_in_file = db_search_result.get.absoluteFile;
+            pdata = tmp.get;
         } else {
-            use_cflags = user_cflags.dup;
-            abs_in_file = AbsolutePath(FileName(in_file));
+            pdata.flags = user_cflags.dup;
+            pdata.absoluteFile = AbsolutePath(FileName(in_file));
         }
 
-        if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+        if (analyzeFile(pdata.absoluteFile, pdata.flags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 

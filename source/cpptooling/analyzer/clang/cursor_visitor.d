@@ -23,7 +23,7 @@ private @safe nothrow struct ASTCursor {
 private nothrow struct AST_BreathFirstResult {
     import std.container : Array;
 
-    private size_t depth_;
+    private int depth_;
     private typeof(Array!(Cursor).opSlice()) r;
     // index 0: the current range that is operated on.
     // index 1: the next one that is being filled with data.
@@ -65,7 +65,7 @@ private nothrow struct AST_BreathFirstResult {
         return r.empty && data[1].empty;
     }
 
-    size_t depth() {
+    int depth() {
         return depth_;
     }
 }
