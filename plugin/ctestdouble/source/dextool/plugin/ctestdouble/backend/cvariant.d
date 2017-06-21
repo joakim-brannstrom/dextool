@@ -269,7 +269,7 @@ final class CVisitor : Visitor {
         analyzeVarDecl;
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

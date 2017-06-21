@@ -37,7 +37,7 @@ final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl;
     import cpptooling.data.type : CxReturnType;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

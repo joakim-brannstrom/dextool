@@ -144,7 +144,7 @@ override void visit(const WhileStmt) {...}
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.cpp;
 
     alias visit = Visitor.visit;

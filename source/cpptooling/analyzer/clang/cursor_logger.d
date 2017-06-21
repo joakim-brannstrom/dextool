@@ -1,15 +1,16 @@
 /**
-Copyright: Copyright (c) 2015-2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
-*/
-module cpptooling.utility.clang;
 
-import std.traits : ReturnType;
+This file contains convenient functions for logging some meta data about a
+cursor for debugging purpose.
+*/
+module cpptooling.analyzer.clang.cursor_logger;
 
 import clang.Cursor : Cursor;
 import clang.Visitor : Visitor;

@@ -19,7 +19,8 @@ import std.traits : Unqual;
 import std.typecons : Nullable, tuple, Flag, Yes, No;
 import std.meta : staticIndexOf;
 
-import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
+import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass,
+    CXLanguageKind;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
@@ -276,8 +277,8 @@ body {
         }
 
         return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
-                TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr),
-                is_variadic, data.storageClass, params, data.loc, data.is_definition, data.language);
+                TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr), is_variadic,
+                data.storageClass, params, data.loc, data.is_definition, data.language);
     }
 
     // dfmt off
@@ -542,7 +543,7 @@ final class ClassVisitor : Visitor {
     import cpptooling.data.representation;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.symbol.types : USRType;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

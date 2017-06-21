@@ -56,7 +56,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     import cpptooling.data.type : CppNsStack, CxReturnType, CppNs,
         TypeKindVariable;
     import cpptooling.data.symbol.container : Container;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 
