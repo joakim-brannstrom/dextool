@@ -131,6 +131,7 @@ struct CompileCommandDB {
     CompileCommand[] payload;
     alias payload this;
 }
+
 // The result of searching for a file in a compilation DB.
 // The file may be occur more than one time therefor an array.
 struct CompileCommandSearch {
@@ -346,7 +347,7 @@ Nullable!(SearchResult) appendOrError(CompileCommandDB compile_db,
 
     typeof(return) rval;
     if (compile_commands.length == 0) {
-        logger.error("File not found in compilation database\n  ", input_file);
+        logger.warning("File not found in compilation database: ", input_file);
         return rval;
     } else {
         rval = SearchResult.init;

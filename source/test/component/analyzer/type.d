@@ -21,10 +21,10 @@ import cpptooling.analyzer.type : USRType, toStringDecl;
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.analyze_helper;
 import cpptooling.analyzer.clang.context : ClangContext;
+import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.data.type : TypeKindVariable, VariadicType, Location;
-import cpptooling.utility.clang : logNode, mixinNodeLog;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
 
 /* These lines are useful when debugging.

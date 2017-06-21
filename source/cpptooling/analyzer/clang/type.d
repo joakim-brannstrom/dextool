@@ -45,12 +45,12 @@ import clang.Cursor : Cursor;
 import clang.Type : Type;
 
 public import cpptooling.analyzer.type;
+import cpptooling.analyzer.clang.cursor_logger : logNode;
 import cpptooling.analyzer.clang.type_logger : logType;
 import cpptooling.analyzer.type_format : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data.type : Location, LocationTag;
 import cpptooling.data.symbol.container : Container;
 import cpptooling.data.symbol.types : USRType;
-import cpptooling.utility.clang : logNode;
 
 private string nextSequence() @safe {
     import std.conv : text;

@@ -1022,10 +1022,10 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
         analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data.type : MemberVirtualType;
     import cpptooling.data.representation : CppNsStack, CppNs, AccessType,
         CppAccess;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
 
     import cpptooling.data.class_classification : ClassificationState = State;
     import cpptooling.data.class_classification : classifyClass;
@@ -1196,8 +1196,8 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         VarDecl, FunctionDecl, ClassDecl, Namespace, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data.representation : CppNsStack, CppNs;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

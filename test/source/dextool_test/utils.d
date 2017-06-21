@@ -125,8 +125,7 @@ struct TestEnv {
             // tryRemove can fail, usually duo to I/O when tests are ran in
             // parallel.
             try {
-                dirEntries(outdir, SpanMode.shallow)
-                    .filter!(a => a.isFile)
+                dirEntries(outdir, SpanMode.shallow).filter!(a => a.isFile)
                     .each!(a => tryRemove(Path(a)));
             }
             catch (FileException ex) {
@@ -287,7 +286,7 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     }
 }
 
-bool stdoutContains(in string txt) {
+bool stdoutContains(const string txt) {
     import std.string : indexOf;
 
     return getYapLog().joiner().array().indexOf(txt) != -1;
@@ -295,7 +294,7 @@ bool stdoutContains(in string txt) {
 
 import std.range : isInputRange;
 
-bool stdoutContains(T)(in T gold_lines) if (isInputRange!T) {
+bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
     import std.array : array;
     import std.range : enumerate;
     import std.traits : isArray;

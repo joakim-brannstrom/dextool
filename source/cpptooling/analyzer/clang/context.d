@@ -10,10 +10,6 @@ import logger = std.experimental.logger;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 /** Convenient context of items needed to practically create a clang AST.
@@ -109,11 +105,11 @@ struct ClangContext {
             }
         }
 
-        logger.info("Compiler flags: ", commandLineArgs.join(" "));
+        debug logger.trace("Compiler flags: ", commandLineArgs.join(" "));
 
         string[] args = prependDefaultFlags(commandLineArgs ~ internal_header_arg);
 
-        logger.trace("Internal compiler flags: ", args.join(" "));
+        debug logger.trace("Internal compiler flags: ", args.join(" "));
 
         // ensure the file exist in the filesys layer.
         // it has either been added as an in-memory file by the user or it is
@@ -128,7 +124,7 @@ struct ClangContext {
     }
 }
 
-@Name("Should be an instance")
+@("shall be an instance")
 unittest {
     import std.typecons : Yes;
 

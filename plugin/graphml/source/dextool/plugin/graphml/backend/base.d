@@ -75,7 +75,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         CxReturnType;
     import cpptooling.data.symbol.container : Container;
     import cpptooling.data.type : LocationTag, Location;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -315,7 +315,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     import cpptooling.data.type : MemberVirtualType;
     import cpptooling.data.representation : CppNsStack, CppNs, AccessType,
         CppAccess, CppDtor, CppCtor, CppMethod, CppClassName;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     import cpptooling.data.class_classification : ClassificationState = State;
     import cpptooling.data.class_classification : classifyClass, MethodKind;
@@ -566,7 +566,7 @@ private final class BodyVisitor(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper;
     import cpptooling.data.representation;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 
@@ -681,7 +681,7 @@ private final class RefVisitor : Visitor {
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper;
     import cpptooling.data.representation;
-    import cpptooling.utility.clang : logNode, mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 
