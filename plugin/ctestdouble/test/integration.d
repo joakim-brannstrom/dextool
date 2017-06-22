@@ -280,9 +280,11 @@ unittest {
 }
 
 @(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
+@(Values(["compile_db/dir1/single_file.h", "use_file"], ["compile_db/single_file.h", "fallback"]))
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file.h", testEnv);
+    testEnv.outputSuffix(getValue!(string[])[1]);
+    auto p = genTestParams(getValue!(string[])[0], testEnv);
 
     p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
 

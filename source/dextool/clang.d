@@ -72,6 +72,7 @@ struct SearchResult {
 /// Find flags for fname by searching in the compilation DB.
 Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
         const string[] flags, ref const CompileCommandFilter flag_filter) {
+    import std.file : exists;
     import std.path : baseName;
     import std.string : join;
 
@@ -89,9 +90,19 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
 
     auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter);
     if (!sres.isNull) {
-        rval = SearchResult(sres.parseFlag(flag_filter), sres.absoluteFile);
-        logger.info("Using flags from: ", sres.absoluteFile);
-        logger.info("Compiler flags: ", rval.flags.join(" "));
+        logger.info("Using compiler flags from: ", sres.absoluteFile);
+
+        auto p = AbsolutePath(fname);
+        if (!exists(p)) {
+            logger.warningf("Unable to locate '%s'", p);
+            logger.warningf(`Falling back on '%s' because it has an '#include' pulling in the desired file`,
+                    sres.absoluteFile);
+            p = sres.absoluteFile;
+        }
+
+        rval = SearchResult(sres.parseFlag(flag_filter), p);
+        // the user may want to see the flags but usually uninterested
+        logger.trace("Compiler flags: ", rval.flags.join(" "));
     } else {
         logger.error("Unable to find any compiler flags for: ", fname);
     }
