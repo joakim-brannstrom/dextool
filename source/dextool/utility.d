@@ -80,14 +80,8 @@ ExitStatusType analyzeFile(VisitorT, ClangContextT)(const AbsolutePath input_fil
     return ExitStatusType.Ok;
 }
 
-CompileCommandDB fromArgCompileDb(string[] paths) {
-    import std.array : appender;
-
-    auto app = appender!(CompileCommand[])();
-    paths.orDefaultDb.fromFiles(app);
-
-    return CompileCommandDB(app.data);
-}
+// this is deprecated
+public import dextool.compilation_db : fromArgCompileDb;
 
 /// Version derived from the git archive.
 import std.string : strip;

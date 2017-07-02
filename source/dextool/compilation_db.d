@@ -561,6 +561,14 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
     }
 
     return filterPair(pass1, cmd.directory, flag_filter.filter);
+/// Import and merge many compilation databases into one DB.
+CompileCommandDB fromArgCompileDb(string[] paths) {
+    import std.array : appender;
+
+    auto app = appender!(CompileCommand[])();
+    paths.orDefaultDb.fromFiles(app);
+
+    return CompileCommandDB(app.data);
 }
 
 @("Should be cflags with all unnecessary flags removed")
