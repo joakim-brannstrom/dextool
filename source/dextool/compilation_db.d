@@ -485,16 +485,18 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
                 "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
     }
 
-    static ParseFlags filterPair(T)(ref T r,
-            CompileCommand.AbsoluteDirectory workdir, const FilterClangFlag[] flag_filter) @safe {
+    static ParseFlags filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
+            const FilterClangFlag[] flag_filter, int skip_args) @safe {
         enum State {
+            /// first argument is kept even though it isn't a flag because it is the command
+            firstArg,
             /// keep the next flag IF none of the other transitions happens
             keep,
             /// keep the next argument and transform to an absolute path
             pathArgumentToAbsolute,
-            /// skip the next flag
+            /// skip the next arg
             skip,
-            /// skip the next flag, if it is not a flag
+            /// skip the next arg, if it is not a flag
             skipIfNotFlag,
         }
 
@@ -502,7 +504,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         import std.array : appender;
         import std.range : ElementType;
 
-        State st;
+        auto st = skip_args == 0 ? State.firstArg : State.keep;
         auto rval = appender!(string[]);
         auto includes = appender!(string[]);
 
@@ -514,7 +516,11 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
             // conditions after the states. It is to give the user the ability
             // to filter out any flag.
 
-            if (st == State.skip) {
+            if (st == State.firstArg) {
+                // keep it, it is the command
+                rval.put(arg);
+                st = State.keep;
+            } else if (st == State.skip) {
                 st = State.keep;
             } else if (st == State.skipIfNotFlag && isNotAFlag(arg)) {
                 st = State.keep;
@@ -544,23 +550,26 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         return ParseFlags(ParseFlags.Includes(includes.data), rval.data);
     }
 
-    import std.algorithm : filter, among, splitter;
-    import std.range : dropOne;
+    import std.algorithm : filter, splitter;
 
     // dfmt off
     auto pass1 = (cast(string) cmd.command).splitter(' ')
         // remove empty strings
-        .filter!(a => !(a == ""));
+        .filter!(a => a.length != 0);
     // dfmt on
 
     // consume elements
-    foreach (_; 0 .. flag_filter.skipCompilerArgs) {
-        if (!pass1.empty) {
-            pass1.popFront;
+    if (flag_filter.skipCompilerArgs != 0) {
+        foreach (_; 0 .. flag_filter.skipCompilerArgs) {
+            if (!pass1.empty) {
+                pass1.popFront;
+            }
         }
     }
 
-    return filterPair(pass1, cmd.directory, flag_filter.filter);
+    return filterPair(pass1, cmd.directory, flag_filter.filter, flag_filter.skipCompilerArgs);
+}
+
 /// Import and merge many compilation databases into one DB.
 CompileCommandDB fromArgCompileDb(string[] paths) {
     import std.array : appender;
