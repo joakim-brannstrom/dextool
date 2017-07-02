@@ -1,0 +1,12 @@
+[
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary file1.h",
+        "file": "file1.h"
+    },
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary file1.hpp",
+        "file": "file1.hpp"
+    }
+]

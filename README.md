@@ -9,6 +9,11 @@ The plugins in a standard installation of deXtool are:
  - UML. Analyze C/C++ code to generate PlantUML diagrams.
  - GraphML. Analyze C/C++ code to generate a GraphML representation.
    Call chains, type usage, classes as _groups_ of methods and members.
+ - Intercept. Analyze a C header together with a config to generate interceptor
+   functions.
+ - Compilation Database. Tool for manipulating db(s) such as merge, compiler
+   flag filtering, relative->absolute path.
+   Usually called compile_commands.json.
 
 # Plugin Status
 
