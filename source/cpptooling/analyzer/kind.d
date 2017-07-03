@@ -29,6 +29,7 @@ version (unittest) {
 }
 
 alias ArrayInfoIndex = Nullable!long;
+
 struct FuncInfoParam {
     USRType usr;
     TypeAttr attr;

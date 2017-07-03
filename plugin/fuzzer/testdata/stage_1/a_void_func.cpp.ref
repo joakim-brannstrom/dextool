@@ -1,0 +1,9 @@
+extern "C" {
+#include "a_void_func.h"
+}
+
+#include "dextool_wrapper.hpp"
+
+void wrap_f(dextool::RawData &raw_data) {
+    f();
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dextool version="v1.1.0-195-gb71a13e">
+    <symbols>
+        <symbol name="fa">
+            <fuzz use="fuzz_A" include="transform_param_fuzz.hpp"/>
+        </symbol>
+    </symbols>
+</dextool>
