@@ -134,16 +134,9 @@ struct AbsolutePath {
     alias payload this;
 
     invariant {
-        import std.algorithm : canFind;
         import std.path : isAbsolute;
 
         assert(payload.length == 0 || payload.isAbsolute);
-        // A path is absolute if it starts with a /.
-        // But a ~ can be injected in the built, absolute path, when two or
-        // more paths are combined with buildNormalizedPath and one of the
-        // paths (not the first one) contains a ~.
-        // This is functionally wrong, and even an invalid path.
-        assert(!payload.payload.canFind('~'));
     }
 
     this(FileName p) {
