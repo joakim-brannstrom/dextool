@@ -175,21 +175,18 @@ struct VirtualFileSystem {
 
 @("Should be a file from the filesystem")
 unittest {
-    import std.path;
+    import std.string : toStringz;
     import std.stdio;
-    import unit_threaded : Sandbox;
 
     VirtualFileSystem vfs;
     string code = "content of fun.txt";
 
-    with (immutable Sandbox()) {
-        auto filename = cast(FileName) buildPath(testPath, "fun.txt");
-        File(filename, "w").write(code);
+    auto filename = cast(FileName) "test_vfs.txt";
+    File(filename, "w").write(code);
+    scope(exit) remove((cast(string) filename).toStringz);
 
-        vfs.open(filename);
-
-        vfs.slice(filename).shouldEqual(code);
-    }
+    vfs.open(filename);
+    vfs.slice(filename).shouldEqual(code);
 }
 
 /**

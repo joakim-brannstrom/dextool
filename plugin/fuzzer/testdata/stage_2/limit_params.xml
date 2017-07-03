@@ -1,0 +1,25 @@
+<dextool>
+    <symbols>
+        <symbol name="band_limit">
+            <param name="v">
+                <valid check="dextool::in_range" condition="2000, 4000"/>
+            </param>
+        </symbol>
+        <symbol name="lower_limit">
+            <param name="v">
+                <valid check="dextool::greater_than" condition="1000"/>
+            </param>
+        </symbol>
+        <symbol name="nolimit">
+            <param name="v">
+                <valid high="" low="" />
+            </param>
+        </symbol>
+        <symbol name="upper_limit">
+            <param name="v">
+                <valid check="dextool::less_than" condition="1000"/>
+            </param>
+        </symbol>
+        <symbol name="this_is_removed" filter="exclude" />
+    </symbols>
+</dextool>
