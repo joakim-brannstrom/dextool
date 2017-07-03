@@ -54,9 +54,9 @@ ExitStatusType runPlugin(string[] args) {
 
     writeln("Run the plugin -d to see the AST");
 
-    import dextool.utility : prependDefaultFlags;
+    import dextool.utility : prependDefaultFlags, PreferLang;
 
-    const auto cflags = prependDefaultFlags(pargs.cflags, "-xc++");
+    const auto cflags = prependDefaultFlags(pargs.cflags, PreferLang.cpp);
 
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;

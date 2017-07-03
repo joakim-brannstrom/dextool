@@ -246,7 +246,7 @@ ExitStatusType genIntercept(InterceptFrontend frontend, in string[] in_cflags,
     import dextool.io : writeFileData;
     import dextool.plugin.intercept.backend.backend : Backend;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, "");
+    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.none);
     const auto total_files = in_files.length;
     auto backend = Backend(frontend, frontend, frontend);
 
