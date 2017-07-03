@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,7 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.logger_conf;
 
-import std.stdio : writeln, writefln, stderr;
+import std.algorithm : among;
+import std.stdio : writeln, writefln, stderr, stdout;
 
 import logger = std.experimental.logger;
 
@@ -35,7 +36,13 @@ class SimpleLogger : logger.Logger {
         this.lvl = payload.logLevel;
         this.msg = payload.msg;
 
-        stderr.writefln("%s: %s", text(this.lvl), this.msg);
+        auto out_ = stderr;
+
+        if (payload.logLevel.among(logger.LogLevel.info, logger.LogLevel.trace)) {
+            out_ = stdout;
+        }
+
+        out_.writefln("%s: %s", text(this.lvl), this.msg);
     }
 }
 
@@ -61,11 +68,17 @@ class DebugLogger : logger.Logger {
         this.lvl = payload.logLevel;
         this.msg = payload.msg;
 
+        auto out_ = stderr;
+
+        if (payload.logLevel.among(logger.LogLevel.info, logger.LogLevel.trace)) {
+            out_ = stdout;
+        }
+
         if (this.line == -1) {
-            stderr.writefln("%s: %s", text(this.lvl), this.msg);
+            out_.writefln("%s: %s", text(this.lvl), this.msg);
         } else {
             // Example of standard: 2016-05-01T22:31:54.019:type.d:retrieveType:159 c:@S@Foo:struct Foo
-            stderr.writefln("%s: %s [%s:%d]", text(this.lvl), this.msg, this.func, this.line);
+            out_.writefln("%s: %s [%s:%d]", text(this.lvl), this.msg, this.func, this.line);
         }
     }
 }
