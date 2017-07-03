@@ -59,9 +59,12 @@ void writeDb(ref CompileCommandDB db, AbsolutePath dst) {
     logger.trace(flag_filter);
 
     void writeEntry(T)(ref const T e) {
+        import std.exception : assumeUnique;
         import std.json : JSONValue;
+        import std.utf : byChar;
 
-        string abs_cmd = JSONValue(e.parseFlag(flag_filter).flags.joiner(" ").array()).toString;
+        string raw_flags = assumeUnique(e.parseFlag(flag_filter).flags.joiner(" ").byChar.array());
+        string abs_cmd = JSONValue(raw_flags).toString;
 
         fout.writefln(`  "directory": "%s",`, cast(string) e.directory);
         fout.writeln(`  "command": `, abs_cmd, ",");
