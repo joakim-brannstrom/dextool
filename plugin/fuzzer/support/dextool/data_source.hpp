@@ -162,7 +162,7 @@ struct GuidedSource {
         uint8_t* dst = reinterpret_cast<uint8_t*>(buf);
         uint8_t* cur = &data[data.size() - 1] - bytes;
 
-        mempcpy(dst, cur, bytes);
+        memcpy(dst, cur, bytes);
         data.erase(data.end() - bytes, data.end());
     }
 };
