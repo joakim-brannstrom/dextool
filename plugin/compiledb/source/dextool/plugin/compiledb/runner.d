@@ -27,7 +27,7 @@ auto runPlugin(string[] args) {
     } else if (pargs.help) {
         pargs.printHelp;
         return ExitStatusType.Ok;
-    } else if (pargs.inCoompileDb.length == 0) {
+    } else if (pargs.inCompileDb.length == 0) {
         writeln("Missing required argument: DBFILE");
         return ExitStatusType.Errors;
     }

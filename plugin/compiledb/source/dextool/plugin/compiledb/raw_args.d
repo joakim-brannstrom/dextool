@@ -16,7 +16,7 @@ struct RawConfiguration {
 
     string out_ = "./";
 
-    string[] inCoompileDb;
+    string[] inCompileDb;
 
     bool help;
     bool shortPluginHelp;
@@ -40,7 +40,7 @@ struct RawConfiguration {
 
         if (args.length > 2) {
             // the first two are the binaries name followed by the plugin
-            inCoompileDb = args[2 .. $];
+            inCompileDb = args[2 .. $];
         }
     }
 
