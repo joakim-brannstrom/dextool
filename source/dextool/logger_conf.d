@@ -68,11 +68,7 @@ class DebugLogger : logger.Logger {
         this.lvl = payload.logLevel;
         this.msg = payload.msg;
 
-        auto out_ = stderr;
-
-        if (payload.logLevel.among(logger.LogLevel.info, logger.LogLevel.trace)) {
-            out_ = stdout;
-        }
+        auto out_ = stdout;
 
         if (this.line == -1) {
             out_.writefln("%s: %s", text(this.lvl), this.msg);
