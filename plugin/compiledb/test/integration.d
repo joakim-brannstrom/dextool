@@ -63,3 +63,16 @@ unittest {
     // now
     std.file.readText(p.out_db.toString).splitter("\n").count.shouldEqual(28);
 }
+
+@(
+        testId
+        ~ "shall produce a merged DB with the fields arguments and command preserved with absolute paths")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    auto p = genTestParams(["db1.json", "compile_db_v5.json"], testEnv);
+    runTestFile(p, testEnv);
+    // incidental check by counting the lines. not perfect but good enough for
+    // now
+    std.file.readText(p.out_db.toString).splitter("\n").count.shouldEqual(27);
+}

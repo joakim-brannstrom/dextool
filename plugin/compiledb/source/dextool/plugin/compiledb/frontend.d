@@ -16,18 +16,20 @@ import std.exception;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db : CompileCommandDB, CompileCommandFilter,
-    defaultCompilerFilter, parseFlag, fromArgCompileDb;
+    defaultCompilerFilter, parseFlag, fromArgCompileDb, toString;
 import dextool.type : AbsolutePath, ExitStatusType, FileName;
 
 ExitStatusType doCompileDb(T)(ref T args) /*nothrow*/ {
     CompileCommandDB compile_db;
     try {
-        compile_db = args.inCoompileDb.fromArgCompileDb;
+        compile_db = args.inCompileDb.fromArgCompileDb;
     }
     catch (ErrnoException ex) {
         logger.error(ex.msg);
         return ExitStatusType.Errors;
     }
+
+    debug logger.trace(compile_db.toString);
 
     auto out_db = makeOutputFilename(args.out_);
     writeDb(compile_db, out_db);
@@ -64,10 +66,18 @@ void writeDb(ref CompileCommandDB db, AbsolutePath dst) {
         import std.utf : byChar;
 
         string raw_flags = assumeUnique(e.parseFlag(flag_filter).flags.joiner(" ").byChar.array());
-        string abs_cmd = JSONValue(raw_flags).toString;
 
         fout.writefln(`  "directory": "%s",`, cast(string) e.directory);
-        fout.writeln(`  "command": `, abs_cmd, ",");
+
+        if (e.arguments.hasValue) {
+            fout.writefln(`  "command": "g++ %s",`, raw_flags);
+            fout.writefln(`  "arguments": "%s",`, raw_flags);
+        } else {
+            fout.writefln(`  "command": "%s",`, raw_flags);
+        }
+
+        if (e.output.hasValue)
+            fout.writefln(`  "output": "%s",`, cast(string) e.absoluteOutput);
         fout.writefln(`  "file": "%s"`, cast(string) e.absoluteFile);
     }
 
