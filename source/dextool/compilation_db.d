@@ -529,6 +529,7 @@ struct ParseFlags {
  *  - Convert all filenames to absolute path.
  */
 ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+    import std.algorithm : among;
     import dextool.type : FilterClangFlag;
 
     static bool excludeStartWith(string flag, const FilterClangFlag[] flag_filter) @safe {
@@ -562,11 +563,14 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
     /// Flags that take an argument that is a path that need to be transformed
     /// to an absolute path.
     static bool isFlagAndPath(string flag) @safe {
-        import std.algorithm : among;
-
         // list derived from clang --help
         return 0 != flag.among("-I", "-idirafter", "-iframework", "-imacros",
                 "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
+    }
+
+    /// Flags that take an argument that is NOT a path.
+    static bool isFlagAndValue(string flag) @safe {
+        return 0 != flag.among("-D");
     }
 
     static ParseFlags filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
@@ -576,6 +580,8 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
             firstArg,
             /// keep the next flag IF none of the other transitions happens
             keep,
+            /// forcefully keep the next argument as raw data
+            priorityKeepNextArg,
             /// keep the next argument and transform to an absolute path
             pathArgumentToAbsolute,
             /// skip the next arg
@@ -613,6 +619,9 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
                 auto p = buildNormalizedPath(workdir, arg).absolutePath;
                 rval.put(p);
                 includes.put(p);
+            } else if (st == State.priorityKeepNextArg) {
+                st = State.keep;
+                rval.put(arg);
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
             } else if (isCombinedIncludeFlag(arg)) {
@@ -623,6 +632,9 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
             } else if (isFlagAndPath(arg)) {
                 rval.put(arg);
                 st = State.pathArgumentToAbsolute;
+            } else if (isFlagAndValue(arg)) {
+                rval.put(arg);
+                st = State.priorityKeepNextArg;
             }  // parameter that seem to be filenames, remove
             else if (isNotAFlag(arg)) {
                 // skipping
@@ -713,6 +725,15 @@ unittest {
     auto s = cmd.parseFlag(defaultCompilerFilter);
     s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
+}
+
+@("Shall keep all compiler flags as they are")
+unittest {
+    auto cmd = toCompileCommand("/home", "file1.cpp", `g++ -Da -D b`,
+            AbsoluteCompileDbDirectory("/home"), null, null);
+
+    auto s = cmd.parseFlag(defaultCompilerFilter);
+    s.shouldEqualPretty(["-Da", "-D", "b"]);
 }
 
 version (unittest) {
