@@ -16,7 +16,7 @@ Responsible for:
     - Filename prefix.
     - To generate a gmock or not.
 */
-module dextool.plugin.cpptestdouble.backend.cppvariant;
+module dextool.plugin.cpptestdouble.backend.backend;
 
 import std.typecons : Flag, Yes;
 import logger = std.experimental.logger;
@@ -34,13 +34,13 @@ import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
 import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
-/** Generator of test doubles for C++ code.
+/** Backend of test doubles for C++ code.
  *
  * Responsible for carrying data between processing steps.
  *
  * TODO postProcess shouldn't be a member method.
  */
-struct Generator {
+struct Backend {
     import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.representation : CppRoot;
