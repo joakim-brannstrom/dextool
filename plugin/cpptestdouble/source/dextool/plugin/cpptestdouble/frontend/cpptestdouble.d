@@ -24,9 +24,7 @@ import dextool.compilation_db : CompileCommandDB;
 import dextool.type : CustomHeader, DextoolVersion, ExitStatusType, FileName,
     InFiles, MainFileName, MainName, MainNs;
 
-import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
-    Products;
-import dextool.plugin.cpptestdouble.backend.generate_xml;
+import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products;
 import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
     XmlConfig;
 
@@ -385,14 +383,14 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
     import std.typecons : Yes;
 
     import dextool.clang : findFlags, ParseData = SearchResult;
-    import dextool.plugin.cpptestdouble.backend.cppvariant : Generator;
+    import dextool.plugin.cpptestdouble.backend : Backend;
     import dextool.io : writeFileData;
     import dextool.type : AbsolutePath;
     import dextool.utility : prependDefaultFlags, PreferLang;
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
     const auto total_files = in_files.length;
-    auto generator = Generator(variant, variant, variant);
+    auto generator = Backend(variant, variant, variant);
 
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);
