@@ -637,7 +637,6 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
     import std.algorithm : filter, splitter;
 
     auto raw = cast(string)(cmd.arguments.hasValue ? cmd.arguments : cmd.command);
-    //auto raw = cast(string)(cmd.command);
 
     // dfmt off
     auto pass1 = raw.splitter(' ')
