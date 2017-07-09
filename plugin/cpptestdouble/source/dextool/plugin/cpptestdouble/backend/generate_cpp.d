@@ -9,15 +9,14 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.cpptestdouble.backend.generate_cpp;
 
-import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, USRType;
-import cpptooling.data.type : LocationTag, Location;
+import cpptooling.data.representation : CppNamespace;
+import cpptooling.data.type : LocationTag;
 import cpptooling.data.symbol.container : Container;
 
-import dsrcgen.cpp : CppModule, CppHModule, E;
+import dsrcgen.cpp : CppModule;
 
-import dextool.plugin.cpptestdouble.backend.interface_;
-import dextool.plugin.cpptestdouble.backend.type;
+import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters;
+import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
 
 /** Translate the structure to code.
  *
@@ -54,6 +53,8 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
         generateForEach(impl, a, params, modules, td_singleton, container);
     }
 }
+
+private:
 
 /**
  * recursive to handle nested namespaces.
