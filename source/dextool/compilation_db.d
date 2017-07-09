@@ -655,6 +655,11 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         }
     }
 
+    // `arguments` in a compilation database do not have the compiler binary in
+    // the string thus skipCompilerArgs isn't needed.
+    // This is different from the case where skipCompilerArgs is zero, which is
+    // intended to force filterPair that the first value in the range is the
+    // compiler, not a filename, and shall be kept.
     bool keep_first_arg = !cmd.arguments.hasValue && flag_filter.skipCompilerArgs == 0;
 
     return filterPair(pass1, cmd.directory, flag_filter.filter, keep_first_arg);
