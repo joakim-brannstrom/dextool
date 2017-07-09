@@ -28,7 +28,9 @@ import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
 import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
+import dextool.plugin.cpptestdouble.backend.generate_cpp;
 import dextool.plugin.cpptestdouble.backend.interface_;
+import dextool.plugin.cpptestdouble.backend.type;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
 /** Generator of test doubles for C++ code.
@@ -43,16 +45,6 @@ struct Generator {
     import cpptooling.data.representation : CppRoot;
     import cpptooling.data.symbol.container : Container;
     import dextool.type : ExitStatusType, AbsolutePath;
-
-    private static struct Modules {
-        import dextool.plugin.utility : MakerInitializingClassMembers;
-
-        mixin MakerInitializingClassMembers!Modules;
-
-        CppModule hdr;
-        CppModule impl;
-        CppModule gmock;
-    }
 
     ///
     this(Controller ctrl, Parameters params, Products products) {
@@ -118,7 +110,7 @@ struct Generator {
         logger.tracef("Translated to implementation:\n%u", impl_data.root);
         logger.trace("kind:\n", impl_data.kind);
 
-        auto modules = Modules.make();
+        auto modules = GenModules.make();
         generate(impl_data, ctrl, params, modules, container);
         postProcess(ctrl, params, products, modules);
     }
@@ -131,7 +123,7 @@ private:
     Parameters params;
     Products products;
 
-    static void postProcess(Controller ctrl, Parameters params, Products prods, Modules modules) {
+    static void postProcess(Controller ctrl, Parameters params, Products prods, GenModules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatePreInclude, generatePostInclude, makeHeader;
 
@@ -193,74 +185,6 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
 import cpptooling.data.type : LocationTag, Location;
 import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : E;
-
-enum Kind {
-    none,
-    /// Adapter class
-    adapter,
-    /// gmock class
-    gmock,
-    /// interface for globals
-    testDoubleNamespace,
-    testDoubleSingleton,
-    testDoubleInterface,
-}
-
-struct ImplData {
-    import cpptooling.data.type : CppMethodName;
-    import cpptooling.data.symbol.types : FullyQualifiedNameType;
-
-    CppRoot root;
-
-    /// Tagging of nodes in the root determining how they are handled by the
-    /// code generator step.
-    private Kind[size_t] kind;
-    /// Classes found during src analysis.
-    private CppClass[FullyQualifiedNameType] classes;
-
-    static auto make() {
-        return ImplData(CppRoot.make);
-    }
-
-    /// Tag an ID with a kind.
-    void tag(size_t id, Kind kind_) {
-        kind[id] = kind_;
-    }
-
-    /// Lookup the tag for an ID.
-    Kind lookup(size_t id) {
-        if (auto k = id in kind) {
-            return *k;
-        }
-
-        return Kind.none;
-    }
-
-    /// Copy an AA of classes.
-    void putForLookup(ref CppClass[FullyQualifiedNameType] other) @trusted {
-        foreach (v; other.byKeyValue) {
-            classes[v.key] = v.value;
-        }
-    }
-
-    /// Store a class that can later be retrieved via its FQN.
-    void putForLookup(CppClass c) {
-        classes[c.fullyQualifiedName] = c;
-    }
-
-    /// Returns: a range containing the class matching fqn, if found.
-    auto lookupClass(FullyQualifiedNameType fqn) @safe {
-        import std.range : only;
-        import std.typecons : NullableRef;
-
-        typeof(only(NullableRef!CppClass())) rval;
-        if (auto c = fqn in classes) {
-            rval = only(NullableRef!CppClass(c));
-        }
-
-        return rval;
-    }
-}
 
 /** Filter the raw IR according to the users desire.
  *
@@ -438,142 +362,6 @@ void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplDat
     }
 
     ns.put(td_ns);
-}
-
-/** Translate the structure to code.
- *
- * Generates:
- *  - #include's needed by the test double
- *  - recursive starting with the root:
- *    order is important, affects code layout:
- *      - anonymouse instance of the adapter for the test double
- *      - free function implementations using the registered test double
- *      - adapter registering a test double instance
- */
-void generate(ref ImplData impl, Controller ctrl, Parameters params,
-        Generator.Modules modules, ref const Container container) {
-    import std.algorithm : filter;
-    import cpptooling.generator.includes : generateIncludes;
-    import cpptooling.generator.func : generateFuncImpl;
-    import cpptooling.generator.gmock : generateGmock;
-
-    generateIncludes(ctrl, params, modules.hdr);
-
-    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        generateGmock(a, modules.gmock, params);
-    }
-
-    auto td_singleton = modules.impl.base;
-    td_singleton.suppressIndent(1);
-
-    foreach (a; impl.root.funcRange) {
-        generateFuncImpl(a, modules.impl);
-    }
-
-    // no singleton in global namespace thus null
-    foreach (a; impl.root.namespaceRange()) {
-        generateForEach(impl, a, params, modules, td_singleton, container);
-    }
-}
-
-/**
- * recursive to handle nested namespaces.
- * the singleton ns must be the first code generate or the impl can't use the
- * instance.
- */
-void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
-        Generator.Modules modules, CppModule impl_singleton, ref const Container container) {
-    import cpptooling.data.symbol.types : USRType;
-    import cpptooling.generator.func : generateFuncImpl;
-    import cpptooling.generator.gmock : generateGmock;
-
-    auto inner = modules;
-    CppModule inner_impl_singleton;
-
-    switch (impl.lookup(ns.id)) with (Kind) {
-    case none:
-        //TODO how to do this with meta-programming?
-        inner.hdr = modules.hdr.namespace(ns.name);
-        inner.hdr.suppressIndent(1);
-        inner.impl = modules.impl.namespace(ns.name);
-        inner.impl.suppressIndent(1);
-        inner.gmock = modules.gmock.namespace(ns.name);
-        inner.gmock.suppressIndent(1);
-        inner_impl_singleton = inner.impl.base;
-        inner_impl_singleton.suppressIndent(1);
-        break;
-    case testDoubleSingleton:
-        import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
-
-        generateSingleton(ns, impl_singleton);
-        break;
-    case testDoubleInterface:
-        break;
-    case testDoubleNamespace:
-        generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock,
-                (USRType usr) => container.find!LocationTag(usr), impl);
-        generateNsTestDoubleImpl(ns, modules.impl, impl);
-        break;
-    default:
-        break;
-    }
-
-    foreach (a; ns.funcRange) {
-        generateFuncImpl(a, inner.impl);
-    }
-
-    foreach (a; ns.namespaceRange) {
-        generateForEach(impl, a, params, inner, inner_impl_singleton, container);
-    }
-}
-
-void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
-        CppModule hdr, CppModule gmock, LookupT lookup, ref ImplData data) {
-    import cpptooling.generator.classes : generateHdr;
-    import cpptooling.generator.gmock : generateGmock;
-
-    auto cpp_ns = hdr.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
-    hdr.sep(2);
-
-    foreach (c; ns.classRange()) {
-        switch (data.lookup(c.id)) {
-        case Kind.none:
-            generateHdr(c, cpp_ns, No.locationAsComment, lookup, Yes.inlineDtor);
-            break;
-        case Kind.testDoubleInterface:
-            generateHdr(c, cpp_ns,
-                    No.locationAsComment, lookup, Yes.inlineDtor);
-            break;
-        case Kind.adapter:
-            generateHdr(c, cpp_ns, No.locationAsComment, lookup);
-            break;
-        case Kind.gmock:
-            generateGmock(c, gmock, params);
-            break;
-        default:
-            break;
-        }
-    }
-}
-
-void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl, ref ImplData data) {
-    import std.algorithm : each;
-    import dextool.plugin.backend.cpptestdouble.adapter : generateImpl;
-
-    auto cpp_ns = impl.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
-    impl.sep(2);
-
-    foreach (ref class_; ns.classRange()) {
-        switch (data.lookup(class_.id)) {
-        case Kind.adapter:
-            generateImpl(class_, cpp_ns);
-            break;
-        default:
-            break;
-        }
-    }
 }
 
 CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref ImplData impl) {
