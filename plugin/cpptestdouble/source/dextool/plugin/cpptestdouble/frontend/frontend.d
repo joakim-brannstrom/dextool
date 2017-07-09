@@ -14,7 +14,7 @@ Responsible for:
     - Configuration file handling.
  - Provide user data to the backend via the interface the backend own.
 */
-module dextool.plugin.cpptestdouble.frontend.cpptestdouble;
+module dextool.plugin.cpptestdouble.frontend.frontend;
 
 import std.typecons : Nullable;
 
