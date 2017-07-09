@@ -18,19 +18,20 @@ Responsible for:
 */
 module dextool.plugin.cpptestdouble.backend.cppvariant;
 
-import std.typecons : No, Flag, Yes;
+import std.typecons : Flag, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
-    CustomHeader, MainNs, MainInterface;
+import dextool.type : CustomHeader, DextoolVersion, FileName, MainInterface,
+    MainNs;
 import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
-import dextool.plugin.cpptestdouble.backend.generate_cpp;
-import dextool.plugin.cpptestdouble.backend.interface_;
-import dextool.plugin.cpptestdouble.backend.type;
+import dextool.plugin.cpptestdouble.backend.generate_cpp : generate;
+import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
+    Products;
+import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
 /** Generator of test doubles for C++ code.
