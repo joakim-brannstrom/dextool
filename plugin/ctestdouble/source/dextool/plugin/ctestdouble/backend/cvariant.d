@@ -697,7 +697,7 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
             generateHdr(class_, test_double_ns, loc_as_comment, lookup, Yes.inlineDtor);
             break;
         case Kind.gmock:
-            generateGmock!Parameters(class_, gmock, params);
+            generateGmock(class_, gmock, params.getMainNs);
             break;
         default:
         }

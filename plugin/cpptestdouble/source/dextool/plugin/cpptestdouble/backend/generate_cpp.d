@@ -48,7 +48,7 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     }
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        generateGmock(a, gen_data.make(Code.Kind.gmock), params);
+        generateGmock(a, gen_data.make(Code.Kind.gmock), params.getMainNs);
     }
 
     // the singletons are collected at the top and only one of it.
@@ -148,7 +148,7 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
             generateHdr(c, cpp_ns, No.locationAsComment, lookup);
             break;
         case Kind.gmock:
-            generateGmock(c, gmock, params);
+            generateGmock(c, gmock, params.getMainNs);
             break;
         default:
             break;

@@ -183,14 +183,14 @@ private void genMethod(const CppMethod m, CppModule hdr) {
  *   hdr = Header to generate the code in.
  *   params = tooling parameters that affects namespace the mock is generated in.
  */
-void generateGmock(ParamT)(const CppClass in_c, CppModule hdr, ParamT params)
+void generateGmock(NsT)(const CppClass in_c, CppModule hdr, NsT ns_name)
 in {
     assert(in_c.isVirtual);
 }
 body {
     import cpptooling.data.representation;
 
-    auto ns = hdr.namespace(params.getMainNs);
+    auto ns = hdr.namespace(ns_name);
     ns.suppressIndent(1);
     // dfmt off
     // fully qualified class the mock inherit from
