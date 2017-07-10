@@ -40,19 +40,9 @@ void generateWrapIncludeInExternC(ControllerT, ParamT)(ControllerT ctrl, ParamT 
  *
  * Compared to generateC there are no special wrapping extern "C" wrapping.
  */
-void generateIncludes(ControllerT, ParamT)(ControllerT ctrl, ParamT params, CppModule hdr) {
-    import std.path : baseName;
-
-    if (ctrl.doIncludeOfPreIncludes) {
-        hdr.include(params.getFiles.pre_incl.baseName);
-    }
-
-    foreach (incl; params.getIncludes) {
+void generateIncludes(IncludesT)(IncludesT incls, CppModule hdr) {
+    foreach (incl; incls) {
         hdr.include(cast(string) incl);
-    }
-
-    if (ctrl.doIncludeOfPostIncludes) {
-        hdr.include(params.getFiles.post_incl.baseName);
     }
 
     hdr.sep(2);
