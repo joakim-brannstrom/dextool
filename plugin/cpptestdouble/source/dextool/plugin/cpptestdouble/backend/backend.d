@@ -24,14 +24,15 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import dextool.type : CustomHeader, DextoolVersion, FileName, MainInterface,
-    MainNs;
+    MainNs, WriteStrategy;
 import cpptooling.data.representation : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
 import dextool.plugin.cpptestdouble.backend.generate_cpp : generate;
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
-    Products;
-import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
+    Products, Transform;
+import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData,
+    IncludeHooks, Kind;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
 /** Backend of test doubles for C++ code.
@@ -48,12 +49,13 @@ struct Backend {
     import dextool.type : ExitStatusType, AbsolutePath;
 
     ///
-    this(Controller ctrl, Parameters params, Products products) {
+    this(Controller ctrl, Parameters params, Products products, Transform transform) {
         this.analyze = AnalyzeData.make;
         this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
+        this.transform = transform;
     }
 
     ExitStatusType analyzeFile(const AbsolutePath abs_in_file, const string[] use_cflags) {
@@ -104,6 +106,8 @@ struct Backend {
         logger.tracef("Filtered:\n%u", analyze.root);
 
         auto impl_data = ImplData.make();
+        impl_data.includeHooks = IncludeHooks.make(transform);
+
         impl_data.putForLookup(analyze.classes);
         translate(analyze.root, container, ctrl, params, impl_data);
         analyze.nullify();
@@ -112,8 +116,9 @@ struct Backend {
         logger.trace("kind:\n", impl_data.kind);
 
         auto modules = GenModules.make();
+        modules.includeHooks = impl_data.includeHooks;
         generate(impl_data, ctrl, params, modules, container);
-        postProcess(ctrl, params, products, modules);
+        postProcess(ctrl, params, products, transform, modules);
     }
 
 private:
@@ -123,29 +128,31 @@ private:
     Nullable!AnalyzeData analyze;
     Parameters params;
     Products products;
+    Transform transform;
 
-    static void postProcess(Controller ctrl, Parameters params, Products prods, GenModules modules) {
+    static void postProcess(Controller ctrl, Parameters params, Products prods,
+            Transform transf, GenModules modules) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatePreInclude, generatePostInclude, makeHeader;
 
         //TODO copied code from cstub. consider separating from this module to
         // allow reuse.
-        static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver,
-                CustomHeader custom_hdr) {
-            auto o = CppHModule(convToIncludeGuard(fname));
-            o.header.append(makeHeader(fname, ver, custom_hdr));
+        static auto outputHdr(CppModule hdr, AbsolutePath fname,
+                DextoolVersion ver, CustomHeader custom_hdr) {
+            auto o = CppHModule(convToIncludeGuard(cast(FileName) fname));
+            o.header.append(makeHeader(cast(FileName) fname, ver, custom_hdr));
             o.content.append(hdr);
 
             return o;
         }
 
-        static auto output(CppModule code, FileName incl_fname, FileName dest,
-                DextoolVersion ver, CustomHeader custom_hdr) {
+        static auto output(CppModule code, AbsolutePath incl_fname,
+                AbsolutePath dest, DextoolVersion ver, CustomHeader custom_hdr) {
             import std.path : baseName;
 
             auto o = new CppModule;
             o.suppressIndent(1);
-            o.append(makeHeader(dest, ver, custom_hdr));
+            o.append(makeHeader(cast(FileName) dest, ver, custom_hdr));
             o.include(incl_fname.baseName);
             o.sep(2);
             o.append(code);
@@ -153,25 +160,32 @@ private:
             return o;
         }
 
-        prods.putFile(params.getFiles.hdr, outputHdr(modules.hdr,
-                params.getFiles.hdr, params.getToolVersion, params.getCustomHeader));
-        prods.putFile(params.getFiles.impl, output(modules.impl,
-                params.getFiles.hdr, params.getFiles.impl,
+        immutable file_cpp_gmock = "_gmock";
+
+        auto test_double_hdr = transf.createHeaderFile(null);
+        auto test_double_cpp = transf.createImplFile(null);
+
+        prods.putFile(test_double_hdr, outputHdr(modules.hdr, test_double_hdr,
                 params.getToolVersion, params.getCustomHeader));
+        prods.putFile(test_double_cpp, output(modules.impl, test_double_hdr,
+                test_double_cpp, params.getToolVersion, params.getCustomHeader));
 
         if (ctrl.doPreIncludes) {
-            prods.putFile(params.getFiles.pre_incl, generatePreInclude(params.getFiles.pre_incl));
+            prods.putFile(modules.includeHooks.preInclude,
+                    generatePreInclude(modules.includeHooks.preInclude), WriteStrategy.skip);
         }
+
         if (ctrl.doPostIncludes) {
-            prods.putFile(params.getFiles.post_incl,
-                    generatePostInclude(params.getFiles.post_incl));
+            prods.putFile(modules.includeHooks.postInclude,
+                    generatePostInclude(modules.includeHooks.postInclude), WriteStrategy.skip);
         }
 
         if (ctrl.doGoogleMock) {
             import cpptooling.generator.gmock : generateGmockHdr;
 
-            prods.putFile(params.getFiles.gmock, generateGmockHdr(params.getFiles.hdr,
-                    params.getFiles.gmock, params.getToolVersion,
+            auto fname = transf.createHeaderFile(file_cpp_gmock);
+            prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
+                    cast(FileName) fname, params.getToolVersion,
                     params.getCustomHeader, modules.gmock));
         }
     }

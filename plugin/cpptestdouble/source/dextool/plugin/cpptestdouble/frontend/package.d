@@ -10,5 +10,5 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.cpptestdouble.frontend;
 
 public import dextool.plugin.cpptestdouble.frontend.frontend : genCpp,
-    CppTestDoubleVariant;
+    CppTestDoubleVariant, FrontendTransform;
 public import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration;
