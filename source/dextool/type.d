@@ -112,8 +112,14 @@ struct DirName {
 
 /// ditto
 struct FileName {
+pure @nogc nothrow:
+
     Path payload;
     alias payload this;
+
+    this(Path p) {
+        payload = p;
+    }
 
     pure nothrow @nogc this(string p) {
         payload = Path(p);
@@ -157,6 +163,14 @@ struct AbsolutePath {
 
     pure nothrow @nogc void opAssign(AbsolutePath p) {
         payload = p.payload;
+    }
+
+    pure nothrow const @nogc FileName opCast(T : FileName)() {
+        return FileName(payload);
+    }
+
+    pure nothrow const @nogc string opCast(T : string)() {
+        return payload;
     }
 }
 
