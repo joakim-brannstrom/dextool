@@ -31,8 +31,8 @@ import cpptooling.testdouble.header_filter : LocationType;
 import dextool.plugin.cpptestdouble.backend.generate_cpp : generate;
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
     Products, Transform;
-import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData,
-    IncludeHooks, Kind;
+import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
+    ImplData, IncludeHooks, Kind;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 
 /** Backend of test doubles for C++ code.
@@ -115,10 +115,10 @@ struct Backend {
         logger.tracef("Translated to implementation:\n%u", impl_data.root);
         logger.trace("kind:\n", impl_data.kind);
 
-        auto modules = GenModules.make();
-        modules.includeHooks = impl_data.includeHooks;
-        generate(impl_data, ctrl, params, modules, container);
-        postProcess(ctrl, params, products, transform, modules);
+        GeneratedData gen_data;
+        gen_data.includeHooks = impl_data.includeHooks;
+        generate(impl_data, ctrl, params, gen_data, container);
+        postProcess(ctrl, params, products, transform, gen_data);
     }
 
 private:
@@ -131,7 +131,7 @@ private:
     Transform transform;
 
     static void postProcess(Controller ctrl, Parameters params, Products prods,
-            Transform transf, GenModules modules) {
+            Transform transf, ref GeneratedData gen_data) {
         import cpptooling.generator.includes : convToIncludeGuard,
             generatePreInclude, generatePostInclude, makeHeader;
 
@@ -160,33 +160,44 @@ private:
             return o;
         }
 
-        immutable file_cpp_gmock = "_gmock";
-
         auto test_double_hdr = transf.createHeaderFile(null);
-        auto test_double_cpp = transf.createImplFile(null);
 
-        prods.putFile(test_double_hdr, outputHdr(modules.hdr, test_double_hdr,
-                params.getToolVersion, params.getCustomHeader));
-        prods.putFile(test_double_cpp, output(modules.impl, test_double_hdr,
-                test_double_cpp, params.getToolVersion, params.getCustomHeader));
+        foreach (k, v; gen_data.uniqueData) {
+            final switch (k) with (Code) {
+            case Kind.hdr:
+                prods.putFile(test_double_hdr, outputHdr(v,
+                        test_double_hdr, params.getToolVersion, params.getCustomHeader));
+                break;
+            case Kind.impl:
+                auto test_double_cpp = transf.createImplFile(null);
+                prods.putFile(test_double_cpp, output(v, test_double_hdr,
+                        test_double_cpp, params.getToolVersion, params.getCustomHeader));
+                break;
+            case Kind.gmock:
+                // the module can still be generated even though it has no
+                // content. Remove the if statement when it is only generated
+                // on demand.
+                if (ctrl.doGoogleMock) {
+                    import cpptooling.generator.gmock : generateGmockHdr;
+
+                    immutable file_cpp_gmock = "_gmock";
+                    auto fname = transf.createHeaderFile(file_cpp_gmock);
+                    prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
+                            cast(FileName) fname, params.getToolVersion,
+                            params.getCustomHeader, v));
+                }
+                break;
+            }
+        }
 
         if (ctrl.doPreIncludes) {
-            prods.putFile(modules.includeHooks.preInclude,
-                    generatePreInclude(modules.includeHooks.preInclude), WriteStrategy.skip);
+            prods.putFile(gen_data.includeHooks.preInclude,
+                    generatePreInclude(gen_data.includeHooks.preInclude), WriteStrategy.skip);
         }
 
         if (ctrl.doPostIncludes) {
-            prods.putFile(modules.includeHooks.postInclude,
-                    generatePostInclude(modules.includeHooks.postInclude), WriteStrategy.skip);
-        }
-
-        if (ctrl.doGoogleMock) {
-            import cpptooling.generator.gmock : generateGmockHdr;
-
-            auto fname = transf.createHeaderFile(file_cpp_gmock);
-            prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
-                    cast(FileName) fname, params.getToolVersion,
-                    params.getCustomHeader, modules.gmock));
+            prods.putFile(gen_data.includeHooks.postInclude,
+                    generatePostInclude(gen_data.includeHooks.postInclude), WriteStrategy.skip);
         }
     }
 }

@@ -16,7 +16,8 @@ import cpptooling.data.symbol.container : Container;
 import dsrcgen.cpp : CppModule;
 
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters;
-import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
+import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
+    ImplData, Kind;
 
 /** Translate the structure to code.
  *
@@ -29,7 +30,7 @@ import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
  *      - adapter registering a test double instance
  */
 void generate(ref ImplData impl, Controller ctrl, Parameters params,
-        GenModules modules, ref const Container container) {
+        ref GeneratedData gen_data, ref const Container container) {
     import std.algorithm : filter;
     import std.path : baseName;
     import cpptooling.generator.includes : generateIncludes;
@@ -37,33 +38,41 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     import cpptooling.generator.gmock : generateGmock;
 
     if (ctrl.doPreIncludes) {
-        modules.hdr.include(impl.includeHooks.preInclude.baseName);
+        gen_data.make(Code.Kind.hdr).include(impl.includeHooks.preInclude.baseName);
     }
 
-    generateIncludes(params.getIncludes, modules.hdr);
+    generateIncludes(params.getIncludes, gen_data.make(Code.Kind.hdr));
 
     if (ctrl.doPostIncludes) {
-        modules.hdr.include(impl.includeHooks.postInclude.baseName);
+        gen_data.make(Code.Kind.hdr).include(impl.includeHooks.postInclude.baseName);
     }
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        generateGmock(a, modules.gmock, params);
+        generateGmock(a, gen_data.make(Code.Kind.gmock), params);
     }
 
-    auto td_singleton = modules.impl.base;
+    // the singletons are collected at the top and only one of it.
+    auto td_singleton = gen_data.make(Code.Kind.impl).base;
     td_singleton.suppressIndent(1);
 
     foreach (a; impl.root.funcRange) {
-        generateFuncImpl(a, modules.impl);
+        generateFuncImpl(a, gen_data.make(Code.Kind.impl));
     }
 
-    // no singleton in global namespace thus null
+    auto ns_data = GenerateNamespaceData(gen_data.make(Code.Kind.hdr),
+            gen_data.make(Code.Kind.impl), gen_data.make(Code.Kind.gmock));
     foreach (a; impl.root.namespaceRange()) {
-        generateForEach(impl, a, params, modules, td_singleton, container);
+        generateForEach(impl, a, params, ns_data, td_singleton, container);
     }
 }
 
 private:
+
+struct GenerateNamespaceData {
+    CppModule hdr;
+    CppModule impl;
+    CppModule gmock;
+}
 
 /**
  * recursive to handle nested namespaces.
@@ -71,22 +80,22 @@ private:
  * instance.
  */
 void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
-        GenModules modules, CppModule impl_singleton, ref const Container container) {
+        GenerateNamespaceData gen_data, CppModule impl_singleton, ref const Container container) {
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
 
-    auto inner = modules;
-    CppModule inner_impl_singleton;
+    GenerateNamespaceData inner = gen_data;
+    CppModule inner_impl_singleton = impl_singleton;
 
     switch (impl.lookup(ns.id)) with (Kind) {
     case none:
         //TODO how to do this with meta-programming?
-        inner.hdr = modules.hdr.namespace(ns.name);
+        inner.hdr = gen_data.hdr.namespace(ns.name);
         inner.hdr.suppressIndent(1);
-        inner.impl = modules.impl.namespace(ns.name);
+        inner.impl = gen_data.impl.namespace(ns.name);
         inner.impl.suppressIndent(1);
-        inner.gmock = modules.gmock.namespace(ns.name);
+        inner.gmock = gen_data.gmock.namespace(ns.name);
         inner.gmock.suppressIndent(1);
         inner_impl_singleton = inner.impl.base;
         inner_impl_singleton.suppressIndent(1);
@@ -99,9 +108,9 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
     case testDoubleInterface:
         break;
     case testDoubleNamespace:
-        generateNsTestDoubleHdr(ns, params, modules.hdr, modules.gmock,
+        generateNsTestDoubleHdr(ns, params, gen_data.hdr, gen_data.gmock,
                 (USRType usr) => container.find!LocationTag(usr), impl);
-        generateNsTestDoubleImpl(ns, modules.impl, impl);
+        generateNsTestDoubleImpl(ns, gen_data.impl, impl);
         break;
     default:
         break;
