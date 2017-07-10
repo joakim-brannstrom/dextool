@@ -225,7 +225,6 @@ auto removeJunk(R)(R r, Flag!"skipComments" skipComments) {
  */
 void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
         Flag!"skipComments" skipComments = Yes.skipComments) {
-    import std.algorithm : joiner, map;
     import std.stdio : File;
 
     yap("Comparing gold:", gold.raw);
@@ -259,13 +258,11 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     // dfmt off
     foreach (g, r;
              lockstep(maybeSort(goldf
-                                .byLine()
-                                .map!(a => a.dup)
+                                .byLineCopy()
                                 .enumerate
                                 .removeJunk(skipComments)),
                       maybeSort(resultf
-                                .byLine()
-                                .map!(a => a.dup)
+                                .byLineCopy()
                                 .enumerate
                                 .removeJunk(skipComments))
                       )) {
