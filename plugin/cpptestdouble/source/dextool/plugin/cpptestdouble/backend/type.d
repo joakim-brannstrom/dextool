@@ -14,6 +14,8 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
 
 import dsrcgen.cpp : CppModule;
 
+import dextool.type : AbsolutePath;
+
 @safe:
 
 enum Kind {
@@ -33,6 +35,8 @@ struct ImplData {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     CppRoot root;
+
+    IncludeHooks includeHooks;
 
     /// Tagging of nodes in the root determining how they are handled by the
     /// code generator step.
@@ -92,4 +96,19 @@ struct GenModules {
     CppModule hdr;
     CppModule impl;
     CppModule gmock;
+
+    IncludeHooks includeHooks;
+}
+
+struct IncludeHooks {
+    AbsolutePath preInclude;
+    AbsolutePath postInclude;
+
+    static auto make(T)(T transf) {
+        immutable file_cpp_pre_incl = "_pre_includes";
+        immutable file_cpp_post_incl = "_post_includes";
+
+        return IncludeHooks(transf.createHeaderFile(file_cpp_pre_incl),
+                transf.createHeaderFile(file_cpp_post_incl));
+    }
 }

@@ -1,0 +1,4 @@
+#ifndef test_double_post_includes_hpp
+#define test_double_post_includes_hpp
+#define __cplusplus
+#endif // test_double_post_includes_hpp

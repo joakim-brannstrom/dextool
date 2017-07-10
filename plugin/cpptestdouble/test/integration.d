@@ -295,6 +295,27 @@ unittest {
     runTestFile(p, testEnv);
 }
 
+@(testId ~ "Should generate pre and post includes")
+unittest {
+    mixin(envSetup(globalTestdir));
+    auto p = genTestParams("stage_2/param_gen_pre_post_include.hpp", testEnv);
+    p.dexParams ~= ["--gen-pre-incl", "--gen-post-incl"];
+    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
+    p.skipCompare = Yes.skipCompare;
+
+    runTestFile(p, testEnv);
+
+    // dfmt off
+    dextoolYap("Comparing");
+    auto input = p.input_ext.stripExtension;
+    compareResult(No.sortLines, Yes.skipComments,
+                  GR(input ~ Ext(".hpp.ref"), p.out_hdr),
+                  GR(input ~ Ext(".cpp.ref"), p.out_impl),
+                  GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
+                  GR(input.up ~ "param_gen_post_includes.hpp.ref", testEnv.outdir ~ "test_double_post_includes.hpp"));
+    // dfmt on
+}
+
 // BEGIN CLI Tests ###########################################################
 
 @(testId ~ "Should be a custom header via CLI as string")
