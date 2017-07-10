@@ -14,24 +14,26 @@ Responsible for:
     - Configuration file handling.
  - Provide user data to the backend via the interface the backend own.
 */
-module dextool.plugin.cpptestdouble.frontend.cpptestdouble;
+module dextool.plugin.cpptestdouble.frontend.frontend;
 
 import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
 import dextool.compilation_db : CompileCommandDB;
-import dextool.type : CustomHeader, DextoolVersion, ExitStatusType, FileName,
-    InFiles, MainFileName, MainName, MainNs;
+import dextool.type : AbsolutePath, CustomHeader, DextoolVersion,
+    ExitStatusType, FileName, InFiles, MainFileName, MainName, MainNs,
+    WriteStrategy;
 
-import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products;
+import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products,
+    Transform;
 import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
     XmlConfig;
 
 struct FileData {
-    import dextool.type : FileName, WriteStrategy;
+    import dextool.type : WriteStrategy;
 
-    FileName filename;
+    AbsolutePath filename;
     string data;
     WriteStrategy strategy;
 }
@@ -53,21 +55,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import dsrcgen.cpp;
 
     private {
-        static const hdrExt = ".hpp";
-        static const implExt = ".cpp";
-        static const xmlExt = ".xml";
-
         StubPrefix prefix;
 
-        DirName output_dir;
-        FileName main_file_hdr;
-        FileName main_file_impl;
-        FileName main_file_globals;
-        FileName gmock_file;
-        FileName pre_incl_file;
-        FileName post_incl_file;
-        FileName config_file;
-        FileName log_file;
         CustomHeader custom_hdr;
 
         MainName main_name;
@@ -92,9 +81,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     static auto makeVariant(ref RawConfiguration args) {
         // dfmt off
-        auto variant = new CppTestDoubleVariant(MainFileName(args.mainFileName),
-                DirName(args.out_),
-                regex(args.stripInclude))
+        auto variant = new CppTestDoubleVariant(regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
             .argGenFreeFunction(args.doFreeFuncs)
@@ -120,26 +107,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
-        this.output_dir = output_dir;
+    this(Regex!char strip_incl) {
         this.td_includes = TestDoubleIncludes(strip_incl);
-
-        import std.path : baseName, buildPath, stripExtension;
-
-        string base_filename = cast(string) main_fname;
-
-        this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
-        this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
-        this.main_file_globals = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_global" ~ implExt));
-        this.gmock_file = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_gmock" ~ hdrExt));
-        this.pre_incl_file = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_pre_includes" ~ hdrExt));
-        this.post_incl_file = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_post_includes" ~ hdrExt));
-        this.config_file = FileName(buildPath(output_dir, base_filename ~ "_config" ~ xmlExt));
-        this.log_file = FileName(buildPath(output_dir, base_filename ~ "_log" ~ xmlExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -230,18 +199,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
-    /// Destination of the configuration file containing how the test double was generated.
-    FileName getXmlConfigFile() {
-        return config_file;
-    }
-
-    /** Destination of the xml log for how dextool was ran when generatinng the
-     * test double.
-     */
-    FileName getXmlLog() {
-        return log_file;
-    }
-
     ref CompileCommandFilter getCompileCommandFilter() {
         return compiler_flag_filter;
     }
@@ -251,7 +208,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return file_data;
     }
 
-    void putFile(FileName fname, string data) {
+    void putFile(AbsolutePath fname, string data) {
         file_data ~= FileData(fname, data);
     }
 
@@ -295,9 +252,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     bool doPreIncludes() {
-        import std.path : exists;
-
-        return pre_incl && !exists(cast(string) pre_incl_file);
+        return pre_incl;
     }
 
     bool doIncludeOfPreIncludes() {
@@ -305,9 +260,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     bool doPostIncludes() {
-        import std.path : exists;
-
-        return post_incl && !exists(cast(string) post_incl_file);
+        return post_incl;
     }
 
     bool doIncludeOfPostIncludes() {
@@ -325,15 +278,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         import std.array : array;
 
         return td_includes.includes.map!(a => FileName(a)).array();
-    }
-
-    DirName getOutputDirectory() {
-        return output_dir;
-    }
-
-    Parameters.Files getFiles() {
-        return Parameters.Files(main_file_hdr, main_file_impl,
-                main_file_globals, gmock_file, pre_incl_file, post_incl_file);
     }
 
     MainName getMainName() {
@@ -364,11 +308,15 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Products --
 
-    void putFile(FileName fname, CppHModule hdr_data) {
+    void putFile(AbsolutePath fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
     }
 
-    void putFile(FileName fname, CppModule impl_data) {
+    void putFile(AbsolutePath fname, CppHModule data, WriteStrategy strategy) {
+        file_data ~= FileData(fname, data.render(), strategy);
+    }
+
+    void putFile(AbsolutePath fname, CppModule impl_data) {
         file_data ~= FileData(fname, impl_data.render());
     }
 
@@ -377,9 +325,40 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 }
 
+class FrontendTransform : Transform {
+    import std.path : buildPath;
+    import dextool.type : AbsolutePath, DirName, FileName, StubPrefix;
+
+    static const hdrExt = ".hpp";
+    static const implExt = ".cpp";
+    static const xmlExt = ".xml";
+
+    StubPrefix prefix;
+
+    DirName output_dir;
+    MainFileName main_fname;
+
+    this(MainFileName main_fname, DirName output_dir) {
+        this.main_fname = main_fname;
+        this.output_dir = output_dir;
+    }
+
+    AbsolutePath createHeaderFile(string name) {
+        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ hdrExt)));
+    }
+
+    AbsolutePath createImplFile(string name) {
+        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ implExt)));
+    }
+
+    AbsolutePath createXmlFile(string name) {
+        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ xmlExt)));
+    }
+}
+
 /// TODO refactor, doing too many things.
-ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
-        CompileCommandDB compile_db, InFiles in_files) {
+ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
+        string[] in_cflags, CompileCommandDB compile_db, InFiles in_files) {
     import std.typecons : Yes;
 
     import dextool.clang : findFlags, ParseData = SearchResult;
@@ -390,7 +369,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, string[] in_cflags,
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
     const auto total_files = in_files.length;
-    auto generator = Backend(variant, variant, variant);
+    auto generator = Backend(variant, variant, variant, transform);
 
     foreach (idx, in_file; in_files) {
         logger.infof("File %d/%d ", idx + 1, total_files);

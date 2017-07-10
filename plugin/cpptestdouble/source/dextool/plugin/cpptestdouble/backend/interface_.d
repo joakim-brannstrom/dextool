@@ -13,8 +13,8 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import cpptooling.testdouble.header_filter : LocationType;
 
-import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
-    CustomHeader, MainNs, MainInterface;
+import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
+    DextoolVersion, CustomHeader, MainNs, MainInterface, WriteStrategy;
 
 /** Control various aspectes of the analyze and generation like what nodes to
  * process.
@@ -57,23 +57,8 @@ import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
  * Important aspact that they do NOT change, therefore it is pure.
  */
 @safe pure interface Parameters {
-    static struct Files {
-        FileName hdr;
-        FileName impl;
-        FileName globals;
-        FileName gmock;
-        FileName pre_incl;
-        FileName post_incl;
-    }
-
     /// Source files used to generate the stub.
     FileName[] getIncludes();
-
-    /// Output directory to store files in.
-    DirName getOutputDirectory();
-
-    /// Files to write generated test double data to.
-    Files getFiles();
 
     /// Name affecting interface, namespace and output file.
     MainName getMainName();
@@ -112,10 +97,13 @@ import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
      *   fname = file the content is intended to be written to.
      *   hdr_data = data to write to the file.
      */
-    void putFile(FileName fname, CppHModule hdr_data);
+    void putFile(AbsolutePath fname, CppHModule hdr_data);
 
     /// ditto.
-    void putFile(FileName fname, CppModule impl_data);
+    void putFile(AbsolutePath fname, CppHModule impl_data, WriteStrategy strategy);
+
+    /// ditto.
+    void putFile(AbsolutePath fname, CppModule impl_data);
 
     /** During the translation phase the location of symbols that aren't
      * filtered out are pushed to the variant.
@@ -125,4 +113,18 @@ import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
      * Deduplicated list of files where the symbols was found?
      */
     void putLocation(FileName loc, LocationType type);
+}
+
+/** Transformations that are governed by user input or other factors the
+ * backend is unaware of.
+ */
+@safe interface Transform {
+    /// Returns: the transformed name to a filename suitable for a header.
+    AbsolutePath createHeaderFile(string name);
+
+    /// Returns: the transformed name to a filename suitable for an implementation.
+    AbsolutePath createImplFile(string name);
+
+    /// Returns: path to a xml file.
+    AbsolutePath createXmlFile(string name);
 }

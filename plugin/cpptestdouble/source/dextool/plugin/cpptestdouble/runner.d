@@ -16,7 +16,7 @@ auto runPlugin(string[] args) {
     import dextool.type;
     import dextool.utility;
     import dextool.plugin.cpptestdouble.frontend : genCpp, CppTestDoubleVariant,
-        RawConfiguration;
+        FrontendTransform, RawConfiguration;
     import dextool.plugin.cpptestdouble.backend : makeXmlLog, makeXmlConfig;
 
     RawConfiguration pargs;
@@ -35,14 +35,17 @@ auto runPlugin(string[] args) {
         return ExitStatusType.Errors;
     }
 
+    auto transform = new FrontendTransform(MainFileName(pargs.mainFileName), DirName(pargs.out_));
+
     auto variant = CppTestDoubleVariant.makeVariant(pargs);
     {
         auto app = appender!string();
-        variant.putFile(variant.getXmlLog, makeXmlLog(app, pargs.originalFlags).data);
+        variant.putFile(transform.createXmlFile("_log"), makeXmlLog(app,
+                pargs.originalFlags).data);
     }
     {
         auto app = appender!string();
-        variant.putFile(variant.getXmlConfigFile, makeXmlConfig(app,
+        variant.putFile(transform.createXmlFile("_config"), makeXmlConfig(app,
                 variant.getCompileCommandFilter).data);
     }
 
@@ -51,5 +54,5 @@ auto runPlugin(string[] args) {
         compile_db = pargs.compileDb.fromArgCompileDb;
     }
 
-    return genCpp(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
+    return genCpp(variant, transform, pargs.cflags, compile_db, InFiles(pargs.inFiles));
 }

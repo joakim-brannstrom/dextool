@@ -1,0 +1,4 @@
+#ifndef test_double_pre_includes_hpp
+#define test_double_pre_includes_hpp
+#undef __cplusplus
+#endif // test_double_pre_includes_hpp

@@ -31,11 +31,20 @@ import dextool.plugin.cpptestdouble.backend.type : GenModules, ImplData, Kind;
 void generate(ref ImplData impl, Controller ctrl, Parameters params,
         GenModules modules, ref const Container container) {
     import std.algorithm : filter;
+    import std.path : baseName;
     import cpptooling.generator.includes : generateIncludes;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
 
-    generateIncludes(ctrl, params, modules.hdr);
+    if (ctrl.doPreIncludes) {
+        modules.hdr.include(impl.includeHooks.preInclude.baseName);
+    }
+
+    generateIncludes(params.getIncludes, modules.hdr);
+
+    if (ctrl.doPostIncludes) {
+        modules.hdr.include(impl.includeHooks.postInclude.baseName);
+    }
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
         generateGmock(a, modules.gmock, params);

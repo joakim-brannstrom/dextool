@@ -1,0 +1,8 @@
+#ifndef test_double_hpp
+#define test_double_hpp
+#include "test_double_pre_includes.hpp"
+#include "param_gen_pre_post_include.hpp"
+
+#include "test_double_post_includes.hpp"
+
+#endif // test_double_hpp
