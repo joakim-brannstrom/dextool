@@ -498,8 +498,11 @@ void compileResult(const Path input, const Path binary, const Path main,
     args ~= "-o" ~ binary.escapePath;
     args ~= "-I" ~ testEnv.outdir.escapePath;
     args ~= incls.dup;
-    args ~= input;
     args ~= main;
+
+    if (exists(input)) {
+        args ~= input;
+    }
 
     runAndLog(args.data);
 }
