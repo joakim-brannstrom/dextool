@@ -13,7 +13,7 @@ import cpptooling.data.representation : CppNamespace;
 import cpptooling.data.type : LocationTag;
 import cpptooling.data.symbol.container : Container;
 
-import dsrcgen.cpp : CppModule;
+import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters;
 import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
@@ -47,31 +47,65 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
         gen_data.make(Code.Kind.hdr).include(impl.includeHooks.postInclude.baseName);
     }
 
-    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        generateGmock(a, gen_data.make(Code.Kind.gmock), params.getMainNs);
-    }
+    // dfmt off
+    auto ns_data = GenerateNamespaceData(
+        () { return gen_data.make(Code.Kind.hdr).cpp.base.noIndent; },
+        () { return gen_data.make(Code.Kind.impl).cpp.base.noIndent; },
+        () { return gen_data.make(Code.Kind.gmock).cpp.base.noIndent; });
+    // dfmt on
 
-    // the singletons are collected at the top and only one of it.
-    auto td_singleton = gen_data.make(Code.Kind.impl).base;
-    td_singleton.suppressIndent(1);
+    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
+        generateGmock(a, ns_data.gmock().base, params.getMainNs);
+    }
 
     foreach (a; impl.root.funcRange) {
-        generateFuncImpl(a, gen_data.make(Code.Kind.impl));
+        generateFuncImpl(a, ns_data.impl().base);
     }
 
-    auto ns_data = GenerateNamespaceData(gen_data.make(Code.Kind.hdr),
-            gen_data.make(Code.Kind.impl), gen_data.make(Code.Kind.gmock));
     foreach (a; impl.root.namespaceRange()) {
-        generateForEach(impl, a, params, ns_data, td_singleton, container);
+        generateForEach(impl, a, params, ns_data, container);
     }
 }
 
 private:
 
-struct GenerateNamespaceData {
-    CppModule hdr;
-    CppModule impl;
-    CppModule gmock;
+alias LazyModule = CppModule delegate() @safe;
+
+/// Lazily create the modules when they are needed.
+/// Be wary that each time a LazyModule is called it may generate code.
+@safe struct GenerateNamespaceData {
+    this(LazyModule hdr, LazyModule impl, LazyModule gmock) {
+        this.hdr = () => hdr().base.noIndent;
+        this.impl_ = impl;
+        this.gmock = () => gmock().base.noIndent;
+        this.impl = () => this.makeImpl().base.noIndent;
+        this.implTop = () => this.makeImplTop().base.noIndent;
+    }
+
+    LazyModule hdr;
+    LazyModule gmock;
+    LazyModule impl;
+    LazyModule implTop;
+
+private:
+    /// Position at the top of the implementation file where e.g. globals go.
+    CppModule makeImplTop() {
+        if (impl_top is null) {
+            auto b = impl_().noIndent;
+            impl_top = b.base.noIndent;
+            impl_mod = b.base.noIndent;
+        }
+        return impl_top;
+    }
+
+    CppModule makeImpl() {
+        makeImplTop;
+        return impl_mod;
+    }
+
+    LazyModule impl_;
+    CppModule impl_top;
+    CppModule impl_mod;
 }
 
 /**
@@ -80,75 +114,85 @@ struct GenerateNamespaceData {
  * instance.
  */
 void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
-        GenerateNamespaceData gen_data, CppModule impl_singleton, ref const Container container) {
+        GenerateNamespaceData gen_data, ref const Container container) {
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
-    import cpptooling.generator.gmock : generateGmock;
 
-    GenerateNamespaceData inner = gen_data;
-    CppModule inner_impl_singleton = impl_singleton;
+    auto ns_data = GenerateNamespaceData(gen_data.hdr, gen_data.impl, gen_data.gmock);
 
     switch (impl.lookup(ns.id)) with (Kind) {
     case none:
-        //TODO how to do this with meta-programming?
-        inner.hdr = gen_data.hdr.namespace(ns.name);
-        inner.hdr.suppressIndent(1);
-        inner.impl = gen_data.impl.namespace(ns.name);
-        inner.impl.suppressIndent(1);
-        inner.gmock = gen_data.gmock.namespace(ns.name);
-        inner.gmock.suppressIndent(1);
-        inner_impl_singleton = inner.impl.base;
-        inner_impl_singleton.suppressIndent(1);
+        auto hdrMod() {
+            return gen_data.hdr().namespace(ns.name).noIndent;
+        }
+
+        auto implMod() {
+            return gen_data.impl().namespace(ns.name).noIndent;
+        }
+
+        auto gmockMod() {
+            return gen_data.gmock().namespace(ns.name).noIndent;
+        }
+
+        ns_data = GenerateNamespaceData(&hdrMod, &implMod, &gmockMod);
         break;
     case testDoubleSingleton:
         import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
 
-        generateSingleton(ns, impl_singleton);
+        // inject the singleton in the previous top position
+        generateSingleton(ns, gen_data.implTop());
         break;
     case testDoubleInterface:
         break;
     case testDoubleNamespace:
-        generateNsTestDoubleHdr(ns, params, gen_data.hdr, gen_data.gmock,
+        generateNsTestDoubleHdr(ns, params, ns_data.hdr, ns_data.gmock,
                 (USRType usr) => container.find!LocationTag(usr), impl);
-        generateNsTestDoubleImpl(ns, gen_data.impl, impl);
+        generateNsTestDoubleImpl(ns, ns_data.impl, impl);
         break;
     default:
         break;
     }
 
     foreach (a; ns.funcRange) {
-        generateFuncImpl(a, inner.impl);
+        generateFuncImpl(a, ns_data.impl().base);
     }
 
     foreach (a; ns.namespaceRange) {
-        generateForEach(impl, a, params, inner, inner_impl_singleton, container);
+        generateForEach(impl, a, params, ns_data, container);
     }
 }
 
 void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
-        CppModule hdr, CppModule gmock, LookupT lookup, ref ImplData data) {
+        LazyModule hdr_, LazyModule gmock, LookupT lookup, ref ImplData data) {
     import std.typecons : Yes, No;
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
 
-    auto cpp_ns = hdr.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
-    hdr.sep(2);
+    CppModule ns_cache;
+
+    auto cppNs() {
+        if (ns_cache is null) {
+            auto hdr = hdr_();
+            ns_cache = hdr.namespace(ns.name).noIndent;
+            hdr.sep(2);
+        }
+        return ns_cache.base;
+    }
 
     foreach (c; ns.classRange()) {
         switch (data.lookup(c.id)) {
         case Kind.none:
-            generateHdr(c, cpp_ns, No.locationAsComment, lookup, Yes.inlineDtor);
+            generateHdr(c, cppNs(), No.locationAsComment, lookup, Yes.inlineDtor);
             break;
         case Kind.testDoubleInterface:
-            generateHdr(c, cpp_ns,
+            generateHdr(c, cppNs(),
                     No.locationAsComment, lookup, Yes.inlineDtor);
             break;
         case Kind.adapter:
-            generateHdr(c, cpp_ns, No.locationAsComment, lookup);
+            generateHdr(c, cppNs(), No.locationAsComment, lookup);
             break;
         case Kind.gmock:
-            generateGmock(c, gmock, params.getMainNs);
+            generateGmock(c, gmock().base, params.getMainNs);
             break;
         default:
             break;
@@ -156,12 +200,12 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
     }
 }
 
-void generateNsTestDoubleImpl(CppNamespace ns, CppModule impl, ref ImplData data) {
+void generateNsTestDoubleImpl(CppNamespace ns, LazyModule impl_, ref ImplData data) {
     import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : generateImpl;
 
+    auto impl = impl_();
     auto cpp_ns = impl.namespace(ns.name);
-    cpp_ns.suppressIndent(1);
     impl.sep(2);
 
     foreach (ref class_; ns.classRange()) {

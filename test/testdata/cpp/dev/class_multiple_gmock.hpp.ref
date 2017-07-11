@@ -42,6 +42,8 @@ public:
 } //NS:TestDouble
 
 } //NS:ns2
+} //NS:ns
+namespace ns {
 namespace TestDouble {
 class MockInsideNs1 : public ::ns::InsideNs1 {
 public:

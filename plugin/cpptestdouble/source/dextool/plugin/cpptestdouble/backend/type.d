@@ -12,7 +12,7 @@ module dextool.plugin.cpptestdouble.backend.type;
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, USRType;
 
-import dsrcgen.cpp : CppModule;
+import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.type : AbsolutePath;
 
@@ -126,7 +126,7 @@ struct GeneratedData {
         }
 
         Code m;
-        m.cpp = new CppModule;
+        m.cpp = (new CppModule).noIndent;
 
         uniqueData[kind] = m;
         return m;

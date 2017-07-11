@@ -81,6 +81,8 @@ public:
 } //NS:TestDouble
 
 } //NS:ns2
+} //NS:ns1
+namespace ns1 {
 namespace TestDouble {
 class MockNs1A : public ::ns1::Ns1A {
 public:
