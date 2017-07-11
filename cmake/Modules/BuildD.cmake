@@ -116,35 +116,16 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
         target_link_libraries(${target_name} ${lib})
     endforeach()
 
-    # add the test
+    # make cmake aware that the executable is a test
     add_test(NAME ${target_name}_
         COMMAND ${target_name}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-    add_dependencies(check ${target_name})
-endfunction()
-
-#=============================================================================#
-# [PUBLIC]
-# Build a D unittest that do not need code coverage.
-# It is added as a named executable with suffix _test that depends on the
-# supplied libraries.
-#   name        - Target name for the executable
-#   input_d     - List of a source file or many quoted and separated by ;
-#   libs        - List of a library or many quoted and separated by ; to link with
-function(compile_d_test name input_d compiler_args linker_args libs)
-    if(NOT BUILD_TEST)
-        return()
-    endif()
-
-    set(target_name ${name}_test)
-    set(dflags "${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/unit-threaded/source")
-    set(lflags "${linker_args}")
-
-    conv_to_proper_args(dflags "${dflags}")
-    conv_to_proper_args(lflags "${lflags}")
-
-    build_d_executable(${target_name} "${input_d}" "${dflags}" "${lflags}" "${libs};dextool_unit_threaded")
-    add_test(NAME ${target_name}_ COMMAND ${target_name})
+    # build a dependency that mean that when check triggers it triggers a rerun
+    # which in turn is dependent on the executable
+    add_custom_target(${target_name}__run
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "${target_name}_")
+    add_dependencies(${target_name}__run ${target_name})
+    add_dependencies(check ${target_name}__run)
 endfunction()
 
 #=============================================================================#
@@ -182,9 +163,14 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs)
         target_link_libraries(${target_name} ${lib})
     endforeach()
 
-    # add the test
+    # make cmake aware that the executable is a test
     add_test(NAME ${target_name}_
         COMMAND ${target_name}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    add_dependencies(check_integration ${target_name})
+    # build a dependency that mean that when check triggers it triggers a rerun
+    # which in turn is dependent on the executable
+    add_custom_target(${target_name}__run
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "${target_name}_")
+    add_dependencies(${target_name}__run ${target_name})
+    add_dependencies(check_integration ${target_name}__run)
 endfunction()

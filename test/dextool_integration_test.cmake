@@ -9,8 +9,6 @@ file(GLOB SRC_FILES
 
 set(flags "-I${CMAKE_SOURCE_DIR}/test/scriptlike/src -I${CMAKE_SOURCE_DIR}/test/source")
 
-#compile_d_test(integration "${SRC_FILES}" "${flags}" "" "dextool_scriptlike")
-
 # Setup expected test environment around the integration test binary
 execute_process(
     COMMAND rm -f ${CMAKE_BINARY_DIR}/fused_gmock
