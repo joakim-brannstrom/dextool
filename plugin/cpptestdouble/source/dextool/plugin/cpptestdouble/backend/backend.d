@@ -302,7 +302,7 @@ void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplDat
     auto td_ns = CppNamespace(CppNsStack(reside_in_ns.dup, CppNs(main_ns)));
     data.tag(td_ns.id, Kind.testDoubleNamespace);
 
-    auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(main_if));
+    auto i_free_func = makeFuncInterface(input.funcRange, CppClassName(main_if), td_ns.resideInNs);
     data.tag(i_free_func.id, Kind.testDoubleInterface);
     td_ns.put(i_free_func);
 
@@ -463,20 +463,33 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
             prods.putFile(test_double_cpp, output(v, test_double_hdr,
                     test_double_cpp, params.getToolVersion, params.getCustomHeader));
             break;
-        case Kind.gmock:
-            // the module can still be generated even though it has no
-            // content. Remove the if statement when it is only generated
-            // on demand.
-            if (ctrl.doGoogleMock) {
-                import cpptooling.generator.gmock : generateGmockHdr;
-
-                immutable file_cpp_gmock = "_gmock";
-                auto fname = transf.createHeaderFile(file_cpp_gmock);
-                prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
-                        cast(FileName) fname, params.getToolVersion, params.getCustomHeader, v));
-            }
-            break;
         }
+    }
+
+    auto mock_incls = new CppModule;
+    foreach (mock; gen_data.gmocks) {
+        import std.algorithm : joiner, map;
+        import std.conv : text;
+        import std.format : format;
+        import std.path : baseName;
+        import std.string : toLower;
+        import cpptooling.generator.gmock : generateGmockHdr;
+
+        string repr_ns = mock.nesting.map!(a => a.toLower).joiner("-").text;
+        string ns_suffix = mock.nesting.length != 0 ? "-" : "";
+        auto fname = transf.createHeaderFile(format("_%s%s%s_gmock", repr_ns,
+                ns_suffix, mock.name.toLower));
+
+        mock_incls.include(fname.baseName);
+
+        prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
+                cast(FileName) fname, params.getToolVersion, params.getCustomHeader, mock));
+    }
+
+    if (gen_data.gmocks.length != 0) {
+        auto fname = transf.createHeaderFile("_gmock");
+        prods.putFile(fname, outputHdr(mock_incls, fname,
+                params.getToolVersion, params.getCustomHeader));
     }
 
     if (ctrl.doPreIncludes) {

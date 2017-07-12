@@ -14,7 +14,9 @@ import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
 
 import dsrcgen.cpp : CppModule, noIndent;
 
-import dextool.type : AbsolutePath;
+import cpptooling.data.type : CppClassName, CppNs;
+
+import dextool.type : AbsolutePath, FileName;
 
 @safe:
 
@@ -105,8 +107,16 @@ struct Code {
     enum Kind {
         hdr,
         impl,
-        gmock,
     }
+
+    CppModule cpp;
+    alias cpp this;
+}
+
+struct Mock {
+    // Use to generate a unique filename.
+    const CppClassName name;
+    const CppNs[] nesting;
 
     CppModule cpp;
     alias cpp this;
@@ -117,6 +127,9 @@ struct GeneratedData {
 
     /// Code kinds that can't be duplicated.
     Code[Code.Kind] uniqueData;
+
+    /// All gmocks to write
+    Mock[] gmocks;
 
     IncludeHooks includeHooks;
 
@@ -129,6 +142,14 @@ struct GeneratedData {
         m.cpp = (new CppModule).noIndent;
 
         uniqueData[kind] = m;
+        return m;
+    }
+
+    auto makeMock(const CppNs[] ns, const CppClassName name) {
+        auto m = Mock(name, ns);
+        m.cpp = (new CppModule).noIndent;
+        gmocks ~= m;
+
         return m;
     }
 }

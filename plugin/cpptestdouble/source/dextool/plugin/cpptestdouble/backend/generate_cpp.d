@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.cpptestdouble.backend.generate_cpp;
 
 import cpptooling.data.representation : CppNamespace;
-import cpptooling.data.type : LocationTag;
+import cpptooling.data.type : LocationTag, CppNs, CppClassName;
 import cpptooling.data.symbol.container : Container;
 
 import dsrcgen.cpp : CppModule, noIndent;
@@ -51,11 +51,12 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     auto ns_data = GenerateNamespaceData(
         () { return gen_data.make(Code.Kind.hdr).cpp.base.noIndent; },
         () { return gen_data.make(Code.Kind.impl).cpp.base.noIndent; },
-        () { return gen_data.make(Code.Kind.gmock).cpp.base.noIndent; });
+        (const CppNs[] ns, const CppClassName name) { return gen_data.makeMock(ns, name).cpp.base.noIndent; });
     // dfmt on
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        auto mock_ns = ns_data.gmock().base.namespace(params.getMainNs).noIndent;
+        auto mock_ns = ns_data.gmock(cast(const CppNs[]) a.resideInNs, a.name)
+            .base.namespace(params.getMainNs).noIndent;
         generateGmock(a, mock_ns);
     }
 
@@ -71,20 +72,21 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
 private:
 
 alias LazyModule = CppModule delegate() @safe;
+alias LazyMockModule = CppModule delegate(const CppNs[] ns, const CppClassName name) @safe;
 
 /// Lazily create the modules when they are needed.
 /// Be wary that each time a LazyModule is called it may generate code.
 @safe struct GenerateNamespaceData {
-    this(LazyModule hdr, LazyModule impl, LazyModule gmock) {
+    this(LazyModule hdr, LazyModule impl, LazyMockModule gmock) {
         this.hdr = () => hdr().base.noIndent;
         this.impl_ = impl;
-        this.gmock = () => gmock().base.noIndent;
+        this.gmock = (const CppNs[] ns, const CppClassName name) => gmock(ns, name).base.noIndent;
         this.impl = () => this.makeImpl().base.noIndent;
         this.implTop = () => this.makeImplTop().base.noIndent;
     }
 
     LazyModule hdr;
-    LazyModule gmock;
+    LazyMockModule gmock;
     LazyModule impl;
     LazyModule implTop;
 
@@ -131,8 +133,8 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
             return gen_data.impl().namespace(ns.name).noIndent;
         }
 
-        auto gmockMod() {
-            return gen_data.gmock().namespace(ns.name).noIndent;
+        auto gmockMod(const CppNs[] nesting, const CppClassName name) {
+            return gen_data.gmock(nesting, name).namespace(ns.name).noIndent;
         }
 
         ns_data = GenerateNamespaceData(&hdrMod, &implMod, &gmockMod);
@@ -164,7 +166,7 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
 }
 
 void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
-        LazyModule hdr_, LazyModule gmock, LookupT lookup, ref ImplData data) {
+        LazyModule hdr_, LazyMockModule gmock, LookupT lookup, ref ImplData data) {
     import std.typecons : Yes, No;
     import cpptooling.generator.classes : generateHdr;
     import cpptooling.generator.gmock : generateGmock;
@@ -193,7 +195,8 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
             generateHdr(c, cppNs(), No.locationAsComment, lookup);
             break;
         case Kind.gmock:
-            auto mock_ns = gmock().base.namespace(params.getMainNs).noIndent;
+            auto mock_ns = gmock(c.resideInNs, c.name)
+                .base.namespace(params.getMainNs).noIndent;
             generateGmock(c, mock_ns);
             break;
         default:
@@ -203,17 +206,22 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
 }
 
 void generateNsTestDoubleImpl(CppNamespace ns, LazyModule impl_, ref ImplData data) {
-    import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : generateImpl;
 
-    auto impl = impl_();
-    auto cpp_ns = impl.namespace(ns.name);
-    impl.sep(2);
+    CppModule cpp_ns;
+    auto cppNs() {
+        if (cpp_ns is null) {
+            auto impl = impl_();
+            cpp_ns = impl.namespace(ns.name);
+            impl.sep(2);
+        }
+        return cpp_ns;
+    }
 
     foreach (ref class_; ns.classRange()) {
         switch (data.lookup(class_.id)) {
         case Kind.adapter:
-            generateImpl(class_, cpp_ns);
+            generateImpl(class_, cppNs());
             break;
         default:
             break;
