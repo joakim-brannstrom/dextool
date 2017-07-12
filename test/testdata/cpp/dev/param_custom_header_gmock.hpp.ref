@@ -7,4 +7,12 @@
 #include "test_double.hpp"
 #include "gmock/gmock.h"
 
+namespace TestDouble {
+class MockI_TestDouble : public I_TestDouble {
+public:
+    virtual ~MockI_TestDouble() {}
+
+    MOCK_METHOD0(f, void());
+};
+} //NS:TestDouble
 #endif // test_double_gmock_hpp

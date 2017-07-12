@@ -265,3 +265,9 @@ private:
     BaseElement[] children;
     int sep_lines;
 }
+
+/// Suppress the indentation one level.
+T noIndent(T)(T m) if (is(T == class)) {
+    m.suppressIndent(1);
+    return m;
+}

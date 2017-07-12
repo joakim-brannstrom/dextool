@@ -12,7 +12,7 @@ module dextool.plugin.cpptestdouble.backend.type;
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, USRType;
 
-import dsrcgen.cpp : CppModule;
+import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.type : AbsolutePath;
 
@@ -88,18 +88,6 @@ struct ImplData {
     }
 }
 
-struct GenModules {
-    import dextool.plugin.utility : MakerInitializingClassMembers;
-
-    mixin MakerInitializingClassMembers!GenModules;
-
-    CppModule hdr;
-    CppModule impl;
-    CppModule gmock;
-
-    IncludeHooks includeHooks;
-}
-
 struct IncludeHooks {
     AbsolutePath preInclude;
     AbsolutePath postInclude;
@@ -110,5 +98,37 @@ struct IncludeHooks {
 
         return IncludeHooks(transf.createHeaderFile(file_cpp_pre_incl),
                 transf.createHeaderFile(file_cpp_post_incl));
+    }
+}
+
+struct Code {
+    enum Kind {
+        hdr,
+        impl,
+        gmock,
+    }
+
+    CppModule cpp;
+    alias cpp this;
+}
+
+struct GeneratedData {
+    @disable this(this);
+
+    /// Code kinds that can't be duplicated.
+    Code[Code.Kind] uniqueData;
+
+    IncludeHooks includeHooks;
+
+    auto make(Code.Kind kind) {
+        if (auto c = kind in uniqueData) {
+            return *c;
+        }
+
+        Code m;
+        m.cpp = (new CppModule).noIndent;
+
+        uniqueData[kind] = m;
+        return m;
     }
 }

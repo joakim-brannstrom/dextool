@@ -6,4 +6,20 @@
 #define test_double_hpp
 #include "param_custom_header.hpp"
 
+namespace TestDouble {
+class I_TestDouble {
+public:
+    virtual void f() = 0;
+    virtual ~I_TestDouble() {}
+};
+
+/// Adapter connecting an interface with an implementation.
+/// The lifetime of the connection is the same as the instance of the adapter.
+class Adapter {
+public:
+    Adapter(I_TestDouble &inst);
+    ~Adapter();
+};
+
+} //NS:TestDouble
 #endif // test_double_hpp

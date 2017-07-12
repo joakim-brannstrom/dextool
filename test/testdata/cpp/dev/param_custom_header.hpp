@@ -1,2 +1,6 @@
+#ifndef PARAM_CUSTOM_HEADER_HPP
+#define PARAM_CUSTOM_HEADER_HPP
 
+void f();
 
+#endif // PARAM_CUSTOM_HEADER_HPP

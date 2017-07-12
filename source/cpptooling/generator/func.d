@@ -35,9 +35,9 @@ void generateFuncImpl(CFunction f, CppModule impl) {
 
     with (impl.func_body(f.returnType.toStringDecl, f.name, params)) {
         if (f.returnType.toStringDecl == "void") {
-            stmt(E("test_double_inst->" ~ f.name)(E(names)));
+            stmt(E("test_double_inst->" ~ f.name)(names));
         } else {
-            return_(E("test_double_inst->" ~ f.name)(E(names)));
+            return_(E("test_double_inst->" ~ f.name)(names));
         }
     }
     impl.sep(2);

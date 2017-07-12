@@ -12,6 +12,8 @@ public:
 };
 } //NS:TestDouble
 
+} //NS:no_inherit
+namespace no_inherit {
 namespace TestDouble {
 class MockCtorNotAffectingVirtualClassificationAsYes : public ::no_inherit::CtorNotAffectingVirtualClassificationAsYes {
 public:
@@ -21,6 +23,8 @@ public:
 };
 } //NS:TestDouble
 
+} //NS:no_inherit
+namespace no_inherit {
 namespace TestDouble {
 class MockCtorNotAffectingVirtualClassificationAsPure : public ::no_inherit::CtorNotAffectingVirtualClassificationAsPure {
 public:
@@ -30,6 +34,8 @@ public:
 };
 } //NS:TestDouble
 
+} //NS:no_inherit
+namespace no_inherit {
 namespace TestDouble {
 class MockCommonPatternForPureInterface1 : public ::no_inherit::CommonPatternForPureInterface1 {
 public:
@@ -39,6 +45,8 @@ public:
 };
 } //NS:TestDouble
 
+} //NS:no_inherit
+namespace no_inherit {
 namespace TestDouble {
 class MockCommonPatternForPureInterface2 : public ::no_inherit::CommonPatternForPureInterface2 {
 public:
@@ -48,6 +56,8 @@ public:
 };
 } //NS:TestDouble
 
+} //NS:no_inherit
+namespace no_inherit {
 namespace TestDouble {
 class MockAllProtPrivMadePublic : public ::no_inherit::AllProtPrivMadePublic {
 public:
