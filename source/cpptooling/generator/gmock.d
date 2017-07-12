@@ -17,7 +17,7 @@ import std.variant : visit;
 
 import logger = std.experimental.logger;
 
-import dsrcgen.cpp : CppModule;
+import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.type : DextoolVersion, CustomHeader;
 import cpptooling.data.representation; // : CppClass, CppNamespace, CppMethodOp, CppMethod;
@@ -178,10 +178,9 @@ private void genMethod(const CppMethod m, CppModule hdr) {
  * See test case class_interface_more_than_10_params.hpp.
  *
  * Params:
- *   ParamT Parameter type holding static information.
  *   in_c = Class to generate a mock implementation of.
  *   hdr = Header to generate the code in.
- *   params = tooling parameters that affects namespace the mock is generated in.
+ *   ns_name = namespace the mock is generated in.
  */
 void generateGmock(NsT)(const CppClass in_c, CppModule hdr, NsT ns_name)
 in {
@@ -190,8 +189,8 @@ in {
 body {
     import cpptooling.data.representation;
 
-    auto ns = hdr.namespace(ns_name);
-    ns.suppressIndent(1);
+    auto ns = hdr.namespace(ns_name).noIndent;
+
     // dfmt off
     // fully qualified class the mock inherit from
     auto base_class = "public " ~
