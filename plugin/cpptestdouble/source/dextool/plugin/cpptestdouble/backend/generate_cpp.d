@@ -55,7 +55,8 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     // dfmt on
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        generateGmock(a, ns_data.gmock().base, params.getMainNs);
+        auto mock_ns = ns_data.gmock().base.namespace(params.getMainNs).noIndent;
+        generateGmock(a, mock_ns);
     }
 
     foreach (a; impl.root.funcRange) {
@@ -192,7 +193,8 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
             generateHdr(c, cppNs(), No.locationAsComment, lookup);
             break;
         case Kind.gmock:
-            generateGmock(c, gmock().base, params.getMainNs);
+            auto mock_ns = gmock().base.namespace(params.getMainNs).noIndent;
+            generateGmock(c, mock_ns);
             break;
         default:
             break;
