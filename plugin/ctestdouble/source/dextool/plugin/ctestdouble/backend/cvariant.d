@@ -369,7 +369,7 @@ private:
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
     CppDtor, CFunction, CppNamespace, CxGlobalVariable, USRType;
 import cpptooling.data.type : LocationTag, Location;
-import dsrcgen.cpp : E;
+import dsrcgen.cpp : E, noIndent;
 
 /** Contain data for code generation.
  */
@@ -697,7 +697,8 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
             generateHdr(class_, test_double_ns, loc_as_comment, lookup, Yes.inlineDtor);
             break;
         case Kind.gmock:
-            generateGmock(class_, gmock, params.getMainNs);
+            auto mock_ns = gmock.namespace(params.getMainNs).noIndent;
+            generateGmock(class_, mock_ns);
             break;
         default:
         }
