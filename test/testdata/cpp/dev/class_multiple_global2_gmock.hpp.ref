@@ -1,0 +1,15 @@
+#ifndef test_double_global2_gmock_hpp
+#define test_double_global2_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace TestDouble {
+class MockGlobal2 : public Global2 {
+public:
+    virtual ~MockGlobal2() {}
+
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+#endif // test_double_global2_gmock_hpp

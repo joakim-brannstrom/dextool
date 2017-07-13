@@ -1,0 +1,18 @@
+#ifndef test_double_no_inherit_commonpatternforpureinterface1_gmock_hpp
+#define test_double_no_inherit_commonpatternforpureinterface1_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace no_inherit {
+namespace TestDouble {
+class MockCommonPatternForPureInterface1 : public ::no_inherit::CommonPatternForPureInterface1 {
+public:
+    virtual ~MockCommonPatternForPureInterface1() {}
+
+    MOCK_METHOD0(expect_func_to_be_mocked, void());
+};
+} //NS:TestDouble
+
+} //NS:no_inherit
+
+#endif // test_double_no_inherit_commonpatternforpureinterface1_gmock_hpp

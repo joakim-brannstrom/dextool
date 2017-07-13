@@ -1,0 +1,16 @@
+#ifndef test_double_virtc_gmock_hpp
+#define test_double_virtc_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace TestDouble {
+class MockVirtC : public VirtC {
+public:
+    virtual ~MockVirtC() {}
+
+    MOCK_METHOD0(virtA, void());
+    MOCK_METHOD0(virtB, void());
+    MOCK_METHOD0(virtC, void());
+};
+} //NS:TestDouble
+#endif // test_double_virtc_gmock_hpp

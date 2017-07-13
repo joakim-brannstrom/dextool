@@ -1,0 +1,15 @@
+#ifndef test_double_dup_gmock_hpp
+#define test_double_dup_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace TestDouble {
+class MockDup : public Dup {
+public:
+    virtual ~MockDup() {}
+
+    MOCK_METHOD0(dupFunc, void());
+};
+} //NS:TestDouble
+
+#endif // test_double_dup_gmock_hpp

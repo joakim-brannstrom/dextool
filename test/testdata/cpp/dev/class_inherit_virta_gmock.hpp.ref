@@ -1,0 +1,14 @@
+#ifndef test_double_virta_gmock_hpp
+#define test_double_virta_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace TestDouble {
+class MockVirtA : public VirtA {
+public:
+    virtual ~MockVirtA() {}
+
+    MOCK_METHOD0(virtA, void());
+};
+} //NS:TestDouble
+#endif // test_double_virta_gmock_hpp

@@ -1,0 +1,18 @@
+#ifndef test_double_ns_insidens1_gmock_hpp
+#define test_double_ns_insidens1_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace ns {
+namespace TestDouble {
+class MockInsideNs1 : public ::ns::InsideNs1 {
+public:
+    virtual ~MockInsideNs1() {}
+
+    MOCK_CONST_METHOD0(func1, void());
+};
+} //NS:TestDouble
+
+} //NS:ns
+
+#endif // test_double_ns_insidens1_gmock_hpp
