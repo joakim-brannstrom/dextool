@@ -12,7 +12,8 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import dextool.type : MainInterface;
-import cpptooling.data.representation : CFunction, CppClass, CppClassName;
+import cpptooling.data.representation : CFunction, CppClass, CppClassName,
+    CppNsStack;
 import cpptooling.data.symbol.types : USRType;
 
 @safe:
@@ -47,11 +48,25 @@ void generateFuncImpl(CFunction f, CppModule impl) {
  * implementation.
  */
 CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
+    import cpptooling.data.type : CppNs;
+
+    return makeFuncInterface(r, main_if, CppNsStack(CppNs[].init));
+}
+
+/** Create a C++ interface of funcs in range to allow the user to supply an
+ * implementation.
+ *
+ * Params:
+ *  r = InputRange of functions the class is intended to wrap.
+ *  name = the name of the class.
+ *  ns = namespace the class reside in
+ */
+CppClass makeFuncInterface(Tr)(Tr r, const CppClassName name, const CppNsStack ns) {
     import cpptooling.data.representation;
     import std.array : array;
 
-    auto c = CppClass(main_if);
-    c.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ main_if),
+    auto c = CppClass(name, CppInherit[].init, ns);
+    c.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ name),
             CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Virtual)));
 
     foreach (f; r) {
@@ -60,8 +75,8 @@ CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
             params = params[0 .. $ - 1];
         }
 
-        auto name = CppMethodName(f.name);
-        auto m = CppMethod(f.usr, name, params, f.returnType(), CppAccess(AccessType.Public),
+        auto meth_name = CppMethodName(f.name);
+        auto m = CppMethod(f.usr, meth_name, params, f.returnType(), CppAccess(AccessType.Public),
                 CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
 
         c.put(m);
