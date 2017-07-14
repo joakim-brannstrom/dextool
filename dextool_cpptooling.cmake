@@ -2,6 +2,7 @@
 
 set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/kind.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/type.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/type_format.d
 
@@ -32,10 +33,12 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/visitor.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/class_classification.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/representation.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/type.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/symbol/container.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/symbol/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/symbol/types.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/classes.d

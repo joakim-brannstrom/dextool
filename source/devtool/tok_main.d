@@ -139,7 +139,7 @@ int dumpBody(string fname, string[] flags) {
     import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
         logDiagnostic;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
 
     final class BodyVisitor : Visitor {
         alias visit = Visitor.visit;

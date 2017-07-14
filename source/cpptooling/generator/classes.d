@@ -13,9 +13,8 @@ import std.typecons : Yes, No, Flag;
 
 import dsrcgen.cpp : CppModule;
 
-import cpptooling.data.representation : CppClass;
-import cpptooling.data.type : LocationTag;
-import cpptooling.data.symbol.types : USRType;
+import cpptooling.data : CppClass, LocationTag;
+import cpptooling.data.symbol : USRType;
 
 @safe:
 

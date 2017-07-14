@@ -20,9 +20,9 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.type : DextoolVersion, CustomHeader, FileName;
-import cpptooling.data.representation; // : CppClass, CppNamespace, CppMethodOp, CppMethod;
-import cpptooling.analyzer.kind;
-import cpptooling.analyzer.type;
+import cpptooling.data.representation : CppCtor, CppDtor, CppClass,
+    CppNamespace, CppMethodOp, CppMethod, joinParams, joinParamNames;
+import cpptooling.analyzer : toStringDecl;
 
 @safe:
 
@@ -41,7 +41,7 @@ private void ignore() {
 }
 
 private void genOp(const CppMethodOp m, CppModule hdr) {
-    import cpptooling.data.representation : MemberVirtualType;
+    import cpptooling.data : MemberVirtualType;
 
     static string translateOp(string op) {
         switch (op) {
@@ -238,7 +238,8 @@ auto generateGmockHdr(FileName if_file, FileName incl_guard, DextoolVersion ver,
 auto makeGmock(const CppClass c) {
     import std.array : array;
     import std.variant : visit;
-    import cpptooling.data.representation;
+    import cpptooling.data : makeUniqueUSR, nextUniqueID, getName, CppAccess,
+        CppConstMethod, CppVirtualMethod, AccessType, MemberVirtualType;
     import cpptooling.utility.sort : indexSort;
 
     // Make all protected and private methods public to allow testing, for good

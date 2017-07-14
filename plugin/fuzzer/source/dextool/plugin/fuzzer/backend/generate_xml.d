@@ -13,8 +13,7 @@ import std.conv : to;
 
 import logger = std.experimental.logger;
 
-import cpptooling.data.representation : CppRoot, CFunction, USRType, CxParam,
-    CppVariable;
+import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable;
 
 import dextool.compilation_db : CompileCommandFilter;
 
@@ -78,7 +77,7 @@ void generateConfigForFunctionValidityFromUser(T)(CFunction f, Symbol symbol, re
     import std.conv : to;
     import std.range : enumerate;
     import std.xml;
-    import cpptooling.data.representation : getName;
+    import cpptooling.data : getName;
 
     // assuming that the fully qualified name is always valid xml
     sym.tag.attr["name"] = symbol.fullyQualifiedName;
@@ -131,7 +130,7 @@ void generateConfigDefaultFunctionValidity(T)(CFunction f, ulong seq_id, ref T s
     import std.conv : to;
     import std.range : enumerate;
     import std.xml;
-    import cpptooling.data.representation : getName;
+    import cpptooling.data : getName;
 
     // assuming that the fully qualified name is always valid xml
     sym.tag.attr["name"] = f.name;

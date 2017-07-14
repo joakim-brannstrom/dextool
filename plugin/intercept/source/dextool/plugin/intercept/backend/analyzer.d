@@ -12,9 +12,8 @@ module dextool.plugin.intercept.backend.analyzer;
 import logger = std.experimental.logger;
 
 import cpptooling.analyzer.clang.ast : Visitor;
-import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, USRType;
-import cpptooling.data.type : LocationTag, Location;
+import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
+    CFunction, CppNamespace, LocationTag, Location, USRType;
 
 import dextool.plugin.intercept.backend.interface_;
 
@@ -35,8 +34,8 @@ final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast : UnexposedDecl, FunctionDecl,
         TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl;
-    import cpptooling.data.type : CxReturnType;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CxReturnType;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;

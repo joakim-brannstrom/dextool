@@ -10,7 +10,7 @@ import std.typecons : Nullable;
 import clang.Cursor : Cursor;
 
 import cpptooling.analyzer.clang.type : TypeResults;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol : Container;
 
 //TODO remove the default value for indent.
 void put(ref Nullable!TypeResults tr, ref Container container, in uint indent = 0) @safe {

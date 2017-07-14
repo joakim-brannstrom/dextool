@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.fuzzer.backend.type;
 
 public import cpptooling.data.symbol.types : FullyQualifiedNameType;
-import cpptooling.data.representation : CppRoot;
+import cpptooling.data : CppRoot;
 
 import dextool.plugin.fuzzer.backend.unique_sequence : Sequence;
 import dextool.type : FileName;

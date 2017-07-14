@@ -11,11 +11,9 @@ module dextool.plugin.ctestdouble.backend.global;
 
 import dextool.type : StubPrefix;
 import cpptooling.analyzer.type : TypeKind;
-import cpptooling.data.representation : CppClass, CppClassName, CppInherit,
-    CppVariable, CxGlobalVariable;
-import cpptooling.data.type : TypeKindAttr;
-import cpptooling.data.symbol.types : USRType;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : CppClass, CppClassName, CppInherit, CppVariable,
+    CxGlobalVariable, TypeKindAttr, USRType;
+import cpptooling.data.symbol : Container;
 import dsrcgen.cpp : CppModule;
 
 import logger = std.experimental.logger;
@@ -84,8 +82,8 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
  */
 CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @safe {
     import std.algorithm : filter, map;
-    import cpptooling.data.representation;
-    import cpptooling.analyzer.type : makeSimple;
+    import cpptooling.data;
+    import cpptooling.analyzer : makeSimple;
 
     auto globals_if = CppClass(main_if);
     globals_if.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ globals_if.name),
@@ -107,9 +105,8 @@ CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @
 CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
         const StubPrefix prefix, CppInherit inherit) @safe {
     import std.algorithm : filter, map;
-    import cpptooling.analyzer.kind : TypeKind, isIncompleteArray;
-    import cpptooling.analyzer.type : makeSimple;
-    import cpptooling.data.representation;
+    import cpptooling.analyzer : TypeKind, isIncompleteArray, makeSimple;
+    import cpptooling.data;
 
     auto globals_if = CppClass(main_if, [inherit]);
     globals_if.comment("Initialize all global variables that are mutable to zero.");
@@ -141,7 +138,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         const StubPrefix prefix, LookupGlobalT lookup) @safe {
     import std.typecons : No;
     import std.variant : visit;
-    import cpptooling.data.representation;
+    import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
     import dsrcgen.c : E;
 
     static void noop() {
@@ -302,9 +299,8 @@ void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Conta
 unittest {
     import std.array;
     import test.extra_should : shouldEqualPretty;
-    import cpptooling.data.representation;
-    import cpptooling.data.type;
-    import cpptooling.analyzer.type;
+    import cpptooling.data;
+    import cpptooling.analyzer;
 
     immutable dummyUSR = USRType("dummyUSR1");
 

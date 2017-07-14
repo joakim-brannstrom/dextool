@@ -10,8 +10,7 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import dextool.type : StubPrefix;
-import cpptooling.data.representation : CppClass, CppClassName, CppNamespace,
-    CppNs;
+import cpptooling.data : CppClass, CppClassName, CppNamespace, CppNs;
 import dextool.plugin.ctestdouble.backend.global : MutableGlobal;
 
 @safe:
@@ -29,8 +28,7 @@ enum AdapterKind {
 }
 
 private struct BuildAdapter {
-    import cpptooling.data.representation : CppClass, CppClassName,
-        CppMethodName;
+    import cpptooling.data : CppClass, CppClassName, CppMethodName;
 
     private {
         CppClassName className;
@@ -65,8 +63,8 @@ private struct BuildAdapter {
      */
     CppClass finalize(ImplDataT)(ref ImplDataT data) {
         import std.typecons : Yes;
-        import cpptooling.data.representation : AccessType, CxParam, CppCtor,
-            CppDtor, CppAccess, CppVirtualMethod, CppVariable, makeUniqueUSR,
+        import cpptooling.data : AccessType, CxParam, CppCtor, CppDtor,
+            CppAccess, CppVirtualMethod, CppVariable, makeUniqueUSR,
             makeCxParam, MemberVirtualType, TypeAttr, TypeKind, TypeKindAttr,
             TypeKindVariable;
         import cpptooling.analyzer.type_format : TypeId, PtrFmt;
@@ -138,7 +136,7 @@ private struct BuildAdapter {
 
 /// Make a C++ adapter for an interface.
 auto makeAdapter(InterfaceT)(InterfaceT interface_name) {
-    import cpptooling.data.representation : CppMethodName;
+    import cpptooling.data : CppMethodName;
 
     return BuildAdapter(CppClassName("Adapter"), CppClassName(cast(string) interface_name),
             CppClassName(cast(string) interface_name ~ "_InitGlobals"),
@@ -149,8 +147,8 @@ auto makeAdapter(InterfaceT)(InterfaceT interface_name) {
 /// double that implement the interface needed.
 CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string instance_name) {
     import std.typecons : Yes;
-    import cpptooling.data.representation : CppVariable, CxGlobalVariable,
-        makeUniqueUSR, TypeAttr, TypeKind, USRType, TypeKindAttr;
+    import cpptooling.data : CppVariable, CxGlobalVariable, makeUniqueUSR,
+        TypeAttr, TypeKind, USRType, TypeKindAttr;
     import cpptooling.analyzer.type_format : TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
@@ -173,12 +171,13 @@ CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string 
 void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         StubPrefix prefix, CppModule impl, LookupKindT lookup) {
     import std.variant : visit;
-    import cpptooling.data.representation;
+    import cpptooling.data : CppVariable, CppCtor, CppMethodOp, CppDtor,
+        CppMethod, joinParams, joinParamNames;
     import dsrcgen.c : E;
 
     static void genCallsToGlobalInitializer(MutableGlobal[] globals,
             CppVariable instance, CppModule impl) {
-        import cpptooling.data.representation : methodNameToString;
+        import cpptooling.data : methodNameToString;
 
         foreach (global; globals) {
             impl.stmt(E(instance).e(global.name)(""));
@@ -186,8 +185,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
     }
 
     void genCtor(const ref CppClass adapter, const ref CppCtor m, CppModule impl) {
-        import dsrcgen.cpp;
-        import cpptooling.data.representation;
+        import cpptooling.data : paramNameToString;
         import cpptooling.analyzer.type : TypeKind;
 
         AdapterKind kind;

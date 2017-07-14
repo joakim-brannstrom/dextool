@@ -24,7 +24,7 @@ import cpptooling.data.type : LocationTag, Location;
 
 struct Backend {
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
     import cpptooling.testdouble.header_filter : GenericTestDoubleIncludes,
         LocationType;
     import dextool.type : ExitStatusType;
@@ -55,7 +55,7 @@ struct Backend {
     ExitStatusType analyzeFile(const AbsolutePath analyze_file, const string[] use_cflags) {
         import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
-        import cpptooling.data.representation : MergeMode;
+        import cpptooling.data : MergeMode;
 
         NullableRef!Container cont_ = &container;
         auto visitor = new TUVisitor(cont_);
@@ -121,10 +121,9 @@ private:
 private:
 @safe:
 
-import cpptooling.data.representation : CppRoot, CFunction, USRType, CxParam,
-    CppVariable;
-import cpptooling.data.type : CppNs, Language;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable,
+    CppNs, Language;
+import cpptooling.data.symbol : Container;
 import dextool.plugin.fuzzer.type : Param, Symbol;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -140,7 +139,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
     import std.algorithm : each, filter;
     import std.range : tee;
     import dextool.type : FileName;
-    import cpptooling.data.representation : StorageClass;
+    import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.testdouble.header_filter : LocationType;
 
@@ -248,7 +247,7 @@ void generate(IncludeT)(ref ImplData impl, ref CompileCommandFilter compiler_fla
 void generateFuzzyInput(ref ImplData impl, ref GeneratedData gen) {
     import std.range : repeat;
     import std.array : array, appender;
-    import cpptooling.data.representation : unpackParam;
+    import cpptooling.data : unpackParam;
 
     auto d = gen.make(Code.Kind.fuzzy);
 

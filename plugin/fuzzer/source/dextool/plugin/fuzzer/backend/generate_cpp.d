@@ -13,9 +13,8 @@ module dextool.plugin.fuzzer.backend.generate_cpp;
 
 import logger = std.experimental.logger;
 
-import cpptooling.data.type : CppNs, Language;
-import cpptooling.data.representation : CppRoot, CFunction, USRType, CxParam,
-    CppVariable;
+import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable,
+    CppNs, Language;
 import dsrcgen.cpp : CppModule, E, Et;
 
 import dextool.plugin.fuzzer.type : Param, Symbol;
@@ -108,8 +107,8 @@ void generateFuncParamFuzzer(ParamsT)(CFunction f, ParamsT param_limits,
     import std.conv : to, text;
     import std.range : enumerate;
     import std.typecons : Yes, No;
-    import cpptooling.data.representation : getName, unpackParam;
-    import cpptooling.analyzer.type;
+    import cpptooling.data : getName, unpackParam, TypeKind, TypeKindAttr,
+        toStringDecl;
 
     struct Instantiate {
         string name;

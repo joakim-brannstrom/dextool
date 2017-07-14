@@ -12,9 +12,9 @@ module dextool.plugin.cpptestdouble.backend.visitor;
 import logger = std.experimental.logger;
 
 import cpptooling.analyzer.clang.ast : Visitor;
-import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, USRType;
-import cpptooling.data.type : LocationTag, Location;
+import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
+    CFunction, CppNamespace, LocationTag, Location;
+import cpptooling.data.symbol : USRType;
 
 import dextool.plugin.cpptestdouble.backend.interface_;
 
@@ -52,10 +52,9 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
-    import cpptooling.data.representation : CppRoot, CxGlobalVariable;
-    import cpptooling.data.type : CppNsStack, CxReturnType, CppNs,
-        TypeKindVariable;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
+        CxReturnType, CppNs, TypeKindVariable;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;

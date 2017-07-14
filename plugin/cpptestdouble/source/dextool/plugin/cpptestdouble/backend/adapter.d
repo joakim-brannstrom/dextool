@@ -12,12 +12,11 @@ import dsrcgen.cpp : CppModule;
 
 import dextool.type : MainNs, MainInterface;
 import cpptooling.analyzer.type;
-import cpptooling.data.representation : CppClass, CppNamespace, CppClassName,
-    CppMethodName;
-import cpptooling.data.type : USRType;
+import cpptooling.data : CppClass, CppNamespace, CppClassName, CppMethodName,
+    USRType;
 
+// dfmt off
 @safe:
-
 private struct BuildAdapter {
     BuildAdapter makeTestDouble(bool value) {
         this.hasTestDouble = value;
@@ -30,7 +29,7 @@ private struct BuildAdapter {
     }
 
     CppClass finalize() {
-        import cpptooling.data.representation;
+        import cpptooling.data;
         import cpptooling.analyzer.type_format : SimpleFmt, TypeId, PtrFmt;
 
         auto c = CppClass(className);
@@ -72,6 +71,7 @@ private:
     bool hasTestDouble;
     bool hasGlobalInitializer;
 }
+// dfmt on
 
 /// Make a C++ adapter for an interface.
 BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
@@ -83,8 +83,7 @@ BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
 /// make an anonymous namespace containing a ptr to an instance of a test
 /// double that implement the interface needed.
 CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
-    import cpptooling.data.representation : CppVariable, CxGlobalVariable,
-        makeUniqueUSR;
+    import cpptooling.data : CppVariable, CxGlobalVariable, makeUniqueUSR;
     import cpptooling.analyzer.type_format : TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
@@ -106,17 +105,12 @@ CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
  */
 void generateImpl(CppClass c, CppModule impl) {
     import std.variant : visit;
-    import cpptooling.data.representation;
+    import cpptooling.data;
     import dsrcgen.c : E;
 
     // C'tor is expected to have N params.
     // One of them must be named inst.
     static void genCtor(const ref CppClass c, const ref CppCtor m, CppModule impl) {
-        import dsrcgen.cpp;
-        import cpptooling.data.representation;
-        import cpptooling.analyzer.type : TypeKind;
-
-        // THIS will not work. only taking the first param.
         // dfmt off
         TypeKindVariable p0 = () @trusted {
             import std.array;
