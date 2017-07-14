@@ -1,0 +1,17 @@
+#ifndef test_double_inherit_derivedvirtual_gmock_hpp
+#define test_double_inherit_derivedvirtual_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace inherit {
+namespace TestDouble {
+class MockDerivedVirtual : public ::inherit::DerivedVirtual {
+public:
+    virtual ~MockDerivedVirtual() {}
+
+    MOCK_METHOD0(derived_func, void());
+};
+} //NS:TestDouble
+
+} //NS:inherit
+#endif // test_double_inherit_derivedvirtual_gmock_hpp

@@ -1,0 +1,32 @@
+#ifndef test_double_ns_using_scope_ns_using_inner_testdouble_i_testdouble_gmock_hpp
+#define test_double_ns_using_scope_ns_using_inner_testdouble_i_testdouble_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace ns_using_scope {
+namespace ns_using_inner {
+namespace TestDouble {
+class MockI_TestDouble : public ::ns_using_scope::ns_using_inner::TestDouble::I_TestDouble {
+public:
+    virtual ~MockI_TestDouble() {}
+
+    MOCK_METHOD1(enum_named_arg, void(Scope::Inner::Enum e0));
+    MOCK_METHOD1(enum_ptr_arg, void(Scope::Inner::Enum *e0));
+    MOCK_METHOD0(enum_ptr_rval, Scope::Inner::Enum *());
+    MOCK_METHOD1(enum_ref_arg, void(Scope::Inner::Enum &e0));
+    MOCK_METHOD0(enum_ref_rval, Scope::Inner::Enum &());
+    MOCK_METHOD0(enum_rval, Scope::Inner::Enum());
+    MOCK_METHOD1(enum_unnamed_arg, void(Scope::Inner::Enum x0));
+    MOCK_METHOD1(struct_one_named_arg, void(Scope::Inner::Struct e0));
+    MOCK_METHOD1(struct_ptr_arg, void(Scope::Inner::Struct *e0));
+    MOCK_METHOD0(struct_ptr_rval, Scope::Inner::Struct *());
+    MOCK_METHOD1(struct_ref_arg, void(Scope::Inner::Struct &e0));
+    MOCK_METHOD0(struct_ref_rval, Scope::Inner::Struct &());
+    MOCK_METHOD0(struct_rval, Scope::Inner::Struct());
+    MOCK_METHOD1(struct_unnamed_arg, void(Scope::Inner::Struct x0));
+};
+} //NS:TestDouble
+
+} //NS:ns_using_inner
+} //NS:ns_using_scope
+#endif // test_double_ns_using_scope_ns_using_inner_testdouble_i_testdouble_gmock_hpp

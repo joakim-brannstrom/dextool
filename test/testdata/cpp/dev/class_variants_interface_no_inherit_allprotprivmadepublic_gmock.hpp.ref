@@ -1,0 +1,19 @@
+#ifndef test_double_no_inherit_allprotprivmadepublic_gmock_hpp
+#define test_double_no_inherit_allprotprivmadepublic_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace no_inherit {
+namespace TestDouble {
+class MockAllProtPrivMadePublic : public ::no_inherit::AllProtPrivMadePublic {
+public:
+    virtual ~MockAllProtPrivMadePublic() {}
+
+    MOCK_METHOD0(a_private, void());
+    MOCK_METHOD0(a_protected, void());
+};
+} //NS:TestDouble
+
+} //NS:no_inherit
+
+#endif // test_double_no_inherit_allprotprivmadepublic_gmock_hpp

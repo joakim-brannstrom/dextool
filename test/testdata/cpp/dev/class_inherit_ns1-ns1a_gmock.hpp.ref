@@ -1,0 +1,17 @@
+#ifndef test_double_ns1_ns1a_gmock_hpp
+#define test_double_ns1_ns1a_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace ns1 {
+namespace TestDouble {
+class MockNs1A : public ::ns1::Ns1A {
+public:
+    virtual ~MockNs1A() {}
+
+    MOCK_METHOD0(a, void());
+};
+} //NS:TestDouble
+
+} //NS:ns1
+#endif // test_double_ns1_ns1a_gmock_hpp

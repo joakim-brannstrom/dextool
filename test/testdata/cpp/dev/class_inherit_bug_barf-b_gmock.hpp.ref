@@ -1,0 +1,17 @@
+#ifndef test_double_barf_b_gmock_hpp
+#define test_double_barf_b_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace barf {
+namespace TestDouble {
+class MockB : public ::barf::B {
+public:
+    virtual ~MockB() {}
+
+    MOCK_METHOD1(a, void(bool x0));
+};
+} //NS:TestDouble
+
+} //NS:barf
+#endif // test_double_barf_b_gmock_hpp

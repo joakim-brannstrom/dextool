@@ -8,6 +8,7 @@ module dextool_test.integration;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
+import unit_threaded : shouldEqual;
 import dextool_test.utils;
 
 enum globalTestdir = "cpp_tests";
@@ -21,7 +22,9 @@ struct TestParams {
     Path out_hdr;
     Path out_impl;
     Path out_global;
-    Path out_gmock;
+
+    Path[] ref_gmock;
+    Path[] out_gmock;
 
     // dextool parameters;
     string[] dexParams;
@@ -44,7 +47,6 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.out_hdr = testEnv.outdir ~ "test_double.hpp";
     p.out_impl = testEnv.outdir ~ "test_double.cpp";
     p.out_global = testEnv.outdir ~ "test_double_global.cpp";
-    p.out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "cpptestdouble", "--debug", "--gmock"];
     p.dexFlags = [];
@@ -54,6 +56,17 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 
     p.mainf = p.root ~ Path("main_dev.cpp");
     p.binary = p.root ~ testEnv.outdir ~ "binary";
+
+    return p;
+}
+
+TestParams genTestParams(string f, string[] mocks, const ref TestEnv testEnv) {
+    auto p = genTestParams(f, testEnv);
+
+    foreach (a; mocks) {
+        p.ref_gmock ~= p.root ~ (format("%s_%s_gmock.hpp.ref", f.stripExtension, a));
+        p.out_gmock ~= testEnv.outdir ~ format("test_double_%s_gmock.hpp", a);
+    }
 
     return p;
 }
@@ -74,9 +87,11 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         compareResult(sortLines, skipComments,
                       GR(input ~ Ext(".hpp.ref"), p.out_hdr),
                       GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                      GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global),
-                      GR(Path(input.toString ~ "_gmock.hpp.ref"), p.out_gmock));
+                      GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global));
         // dfmt on
+        foreach (a, b; lockstep(p.ref_gmock, p.out_gmock)) {
+            compareResult(sortLines, skipComments, GR(a, b));
+        }
     }
 
     if (!p.skipCompile) {
@@ -118,7 +133,7 @@ unittest {
 @(testId ~ "Should be a google mock with a constant member method")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_const.hpp", testEnv);
+    auto p = genTestParams("dev/class_const.hpp", ["simple"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -126,16 +141,20 @@ unittest {
 @(testId ~ "Should be gmocks that correctly implemented classes that inherit")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_inherit.hpp", testEnv);
+    auto p = genTestParams("dev/class_inherit.hpp", ["a", "dup", "dupa",
+            "ns1-ns2-ns2b", "ns1-ns2-ns2b", "ns1-ns1a", "virta", "virtb", "virtc"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
+    // no free functions in the input so this file shall NOT be created.
+    exists(testEnv.outdir ~ "test_double.cpp").shouldEqual(false);
 }
 
 @(testId
         ~ "Shall be gmocks without duplicated methods resulting in compilation error when multiple inheritance is used")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_inherit_bug.hpp", testEnv);
+    auto p = genTestParams("dev/class_inherit_bug.hpp", ["barf-a", "barf-b",
+            "barf-interface-i1"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -143,7 +162,7 @@ unittest {
 @(testId ~ "Should be gmock with member methods and operators")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_interface.hpp", testEnv);
+    auto p = genTestParams("dev/class_interface.hpp", ["interface"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -151,7 +170,7 @@ unittest {
 @(testId ~ "Should be a gmock with more than 10 parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_interface_more_than_10_params.hpp", testEnv);
+    auto p = genTestParams("dev/class_interface_more_than_10_params.hpp", ["simple"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -159,7 +178,8 @@ unittest {
 @(testId ~ "Should be a gmock impl for each class")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_multiple.hpp", testEnv);
+    auto p = genTestParams("dev/class_multiple.hpp", ["global1", "global2",
+            "global3", "ns-ns2-insidens2", "ns-insidens1"], testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -169,7 +189,13 @@ unittest {
     //TODO split input in many tests.
 
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_variants_interface.hpp", testEnv);
+    auto p = genTestParams("dev/class_variants_interface.hpp",
+            ["inherit-derivedvirtual", "no_inherit-allprotprivmadepublic",
+            "no_inherit-commonpatternforpureinterface1",
+            "no_inherit-commonpatternforpureinterface2",
+            "no_inherit-ctornotaffectingvirtualclassificationaspure",
+            "no_inherit-ctornotaffectingvirtualclassificationasyes", "no_inherit-virtualwithdtor"],
+            testEnv);
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
 }
@@ -209,10 +235,11 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@(testId ~ "Should only generate impl for those functions in ns")
+@(testId ~ "Should generate test doubles for free functions in namespaces")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/functions_in_ns.hpp", testEnv);
+    auto p = genTestParams("dev/functions_in_ns.hpp", ["ns-testdouble-i_testdouble",
+            "ns_using_scope-ns_using_inner-testdouble-i_testdouble"], testEnv);
     p.dexParams ~= ["--free-func"];
     p.compileFlags ~= ["-DTEST_INCLUDE"];
     runTestFile(p, testEnv);
@@ -272,7 +299,7 @@ unittest {
 @(testId ~ "Should be a gmock of the class that is NOT forward declared")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_forward_decl.hpp", testEnv);
+    auto p = genTestParams("dev/class_forward_decl.hpp", ["normal"], testEnv);
     p.skipCompile = Yes.skipCompile;
     runTestFile(p, testEnv);
 }
@@ -321,7 +348,7 @@ unittest {
 @(testId ~ "Should be a custom header via CLI as string")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
+    auto p = genTestParams("dev/param_custom_header.hpp", ["testdouble-i_testdouble"], testEnv);
     p.dexParams ~= ["--free-func", "--header=// user $file$\n// header $file$"];
 
     p.skipCompile = Yes.skipCompile;
@@ -331,7 +358,7 @@ unittest {
 @(testId ~ "Should be a custom header via CLI as filename")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_custom_header.hpp", testEnv);
+    auto p = genTestParams("dev/param_custom_header.hpp", ["testdouble-i_testdouble"], testEnv);
     p.dexParams ~= ["--free-func",
         "--header-file=" ~ (p.root ~ "dev/param_custom_header.txt").toString];
 

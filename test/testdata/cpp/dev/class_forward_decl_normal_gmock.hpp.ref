@@ -1,5 +1,5 @@
-#ifndef test_double_gmock_hpp
-#define test_double_gmock_hpp
+#ifndef test_double_normal_gmock_hpp
+#define test_double_normal_gmock_hpp
 #include "test_double.hpp"
 #include "gmock/gmock.h"
 
@@ -12,4 +12,4 @@ public:
 };
 } //NS:TestDouble
 
-#endif // test_double_gmock_hpp
+#endif // test_double_normal_gmock_hpp

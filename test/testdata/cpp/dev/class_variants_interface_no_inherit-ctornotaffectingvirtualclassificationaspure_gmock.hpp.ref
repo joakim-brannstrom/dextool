@@ -1,0 +1,18 @@
+#ifndef test_double_no_inherit_ctornotaffectingvirtualclassificationaspure_gmock_hpp
+#define test_double_no_inherit_ctornotaffectingvirtualclassificationaspure_gmock_hpp
+#include "test_double.hpp"
+#include "gmock/gmock.h"
+
+namespace no_inherit {
+namespace TestDouble {
+class MockCtorNotAffectingVirtualClassificationAsPure : public ::no_inherit::CtorNotAffectingVirtualClassificationAsPure {
+public:
+    virtual ~MockCtorNotAffectingVirtualClassificationAsPure() {}
+
+    MOCK_METHOD0(foo, void());
+};
+} //NS:TestDouble
+
+} //NS:no_inherit
+
+#endif // test_double_no_inherit_ctornotaffectingvirtualclassificationaspure_gmock_hpp
