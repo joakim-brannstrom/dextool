@@ -20,7 +20,7 @@ import dextool.type;
 
 import dextool.plugin.types;
 import dextool.plugin.backend.plantuml : Controller, Parameters, Products;
-import cpptooling.data.representation : CppRoot, CppNamespace, CppClass;
+import cpptooling.data : CppRoot, CppNamespace, CppClass;
 
 struct RawConfiguration {
     string[] cflags;
@@ -361,9 +361,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
 struct Lookup {
     import cpptooling.analyzer.kind : TypeKind;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.symbol.types : USRType;
-    import cpptooling.data.type : Location, LocationTag;
+    import cpptooling.data.symbol : Container, USRType;
+    import cpptooling.data : Location, LocationTag;
 
     private Container* container;
 
@@ -383,8 +382,8 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
-    import cpptooling.data.representation : CppRoot;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CppRoot;
+    import cpptooling.data.symbol : Container;
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;

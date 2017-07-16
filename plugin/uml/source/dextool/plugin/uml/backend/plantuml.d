@@ -775,8 +775,8 @@ a -Relate- [1]b
  * concrete files.
  */
 struct Generator {
-    import cpptooling.data.representation : CppRoot;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CppRoot;
+    import cpptooling.data.symbol : Container;
 
     private static struct Modules {
         private static void postInit(ref typeof(this) m) {
@@ -1023,13 +1023,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
         analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-    import cpptooling.data.type : MemberVirtualType;
-    import cpptooling.data.representation : CppNsStack, CppNs, AccessType,
-        CppAccess;
+    import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess,
+        MemberVirtualType;
 
     import cpptooling.data.class_classification : ClassificationState = State;
-    import cpptooling.data.class_classification : classifyClass;
-    import cpptooling.data.class_classification : MethodKind;
+    import cpptooling.data.class_classification : classifyClass, MethodKind;
 
     alias visit = Visitor.visit;
 
@@ -1105,7 +1103,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         debug {
             import std.algorithm : each;
             import std.range : retro;
-            import cpptooling.data.representation : CppInherit;
+            import cpptooling.data : CppInherit;
 
             auto inherit = CppInherit(result.name, result.access);
             retro(result.reverseScope).each!(a => inherit.put(a));
@@ -1154,7 +1152,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         debug {
             import cpptooling.data.type : CppConstMethod;
-            import cpptooling.data.representation : CppMethod;
+            import cpptooling.data : CppMethod;
 
             auto method = CppMethod(result.type.kind.usr, result.name, result.params,
                     result.returnType, access, CppConstMethod(result.isConst), result.virtualKind);
@@ -1197,7 +1195,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-    import cpptooling.data.representation : CppNsStack, CppNs;
+    import cpptooling.data : CppNsStack, CppNs;
 
     alias visit = Visitor.visit;
 
@@ -1366,8 +1364,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         import std.traits : ReturnType;
         import std.range : chain, only;
 
-        import cpptooling.data.type : CppConstMethod;
-        import cpptooling.data.representation : CppMethod;
+        import cpptooling.data : CppMethod, CppConstMethod;
 
         ReturnType!makeClassKey src_key;
 
@@ -1402,7 +1399,8 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
-        import cpptooling.data.representation : CppCtor;
+
+        import cpptooling.data : CppCtor;
 
         ReturnType!makeClassKey src_key;
 
@@ -1431,7 +1429,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     }
 
     void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess access) {
-        import cpptooling.data.representation : CppDtor;
+        import cpptooling.data : CppDtor;
 
         if (genClassMethod) {
             auto key = makeClassKey(src.kind.usr);
@@ -1523,8 +1521,8 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         CXXMethodResult, ConstructorResult, DestructorResult, RecordResult,
         FieldDeclResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.type : CppAccess, CxReturnType;
+    import cpptooling.data.symbol : Container;
+    import cpptooling.data : CppAccess, CxReturnType;
 
     invariant {
         assert(diagram !is null);
@@ -1882,9 +1880,8 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
 private: // ******************************************************************
 
 import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CppNamespace, CFunction, CxGlobalVariable;
-import cpptooling.data.type : LocationTag, Location;
-import cpptooling.data.symbol.container : Container;
+    CppDtor, CppNamespace, CFunction, CxGlobalVariable, LocationTag, Location;
+import cpptooling.data.symbol : Container;
 import dsrcgen.plantuml;
 
 struct KeyValue {
@@ -1961,7 +1958,7 @@ UMLClassDiagram.Key makeClassKey(in USRType key) @trusted {
 private auto unpackParam(CxParam p) @trusted {
     import std.range : only, dropOne;
     import std.variant : visit;
-    import cpptooling.data.representation : TypeKindVariable, VariadicType;
+    import cpptooling.data : TypeKindVariable, VariadicType;
 
     // dfmt off
     return p.visit!(

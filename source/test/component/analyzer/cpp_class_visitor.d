@@ -23,7 +23,7 @@ import cpptooling.analyzer.clang.analyze_helper;
 import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol : Container;
 import cpptooling.data.representation;
 import cpptooling.data.type : TypeKindVariable, VariadicType, Location,
     CppNsStack;

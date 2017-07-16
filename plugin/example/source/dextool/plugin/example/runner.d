@@ -143,7 +143,7 @@ override void visit(const WhileStmt) {...}
 */
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.cpp;
 
@@ -181,7 +181,7 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.analyze_helper;
         import cpptooling.analyzer.type;
-        import cpptooling.data.representation;
+        import cpptooling.data;
 
         // the purpose of dsrcgen is to get a semens of semantic equivalence
         // between the statements and expressions in D and the then resulting

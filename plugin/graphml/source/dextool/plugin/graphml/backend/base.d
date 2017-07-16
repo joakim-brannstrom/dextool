@@ -21,9 +21,8 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.analyzer.kind : resolveCanonicalType, resolvePointeeType;
 import cpptooling.analyzer.type : TypeKindAttr, TypeKind, TypeAttr,
     toStringDecl;
-import cpptooling.data.symbol.container : Container;
-import cpptooling.data.type : CppAccess, LocationTag, Location, USRType,
-    AccessType;
+import cpptooling.data.symbol : Container;
+import cpptooling.data : CppAccess, LocationTag, Location, USRType, AccessType;
 
 import dextool.plugin.backend.graphml.xml;
 
@@ -71,10 +70,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
-    import cpptooling.data.representation : CppRoot, CppNs, CFunction,
-        CxReturnType;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.type : LocationTag, Location;
+    import cpptooling.data : CppRoot, CppNs, CFunction, CxReturnType,
+        LocationTag, Location;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
@@ -312,9 +310,8 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
         analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
         analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
-    import cpptooling.data.type : MemberVirtualType;
-    import cpptooling.data.representation : CppNsStack, CppNs, AccessType,
-        CppAccess, CppDtor, CppCtor, CppMethod, CppClassName;
+    import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess, CppDtor,
+        CppCtor, CppMethod, CppClassName, MemberVirtualType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     import cpptooling.data.class_classification : ClassificationState = State;
@@ -493,8 +490,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(CXXMethod) v) {
         mixin(mixinNodeLog!());
-        import cpptooling.data.type : CppConstMethod;
-        import cpptooling.data.representation : CppMethod;
+        import cpptooling.data : CppMethod, CppConstMethod;
 
         auto result = analyzeCXXMethod(v, *container, indent);
         updateClassification(MethodKind.Method, cast(MemberVirtualType) result.virtualKind);
@@ -818,7 +814,7 @@ private final class RefVisitor : Visitor {
 
 private T toInternal(T, S)(S value) @safe pure nothrow @nogc 
         if (isSomeString!T && (is(S == CppAccess) || is(S == AccessType))) {
-    import cpptooling.data.representation : AccessType;
+    import cpptooling.data : AccessType;
 
     final switch (value) {
     case AccessType.Private:
@@ -1178,7 +1174,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     void put(ref const(FunctionDeclResult) result) {
         import std.algorithm : map, filter, joiner;
         import std.range : only, chain;
-        import cpptooling.data.representation : unpackParam;
+        import cpptooling.data : unpackParam;
 
         auto src = result.type;
 
@@ -1257,7 +1253,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     /// Create relations to the parameters of a constructor.
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
         import std.algorithm : map, filter, joiner;
-        import cpptooling.data.representation : unpackParam;
+        import cpptooling.data : unpackParam;
 
         // TODO this should not be needed. Fix caller of this function.
         addFallbackNodes(streamed_nodes, node_cache, [src]);
@@ -1286,7 +1282,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
         import std.algorithm : map, filter, joiner;
         import std.range : only, chain;
-        import cpptooling.data.representation : unpackParam;
+        import cpptooling.data : unpackParam;
 
         // TODO this should not be needed. Fix caller of this function.
         addFallbackNodes(streamed_nodes, node_cache, [src]);

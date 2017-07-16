@@ -18,7 +18,7 @@ import dextool.type : StubPrefix;
 struct Backend {
     import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
     import dextool.type : ExitStatusType, AbsolutePath;
 
     ///
@@ -35,7 +35,7 @@ struct Backend {
     ExitStatusType analyzeFile(const AbsolutePath abs_in_file, const string[] use_cflags) {
         import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
-        import cpptooling.data.representation : MergeMode;
+        import cpptooling.data : MergeMode;
 
         NullableRef!Container cont_ = &container;
         auto visitor = new TUVisitor(cont_);
@@ -89,9 +89,8 @@ private:
 
 @safe:
 
-import cpptooling.data.representation : CppRoot, CFunction, USRType;
-import cpptooling.data.type : LocationTag, Location;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : CppRoot, CFunction, LocationTag, Location;
+import cpptooling.data.symbol : Container, USRType;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 import dsrcgen.sh : ShModule, ShScriptModule;
@@ -118,7 +117,7 @@ AnalyzeData rawFilter(LookupT)(AnalyzeData input, Controller ctrl, Products prod
     import std.algorithm : each, filter;
     import std.range : tee;
     import dextool.type : FileName;
-    import cpptooling.data.representation : StorageClass;
+    import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.testdouble.header_filter : LocationType;
 
@@ -211,8 +210,8 @@ void generate(ref ImplData impl, ref GeneratedData gen, Parameters params,
 }
 
 void generateInterceptFunc(CFunction f, CppModule code, StubPrefix prefix) {
-    import cpptooling.data.representation : joinParams, joinParamNames;
-    import cpptooling.analyzer.type : toStringDecl;
+    import cpptooling.data : joinParams, joinParamNames;
+    import cpptooling.analyzer : toStringDecl;
     import dsrcgen.c : E;
 
     // assuming that a function declaration void a() in C is meant to be void
@@ -237,8 +236,8 @@ void generateInterceptFunc(CFunction f, CppModule code, StubPrefix prefix) {
 }
 
 void generateInterceptFuncDecl(CFunction f, CppModule code, StubPrefix prefix) {
-    import cpptooling.analyzer.type : toStringDecl;
-    import cpptooling.data.representation : joinParams;
+    import cpptooling.analyzer : toStringDecl;
+    import cpptooling.data : joinParams;
     import dsrcgen.c : E;
 
     // assuming that a function declaration void a() in C is meant to be void

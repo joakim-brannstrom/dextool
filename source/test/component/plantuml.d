@@ -21,7 +21,7 @@ import cpptooling.analyzer.kind : TypeKind;
 import cpptooling.analyzer.type : USRType;
 import cpptooling.analyzer.clang.ast : ClangAST;
 import cpptooling.analyzer.clang.context;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data.symbol : Container;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
 import dextool.plugin.frontend.plantuml : Lookup;
 import dextool.plugin.backend.plantuml;

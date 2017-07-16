@@ -15,7 +15,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
     CustomHeader, MainNs, MainInterface;
-import cpptooling.data.symbol.container;
+import cpptooling.data.symbol;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
 
@@ -142,7 +142,7 @@ import cpptooling.testdouble.header_filter : LocationType;
 /** Generator of test doubles for C code.
  */
 struct Generator {
-    import cpptooling.data.representation : CppRoot;
+    import cpptooling.data : CppRoot;
 
     private static struct Modules {
         import dextool.plugin.utility : MakerInitializingClassMembers;
@@ -267,8 +267,8 @@ final class CVisitor : Visitor {
         TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
-    import cpptooling.data.representation : CppRoot;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CppRoot;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
@@ -293,7 +293,7 @@ final class CVisitor : Visitor {
     }
 
     override void visit(const(VarDecl) v) @trusted {
-        import cpptooling.data.type : TypeKindVariable;
+        import cpptooling.data : TypeKindVariable;
         import deimos.clang.index : CX_StorageClass;
 
         mixin(mixinNodeLog!());
@@ -366,9 +366,8 @@ final class CVisitor : Visitor {
 private:
 @safe:
 
-import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, CxGlobalVariable, USRType;
-import cpptooling.data.type : LocationTag, Location;
+import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
+    CFunction, CppNamespace, CxGlobalVariable, USRType, LocationTag, Location;
 import dsrcgen.cpp : E, noIndent;
 
 /** Contain data for code generation.
@@ -447,7 +446,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         ref CppRoot filtered, LookupT lookup) {
     import std.algorithm : filter, each;
     import std.range : tee;
-    import cpptooling.data.representation : StorageClass;
+    import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
 
     // dfmt off
@@ -486,9 +485,8 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         const ref Container container) {
     import std.algorithm : filter;
     import std.array : array;
-    import cpptooling.data.representation : CppNamespace, CppNs, CppClassName,
-        CppInherit, CppAccess, AccessType, makeUniqueUSR, nextUniqueID,
-        MergeMode;
+    import cpptooling.data : CppNamespace, CppNs, CppClassName, CppInherit,
+        CppAccess, AccessType, makeUniqueUSR, nextUniqueID, MergeMode;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
     import dextool.plugin.ctestdouble.backend.adapter : makeSingleton,

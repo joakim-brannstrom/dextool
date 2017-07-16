@@ -25,7 +25,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import dextool.type : AbsolutePath, CustomHeader, DextoolVersion, FileName,
     MainInterface, MainNs, WriteStrategy;
-import cpptooling.data.representation : CppNsStack;
+import cpptooling.data : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
 import dextool.plugin.cpptestdouble.backend.generate_cpp : generate;
@@ -44,8 +44,8 @@ import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
 struct Backend {
     import std.typecons : Nullable;
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.representation : CppRoot;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data : CppRoot;
+    import cpptooling.data.symbol : Container;
     import dextool.type : ExitStatusType;
 
     ///
@@ -61,7 +61,7 @@ struct Backend {
     ExitStatusType analyzeFile(const AbsolutePath abs_in_file, const string[] use_cflags) {
         import std.typecons : NullableRef, scoped;
         import dextool.utility : analyzeFile;
-        import cpptooling.data.representation : MergeMode;
+        import cpptooling.data : MergeMode;
 
         NullableRef!Container cont_ = &container;
         NullableRef!AnalyzeData analyz = &analyze.get();
@@ -135,10 +135,9 @@ private:
 
 @safe:
 
-import cpptooling.data.representation : CppRoot, CppClass, CppMethod, CppCtor,
-    CppDtor, CFunction, CppNamespace, USRType;
-import cpptooling.data.type : LocationTag, Location;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
+    CFunction, CppNamespace, LocationTag, Location;
+import cpptooling.data.symbol : Container, USRType;
 import dsrcgen.cpp : E;
 
 /** Filter the raw IR according to the users desire.
@@ -155,7 +154,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
     import dextool.type : FileName;
-    import cpptooling.data.representation : StorageClass;
+    import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
 
     // setup
@@ -245,7 +244,7 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     import cpptooling.data.type : CppNsStack, CppNs;
 
     static auto makeGmockInNs(CppClass c, CppNsStack ns_hier, ref ImplData data) {
-        import cpptooling.data.representation : CppNs;
+        import cpptooling.data : CppNs;
         import cpptooling.generator.gmock : makeGmock;
 
         auto ns = CppNamespace(ns_hier);
@@ -287,7 +286,7 @@ void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplDat
     import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
         makeSingleton;
-    import cpptooling.data.representation : CppNs, CppClassName;
+    import cpptooling.data : CppNs, CppClassName;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
 
@@ -329,8 +328,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref Imp
 
     static bool isMethodOrOperator(T)(T method) @trusted {
         import std.variant : visit;
-        import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor,
-            CppDtor;
+        import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
         // dfmt off
         return method.visit!((const CppMethod a) => true,
@@ -368,12 +366,11 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref Imp
         import std.array : array;
         import std.algorithm : makeIndex, uniq, map, sort;
         import cpptooling.utility.dedup : dedup;
-        import cpptooling.data.representation : funcToString;
+        import cpptooling.data : funcToString;
 
         static auto getUniqeId(T)(ref T method) {
             import std.variant : visit;
-            import cpptooling.data.representation : CppMethod, CppMethodOp,
-                CppCtor, CppDtor;
+            import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
             // dfmt off
             return method.visit!((CppMethod a) => a.id,

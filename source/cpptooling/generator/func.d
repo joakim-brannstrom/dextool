@@ -12,17 +12,15 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import dextool.type : MainInterface;
-import cpptooling.data.representation : CFunction, CppClass, CppClassName,
-    CppNsStack;
-import cpptooling.data.symbol.types : USRType;
+import cpptooling.data : CFunction, CppClass, CppClassName, CppNsStack;
 
 @safe:
 
 /// Generates a C implementation calling the test double via the matching
 /// interface.
 void generateFuncImpl(CFunction f, CppModule impl) {
-    import cpptooling.data.representation : joinParams, joinParamNames;
-    import cpptooling.analyzer.type : toStringDecl;
+    import cpptooling.data : joinParams, joinParamNames;
+    import cpptooling.analyzer : toStringDecl;
     import dsrcgen.c : E;
 
     // assuming that a function declaration void a() in C is meant to be void

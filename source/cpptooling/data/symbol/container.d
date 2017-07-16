@@ -385,7 +385,7 @@ unittest {
 @("given a list of items they shall all be included in the output")
 unittest {
     import std.conv : to;
-    import cpptooling.data.representation : CppClass, CppClassName;
+    import cpptooling.data : CppClass, CppClassName;
     import cpptooling.data.type : Location;
     import test.extra_should : shouldEqualPretty;
 

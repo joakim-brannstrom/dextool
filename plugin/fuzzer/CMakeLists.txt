@@ -45,6 +45,8 @@ set_target_properties(dextoolfuzz_g PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
     )
 
+install(TARGETS dextoolfuzz dextoolfuzz_g ARCHIVE DESTINATION lib)
+
 setup_integration_testing_env()
 compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_scriptlike;dextool_dextool_test")
 

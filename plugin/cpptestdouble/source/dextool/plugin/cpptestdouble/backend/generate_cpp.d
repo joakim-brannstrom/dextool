@@ -9,9 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.cpptestdouble.backend.generate_cpp;
 
-import cpptooling.data.representation : CppNamespace;
-import cpptooling.data.type : LocationTag, CppNs, CppClassName;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : CppNamespace, LocationTag, CppNs, CppClassName;
+import cpptooling.data.symbol : Container;
 
 import dsrcgen.cpp : CppModule, noIndent;
 

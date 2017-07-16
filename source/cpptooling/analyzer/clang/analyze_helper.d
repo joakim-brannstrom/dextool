@@ -31,12 +31,11 @@ import cpptooling.analyzer.clang.ast : ClassTemplate,
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.store : put;
-import cpptooling.data.type : AccessType, VariadicType, CxParam,
-    TypeKindVariable, CppVariable, LocationTag, Location, CxReturnType,
-    CppVirtualMethod, CppMethodName, CppClassName, CppNs, USRType, CppAccess,
-    StorageClass, CFunctionName, Language;
-import cpptooling.data.representation : CFunction, CxGlobalVariable;
-import cpptooling.data.symbol.container : Container;
+import cpptooling.data : AccessType, VariadicType, CxParam, TypeKindVariable,
+    CppVariable, LocationTag, Location, CxReturnType, CppVirtualMethod,
+    CppMethodName, CppClassName, CppNs, CppAccess, StorageClass, CFunctionName,
+    Language, CFunction, CxGlobalVariable;
+import cpptooling.data.symbol : Container, USRType;
 
 /// Convert Cursor attributes to enum representation.
 private CppVirtualMethod classify(T)(T c) @safe if (is(Unqual!T == Cursor)) {
@@ -196,10 +195,9 @@ body {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : TypeKind, retrieveType,
         logTypeResult;
-    import cpptooling.data.type : TypeResult, TypeKindAttr;
-    import cpptooling.data.representation : CxParam, CFunctionName,
+    import cpptooling.data : TypeResult, TypeKindAttr, CxParam, CFunctionName,
         CxReturnType, CFunction, VariadicType, LocationTag, StorageClass;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
 
     // hint, start reading the function from the bottom up.
     // design is pipe and data transformation
@@ -323,7 +321,7 @@ in {
 body {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : retrieveType;
-    import cpptooling.data.representation : CppVariable;
+    import cpptooling.data : CppVariable;
 
     auto type = () @trusted{ return retrieveType(v, container, indent); }();
     put(type, container, indent);
@@ -540,9 +538,8 @@ auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, 
 final class ClassVisitor : Visitor {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.ast;
-    import cpptooling.data.representation;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.symbol.types : USRType;
+    import cpptooling.data;
+    import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
@@ -609,7 +606,7 @@ final class ClassVisitor : Visitor {
     }
 
     override void visit(const(CXXMethod) v) @trusted {
-        import cpptooling.data.representation : CppMethodOp;
+        import cpptooling.data : CppMethodOp;
 
         mixin(mixinNodeLog!());
 
@@ -637,7 +634,7 @@ final class ClassVisitor : Visitor {
     }
 
     override void visit(const(FieldDecl) v) @trusted {
-        import cpptooling.data.representation : TypeKindVariable;
+        import cpptooling.data : TypeKindVariable;
 
         mixin(mixinNodeLog!());
 

@@ -213,9 +213,8 @@ unittest {
 
 struct Lookup {
     import cpptooling.analyzer.kind : TypeKind;
-    import cpptooling.data.symbol.container : Container;
-    import cpptooling.data.symbol.types : USRType;
-    import cpptooling.data.type : Location, LocationTag;
+    import cpptooling.data.symbol : Container, USRType;
+    import cpptooling.data : Location, LocationTag;
 
     private Container* container;
 
@@ -240,7 +239,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
     import std.typecons : TypedefType, Yes, NullableRef;
 
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.data.symbol.container : Container;
+    import cpptooling.data.symbol : Container;
     import cpptooling.utility.virtualfilesystem : vfsFileName = FileName,
         vfsMode = Mode;
     import dextool.plugin.backend.graphml : GraphMLAnalyzer,
