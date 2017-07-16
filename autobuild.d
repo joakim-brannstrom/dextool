@@ -43,8 +43,9 @@ auto sourcePath() {
     return only(
                 "clang",
                 "dsrcgen/source",
+                "llvm_hiwrap/source",
                 "plugin",
-                "source"
+                "source",
                )
         .map!(a => thisExePath.dirName ~ a)
         .map!(a => a.toString)
@@ -710,6 +711,8 @@ int main(string[] args) {
                               "llvm-d",
                               "dub.sdl",
                               "dsrcgen/source",
+                              "llvm-d",
+                              "llvm",
                               "test/testdata",
                               "unit-threaded",
                               "test/source"
