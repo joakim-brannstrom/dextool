@@ -108,6 +108,7 @@ include(dextool_libclang.cmake)
 
 # TODO wrap in an if-statement that libLLVM is detected
 include(dextool_llvm_d.cmake)
+include(dextool_llvm_hiwrap.cmake)
 
 if(BUILD_TEST)
     include(dextool_devtool.cmake)

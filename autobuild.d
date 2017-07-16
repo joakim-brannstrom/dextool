@@ -712,7 +712,7 @@ int main(string[] args) {
                               "dub.sdl",
                               "dsrcgen/source",
                               "llvm-d",
-                              "llvm",
+                              "llvm_hiwrap",
                               "test/testdata",
                               "unit-threaded",
                               "test/source"
