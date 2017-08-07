@@ -27,11 +27,7 @@ import cpptooling.analyzer.clang.ast.translationunit;
 import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
 
 version (unittest) {
-    import unit_threaded : Name, shouldEqual, shouldBeTrue;
-} else {
-    private struct Name {
-        string name_;
-    }
+    import unit_threaded : shouldEqual, shouldBeTrue;
 }
 
 /**
@@ -160,7 +156,7 @@ string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     return result;
 }
 
-@Name("Should be a bounch of 'case'")
+@("Should be a bounch of 'case'")
 unittest {
     import std.conv : to;
 
@@ -178,7 +174,7 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 ");
 }
 
-@Name("A name for the test")
+@("A name for the test")
 @safe unittest {
     import cpptooling.analyzer.clang.ast : Visitor;
     import cpptooling.analyzer.clang.ast.nodes;
