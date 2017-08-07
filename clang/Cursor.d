@@ -512,6 +512,21 @@ struct Cursor {
         return clang_isUnexposed(cx.kind) != 0;
     }
 
+    /// Return: if the underlying type is an enum.
+    @property bool isUnderlyingTypeEnum() const @trusted {
+        auto underlying = typedefUnderlyingType;
+        if (!underlying.isValid) {
+            return false;
+        }
+
+        auto decl = underlying.declaration;
+        if (!decl.isValid) {
+            return false;
+        }
+
+        return decl.type.isEnum;
+    }
+
     /// Return: if cursor is null/empty.
     @property bool isEmpty() const @trusted {
         return clang_Cursor_isNull(cx) != 0;
@@ -729,21 +744,6 @@ struct EnumCursor {
      */
     @property ulong unsignedValue() @trusted {
         return clang_getEnumConstantDeclUnsignedValue(cx);
-    }
-
-    /// Return: if the underlying type is an enum.
-    @property bool isUnderlyingTypeEnum() @trusted {
-        auto underlying = typedefUnderlyingType;
-        if (!underlying.isValid) {
-            return false;
-        }
-
-        auto decl = underlying.declaration;
-        if (!decl.isValid) {
-            return false;
-        }
-
-        return decl.enum_.kind == CXTypeKind.CXType_Enum;
     }
 
     /// Return: if the type of the enum is signed.
