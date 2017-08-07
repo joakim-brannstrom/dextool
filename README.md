@@ -63,18 +63,11 @@ Don't be shy to report any issue that you find.
 
 ## Solutions for "Libclang Not Found"
 
-If you have libclang installed in a different location from
-/usr/lib/llvm-3.X/lib it is possible to tell cmake where the library.
+If you have libclang installed in a location such that llvm-config --libdir do not return the path it is possible to force the linker flags.
 
 To supply a new search path use:
 ```sh
-cmake -DUSER_LIBCLANG_SEARCH_PATH=/path/to/directy/where/libclang.so/is ..
-```
-
-If cmake still can't find the library then it is possible to force cmake to use
-the absolute path to _a_ libclang.so.
-```sh
-cmake -DLIBCLANG_LIB_PATH=/path/to/libclang.so ..
+cmake -DLIBCLANG_LDFLAGS="-L-L/path/to/directy/where/libclang.so/is -L--enable-new-dtags -L-rpath=/path/to/directy/where/libclang.so/is -L--no-as-needed -L-l:libclang.so" ..
 ```
 
 # Credit

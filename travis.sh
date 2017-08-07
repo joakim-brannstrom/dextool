@@ -11,16 +11,11 @@ else
     exit 1
 fi
 
-git clone --depth 1 -b binary_clang https://github.com/joakim-brannstrom/dextool.git lib
-
-CLANG_PATH=$ROOT/lib
-export LD_LIBRARY_PATH="$CLANG_PATH"
-
 set -e
 
 mkdir build
 pushd build
-cmake -DLIBCLANG_LIB_PATH=$CLANG_PATH/libclang.so.3.7 -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
 make all -j3
 make check -j3
 make check_integration -j3
@@ -42,7 +37,7 @@ set -e
 make clean
 mkdir build
 pushd build
-cmake -DLIBCLANG_LIB_PATH=$CLANG_PATH/libclang.so.3.7 -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool ..
+cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
 make all -j3
 make install
 popd
