@@ -9,5 +9,8 @@ This file shall always be empty in the git master branch.
 */
 module test.component.scratch;
 
+import std.typecons : Yes;
+
 import unit_threaded;
 import test.clang_util;
+import test.helpers;

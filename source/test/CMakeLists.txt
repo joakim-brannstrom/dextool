@@ -7,6 +7,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/test/component/scratch.d
 
     ${CMAKE_SOURCE_DIR}/source/test/component/analyzer/cpp_class_visitor.d
+    ${CMAKE_SOURCE_DIR}/source/test/component/analyzer/test_clang.d
     ${CMAKE_SOURCE_DIR}/source/test/component/analyzer/type.d
     ${CMAKE_SOURCE_DIR}/source/test/component/analyzer/utility.d
 
