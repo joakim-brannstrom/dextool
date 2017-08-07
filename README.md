@@ -4,6 +4,7 @@
 is tools for testing and analyze.
 
 The plugins in a standard installation of deXtool are:
+ - Analyze. Analyze C/C++ code to generate complexity numbers such as McCabe.
  - C TestDouble. Analyze C code to generate a test double implementation.
  - C++ TestDouble. Analyze C++ code to generate a test double implementation.
  - UML. Analyze C/C++ code to generate PlantUML diagrams.
