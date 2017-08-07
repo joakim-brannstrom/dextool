@@ -13,12 +13,8 @@ version (unittest) {
     import std.algorithm : map, splitter;
     import std.array : array;
     import std.string : strip;
-    import unit_threaded : Name, shouldEqual;
+    import unit_threaded : shouldEqual;
     import test.extra_should : shouldEqualPretty;
-} else {
-    private struct Name {
-        string name_;
-    }
 }
 
 mixin template generateIndentIncrDecr() {
@@ -32,7 +28,7 @@ mixin template generateIndentIncrDecr() {
     }
 }
 
-@Name("Should be an instane of a Visitor")
+@("Should be an instane of a Visitor")
 unittest {
     import cpptooling.analyzer.clang.ast.base_visitor;
 
