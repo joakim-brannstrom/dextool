@@ -144,7 +144,10 @@ struct SourceLocation {
         return file.name;
     }
 
-    @property bool isFromMainFile() const {
+    /** Returns if the given source location is in the main file of the
+     * corresponding translation unit.
+     */
+    @property bool isFromMainFile() const @trusted {
         return clang_Location_isFromMainFile(cx) != 0;
     }
 
