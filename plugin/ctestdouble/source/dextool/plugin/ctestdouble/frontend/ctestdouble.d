@@ -809,11 +809,11 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             }
             pdata = tmp.get;
         } else {
-            pdata.flags = user_cflags.dup;
+            pdata.cflags = user_cflags.dup;
             pdata.absoluteFile = AbsolutePath(FileName(in_file));
         }
 
-        if (analyzeFile(pdata.absoluteFile, pdata.flags, visitor, ctx) == ExitStatusType.Errors) {
+        if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 

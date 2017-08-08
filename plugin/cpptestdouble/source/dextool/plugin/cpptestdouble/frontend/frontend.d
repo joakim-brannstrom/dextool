@@ -383,11 +383,11 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
             }
             pdata = tmp.get;
         } else {
-            pdata.flags = user_cflags.dup;
+            pdata.cflags = user_cflags.dup;
             pdata.absoluteFile = AbsolutePath(FileName(in_file));
         }
 
-        if (generator.analyzeFile(pdata.absoluteFile, pdata.flags) == ExitStatusType.Errors) {
+        if (generator.analyzeFile(pdata.absoluteFile, pdata.cflags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
