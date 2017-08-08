@@ -387,7 +387,7 @@ body {
     return CompileCommandSearch(found);
 }
 
-private struct SearchResult {
+struct SearchResult {
     string[] cflags;
     AbsolutePath absoluteFile;
 }

@@ -15,6 +15,7 @@ import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db;
+import dextool.compilation_db : SearchResult;
 import dextool.type : FileName, AbsolutePath;
 
 /** Find a CompileCommand that in any way have an `#include` which pull in fname.
@@ -64,11 +65,6 @@ Nullable!CompileCommand findCompileCommandFromIncludes(ref CompileCommandDB comp
     return r;
 }
 
-struct SearchResult {
-    string[] flags;
-    AbsolutePath absoluteFile;
-}
-
 /// Find flags for fname by searching in the compilation DB.
 Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
         const string[] flags, ref const CompileCommandFilter flag_filter) {
@@ -81,7 +77,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
     if (!db_search_result.isNull) {
         rval = SearchResult(db_search_result.cflags, db_search_result.absoluteFile);
-        logger.info("Compiler flags: ", rval.flags.join(" "));
+        logger.info("Compiler flags: ", rval.cflags.join(" "));
         return rval;
     }
 
@@ -102,7 +98,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
 
         rval = SearchResult(sres.parseFlag(flag_filter), p);
         // the user may want to see the flags but usually uninterested
-        logger.trace("Compiler flags: ", rval.flags.join(" "));
+        logger.trace("Compiler flags: ", rval.cflags.join(" "));
     } else {
         logger.error("Unable to find any compiler flags for: ", fname);
     }
