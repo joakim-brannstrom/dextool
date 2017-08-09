@@ -290,9 +290,23 @@ bool stdoutContains(const string txt) {
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
+bool sliceContains(const string[] log, const string txt) {
+    import std.string : indexOf;
+
+    return log.dup.joiner().array().indexOf(txt) != -1;
+}
+
+/// Check if the logged stdout data contains the input range.
 bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
+    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
+    return sliceContains(result_lines, gold_lines);
+}
+
+/// Check if the log contains the input range.
+bool sliceContains(T)(const string[] log, const T gold_lines) if (isInputRange!T) {
     import std.array : array;
     import std.range : enumerate;
+    import std.string : indexOf;
     import std.traits : isArray;
 
     enum ContainState {
@@ -304,17 +318,19 @@ bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
 
     ContainState state;
 
-    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
+    auto result_lines = log;
     size_t gold_idx, result_idx;
+
     while (!state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
         string result_line;
+        // ensure it doesn't do an out-of-range indexing
         if (result_idx < result_lines.length) {
             result_line = result_lines[result_idx];
         }
 
         switch (state) with (ContainState) {
         case NotFoundFirstLine:
-            if (gold_lines[0].strip == result_line.strip) {
+            if (result_line.indexOf(gold_lines[0].strip) != -1) {
                 state = Comparing;
                 ++gold_idx;
             } else if (result_lines.length == result_idx) {
@@ -326,22 +342,22 @@ bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
                 state = BlockFound;
             } else if (result_lines.length == result_idx) {
                 state = BlockNotFound;
-            } else if (gold_lines[gold_idx].strip != result_line.strip) {
+            } else if (result_line.indexOf(gold_lines[gold_idx].strip) == -1) {
                 state = BlockNotFound;
+            } else {
+                ++gold_idx;
             }
-
-            ++gold_idx;
             break;
         default:
         }
 
         if (state == ContainState.BlockNotFound && result_lines.length == result_idx) {
-            yap("Error: Stdout do not contain the reference file");
-            yap("Expected: " ~ gold_lines[0]);
+            yap("Error: log do not contain the reference lines");
+            yap(" Expected: " ~ gold_lines[0]);
         } else if (state == ContainState.BlockNotFound) {
-            yap("Error: Difference from reference file. Line ", gold_idx);
-            yap("Expected: " ~ gold_lines[gold_idx]);
-            yap("  Actual: " ~ result_line);
+            yap("Error: Difference from reference. Line ", gold_idx);
+            yap(" Expected: " ~ gold_lines[gold_idx]);
+            yap("   Actual: " ~ result_line);
         }
 
         if (state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
