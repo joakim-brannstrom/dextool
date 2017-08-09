@@ -290,9 +290,23 @@ bool stdoutContains(const string txt) {
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
+bool sliceContains(const string[] log, const string txt) {
+    import std.string : indexOf;
+
+    return log.dup.joiner().array().indexOf(txt) != -1;
+}
+
+/// Check if the logged stdout data contains the input range.
 bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
+    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
+    return sliceContains(result_lines, gold_lines);
+}
+
+/// Check if the log contains the input range.
+bool sliceContains(T)(const string[] log, const T gold_lines) if (isInputRange!T) {
     import std.array : array;
     import std.range : enumerate;
+    import std.string : indexOf;
     import std.traits : isArray;
 
     enum ContainState {
@@ -304,17 +318,19 @@ bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
 
     ContainState state;
 
-    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
+    auto result_lines = log;
     size_t gold_idx, result_idx;
+
     while (!state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
         string result_line;
+        // ensure it doesn't do an out-of-range indexing
         if (result_idx < result_lines.length) {
             result_line = result_lines[result_idx];
         }
 
         switch (state) with (ContainState) {
         case NotFoundFirstLine:
-            if (gold_lines[0].strip == result_line.strip) {
+            if (result_line.indexOf(gold_lines[0].strip) != -1) {
                 state = Comparing;
                 ++gold_idx;
             } else if (result_lines.length == result_idx) {
@@ -326,22 +342,22 @@ bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
                 state = BlockFound;
             } else if (result_lines.length == result_idx) {
                 state = BlockNotFound;
-            } else if (gold_lines[gold_idx].strip != result_line.strip) {
+            } else if (result_line.indexOf(gold_lines[gold_idx].strip) == -1) {
                 state = BlockNotFound;
+            } else {
+                ++gold_idx;
             }
-
-            ++gold_idx;
             break;
         default:
         }
 
         if (state == ContainState.BlockNotFound && result_lines.length == result_idx) {
-            yap("Error: Stdout do not contain the reference file");
-            yap("Expected: " ~ gold_lines[0]);
+            yap("Error: log do not contain the reference lines");
+            yap(" Expected: " ~ gold_lines[0]);
         } else if (state == ContainState.BlockNotFound) {
-            yap("Error: Difference from reference file. Line ", gold_idx);
-            yap("Expected: " ~ gold_lines[gold_idx]);
-            yap("  Actual: " ~ result_line);
+            yap("Error: Difference from reference. Line ", gold_idx);
+            yap(" Expected: " ~ gold_lines[gold_idx]);
+            yap("   Actual: " ~ result_line);
         }
 
         if (state.among(ContainState.BlockFound, ContainState.BlockNotFound)) {
@@ -449,7 +465,6 @@ auto filesToDextoolInFlags(T)(const T in_files) {
  * Return: The runtime in ms.
  */
 auto runDextool2(const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
-    import std.traits : isArray;
     import std.algorithm : min;
 
     Args args;
@@ -477,6 +492,204 @@ auto runDextool2(const ref TestEnv testEnv, in string[] pre_args, in string[] fl
     }
 
     return sw.peek.msecs;
+}
+
+struct BuildDextoolRun {
+    import std.ascii : newline;
+
+    struct Result {
+        /// convenient value which is true when exit status is zero.
+        const bool success;
+        /// actual exit status
+        const int status;
+        /// captured output
+        const string[] stdout;
+        const string[] stderr;
+        /// time to execute the command. TODO: change to Duration after DMD v2.076
+        const long executionMsecs;
+
+        private string[] cmd;
+
+        import std.format : FormatSpec;
+
+        void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+            import std.format : formattedWrite;
+            import std.range.primitives : put;
+
+            formattedWrite(w, "run: %(%s %)", cmd);
+            put(w, newline);
+
+            formattedWrite(w, "exit status: %s", status);
+            put(w, newline);
+            formattedWrite(w, "Dextool execution time ms: %s", executionMsecs);
+            put(w, newline);
+
+            put(w, "stdout:");
+            put(w, newline);
+            this.stdout.each!((a) { put(w, a); put(w, newline); });
+
+            put(w, "stderr:");
+            put(w, newline);
+            this.stderr.each!((a) { put(w, a); put(w, newline); });
+        }
+
+        string toString() @safe pure const {
+            import std.exception : assumeUnique;
+            import std.format : FormatSpec;
+
+            char[] buf;
+            buf.reserve(100);
+            auto fmt = FormatSpec!char("%s");
+            toString((const(char)[] s) { buf ~= s; }, fmt);
+            auto trustedUnique(T)(T t) @trusted {
+                return assumeUnique(t);
+            }
+
+            return trustedUnique(buf);
+        }
+    }
+
+    private {
+        string dextool;
+        string outdir;
+        string[] args_;
+        string[] flags_;
+
+        /// if the output from running the command should be yapped via scriptlike
+        bool yap_output = true;
+
+        /// if --debug is added to the arguments
+        bool arg_debug = true;
+
+        /// Throw an exception if the exit status is NOT zero
+        bool throwOnExitStatus_ = true;
+    }
+
+    this(string dextool, string outdir) {
+        this.dextool = dextool;
+        this.outdir = outdir;
+    }
+
+    auto throwOnExitStatus(bool v) {
+        this.throwOnExitStatus_ = v;
+        return this;
+    }
+
+    auto flags(string[] v) {
+        this.flags_ = v;
+        return this;
+    }
+
+    auto addFlags(string[] v) {
+        this.flags_ ~= v;
+        return this;
+    }
+
+    auto args(string[] v) {
+        this.args_ = v;
+        return this;
+    }
+
+    auto addArg(string v) {
+        this.args_ ~= v;
+        return this;
+    }
+
+    auto addArgs(string[] v) {
+        this.args_ ~= v;
+        return this;
+    }
+
+    auto addInputArg(Path v) {
+        args_ ~= "--in=" ~ v.escapePath;
+        return this;
+    }
+
+    auto addInputArg(Path[] v) {
+        args_ ~= v.map!(a => "--in=" ~ a.escapePath).array();
+        return this;
+    }
+
+    auto argDebug(bool v) {
+        arg_debug = v;
+        return this;
+    }
+
+    auto yapOutput(bool v) {
+        yap_output = v;
+        return this;
+    }
+
+    auto run() {
+        import std.array : join;
+        import std.algorithm : min;
+
+        string[] cmd;
+        cmd ~= dextool;
+        cmd ~= args_.dup;
+        cmd ~= "--out=" ~ outdir;
+
+        if (arg_debug) {
+            cmd ~= "--debug";
+        }
+
+        if (flags_.length > 0) {
+            cmd ~= "--";
+            cmd ~= flags_.dup;
+        }
+
+        import std.datetime;
+
+        StopWatch sw;
+        int exit_status = -1;
+        Appender!(string[]) stdout_;
+        Appender!(string[]) stderr_;
+
+        sw.start;
+        try {
+            auto p = std.process.pipeProcess(cmd,
+                    std.process.Redirect.stdout | std.process.Redirect.stderr);
+
+            foreach (l; p.stdout.byLineCopy)
+                stdout_.put(l);
+            foreach (l; p.stderr.byLineCopy)
+                stderr_.put(l);
+
+            exit_status = std.process.wait(p.pid);
+            sw.stop;
+
+            // TODO I think this is needed to ensure the pipes are flushed
+            foreach (l; p.stdout.byLineCopy)
+                stdout_.put(l);
+            foreach (l; p.stderr.byLineCopy)
+                stderr_.put(l);
+        }
+        catch (Exception e) {
+            stderr_ ~= [e.msg];
+            sw.stop;
+        }
+
+        auto rval = Result(exit_status == 0, exit_status, stdout_.data,
+                stderr_.data, sw.peek.msecs, cmd);
+        if (yap_output) {
+            auto f = File(buildPath(outdir, "test_dextool.log"), "w");
+            f.writef("%s", rval);
+        }
+
+        if (throwOnExitStatus_ && exit_status != 0) {
+            auto l = min(10, stderr_.data.length);
+            throw new ErrorLevelException(exit_status, stderr_.data[0 .. l].join(newline));
+        } else {
+            return rval;
+        }
+    }
+}
+
+/** Construct an execution of dextool with needed arguments.
+ *
+ */
+auto makeDextool(const ref TestEnv testEnv) {
+    return BuildDextoolRun(testEnv.dextool.escapePath, testEnv.outdir.escapePath);
 }
 
 void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipComments, in T args) {
