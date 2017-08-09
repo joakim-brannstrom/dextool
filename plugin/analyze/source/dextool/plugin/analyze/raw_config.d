@@ -24,6 +24,8 @@ struct RawConfiguration {
     bool errorHelp;
     bool shortPluginHelp;
     bool mccabe;
+    bool outputJson;
+    bool outputStdout;
     int mccabeThreshold = 5;
     string outdir = ".";
     string[] cflags;
@@ -40,6 +42,8 @@ struct RawConfiguration {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "output-json", "Write the analyze result to json file(s)", &outputJson,
+                   "output-stdout", "Write the analyze result to stdout", &outputStdout,
                    "mccabe", "Calculate the McCabe complexity of functions and files", &mccabe,
                    "mccabe-threshold", "Threshold that must be reached for the McCabe value to be reported (default: 5)", &mccabeThreshold,
                    "out", "directory to write result files to (default: .)", &outdir,

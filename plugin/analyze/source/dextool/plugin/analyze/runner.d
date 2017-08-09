@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.runner;
 
 import std.stdio : writeln;
+import std.typecons : Flag;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db;
@@ -54,7 +55,8 @@ ExitStatusType runPlugin(string[] args) {
     auto analyzers = new AnalyzeCollection(mccabe);
     doAnalyze(analyzers, pargs.cflags, pargs.files, compile_db);
 
-    analyzers.writeResult(AbsolutePath(FileName(pargs.outdir)));
+    analyzers.dumpResult(AbsolutePath(FileName(pargs.outdir)),
+            cast(Flag!"json") pargs.outputJson, cast(Flag!"stdout") pargs.outputStdout);
 
     return ExitStatusType.Ok;
 }
@@ -110,14 +112,17 @@ class AnalyzeCollection {
         }
     }
 
-    void writeResult(AbsolutePath outdir) {
+    void dumpResult(AbsolutePath outdir, Flag!"json" json_, Flag!"stdout" stdout_) {
         import std.path : buildPath;
 
         const string base = buildPath(outdir, "result_");
 
         if (mcCabe !is null) {
-            dextool.plugin.analyze.mccabe.writeResult(FileName(base ~ "mccabe.json")
-                    .AbsolutePath, mcCabe);
+            if (json_)
+                dextool.plugin.analyze.mccabe.resultToJson(FileName(base ~ "mccabe.json")
+                        .AbsolutePath, mcCabe);
+            if (stdout_)
+                dextool.plugin.analyze.mccabe.resultToStdout(mcCabe);
         }
     }
 }

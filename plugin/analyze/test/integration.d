@@ -38,10 +38,10 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_nesting_if.c")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--mccabe-threshold=1").addArg("--output-stdout").run;
 
-    r.stdout.sliceContains("McCabe:2 a").shouldBeTrue;
-    r.stdout.sliceContains("McCabe:3 b").shouldBeTrue;
+    r.stdout.sliceContains("2      a").shouldBeTrue;
+    r.stdout.sliceContains("3      b").shouldBeTrue;
 }
 
 @(testId ~ "McCabe: the dump to stdout and the json value shall be equivalent")
@@ -49,10 +49,10 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_simple.c")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--mccabe-threshold=1").addArg("--output-json").addArg("--output-stdout").run;
 
     // shall be dumped to stdout
-    r.stdout.sliceContains(`McCabe:1 f`).shouldBeTrue;
+    r.stdout.sliceContains(`1      f`).shouldBeTrue;
     // shall be reported with the same value in the json file
     readMcCabe(testEnv).sliceContains([`"function":"f",`, `"mccabe":1`]).shouldBeTrue;
 }
@@ -62,18 +62,19 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_in_namespace.cpp")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--output-stdout").addArg("--mccabe-threshold=1").run;
 
-    r.stdout.sliceContains("McCabe:1 f").shouldBeTrue;
+    r.stdout.sliceContains("1      f").shouldBeTrue;
 }
 
 @(testId ~ "McCabe: shall not crash when encountering class and function declarations")
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto r = makeDextool(testEnv).addInputArg(testData ~ "only_declarations.cpp").run;
+    auto r = makeDextool(testEnv).addInputArg(testData ~ "only_declarations.cpp")
+        .addArg("--output-stdout").run;
 
-    r.stdout.sliceContains(`McCabe:`).shouldBeFalse;
+    r.stdout.sliceContains(`1   `).shouldBeFalse;
 }
 
 @(testId ~ "McCabe: shall report value for all functions in namespaces (even anonymous)")
@@ -81,21 +82,21 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_in_namespace.cpp")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--output-stdout").addArg("--mccabe-threshold=1").run;
 
-    r.stdout.sliceContains(`McCabe:1 func_in_anonymous`).shouldBeTrue;
-    r.stdout.sliceContains(`McCabe:1 f`).shouldBeTrue;
-    r.stdout.sliceContains(`McCabe:1 g`).shouldBeTrue;
+    r.stdout.sliceContains(`1      func_in_anonymous`).shouldBeTrue;
+    r.stdout.sliceContains(`1      f`).shouldBeTrue;
+    r.stdout.sliceContains(`1      g`).shouldBeTrue;
 }
 
-@("shall be a valid json file")
+@(testId ~ "shall be a valid json file")
 unittest {
     import std.json;
 
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_simple.c")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--output-json").addArg("--mccabe-threshold=1").run;
 
     // will throw if the json file is invalid
     auto json = std.file.readText((testEnv.outdir ~ mcCabeJsonFile).toString).parseJSON;
@@ -107,9 +108,10 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto r = makeDextool(testEnv).addInputArg(testData ~ "function_simple.c").run;
+    auto r = makeDextool(testEnv).addInputArg(testData ~ "function_simple.c")
+        .addArg("--output-stdout").run;
 
-    r.stdout.sliceContains(["Files:", `McCabe:2`]).shouldBeTrue;
+    r.stdout.sliceContains(["===File", `2      `]).shouldBeTrue;
 }
 
 @(testId ~ "McCabe: shall only report functions with a McCabe value equal to or above the threshold")
@@ -117,32 +119,32 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "test_threshold.cpp")
-        .addArg("--mccabe-threshold=5").run;
+        .addArg("--output-stdout").addArg("--mccabe-threshold=5").run;
 
-    r.stdout.sliceContains(["Functions:", "McCabe:1"]).shouldBeFalse;
-    r.stdout.sliceContains(["Functions:", "McCabe:3"]).shouldBeFalse;
-    r.stdout.sliceContains(["Functions:", "McCabe:4"]).shouldBeFalse;
-    r.stdout.sliceContains(["Functions:", "McCabe:5 f_5", "McCabe:9 f_9"]).shouldBeTrue;
+    r.stdout.sliceContains(["===Function", "1      f"]).shouldBeFalse;
+    r.stdout.sliceContains(["===Function", "3      f"]).shouldBeFalse;
+    r.stdout.sliceContains(["===Function", "4      f"]).shouldBeFalse;
+    r.stdout.sliceContains(["===Function", "5      f_5", "9      f_9"]).shouldBeTrue;
 }
 
-@("McCabe: shall report the McCabe value for class methods")
+@(testId ~ "McCabe: shall report the McCabe value for class methods")
 unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "test_class_methods.cpp")
-        .addArg("--mccabe-threshold=1").run;
+        .addArg("--output-stdout").addArg("--mccabe-threshold=1").run;
 
-    r.stdout.sliceContains(["Files:", "McCabe:7"]).shouldBeTrue;
+    r.stdout.sliceContains(["===File", "7   "]).shouldBeTrue;
     // dfmt off
     // methods
-    r.stdout.sliceContains(["Functions:",
-                           "McCabe:1 A", // constructor
-                           "McCabe:1 A", // constructor
-                           "McCabe:1 inline_", // method
-                           "McCabe:1 operator bool", // conversion function
-                           "McCabe:1 operator=", // method
-                           "McCabe:1 outside", // method
-                           "McCabe:1 ~A", // destructor
+    r.stdout.sliceContains(["===Function",
+                           "1      A", // constructor
+                           "1      A", // constructor
+                           "1      inline_", // method
+                           "1      operator bool", // conversion function
+                           "1      operator=", // method
+                           "1      outside", // method
+                           "1      ~A", // destructor
     ]).shouldBeTrue;
     // dfmt on
 }
