@@ -465,7 +465,6 @@ auto filesToDextoolInFlags(T)(const T in_files) {
  * Return: The runtime in ms.
  */
 auto runDextool2(const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
-    import std.traits : isArray;
     import std.algorithm : min;
 
     Args args;
