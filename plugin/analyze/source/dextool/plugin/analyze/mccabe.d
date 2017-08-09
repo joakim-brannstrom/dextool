@@ -122,21 +122,30 @@ class McCabe {
     }
 }
 
-void writeResult(AbsolutePath fname, McCabe analyze) {
+void resultToStdout(McCabe analyze) {
+    import std.algorithm : map, filter;
+    import std.array : byPair;
+    import std.stdio : writeln, writefln;
+
+    // the |==... is used to make it easy to filter with unix tools. It makes
+    // it so that sort -h will not mixit with the numbers.
+
+    writeln("McCabe Cyclomatic Complexity");
+    writeln("|======File");
+    foreach (f; analyze.files.byPair.map!(a => a[1]))
+        writefln("%-6s %s", f.complexity, f.file);
+    writeln("|=======Function");
+    foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
+        writefln("%-6s %s [%s line=%s column=%s]", f.complexity,
+                cast(string) f.name, cast(string) f.file, f.line, f.column);
+}
+
+void resultToJson(AbsolutePath fname, McCabe analyze) {
     import std.ascii : newline;
     import std.algorithm : map, filter;
     import std.array : byPair;
-    import std.stdio;
 
-    debug {
-        logger.trace("Files:");
-        foreach (f; analyze.files.byPair.map!(a => a[1]))
-            logger.tracef("  McCabe:%s %s", f.complexity, f.file);
-        logger.trace("Functions:");
-        foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
-            logger.tracef("  McCabe:%s %s [%s line=%s column=%s]", f.complexity,
-                    cast(string) f.name, cast(string) f.file, f.line, f.column);
-    }
+    static import std.stdio;
 
     auto fout = std.stdio.File(cast(string) fname, "w");
 
