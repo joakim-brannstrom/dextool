@@ -10,13 +10,25 @@ module dextool.plugin.analyze.cpp_clang_extension;
 import deimos.clang.index;
 
 extern (C++, dextool_clang_extension) {
-    extern (C++) void f(const(char)* s);
     extern (C++, McCabe) {
         extern (C++) struct Result {
             bool hasValue;
+            /// McCabe complexity
             int value;
         }
 
+        /** Calculate the McCabe complexity.
+         *
+         * Valid cursors are those with a body.
+         * decl.isDefinition must be true.
+         *
+         * Tested CXCursor kinds that are definitions:
+         *  - FunctionDecl
+         *  - ConversionFunction
+         *  - Constructor
+         *  - Destructor
+         *  - CXXMethod
+         */
         extern (C++) Result calculate(CXCursor decl);
     }
 }
