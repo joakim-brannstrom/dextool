@@ -27,20 +27,54 @@ final class TUVisitor : Visitor {
 
     alias CallbackT(T) = void delegate(const(T) v) @safe;
 
-    alias OnFunctionT = CallbackT!FunctionDecl;
-    OnFunctionT onFunction;
-    alias OnConstructorT = CallbackT!Constructor;
-    OnConstructorT onConstructor;
-    alias OnDestructorT = CallbackT!Destructor;
-    OnDestructorT onDestructor;
-    alias OnCXXMethod = CallbackT!CXXMethod;
-    OnCXXMethod onCXXMethod;
-    alias OnConversionFunction = CallbackT!ConversionFunction;
-    OnConversionFunction onConversionFunction;
-    alias OnFunctionTemplateT = CallbackT!FunctionTemplate;
-    OnFunctionTemplateT onFunctionTemplate;
-    alias OnClassTemplateT = CallbackT!ClassTemplate;
-    OnClassTemplateT onClassTemplate;
+    private static string makeCallback(string kind) {
+        string s;
+        string alias_name = "On" ~ kind ~ "T";
+        s = "alias " ~ alias_name ~ " = CallbackT!" ~ kind ~ ";\n";
+        s ~= alias_name ~ "[] on" ~ kind ~ ";\n";
+        return s;
+    }
+
+    private static string makeCallbacks(Kinds...)() {
+        string s;
+        foreach (k; Kinds)
+            s ~= makeCallback(k.stringof);
+        return s;
+    }
+
+    // note that it requires a member variable called restrict
+    private static string makeVisitor(string node_t, string callback_member) {
+        string s = "override void visit(const(" ~ node_t ~ ") v) {\n";
+        s ~= "auto callbacks = " ~ callback_member ~ ";";
+        s ~= q{
+            if (!v.cursor.location.path.startsWith(restrict))
+                return;
+            foreach (c; callbacks)
+                c(v);
+            v.accept(this);
+        };
+
+        s ~= "}\n";
+        return s;
+    }
+
+    private static string makeVisitors(Kinds...)() {
+        string s;
+        foreach (k; Kinds) {
+            s ~= makeVisitor(k.stringof, "on" ~ k.stringof);
+        }
+        return s;
+    }
+
+    import std.meta : AliasSeq;
+    private alias callbackKinds = AliasSeq!(FunctionDecl, Constructor, Destructor, CXXMethod, ConversionFunction, FunctionTemplate, ClassTemplate);
+
+    // debugging
+    //pragma(msg, makeCallbacks!callbackKinds);
+    //pragma(msg, makeVisitors!callbackKinds);
+
+    mixin(makeCallbacks!(callbackKinds));
+    mixin(makeVisitors!(callbackKinds));
 
     private AbsolutePath restrict;
 
@@ -61,75 +95,6 @@ final class TUVisitor : Visitor {
     }
 
     override void visit(const(Declaration) v) {
-        v.accept(this);
-    }
-
-    override void visit(const(FunctionDecl) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onFunction !is null)
-            onFunction(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(Constructor) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onConstructor !is null)
-            onConstructor(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(Destructor) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onDestructor !is null)
-            onDestructor(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(CXXMethod) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onCXXMethod !is null)
-            onCXXMethod(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(ConversionFunction) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onConversionFunction !is null)
-            onConversionFunction(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(FunctionTemplate) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        mixin(mixinNodeLog!());
-        if (onFunctionTemplate !is null)
-            onFunctionTemplate(v);
-
-        v.accept(this);
-    }
-
-    override void visit(const(ClassTemplate) v) {
-        if (!v.cursor.location.path.startsWith(restrict))
-            return;
-        if (onClassTemplate !is null)
-            onClassTemplate(v);
-
         v.accept(this);
     }
 
