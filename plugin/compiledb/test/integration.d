@@ -6,58 +6,35 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool_test.integration;
 
 import scriptlike;
-import unit_threaded : shouldEqual;
+import unit_threaded : shouldEqual, shouldBeTrue;
 
 import dextool_test.utils;
 
 enum globalTestdir = "compiledb_tests";
 
-struct TestParams {
-    Path root;
-    Path[] input;
-    Path out_db;
+immutable compiledbJsonFile = "compile_commands.json";
 
-    // dextool parameters;
-    string[] dexParams;
-    string[] dexFlags;
-
-    // Compiler flags
-    string[] compileFlags;
-    string[] compileIncls;
+auto makeDextool(const ref TestEnv testEnv) {
+    return dextool_test.utils.makeDextool(testEnv).args(["compiledb", "-d"]);
 }
 
-TestParams genTestParams(string[] f, const ref TestEnv testEnv) {
-    TestParams p;
-
-    p.root = Path("plugin_testdata").absolutePath;
-    p.input = f.map!(a => p.root ~ Path(a)).array();
-
-    p.out_db = testEnv.outdir ~ "compile_commands.json";
-
-    p.dexParams = ["--DRT-gcopt=profile:1", "compiledb", "--debug"];
-    p.dexFlags = [];
-
-    return p;
+auto testData() {
+    return Path("plugin_testdata").absolutePath;
 }
 
-void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
-
-    dextoolYap("Input:%s", p.input);
-    string[] input = p.input.map!(a => a.raw).array();
-    runDextool2(testEnv, p.dexParams ~ input, null);
+auto readJson(const ref TestEnv testEnv) {
+    return std.file.readText((testEnv.outdir ~ compiledbJsonFile).toString).splitLines.array();
 }
 
 @(testId ~ "shall merge the db to one with absolute paths")
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto p = genTestParams(["db1.json", "db2.json"], testEnv);
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg(testData ~ "db1.json").addArg(testData ~ "db2.json").run;
+
     // incidental check by counting the lines. not perfect but good enough for
     // now
-    std.file.readText(p.out_db.toString).splitter("\n").count.shouldEqual(28);
+    readJson(testEnv).count.shouldEqual(27);
 }
 
 @(
@@ -66,9 +43,9 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto p = genTestParams(["db1.json", "compile_db_v5.json"], testEnv);
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg(testData ~ "db1.json").addArg(testData ~ "compile_db_v5.json").run;
+
     // incidental check by counting the lines. not perfect but good enough for
     // now
-    std.file.readText(p.out_db.toString).splitter("\n").count.shouldEqual(27);
+    readJson(testEnv).count.shouldEqual(26);
 }
