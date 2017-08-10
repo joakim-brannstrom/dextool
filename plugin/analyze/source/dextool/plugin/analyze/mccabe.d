@@ -132,7 +132,7 @@ void resultToStdout(McCabe analyze) {
 
     writeln("McCabe Cyclomatic Complexity");
     writeln("|======File");
-    foreach (f; analyze.files.byPair.map!(a => a[1]))
+    foreach (f; analyze.files.byPair.map!(a => a[1]).filter!(a => a.complexity >= analyze.threshold))
         writefln("%-6s %s", f.complexity, f.file);
     writeln("|=======Function");
     foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
