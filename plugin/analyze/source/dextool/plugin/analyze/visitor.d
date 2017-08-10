@@ -15,6 +15,7 @@ import dextool.type : FileName, AbsolutePath;
 /** Calculate McCabe per file and function.
 */
 final class TUVisitor : Visitor {
+    import std.string : startsWith;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
@@ -37,7 +38,14 @@ final class TUVisitor : Visitor {
     alias OnConversionFunction = CallbackT!ConversionFunction;
     OnConversionFunction onConversionFunction;
 
-    this() {
+    private AbsolutePath restrict;
+
+    /**
+     * Params:
+     *  restrict = only analyze files starting with this path
+     */
+    this(AbsolutePath restrict) {
+        this.restrict = restrict;
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -53,30 +61,40 @@ final class TUVisitor : Visitor {
     }
 
     override void visit(const(FunctionDecl) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
         mixin(mixinNodeLog!());
         if (onFunction !is null)
             onFunction(v);
     }
 
     override void visit(const(Constructor) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
         mixin(mixinNodeLog!());
         if (onConstructor !is null)
             onConstructor(v);
     }
 
     override void visit(const(Destructor) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
         mixin(mixinNodeLog!());
         if (onDestructor !is null)
             onDestructor(v);
     }
 
     override void visit(const(CXXMethod) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
         mixin(mixinNodeLog!());
         if (onCXXMethod !is null)
             onCXXMethod(v);
     }
 
     override void visit(const(ConversionFunction) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
         mixin(mixinNodeLog!());
         if (onConversionFunction !is null)
             onConversionFunction(v);

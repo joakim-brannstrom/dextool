@@ -132,12 +132,16 @@ void resultToStdout(McCabe analyze) {
 
     writeln("McCabe Cyclomatic Complexity");
     writeln("|======File");
-    foreach (f; analyze.files.byPair.map!(a => a[1]))
+    foreach (f; analyze.files.byPair.map!(a => a[1]).filter!(a => a.complexity >= analyze.threshold))
         writefln("%-6s %s", f.complexity, f.file);
     writeln("|=======Function");
     foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
         writefln("%-6s %s [%s line=%s column=%s]", f.complexity,
                 cast(string) f.name, cast(string) f.file, f.line, f.column);
+
+    if (analyze.files.length == 0 && analyze.functions.length == 0) {
+        writeln("No result. Did you forget --restrict?");
+    }
 }
 
 void resultToJson(AbsolutePath fname, McCabe analyze) {

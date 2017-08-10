@@ -134,7 +134,8 @@ pure @nogc nothrow:
  * This divides the domain in two, one unchecked and one checked.
  */
 struct AbsolutePath {
-    import std.path : expandTilde, buildNormalizedPath, absolutePath;
+    import std.path : expandTilde, buildNormalizedPath, absolutePath,
+        asNormalizedPath, asAbsolutePath;
 
     Path payload;
     alias payload this;
@@ -147,14 +148,19 @@ struct AbsolutePath {
 
     this(FileName p) {
         auto p_expand = () @trusted{ return p.expandTilde; }();
-        payload = buildNormalizedPath(p_expand).absolutePath.Path;
+        // the second buildNormalizedPath is needed to correctly resolve "."
+        // otherwise it is resolved to /foo/bar/.
+        payload = buildNormalizedPath(p_expand).absolutePath.buildNormalizedPath.Path;
     }
 
     /// Build the normalised path from workdir.
     this(FileName p, DirName workdir) {
         auto p_expand = () @trusted{ return p.expandTilde; }();
         auto workdir_expand = () @trusted{ return workdir.expandTilde; }();
-        payload = buildNormalizedPath(workdir_expand, p_expand).absolutePath.Path;
+        // the second buildNormalizedPath is needed to correctly resolve "."
+        // otherwise it is resolved to /foo/bar/.
+        payload = buildNormalizedPath(workdir_expand, p_expand).absolutePath
+            .buildNormalizedPath.Path;
     }
 
     void opAssign(FileName p) {
@@ -200,4 +206,13 @@ unittest {
 
     AbsolutePath(FileName("~/foo")).canFind('~').shouldEqual(false);
     AbsolutePath(FileName("foo")).isAbsolute.shouldEqual(true);
+}
+
+@("shall expand . without any trailing /.")
+unittest {
+    import std.algorithm : canFind;
+    import unit_threaded;
+
+    AbsolutePath(FileName(".")).canFind('.').shouldBeFalse;
+    AbsolutePath(FileName("."), DirName(".")).canFind('.').shouldBeFalse;
 }

@@ -28,6 +28,7 @@ struct RawConfiguration {
     bool outputStdout;
     int mccabeThreshold = 5;
     string outdir = ".";
+    string restrictDir = ".";
     string[] cflags;
     string[] compileDb;
     string[] files;
@@ -44,6 +45,7 @@ struct RawConfiguration {
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "output-json", "Write the analyze result to json file(s)", &outputJson,
                    "output-stdout", "Write the analyze result to stdout", &outputStdout,
+                   "restrict", "Restrict analyze of files to those in this directory tree (default: .)", &restrictDir,
                    "mccabe", "Calculate the McCabe complexity of functions and files", &mccabe,
                    "mccabe-threshold", "Threshold that must be reached for the McCabe value to be reported (default: 5)", &mccabeThreshold,
                    "out", "directory to write result files to (default: .)", &outdir,

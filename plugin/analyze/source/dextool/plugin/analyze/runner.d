@@ -53,7 +53,8 @@ ExitStatusType runPlugin(string[] args) {
     }
 
     auto analyzers = new AnalyzeCollection(mccabe);
-    doAnalyze(analyzers, pargs.cflags, pargs.files, compile_db);
+    doAnalyze(analyzers, pargs.cflags, pargs.files, compile_db,
+            AbsolutePath(FileName(pargs.restrictDir)));
 
     analyzers.dumpResult(AbsolutePath(FileName(pargs.outdir)),
             cast(Flag!"json") pargs.outputJson, cast(Flag!"stdout") pargs.outputStdout);
@@ -62,8 +63,7 @@ ExitStatusType runPlugin(string[] args) {
 }
 
 ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
-        string[] in_files, CompileCommandDB compile_db) {
-    import std.range : enumerate;
+        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir) {
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.clang : findFlags, ParseData = SearchResult;
@@ -72,13 +72,10 @@ ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    auto visitor = new TUVisitor;
+    auto visitor = new TUVisitor(restrictDir);
     analyzers.registerAnalyzers(visitor);
 
-    foreach (idx, pdata; AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter)
-            .enumerate) {
-        logger.infof("File %s", idx + 1,);
-
+    foreach (pdata; AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter)) {
         if (pdata.isNull) {
             logger.warning(
                     "Skipping file because it is not possible to determine the compiler flags");

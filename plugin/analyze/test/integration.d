@@ -109,7 +109,7 @@ unittest {
     mixin(envSetup(globalTestdir));
 
     auto r = makeDextool(testEnv).addInputArg(testData ~ "function_simple.c")
-        .addArg("--output-stdout").run;
+        .addArg("--output-stdout").addArg("--mccabe-threshold=2").run;
 
     r.stdout.sliceContains(["===File", `2      `]).shouldBeTrue;
 }
