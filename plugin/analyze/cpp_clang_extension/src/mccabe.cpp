@@ -85,6 +85,13 @@ Result calculate(CXCursor cx_decl) {
     if (decl == nullptr)
         return {false, 0};
 
+    const clang::FunctionDecl* func_decl;
+    if (auto d = decl->getAsFunction()) {
+        func_decl = d;
+    } else {
+        return {false, 0};
+    }
+
     clang::ASTContext* ctx;
     if (clang::ASTContext* result = getCursorContext(cx_decl)) {
         ctx = result;
@@ -92,8 +99,8 @@ Result calculate(CXCursor cx_decl) {
         return {false, 0};
     }
 
-    const auto CFG = clang::CFG::buildCFG(decl,
-                                          decl->getBody(),
+    const auto CFG = clang::CFG::buildCFG(func_decl,
+                                          func_decl->getBody(),
                                           ctx,
                                           clang::CFG::BuildOptions());
 

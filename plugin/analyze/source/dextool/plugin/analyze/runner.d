@@ -106,6 +106,7 @@ class AnalyzeCollection {
             v.onConstructor = &mcCabe.analyze!Constructor;
             v.onDestructor = &mcCabe.analyze!Destructor;
             v.onConversionFunction = &mcCabe.analyze!ConversionFunction;
+            v.onFunctionTemplate = &mcCabe.analyze!FunctionTemplate;
         }
     }
 

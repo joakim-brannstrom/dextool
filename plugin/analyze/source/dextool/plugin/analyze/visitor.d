@@ -37,6 +37,10 @@ final class TUVisitor : Visitor {
     OnCXXMethod onCXXMethod;
     alias OnConversionFunction = CallbackT!ConversionFunction;
     OnConversionFunction onConversionFunction;
+    alias OnFunctionTemplateT = CallbackT!FunctionTemplate;
+    OnFunctionTemplateT onFunctionTemplate;
+    alias OnClassTemplateT = CallbackT!ClassTemplate;
+    OnClassTemplateT onClassTemplate;
 
     private AbsolutePath restrict;
 
@@ -66,6 +70,8 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         if (onFunction !is null)
             onFunction(v);
+
+        v.accept(this);
     }
 
     override void visit(const(Constructor) v) {
@@ -74,6 +80,8 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         if (onConstructor !is null)
             onConstructor(v);
+
+        v.accept(this);
     }
 
     override void visit(const(Destructor) v) {
@@ -82,6 +90,8 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         if (onDestructor !is null)
             onDestructor(v);
+
+        v.accept(this);
     }
 
     override void visit(const(CXXMethod) v) {
@@ -90,6 +100,8 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         if (onCXXMethod !is null)
             onCXXMethod(v);
+
+        v.accept(this);
     }
 
     override void visit(const(ConversionFunction) v) {
@@ -98,6 +110,27 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         if (onConversionFunction !is null)
             onConversionFunction(v);
+
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionTemplate) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
+        mixin(mixinNodeLog!());
+        if (onFunctionTemplate !is null)
+            onFunctionTemplate(v);
+
+        v.accept(this);
+    }
+
+    override void visit(const(ClassTemplate) v) {
+        if (!v.cursor.location.path.startsWith(restrict))
+            return;
+        if (onClassTemplate !is null)
+            onClassTemplate(v);
+
+        v.accept(this);
     }
 
     override void visit(const(Directive) v) {
