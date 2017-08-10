@@ -75,10 +75,7 @@ ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
     auto visitor = new TUVisitor;
     analyzers.registerAnalyzers(visitor);
 
-    foreach (idx, pdata; AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter)
-            .enumerate) {
-        logger.infof("File %s", idx + 1,);
-
+    foreach (pdata; AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter)) {
         if (pdata.isNull) {
             logger.warning(
                     "Skipping file because it is not possible to determine the compiler flags");
