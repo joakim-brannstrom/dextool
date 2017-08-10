@@ -101,12 +101,12 @@ class AnalyzeCollection {
 
     void registerAnalyzers(TUVisitor v) {
         if (mcCabe !is null) {
-            v.onFunction = &mcCabe.analyze!FunctionDecl;
-            v.onCXXMethod = &mcCabe.analyze!CXXMethod;
-            v.onConstructor = &mcCabe.analyze!Constructor;
-            v.onDestructor = &mcCabe.analyze!Destructor;
-            v.onConversionFunction = &mcCabe.analyze!ConversionFunction;
-            v.onFunctionTemplate = &mcCabe.analyze!FunctionTemplate;
+            v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
+            v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
+            v.onConstructor ~= &mcCabe.analyze!Constructor;
+            v.onDestructor ~= &mcCabe.analyze!Destructor;
+            v.onConversionFunction ~= &mcCabe.analyze!ConversionFunction;
+            v.onFunctionTemplate ~= &mcCabe.analyze!FunctionTemplate;
         }
     }
 
