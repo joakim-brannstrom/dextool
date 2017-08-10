@@ -148,3 +148,22 @@ unittest {
     ]).shouldBeTrue;
     // dfmt on
 }
+
+@("McCabe: shall be McCabe complexity for templates")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    auto r = makeDextool(testEnv).addInputArg(testData ~ "templates.cpp")
+        .addArg("--output-stdout").addArg("--mccabe-threshold=0").run;
+
+    // dfmt off
+    r.stdout.sliceContains(["===Function",
+                           "1      Class", // template class specialization
+                           "1      Class<A>",
+                           "1      ClassMethod",
+                           "1      InnerTemplateMethod", // function template
+                           "1      ~Class<A>",
+                           "2      template_func", // function template
+    ]).shouldBeTrue;
+    // dfmt on
+}

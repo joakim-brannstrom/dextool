@@ -82,11 +82,12 @@ using ::llvm::dyn_cast_or_null;
 
 Result calculate(CXCursor cx_decl) {
     const clang::Decl* decl = getCursorDecl(cx_decl);
+    if (decl == nullptr)
+        return {false, 0};
 
-    const clang::FunctionDecl* func_decl = nullptr;
-
-    if (const clang::FunctionDecl* result = dyn_cast_or_null<clang::FunctionDecl>(decl)) {
-        func_decl = result;
+    const clang::FunctionDecl* func_decl;
+    if (auto d = decl->getAsFunction()) {
+        func_decl = d;
     } else {
         return {false, 0};
     }
@@ -98,8 +99,8 @@ Result calculate(CXCursor cx_decl) {
         return {false, 0};
     }
 
-    const auto CFG = clang::CFG::buildCFG(decl,
-                                          decl->getBody(),
+    const auto CFG = clang::CFG::buildCFG(func_decl,
+                                          func_decl->getBody(),
                                           ctx,
                                           clang::CFG::BuildOptions());
 
