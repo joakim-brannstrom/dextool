@@ -487,7 +487,7 @@ struct BuildDextoolRun {
 
             formattedWrite(w, "exit status: %s", status);
             put(w, newline);
-            formattedWrite(w, "Dextool execution time ms: %s", executionMsecs);
+            formattedWrite(w, "execution time ms: %s", executionMsecs);
             put(w, newline);
 
             put(w, "stdout:");

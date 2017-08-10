@@ -12,66 +12,26 @@ import dextool_test.utils;
 
 enum globalTestdir = "intercept_tests";
 
-struct TestParams {
-    Flag!"skipCompare" skipCompare;
-
-    Path root;
-    Path input_ext;
-    Path out_hdr;
-    Path out_impl;
-
-    // dextool parameters;
-    string[] dexParams;
-    string[] dexFlags;
-
-    // Compiler flags
-    string[] compileFlags;
-    string[] compileIncls;
+auto testData() {
+    return Path("plugin_testdata").absolutePath;
 }
 
-TestParams genTestParams(string f, const ref TestEnv testEnv) {
-    TestParams p;
-
-    p.root = Path("plugin_testdata").absolutePath;
-    p.input_ext = p.root ~ Path(f);
-
-    p.out_hdr = testEnv.outdir ~ "intercept.hpp";
-    p.out_impl = testEnv.outdir ~ "intercept.cpp";
-
-    p.dexParams = ["--DRT-gcopt=profile:1", "intercept", "--debug", "--prefix=i_"];
-    p.dexFlags = [];
-
-    p.compileFlags = compilerFlags();
-    p.compileIncls = ["-I" ~ p.input_ext.dirName.toString];
-
-    return p;
+auto makeDextool(const ref TestEnv env) {
+    return dextool_test.utils.makeDextool(env).args(["intercept", "-d", "--prefix=i_"]);
 }
 
-void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
-
-    dextoolYap("Input:%s", p.input_ext.raw);
-    runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
-
-    if (!p.skipCompare) {
-        dextoolYap("Comparing");
-        auto input = p.input_ext.stripExtension;
-        // dfmt off
-        compareResult(sortLines, skipComments,
-                      GR(input ~ Ext(".hpp.ref"), p.out_hdr),
-                      GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                      );
-        // dfmt on
-    }
+auto verifyOutput(const ref TestEnv env, Path infile) {
+    auto f = infile.stripExtension;
+    compareResult(No.sortLines, Yes.skipComments, GR(f ~ Ext(".hpp.ref"),
+            env.outdir ~ "intercept.hpp"), GR(f ~ Ext(".cpp.ref"), env.outdir ~ "intercept.cpp"));
 }
 
 @(testId ~ "Shall intercept the functions")
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto p = genTestParams("stage_1/function.h", testEnv);
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "stage_1/function.h").run;
+    verifyOutput(testEnv, testData ~ "stage_1/function.h");
 }
 
 // === Stage 3 ===
@@ -80,9 +40,6 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto p = genTestParams("stage_3/test_replace_single_sym/orig.h", testEnv);
-    p.dexParams ~= "--config=" ~ (p.root ~ "stage_3/test_replace_single_sym/conf.xml").toString;
-
     string orig_lib = (testEnv.outdir ~ "liborig.a").toString;
     string replace_lib = (testEnv.outdir ~ "libintercept_orig.a").toString;
 
@@ -90,8 +47,7 @@ unittest {
     {
         Args args;
         args ~= "gcc";
-        args ~= p.compileIncls;
-        args ~= ["-c"] ~ (p.root ~ "stage_3/test_replace_single_sym/orig.c").toString;
+        args ~= ["-c"] ~ (testData ~ "stage_3/test_replace_single_sym/orig.c").toString;
         args ~= ["-o", (testEnv.outdir ~ "orig.o").toString];
         runAndLog(args.data).status.shouldEqual(0);
     }
@@ -102,7 +58,8 @@ unittest {
     }
 
     // expect headers and script to replace the specified symbol
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "stage_3/test_replace_single_sym/orig.h")
+        .addArg("--config=" ~ (testData ~ "stage_3/test_replace_single_sym/conf.xml").toString).run;
 
     { // use the generated script to generate the new lib with rename sym
         Args args;
@@ -117,9 +74,10 @@ unittest {
     { // build the binary with the intercept lib
         Args args;
         args ~= "g++";
-        args ~= (p.root ~ "stage_3/test_replace_single_sym/main.cpp").toString;
+        args ~= (testData ~ "stage_3/test_replace_single_sym/main.cpp").toString;
         args ~= ["-o", binary];
-        args ~= p.compileIncls ~ p.compileFlags;
+        args ~= ["-I", (testData ~ "stage_3/test_replace_single_sym").toString];
+        args ~= compilerFlags;
         args ~= ["-I", testEnv.outdir.toString];
         args ~= ["-lintercept_orig", "-L" ~ testEnv.outdir.toString];
         runAndLog(args.data).status.shouldEqual(0);
