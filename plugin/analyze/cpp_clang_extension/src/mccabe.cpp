@@ -82,6 +82,8 @@ using ::llvm::dyn_cast_or_null;
 
 Result calculate(CXCursor cx_decl) {
     const clang::Decl* decl = getCursorDecl(cx_decl);
+    if (decl == nullptr)
+        return {false, 0};
 
     clang::ASTContext* ctx;
     if (clang::ASTContext* result = getCursorContext(cx_decl)) {
