@@ -125,16 +125,22 @@ class McCabe {
 void resultToStdout(McCabe analyze) {
     import std.algorithm : map, filter;
     import std.array : byPair;
+    import std.range : tee;
     import std.stdio : writeln, writefln;
 
     // the |==... is used to make it easy to filter with unix tools. It makes
     // it so that sort -h will not mixit with the numbers.
 
+    long total;
+
     writeln("McCabe Cyclomatic Complexity");
     writeln("|======File");
-    foreach (f; analyze.files.byPair.map!(a => a[1]).filter!(a => a.complexity >= analyze.threshold))
+    foreach (f; analyze.files.byPair.map!(a => a[1])
+            .tee!(a => total += a.complexity).filter!(a => a.complexity >= analyze.threshold)) {
         writefln("%-6s %s", f.complexity, f.file);
-    writeln("|=======Function");
+    }
+    writeln("|======Total McCabe ", total);
+    writeln("|======Function");
     foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
         writefln("%-6s %s [%s line=%s column=%s]", f.complexity,
                 cast(string) f.name, cast(string) f.file, f.line, f.column);
@@ -153,7 +159,9 @@ void resultToJson(AbsolutePath fname, McCabe analyze) {
 
     auto fout = std.stdio.File(cast(string) fname, "w");
 
-    fout.write("[");
+    fout.writeln(`{"kind": "files",`);
+    fout.write(` "values":[`);
+    long total;
     bool add_comma;
     foreach (f; analyze.files.byPair.map!(a => a[1])) {
         if (add_comma) {
@@ -162,14 +170,17 @@ void resultToJson(AbsolutePath fname, McCabe analyze) {
             add_comma = true;
             fout.writeln;
         }
-        fout.writeln(" {");
-        fout.writefln(`  "file":"%s",`, cast(string) f.file);
+        fout.writefln(` {"file":"%s",`, cast(string) f.file);
         fout.writefln(`  "mccabe":%s`, f.complexity);
         fout.write(" }");
+        total += f.complexity;
     }
-    fout.writeln(newline, "]");
+    fout.writeln(newline, " ],");
+    fout.writefln(` "total_mccabe":%s`, total);
+    fout.writeln("},");
 
-    fout.write("[");
+    fout.writeln(`{"kind": "functions",`);
+    fout.write(` "values":[`);
     add_comma = false;
     foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold)) {
         if (add_comma) {
@@ -178,13 +189,13 @@ void resultToJson(AbsolutePath fname, McCabe analyze) {
             add_comma = true;
             fout.writeln;
         }
-        fout.writeln(" {");
-        fout.writefln(`  "function":"%s",`, cast(string) f.name);
+        fout.writefln(` {"function":"%s",`, cast(string) f.name);
         fout.writefln(`  "location": { "file":"%s", "line":%s, "column":%s },`,
                 cast(string) f.file, f.line, f.column);
         fout.writefln(`  "mccabe":%s`, f.complexity);
         fout.write(" }");
     }
 
-    fout.writeln(newline, "]");
+    fout.writeln(newline, " ]");
+    fout.writeln("}");
 }
