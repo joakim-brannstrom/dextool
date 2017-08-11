@@ -53,8 +53,10 @@ unittest {
 
     // shall be dumped to stdout
     r.stdout.sliceContains(`1      f`).shouldBeTrue;
+    r.stdout.sliceContains(`==Total McCabe 1`);
     // shall be reported with the same value in the json file
     readMcCabe(testEnv).sliceContains([`"function":"f",`, `"mccabe":1`]).shouldBeTrue;
+    readMcCabe(testEnv).sliceContains([`"total_mccabe":2`]).shouldBeTrue;
 }
 
 @(testId ~ "McCabe: shall report the McCabe value for functions in namespaces")
@@ -166,4 +168,20 @@ unittest {
                            "2      template_func", // function template
     ]).shouldBeTrue;
     // dfmt on
+}
+
+@("McCabe: shall be the total McCabe value of all files, ignoring threshold")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    // dfmt off
+    auto r = makeDextool(testEnv).addInputArg(testData ~ "templates.cpp")
+        // this file only have mccabe 2 but is still counted as part of the total
+        .addInputArg(testData ~ "function_simple.c")
+        .addArg("--mccabe-threshold=5")
+        .addArg("--output-stdout")
+        .run;
+    // dfmt on
+
+    r.stdout.sliceContains("===Total McCabe 9").shouldBeTrue;
 }
