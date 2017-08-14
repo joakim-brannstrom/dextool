@@ -1,0 +1,12 @@
+[
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary one_function.c",
+        "file": "one_function.c"
+    },
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary one_function.c",
+        "file": "one_function.c"
+    }
+]

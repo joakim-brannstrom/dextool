@@ -185,3 +185,36 @@ unittest {
 
     r.stdout.sliceContains("===Total McCabe 9").shouldBeTrue;
 }
+
+@("McCabe: shall deduplicate plain functions")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    // dfmt off
+    auto r = makeDextool(testEnv)
+        .addArg("--compile-db=" ~ (testData ~ "compiledb/db_multile_occurance_same_file.json").toString)
+        .addArg("--mccabe-threshold=1")
+        .addArg("--output-stdout")
+        .run;
+    // dfmt on
+
+    r.stdout.sliceContains(["===File", "1    "]).shouldBeTrue;
+    r.stdout.sliceContains("1      one_function").shouldBeTrue;
+    r.stdout.sliceContains(["1      one_function", "1      one_function"]).shouldBeFalse;
+}
+
+@("McCabe: shall _correctly_ count include's uniquely")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    // dfmt off
+    auto r = makeDextool(testEnv)
+        .addArg("--compile-db=" ~ (testData ~ "compiledb/test_include_mccabe_counting.json").toString)
+        .addArg("--mccabe-threshold=1")
+        .addArg("--output-stdout")
+        .run;
+    // dfmt on
+
+    r.stdout.sliceContains(["1      free_func_counted1",
+            "1      free_func_counted2", "1      inline_counted"]).shouldBeTrue;
+}

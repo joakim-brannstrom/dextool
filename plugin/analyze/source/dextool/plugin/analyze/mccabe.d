@@ -88,8 +88,6 @@ class McCabe {
             return;
         }
 
-        auto loc = c.location;
-
         auto mccabe = () @trusted{
             import dextool.plugin.analyze.cpp_clang_extension;
 
@@ -101,6 +99,7 @@ class McCabe {
 
         import clang.SourceLocation : toString;
 
+        auto loc = c.location;
         auto file_under_analyze = AbsolutePath(FileName(loc.file.toString));
 
         import cpptooling.data.type : CFunctionName;
@@ -112,7 +111,9 @@ class McCabe {
         }();
 
         if (insert_nr == 1) {
-            // a new function thus add it to the files sum
+            // files that are inserted are thus unique in the analyze.
+            // it is thus OK to add the mccabe to the file count.
+
             if (auto f = file_under_analyze in files) {
                 f.complexity += mccabe.value;
             } else {

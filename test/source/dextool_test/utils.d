@@ -479,10 +479,11 @@ struct BuildDextoolRun {
         import std.format : FormatSpec;
 
         void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+            import std.algorithm : joiner;
             import std.format : formattedWrite;
             import std.range.primitives : put;
 
-            formattedWrite(w, "run: %(%s %)", cmd);
+            formattedWrite(w, "run: %s", cmd.dup.joiner(" "));
             put(w, newline);
 
             formattedWrite(w, "exit status: %s", status);
