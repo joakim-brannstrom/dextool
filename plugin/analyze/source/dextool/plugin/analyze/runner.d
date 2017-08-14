@@ -72,7 +72,6 @@ ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto visitor = new TUVisitor(restrictDir);
     analyzers.registerAnalyzers(visitor);
 
@@ -87,6 +86,9 @@ ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
                     "Skipping file because it is not possible to determine the compiler flags");
             continue;
         }
+
+        // limit memory consumption
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
         if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
             logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
