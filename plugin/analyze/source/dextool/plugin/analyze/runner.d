@@ -64,6 +64,7 @@ ExitStatusType runPlugin(string[] args) {
 
 ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
         string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir) {
+    import std.range : enumerate;
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.clang : findFlags, ParseData = SearchResult;
@@ -75,7 +76,12 @@ ExitStatusType doAnalyze(ref AnalyzeCollection analyzers, string[] in_cflags,
     auto visitor = new TUVisitor(restrictDir);
     analyzers.registerAnalyzers(visitor);
 
-    foreach (pdata; AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter)) {
+    auto files = AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter);
+    const total_files = files.length;
+
+    foreach (idx, pdata; files.enumerate) {
+        logger.infof("File %d/%d ", idx + 1, total_files);
+
         if (pdata.isNull) {
             logger.warning(
                     "Skipping file because it is not possible to determine the compiler flags");
@@ -147,9 +153,6 @@ struct AnalyzeFileRange {
         } else {
             kind = RangeOver.inFiles;
         }
-
-        if (!internalEmpty)
-            internalPopFront;
     }
 
     const RangeOver kind;
@@ -158,10 +161,11 @@ struct AnalyzeFileRange {
     string[] cflags;
     const CompileCommandFilter ccFilter;
 
-    Nullable!SearchResult curr;
+    Nullable!SearchResult front() {
+        assert(!empty, "Can't get front of an empty range");
 
-    private void setCurrent() {
-        assert(!internalEmpty, "Can't pop front of an empty range");
+        Nullable!SearchResult curr;
+
         final switch (kind) {
         case RangeOver.inFiles:
             if (db.length > 0) {
@@ -175,20 +179,12 @@ struct AnalyzeFileRange {
             curr = SearchResult(cflags ~ tmp.parseFlag(ccFilter), tmp.absoluteFile);
             break;
         }
+
+        return curr;
     }
 
-    private bool internalEmpty() {
-        final switch (kind) {
-        case RangeOver.inFiles:
-            return inFiles.length == 0;
-        case RangeOver.database:
-            return db.length == 0;
-        }
-    }
-
-    private void internalPopFront() {
-        assert(!internalEmpty, "Can't pop front of an empty range");
-        setCurrent;
+    void popFront() {
+        assert(!empty, "Can't pop front of an empty range");
 
         final switch (kind) {
         case RangeOver.inFiles:
@@ -200,19 +196,21 @@ struct AnalyzeFileRange {
         }
     }
 
-    Nullable!SearchResult front() @safe pure nothrow {
-        assert(!empty, "Can't get front of an empty range");
-        return curr;
-    }
-
-    void popFront() {
-        assert(!empty, "Can't pop front of an empty range");
-        curr.nullify;
-        if (!internalEmpty)
-            internalPopFront;
-    }
-
     bool empty() @safe pure nothrow const @nogc {
-        return curr.isNull;
+        final switch (kind) {
+        case RangeOver.inFiles:
+            return inFiles.length == 0;
+        case RangeOver.database:
+            return db.length == 0;
+        }
+    }
+
+    size_t length() @safe pure nothrow const @nogc {
+        final switch (kind) {
+        case RangeOver.inFiles:
+            return inFiles.length;
+        case RangeOver.database:
+            return db.length;
+        }
     }
 }
