@@ -1,0 +1,12 @@
+[
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary test_include_mccabe_counting1.cpp",
+        "file": "test_include_mccabe_counting1.cpp"
+    },
+    {
+        "directory": ".",
+        "command": "g++ -I. -c -o binary test_include_mccabe_counting2.cpp",
+        "file": "test_include_mccabe_counting2.cpp"
+    }
+]
