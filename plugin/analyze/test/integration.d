@@ -151,7 +151,7 @@ unittest {
     // dfmt on
 }
 
-@("McCabe: shall be McCabe complexity for templates")
+@(testId ~ "McCabe: shall be McCabe complexity for templates")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -170,7 +170,7 @@ unittest {
     // dfmt on
 }
 
-@("McCabe: shall be the total McCabe value of all files, ignoring threshold")
+@(testId ~ "McCabe: shall be the total McCabe value of all files, ignoring threshold")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -186,7 +186,7 @@ unittest {
     r.stdout.sliceContains("===Total McCabe 9").shouldBeTrue;
 }
 
-@("McCabe: shall deduplicate plain functions")
+@(testId ~ "McCabe: shall deduplicate plain functions")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -203,7 +203,7 @@ unittest {
     r.stdout.sliceContains(["1      one_function", "1      one_function"]).shouldBeFalse;
 }
 
-@("McCabe: shall _correctly_ count include's uniquely")
+@(testId ~ "McCabe: shall _correctly_ count include's uniquely")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -217,4 +217,21 @@ unittest {
 
     r.stdout.sliceContains(["1      free_func_counted1",
             "1      free_func_counted2", "1      inline_counted"]).shouldBeTrue;
+}
+
+@(
+        testId
+        ~ "McCabe: shall uniquely count the functions in the namespaces even though they have the same identifier")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    // dfmt off
+    auto r = makeDextool(testEnv)
+        .addInputArg(testData ~ "same_func_name_different_namespace.cpp")
+        .addArg("--mccabe-threshold=1")
+        .addArg("--output-stdout")
+        .run;
+    // dfmt on
+
+    r.stdout.sliceContains(["1     func", "1     func"]);
 }
