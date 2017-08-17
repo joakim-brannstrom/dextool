@@ -164,8 +164,8 @@ unittest {
                            "1      Class<A>",
                            "1      ClassMethod",
                            "1      InnerTemplateMethod", // function template
-                           "1      ~Class<A>",
                            "2      template_func", // function template
+                           "1      ~Class<A>",
     ]).shouldBeTrue;
     // dfmt on
 }

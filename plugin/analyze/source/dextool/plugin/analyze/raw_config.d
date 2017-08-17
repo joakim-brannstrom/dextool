@@ -27,6 +27,7 @@ struct RawConfiguration {
     bool outputJson;
     bool outputStdout;
     int mccabeThreshold = 5;
+    int workerThreads = -1;
     string outdir = ".";
     string restrictDir = ".";
     string[] cflags;
@@ -42,6 +43,7 @@ struct RawConfiguration {
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
+                   "threads", "number of worker threads to use (default: detected CPU cores)", &workerThreads,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "output-json", "Write the analyze result to json file(s)", &outputJson,
                    "output-stdout", "Write the analyze result to stdout", &outputStdout,
