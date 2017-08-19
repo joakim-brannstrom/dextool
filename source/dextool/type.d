@@ -146,6 +146,10 @@ struct AbsolutePath {
         assert(payload.length == 0 || payload.isAbsolute);
     }
 
+    immutable this(AbsolutePath p) {
+        this.payload = p.payload;
+    }
+
     this(FileName p) {
         auto p_expand = () @trusted{ return p.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
