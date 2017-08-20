@@ -47,12 +47,20 @@ struct Function {
         // dfmt off
         if (name < rhs.name)
             return -1;
+        else if (name > rhs.name)
+            return 1;
         if (file < rhs.file)
             return -1;
+        else if (file > rhs.file)
+            return 1;
         if (line < rhs.line)
             return -1;
+        else if (line > rhs.line)
+            return 1;
         if (column < rhs.column)
             return -1;
+        else if (column > rhs.column)
+            return 1;
         return this == rhs ? 0 : 1;
         // dfmt on
     }
@@ -63,25 +71,46 @@ struct File {
     int complexity;
 }
 
-class McCabe {
+class McCabeResult {
     import std.container : RedBlackTree;
-    import cpptooling.analyzer.clang.ast : FunctionDecl;
 
     File[AbsolutePath] files;
     RedBlackTree!Function functions;
 
-    private int threshold;
-
-    this(int threshold) {
+    this() {
         import std.container : make;
 
         functions = make!(typeof(functions))();
-        this.threshold = threshold;
+    }
+
+    /**
+     * Returns: if the function where added.
+     */
+    void put(Function func) @safe {
+        // unsafe in dmd-2.071.1 but safe in 2.075.0
+        auto insert_nr = () @trusted{ return functions.insert(func); }();
+
+        if (insert_nr == 1) {
+            // files that are inserted are thus unique in the analyze.
+            // it is thus OK to add the mccabe to the file count.
+
+            if (auto f = func.file in files) {
+                f.complexity += func.complexity;
+            } else {
+                files[func.file] = File(func.file, func.complexity);
+            }
+        }
+    }
+}
+
+class McCabe {
+    private McCabeResult result;
+
+    this(McCabeResult result) {
+        this.result = result;
     }
 
     void analyze(T)(const(T) v) @safe {
-        import std.stdio : writefln;
-
         auto c = v.cursor;
 
         if (!c.isDefinition) {
@@ -104,45 +133,31 @@ class McCabe {
 
         import cpptooling.data.type : CFunctionName;
 
-        // unsafe in dmd-2.071.1 but safe in 2.075.0
-        auto insert_nr = () @trusted{
-            return functions.insert(Function(CFunctionName(c.spelling),
-                    file_under_analyze, loc.line, loc.column, mccabe.value));
-        }();
-
-        if (insert_nr == 1) {
-            // files that are inserted are thus unique in the analyze.
-            // it is thus OK to add the mccabe to the file count.
-
-            if (auto f = file_under_analyze in files) {
-                f.complexity += mccabe.value;
-            } else {
-                files[file_under_analyze] = File(file_under_analyze, mccabe.value);
-            }
-        }
+        result.put(Function(CFunctionName(c.spelling), file_under_analyze,
+                loc.line, loc.column, mccabe.value));
     }
 }
 
-void resultToStdout(McCabe analyze) {
+void resultToStdout(McCabeResult analyze, int threshold) {
     import std.algorithm : map, filter;
     import std.array : byPair;
     import std.range : tee;
     import std.stdio : writeln, writefln;
 
     // the |==... is used to make it easy to filter with unix tools. It makes
-    // it so that sort -h will not mixit with the numbers.
+    // it so that sort -h will not mix it with the numbers.
 
     long total;
 
     writeln("McCabe Cyclomatic Complexity");
     writeln("|======File");
     foreach (f; analyze.files.byPair.map!(a => a[1])
-            .tee!(a => total += a.complexity).filter!(a => a.complexity >= analyze.threshold)) {
+            .tee!(a => total += a.complexity).filter!(a => a.complexity >= threshold)) {
         writefln("%-6s %s", f.complexity, f.file);
     }
     writeln("|======Total McCabe ", total);
     writeln("|======Function");
-    foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold))
+    foreach (f; analyze.functions[].filter!(a => a.complexity >= threshold))
         writefln("%-6s %s [%s line=%s column=%s]", f.complexity,
                 cast(string) f.name, cast(string) f.file, f.line, f.column);
 
@@ -151,7 +166,7 @@ void resultToStdout(McCabe analyze) {
     }
 }
 
-void resultToJson(AbsolutePath fname, McCabe analyze) {
+void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) {
     import std.ascii : newline;
     import std.algorithm : map, filter;
     import std.array : byPair;
@@ -183,7 +198,7 @@ void resultToJson(AbsolutePath fname, McCabe analyze) {
     fout.writeln(`{"kind": "functions",`);
     fout.write(` "values":[`);
     add_comma = false;
-    foreach (f; analyze.functions[].filter!(a => a.complexity >= analyze.threshold)) {
+    foreach (f; analyze.functions[].filter!(a => a.complexity >= threshold)) {
         if (add_comma) {
             fout.writeln(",");
         } else {
