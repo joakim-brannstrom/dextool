@@ -47,12 +47,20 @@ struct Function {
         // dfmt off
         if (name < rhs.name)
             return -1;
+        else if (name > rhs.name)
+            return 1;
         if (file < rhs.file)
             return -1;
+        else if (file > rhs.file)
+            return 1;
         if (line < rhs.line)
             return -1;
+        else if (line > rhs.line)
+            return 1;
         if (column < rhs.column)
             return -1;
+        else if (column > rhs.column)
+            return 1;
         return this == rhs ? 0 : 1;
         // dfmt on
     }
