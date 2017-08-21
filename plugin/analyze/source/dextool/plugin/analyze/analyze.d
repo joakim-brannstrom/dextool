@@ -268,7 +268,7 @@ class Pool {
  */
 struct AnalyzeBuilder {
     private {
-        bool analyzeMcCabe;
+        Flag!"doMcCabeAnalyze" analyzeMcCabe;
     }
 
     static auto make() {
@@ -276,18 +276,12 @@ struct AnalyzeBuilder {
     }
 
     auto mcCabe(bool do_this_analyze) {
-        analyzeMcCabe = do_this_analyze;
+        analyzeMcCabe = cast(Flag!"doMcCabeAnalyze") do_this_analyze;
         return this;
     }
 
     auto finalize() {
-        McCabeResult mccabe;
-
-        if (analyzeMcCabe) {
-            mccabe = new McCabeResult();
-        }
-
-        return AnalyzeCollection(mccabe);
+        return AnalyzeCollection(analyzeMcCabe);
     }
 }
 
@@ -300,16 +294,17 @@ struct AnalyzeCollection {
 
     McCabeResult mcCabeResult;
     private McCabe mcCabe;
+    private bool doMcCabe;
 
-    this(McCabeResult mccabe_res) {
-        if (mccabe_res !is null) {
-            this.mcCabeResult = mccabe_res;
-            this.mcCabe = new McCabe(mccabe_res);
-        }
+    this(Flag!"doMcCabeAnalyze" mccabe) {
+        doMcCabe = mccabe;
+
+        this.mcCabeResult = McCabeResult.make();
+        this.mcCabe = McCabe(this.mcCabeResult);
     }
 
     void register(TUVisitor v) {
-        if (mcCabe !is null) {
+        if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
             v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
             v.onConstructor ~= &mcCabe.analyze!Constructor;
@@ -369,7 +364,7 @@ struct AnalyzeResults {
         auto finalize() {
             // dfmt off
             return AnalyzeResults(outdir,
-                                  new McCabeResult(),
+                                  McCabeResult.make(),
                                   mccabeThreshold,
                                   cast(Flag!"dumpMcCabe") dumpMcCabe,
                                   cast(Flag!"outputJson") json_,
@@ -388,7 +383,7 @@ struct AnalyzeResults {
 
         const string base = buildPath(outdir, "result_");
 
-        if (mcCabe !is null) {
+        if (dumpMcCabe) {
             if (json_)
                 dextool.plugin.analyze.mccabe.resultToJson(FileName(base ~ "mccabe.json")
                         .AbsolutePath, mcCabe, mccabeThreshold);

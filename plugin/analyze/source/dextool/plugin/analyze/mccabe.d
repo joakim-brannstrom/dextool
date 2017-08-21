@@ -71,16 +71,16 @@ struct File {
     int complexity;
 }
 
-class McCabeResult {
+struct McCabeResult {
     import std.container : RedBlackTree;
 
-    File[AbsolutePath] files;
     RedBlackTree!Function functions;
+    File[AbsolutePath] files;
 
-    this() {
+    static auto make() {
         import std.container : make;
 
-        functions = make!(typeof(functions))();
+        return McCabeResult(make!(RedBlackTree!Function)(), null);
     }
 
     /**
@@ -103,11 +103,13 @@ class McCabeResult {
     }
 }
 
-class McCabe {
-    private McCabeResult result;
+struct McCabe {
+    import std.typecons : NullableRef;
 
-    this(McCabeResult result) {
-        this.result = result;
+    private NullableRef!McCabeResult result;
+
+    this(ref McCabeResult result) {
+        this.result = &result;
     }
 
     void analyze(T)(const(T) v) @safe {

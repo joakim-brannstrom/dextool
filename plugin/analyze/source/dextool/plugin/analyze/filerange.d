@@ -57,8 +57,13 @@ struct AnalyzeFileRange {
             }
             break;
         case RangeOver.database:
+            import std.array : appender;
+
             auto tmp = db.payload[0];
-            curr = SearchResult(cflags ~ tmp.parseFlag(ccFilter), tmp.absoluteFile);
+            auto flags = appender!(string[])();
+            flags.put(cflags);
+            flags.put(tmp.parseFlag(ccFilter));
+            curr = SearchResult(flags.data, tmp.absoluteFile);
             break;
         }
 
