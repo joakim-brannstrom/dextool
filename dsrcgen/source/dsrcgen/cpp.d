@@ -105,6 +105,17 @@ mixin template CppModuleX(T) {
         return e;
     }
 
+    auto ctor_initlist_body(T...)(string class_name, string[] init_list, auto ref T args) {
+        import std.algorithm : joiner;
+        import std.format : format;
+
+        string params = paramsToString(args);
+
+        auto e = class_suite(class_name, format("%s(%s) : %s", class_name,
+                params, init_list.joiner(", ")));
+        return e;
+    }
+
     /** Virtual d'tor.
      * Params:
      *  isVirtual = if evaluated to true prepend with virtual.
@@ -510,4 +521,13 @@ unittest {
     with (m.enum_class("X")) {
         enum_const("L0");
     }
+}
+
+@("shall be a ctor with an initialization list")
+unittest {
+    auto expect = "Class::Class(int x) : bar(), bum() {
+}";
+
+    auto m = new CppModule;
+    m.ctor_initlist_body("Class", ["bar()", "bum()"], "int x");
 }
