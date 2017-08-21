@@ -74,13 +74,13 @@ struct File {
 class McCabeResult {
     import std.container : RedBlackTree;
 
-    File[AbsolutePath] files;
     RedBlackTree!Function functions;
+    File[AbsolutePath] files;
 
     this() {
         import std.container : make;
 
-        functions = make!(typeof(functions))();
+        this.functions = make!(typeof(functions));
     }
 
     /**
@@ -103,7 +103,9 @@ class McCabeResult {
     }
 }
 
-class McCabe {
+struct McCabe {
+    import std.typecons : NullableRef;
+
     private McCabeResult result;
 
     this(McCabeResult result) {

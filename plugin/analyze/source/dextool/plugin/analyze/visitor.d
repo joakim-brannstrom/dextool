@@ -82,7 +82,7 @@ final class TUVisitor : Visitor {
      * Params:
      *  restrict = only analyze files starting with this path
      */
-    this(AbsolutePath restrict) {
+    this(AbsolutePath restrict) nothrow {
         this.restrict = restrict;
     }
 
