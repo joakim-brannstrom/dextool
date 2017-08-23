@@ -13,6 +13,8 @@ import dextool.compilation_db : CompileCommandFilter, CompileCommandDB,
     parseFlag;
 import dextool.type : FileName, AbsolutePath;
 
+@safe:
+
 struct AnalyzeFileRange {
     import std.typecons : Nullable;
     import dextool.clang : findFlags;
