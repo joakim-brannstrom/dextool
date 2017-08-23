@@ -15,6 +15,8 @@ struct Visitor {
     alias Delegate = int delegate(ref Cursor, ref Cursor);
     alias OpApply = int delegate(Delegate dg);
 
+@safe:
+
     private CXCursor cursor;
 
     this(CXCursor cursor) {
@@ -25,17 +27,29 @@ struct Visitor {
         this.cursor = cursor.cx;
     }
 
-    int opApply(Delegate dg) {
+    /**
+     * Trusted: assuming the LLVM function do NOT abuse the pointer in any way.
+     */
+    int opApply(Delegate dg) @trusted {
+        if (dg is null)
+            return 0;
+
         auto data = OpApplyData(dg);
         clang_visitChildren(cursor, &visitorFunction, cast(CXClientData)&data);
 
         return data.returnCode;
     }
 
-    int opApply(int delegate(ref Cursor) dg) {
+    /**
+     * Trusted: assuming the LLVM function do NOT abuse the pointer in any way.
+     */
+    int opApply(int delegate(ref Cursor) dg) @trusted {
         int wrapper(ref Cursor cursor, ref Cursor) {
             return dg(cursor);
         }
+
+        if (dg is null)
+            return 0;
 
         auto data = OpApplyData(&wrapper);
         clang_visitChildren(cursor, &visitorFunction, cast(CXClientData)&data);
@@ -46,7 +60,10 @@ struct Visitor {
 private:
 
     extern (C) static CXChildVisitResult visitorFunction(CXCursor cursor,
-            CXCursor parent, CXClientData data) {
+            CXCursor parent, CXClientData data) @trusted {
+        if (data is null)
+            return CXChildVisitResult.CXChildVisit_Continue;
+
         auto tmp = cast(OpApplyData*) data;
 
         with (CXChildVisitResult) {
@@ -84,7 +101,7 @@ private:
     }
 }
 
-struct InOrderVisitor {
+@safe struct InOrderVisitor {
     alias int delegate(ref Cursor, ref Cursor) Delegate;
 
     private Cursor cursor;
@@ -97,7 +114,7 @@ struct InOrderVisitor {
         this.cursor = cursor;
     }
 
-    int opApply(Delegate dg) {
+    int opApply(Delegate dg) @trusted {
         import std.array;
 
         auto visitor = Visitor(cursor);

@@ -45,7 +45,7 @@ import dextool.type : ExitStatusType, FileName, AbsolutePath;
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
 
-immutable(SearchResult) idup(SearchResult v) {
+immutable(SearchResult) idup(SearchResult v) @safe {
     import std.algorithm : map;
     import std.array : array;
 
@@ -55,7 +55,7 @@ immutable(SearchResult) idup(SearchResult v) {
 }
 
 ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults analyze_results, string[] in_cflags,
-        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) {
+        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) @safe {
     import std.range : enumerate;
     import dextool.clang : SearchResult;
     import dextool.compilation_db : defaultCompilerFilter;
@@ -179,8 +179,10 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
         logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
     }
 
-    foreach (f; analyzers.mcCabeResult.functions[])
-        owner.send(f);
+    foreach (f; analyzers.mcCabeResult.functions[]) {
+        // assuming send is correctly implemented.
+        () @trusted{ owner.send(f); }();
+    }
 }
 
 class Pool {
@@ -190,7 +192,7 @@ class Pool {
     Tid[] pool;
     int workerThreads;
 
-    this(int workerThreads) {
+    this(int workerThreads) @safe {
         import std.parallelism : totalCPUs;
 
         if (workerThreads <= 0) {
@@ -207,9 +209,12 @@ class Pool {
 
     /** Relay data in the mailbox back to the provided function.
      *
+     * trusted: on the assumption that receiveTimeout is @safe _enough_.
+     * assuming `ops` is @safe.
+     *
      * Returns: if data where received
      */
-    bool receive(T)(T ops) {
+    bool receive(T)(T ops) @trusted {
         import core.time;
         import std.concurrency : LinkTerminated, receiveTimeout;
 
@@ -233,7 +238,7 @@ class Pool {
         return got_any_data;
     }
 
-    bool empty() {
+    bool empty() @safe {
         return pool.length == 0;
     }
 
@@ -244,13 +249,15 @@ class Pool {
         pool = pool.filter!(a => tid != a).array();
     }
 
+    //TODO add attribute check of func so only @safe func can be used.
     Nullable!Tid makeWorker(F, ARGS...)(F func, auto ref ARGS args) {
         import std.concurrency : spawnLinked;
 
         typeof(return) rval;
 
         if (pool.length < workerThreads) {
-            rval = spawnLinked(func, thisTid, args);
+            // assuming that spawnLinked is of high quality. Assuming func is @safe.
+            rval = () @trusted{ return spawnLinked(func, thisTid, args); }();
             pool ~= rval;
         }
 
@@ -268,7 +275,7 @@ class Pool {
  */
 struct AnalyzeBuilder {
     private {
-        bool analyzeMcCabe;
+        Flag!"doMcCabeAnalyze" analyzeMcCabe;
     }
 
     static auto make() {
@@ -276,18 +283,12 @@ struct AnalyzeBuilder {
     }
 
     auto mcCabe(bool do_this_analyze) {
-        analyzeMcCabe = do_this_analyze;
+        analyzeMcCabe = cast(Flag!"doMcCabeAnalyze") do_this_analyze;
         return this;
     }
 
     auto finalize() {
-        McCabeResult mccabe;
-
-        if (analyzeMcCabe) {
-            mccabe = new McCabeResult();
-        }
-
-        return AnalyzeCollection(mccabe);
+        return AnalyzeCollection(analyzeMcCabe);
     }
 }
 
@@ -300,16 +301,19 @@ struct AnalyzeCollection {
 
     McCabeResult mcCabeResult;
     private McCabe mcCabe;
+    private bool doMcCabe;
 
-    this(McCabeResult mccabe_res) {
-        if (mccabe_res !is null) {
-            this.mcCabeResult = mccabe_res;
-            this.mcCabe = new McCabe(mccabe_res);
-        }
+    this(Flag!"doMcCabeAnalyze" mccabe) {
+        import std.typecons : nullableRef;
+
+        doMcCabe = mccabe;
+
+        this.mcCabeResult = McCabeResult.make();
+        this.mcCabe = McCabe(nullableRef(&this.mcCabeResult));
     }
 
     void register(TUVisitor v) {
-        if (mcCabe !is null) {
+        if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
             v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
             v.onConstructor ~= &mcCabe.analyze!Constructor;
@@ -369,7 +373,7 @@ struct AnalyzeResults {
         auto finalize() {
             // dfmt off
             return AnalyzeResults(outdir,
-                                  new McCabeResult(),
+                                  McCabeResult.make(),
                                   mccabeThreshold,
                                   cast(Flag!"dumpMcCabe") dumpMcCabe,
                                   cast(Flag!"outputJson") json_,
@@ -383,12 +387,12 @@ struct AnalyzeResults {
         mcCabe.put(f);
     }
 
-    void dumpResult() {
+    void dumpResult() @safe {
         import std.path : buildPath;
 
         const string base = buildPath(outdir, "result_");
 
-        if (mcCabe !is null) {
+        if (dumpMcCabe) {
             if (json_)
                 dextool.plugin.analyze.mccabe.resultToJson(FileName(base ~ "mccabe.json")
                         .AbsolutePath, mcCabe, mccabeThreshold);

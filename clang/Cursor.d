@@ -26,7 +26,7 @@ import clang.Visitor;
 /** The Cursor class represents a reference to an element within the AST. It
  * acts as a kind of iterator.
  */
-struct Cursor {
+@safe struct Cursor {
     mixin CX;
 
     // for example primitive types are predefined
@@ -268,7 +268,7 @@ struct Cursor {
         return Cursor(r);
     }
 
-    @property DeclarationVisitor declarations() const {
+    @property DeclarationVisitor declarations() const @trusted {
         return DeclarationVisitor(this);
     }
 
@@ -322,7 +322,7 @@ struct Cursor {
     }
 
     /// Returns: the translation unit that a cursor originated from.
-    @property TranslationUnit translationUnit() const {
+    @property TranslationUnit translationUnit() const @trusted {
         return TranslationUnit(clang_Cursor_getTranslationUnit(cx));
     }
 
@@ -331,9 +331,12 @@ struct Cursor {
      * This is a generator for Token instances. It returns all tokens which
      * occupy the extent this cursor occupies.
      *
+     * Trusted: the API usage follows the LLVM manual. The potential problem
+     * would be if clang_tokenize write back invalid addresses.
+     *
      * Returns: A RefCounted TokenGroup.
      */
-    @property auto tokens() const {
+    @property auto tokens() const @trusted {
         import std.algorithm.mutation : stripRight;
 
         CXToken* tokens = null;
@@ -411,7 +414,7 @@ struct Cursor {
     }
 
     /// Determine whether two cursors are equivalent.
-    equals_t opEquals(const ref Cursor cursor) const {
+    equals_t opEquals(const ref Cursor cursor) const @trusted {
         return clang_equalCursors(cast(CXCursor) cursor.cx, cast(CXCursor) cx) != 0;
     }
 
@@ -564,7 +567,7 @@ struct Cursor {
         return result;
     }
 
-    public static string predefinedToString() {
+    public static string predefinedToString() @trusted {
         import std.algorithm : map, joiner;
         import std.ascii : newline;
         import std.conv : text;

@@ -36,7 +36,7 @@ struct RawConfiguration {
 
     private GetoptResult help_info;
 
-    void parse(string[] args) {
+    void parse(string[] args) @safe {
         static import std.getopt;
 
         try {
@@ -80,7 +80,7 @@ struct RawConfiguration {
         }
     }
 
-    void printHelp() {
+    void printHelp() @trusted {
         import std.stdio : writeln;
 
         defaultGetoptPrinter("Usage: dextool analyze [options] [--in=] [-- CFLAGS...]",

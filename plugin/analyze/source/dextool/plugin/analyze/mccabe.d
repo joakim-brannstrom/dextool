@@ -13,6 +13,8 @@ import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType, FileName, AbsolutePath;
 
+@safe:
+
 struct Function {
     import cpptooling.data.type : CFunctionName;
 
@@ -71,16 +73,16 @@ struct File {
     int complexity;
 }
 
-class McCabeResult {
+struct McCabeResult {
     import std.container : RedBlackTree;
 
-    File[AbsolutePath] files;
     RedBlackTree!Function functions;
+    File[AbsolutePath] files;
 
-    this() {
+    static auto make() {
         import std.container : make;
 
-        functions = make!(typeof(functions))();
+        return McCabeResult(make!(RedBlackTree!Function)(), null);
     }
 
     /**
@@ -103,10 +105,12 @@ class McCabeResult {
     }
 }
 
-class McCabe {
-    private McCabeResult result;
+struct McCabe {
+    import std.typecons : NullableRef;
 
-    this(McCabeResult result) {
+    private NullableRef!McCabeResult result;
+
+    this(NullableRef!McCabeResult result) {
         this.result = result;
     }
 
@@ -138,7 +142,10 @@ class McCabe {
     }
 }
 
-void resultToStdout(McCabeResult analyze, int threshold) {
+/**
+ * Trusted: only the assocative array is problematic.
+ */
+void resultToStdout(McCabeResult analyze, int threshold) @trusted {
     import std.algorithm : map, filter;
     import std.array : byPair;
     import std.range : tee;
@@ -166,7 +173,10 @@ void resultToStdout(McCabeResult analyze, int threshold) {
     }
 }
 
-void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) {
+/**
+ * Trusted: only the assocative array is problematic.
+ */
+void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) @trusted {
     import std.ascii : newline;
     import std.algorithm : map, filter;
     import std.array : byPair;

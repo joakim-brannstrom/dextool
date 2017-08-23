@@ -11,11 +11,13 @@ import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb,
     fromFiles;
 
-enum PreferLang : string {
-    none = "",
-    c = "-xc",
-    cpp = "-xc++"
-}
+    @safe:
+
+    enum PreferLang : string {
+        none = "",
+        c = "-xc",
+        cpp = "-xc++"
+    }
 
 pure string[] prependDefaultFlags(const string[] in_cflags, const PreferLang lang) {
     import std.algorithm : canFind;
