@@ -13,6 +13,8 @@ import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType, FileName, AbsolutePath;
 
+@safe:
+
 struct Function {
     import cpptooling.data.type : CFunctionName;
 
@@ -140,7 +142,10 @@ struct McCabe {
     }
 }
 
-void resultToStdout(McCabeResult analyze, int threshold) {
+/**
+ * Trusted: only the assocative array is problematic.
+ */
+void resultToStdout(McCabeResult analyze, int threshold) @trusted {
     import std.algorithm : map, filter;
     import std.array : byPair;
     import std.range : tee;
@@ -168,7 +173,10 @@ void resultToStdout(McCabeResult analyze, int threshold) {
     }
 }
 
-void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) {
+/**
+ * Trusted: only the assocative array is problematic.
+ */
+void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) @trusted {
     import std.ascii : newline;
     import std.algorithm : map, filter;
     import std.array : byPair;

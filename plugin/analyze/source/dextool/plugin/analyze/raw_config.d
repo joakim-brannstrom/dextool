@@ -36,11 +36,14 @@ struct RawConfiguration {
 
     private GetoptResult help_info;
 
-    void parse(string[] args) {
+    void parse(string[] args) @safe {
         static import std.getopt;
 
         try {
+            // getopt is safe in newer versions than 2.071.1
+            // remove this trusted wrapper there.
             // dfmt off
+            () @trusted {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "threads", "number of worker threads to use (default: detected CPU cores)", &workerThreads,
@@ -53,6 +56,7 @@ struct RawConfiguration {
                    "out", "directory to write result files to (default: .)", &outdir,
                    "in", "Input file to parse", &files,
                    );
+            }();
             // dfmt on
             help = help_info.helpWanted;
         }
@@ -80,7 +84,7 @@ struct RawConfiguration {
         }
     }
 
-    void printHelp() {
+    void printHelp() @trusted {
         import std.stdio : writeln;
 
         defaultGetoptPrinter("Usage: dextool analyze [options] [--in=] [-- CFLAGS...]",

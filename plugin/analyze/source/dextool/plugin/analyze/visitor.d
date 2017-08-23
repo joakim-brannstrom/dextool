@@ -12,6 +12,8 @@ module dextool.plugin.analyze.visitor;
 import cpptooling.analyzer.clang.ast : Visitor;
 import dextool.type : FileName, AbsolutePath;
 
+@safe:
+
 /** Calculate McCabe per file and function.
 */
 final class TUVisitor : Visitor {
@@ -67,7 +69,9 @@ final class TUVisitor : Visitor {
     }
 
     import std.meta : AliasSeq;
-    private alias callbackKinds = AliasSeq!(FunctionDecl, Constructor, Destructor, CXXMethod, ConversionFunction, FunctionTemplate, ClassTemplate);
+
+    private alias callbackKinds = AliasSeq!(FunctionDecl, Constructor,
+            Destructor, CXXMethod, ConversionFunction, FunctionTemplate, ClassTemplate);
 
     // debugging
     //pragma(msg, makeCallbacks!callbackKinds);

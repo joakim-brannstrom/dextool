@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType, FileName, AbsolutePath;
 
-ExitStatusType runPlugin(string[] args) {
+ExitStatusType runPlugin(string[] args) @safe {
     import std.stdio : writeln, writefln;
     import dextool.compilation_db : CompileCommandDB, fromArgCompileDb;
     import dextool.plugin.analyze.raw_config;
@@ -41,7 +41,7 @@ ExitStatusType runPlugin(string[] args) {
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
-        compile_db = pargs.compileDb.fromArgCompileDb;
+        compile_db = () @trusted{ return pargs.compileDb.fromArgCompileDb; }();
     }
 
     // dfmt off

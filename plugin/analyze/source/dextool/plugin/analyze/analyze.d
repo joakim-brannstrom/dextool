@@ -45,7 +45,7 @@ import dextool.type : ExitStatusType, FileName, AbsolutePath;
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
 
-immutable(SearchResult) idup(SearchResult v) {
+immutable(SearchResult) idup(SearchResult v) @safe {
     import std.algorithm : map;
     import std.array : array;
 
@@ -55,7 +55,7 @@ immutable(SearchResult) idup(SearchResult v) {
 }
 
 ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults analyze_results, string[] in_cflags,
-        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) {
+        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) @safe {
     import std.conv : to;
     import std.range : enumerate;
     import dextool.clang : SearchResult;
@@ -66,7 +66,8 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
     {
         import std.concurrency : setMaxMailboxSize, OnCrowding, thisTid;
 
-        setMaxMailboxSize(thisTid, 1024, OnCrowding.block);
+        // safe in newer versions than 2.071.1
+        () @trusted{ setMaxMailboxSize(thisTid, 1024, OnCrowding.block); }();
     }
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
@@ -196,6 +197,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
 
     foreach (f; analyzers.mcCabeResult.functions[]) {
         try {
+            // assuming send is correctly implemented.
             () @trusted{ owner.send(f); }();
         }
         catch (Exception e) {
@@ -211,7 +213,7 @@ class Pool {
     Tid[] pool;
     int workerThreads;
 
-    this(int workerThreads) {
+    this(int workerThreads) @safe {
         import std.parallelism : totalCPUs;
 
         if (workerThreads <= 0) {
@@ -228,9 +230,12 @@ class Pool {
 
     /** Relay data in the mailbox back to the provided function.
      *
+     * trusted: on the assumption that receiveTimeout is @safe _enough_.
+     * assuming `ops` is @safe.
+     *
      * Returns: if data where received
      */
-    bool receive(T)(T ops) {
+    bool receive(T)(T ops) @trusted {
         import core.time;
         import std.concurrency : LinkTerminated, receiveTimeout;
 
@@ -254,7 +259,7 @@ class Pool {
         return got_any_data;
     }
 
-    bool empty() {
+    bool empty() @safe {
         return pool.length == 0;
     }
 
@@ -265,13 +270,15 @@ class Pool {
         pool = pool.filter!(a => tid != a).array();
     }
 
+    //TODO add attribute check of func so only @safe func can be used.
     Nullable!Tid makeWorker(F, ARGS...)(F func, auto ref ARGS args) {
         import std.concurrency : spawnLinked;
 
         typeof(return) rval;
 
         if (pool.length < workerThreads) {
-            rval = spawnLinked(func, thisTid, args);
+            // assuming that spawnLinked is of high quality. Assuming func is @safe.
+            rval = () @trusted{ return spawnLinked(func, thisTid, args); }();
             pool ~= rval;
         }
 
@@ -321,7 +328,14 @@ struct AnalyzeCollection {
         doMcCabe = mccabe;
 
         this.mcCabeResult = new McCabeResult;
-        this.mcCabe = McCabe(this.mcCabeResult);
+        // remove this in newer versions than 2.071.1 where nullableRef is implemented.
+        //import std.typecons : nullableRef;
+        //this.mcCabe = McCabe(nullableRef(&this.mcCabeResult));
+        () @trusted{
+            import std.typecons : NullableRef;
+
+            this.mcCabe = McCabe(NullableRef!McCabeResult(&this.mcCabeResult));
+        }();
     }
 
     void register(TUVisitor v) {
@@ -395,11 +409,11 @@ struct AnalyzeResults {
         }
     }
 
-    void put(dextool.plugin.analyze.mccabe.Function f) {
+    void put(dextool.plugin.analyze.mccabe.Function f) @safe {
         mcCabe.put(f);
     }
 
-    void dumpResult() {
+    void dumpResult() @safe {
         import std.path : buildPath;
 
         const string base = buildPath(outdir, "result_");
