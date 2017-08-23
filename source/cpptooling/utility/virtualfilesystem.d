@@ -153,8 +153,12 @@ struct VirtualFileSystem {
         }
     }
 
-    /// Returns: range of the filenames in the VFS.
-    auto files() pure nothrow const @nogc {
+    /**
+     * Trusted on the assumption that byKey is @safe _enough_.
+     *
+     * Returns: range of the filenames in the VFS.
+     */
+    auto files() @trusted pure nothrow const @nogc {
         import std.range : chain;
 
         return chain(in_memory.byKey, filesys.byKey);
@@ -263,7 +267,11 @@ T slice(T = string)(ref VirtualFileSystem vfs, SourceRange srange) @safe {
     return s[start.offset .. end.offset];
 }
 
-CXUnsavedFile[] toClangFiles(ref VirtualFileSystem vfs) {
+/**
+ * Trusted because:
+ *  -
+ */
+CXUnsavedFile[] toClangFiles(ref VirtualFileSystem vfs) @trusted {
     import std.algorithm : map;
     import std.array : array;
     import std.string : toStringz;

@@ -20,7 +20,7 @@ private @safe nothrow struct ASTCursor {
 
 /**
  */
-private nothrow struct AST_BreathFirstResult {
+private @safe nothrow struct AST_BreathFirstResult {
     import std.container : Array;
 
     private int depth_;
@@ -29,7 +29,7 @@ private nothrow struct AST_BreathFirstResult {
     // index 1: the next one that is being filled with data.
     private Array!(Cursor)[] data;
 
-    this(Cursor c) {
+    this(Cursor c) @trusted {
         data ~= Array!Cursor();
         data ~= Array!Cursor();
         data[0].insertBack(c);
@@ -42,7 +42,7 @@ private nothrow struct AST_BreathFirstResult {
         return ASTCursor(r.front, depth_);
     }
 
-    void popFront() {
+    void popFront() @trusted {
         assert(!empty, "Can't pop front of an empty range");
 
         import clang.Visitor;
@@ -80,6 +80,6 @@ private nothrow struct AST_BreathFirstResult {
  *      }
  * }
  */
-auto visitBreathFirst(Cursor c) {
+auto visitBreathFirst(Cursor c) @trusted {
     return AST_BreathFirstResult(c);
 }
