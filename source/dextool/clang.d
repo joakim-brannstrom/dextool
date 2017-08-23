@@ -14,9 +14,11 @@ module dextool.clang;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
-import dextool.compilation_db;
-import dextool.compilation_db : SearchResult;
+import dextool.compilation_db : SearchResult, CompileCommandDB,
+    CompileCommandFilter, CompileCommand, parseFlag;
 import dextool.type : FileName, AbsolutePath;
+
+@safe:
 
 /** Find a CompileCommand that in any way have an `#include` which pull in fname.
  *
@@ -37,7 +39,7 @@ Nullable!CompileCommand findCompileCommandFromIncludes(ref CompileCommandDB comp
     import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
         logDiagnostic;
     import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.analyzer.clang.include_visitor;
+    import cpptooling.analyzer.clang.include_visitor : hasInclude;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
@@ -71,6 +73,8 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     import std.file : exists;
     import std.path : baseName;
     import std.string : join;
+
+    import dextool.compilation_db : appendOrError;
 
     typeof(return) rval;
 
