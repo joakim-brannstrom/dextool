@@ -11,7 +11,7 @@ import deimos.clang.index;
 import std.conv;
 import std.stdio;
 
-immutable(char*)* strToCArray(string[] arr) {
+immutable(char*)* strToCArray(string[] arr) @safe {
     import std.string : toStringz;
 
     if (!arr)
@@ -23,10 +23,14 @@ immutable(char*)* strToCArray(string[] arr) {
     foreach (str; arr)
         cArr ~= str.toStringz;
 
-    return cArr.ptr;
+    return &cArr[0];
 }
 
-string toD(CXString cxString) {
+/**
+ * Trusted: on the assumption that clang_getCString is implemented by the LLVM
+ * community. Any bugs in them should by now be found.
+ */
+string toD(CXString cxString) @trusted {
     auto cstr = clang_getCString(cxString);
     auto str = to!(string)(cstr).idup;
     clang_disposeString(cxString);
@@ -42,7 +46,7 @@ template cxName(T) {
     enum cxName = "CX" ~ T.stringof;
 }
 
-U* toCArray(U, T)(T[] arr) {
+U* toCArray(U, T)(T[] arr) @safe {
     if (!arr)
         return null;
 
@@ -50,7 +54,7 @@ U* toCArray(U, T)(T[] arr) {
         return arr.map!(e => e.cx).toArray.ptr;
 
     else
-        return arr.ptr;
+        return &arr[0];
 }
 
 mixin template CX(string name = "") {
@@ -63,7 +67,11 @@ mixin template CX(string name = "") {
     CType cx;
     alias cx this;
 
-    void dispose() {
+    /**
+     * Trusted: on the assumption that dispose as implemented by the LLVM
+     * community is good _enough_. Any bugs should by now have been found.
+     */
+    void dispose() @trusted {
         enum methodCall = "clang_dispose" ~ typeof(this).stringof ~ "(cx);";
 
         static if (false && __traits(compiles, methodCall))

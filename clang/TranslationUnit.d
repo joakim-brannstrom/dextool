@@ -22,53 +22,68 @@ import clang.Visitor;
 /** A single translation unit, which resides in an index.
  */
 struct TranslationUnit {
-    import std.typecons : Nullable, RefCounted;
+    import std.typecons : Nullable;
     import clang.Util;
 
     static private struct ContainTU {
         mixin CX!("TranslationUnit");
 
-        ~this() {
+        ~this() @safe {
             dispose();
         }
     }
 
-    RefCounted!ContainTU cx;
+    ContainTU cx;
     alias cx this;
 
-    static TranslationUnit parse(Index index, string sourceFilename,
+    // the translation unit is destroyed when the dtor is ran.
+    @disable this(this);
+
+    /**
+     * Trusted: on the assumption that clang_parseTranslationUnit is
+     * implemented by the LLVM team.
+     */
+    static TranslationUnit parse(ref Index index, string sourceFilename,
             string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @trusted {
 
         // dfmt off
+        // Trusted: on the assumption that the LLVM team are competent. That
+        // any problems that exist would have been found by now.
         auto p = clang_parseTranslationUnit(
-                                            index.cx,
-                                            sourceFilename.toStringz,
-                                            strToCArray(commandLineArgs),
-                                            cast(int) commandLineArgs.length,
-                                            toCArray!(CXUnsavedFile)(unsavedFiles),
-                                            cast(uint) unsavedFiles.length,
-                                            options
-                                           );
+                                       index.cx,
+                                       sourceFilename.toStringz,
+                                       strToCArray(commandLineArgs),
+                                       cast(int) commandLineArgs.length,
+                                       toCArray!(CXUnsavedFile)(unsavedFiles),
+                                       cast(uint) unsavedFiles.length,
+                                       options
+                                      );
         // dfmt on
 
-        auto r = TranslationUnit(p);
-
-        return r;
+        return TranslationUnit(p);
     }
 
     /** Convenient function to create a TranslationUnit from source code via a
      * parameter.
      *
      * Common use cases is unit testing.
+     *
+     * Trusted: on the assumption that
+     * clang.TranslationUnit.TranslationUnit.~this is correctly implemented.
      */
-    static TranslationUnit parseString(Index index, string source,
+    static TranslationUnit parseString(ref Index index, string source,
             string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @trusted {
         import std.string : toStringz;
 
         string path = randomSourceFileName;
-        auto file = CXUnsavedFile(path.toStringz, source.ptr, source.length);
+        CXUnsavedFile file;
+        if (source.length == 0) {
+            file = CXUnsavedFile(path.toStringz, null, source.length);
+        } else {
+            file = CXUnsavedFile(path.toStringz, &source[0], source.length);
+        }
 
         auto in_memory_files = unsavedFiles ~ [file];
 
@@ -78,7 +93,7 @@ struct TranslationUnit {
         return translationUnit;
     }
 
-    private static string randomSourceFileName() {
+    private static string randomSourceFileName() @safe {
         import std.traits : fullyQualifiedName;
         import std.path : buildPath;
 
@@ -100,10 +115,18 @@ struct TranslationUnit {
     }
 
     package this(CXTranslationUnit cx) {
-        this.cx = cx;
+        this.cx = ContainTU(cx);
     }
 
-    @property DiagnosticVisitor diagnostics() {
+    bool isValid() @trusted {
+        return cx.isValid;
+    }
+
+    /**
+     * Trusted: on the assumption that accessing the payload of the refcounted
+     * TranslationUnit is @safe.
+     */
+    @property DiagnosticVisitor diagnostics() @trusted {
         return DiagnosticVisitor(cx);
     }
 
@@ -131,25 +154,28 @@ struct TranslationUnit {
         return r;
     }
 
-    File file() {
+    File file() @safe {
         return file(spelling);
     }
 
-    @property string spelling() {
+    @property string spelling() @trusted {
         return toD(clang_getTranslationUnitSpelling(cx));
     }
 
-    @property Cursor cursor() {
+    /**
+     * Trusted: on the assumption that the LLVM team is superb programmers.
+     */
+    @property Cursor cursor() @trusted {
         auto r = clang_getTranslationUnitCursor(cx);
         return Cursor(r);
     }
 
-    SourceLocation location(uint offset) {
+    SourceLocation location(uint offset) @trusted {
         CXFile file = clang_getFile(cx, spelling.toStringz);
         return SourceLocation(clang_getLocationForOffset(cx, file, offset));
     }
 
-    SourceLocation location(string path, uint offset) {
+    SourceLocation location(string path, uint offset) @trusted {
         CXFile file = clang_getFile(cx, path.toStringz);
         return SourceLocation(clang_getLocationForOffset(cx, file, offset));
     }
@@ -161,7 +187,7 @@ struct TranslationUnit {
         return SourceRange(clang_getRange(start, end));
     }
 
-    package SourceLocation[] includeLocationsImpl(Range)(Range cursors) {
+    package SourceLocation[] includeLocationsImpl(Range)(Range cursors) @safe {
         // `cursors` range should at least contain all global
         // preprocessor cursors, although it can contain more.
 
@@ -274,7 +300,7 @@ string dumpAST(ref TranslationUnit tu, bool skipIncluded = false) {
 struct DiagnosticVisitor {
     private CXTranslationUnit translatoinUnit;
 
-    this(CXTranslationUnit translatoinUnit) {
+    this(CXTranslationUnit translatoinUnit) @safe {
         this.translatoinUnit = translatoinUnit;
     }
 
