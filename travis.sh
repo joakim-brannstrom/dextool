@@ -37,7 +37,7 @@ set -e
 make clean
 mkdir build
 pushd build
-cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Release ..
 make all -j3
 make install
 popd
