@@ -12,6 +12,8 @@ version (unittest) {
     import unit_threaded : Name, shouldEqual;
 }
 
+@safe:
+
 /** Convenient context of items needed to practically create a clang AST.
  *
  * "Creating a clang AST" means calling $(D makeTranslationUnit).
@@ -91,8 +93,8 @@ struct ClangContext {
      *
      * The translation unit is NOT kept by the context.
      */
-    auto makeTranslationUnit(inout string sourceFilename, inout string[] commandLineArgs = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) {
+    auto makeTranslationUnit(in string sourceFilename, in string[] commandLineArgs = null,
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @safe {
         import std.array : join;
 
         auto prependDefaultFlags(string[] in_cflags) {

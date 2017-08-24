@@ -12,6 +12,8 @@
  */
 module clang.Compiler;
 
+@safe:
+
 private const(string) uniquePathId;
 
 static this() {

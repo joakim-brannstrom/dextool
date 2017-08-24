@@ -45,7 +45,7 @@ FileName[] extractIncludes(Cursor root, int depth = 2) {
  *  root = clang AST
  *  depth = how deep into the AST to analyze.
  */
-bool hasInclude(alias matcher)(Cursor root, int depth = 2) {
+bool hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
     foreach (c; root.visitBreathFirst.filter!(
             a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
         if (matcher(c.spelling)) {

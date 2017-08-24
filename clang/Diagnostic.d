@@ -15,11 +15,18 @@ import clang.Util;
 struct Diagnostic {
     mixin CX;
 
-    string format(uint options = clang_defaultDiagnosticDisplayOptions) {
+    /**
+     * Trusted: on the assumption that clang_formatDiagnostic is implemented by
+     * the competent LLVM team.
+     */
+    string format(uint options = clang_defaultDiagnosticDisplayOptions) @trusted {
         return toD(clang_formatDiagnostic(cx, options));
     }
 
-    @property CXDiagnosticSeverity severity() {
+    /**
+     * Trusted: on the assumption that the LLVM team is competent.
+     */
+    @property CXDiagnosticSeverity severity() @trusted {
         return clang_getDiagnosticSeverity(cx);
     }
 

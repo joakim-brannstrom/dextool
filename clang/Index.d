@@ -58,21 +58,23 @@ import deimos.clang.index;
  * (which gives the indexer the same performance benefit as the compiler).
  */
 struct Index {
-    import std.typecons : RefCounted;
     import clang.Util;
 
     static private struct ContainIndex {
         mixin CX!("Index");
 
-        ~this() {
+        ~this() @safe {
             dispose();
         }
     }
 
-    RefCounted!ContainIndex cx;
+    ContainIndex cx;
     alias cx this;
 
-    this(bool excludeDeclarationsFromPCH, bool displayDiagnostics) {
-        cx = clang_createIndex(excludeDeclarationsFromPCH ? 1 : 0, displayDiagnostics ? 1 : 0);
+    @disable this(this);
+
+    this(bool excludeDeclarationsFromPCH, bool displayDiagnostics) @trusted {
+        cx = ContainIndex(clang_createIndex(excludeDeclarationsFromPCH ? 1 : 0,
+                displayDiagnostics ? 1 : 0));
     }
 }

@@ -45,7 +45,7 @@ import dextool.type : ExitStatusType, FileName, AbsolutePath;
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
 
-immutable(SearchResult) idup(SearchResult v) {
+immutable(SearchResult) idup(SearchResult v) @safe {
     import std.algorithm : map;
     import std.array : array;
 
@@ -55,7 +55,8 @@ immutable(SearchResult) idup(SearchResult v) {
 }
 
 ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults analyze_results, string[] in_cflags,
-        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) {
+        string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) @safe {
+    import std.conv : to;
     import std.range : enumerate;
     import dextool.clang : SearchResult;
     import dextool.compilation_db : defaultCompilerFilter;
@@ -65,7 +66,8 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
     {
         import std.concurrency : setMaxMailboxSize, OnCrowding, thisTid;
 
-        setMaxMailboxSize(thisTid, 1024, OnCrowding.block);
+        // safe in newer versions than 2.071.1
+        () @trusted{ setMaxMailboxSize(thisTid, 1024, OnCrowding.block); }();
     }
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
@@ -85,8 +87,14 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
 
     auto pool = new Pool(workerThreads);
     State st;
+    debug State old;
 
-    MainLoop: while (st != State.exit) {
+    while (st != State.exit) {
+        debug if (st != old) {
+            logger.trace("doAnalyze: ", st.to!string());
+            old = st;
+        }
+
         final switch (st) {
         case State.none:
             st = State.init;
@@ -112,7 +120,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
                 st = State.exit;
             break;
         case State.exit:
-            break MainLoop;
+            break;
         }
 
         switch (st) {
@@ -123,12 +131,10 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
                 if (files.front.value.isNull) {
                     logger.warning(
                             "Skipping file because it is not possible to determine the compiler flags");
-                } else {
-                    if (!pool.run(&analyzeWorker, analyze_builder, files.front.index,
-                            total_files, files.front.value.get.idup, restrictDir)) {
-                        // reached CPU limit
-                        break;
-                    }
+                } else if (!pool.run(&analyzeWorker, analyze_builder, files.front.index,
+                        total_files, files.front.value.get.idup, restrictDir)) {
+                    // reached CPU limit
+                    break;
                 }
             }
             break;
@@ -161,26 +167,43 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
 }
 
 void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
-        size_t total_files, immutable SearchResult pdata, AbsolutePath restrictDir) {
+        size_t total_files, immutable SearchResult pdata, AbsolutePath restrictDir) nothrow {
     import std.concurrency : send;
     import std.typecons : Yes;
+    import std.exception : collectException;
     import dextool.utility : analyzeFile;
     import cpptooling.analyzer.clang.context : ClangContext;
 
-    logger.infof("File %d/%d ", file_idx + 1, total_files);
-
-    auto visitor = new TUVisitor(restrictDir);
-    auto analyzers = analyze_builder.finalize;
-    analyzers.register(visitor);
-
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-
-    if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
-        logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
+    try {
+        logger.infof("File %d/%d ", file_idx + 1, total_files);
+    }
+    catch (Exception e) {
     }
 
-    foreach (f; analyzers.mcCabeResult.functions[])
-        owner.send(f);
+    auto visitor = new TUVisitor(restrictDir);
+    AnalyzeCollection analyzers;
+    try {
+        analyzers = analyze_builder.finalize;
+        analyzers.register(visitor);
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
+            logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
+            return;
+        }
+    }
+    catch (Exception e) {
+        collectException(logger.error(e.msg));
+    }
+
+    foreach (f; analyzers.mcCabeResult.functions[]) {
+        try {
+            // assuming send is correctly implemented.
+            () @trusted{ owner.send(f); }();
+        }
+        catch (Exception e) {
+            collectException(logger.error("Unable to send to owner thread '%s': %s", owner, e.msg));
+        }
+    }
 }
 
 class Pool {
@@ -190,7 +213,7 @@ class Pool {
     Tid[] pool;
     int workerThreads;
 
-    this(int workerThreads) {
+    this(int workerThreads) @safe {
         import std.parallelism : totalCPUs;
 
         if (workerThreads <= 0) {
@@ -207,9 +230,12 @@ class Pool {
 
     /** Relay data in the mailbox back to the provided function.
      *
+     * trusted: on the assumption that receiveTimeout is @safe _enough_.
+     * assuming `ops` is @safe.
+     *
      * Returns: if data where received
      */
-    bool receive(T)(T ops) {
+    bool receive(T)(T ops) @trusted {
         import core.time;
         import std.concurrency : LinkTerminated, receiveTimeout;
 
@@ -233,7 +259,7 @@ class Pool {
         return got_any_data;
     }
 
-    bool empty() {
+    bool empty() @safe {
         return pool.length == 0;
     }
 
@@ -244,13 +270,15 @@ class Pool {
         pool = pool.filter!(a => tid != a).array();
     }
 
+    //TODO add attribute check of func so only @safe func can be used.
     Nullable!Tid makeWorker(F, ARGS...)(F func, auto ref ARGS args) {
         import std.concurrency : spawnLinked;
 
         typeof(return) rval;
 
         if (pool.length < workerThreads) {
-            rval = spawnLinked(func, thisTid, args);
+            // assuming that spawnLinked is of high quality. Assuming func is @safe.
+            rval = () @trusted{ return spawnLinked(func, thisTid, args); }();
             pool ~= rval;
         }
 
@@ -268,7 +296,7 @@ class Pool {
  */
 struct AnalyzeBuilder {
     private {
-        bool analyzeMcCabe;
+        Flag!"doMcCabeAnalyze" analyzeMcCabe;
     }
 
     static auto make() {
@@ -276,18 +304,12 @@ struct AnalyzeBuilder {
     }
 
     auto mcCabe(bool do_this_analyze) {
-        analyzeMcCabe = do_this_analyze;
+        analyzeMcCabe = cast(Flag!"doMcCabeAnalyze") do_this_analyze;
         return this;
     }
 
     auto finalize() {
-        McCabeResult mccabe;
-
-        if (analyzeMcCabe) {
-            mccabe = new McCabeResult();
-        }
-
-        return AnalyzeCollection(mccabe);
+        return AnalyzeCollection(analyzeMcCabe);
     }
 }
 
@@ -300,16 +322,24 @@ struct AnalyzeCollection {
 
     McCabeResult mcCabeResult;
     private McCabe mcCabe;
+    private bool doMcCabe;
 
-    this(McCabeResult mccabe_res) {
-        if (mccabe_res !is null) {
-            this.mcCabeResult = mccabe_res;
-            this.mcCabe = new McCabe(mccabe_res);
-        }
+    this(Flag!"doMcCabeAnalyze" mccabe) {
+        doMcCabe = mccabe;
+
+        this.mcCabeResult = new McCabeResult;
+        // remove this in newer versions than 2.071.1 where nullableRef is implemented.
+        //import std.typecons : nullableRef;
+        //this.mcCabe = McCabe(nullableRef(&this.mcCabeResult));
+        () @trusted{
+            import std.typecons : NullableRef;
+
+            this.mcCabe = McCabe(NullableRef!McCabeResult(&this.mcCabeResult));
+        }();
     }
 
     void register(TUVisitor v) {
-        if (mcCabe !is null) {
+        if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
             v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
             v.onConstructor ~= &mcCabe.analyze!Constructor;
@@ -369,7 +399,7 @@ struct AnalyzeResults {
         auto finalize() {
             // dfmt off
             return AnalyzeResults(outdir,
-                                  new McCabeResult(),
+                                  new McCabeResult,
                                   mccabeThreshold,
                                   cast(Flag!"dumpMcCabe") dumpMcCabe,
                                   cast(Flag!"outputJson") json_,
@@ -379,16 +409,16 @@ struct AnalyzeResults {
         }
     }
 
-    void put(dextool.plugin.analyze.mccabe.Function f) {
+    void put(dextool.plugin.analyze.mccabe.Function f) @safe {
         mcCabe.put(f);
     }
 
-    void dumpResult() {
+    void dumpResult() @safe {
         import std.path : buildPath;
 
         const string base = buildPath(outdir, "result_");
 
-        if (mcCabe !is null) {
+        if (dumpMcCabe) {
             if (json_)
                 dextool.plugin.analyze.mccabe.resultToJson(FileName(base ~ "mccabe.json")
                         .AbsolutePath, mcCabe, mccabeThreshold);
