@@ -32,7 +32,7 @@ struct BuildDextoolRun {
         bool arg_debug = true;
 
         /// Throw an exception if the exit status is NOT zero
-        bool throwOnExitStatus_ = true;
+        bool throw_on_exit_status = true;
     }
 
     this(string dextool, string outdir) {
@@ -41,7 +41,7 @@ struct BuildDextoolRun {
     }
 
     auto throwOnExitStatus(bool v) {
-        this.throwOnExitStatus_ = v;
+        this.throw_on_exit_status = v;
         return this;
     }
 
@@ -50,7 +50,7 @@ struct BuildDextoolRun {
         return this;
     }
 
-    auto addFlags(string[] v) {
+    auto addFlag(T)(T v) {
         this.flags_ ~= v;
         return this;
     }
@@ -157,11 +157,11 @@ struct BuildDextoolRun {
         auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
-            auto f = File(buildPath(outdir, "test_dextool.log"), "w");
+            auto f = File(nextFreeLogfile(outdir), "w");
             f.writef("%s", rval);
         }
 
-        if (throwOnExitStatus_ && exit_status != 0) {
+        if (throw_on_exit_status && exit_status != 0) {
             auto l = min(10, stderr_.data.length);
             throw new ErrorLevelException(exit_status, stderr_.data[0 .. l].join(newline));
         } else {
@@ -182,7 +182,7 @@ struct BuildCommandRun {
         bool yap_output = true;
 
         /// Throw an exception if the exit status is NOT zero
-        bool throwOnExitStatus_ = true;
+        bool throw_on_exit_status = true;
     }
 
     this(string command, string outdir) {
@@ -195,7 +195,7 @@ struct BuildCommandRun {
     }
 
     auto throwOnExitStatus(bool v) {
-        this.throwOnExitStatus_ = v;
+        this.throw_on_exit_status = v;
         return this;
     }
 
@@ -267,7 +267,7 @@ struct BuildCommandRun {
             f.writef("%s", rval);
         }
 
-        if (throwOnExitStatus_ && exit_status != 0) {
+        if (throw_on_exit_status && exit_status != 0) {
             auto l = min(10, stderr_.data.length);
             throw new ErrorLevelException(exit_status, stderr_.data[0 .. l].join(newline));
         } else {

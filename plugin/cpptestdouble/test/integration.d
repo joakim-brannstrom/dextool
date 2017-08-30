@@ -13,6 +13,19 @@ import dextool_test.utils;
 
 enum globalTestdir = "cpp_tests";
 
+auto testData() {
+    return Path("testdata/cpp").absolutePath;
+}
+
+auto makeDextool(const ref TestEnv env) {
+    return dextool_test.utils.makeDextool(env).args(["cpptestdouble", "-d", "--gmock"]);
+}
+
+auto makeCompile(const ref TestEnv env) {
+    return dextool_test.utils.makeCompile(env, "g++").addArg(testData ~ "main_dev.cpp")
+        .addArg(env.outdir ~ "test_double.cpp").outputToDefaultBinary;
+}
+
 struct TestParams {
     Flag!"skipCompare" skipCompare;
     Flag!"skipCompile" skipCompile;
@@ -41,7 +54,7 @@ struct TestParams {
 TestParams genTestParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("testdata/cpp").absolutePath;
+    p.root = testData.absolutePath;
     p.input_ext = p.root ~ Path(f);
 
     p.out_hdr = testEnv.outdir ~ "test_double.hpp";
@@ -325,21 +338,20 @@ unittest {
 @(testId ~ "Should generate pre and post includes")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_gen_pre_post_include.hpp", testEnv);
-    p.dexParams ~= ["--gen-pre-incl", "--gen-post-incl"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.skipCompare = Yes.skipCompare;
-
-    runTestFile(p, testEnv);
 
     // dfmt off
-    dextoolYap("Comparing");
-    auto input = p.input_ext.stripExtension;
-    compareResult(No.sortLines, Yes.skipComments,
-                  GR(input ~ Ext(".hpp.ref"), p.out_hdr),
-                  GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                  GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
-                  GR(input.up ~ "param_gen_post_includes.hpp.ref", testEnv.outdir ~ "test_double_post_includes.hpp"));
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_gen_pre_post_include.hpp")
+        .addArg("--gen-pre-incl")
+        .addArg("--gen-post-incl")
+        .addFlag(["-I", (testData ~ "stage_2/include").toString])
+        .run;
+
+    makeCompare(testEnv)
+        .addCompare(testData ~ "stage_2/param_gen_pre_post_include.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "stage_2/param_gen_pre_includes.hpp.ref", "test_double_pre_includes.hpp")
+        .addCompare(testData ~ "stage_2/param_gen_post_includes.hpp.ref", "test_double_post_includes.hpp")
+        .run;
     // dfmt on
 }
 
@@ -348,36 +360,53 @@ unittest {
 @(testId ~ "Should be a custom header via CLI as string")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_custom_header.hpp", ["testdouble-i_testdouble"], testEnv);
-    p.dexParams ~= ["--free-func", "--header=// user $file$\n// header $file$"];
 
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+    // dfmt off
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/param_custom_header.hpp")
+        .addArg("--free-func")
+        .addArg("--header=// user $file$\n// header $file$")
+        .run;
+
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/param_custom_header_testdouble-i_testdouble_gmock.hpp.ref",
+                    "test_double_testdouble-i_testdouble_gmock.hpp")
+        .skipComments(false)
+        .run;
+    // dfmt on
 }
 
 @(testId ~ "Should be a custom header via CLI as filename")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_custom_header.hpp", ["testdouble-i_testdouble"], testEnv);
-    p.dexParams ~= ["--free-func",
-        "--header-file=" ~ (p.root ~ "dev/param_custom_header.txt").toString];
 
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv, No.sortLines, No.skipComments);
+    // dfmt off
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/param_custom_header.hpp")
+        .addArg("--free-func")
+        .addArg(["--header-file", (testData ~ "dev/param_custom_header.txt").toString])
+        .run;
+
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/param_custom_header_testdouble-i_testdouble_gmock.hpp.ref",
+                    "test_double_testdouble-i_testdouble_gmock.hpp")
+        .skipComments(false)
+        .run;
+    // dfmt on
 }
 
 @(testId ~ "Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
 
-    auto p = genTestParams("stage_2/config.hpp", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/config.xml").toString,
-        "--compile-db=" ~ (p.root ~ "stage_2/config.json").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
-
-    p.skipCompare = Yes.skipCompare;
-
-    runTestFile(p, testEnv);
+    // dfmt off
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/config.hpp")
+        .addArg(["--config",(testData ~ "stage_2/config.xml").toString])
+        .addArg(["--compile-db",(testData ~ "stage_2/config.json").toString])
+        .addFlag("-DTEST_INCLUDE")
+        .run;
+    // dfmt on
 }
 
 // END   CLI Tests ###########################################################

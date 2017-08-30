@@ -11,3 +11,4 @@ module dextool_test;
 
 public import dextool_test.utils;
 public import dextool_test.builders;
+public import dextool_test.golden;
