@@ -1,0 +1,1 @@
+{'importPaths': ['clang', 'dsrcgen/source', 'libclang/deimos', 'plugin/source', 'source']}
