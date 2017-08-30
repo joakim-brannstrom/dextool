@@ -219,6 +219,11 @@ struct BuildCommandRun {
         return this;
     }
 
+    auto addFileFromOutdir(string v) {
+        this.args_ ~= buildPath(outdir_, v);
+        return this;
+    }
+
     auto yapOutput(bool v) {
         yap_output = v;
         return this;
