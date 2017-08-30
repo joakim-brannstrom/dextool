@@ -43,47 +43,45 @@ unittest {
     string orig_lib = (testEnv.outdir ~ "liborig.a").toString;
     string replace_lib = (testEnv.outdir ~ "libintercept_orig.a").toString;
 
+    // dfmt off
+
     // prepare the static library
-    {
-        Args args;
-        args ~= "gcc";
-        args ~= ["-c"] ~ (testData ~ "stage_3/test_replace_single_sym/orig.c").toString;
-        args ~= ["-o", (testEnv.outdir ~ "orig.o").toString];
-        runAndLog(args.data).status.shouldEqual(0);
-    }
-    {
-        Args args;
-        args ~= ["ar", "-r", orig_lib, (testEnv.outdir ~ "orig.o").toString];
-        runAndLog(args.data).status.shouldEqual(0);
-    }
+    makeCompile(testEnv, "gcc")
+        .addArg("-c")
+        .addArg((testData ~ "stage_3/test_replace_single_sym/orig.c").toString)
+        .addArg("-o" ~ (testEnv.outdir ~ "orig.o").toString)
+        .run;
+
+    makeCommand(testEnv, "ar")
+        .addArg("-r")
+        .addArg(orig_lib)
+        .addArg(testEnv.outdir ~ "orig.o")
+        .run;
 
     // expect headers and script to replace the specified symbol
-    makeDextool(testEnv).addInputArg(testData ~ "stage_3/test_replace_single_sym/orig.h")
-        .addArg("--config=" ~ (testData ~ "stage_3/test_replace_single_sym/conf.xml").toString).run;
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_3/test_replace_single_sym/orig.h")
+        .addArg("--config=" ~ (testData ~ "stage_3/test_replace_single_sym/conf.xml").toString)
+        .run;
 
-    { // use the generated script to generate the new lib with rename sym
-        Args args;
-        args ~= "bash";
-        args ~= (testEnv.outdir ~ "intercept.sh").toString;
-        args ~= orig_lib;
-        args ~= replace_lib;
-        runAndLog(args.data).status.shouldEqual(0);
-    }
+    // use the generated script to generate the new lib with rename sym
+    makeCommand(testEnv, "bash")
+        .addArg(testEnv.outdir ~ "intercept.sh")
+        .addArg(orig_lib)
+        .addArg(replace_lib)
+        .run;
 
-    string binary = (testEnv.outdir ~ "binary").toString;
-    { // build the binary with the intercept lib
-        Args args;
-        args ~= "g++";
-        args ~= (testData ~ "stage_3/test_replace_single_sym/main.cpp").toString;
-        args ~= ["-o", binary];
-        args ~= ["-I", (testData ~ "stage_3/test_replace_single_sym").toString];
-        args ~= compilerFlags;
-        args ~= ["-I", testEnv.outdir.toString];
-        args ~= ["-lintercept_orig", "-L" ~ testEnv.outdir.toString];
-        runAndLog(args.data).status.shouldEqual(0);
-    }
+    makeCompile(testEnv, "g++")
+        .addArg(testData ~ "stage_3/test_replace_single_sym/main.cpp")
+        .outputToDefaultBinary
+        .addArg("-I" ~ (testData ~ "stage_3/test_replace_single_sym").toString)
+        .addArg(compilerFlags)
+        .addArg("-lintercept_orig")
+        .addArg("-L" ~ testEnv.outdir.toString)
+        .run;
 
-    { // the modified lib shall result in the intercepted func incrementing the value
-        runAndLog(binary).status.shouldEqual(0);
-    }
+    // the modified lib shall result in the intercepted func incrementing the value
+    makeCommand(testEnv, (testEnv.outdir ~ "binary").toString);
+
+    // dfmt on
 }

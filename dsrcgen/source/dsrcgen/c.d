@@ -348,7 +348,7 @@ class CModule : BaseModule {
 }
 
 private string stmt_append_end(string s, ref const string[string] attrs) pure nothrow {
-    import std.string : inPattern;
+    import std.algorithm : among;
 
     //TODO too much null checking, refactor.
 
@@ -361,7 +361,7 @@ private string stmt_append_end(string s, ref const string[string] attrs) pure no
     } else {
         bool in_pattern = false;
         try {
-            in_pattern = inPattern(s[$ - 1], ";:,{");
+            in_pattern = s[$ - 1].among(';', ':', ',', '{') != 0;
         }
         catch (Exception e) {
         }
