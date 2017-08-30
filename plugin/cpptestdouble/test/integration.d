@@ -22,8 +22,13 @@ auto makeDextool(const ref TestEnv env) {
 }
 
 auto makeCompile(const ref TestEnv env) {
-    return dextool_test.utils.makeCompile(env, "g++").addArg(testData ~ "main_dev.cpp")
-        .addArg(env.outdir ~ "test_double.cpp").outputToDefaultBinary;
+    return dextool_test.utils.makeCompile(env, "g++")
+        .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
+}
+
+auto makeCompile(const ref TestEnv env, Path srcdir) {
+    return dextool_test.utils.makeCompile(env, "g++").addArg(["-I",
+            srcdir.toString]).addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
 }
 
 struct TestParams {
@@ -114,6 +119,9 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
     }
 }
 
+// dfmt makes it hard to read the test cases.
+// dfmt off
+
 // --- Development tests ---
 
 @(testId ~ "Should not segfault. Bug with anonymous namespace")
@@ -166,193 +174,266 @@ unittest {
         ~ "Shall be gmocks without duplicated methods resulting in compilation error when multiple inheritance is used")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_inherit_bug.hpp", ["barf-a", "barf-b",
-            "barf-interface-i1"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_inherit_bug.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_inherit_bug_barf-a_gmock.hpp.ref", "test_double_barf-a_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_bug_barf-b_gmock.hpp.ref", "test_double_barf-b_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_bug_barf-interface-i1_gmock.hpp.ref", "test_double_barf-interface-i1_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should be gmock with member methods and operators")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_interface.hpp", ["interface"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_interface.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_interface.hpp.ref", "test_double.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should be a gmock with more than 10 parameters")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_interface_more_than_10_params.hpp", ["simple"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_interface_more_than_10_params.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_interface_more_than_10_params.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/class_interface_more_than_10_params_simple_gmock.hpp.ref", "test_double_simple_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should be a gmock impl for each class")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_multiple.hpp", ["global1", "global2",
-            "global3", "ns-ns2-insidens2", "ns-insidens1"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_multiple.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_multiple_global1_gmock.hpp.ref", "test_double_global1_gmock.hpp")
+        .addCompare(testData ~ "dev/class_multiple_global2_gmock.hpp.ref", "test_double_global2_gmock.hpp")
+        .addCompare(testData ~ "dev/class_multiple_global3_gmock.hpp.ref", "test_double_global3_gmock.hpp")
+        .addCompare(testData ~ "dev/class_multiple_ns-insidens1_gmock.hpp.ref", "test_double_ns-insidens1_gmock.hpp")
+        .addCompare(testData ~ "dev/class_multiple_ns-ns2-insidens2_gmock.hpp.ref", "test_double_ns-ns2-insidens2_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Test common class patterns and there generated gmocks. See input file for info")
 unittest {
     //TODO split input in many tests.
-
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_variants_interface.hpp",
-            ["inherit-derivedvirtual", "no_inherit-allprotprivmadepublic",
-            "no_inherit-commonpatternforpureinterface1",
-            "no_inherit-commonpatternforpureinterface2",
-            "no_inherit-ctornotaffectingvirtualclassificationaspure",
-            "no_inherit-ctornotaffectingvirtualclassificationasyes", "no_inherit-virtualwithdtor"],
-            testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_variants_interface.hpp")
+        .run;
+    makeCompare(testEnv)
+            .addCompare(testData ~ "dev/class_variants_interface_inherit-derivedvirtual_gmock.hpp.ref",
+                        "test_double_inherit-derivedvirtual_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-allprotprivmadepublic_gmock.hpp.ref",
+                        "test_double_no_inherit-allprotprivmadepublic_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-commonpatternforpureinterface1_gmock.hpp.ref",
+                        "test_double_no_inherit-commonpatternforpureinterface1_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-commonpatternforpureinterface2_gmock.hpp.ref",
+                        "test_double_no_inherit-commonpatternforpureinterface2_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-ctornotaffectingvirtualclassificationaspure_gmock.hpp.ref",
+                        "test_double_no_inherit-ctornotaffectingvirtualclassificationaspure_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-ctornotaffectingvirtualclassificationasyes_gmock.hpp.ref",
+                        "test_double_no_inherit-ctornotaffectingvirtualclassificationasyes_gmock.hpp")
+            .addCompare(testData ~ "dev/class_variants_interface_no_inherit-virtualwithdtor_gmock.hpp.ref",
+                        "test_double_no_inherit-virtualwithdtor_gmock.hpp")
+            .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should exclude self from generated test double")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/exclude_self.hpp", testEnv);
-    p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString, "--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/exclude_self.hpp")
+        .addArg("--file-exclude=.*/dev/exclude_self.hpp")
+        .addArg("--free-func")
+        .addFlag(["-I", (testData ~ "dev/extra").toString])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/exclude_self.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/exclude_self.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg(["-I", (testData ~ "dev/extra").toString])
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should generate implementation of functions in ns and externs")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/extern_in_ns.hpp", testEnv);
-    p.dexParams ~= ["--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/extern_in_ns.hpp")
+        .addArg("--free-func")
+        .addFlag(["-I", (testData ~ "dev/extra").toString])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/extern_in_ns.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/extern_in_ns.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg(["-I", (testData ~ "dev/extra").toString])
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Shall generate a test double for the free function")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/one_free_func.hpp", testEnv);
-    p.dexParams ~= ["--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/one_free_func.hpp")
+        .addArg("--free-func")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/one_free_func.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/one_free_func.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should generate test doubles for free functions in namespaces")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/functions_in_ns.hpp", ["ns-testdouble-i_testdouble",
-            "ns_using_scope-ns_using_inner-testdouble-i_testdouble"], testEnv);
-    p.dexParams ~= ["--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/functions_in_ns.hpp")
+        .addArg("--free-func")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/functions_in_ns.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/functions_in_ns_ns-testdouble-i_testdouble_gmock.hpp.ref", "test_double_ns-testdouble-i_testdouble_gmock.hpp")
+        .addCompare(testData ~ "dev/functions_in_ns_ns_using_scope-ns_using_inner-testdouble-i_testdouble_gmock.hpp.ref", "test_double_ns_using_scope-ns_using_inner-testdouble-i_testdouble_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should use root as include")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/have_root.hpp", testEnv);
-    p.dexParams ~= ["--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "dev/have_root.hpp")
+        .addArg("--free-func")
+        .addFlag(["-I", (testData ~ "dev/extra").toString])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/have_root.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/have_root.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg(["-I", (testData ~ "dev/extra").toString])
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Test --file-restrict")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/param_restrict.hpp", testEnv);
-    p.dexParams ~= ["--file-restrict=.*/" ~ p.input_ext.baseName.toString,
-        "--file-restrict=.*/b.hpp"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "dev/extra").toString;
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "dev/param_restrict.hpp")
+        .addArg(["--file-restrict", ".*/" ~ (testData ~ "dev").toString])
+        .addArg("--file-restrict=.*/b.hpp")
+        .addFlag(["-I", (testData ~ "dev/extra").toString])
+        .run;
+    makeCompile(testEnv)
+        .addArg("-DTEST_INCLUDE")
+        .addArg(["-I", (testData ~ "dev/extra").toString])
+        .run;
 }
 
 @(testId ~ "Should load compiler settings from compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file_main.hpp", testEnv);
-
     // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--free-func", "--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
-        .toString, "--file-restrict=.*/single_file.hpp"];
-
-    p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
-    p.compileFlags ~= "-DDEXTOOL_TEST";
-
-    p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "compile_db/single_file_main.hpp")
+        .addArg("--free-func")
+        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
+        .addArg("--file-restrict=.*/single_file.hpp")
+        .run;
+    dextool_test.utils.makeCompile(testEnv, "g++")
+        .addArg(["-I", (testData ~ "compile_db/dir1").toString])
+        .addArg("-DDEXTOOL_TEST")
+        .addArg(testData ~ "compile_db/single_file_main.cpp")
+        .run;
 }
 
 @(testId ~ "Should not crash when std::system_error isn't found during analyze")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_class_not_in_ast.hpp", testEnv);
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "dev/bug_class_not_in_ast.hpp")
+        .run;
 }
 
 @(testId ~ "Should be a gmock of the class that is NOT forward declared")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_forward_decl.hpp", ["normal"], testEnv);
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_forward_decl.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_forward_decl.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/class_forward_decl_normal_gmock.hpp.ref", "test_double_normal_gmock.hpp")
+        .run;
 }
 
 @(testId ~ "Shall merge all occurences of namespace ns1")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/ns_merge.hpp", testEnv);
-    p.dexParams ~= ["--free-func"];
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/ns_merge.hpp").addArg("--free-func")
+        .run;
+    makeCompare(testEnv).addCompare(testData ~ "dev/ns_merge.hpp.ref", "test_double.hpp")
+        .run;
 }
 
 @(testId ~ "Includes shall be deduplicated to avoid the problem of multiple includes")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/bug_multiple_includes.hpp", testEnv);
-    p.dexParams ~= ["--free-func", "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp")
-        .toString, "--in=" ~ (p.root ~ "stage_2/bug_multiple_includes.hpp").toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/bug_multiple_includes.hpp")
+        .addArg("--free-func")
+        .run;
+    makeCompare(testEnv).addCompare(testData ~ "stage_2/bug_multiple_includes.hpp.ref", "test_double.hpp").run;
+    makeCompile(testEnv).run;
 }
 
 @(testId ~ "Should generate pre and post includes")
 unittest {
     mixin(envSetup(globalTestdir));
-
-    // dfmt off
     makeDextool(testEnv)
         .addInputArg(testData ~ "stage_2/param_gen_pre_post_include.hpp")
         .addArg("--gen-pre-incl")
         .addArg("--gen-post-incl")
         .addFlag(["-I", (testData ~ "stage_2/include").toString])
         .run;
-
     makeCompare(testEnv)
         .addCompare(testData ~ "stage_2/param_gen_pre_post_include.hpp.ref", "test_double.hpp")
         .addCompare(testData ~ "stage_2/param_gen_pre_includes.hpp.ref", "test_double_pre_includes.hpp")
         .addCompare(testData ~ "stage_2/param_gen_post_includes.hpp.ref", "test_double_post_includes.hpp")
         .run;
-    // dfmt on
+    makeCompile(testEnv).run;
 }
 
 // BEGIN CLI Tests ###########################################################
@@ -360,53 +441,47 @@ unittest {
 @(testId ~ "Should be a custom header via CLI as string")
 unittest {
     mixin(EnvSetup(globalTestdir));
-
-    // dfmt off
     makeDextool(testEnv)
         .addInputArg(testData ~ "dev/param_custom_header.hpp")
         .addArg("--free-func")
         .addArg("--header=// user $file$\n// header $file$")
         .run;
-
     makeCompare(testEnv)
+        .addCompare(testData ~ "dev/param_custom_header.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "dev/param_custom_header.cpp.ref", "test_double.cpp")
         .addCompare(testData ~ "dev/param_custom_header_testdouble-i_testdouble_gmock.hpp.ref",
                     "test_double_testdouble-i_testdouble_gmock.hpp")
         .skipComments(false)
         .run;
-    // dfmt on
+    makeCompile(testEnv).run;
 }
 
 @(testId ~ "Should be a custom header via CLI as filename")
 unittest {
     mixin(EnvSetup(globalTestdir));
-
-    // dfmt off
     makeDextool(testEnv)
         .addInputArg(testData ~ "dev/param_custom_header.hpp")
         .addArg("--free-func")
         .addArg(["--header-file", (testData ~ "dev/param_custom_header.txt").toString])
         .run;
-
     makeCompare(testEnv)
         .addCompare(testData ~ "dev/param_custom_header_testdouble-i_testdouble_gmock.hpp.ref",
                     "test_double_testdouble-i_testdouble_gmock.hpp")
         .skipComments(false)
         .run;
-    // dfmt on
+    makeCompile(testEnv).run;
 }
 
 @(testId ~ "Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
-
-    // dfmt off
     makeDextool(testEnv)
         .addInputArg(testData ~ "stage_2/config.hpp")
         .addArg(["--config",(testData ~ "stage_2/config.xml").toString])
         .addArg(["--compile-db",(testData ~ "stage_2/config.json").toString])
         .addFlag("-DTEST_INCLUDE")
         .run;
-    // dfmt on
+    makeCompile(testEnv).run;
 }
 
 // END   CLI Tests ###########################################################
