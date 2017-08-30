@@ -157,7 +157,7 @@ struct BuildDextoolRun {
         auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
-            auto f = File(buildPath(outdir, "test_dextool.log"), "w");
+            auto f = File(nextFreeLogfile(outdir), "w");
             f.writef("%s", rval);
         }
 
