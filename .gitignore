@@ -6,6 +6,8 @@ results.json
 *.dub
 *.so
 *.lst
+*.swp
+*.orig
 
 build/
 docs/
