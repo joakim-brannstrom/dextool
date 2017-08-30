@@ -222,6 +222,8 @@ auto removeJunk(R)(R r, Flag!"skipComments" skipComments) {
 
 /** Sorted compare of gold and result.
  *
+ * TODO remove this function when all tests are converted to using BuildCompare.
+ *
  * max_diff is arbitrarily chosen to 5.
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
@@ -487,6 +489,12 @@ auto outputToDefaultBinary(BuildCommandRun br) {
  */
 auto makeCommand(const ref TestEnv testEnv, string command) {
     return BuildCommandRun(command, testEnv.outdir.escapePath);
+}
+
+auto makeCompare(const ref TestEnv env) {
+    import dextool_test.golden : BuildCompare;
+
+    return BuildCompare(env.outdir.escapePath);
 }
 
 void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipComments, in T args) {

@@ -50,7 +50,7 @@ struct BuildDextoolRun {
         return this;
     }
 
-    auto addFlags(string[] v) {
+    auto addFlag(T)(T v) {
         this.flags_ ~= v;
         return this;
     }
