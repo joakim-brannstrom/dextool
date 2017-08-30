@@ -68,7 +68,7 @@ struct BuildCompare {
         }
 
         if (!res.status && yap_output) {
-            writeln("%s", res);
+            File(nextFreeLogfile(outdir_), "w").writef("%s", res);
         }
 
         if (!res.status && throw_on_failed_compare_) {
@@ -192,4 +192,20 @@ struct CompareResult {
 
         return trustedUnique(buf);
     }
+}
+
+private auto nextFreeLogfile(string outdir) {
+    import std.file : exists;
+    import std.path : baseName;
+    import std.string : format;
+
+    int idx;
+    string f;
+    do {
+        f = buildPath(outdir, format("run_compare%s.log", idx));
+        ++idx;
+    }
+    while (exists(f));
+
+    return f;
 }
