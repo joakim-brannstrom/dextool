@@ -31,94 +31,6 @@ auto makeCompile(const ref TestEnv env, Path srcdir) {
             srcdir.toString]).addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
 }
 
-struct TestParams {
-    Flag!"skipCompare" skipCompare;
-    Flag!"skipCompile" skipCompile;
-
-    Path root;
-    Path input_ext;
-    Path out_hdr;
-    Path out_impl;
-    Path out_global;
-
-    Path[] ref_gmock;
-    Path[] out_gmock;
-
-    // dextool parameters;
-    string[] dexParams;
-    string[] dexFlags;
-
-    // Compiler flags
-    string[] compileFlags;
-    string[] compileIncls;
-
-    Path mainf;
-    Path binary;
-}
-
-TestParams genTestParams(string f, const ref TestEnv testEnv) {
-    TestParams p;
-
-    p.root = testData.absolutePath;
-    p.input_ext = p.root ~ Path(f);
-
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-    p.out_impl = testEnv.outdir ~ "test_double.cpp";
-    p.out_global = testEnv.outdir ~ "test_double_global.cpp";
-
-    p.dexParams = ["--DRT-gcopt=profile:1", "cpptestdouble", "--debug", "--gmock"];
-    p.dexFlags = [];
-
-    p.compileFlags = compilerFlags();
-    p.compileIncls = ["-I" ~ p.input_ext.dirName.toString];
-
-    p.mainf = p.root ~ Path("main_dev.cpp");
-    p.binary = p.root ~ testEnv.outdir ~ "binary";
-
-    return p;
-}
-
-TestParams genTestParams(string f, string[] mocks, const ref TestEnv testEnv) {
-    auto p = genTestParams(f, testEnv);
-
-    foreach (a; mocks) {
-        p.ref_gmock ~= p.root ~ (format("%s_%s_gmock.hpp.ref", f.stripExtension, a));
-        p.out_gmock ~= testEnv.outdir ~ format("test_double_%s_gmock.hpp", a);
-    }
-
-    return p;
-}
-
-void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
-
-    import unit_threaded : shouldEqual;
-
-    dextoolYap("Input:%s", p.input_ext.raw);
-    runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
-
-    if (!p.skipCompare) {
-        dextoolYap("Comparing");
-        auto input = p.input_ext.stripExtension;
-        // dfmt off
-        compareResult(sortLines, skipComments,
-                      GR(input ~ Ext(".hpp.ref"), p.out_hdr),
-                      GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                      GR(Path(input.toString ~ "_global.cpp.ref"), p.out_global));
-        // dfmt on
-        foreach (a, b; lockstep(p.ref_gmock, p.out_gmock)) {
-            compareResult(sortLines, skipComments, GR(a, b));
-        }
-    }
-
-    if (!p.skipCompile) {
-        dextoolYap("Compiling");
-        compileResult(p.out_impl, p.binary, p.mainf, testEnv, p.compileFlags, p.compileIncls);
-        runAndLog(p.binary).status.shouldEqual(0);
-    }
-}
-
 // dfmt makes it hard to read the test cases.
 // dfmt off
 
@@ -127,47 +39,73 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
 @(testId ~ "Should not segfault. Bug with anonymous namespace")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_anon_namespace.hpp", testEnv);
-
-    dextoolYap("Input:%s", p.input_ext.raw);
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/bug_anon_namespace.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev").run;
 }
 
 @(testId ~ "Should not segfault or infinite recursion when poking at unexposed")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_unexposed.hpp", testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/bug_unexposed.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId
         ~ "Should detect the type even though it is wchar_t. Bug: was treated specially which resulted in it never being set")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/bug_wchar.hpp", testEnv);
-    p.dexParams ~= ["--file-restrict=.*bug_wchar.hpp", "--free-func"];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/bug_wchar.hpp")
+        .addArg(["--file-restrict", ".*bug_wchar.hpp"])
+        .addArg("--free-func")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/bug_wchar.hpp.ref", "test_double.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should be a google mock with a constant member method")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_const.hpp", ["simple"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_const.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_const_simple_gmock.hpp.ref", "test_double_simple_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId ~ "Should be gmocks that correctly implemented classes that inherit")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestParams("dev/class_inherit.hpp", ["a", "dup", "dupa",
-            "ns1-ns2-ns2b", "ns1-ns2-ns2b", "ns1-ns1a", "virta", "virtb", "virtc"], testEnv);
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-    runTestFile(p, testEnv);
-    // no free functions in the input so this file shall NOT be created.
-    exists(testEnv.outdir ~ "test_double.cpp").shouldEqual(false);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/class_inherit.hpp")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "dev/class_inherit_a_gmock.hpp.ref", "test_double_a_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_dup_gmock.hpp.ref", "test_double_dup_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_dupa_gmock.hpp.ref", "test_double_dupa_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_ns1-ns2-ns2b_gmock.hpp.ref", "test_double_ns1-ns2-ns2b_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_ns1-ns1a_gmock.hpp.ref", "test_double_ns1-ns1a_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_virta_gmock.hpp.ref", "test_double_virta_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_virtb_gmock.hpp.ref", "test_double_virtb_gmock.hpp")
+        .addCompare(testData ~ "dev/class_inherit_virtc_gmock.hpp.ref", "test_double_virtc_gmock.hpp")
+        .run;
+    makeCompile(testEnv, testData ~ "dev")
+        .addArg("-DTEST_INCLUDE")
+        .run;
 }
 
 @(testId
