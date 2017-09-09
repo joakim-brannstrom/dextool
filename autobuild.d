@@ -692,6 +692,7 @@ int main(string[] args) {
                               "plugin",
                               "clang",
                               "libclang",
+                              "llvm-d",
                               "dub.sdl",
                               "dsrcgen/source",
                               "test/testdata",
