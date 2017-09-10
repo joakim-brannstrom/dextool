@@ -121,6 +121,8 @@ function(try_llvm_config_find)
     elseif(UNIX)
         set(llvm_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=${llvm_config_LIBDIR} -L--no-as-needed")
     endif()
+    # sometimes llvm-config forget the dependency on the c and c++ stdlib
+    set(llvm_LIBS_OS "-L-lstdc++ -L-lc -L-lm")
 
     string(REPLACE "\n" " " llvm_config_LIBS_nonewline "${llvm_config_LIBS}")
     string(REPLACE " " ";" llvm_config_LIBS_aslist "${llvm_config_LIBS_nonewline}")
@@ -132,7 +134,7 @@ function(try_llvm_config_find)
         endif()
     endforeach()
 
-    set(LIBLLVM_LDFLAGS "-L${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS} ${llvm_config_LIBS}" CACHE string "Linker flags for libLLVM")
+    set(LIBLLVM_LDFLAGS "-L${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS} ${llvm_config_LIBS} ${llvm_LIBS_OS}" CACHE string "Linker flags for libLLVM")
 
     set(LIBLLVM_CXX_FLAGS "-I${llvm_config_INCLUDE} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)

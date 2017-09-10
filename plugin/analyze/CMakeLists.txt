@@ -16,8 +16,7 @@ set(DEXTOOL_CPP_EXTENSION_LDFLAGS
     -L-lclangAnalysis \
     -L-lclangAST \
     -L-lclangLex \
-    -L-lclangBasic \
-    -L-lstdc++ -L-lm -L-lc"
+    -L-lclangBasic"
     )
 
 file(GLOB_RECURSE SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.d)
