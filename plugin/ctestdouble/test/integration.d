@@ -8,7 +8,7 @@ module dextool_test.integration;
 import std.typecons : Flag, Yes, No;
 
 import scriptlike;
-import dextool_test.utils;
+import dextool_test;
 
 import unit_threaded;
 

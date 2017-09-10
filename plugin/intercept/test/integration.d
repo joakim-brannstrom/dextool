@@ -8,7 +8,7 @@ module dextool_test.integration;
 import scriptlike;
 import unit_threaded : shouldEqual;
 
-import dextool_test.utils;
+import dextool_test;
 
 enum globalTestdir = "intercept_tests";
 
@@ -17,7 +17,7 @@ auto testData() {
 }
 
 auto makeDextool(const ref TestEnv env) {
-    return dextool_test.utils.makeDextool(env).args(["intercept", "-d", "--prefix=i_"]);
+    return dextool_test.makeDextool(env).args(["intercept", "-d", "--prefix=i_"]);
 }
 
 auto verifyOutput(const ref TestEnv env, Path infile) {

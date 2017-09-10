@@ -473,18 +473,6 @@ auto makeDextool(const ref TestEnv testEnv) {
     return BuildDextoolRun(testEnv.dextool.escapePath, testEnv.outdir.escapePath);
 }
 
-/** Construct an execution of a compiler.
- */
-auto makeCompile(const ref TestEnv testEnv, string compiler) {
-    return BuildCommandRun(compiler, testEnv.outdir.escapePath).addArg("-g")
-        .addArg("-I" ~ testEnv.outdir.escapePath);
-}
-
-/// Use in conjunction with makeCompile to setup the default binary destination.
-auto outputToDefaultBinary(BuildCommandRun br) {
-    return br.addArg("-o" ~ (br.outdir ~ "binary").escapePath);
-}
-
 /** Construct an execution of a command.
  */
 auto makeCommand(const ref TestEnv testEnv, string command) {
@@ -507,46 +495,6 @@ void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipCom
     }
 }
 
-void compileResult(const Path input, const Path binary, const Path main,
-        const ref TestEnv testEnv, const string[] flags, const string[] incls) {
-    Args args;
-    args ~= "g++";
-    args ~= flags.dup;
-    args ~= "-g";
-    args ~= "-o" ~ binary.escapePath;
-    args ~= "-I" ~ testEnv.outdir.escapePath;
-    args ~= incls.dup;
-    args ~= main;
-
-    if (exists(input)) {
-        args ~= input;
-    }
-
-    runAndLog(args.data);
-}
-
-void testWithGTest(const Path[] src, const Path binary, const ref TestEnv testEnv,
-        const string[] flags, const string[] incls) {
-    immutable bool[string] rm_flag = ["-Wpedantic" : true, "-Werror" : true, "-pedantic" : true];
-
-    auto flags_ = flags.filter!(a => a !in rm_flag).array();
-
-    Args args;
-    args ~= "g++";
-    args ~= flags_.dup;
-    args ~= "-g";
-    args ~= "-o" ~ binary.escapePath;
-    args ~= "-I" ~ testEnv.outdir.escapePath;
-    args ~= "-I" ~ "fused_gmock";
-    args ~= incls.dup;
-    args ~= src.dup;
-    args ~= "-l" ~ "gmock_gtest";
-    args ~= "-lpthread";
-    args ~= "-L.";
-
-    runAndLog(args.data);
-}
-
 void demangleProfileLog(in Path out_fname) {
     Args args;
     args ~= "ddemangle";
@@ -557,29 +505,24 @@ void demangleProfileLog(in Path out_fname) {
     runAndLog(args.data);
 }
 
-string[] compilerFlags() {
-    auto default_flags = ["-std=c++98"];
-
-    auto r = tryRunCollect("g++ -dumpversion");
-    auto version_ = r.output;
-    yap("Compiler version: ", version_);
-
-    if (r.status != 0) {
-        return default_flags;
-    }
-
-    if (version_.length == 0) {
-        return default_flags;
-    } else if (version_[0] == '5') {
-        return default_flags ~ ["-Wpedantic", "-Werror"];
-    } else {
-        return default_flags ~ ["-pedantic", "-Werror"];
-    }
-}
-
 string testId(uint line = __LINE__) {
     import std.conv : to;
 
     // assuming it is always the UDA for a test and thus +1 to get the correct line
     return "id:" ~ (line + 1).to!string() ~ " ";
+}
+
+/**
+ * Params:
+ *  dir = directory to perform the recursive search in
+ *  ext = extension of the files to match (including dot)
+ *
+ * Returns: a list of all files with the extension
+ */
+auto recursiveFilesWithExtension(Path dir, string ext) {
+    // dfmt off
+    return std.file.dirEntries(dir.toString, SpanMode.depth)
+        .filter!(a => extension(a) == ext)
+        .map!(a => Path(a));
+    // dfmt on
 }
