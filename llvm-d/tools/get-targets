@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# See http://stackoverflow.com/questions/1527049/join-elements-of-an-array/17841619#17841619
+function join_by { local IFS="$1"; shift; echo -n "$*"; }
+
+echo -n "LLVM_Targets: return ["
+join_by , $(find $1/lib/Target/ -mindepth 1 -maxdepth 1 -type d | grep -oP 'Target/\K[^/]*' | sort | while read target; do echo \"$target\"; done)
+echo "];"
+
+echo -n "LLVM_AsmPrinters: return ["
+join_by , $(find $1/lib/Target/*/*AsmPrinter.cpp | grep -oP 'Target/\K[^/]*' | while read target; do echo \"$target\"; done)
+echo "];"
+
+echo -n "LLVM_AsmParsers: return ["
+join_by , $(find $1/lib/Target/*/AsmParser/CMakeLists.txt | grep -oP 'Target/\K[^/]*' | while read target; do echo \"$target\"; done)
+echo "];"
+
+echo -n "LLVM_Disassemblers: return ["
+join_by , $(find $1/lib/Target/*/Disassembler/CMakeLists.txt | grep -oP 'Target/\K[^/]*' | while read target; do echo \"$target\"; done)
+echo "];"

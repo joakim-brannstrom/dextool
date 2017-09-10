@@ -1,0 +1,32 @@
+{
+	"name": "llvm-d",
+	"description": "D bindings for LLVM",
+	"copyright": "Copyright © 2013-2017 Moritz Maxeiner, Copyright © 2016-2017 Alex Parrill",
+	"license": "MIT",
+	"authors": [
+		"Moritz Maxeiner",
+		"Alex Parrill"
+	],
+	"homepage": "https://github.com/Calrama/llvm-d",
+
+	"targetType": "library",
+	"configurations": [
+		{
+			"name": "native-target",
+			"versions-x86":     ["LLVM_Target_X86"],
+			"versions-x86_64":  ["LLVM_Target_X86"],
+			"versions-sparc":   ["LLVM_Target_Sparc"],
+			"versions-sparc64": ["LLVM_Target_Sparc"],
+			"versions-ppc":     ["LLVM_Target_PowerPC"],
+			"versions-ppc64":   ["LLVM_Target_PowerPC"],
+			"versions-aarch64": ["LLVM_Target_AArch64"],
+			"versions-arm":     ["LLVM_Target_ARM"],
+			"versions-mips32":  ["LLVM_Target_Mips"],
+			"versions-mips64":  ["LLVM_Target_Mips"],
+			"versions-systemz": ["LLVM_Target_SystemZ"]
+		},
+		{
+			"name": "no-target"
+		}
+	]
+}

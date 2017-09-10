@@ -10,6 +10,7 @@
 #   LIBLLVM_LDFLAGS     - flags to use when linking
 #   LIBLLVM_CXX_FLAGS   - the required flags to build C++ code using LLVM
 #   LIBLLVM_FLAGS       - the required flags by llvm-d such as version
+#   LIBLLVM_LIBS        - the required libraries for linking LLVM
 
 execute_process(COMMAND llvm-config --ldflags
     OUTPUT_VARIABLE llvm_config_LDFLAGS
@@ -42,6 +43,21 @@ message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
 message(STATUS "llvm-config INCLUDE: ${llvm_config_INCLUDE}")
 message(STATUS "llvm-config LIBS: ${llvm_config_LIBS}")
 
+
+set(llvm_possible_search_paths
+    "${llvm_config_LIBDIR}"
+    # Ubuntu
+    "/usr/lib/llvm-4.0/lib"
+    "/usr/lib/llvm-3.9/lib"
+    "/usr/lib/llvm-3.8/lib"
+    "/usr/lib/llvm-3.7/lib"
+    # MacOSX
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+    "/Applications/Xcode.app/Contents/Frameworks"
+    # fallback
+    "/usr/lib64/llvm"
+    )
+
 # libCLANG ===================================================================
 
 function(try_clang_from_user_config)
@@ -56,24 +72,10 @@ function(try_find_libclang)
         return()
     endif()
 
-    set(possible_paths
-        "${llvm_config_LIBDIR}"
-        # Ubuntu
-        "/usr/lib/llvm-4.0/lib"
-        "/usr/lib/llvm-3.9/lib"
-        "/usr/lib/llvm-3.8/lib"
-        "/usr/lib/llvm-3.7/lib"
-        # MacOSX
-        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
-        "/Applications/Xcode.app/Contents/Frameworks"
-        # fallback
-        "/usr/lib64/llvm"
-        )
-
     # will only try to find if the user has NOT set it
     find_library(LIBCLANG_LIB_PATH
         NAMES clang
-        PATHS ${possible_paths}
+        PATHS ${llvm_possible_search_paths}
         )
 
     if(LIBCLANG_LIB_PATH STREQUAL "LIBCLANG_LIB_PATH-NOTFOUND")
@@ -117,10 +119,12 @@ function(try_llvm_config_find)
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
     if(APPLE)
-        set(llvm_LDFLAGS_OS "-L-rpath -L${llvm_config_LIBDIR} -L-lLLVM")
+        set(llvm_LDFLAGS_OS "-L-rpath -L${llvm_config_LIBDIR}")
     elseif(UNIX)
         set(llvm_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=${llvm_config_LIBDIR} -L--no-as-needed")
     endif()
+    # sometimes llvm-config forget the dependency on the c and c++ stdlib
+    set(llvm_LIBS_OS "-L-lstdc++ -L-lc -L-lm")
 
     string(REPLACE "\n" " " llvm_config_LIBS_nonewline "${llvm_config_LIBS}")
     string(REPLACE " " ";" llvm_config_LIBS_aslist "${llvm_config_LIBS_nonewline}")
@@ -132,7 +136,10 @@ function(try_llvm_config_find)
         endif()
     endforeach()
 
-    set(LIBLLVM_LDFLAGS "-L${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS} ${llvm_config_LIBS}" CACHE string "Linker flags for libLLVM")
+    string(STRIP "${llvm_config_LIBS} ${llvm_LIBS_OS}" llvm_libs_intermediate)
+    set(LIBLLVM_LIBS "${llvm_libs_intermediate}" CACHE string "Linker libraries for libLLVM")
+
+    set(LIBLLVM_LDFLAGS "-L${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
 
     set(LIBLLVM_CXX_FLAGS "-I${llvm_config_INCLUDE} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
@@ -165,3 +172,4 @@ message(STATUS "libLLVM config status: ${LIBLLVM_CONFIG_DONE}")
 message(STATUS "libLLVM D flags: ${LIBLLVM_FLAGS}")
 message(STATUS "libLLVM CXX flags: ${LIBLLVM_CXX_FLAGS}")
 message(STATUS "libLLVM linker flags: ${LIBLLVM_LDFLAGS}")
+message(STATUS "libLLVM libs: ${LIBLLVM_LIBS}")

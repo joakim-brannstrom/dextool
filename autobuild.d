@@ -37,8 +37,11 @@ enum Status {
 }
 
 auto sourcePath() {
+    // those that are supported by the developer of deXtool
+
     // dfmt off
     return only(
+                "clang",
                 "dsrcgen/source",
                 "plugin",
                 "source"
@@ -689,6 +692,7 @@ int main(string[] args) {
                               "plugin",
                               "clang",
                               "libclang",
+                              "llvm-d",
                               "dub.sdl",
                               "dsrcgen/source",
                               "test/testdata",
