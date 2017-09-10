@@ -295,7 +295,7 @@ deprecated("to be removed") bool stdoutContains(const string txt) {
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
-deprecated("to be removed") bool sliceContains(const string[] log, const string txt) {
+bool sliceContains(const string[] log, const string txt) {
     import std.string : indexOf;
 
     return log.dup.joiner().array().indexOf(txt) != -1;
