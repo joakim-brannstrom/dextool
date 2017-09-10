@@ -178,6 +178,8 @@ struct BuildCommandRun {
         string outdir_;
         string[] args_;
 
+        bool chdir_to_outdir;
+
         /// if the output from running the command should be yapped via scriptlike
         bool yap_output = true;
 
@@ -192,6 +194,11 @@ struct BuildCommandRun {
 
     Path outdir() {
         return Path(outdir_);
+    }
+
+    auto chdirToOutdir() {
+        chdir_to_outdir = true;
+        return this;
     }
 
     auto throwOnExitStatus(bool v) {
@@ -240,6 +247,14 @@ struct BuildCommandRun {
         int exit_status = -1;
         Appender!(string[]) stdout_;
         Appender!(string[]) stderr_;
+
+        immutable root = std.file.getcwd;
+        if (chdir_to_outdir) {
+            stdout_.put("cd " ~ outdir.toString);
+            std.file.chdir(outdir.toString);
+        }
+        scope (exit)
+            std.file.chdir(root);
 
         sw.start;
         try {

@@ -14,6 +14,8 @@ import scriptlike;
 import dextool_test.utils : escapePath, TestEnv, runAndLog;
 import dextool_test.builders;
 
+immutable defaultBinary = "./binary";
+
 /** Construct an execution of a compiler.
  */
 auto makeCompile(const ref TestEnv testEnv, string compiler) {
@@ -23,7 +25,7 @@ auto makeCompile(const ref TestEnv testEnv, string compiler) {
 
 /// Use in conjunction with makeCompile to setup the default binary destination.
 auto outputToDefaultBinary(BuildCommandRun br) {
-    return br.addArg("-o" ~ (br.outdir ~ "binary").escapePath);
+    return br.addArg("-o" ~ (br.outdir ~ defaultBinary).escapePath);
 }
 
 /** Add recursively all files in outdir with extension ext (including dot)
