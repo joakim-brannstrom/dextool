@@ -44,6 +44,17 @@ auto addFilesFromOutdirWithExtension(BuildCommandRun br, string ext, string[] ex
     return br;
 }
 
+/// Add parameters to link and use gmock/gtest
+auto addGtest(BuildCommandRun br) {
+    // dfmt off
+    return br
+        .addArg("-Ifused_gmock")
+        .addArg("-lgmock_gtest")
+        .addArg("-lpthread")
+        .addArg("-L.");
+    // dfmt on
+}
+
 string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
