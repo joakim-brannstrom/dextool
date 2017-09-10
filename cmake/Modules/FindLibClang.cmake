@@ -43,6 +43,21 @@ message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
 message(STATUS "llvm-config INCLUDE: ${llvm_config_INCLUDE}")
 message(STATUS "llvm-config LIBS: ${llvm_config_LIBS}")
 
+
+set(llvm_possible_search_paths
+    "${llvm_config_LIBDIR}"
+    # Ubuntu
+    "/usr/lib/llvm-4.0/lib"
+    "/usr/lib/llvm-3.9/lib"
+    "/usr/lib/llvm-3.8/lib"
+    "/usr/lib/llvm-3.7/lib"
+    # MacOSX
+    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
+    "/Applications/Xcode.app/Contents/Frameworks"
+    # fallback
+    "/usr/lib64/llvm"
+    )
+
 # libCLANG ===================================================================
 
 function(try_clang_from_user_config)
@@ -57,24 +72,10 @@ function(try_find_libclang)
         return()
     endif()
 
-    set(possible_paths
-        "${llvm_config_LIBDIR}"
-        # Ubuntu
-        "/usr/lib/llvm-4.0/lib"
-        "/usr/lib/llvm-3.9/lib"
-        "/usr/lib/llvm-3.8/lib"
-        "/usr/lib/llvm-3.7/lib"
-        # MacOSX
-        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
-        "/Applications/Xcode.app/Contents/Frameworks"
-        # fallback
-        "/usr/lib64/llvm"
-        )
-
     # will only try to find if the user has NOT set it
     find_library(LIBCLANG_LIB_PATH
         NAMES clang
-        PATHS ${possible_paths}
+        PATHS ${llvm_possible_search_paths}
         )
 
     if(LIBCLANG_LIB_PATH STREQUAL "LIBCLANG_LIB_PATH-NOTFOUND")
