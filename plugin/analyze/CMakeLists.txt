@@ -28,8 +28,8 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -J${CMAKE_SOURCE_DIR}/clang/resources"
-    "${DEXTOOL_CPP_EXTENSION_LDFLAGS} ${LIBCLANG_LDFLAGS} ${LIBLLVM_LDFLAGS}"
-    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility"
+    "${LIBCLANG_LDFLAGS} ${LIBLLVM_LDFLAGS}"
+    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;${DEXTOOL_CPP_EXTENSION_LDFLAGS} ${LIBLLVM_LIBS}"
 )
 add_dependencies(${EXE_NAME} dextool_clang_extension)
 
