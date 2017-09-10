@@ -26,11 +26,18 @@ auto outputToDefaultBinary(BuildCommandRun br) {
     return br.addArg("-o" ~ (br.outdir ~ "binary").escapePath);
 }
 
-/// Add recursively all files in outdir with extension ext (including dot)
-auto addFilesFromOutdir(BuildCommandRun br, string ext) {
+/** Add recursively all files in outdir with extension ext (including dot)
+ *
+ * Params:
+ *  br = builder param to extend
+ *  ext = extension to filter on
+ *  exclude = files to exclude
+ */
+auto addFilesFromOutdirWithExtension(BuildCommandRun br, string ext, string[] exclude) {
     import dextool_test.utils : recursiveFilesWithExtension;
 
-    foreach (a; recursiveFilesWithExtension(br.outdir, ext)) {
+    foreach (a; recursiveFilesWithExtension(br.outdir, ext).filter!(a => !canFind(exclude,
+            a.baseName.toString))) {
         br.addArg(a);
     }
 
