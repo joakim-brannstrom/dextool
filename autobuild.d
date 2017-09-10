@@ -285,6 +285,7 @@ struct Fsm {
         StaticAnalyse,
         Doc_check_counter,
         Doc_build,
+        Sloc_check_counter,
         Slocs,
         AudioStatus,
         ExitOrRestart,
@@ -300,7 +301,8 @@ struct Fsm {
     Flag!"UtTestPassed" flagUtTestPassed;
     Flag!"CompileError" flagCompileError;
     Flag!"TotalTestPassed" flagTotalTestPassed;
-    uint docCount;
+    int docCount;
+    int analyzeCount;
 
     alias ErrorMsg = Tuple!(Path, "fname", string, "msg", string, "output");
     ErrorMsg[] testErrorLog;
@@ -319,8 +321,8 @@ struct Fsm {
 
             updateTotalTestStatus();
 
-            st = Fsm.next(st, docCount, flagUtTestPassed, flagCompileError,
-                    flagTotalTestPassed, travis, ut_skip);
+            st = Fsm.next(st, docCount, analyzeCount, flagUtTestPassed,
+                    flagCompileError, flagTotalTestPassed, travis, ut_skip);
         }
     }
 
@@ -336,8 +338,8 @@ struct Fsm {
         }
     }
 
-    static State next(State st, uint docCount, Flag!"UtTestPassed" flagUtTestPassed,
-            Flag!"CompileError" flagCompileError,
+    static State next(State st, int docCount, int analyzeCount,
+            Flag!"UtTestPassed" flagUtTestPassed, Flag!"CompileError" flagCompileError,
             Flag!"TotalTestPassed" flagTotalTestPassed, Flag!"Travis" travis,
             Flag!"utSkip" ut_skip) {
         auto next_ = st;
@@ -403,7 +405,13 @@ struct Fsm {
                 next_ = State.Doc_build;
             break;
         case State.Doc_build:
-            next_ = State.Slocs;
+            next_ = State.Sloc_check_counter;
+            break;
+        case State.Sloc_check_counter:
+            next_ = State.ExitOrRestart;
+            if (analyzeCount >= 10) {
+                next_ = State.Slocs;
+            }
             break;
         case State.Slocs:
             next_ = State.ExitOrRestart;
@@ -431,6 +439,7 @@ struct Fsm {
     void stateInit() {
         // force rebuild of doc and show code stat
         docCount = 10;
+        analyzeCount = 10;
 
         writeln("Watching the following paths for changes:");
         inotify_paths.each!writeln;
@@ -548,6 +557,7 @@ struct Fsm {
 
     void stateTest_passed() {
         docCount++;
+        analyzeCount++;
         printStatus(Status.Ok, "Test of code generation");
     }
 
@@ -568,6 +578,9 @@ struct Fsm {
     void stateDoc_build() {
     }
 
+    void stateSloc_check_counter() {
+    }
+
     void stateSlocs() {
         printStatus(Status.Run, "Code statistics");
         scope (exit)
@@ -582,6 +595,8 @@ struct Fsm {
         if (r.status == 0) {
             writeln(r.output);
         }
+
+        analyzeCount = 0;
     }
 
     void stateStaticAnalyse() {
