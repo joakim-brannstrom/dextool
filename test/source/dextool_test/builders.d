@@ -13,6 +13,9 @@ import scriptlike;
 
 import std.range : isInputRange;
 import std.typecons : Yes, No, Flag;
+import std.traits : ReturnType;
+
+static import core.thread;
 
 import dextool_test.utils : escapePath;
 
@@ -126,7 +129,8 @@ struct BuildDextoolRun {
         import std.datetime;
 
         StopWatch sw;
-        int exit_status = -1;
+        ReturnType!(std.process.tryWait) exit_;
+        exit_.status = -1;
         Appender!(string[]) stdout_;
         Appender!(string[]) stderr_;
 
@@ -135,35 +139,35 @@ struct BuildDextoolRun {
             auto p = std.process.pipeProcess(cmd,
                     std.process.Redirect.stdout | std.process.Redirect.stderr);
 
-            foreach (l; p.stdout.byLineCopy)
-                stdout_.put(l);
-            foreach (l; p.stderr.byLineCopy)
-                stderr_.put(l);
+            for (;;) {
+                exit_ = std.process.tryWait(p.pid);
 
-            exit_status = std.process.wait(p.pid);
+                foreach (l; p.stdout.byLineCopy)
+                    stdout_.put(l);
+                foreach (l; p.stderr.byLineCopy)
+                    stderr_.put(l);
+
+                if (exit_.terminated)
+                    break;
+                core.thread.Thread.sleep(20.msecs);
+            }
             sw.stop;
-
-            // TODO I think this is needed to ensure the pipes are flushed
-            foreach (l; p.stdout.byLineCopy)
-                stdout_.put(l);
-            foreach (l; p.stderr.byLineCopy)
-                stderr_.put(l);
         }
         catch (Exception e) {
             stderr_ ~= [e.msg];
             sw.stop;
         }
 
-        auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
+        auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
             auto f = File(nextFreeLogfile(outdir), "w");
             f.writef("%s", rval);
         }
 
-        if (throw_on_exit_status && exit_status != 0) {
+        if (throw_on_exit_status && exit_.status != 0) {
             auto l = min(10, stderr_.data.length);
-            throw new ErrorLevelException(exit_status, stderr_.data[0 .. l].join(newline));
+            throw new ErrorLevelException(exit_.status, stderr_.data[0 .. l].join(newline));
         } else {
             return rval;
         }
@@ -244,7 +248,8 @@ struct BuildCommandRun {
         import std.datetime;
 
         StopWatch sw;
-        int exit_status = -1;
+        ReturnType!(std.process.tryWait) exit_;
+        exit_.status = -1;
         Appender!(string[]) stdout_;
         Appender!(string[]) stderr_;
 
@@ -261,35 +266,36 @@ struct BuildCommandRun {
             auto p = std.process.pipeProcess(cmd,
                     std.process.Redirect.stdout | std.process.Redirect.stderr);
 
-            foreach (l; p.stdout.byLineCopy)
-                stdout_.put(l);
-            foreach (l; p.stderr.byLineCopy)
-                stderr_.put(l);
+            for (;;) {
+                exit_ = std.process.tryWait(p.pid);
 
-            exit_status = std.process.wait(p.pid);
+                foreach (l; p.stdout.byLineCopy)
+                    stdout_.put(l);
+                foreach (l; p.stderr.byLineCopy)
+                    stderr_.put(l);
+
+                if (exit_.terminated)
+                    break;
+                core.thread.Thread.sleep(20.msecs);
+            }
+
             sw.stop;
-
-            // TODO I think this is needed to ensure the pipes are flushed
-            foreach (l; p.stdout.byLineCopy)
-                stdout_.put(l);
-            foreach (l; p.stderr.byLineCopy)
-                stderr_.put(l);
         }
         catch (Exception e) {
             stderr_ ~= [e.msg];
             sw.stop;
         }
 
-        auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
+        auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
             auto f = File(nextFreeLogfile(outdir_), "w");
             f.writef("%s", rval);
         }
 
-        if (throw_on_exit_status && exit_status != 0) {
+        if (throw_on_exit_status && exit_.status != 0) {
             auto l = min(10, stderr_.data.length);
-            throw new ErrorLevelException(exit_status, stderr_.data[0 .. l].join(newline));
+            throw new ErrorLevelException(exit_.status, stderr_.data[0 .. l].join(newline));
         } else {
             return rval;
         }
