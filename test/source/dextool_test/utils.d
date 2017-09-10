@@ -62,7 +62,7 @@ string escapePath(in Path p) {
     return p.raw.dup.escapeShellArg;
 }
 
-auto runAndLog(T)(T args_) {
+deprecated("to be removed") auto runAndLog(T)(T args_) {
     import std.traits : Unqual;
 
     static if (is(Unqual!T == Path)) {
@@ -228,8 +228,8 @@ auto removeJunk(R)(R r, Flag!"skipComments" skipComments) {
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
  */
-void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
+deprecated("to be removed") void compare(in Path gold, in Path result,
+        Flag!"sortLines" sortLines, Flag!"skipComments" skipComments = Yes.skipComments) {
     import std.stdio : File;
 
     yap("Comparing gold:", gold.raw);
@@ -289,13 +289,13 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     }
 }
 
-bool stdoutContains(const string txt) {
+deprecated("to be removed") bool stdoutContains(const string txt) {
     import std.string : indexOf;
 
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
-bool sliceContains(const string[] log, const string txt) {
+deprecated("to be removed") bool sliceContains(const string[] log, const string txt) {
     import std.string : indexOf;
 
     return log.dup.joiner().array().indexOf(txt) != -1;
@@ -408,7 +408,8 @@ bool stdoutContains(in Path gold) {
  *
  * Return: The runtime in ms.
  */
-auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+deprecated("to be removed") auto runDextool(T)(in T input,
+        const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     import std.traits : isArray;
     import std.algorithm : min;
 
@@ -449,7 +450,7 @@ auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, 
     return sw.peek.msecs;
 }
 
-auto filesToDextoolInFlags(T)(const T in_files) {
+deprecated("to be removed") auto filesToDextoolInFlags(T)(const T in_files) {
     Args args;
 
     static if (isArray!T) {
@@ -485,7 +486,8 @@ auto makeCompare(const ref TestEnv env) {
     return BuildCompare(env.outdir.escapePath);
 }
 
-void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipComments, in T args) {
+deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
+        Flag!"skipComments" skipComments, in T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
@@ -495,7 +497,7 @@ void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipCom
     }
 }
 
-void demangleProfileLog(in Path out_fname) {
+deprecated("to be removed") void demangleProfileLog(in Path out_fname) {
     Args args;
     args ~= "ddemangle";
     args ~= "trace.log";
