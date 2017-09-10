@@ -524,7 +524,8 @@ string testId(uint line = __LINE__) {
 auto recursiveFilesWithExtension(Path dir, string ext) {
     // dfmt off
     return std.file.dirEntries(dir.toString, SpanMode.depth)
-        .filter!(a => extension(a) == ext)
+        .filter!(a => a.isFile)
+        .filter!(a => extension(a.name) == ext)
         .map!(a => Path(a));
     // dfmt on
 }
