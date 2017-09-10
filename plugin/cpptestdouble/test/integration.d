@@ -9,7 +9,7 @@ import std.typecons : Flag, Yes, No;
 
 import scriptlike;
 import unit_threaded : shouldEqual;
-import dextool_test.utils;
+import dextool_test;
 
 enum globalTestdir = "cpp_tests";
 
@@ -18,17 +18,17 @@ auto testData() {
 }
 
 auto makeDextool(const ref TestEnv env) {
-    return dextool_test.utils.makeDextool(env).args(["cpptestdouble", "-d", "--gmock"]);
+    return dextool_test.makeDextool(env).args(["cpptestdouble", "-d", "--gmock"]);
 }
 
 auto makeCompile(const ref TestEnv env) {
-    return dextool_test.utils.makeCompile(env, "g++")
+    return dextool_test.makeCompile(env, "g++")
         .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
 }
 
 auto makeCompile(const ref TestEnv env, Path srcdir) {
-    return dextool_test.utils.makeCompile(env, "g++").addArg(["-I",
-            srcdir.toString]).addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
+    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
+        .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
 }
 
 // dfmt makes it hard to read the test cases.
@@ -310,7 +310,7 @@ unittest {
         .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
         .addArg("--file-restrict=.*/single_file.hpp")
         .run;
-    dextool_test.utils.makeCompile(testEnv, "g++")
+    dextool_test.makeCompile(testEnv, "g++")
         .addArg(["-I", (testData ~ "compile_db/dir1").toString])
         .addArg("-DDEXTOOL_TEST")
         .addArg(testData ~ "compile_db/single_file_main.cpp")

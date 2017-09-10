@@ -62,7 +62,7 @@ string escapePath(in Path p) {
     return p.raw.dup.escapeShellArg;
 }
 
-auto runAndLog(T)(T args_) {
+deprecated("to be removed") auto runAndLog(T)(T args_) {
     import std.traits : Unqual;
 
     static if (is(Unqual!T == Path)) {
@@ -228,8 +228,8 @@ auto removeJunk(R)(R r, Flag!"skipComments" skipComments) {
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
  */
-void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
+deprecated("to be removed") void compare(in Path gold, in Path result,
+        Flag!"sortLines" sortLines, Flag!"skipComments" skipComments = Yes.skipComments) {
     import std.stdio : File;
 
     yap("Comparing gold:", gold.raw);
@@ -289,13 +289,13 @@ void compare(in Path gold, in Path result, Flag!"sortLines" sortLines,
     }
 }
 
-bool stdoutContains(const string txt) {
+deprecated("to be removed") bool stdoutContains(const string txt) {
     import std.string : indexOf;
 
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
-bool sliceContains(const string[] log, const string txt) {
+deprecated("to be removed") bool sliceContains(const string[] log, const string txt) {
     import std.string : indexOf;
 
     return log.dup.joiner().array().indexOf(txt) != -1;
@@ -408,7 +408,8 @@ bool stdoutContains(in Path gold) {
  *
  * Return: The runtime in ms.
  */
-auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
+deprecated("to be removed") auto runDextool(T)(in T input,
+        const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     import std.traits : isArray;
     import std.algorithm : min;
 
@@ -449,7 +450,7 @@ auto runDextool(T)(in T input, const ref TestEnv testEnv, in string[] pre_args, 
     return sw.peek.msecs;
 }
 
-auto filesToDextoolInFlags(T)(const T in_files) {
+deprecated("to be removed") auto filesToDextoolInFlags(T)(const T in_files) {
     Args args;
 
     static if (isArray!T) {
@@ -473,18 +474,6 @@ auto makeDextool(const ref TestEnv testEnv) {
     return BuildDextoolRun(testEnv.dextool.escapePath, testEnv.outdir.escapePath);
 }
 
-/** Construct an execution of a compiler.
- */
-auto makeCompile(const ref TestEnv testEnv, string compiler) {
-    return BuildCommandRun(compiler, testEnv.outdir.escapePath).addArg("-g")
-        .addArg("-I" ~ testEnv.outdir.escapePath);
-}
-
-/// Use in conjunction with makeCompile to setup the default binary destination.
-auto outputToDefaultBinary(BuildCommandRun br) {
-    return br.addArg("-o" ~ (br.outdir ~ "binary").escapePath);
-}
-
 /** Construct an execution of a command.
  */
 auto makeCommand(const ref TestEnv testEnv, string command) {
@@ -497,7 +486,8 @@ auto makeCompare(const ref TestEnv env) {
     return BuildCompare(env.outdir.escapePath);
 }
 
-void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipComments, in T args) {
+deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
+        Flag!"skipComments" skipComments, in T args) {
     static assert(args.length >= 1);
 
     foreach (a; args) {
@@ -507,47 +497,7 @@ void compareResult(T...)(Flag!"sortLines" sortLines, Flag!"skipComments" skipCom
     }
 }
 
-void compileResult(const Path input, const Path binary, const Path main,
-        const ref TestEnv testEnv, const string[] flags, const string[] incls) {
-    Args args;
-    args ~= "g++";
-    args ~= flags.dup;
-    args ~= "-g";
-    args ~= "-o" ~ binary.escapePath;
-    args ~= "-I" ~ testEnv.outdir.escapePath;
-    args ~= incls.dup;
-    args ~= main;
-
-    if (exists(input)) {
-        args ~= input;
-    }
-
-    runAndLog(args.data);
-}
-
-void testWithGTest(const Path[] src, const Path binary, const ref TestEnv testEnv,
-        const string[] flags, const string[] incls) {
-    immutable bool[string] rm_flag = ["-Wpedantic" : true, "-Werror" : true, "-pedantic" : true];
-
-    auto flags_ = flags.filter!(a => a !in rm_flag).array();
-
-    Args args;
-    args ~= "g++";
-    args ~= flags_.dup;
-    args ~= "-g";
-    args ~= "-o" ~ binary.escapePath;
-    args ~= "-I" ~ testEnv.outdir.escapePath;
-    args ~= "-I" ~ "fused_gmock";
-    args ~= incls.dup;
-    args ~= src.dup;
-    args ~= "-l" ~ "gmock_gtest";
-    args ~= "-lpthread";
-    args ~= "-L.";
-
-    runAndLog(args.data);
-}
-
-void demangleProfileLog(in Path out_fname) {
+deprecated("to be removed") void demangleProfileLog(in Path out_fname) {
     Args args;
     args ~= "ddemangle";
     args ~= "trace.log";
@@ -557,29 +507,24 @@ void demangleProfileLog(in Path out_fname) {
     runAndLog(args.data);
 }
 
-string[] compilerFlags() {
-    auto default_flags = ["-std=c++98"];
-
-    auto r = tryRunCollect("g++ -dumpversion");
-    auto version_ = r.output;
-    yap("Compiler version: ", version_);
-
-    if (r.status != 0) {
-        return default_flags;
-    }
-
-    if (version_.length == 0) {
-        return default_flags;
-    } else if (version_[0] == '5') {
-        return default_flags ~ ["-Wpedantic", "-Werror"];
-    } else {
-        return default_flags ~ ["-pedantic", "-Werror"];
-    }
-}
-
 string testId(uint line = __LINE__) {
     import std.conv : to;
 
     // assuming it is always the UDA for a test and thus +1 to get the correct line
     return "id:" ~ (line + 1).to!string() ~ " ";
+}
+
+/**
+ * Params:
+ *  dir = directory to perform the recursive search in
+ *  ext = extension of the files to match (including dot)
+ *
+ * Returns: a list of all files with the extension
+ */
+auto recursiveFilesWithExtension(Path dir, string ext) {
+    // dfmt off
+    return std.file.dirEntries(dir.toString, SpanMode.depth)
+        .filter!(a => extension(a) == ext)
+        .map!(a => Path(a));
+    // dfmt on
 }

@@ -8,7 +8,7 @@ module dextool_test.integration;
 import scriptlike;
 import unit_threaded : shouldEqual;
 
-import dextool_test.utils;
+import dextool_test;
 
 enum globalTestdir = "fuzzer_tests";
 
