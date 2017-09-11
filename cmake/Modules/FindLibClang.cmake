@@ -87,13 +87,13 @@ function(try_find_libclang)
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
     if(APPLE)
-        set(LIBCLANG_LDFLAGS_OS "-L-rpath -L${llvm_config_LIBDIR} -L-lclang")
+        set(LIBCLANG_LDFLAGS_OS "-Wl,-rpath ${llvm_config_LIBDIR} -lclang")
     elseif(UNIX)
-        set(LIBCLANG_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=${llvm_config_LIBDIR} -L--no-as-needed -L-l:${LIBCLANG_LIB}")
+        set(LIBCLANG_LDFLAGS_OS "-Wl,--enable-new-dtags -Wl,-rpath=${llvm_config_LIBDIR} -Wl,--no-as-needed -l:${LIBCLANG_LIB}")
     else()
     endif()
 
-    set(LIBCLANG_LDFLAGS "-L-L${llvm_config_LIBDIR} ${LIBCLANG_LDFLAGS_OS}" CACHE string "Linker flangs for libclang")
+    set(LIBCLANG_LDFLAGS "-L${llvm_config_LIBDIR} ${LIBCLANG_LDFLAGS_OS}" CACHE string "Linker flangs for libclang")
     set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
 endfunction()
 
@@ -119,12 +119,12 @@ function(try_llvm_config_find)
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
     if(APPLE)
-        set(llvm_LDFLAGS_OS "-L-rpath -L${llvm_config_LIBDIR}")
+        set(llvm_LDFLAGS_OS "-Wl,-rpath ${llvm_config_LIBDIR}")
     elseif(UNIX)
-        set(llvm_LDFLAGS_OS "-L--enable-new-dtags -L-rpath=${llvm_config_LIBDIR} -L--no-as-needed")
+        set(llvm_LDFLAGS_OS "-Wl,--enable-new-dtags -Wl,-rpath=${llvm_config_LIBDIR} -Wl,--no-as-needed")
     endif()
     # sometimes llvm-config forget the dependency on the c and c++ stdlib
-    set(llvm_LIBS_OS "-L-lstdc++ -L-lc -L-lm")
+    set(llvm_LIBS_OS "-lstdc++ -lc -lm")
 
     string(REPLACE "\n" " " llvm_config_LIBS_nonewline "${llvm_config_LIBS}")
     string(REPLACE " " ";" llvm_config_LIBS_aslist "${llvm_config_LIBS_nonewline}")
@@ -132,14 +132,14 @@ function(try_llvm_config_find)
     foreach (var ${llvm_config_LIBS_aslist})
         string(STRIP "${var}" var)
         if (var)
-            set(llvm_config_LIBS "${llvm_config_LIBS} -L${var}")
+            set(llvm_config_LIBS "${llvm_config_LIBS} ${var}")
         endif()
     endforeach()
 
     string(STRIP "${llvm_config_LIBS} ${llvm_LIBS_OS}" llvm_libs_intermediate)
     set(LIBLLVM_LIBS "${llvm_libs_intermediate}" CACHE string "Linker libraries for libLLVM")
 
-    set(LIBLLVM_LDFLAGS "-L${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
+    set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
 
     set(LIBLLVM_CXX_FLAGS "-I${llvm_config_INCLUDE} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
