@@ -11,7 +11,7 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
-    "${LIBCLANG_LDFLAGS}"
+    ""
     "dextool_dextool;dextool_cpptooling;dextool_plugin_utility"
 )
 
@@ -27,7 +27,7 @@ list(APPEND SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/test/component/plantuml.d
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(uml "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility")
+compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility")
 
 setup_integration_testing_env()
 compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_scriptlike;dextool_dextool_test")

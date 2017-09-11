@@ -22,7 +22,7 @@ function(conv_to_proper_args output_ input_)
         return()
     endif()
 
-    string(REPLACE "${input_}" ";" " " result)
+    string(REPLACE ";" " " result "${input_}")
     separate_arguments(result UNIX_COMMAND "${result}")
     string(STRIP "${result}" result)
 
