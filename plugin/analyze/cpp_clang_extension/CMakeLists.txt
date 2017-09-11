@@ -10,3 +10,4 @@ set_target_properties(dextool_clang_extension PROPERTIES
     )
 
 target_link_libraries(dextool_clang_extension -lclangFrontendTool -lclangRewriteFrontend -lclangDynamicASTMatchers -lclangFrontend -lclangASTMatchers -lclangParse -lclangSerialization -lclangRewrite -lclangSema -lclangEdit -lclangAnalysis -lclangAST -lclangLex -lclangBasic)
+target_link_libraries(dextool_clang_extension ${LIBLLVM_LIBS})

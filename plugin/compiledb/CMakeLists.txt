@@ -9,7 +9,7 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/plugin/source"
-    "${LIBCLANG_LDFLAGS}"
+    ""
     "dextool_dextool;dextool_plugin_utility"
 )
 

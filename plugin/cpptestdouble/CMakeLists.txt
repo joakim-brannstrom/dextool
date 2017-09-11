@@ -11,7 +11,7 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
-    "${LIBCLANG_LDFLAGS}"
+    ""
     "dextool_dextool;dextool_cpptooling;dextool_plugin_utility"
 )
 
