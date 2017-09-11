@@ -47,13 +47,13 @@ auto addFilesFromOutdirWithExtension(BuildCommandRun br, string ext, string[] ex
 }
 
 /// Add parameters to link and use gmock/gtest
-auto addGtest(BuildCommandRun br) {
+auto addGtestArgs(BuildCommandRun br) {
     // dfmt off
     return br
         .addArg("-Ifused_gmock")
+        .addArg("-L.")
         .addArg("-lgmock_gtest")
-        .addArg("-lpthread")
-        .addArg("-L.");
+        .addArg("-lpthread");
     // dfmt on
 }
 
