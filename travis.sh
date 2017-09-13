@@ -27,7 +27,7 @@ popd
 # The coverage files are copied to the project root to allow codecov to find
 # them.
 set +e
-cp -- build/*.lst . || true
+cp -- build/coverage/*.lst . || true
 ls
 set -e
 
