@@ -22,8 +22,12 @@ auto makeDextool(const ref TestEnv env) {
 
 auto verifyOutput(const ref TestEnv env, Path infile) {
     auto f = infile.stripExtension;
-    compareResult(No.sortLines, Yes.skipComments, GR(f ~ Ext(".hpp.ref"),
-            env.outdir ~ "intercept.hpp"), GR(f ~ Ext(".cpp.ref"), env.outdir ~ "intercept.cpp"));
+    // dfmt off
+    makeCompare(env)
+        .addCompare(f ~ Ext(".hpp.ref"), "intercept.hpp")
+        .addCompare(f ~ Ext(".cpp.ref"), "intercept.cpp")
+        .run;
+    // dfmt on
 }
 
 @(testId ~ "Shall intercept the functions")
