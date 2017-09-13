@@ -14,6 +14,19 @@ import unit_threaded;
 
 enum globalTestdir = "c_tests";
 
+auto testData() {
+    return Path("testdata/cstub").absolutePath;
+}
+
+auto makeDextool(const ref TestEnv env) {
+    return dextool_test.makeDextool(env).args(["ctestdouble", "-d"]);
+}
+
+auto makeCompile(const ref TestEnv env, Path srcdir) {
+    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
+        .addArg(testData ~ "main1.cpp").outputToDefaultBinary;
+}
+
 struct TestParams {
     Flag!"skipCompare" skipCompare;
     Flag!"skipCompile" skipCompile;
@@ -104,6 +117,9 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         runAndLog(p.binary).status.shouldEqual(0);
     }
 }
+
+// dfmt makes it hard to read the test cases.
+// dfmt off
 
 // --- Stage 1 ---
 @(testId ~ "Should detect as func")
@@ -386,7 +402,6 @@ unittest {
 
     runTestFile(p, testEnv);
 
-    // dfmt off
     dextoolYap("Comparing");
     auto input = p.input_ext.stripExtension;
     compareResult(No.sortLines, Yes.skipComments,
@@ -394,7 +409,6 @@ unittest {
                   GR(input ~ Ext(".cpp.ref"), p.out_impl),
                   GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
                   GR(input.up ~ "param_gen_post_includes.hpp.ref", testEnv.outdir ~ "test_double_post_includes.hpp"));
-    // dfmt on
 }
 
 @(testId ~ "Should be all from this and b with the extra include stdio.h")
@@ -536,60 +550,56 @@ unittest {
 @(testId ~ "Configuration data read from a file")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/config.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/config.xml").toString,
-        "--compile-db=" ~ (p.root ~ "stage_2/config.json").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
-
-    p.skipCompare = Yes.skipCompare;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/config.h")
+        .addArg(["--config", (testData ~ "stage_2/config.xml").toString])
+        .addArg(["--compile-db=" ~ (testData ~ "stage_2/config.json").toString])
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addArg("-DTEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary)
+        .chdirToOutdir
+        .run;
 }
 
 @(testId ~ "Only generate test doubles for those functions matching the symbol filter (restrict)")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/symbol.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol_restrict.xml").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
-
-    p.skipCompile = Yes.skipCompile;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/symbol.h")
+        .addArg(["--config", (testData ~ "stage_2/symbol_restrict.xml").toString])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "stage_2/symbol.hpp.ref", "test_double.hpp")
+        .run;
 }
 
 @(testId
         ~ "The test double shall NOT contain any of those symbols specified to be excluded by the symbol filter (exclude)")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/symbol.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/symbol_exclude.xml").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
-
-    p.skipCompile = Yes.skipCompile;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/symbol.h")
+        .addArg(["--config", (testData ~ "stage_2/symbol_exclude.xml").toString])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "stage_2/symbol.hpp.ref", "test_double.hpp")
+        .run;
 }
 
 @(testId ~ "An error message containing what is wrong in the input xml file")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_config_with_errors.h", testEnv);
-    p.dexParams ~= ["--config", (p.root ~ "stage_2/param_config_with_errors.xml").toString];
-    p.compileFlags = ["-DTEST_INCLUDE"];
+    auto r = makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_config_with_errors.h")
+        .addArg(["--config", (testData ~ "stage_2/param_config_with_errors.xml").toString])
+        .throwOnExitStatus(false)
+        .run;
 
-    p.skipCompare = Yes.skipCompare;
-    p.skipCompile = Yes.skipCompile;
-
-    try {
-        runTestFile(p, testEnv);
-    }
-    catch (ErrorLevelException) {
-        // do nothing, expecting error status of dextool to be != 0
-    }
-
-    stdoutContains("Invalid xml file").shouldBeTrue;
-    stdoutContains("Line 2, column 1: Expected literal").shouldBeTrue;
+    r.success.shouldBeFalse;
+    r.stderr.sliceContains("Invalid xml file").shouldBeTrue;
+    r.stderr.sliceContains("Line 2, column 1: Expected literal").shouldBeTrue;
 }
 
 // END   CLI Tests ###########################################################
@@ -603,21 +613,14 @@ unittest {
 @Values([""], ["--debug"])
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("", testEnv);
-    p.dexParams = getValue!(string[], 0) ~ getValue!(string[], 1);
+    auto r = dextool_test.makeDextool(testEnv)
+        .addArg(getValue!(string[], 0) ~ getValue!(string[], 1))
+        .throwOnExitStatus(false)
+        .run;
 
-    bool exit_status_is_failed;
-    try {
-        dextoolYap("Input:%s", p.input_ext.raw);
-        runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
-    }
-    catch (ErrorLevelException) {
-        // do nothing, expecting error status of dextool to be != 0
-        exit_status_is_failed = true;
-    }
-    exit_status_is_failed.shouldBeTrue;
-
-    stdoutContains("No such plugin found:").shouldBeTrue;
+    // an invalid plugin is always an error for the user
+    r.success.shouldBeFalse;
+    r.stderr.sliceContains("No such plugin found:").shouldBeTrue;
 }
 
 // END   Unspecified CLI Test ################################################
@@ -627,16 +630,39 @@ unittest {
 @(testId ~ "Test using gtest/gmock")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genGtestParams("stage_3/test1.h", testEnv);
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_3/test1.h")
+        .addArg("--gmock")
+        .run;
+    dextool_test.makeCompile(testEnv, "g++")
+        .addArg(["-I", (testData ~ "stage_3").toString])
+        .addArg(testData ~ "stage_3/test1_test.cpp")
+        .addFilesFromOutdirWithExtension(".cpp", ["test_double_global.cpp"])
+        .addGtestArgs
+        .outputToDefaultBinary
+        .run;
+    makeCommand(testEnv, defaultBinary)
+        .chdirToOutdir
+        .run;
 }
 
 @(testId ~ "Test double of free functions shall be connected to the gmock instance")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genGtestParams("stage_3/use_functions_mock.h", testEnv);
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_3/use_functions_mock.h")
+        .addArg("--gmock")
+        .run;
+    dextool_test.makeCompile(testEnv, "g++")
+        .addArg(["-I", (testData ~ "stage_3").toString])
+        .addArg(testData ~ "stage_3/use_functions_mock_test.cpp")
+        .addFilesFromOutdirWithExtension(".cpp", ["test_double_global.cpp"])
+        .addGtestArgs
+        .outputToDefaultBinary
+        .run;
+    makeCommand(testEnv, defaultBinary)
+        .chdirToOutdir
+        .run;
 }
 
 // END   Stage 3 #############################################################

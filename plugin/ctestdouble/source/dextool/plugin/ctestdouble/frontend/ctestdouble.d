@@ -52,6 +52,7 @@ struct RawConfiguration {
     bool genPostInclude;
     bool locationAsComment;
     bool generateZeroGlobals;
+    bool invalidXmlConfig;
 
     string[] originalFlags;
 
@@ -100,7 +101,7 @@ struct RawConfiguration {
         if (config.length != 0) {
             xmlConfig = readRawConfig(FileName(config));
             if (xmlConfig.isNull) {
-                help = true;
+                invalidXmlConfig = true;
             }
         }
 
@@ -120,6 +121,7 @@ struct RawConfiguration {
     }
 
     void dump() {
+        // TODO remove this
         logger.tracef("args:
 --header            :%s
 --header-file       :%s

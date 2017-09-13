@@ -28,6 +28,8 @@ auto runPlugin(string[] args) {
     } else if (pargs.help) {
         pargs.printHelp;
         return ExitStatusType.Ok;
+    } else if (pargs.invalidXmlConfig) {
+        return ExitStatusType.Errors;
     } else if (pargs.inFiles.length == 0) {
         writeln("Missing required argument --in");
         return ExitStatusType.Errors;
