@@ -149,16 +149,6 @@ void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
     }
 }
 
-//TODO remove, this is not good. keep it focused on SimleInfo.
-TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @safe nothrow {
-    import cpptooling.data : SimpleFmt, TypeId;
-
-    TypeKind t;
-    t.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(txt)));
-
-    return TypeKindAttr(t, attr);
-}
-
 private auto toCvPtrQ(T)(ref T app, const(TypeAttr)[] attrs) {
     import cpptooling.data;
 

@@ -33,6 +33,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/representation.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/type.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/type_builder.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind_type.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind_type_format.d

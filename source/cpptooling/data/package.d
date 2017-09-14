@@ -13,6 +13,7 @@ module cpptooling.data;
 public import cpptooling.data.kind;
 public import cpptooling.data.kind_type;
 public import cpptooling.data.kind_type_format;
+public import cpptooling.data.type_builder;
 
 public import cpptooling.data.representation;
 public import cpptooling.data.type;

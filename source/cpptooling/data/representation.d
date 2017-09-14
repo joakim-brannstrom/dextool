@@ -41,7 +41,9 @@ import logger = std.experimental.logger;
 
 public import cpptooling.data.type;
 
-import cpptooling.data.kind_type;
+// TODO this is a mega include. Reduce it.
+import cpptooling.data;
+
 import cpptooling.data.symbol.types : USRType;
 import dextool.hash : makeHash;
 
