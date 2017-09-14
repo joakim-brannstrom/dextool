@@ -23,6 +23,7 @@ int main(string[] args) {
                           "cpptooling.data.symbol.container",
                           "cpptooling.data.kind_type",
                           "cpptooling.data.kind_type_format",
+                          "cpptooling.data.type_builder",
                           "cpptooling.generator.classes",
                           "cpptooling.generator.func",
                           "cpptooling.generator.gmock",
