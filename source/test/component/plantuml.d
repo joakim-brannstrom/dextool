@@ -17,8 +17,7 @@ import test.helpers;
 import clang.TranslationUnit : TranslationUnit;
 
 import dextool.type;
-import cpptooling.analyzer.kind : TypeKind;
-import cpptooling.analyzer.type : USRType;
+import cpptooling.data : TypeKind, USRType;
 import cpptooling.analyzer.clang.ast : ClangAST;
 import cpptooling.analyzer.clang.context;
 import cpptooling.data.symbol : Container;

@@ -86,7 +86,7 @@ private CxParam[] toCxParam(ref TypeKind kind, ref Container container) @safe {
     import std.range : chain, zip, tee;
     import std.string : strip;
 
-    import cpptooling.analyzer.type;
+    import cpptooling.data.kind_type;
 
     auto tr_params = kind.info.params;
 
@@ -470,7 +470,7 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
     import std.algorithm : map;
     import cpptooling.data.type : CppAccess;
     import cpptooling.analyzer.clang.cursor_backtrack : backtrackScopeRange;
-    import cpptooling.analyzer.type : toStringDecl;
+    import cpptooling.data : toStringDecl;
 
     auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);

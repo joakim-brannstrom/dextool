@@ -605,7 +605,7 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
             string prefix, ref const(Container) container, CppModule code)
     in {
         import std.algorithm : among;
-        import cpptooling.analyzer.type : TypeKind;
+        import cpptooling.data : TypeKind;
 
         assert(!global.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
     }
@@ -631,7 +631,7 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
 
     void generatePreProcessor(ref CxGlobalVariable global, string prefix, CppModule code) {
         import std.string : toUpper;
-        import cpptooling.analyzer.type : TypeKind, toStringDecl;
+        import cpptooling.data : TypeKind, toStringDecl;
 
         auto d_name = E((prefix ~ "Init_").toUpper ~ global.name);
         auto ifndef = code.IFNDEF(d_name);

@@ -360,9 +360,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 }
 
 struct Lookup {
-    import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.symbol : Container, USRType;
-    import cpptooling.data : Location, LocationTag;
+    import cpptooling.data : Location, LocationTag, TypeKind;
 
     private Container* container;
 

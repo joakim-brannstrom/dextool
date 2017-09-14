@@ -10,9 +10,8 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.ctestdouble.backend.global;
 
 import dextool.type : StubPrefix;
-import cpptooling.analyzer.type : TypeKind;
 import cpptooling.data : CppClass, CppClassName, CppInherit, CppVariable,
-    CxGlobalVariable, TypeKindAttr, USRType;
+    CxGlobalVariable, TypeKindAttr, USRType, TypeKind;
 import cpptooling.data.symbol : Container;
 import dsrcgen.cpp : CppModule;
 
@@ -83,7 +82,7 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
 CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @safe {
     import std.algorithm : filter, map;
     import cpptooling.data;
-    import cpptooling.analyzer : makeSimple;
+    import cpptooling.data : makeSimple;
 
     auto globals_if = CppClass(main_if);
     globals_if.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ globals_if.name),
@@ -105,7 +104,7 @@ CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @
 CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
         const StubPrefix prefix, CppInherit inherit) @safe {
     import std.algorithm : filter, map;
-    import cpptooling.analyzer : TypeKind, isIncompleteArray, makeSimple;
+    import cpptooling.data : TypeKind, isIncompleteArray, makeSimple;
     import cpptooling.data;
 
     auto globals_if = CppClass(main_if, [inherit]);
@@ -159,7 +158,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         import std.range : takeOne;
 
         static import std.format;
-        import cpptooling.analyzer.kind : TypeKind, isIncompleteArray;
+        import cpptooling.data : TypeKind, isIncompleteArray;
 
         auto fqn = "::" ~ m.name;
         auto body_ = impl.method_body("void", c.name, m.name, No.isConst);
@@ -255,7 +254,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
 }
 
 string variableToString(const CppVariable name, const TypeKindAttr type) @safe pure {
-    import cpptooling.analyzer.type : TypeKind, toStringDecl;
+    import cpptooling.data : TypeKind, toStringDecl;
 
     // example: extern int extern_a[4];
     final switch (type.kind.info.kind) with (TypeKind.Info) {
@@ -300,7 +299,6 @@ unittest {
     import std.array;
     import test.extra_should : shouldEqualPretty;
     import cpptooling.data;
-    import cpptooling.analyzer;
 
     immutable dummyUSR = USRType("dummyUSR1");
 

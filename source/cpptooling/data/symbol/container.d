@@ -14,7 +14,7 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 //TODO move TypeKind to .data
-import cpptooling.analyzer.type : TypeKind;
+import cpptooling.data.kind_type : TypeKind;
 
 import cpptooling.data.symbol.types;
 import cpptooling.data.type : LocationTag;
@@ -249,8 +249,7 @@ struct Container {
         import std.format : formattedWrite, formatValue;
         import std.range.primitives : put;
         import std.conv : to;
-        import cpptooling.analyzer.type : splitTypeId;
-        import cpptooling.data.type : LocationTag;
+        import cpptooling.data : splitTypeId, LocationTag;
 
         // avoid allocating
 
@@ -309,8 +308,8 @@ struct Container {
 
         debug {
             import std.conv : to;
-            import cpptooling.analyzer.type : TypeKind, toStringDecl, TypeAttr;
-            import cpptooling.data.type : LocationTag, Location;
+            import cpptooling.data : TypeKind, toStringDecl, TypeAttr,
+                LocationTag, Location;
 
             logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
                     cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));

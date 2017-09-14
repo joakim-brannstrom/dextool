@@ -31,10 +31,9 @@ import logger = std.experimental.logger;
 import dsrcgen.plantuml;
 
 import dextool.type;
-import cpptooling.analyzer.kind : TypeKind, TypeAttr, resolveCanonicalType;
-import cpptooling.analyzer.type : USRType, TypeKindAttr;
 import cpptooling.analyzer.clang.ast : Visitor;
-import cpptooling.data.type : CxParam, CxReturnType, TypeKindVariable;
+import cpptooling.data : TypeKind, TypeAttr, resolveCanonicalType, USRType,
+    TypeKindAttr, CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
 import cpptooling.analyzer.clang.analyze_helper : RecordResult;
 import dextool.plugin.utility : MarkArray;
@@ -1094,7 +1093,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
     /// Analyze the inheritance(s).
     override void visit(const(CXXBaseSpecifier) v) {
-        import cpptooling.analyzer.kind : TypeKind;
+        import cpptooling.data : TypeKind;
 
         mixin(mixinNodeLog!());
 
@@ -1343,8 +1342,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only, retro;
-        import cpptooling.analyzer.kind : TypeKind, TypeAttr;
-        import cpptooling.analyzer.type : toStringDecl;
+        import cpptooling.data : TypeKind, TypeAttr, toStringDecl;
 
         if (genClassInheritDependency) {
             auto src_key = makeClassKey(src.kind.usr);
@@ -1795,9 +1793,8 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
         DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
-    import cpptooling.analyzer.kind : TypeKind;
     import cpptooling.data.symbol.types : USRType;
-    import cpptooling.data.type : CppNs, CppAccess;
+    import cpptooling.data : TypeKind, CppNs, CppAccess;
 
     private {
         TransformToComponentDiagram!(ControllerT, LookupT) to_component;
@@ -1984,7 +1981,9 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
     import std.algorithm : each, map, filter, joiner;
     import std.array : array;
     import std.typecons : tuple;
-    import cpptooling.analyzer.type;
+
+    // TODO this is a mega include. Reduce it.
+    import cpptooling.data;
 
     auto r = ClassRelate(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
 
@@ -2038,8 +2037,7 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
 
 private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
     import std.algorithm : filter;
-    import cpptooling.analyzer.kind : TypeKind, TypeAttr;
-    import cpptooling.analyzer.type : toStringDecl;
+    import cpptooling.data : TypeKind, TypeAttr, toStringDecl;
 
     auto r = ClassRelate(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
 
@@ -2087,9 +2085,8 @@ private auto getClassMethodRelation(LookupT)(const(CxParam)[] params, LookupT lo
     import std.array : array;
     import std.algorithm : among, map, filter;
     import std.variant : visit;
-    import cpptooling.analyzer.kind : TypeKind, TypeAttr;
-    import cpptooling.analyzer.type : TypeKindAttr, toStringDecl;
-    import cpptooling.data.type : VariadicType;
+    import cpptooling.data : TypeKind, TypeAttr, TypeKindAttr, toStringDecl,
+        VariadicType;
 
     static ClassRelate genParam(CxParam p, LookupT lookup) @trusted {
         // dfmt off

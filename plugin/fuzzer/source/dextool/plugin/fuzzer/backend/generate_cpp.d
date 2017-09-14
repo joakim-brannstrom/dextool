@@ -85,7 +85,7 @@ void generateFuzzCases(IncludeT)(ref ImplData impl, IncludeT[] target_includes, 
 
 private void generateFunctionFuzzTest(SymbolsT)(CFunction f, FuzzCase fc, SymbolsT symbols) {
     import std.typecons : No;
-    import cpptooling.analyzer.type;
+    import cpptooling.data;
     import dextool.plugin.fuzzer.type : FullyQualifiedNameType, Param;
 
     if (auto sym = FullyQualifiedNameType(f.name) in symbols) {

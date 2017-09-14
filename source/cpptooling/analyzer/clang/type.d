@@ -44,10 +44,10 @@ import deimos.clang.index : CXTypeKind, CXCursorKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
-public import cpptooling.analyzer.type;
+public import cpptooling.data.kind_type;
 import cpptooling.analyzer.clang.cursor_logger : logNode;
 import cpptooling.analyzer.clang.type_logger : logType;
-import cpptooling.analyzer.type_format : SimpleFmt, TypeId, TypeIdLR;
+import cpptooling.data : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data : Location, LocationTag;
 import cpptooling.data.symbol : Container, USRType;
 
@@ -976,7 +976,7 @@ out (result) {
     }
 }
 body {
-    import cpptooling.analyzer.type_format : PtrFmt, Left, Right;
+    import cpptooling.data : PtrFmt, Left, Right;
 
     immutable indent = this_indent + 1;
 
@@ -1095,7 +1095,7 @@ out (result) {
     }
 }
 body {
-    import cpptooling.analyzer.type_format : FuncPtrFmt, Left, Right;
+    import cpptooling.data : FuncPtrFmt, Left, Right;
 
     immutable indent = this_indent + 1;
 
@@ -1147,8 +1147,7 @@ body {
     import std.array : array;
     import std.algorithm : map;
     import std.string : strip;
-    import cpptooling.analyzer.type_format : FuncFmt, Left, Right,
-        FuncSignatureFmt;
+    import cpptooling.data : FuncFmt, Left, Right, FuncSignatureFmt;
 
     const auto indent = this_indent + 1;
 
@@ -1231,7 +1230,7 @@ out (result) {
 body {
     import std.algorithm : map;
     import std.array : array;
-    import cpptooling.analyzer.type_format : CtorFmt;
+    import cpptooling.data : CtorFmt;
 
     TypeResults rval;
     auto params = extractParams(c, type, container, indent);
@@ -1335,8 +1334,7 @@ out (result) {
 }
 body {
     import std.format : format;
-    import cpptooling.analyzer.type_format : ArrayFmt;
-    import cpptooling.data.type : LocationTag, Location;
+    import cpptooling.data : ArrayFmt, LocationTag, Location;
 
     immutable indent = this_indent + 1;
 
@@ -1788,7 +1786,7 @@ out (result) {
 body {
     import std.algorithm : filter;
     import std.range : chain, only;
-    import cpptooling.analyzer.type_format : FuncFmt;
+    import cpptooling.data : FuncFmt;
 
     immutable indent = this_indent + 1;
     typeof(return) rval;

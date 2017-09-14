@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Extracted information of types.
 */
-module cpptooling.analyzer.type;
+module cpptooling.data.kind_type;
 
 import std.conv : to;
 import std.string : format;
@@ -16,7 +16,7 @@ import logger = std.experimental.logger;
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.type : LocationTag;
 
-public import cpptooling.analyzer.kind;
+public import cpptooling.data.kind;
 
 struct TypeKindAttr {
     TypeKind kind;
@@ -151,7 +151,7 @@ void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
 
 //TODO remove, this is not good. keep it focused on SimleInfo.
 TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @safe nothrow {
-    import cpptooling.analyzer.type_format : SimpleFmt, TypeId;
+    import cpptooling.data : SimpleFmt, TypeId;
 
     TypeKind t;
     t.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(txt)));
@@ -160,7 +160,7 @@ TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @safe no
 }
 
 private auto toCvPtrQ(T)(ref T app, const(TypeAttr)[] attrs) {
-    import cpptooling.analyzer.type_format;
+    import cpptooling.data;
 
     foreach (attr; attrs) {
         // TODO merge isPtr/isRef to an enum in the data structure for
@@ -187,7 +187,7 @@ private auto toCvPtrQ(T)(ref T app, const(TypeAttr)[] attrs) {
  */
 auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
     import std.array : appender, Appender;
-    import cpptooling.analyzer.type_format;
+    import cpptooling.data;
 
     static void oneArg(T)(ref Appender!string app, ref T fmt, ref const TypeAttr ta, DeclId id) {
         fmt.toString(app, ta.isConst ? CvQ.const_ : CvQ(), id);
@@ -301,7 +301,7 @@ auto toStringDecl(T)(const T value)
  */
 auto splitTypeId(ref const TypeKind t) @safe pure {
     import std.array : appender, Appender;
-    import cpptooling.analyzer.type_format;
+    import cpptooling.data;
 
     TypeIdLR rval;
 

@@ -1,10 +1,7 @@
 # vim: filetype=cmake
 
 set(SRC_FILES
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/kind.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/package.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/type.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/type_format.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/analyze_helper.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/check_parse_result.d
@@ -36,6 +33,9 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/representation.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/type.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind_type.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/data/kind_type_format.d
 
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/symbol/container.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/data/symbol/package.d
