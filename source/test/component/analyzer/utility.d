@@ -19,15 +19,17 @@ import unit_threaded;
 import test.clang_util;
 import test.helpers;
 
-import cpptooling.analyzer.kind;
-import cpptooling.analyzer.type : USRType, toStringDecl;
+// TODO this is a mega import. Reduce it.
+import cpptooling.data;
+
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.analyze_helper;
 import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
-import cpptooling.data : TypeKindVariable, VariadicType, Location;
+import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType,
+    toStringDecl;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
 
 final class TestVisitor : Visitor {

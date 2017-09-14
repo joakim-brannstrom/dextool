@@ -11,7 +11,10 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule;
 
 import dextool.type : MainNs, MainInterface;
-import cpptooling.analyzer.type;
+
+// TODO this is a mega include. Reduce it.
+import cpptooling.data;
+
 import cpptooling.data : CppClass, CppNamespace, CppClassName, CppMethodName,
     USRType;
 
@@ -29,8 +32,7 @@ private struct BuildAdapter {
     }
 
     CppClass finalize() {
-        import cpptooling.data;
-        import cpptooling.analyzer.type_format : SimpleFmt, TypeId, PtrFmt;
+        import cpptooling.data : SimpleFmt, TypeId, PtrFmt;
 
         auto c = CppClass(className);
 
@@ -84,7 +86,7 @@ BuildAdapter makeAdapter(InterfaceT)(InterfaceT interface_name) {
 /// double that implement the interface needed.
 CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
     import cpptooling.data : CppVariable, CxGlobalVariable, makeUniqueUSR;
-    import cpptooling.analyzer.type_format : TypeId, PtrFmt;
+    import cpptooling.data : TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
@@ -171,7 +173,7 @@ void generateImpl(CppClass c, CppModule impl) {
 /// A singleton to allow the adapter to setup "a" connection.
 void generateSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
-    import cpptooling.analyzer.type;
+    import cpptooling.data;
     import dsrcgen.cpp : E;
 
     auto ns = impl.namespace("")[$.begin = "{" ~ newline];

@@ -59,7 +59,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
 
     static void genMethod(const ref CppMethod m, CppModule hdr,
             Flag!"locationAsComment" loc_as_comment, LookupT lookup) {
-        import cpptooling.analyzer.type;
+        import cpptooling.data;
 
         if (loc_as_comment) {
             hdr.comment(genLocationComment(m.usr, lookup))[$.begin = "/// "];

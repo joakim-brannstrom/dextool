@@ -11,5 +11,7 @@ This file import the basic modules that a analyzer use.
 */
 module cpptooling.analyzer;
 
-public import cpptooling.analyzer.kind;
-public import cpptooling.analyzer.type;
+// to be deprecated
+public import cpptooling.data.kind;
+public import cpptooling.data.kind_type;
+public import cpptooling.data.kind_type_format;

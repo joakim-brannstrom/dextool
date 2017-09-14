@@ -23,7 +23,7 @@ int const* x
 int *const x
 int x[3]
 */
-module cpptooling.analyzer.type_format;
+module cpptooling.data.kind_type_format;
 
 version (unittest) {
     import unit_threaded : shouldEqual, Values, getValue;

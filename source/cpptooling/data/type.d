@@ -13,7 +13,7 @@ import std.traits; // : isSomeString;
 import std.typecons; // : Flag;
 import std.variant; // : Algebraic;
 
-import cpptooling.analyzer.type; // : TypeKind, TypeKindAttr, TypeResult;
+import cpptooling.data.kind_type; // : TypeKind, TypeKindAttr, TypeResult;
 import cpptooling.data.symbol.types; // : USRType;
 import cpptooling.utility.taggedalgebraic;
 

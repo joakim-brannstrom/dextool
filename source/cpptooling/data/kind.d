@@ -10,7 +10,7 @@ needed by TypeKind.  fmt is namely a typeless strict that do not encode the
 assumed number or arguments when it is used.  In other words it do not contain
 information regarding the number of '%s'.
 */
-module cpptooling.analyzer.kind;
+module cpptooling.data.kind;
 
 import std.conv : to;
 import std.string : format;
@@ -65,7 +65,7 @@ bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc
 struct TypeKind {
     import std.traits : isSomeString;
     import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
-    import cpptooling.analyzer.type_format;
+    import cpptooling.data.kind_type_format;
 
     this(T)(T info, USRType usr) @safe if (!is(T == TypeKind)) {
         this.info = info;
@@ -344,7 +344,7 @@ auto resolveCanonicalType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
         if (__traits(hasMember, LookupT, "kind")) {
     import std.algorithm : among;
     import std.range : only, dropOne;
-    import cpptooling.analyzer.type : TypeKindAttr;
+    import cpptooling.data : TypeKindAttr;
 
     auto rval = only(TypeKindAttr.init).dropOne;
     auto found = typeof(lookup.kind(USRType.init)).init;
@@ -398,7 +398,7 @@ auto resolvePointeeType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
         if (__traits(hasMember, LookupT, "kind")) {
     import std.algorithm : among;
     import std.range : only, dropOne;
-    import cpptooling.analyzer.type : TypeKindAttr;
+    import cpptooling.data : TypeKindAttr;
 
     auto rval = only(TypeKindAttr.init).dropOne;
     auto found = typeof(lookup.kind(USRType.init)).init;

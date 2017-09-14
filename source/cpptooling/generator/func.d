@@ -19,8 +19,7 @@ import cpptooling.data : CFunction, CppClass, CppClassName, CppNsStack;
 /// Generates a C implementation calling the test double via the matching
 /// interface.
 void generateFuncImpl(CFunction f, CppModule impl) {
-    import cpptooling.data : joinParams, joinParamNames;
-    import cpptooling.analyzer : toStringDecl;
+    import cpptooling.data : joinParams, joinParamNames, toStringDecl;
     import dsrcgen.c : E;
 
     // assuming that a function declaration void a() in C is meant to be void

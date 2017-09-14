@@ -22,7 +22,7 @@ import dsrcgen.cpp : CppModule, noIndent;
 import dextool.type : DextoolVersion, CustomHeader, FileName;
 import cpptooling.data.representation : CppCtor, CppDtor, CppClass,
     CppNamespace, CppMethodOp, CppMethod, joinParams, joinParamNames;
-import cpptooling.analyzer : toStringDecl;
+import cpptooling.data : toStringDecl;
 
 @safe:
 

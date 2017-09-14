@@ -180,7 +180,6 @@ final class TUVisitor : Visitor {
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.analyze_helper;
-        import cpptooling.analyzer.type;
         import cpptooling.data;
 
         // the purpose of dsrcgen is to get a semens of semantic equivalence

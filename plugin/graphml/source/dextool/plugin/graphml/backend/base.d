@@ -18,11 +18,10 @@ import logger = std.experimental.logger;
 import cpptooling.analyzer.clang.analyze_helper : VarDeclResult,
     FieldDeclResult;
 import cpptooling.analyzer.clang.ast : Visitor;
-import cpptooling.analyzer.kind : resolveCanonicalType, resolvePointeeType;
-import cpptooling.analyzer.type : TypeKindAttr, TypeKind, TypeAttr,
-    toStringDecl;
+import cpptooling.data : resolveCanonicalType, resolvePointeeType, TypeKindAttr,
+    TypeKind, TypeAttr, toStringDecl, CppAccess, LocationTag, Location, USRType,
+    AccessType;
 import cpptooling.data.symbol : Container;
-import cpptooling.data : CppAccess, LocationTag, Location, USRType, AccessType;
 
 import dextool.plugin.backend.graphml.xml;
 
@@ -954,9 +953,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
         DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
-    import cpptooling.analyzer.type : TypeKindAttr, TypeKind, TypeAttr,
-        toStringDecl;
-    import cpptooling.data.type : USRType, LocationTag, Location, CppNs;
+    import cpptooling.data.type : USRType, LocationTag, Location, CppNs,
+        TypeKindAttr, TypeKind, TypeAttr, toStringDecl;
     import dextool.plugin.utility : MarkArray;
 
     private {
@@ -1728,7 +1726,7 @@ private @safe struct NodeVariable {
 @("Static attribute is derived from the color and represented in the typeAttr field")
 unittest {
     import std.array : appender;
-    import cpptooling.analyzer.type : makeSimple;
+    import cpptooling.data : makeSimple;
     import unit_threaded : shouldEqual;
 
     auto tk = makeSimple("int");

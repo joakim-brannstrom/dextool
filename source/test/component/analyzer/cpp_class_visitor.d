@@ -16,8 +16,9 @@ import unit_threaded;
 import test.clang_util;
 import test.helpers;
 
-import cpptooling.analyzer.kind;
-import cpptooling.analyzer.type : USRType, toStringDecl;
+// TODO this is a mega import. Reduce it
+import cpptooling.data;
+
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.analyze_helper;
 import cpptooling.analyzer.clang.context : ClangContext;
@@ -25,8 +26,8 @@ import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data.representation;
-import cpptooling.data.type : TypeKindVariable, VariadicType, Location,
-    CppNsStack;
+import cpptooling.data : TypeKindVariable, VariadicType, Location, CppNsStack,
+    USRType, toStringDecl;
 import cpptooling.utility.virtualfilesystem : FileName, Content;
 
 /* These lines are useful when debugging.

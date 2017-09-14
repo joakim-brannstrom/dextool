@@ -41,7 +41,7 @@ import logger = std.experimental.logger;
 
 public import cpptooling.data.type;
 
-import cpptooling.analyzer.type;
+import cpptooling.data.kind_type;
 import cpptooling.data.symbol.types : USRType;
 import dextool.hash : makeHash;
 
@@ -429,7 +429,7 @@ const:
         import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range : put;
-        import cpptooling.analyzer.type : TypeKind;
+        import cpptooling.data : TypeKind;
 
         final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
         case Kind.record:

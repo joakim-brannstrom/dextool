@@ -66,8 +66,7 @@ private struct BuildAdapter {
         import cpptooling.data : AccessType, CxParam, CppCtor, CppDtor,
             CppAccess, CppVirtualMethod, CppVariable, makeUniqueUSR,
             makeCxParam, MemberVirtualType, TypeAttr, TypeKind, TypeKindAttr,
-            TypeKindVariable;
-        import cpptooling.analyzer.type_format : TypeId, PtrFmt;
+            TypeKindVariable, TypeId, PtrFmt;
 
         auto c = CppClass(className);
         c.comment("Adapter connecting an interface with an implementation.");
@@ -148,8 +147,7 @@ auto makeAdapter(InterfaceT)(InterfaceT interface_name) {
 CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string instance_name) {
     import std.typecons : Yes;
     import cpptooling.data : CppVariable, CxGlobalVariable, makeUniqueUSR,
-        TypeAttr, TypeKind, USRType, TypeKindAttr;
-    import cpptooling.analyzer.type_format : TypeId, PtrFmt;
+        TypeAttr, TypeKind, USRType, TypeKindAttr, TypeId, PtrFmt;
 
     auto attr = TypeAttr.init;
     attr.isPtr = Yes.isPtr;
@@ -186,7 +184,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 
     void genCtor(const ref CppClass adapter, const ref CppCtor m, CppModule impl) {
         import cpptooling.data : paramNameToString;
-        import cpptooling.analyzer.type : TypeKind;
+        import cpptooling.data : TypeKind;
 
         AdapterKind kind;
         if (auto l = lookup(m.usr)) {
@@ -256,7 +254,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
     static void genMethod(const ref CppClass adapter, const ref CppMethod m, CppModule impl) {
         import std.range : takeOne;
         import std.typecons : Yes, No;
-        import cpptooling.analyzer.type : toStringDecl;
+        import cpptooling.data : toStringDecl;
 
         string params = m.paramRange().joinParams();
         auto b = impl.method_body(m.returnType.toStringDecl, adapter.name,
@@ -284,7 +282,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 /// A singleton to allow the adapter to setup "a" connection.
 void generateSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
-    import cpptooling.analyzer.type;
+    import cpptooling.data;
     import dsrcgen.cpp : E;
 
     auto ns = impl.namespace("")[$.begin = "{" ~ newline];
