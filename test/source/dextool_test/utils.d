@@ -123,24 +123,25 @@ struct TestEnv {
 
     void setupEnv() {
         yap("Test environment:", newline, toString);
+        cleanOutdir;
+    }
 
+    void cleanOutdir() {
         // ensure logs are empty
         if (exists(outdir)) {
-            // tryRemove can fail, usually duo to I/O when tests are ran in
-            // parallel.
-            try {
-                dirEntries(outdir, SpanMode.depth).filter!(a => a.isFile)
-                    .each!(a => tryRemove(Path(a)));
-            }
-            catch (FileException ex) {
-                yap(ex.msg);
+            foreach (a; dirEntries(outdir, SpanMode.depth).filter!(a => a.isFile)) {
+                // tryRemove can fail, usually duo to I/O when tests are ran in
+                // parallel.
+                try {
+                    tryRemove(Path(a));
+                }
+                catch (FileException ex) {
+                    yap(ex.msg);
+                }
             }
         } else {
             mkdirRecurse(outdir);
         }
-
-        auto stdout_path = outdir ~ "console.log";
-        logfile = File(stdout_path.toString, "w");
     }
 
     void setup(Path outdir__) {
@@ -149,6 +150,9 @@ struct TestEnv {
     }
 
     void teardown() {
+        auto stdout_path = outdir ~ "console.log";
+        logfile = File(stdout_path.toString, "w");
+
         if (!logfile.isOpen) {
             return;
         }

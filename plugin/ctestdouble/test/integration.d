@@ -279,20 +279,14 @@ unittest {
 @(testId ~ "Should fail with an error message when file not found in the compilation database")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("compile_db/file_not_found.c", testEnv);
+    auto r = makeDextool(testEnv)
+        .throwOnExitStatus(false)
+        .addInputArg(testData ~ "compile_db/file_not_found.c")
+        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
+        .run;
 
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
-
-    p.skipCompare = Yes.skipCompare;
-    p.skipCompile = Yes.skipCompile;
-    try {
-        runTestFile(p, testEnv);
-    }
-    catch (ErrorLevelException) {
-        // do nothing, expecting error status of dextool to be != 0
-    }
-
-    stdoutContains("error: Unable to find any compiler flags for").shouldBeTrue;
+    r.success.shouldBeFalse;
+    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeTrue;
 }
 
 @(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
@@ -300,20 +294,16 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
     testEnv.outputSuffix(getValue!(string[])[1]);
-    auto p = genTestParams(getValue!(string[])[0], testEnv);
+    testEnv.cleanOutdir;
 
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+    auto r = makeDextool(testEnv)
+        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
+        .addInputArg(getValue!(string[])[0])
+        .run;
 
-    p.skipCompare = Yes.skipCompare;
-    p.skipCompile = Yes.skipCompile;
-    try {
-        runTestFile(p, testEnv);
-    }
-    catch (ErrorLevelException) {
-        // do nothing, expecting error status of dextool to be != 0
-    }
-
-    stdoutContains("error: Unable to find any compiler flags for").shouldEqual(false);
+    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
+    // the file returned shall be the full path for the one searching for
+    r.stderr.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
 }
 
 @(testId ~ "Should load compiler settings from the second compilation database")
@@ -609,12 +599,12 @@ unittest {
 // This test could be anywhere. It just happens to be placed in the suite of C
 // tests.
 @(testId ~ "Shall exit with a help message that no such plugin is found")
-@Values(["invalid_plugin"], [""])
-@Values([""], ["--debug"])
 unittest {
     mixin(envSetup(globalTestdir));
+
     auto r = dextool_test.makeDextool(testEnv)
-        .addArg(getValue!(string[], 0) ~ getValue!(string[], 1))
+        .addArg("invalid_plugin")
+        .addArg("--debug")
         .throwOnExitStatus(false)
         .run;
 

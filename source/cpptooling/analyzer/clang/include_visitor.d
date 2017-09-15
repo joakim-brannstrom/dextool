@@ -11,6 +11,7 @@ This file contains a visitor to extract the include directives.
 */
 module cpptooling.analyzer.clang.include_visitor;
 
+import std.typecons : Nullable;
 import std.algorithm : until, filter;
 
 import clang.Cursor : Cursor;
@@ -44,14 +45,18 @@ FileName[] extractIncludes(Cursor root, int depth = 2) {
  * Params:
  *  root = clang AST
  *  depth = how deep into the AST to analyze.
+ * Returns: the path to the header file that matched the predicate
  */
-bool hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
+Nullable!FileName hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
+    Nullable!FileName r;
+
     foreach (c; root.visitBreathFirst.filter!(
             a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
         if (matcher(c.spelling)) {
-            return true;
+            r = FileName(c.include.file.name);
+            break;
         }
     }
 
-    return false;
+    return r;
 }
