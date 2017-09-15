@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 Command Line Interface functionality and text to display help for the user.
 */
-module dextool.cli_help;
+module application.cli_help;
 
 enum string mainOptions = `usage:
  dextool <command> [options] [<args>...]
