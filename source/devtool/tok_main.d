@@ -131,6 +131,24 @@ int dumpAst(string filename, string[] flags) {
     return 0;
 }
 
+int dumpIncludes(string filename, string[] flags) {
+    import std.ascii;
+    import std.algorithm : filter;
+    import cpptooling.analyzer.clang.context;
+    import cpptooling.analyzer.clang.include_visitor;
+    import cpptooling.analyzer.clang.cursor_visitor;
+
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto tu = ctx.makeTranslationUnit(filename, flags);
+
+    foreach (c; tu.cursor.visitBreathFirst.filter!(
+            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
+        writefln(`#include "%s"%s  %s`, c.spelling, newline, c.include.file);
+    }
+
+    return 0;
+}
+
 int dumpBody(string fname, string[] flags) {
     import std.typecons : scoped, NullableRef;
     import cpptooling.analyzer.clang.analyze_helper;
@@ -263,7 +281,7 @@ int main(string[] args) {
 
     if (args.length < 3) {
         writeln("devtool <category> filename");
-        writeln("categories: tok, dumpast, dumpbody");
+        writeln("categories: tok, dumpast, dumpbody, includes");
         return 1;
     }
 
@@ -281,6 +299,8 @@ int main(string[] args) {
         return dumpAst(args[2], flags);
     case "dumpbody":
         return dumpBody(args[2], flags);
+    case "includes":
+        return dumpIncludes(args[2], flags);
     default:
         return 1;
     }
