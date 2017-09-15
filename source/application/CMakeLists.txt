@@ -4,6 +4,7 @@ file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/*.d)
 set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/app.d
     ${CMAKE_CURRENT_LIST_DIR}/app_main.d
+    ${CMAKE_CURRENT_LIST_DIR}/cli_help.d
     ${CMAKE_CURRENT_LIST_DIR}/plugin.d
 )
 
