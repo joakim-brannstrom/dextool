@@ -23,4 +23,4 @@ set(flags
 compile_d_static_lib(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang")
 
 list(APPEND SRC_FILES "${CMAKE_SOURCE_DIR}/clang/ut_main.d")
-compile_d_unittest(dextool_clang "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_libclang")
+compile_d_unittest(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang")
