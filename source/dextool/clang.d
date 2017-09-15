@@ -98,7 +98,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
     if (!db_search_result.isNull) {
         rval = SearchResult(db_search_result.cflags, db_search_result.absoluteFile);
-        logger.info("Compiler flags: ", rval.cflags.join(" "));
+        logger.trace("Compiler flags: ", rval.cflags.join(" "));
         return rval;
     }
 
@@ -106,23 +106,28 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
             fname.baseName);
 
     auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter);
-    if (!sres.isNull) {
-        logger.info("Using compiler flags from: ", sres.original.absoluteFile);
-
-        auto p = AbsolutePath(fname);
-        if (!exists(p)) {
-            logger.warningf("Unable to locate '%s'", p);
-            logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
-                    sres.original.absoluteFile, sres.derived.absoluteFile);
-            p = sres.derived.absoluteFile;
-        }
-
-        rval = SearchResult(sres.derived.parseFlag(flag_filter), p);
-        // the user may want to see the flags but usually uninterested
-        logger.trace("Compiler flags: ", rval.cflags.join(" "));
-    } else {
+    if (sres.isNull) {
         logger.error("Unable to find any compiler flags for: ", fname);
+        return rval;
     }
+
+    // check if the file from the user is directly accessable on the filesystem.
+    // in such a case assume that the located file is the one the user want to parse.
+    // otherwise derive it from the compile command DB.
+    auto p = AbsolutePath(fname);
+
+    if (!exists(p)) {
+        logger.tracef("Unable to locate '%s' on the filesystem", p);
+        p = sres.derived.absoluteFile;
+        logger.tracef("Using the filename from the compile DB instead '%s'", p);
+    }
+
+    logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
+            sres.original.absoluteFile, sres.derived.absoluteFile);
+
+    rval = SearchResult(sres.derived.parseFlag(flag_filter), p);
+    // the user may want to see the flags but usually uninterested
+    logger.trace("Compiler flags: ", rval.cflags.join(" "));
 
     return rval;
 }
