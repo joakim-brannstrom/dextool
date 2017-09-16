@@ -26,5 +26,5 @@ list(APPEND SRC_FILES "${CMAKE_SOURCE_DIR}/source/dextool/ut_main.d")
 compile_d_unittest(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
-    "${LIBCLANG_LDFLAGS}"
-    "dextool_cpptooling")
+    ""
+    "dextool_cpptooling;dextool_libclang")

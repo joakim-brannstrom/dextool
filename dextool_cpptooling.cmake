@@ -67,4 +67,4 @@ compile_d_static_lib(dextool_cpptooling
     "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_libclang")
 
 list(APPEND SRC_FILES "${CMAKE_SOURCE_DIR}/source/cpptooling/ut_main.d")
-compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen")
+compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen")
