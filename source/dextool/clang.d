@@ -20,6 +20,15 @@ import dextool.type : FileName, AbsolutePath;
 
 @safe:
 
+private struct IncludeResult {
+    /// The entry that had an #include with the desired file
+    CompileCommand original;
+
+    /// The compile command derived from the original with adjusted file and
+    /// absoluteFile.
+    CompileCommand derived;
+}
+
 /** Find a CompileCommand that in any way have an `#include` which pull in fname.
  *
  * This is useful to find the flags needed to parse a header file which is used
@@ -29,7 +38,7 @@ import dextool.type : FileName, AbsolutePath;
  *
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
-Nullable!CompileCommand findCompileCommandFromIncludes(ref CompileCommandDB compdb,
+Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb,
         FileName fname, ref const CompileCommandFilter flag_filter) {
     import std.algorithm : filter;
     import std.file : exists;
@@ -49,7 +58,7 @@ Nullable!CompileCommand findCompileCommandFromIncludes(ref CompileCommandDB comp
         return find_file == include.baseName;
     }
 
-    Nullable!CompileCommand r;
+    Nullable!IncludeResult r;
 
     foreach (entry; compdb.filter!(a => exists(a.absoluteFile))) {
         auto flags = entry.parseFlag(flag_filter);
@@ -58,8 +67,16 @@ Nullable!CompileCommand findCompileCommandFromIncludes(ref CompileCommandDB comp
         if (translation_unit.hasParseErrors) {
             logger.warningf("Skipping '%s' because of compilation errors", entry.absoluteFile);
             logDiagnostic(translation_unit);
-        } else if (translation_unit.cursor.hasInclude!isMatch()) {
-            r = entry;
+            continue;
+        }
+
+        auto found = translation_unit.cursor.hasInclude!isMatch();
+        if (!found.isNull) {
+            r = IncludeResult();
+            r.original = entry;
+            r.derived = entry;
+            r.derived.file = found.get;
+            r.derived.absoluteFile = CompileCommand.AbsoluteFileName(entry.directory, found.get);
             return r;
         }
     }
@@ -90,17 +107,17 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
 
     auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter);
     if (!sres.isNull) {
-        logger.info("Using compiler flags from: ", sres.absoluteFile);
+        logger.info("Using compiler flags from: ", sres.original.absoluteFile);
 
         auto p = AbsolutePath(fname);
         if (!exists(p)) {
             logger.warningf("Unable to locate '%s'", p);
-            logger.warningf(`Falling back on '%s' because it has an '#include' pulling in the desired file`,
-                    sres.absoluteFile);
-            p = sres.absoluteFile;
+            logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
+                    sres.original.absoluteFile, sres.derived.absoluteFile);
+            p = sres.derived.absoluteFile;
         }
 
-        rval = SearchResult(sres.parseFlag(flag_filter), p);
+        rval = SearchResult(sres.derived.parseFlag(flag_filter), p);
         // the user may want to see the flags but usually uninterested
         logger.trace("Compiler flags: ", rval.cflags.join(" "));
     } else {
