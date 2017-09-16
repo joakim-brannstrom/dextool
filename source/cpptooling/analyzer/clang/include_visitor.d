@@ -23,6 +23,9 @@ import dextool.type : FileName;
 /** Extract the filenames from all `#include` preprocessor macros that are
  * found in the AST.
  *
+ * Note that this is the filename inside the "", not the actuall path on the
+ * filesystem.
+ *
  * Params:
  *  root = clang AST
  *  depth = how deep into the AST to analyze.
