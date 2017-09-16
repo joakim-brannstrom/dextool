@@ -368,11 +368,6 @@ import clang.Visitor;
         return IncludeCursor(this);
     }
 
-    string includedPath() @trusted {
-        auto file = clang_getIncludedFile(cx);
-        return toD(clang_getFileName(file));
-    }
-
     @property Visitor all() const {
         return Visitor(this);
     }
