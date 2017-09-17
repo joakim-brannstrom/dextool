@@ -176,7 +176,7 @@ struct TestEnv {
         try {
             logfile = File(stdout_path.toString, "w");
         }
-        catch(Exception e) {
+        catch (Exception e) {
             logger.trace(e.msg);
             return;
         }
@@ -520,16 +520,6 @@ deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
             compare(a.gold, a.result, sortLines, skipComments);
         }
     }
-}
-
-deprecated("to be removed") void demangleProfileLog(in Path out_fname) {
-    Args args;
-    args ~= "ddemangle";
-    args ~= "trace.log";
-    args ~= ">";
-    args ~= out_fname.escapePath;
-
-    runAndLog(args.data);
 }
 
 string testId(uint line = __LINE__) {
