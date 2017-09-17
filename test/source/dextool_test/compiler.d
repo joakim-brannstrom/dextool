@@ -11,7 +11,7 @@ module dextool_test.compiler;
 
 import scriptlike;
 
-import dextool_test.utils : escapePath, TestEnv, runAndLog;
+import dextool_test.utils : escapePath, TestEnv, runAndLog, makeCommand;
 import dextool_test.builders;
 
 immutable defaultBinary = "./binary";
@@ -60,17 +60,15 @@ auto addGtestArgs(BuildCommandRun br) {
 string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
-    auto r = tryRunCollect("g++ -dumpversion");
-    auto version_ = r.output;
-    yap("Compiler version: ", version_);
+    auto r = BuildCommandRun("g++", "./").addArg("-dumpversion")
+        .yapOutput(false).throwOnExitStatus(false).run;
 
-    if (r.status != 0) {
+    if (!r.success)
         return default_flags;
-    }
 
-    if (version_.length == 0) {
+    if (r.stdout.length == 0 || r.stdout[0].length == 0) {
         return default_flags;
-    } else if (version_[0] == '5') {
+    } else if (r.stdout[0][0] == '5') {
         return default_flags ~ ["-Wpedantic", "-Werror"];
     } else {
         return default_flags ~ ["-pedantic", "-Werror"];

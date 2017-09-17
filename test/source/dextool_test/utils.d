@@ -10,6 +10,8 @@ import scriptlike;
 import std.range : isInputRange;
 import std.typecons : Yes, No, Flag;
 
+import logger = std.experimental.logger;
+
 enum dextoolExePath = "path_to_dextool/dextool_debug";
 
 import dextool_test.builders : BuildCommandRun;
@@ -80,21 +82,34 @@ deprecated("to be removed") auto runAndLog(T)(T args_) {
     return status;
 }
 
+void syncMkdirRecurse(string p) nothrow {
+    synchronized {
+        try {
+            mkdirRecurse(p);
+        }
+        catch (Exception e) {
+        }
+    }
+}
+
 struct TestEnv {
     import std.ascii : newline;
 
     private Path outdir_;
     private string outdir_suffix;
     private Path dextool_;
-    private File logfile;
 
     this(Path dextool) {
         this.dextool_ = dextool.absolutePath;
     }
 
-    Path outdir() const {
-        return Path(((buildArtifacts ~ outdir_).absolutePath.stripExtension)
-                .toString ~ "_" ~ outdir_suffix);
+    Path outdir() const nothrow {
+        try {
+            return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix).absolutePath;
+        }
+        catch (Exception e) {
+            return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix);
+        }
     }
 
     Path dextool() const {
@@ -123,24 +138,30 @@ struct TestEnv {
 
     void setupEnv() {
         yap("Test environment:", newline, toString);
+        syncMkdirRecurse(outdir.toString);
         cleanOutdir;
     }
 
-    void cleanOutdir() {
+    void cleanOutdir() nothrow {
         // ensure logs are empty
-        if (exists(outdir)) {
-            foreach (a; dirEntries(outdir, SpanMode.depth).filter!(a => a.isFile)) {
-                // tryRemove can fail, usually duo to I/O when tests are ran in
-                // parallel.
-                try {
-                    tryRemove(Path(a));
-                }
-                catch (FileException ex) {
-                    yap(ex.msg);
-                }
+        const auto d = outdir();
+
+        string[] files;
+
+        try {
+            files = dirEntries(d, SpanMode.depth).filter!(a => a.isFile).map!(a => a.name).array();
+        }
+        catch (Exception e) {
+        }
+
+        foreach (a; files) {
+            // tryRemove can fail, usually duo to I/O when tests are ran in
+            // parallel.
+            try {
+                tryRemove(Path(a));
             }
-        } else {
-            mkdirRecurse(outdir);
+            catch (Exception e) {
+            }
         }
     }
 
@@ -151,9 +172,12 @@ struct TestEnv {
 
     void teardown() {
         auto stdout_path = outdir ~ "console.log";
-        logfile = File(stdout_path.toString, "w");
-
-        if (!logfile.isOpen) {
+        File logfile;
+        try {
+            logfile = File(stdout_path.toString, "w");
+        }
+        catch (Exception e) {
+            logger.trace(e.msg);
             return;
         }
 
@@ -161,10 +185,7 @@ struct TestEnv {
         foreach (l; getYapLog) {
             logfile.writeln(l);
         }
-
         resetYapLog();
-
-        logfile.close();
     }
 }
 
@@ -499,16 +520,6 @@ deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
             compare(a.gold, a.result, sortLines, skipComments);
         }
     }
-}
-
-deprecated("to be removed") void demangleProfileLog(in Path out_fname) {
-    Args args;
-    args ~= "ddemangle";
-    args ~= "trace.log";
-    args ~= ">";
-    args ~= out_fname.escapePath;
-
-    runAndLog(args.data);
 }
 
 string testId(uint line = __LINE__) {
