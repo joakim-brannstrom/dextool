@@ -1716,12 +1716,31 @@ body {
     }
 
     auto underlying(ref Nullable!TypeResults rval) {
+        // TODO this function is convoluted and complex. Consider how it can be rewritten.
+
         auto underlying = c.typedefUnderlyingType;
-        auto tref = passType(c, underlying, container, indent);
+        auto underlying_decl_c = underlying.declaration;
+
+        Nullable!TypeResults tref;
+        // assuming that there are typedef nodes that have no declaration.
+        if (underlying_decl_c.isValid) {
+            tref = passType(underlying_decl_c, underlying, container, indent);
+        } else {
+            tref = passType(c, underlying, container, indent);
+            // ensure it is unique
+            tref.primary.type.kind.usr = makeFallbackUSR(c, indent);
+        }
+
+        USRType canonical_usr;
+        if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            canonical_usr = tref.primary.type.kind.info.canonicalRef;
+        } else {
+            canonical_usr = tref.primary.type.kind.usr;
+        }
 
         auto type = c.type;
         rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                tref.primary.type.kind.usr, container, indent);
+                canonical_usr, container, indent);
         rval.extra = [tref.primary] ~ tref.extra;
     }
 
