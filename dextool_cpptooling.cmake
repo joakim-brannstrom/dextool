@@ -19,6 +19,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/declaration.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/directive.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/expression.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/extra.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/node.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/nodes.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/analyzer/clang/ast/package.d

@@ -211,18 +211,6 @@ final class OmpFlushDirective : Directive {
     }
 }
 
-final class SehLeaveStmt : Directive {
-    import clang.Cursor : Cursor;
-    this(Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
-    }
-}
-
 final class OmpOrderedDirective : Directive {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
@@ -320,6 +308,282 @@ final class OmpCancellationPointDirective : Directive {
 }
 
 final class OmpCancelDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetDataDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTaskLoopDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTaskLoopSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpDistributeDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetEnterDataDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetExitDataDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetParallelDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetParallelForDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetUpdateDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpDistributeParallelForDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpDistributeParallelForSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpDistributeSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetParallelForSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTeamsDistributeDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTeamsDistributeSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTeamsDistributeParallelForSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTeamsDistributeParallelForDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetTeamsDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetTeamsDistributeDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetTeamsDistributeParallelForDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetTeamsDistributeParallelForSimdDirective : Directive {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class OmpTargetTeamsDistributeSimdDirective : Directive {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
         super(cursor);

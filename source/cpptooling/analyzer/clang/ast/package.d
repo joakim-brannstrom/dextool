@@ -6,6 +6,7 @@ public import cpptooling.analyzer.clang.ast.attribute;
 public import cpptooling.analyzer.clang.ast.declaration;
 public import cpptooling.analyzer.clang.ast.directive;
 public import cpptooling.analyzer.clang.ast.expression;
+public import cpptooling.analyzer.clang.ast.extra;
 public import cpptooling.analyzer.clang.ast.preprocessor;
 public import cpptooling.analyzer.clang.ast.reference;
 public import cpptooling.analyzer.clang.ast.statement;

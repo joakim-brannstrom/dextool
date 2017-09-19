@@ -22,6 +22,15 @@ immutable string[] TranslationUnitSeq = [
 // dfmt on
 
 // dfmt off
+immutable string[] ExtraSeq = [
+    "moduleImportDecl",
+    "typeAliasTemplateDecl",
+    "staticAssert",
+    "friendDecl",
+    ];
+// dfmt on
+
+// dfmt off
 immutable string[] AttributeSeq = [
     "unexposedAttr",
     "ibActionAttr",
@@ -40,6 +49,9 @@ immutable string[] AttributeSeq = [
     "cudaGlobalAttr",
     "cudaHostAttr",
     "cudaSharedAttr",
+    "visibilityAttr",
+    "dllExport",
+    "dllImport",
     ];
 
 // dfmt on
@@ -104,7 +116,6 @@ immutable string[] DirectiveSeq = [
     "ompBarrierDirective",
     "ompTaskwaitDirective",
     "ompFlushDirective",
-    "sehLeaveStmt",
     "ompOrderedDirective",
     "ompAtomicDirective",
     "ompForSimdDirective",
@@ -114,6 +125,29 @@ immutable string[] DirectiveSeq = [
     "ompTaskgroupDirective",
     "ompCancellationPointDirective",
     "ompCancelDirective",
+    "ompTargetDataDirective",
+    "ompTaskLoopDirective",
+    "ompTaskLoopSimdDirective",
+    "ompDistributeDirective",
+    "ompTargetEnterDataDirective",
+    "ompTargetExitDataDirective",
+    "ompTargetParallelDirective",
+    "ompTargetParallelForDirective",
+    "ompTargetUpdateDirective",
+    "ompDistributeParallelForDirective",
+    "ompDistributeParallelForSimdDirective",
+    "ompDistributeSimdDirective",
+    "ompTargetParallelForSimdDirective",
+    "ompTargetSimdDirective",
+    "ompTeamsDistributeDirective",
+    "ompTeamsDistributeSimdDirective",
+    "ompTeamsDistributeParallelForSimdDirective",
+    "ompTeamsDistributeParallelForDirective",
+    "ompTargetTeamsDirective",
+    "ompTargetTeamsDistributeDirective",
+    "ompTargetTeamsDistributeParallelForDirective",
+    "ompTargetTeamsDistributeParallelForSimdDirective",
+    "ompTargetTeamsDistributeSimdDirective",
     ];
 // dfmt on
 
@@ -166,6 +200,8 @@ immutable string[] ExpressionSeq = [
     "lambdaExpr",
     "objCBoolLiteralExpr",
     "objCSelfExpr",
+    "ompArraySectionExpr",
+    "objCAvailabilityCheckExpr",
     ];
 // dfmt on
 
@@ -232,5 +268,6 @@ immutable string[] StatementSeq = [
     "msAsmStmt",
     "nullStmt",
     "declStmt",
+    "sehLeaveStmt",
     ];
 // dfmt on

@@ -29,6 +29,7 @@ void main(string[] args) {
     generateNodeCode(DeclarationSeq, "Declaration");
     generateNodeCode(DirectiveSeq, "Directive");
     generateNodeCode(ExpressionSeq, "Expression");
+    generateNodeCode(ExtraSeq, "Extra");
     generateNodeCode(PreprocessorSeq, "Preprocessor");
     generateNodeCode(ReferenceSeq, "Reference");
     generateNodeCode(StatementSeq, "Statement");
@@ -44,9 +45,10 @@ void main(string[] args) {
                         SeqBase(DeclarationSeq, "Declaration"),
                         SeqBase(DirectiveSeq, "Directive"),
                         SeqBase(ExpressionSeq, "Expression"),
+                        SeqBase(ExtraSeq, "Extra"),
                         SeqBase(PreprocessorSeq, "Preprocessor"),
                         SeqBase(ReferenceSeq, "Reference"),
-                        SeqBase(StatementSeq, "Statement")
+                        SeqBase(StatementSeq, "Statement"),
                         );
     // dfmt on
 }

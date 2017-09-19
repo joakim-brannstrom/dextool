@@ -235,3 +235,39 @@ final class CudaSharedAttr : Attribute {
     }
 }
 
+final class VisibilityAttr : Attribute {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class DllExport : Attribute {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class DllImport : Attribute {
+    import clang.Cursor : Cursor;
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
