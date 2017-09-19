@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 
 import clang.Cursor : Cursor;
 
-import deimos.clang.index : CXCursorKind;
+import clang.c.Index : CXCursorKind;
 
 import cpptooling.analyzer.clang.ast.attribute;
 import cpptooling.analyzer.clang.ast.declaration;
@@ -24,7 +24,7 @@ import cpptooling.analyzer.clang.ast.reference;
 import cpptooling.analyzer.clang.ast.statement;
 import cpptooling.analyzer.clang.ast.translationunit;
 
-import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
+import cpptooling.analyzer.clang.ast.nodes : makeNodeClassName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue;
@@ -134,7 +134,6 @@ void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
 private:
 
 string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
-    import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
     import std.format : format;
 
     static if (is(typeof(visitor) : T[], T)) {
@@ -148,9 +147,8 @@ string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     string result;
 
     foreach (case_; cases) {
-        string case_skip = case_[CXCursorKind_PrefixLen .. $];
         result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s break;\n",
-                case_, case_skip, cursor.stringof, visit);
+                case_, makeNodeClassName(case_), cursor.stringof, visit);
     }
 
     return result;

@@ -40,7 +40,7 @@ import std.traits;
 import std.typecons : Flag, Yes, No, Nullable, Tuple;
 import logger = std.experimental.logger;
 
-import deimos.clang.index : CXTypeKind, CXCursorKind;
+import clang.c.Index : CXTypeKind, CXCursorKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
@@ -70,7 +70,7 @@ private bool isTypeRef(Cursor c) {
     // CXCursorKind.CXCursor_TypeRef is the first node, thus >=...
     // it is not in any other way "special".
 
-    return c.kind >= CXCursorKind.CXCursor_TypeRef && c.kind <= CXCursorKind.CXCursor_LastRef;
+    return c.kind >= CXCursorKind.typeRef && c.kind <= CXCursorKind.lastRef;
 }
 
 /** Iteratively try to construct a USR that is reproducable from the cursor.
@@ -265,8 +265,8 @@ TypeAttr makeTypeAttr(ref Type type, ref const(Cursor) c) {
     TypeAttr attr;
 
     attr.isConst = cast(Flag!"isConst") type.isConst;
-    attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.CXType_LValueReference);
-    attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.CXType_Pointer);
+    attr.isRef = cast(Flag!"isRef")(type.kind == CXTypeKind.lValueReference);
+    attr.isPtr = cast(Flag!"isPtr")(type.kind == CXTypeKind.pointer);
     attr.isArray = cast(Flag!"isArray") type.isArray;
     attr.isDefinition = cast(Flag!"isDefinition") c.isDefinition;
 
@@ -327,7 +327,7 @@ body {
     Nullable!TypeResults rval;
 
     // bail early
-    if (c.kind.among(CXCursorKind.CXCursor_MacroDefinition)) {
+    if (c.kind.among(CXCursorKind.macroDefinition)) {
         return rval;
     }
 
@@ -359,9 +359,9 @@ body {
     }
 
     switch (c.kind) with (CXCursorKind) {
-    case CXCursor_StructDecl:
+    case structDecl:
         goto case;
-    case CXCursor_UnionDecl:
+    case unionDecl:
         auto type = c.type;
         rval = TypeResult();
         rval.type = makeTypeKindAttr(type, c);
@@ -409,9 +409,9 @@ body {
     }
 
     switch (c.kind) with (CXCursorKind) {
-    case CXCursor_StructDecl:
+    case structDecl:
         goto case;
-    case CXCursor_UnionDecl:
+    case unionDecl:
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
@@ -419,7 +419,7 @@ body {
         rval.type.kind.usr = USRType(c.usr);
         rval.location = makeLocation(c);
         break;
-    case CXCursor_EnumDecl:
+    case enumDecl:
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
 
@@ -453,9 +453,9 @@ body {
     Nullable!TypeResult rval;
 
     switch (c.kind) with (CXCursorKind) {
-    case CXCursor_FieldDecl:
+    case fieldDecl:
         goto case;
-    case CXCursor_VarDecl:
+    case varDecl:
         import std.range : takeOne;
 
         foreach (child; c.children.takeOne) {
@@ -483,78 +483,78 @@ body {
     Nullable!TypeResults rval;
 
     switch (c.kind) with (CXCursorKind) {
-    case CXCursor_TypedefDecl:
+    case typedefDecl:
         rval = retrieveTypeDef(c, container, indent);
         break;
 
-    case CXCursor_TypeAliasDecl:
+    case typeAliasDecl:
         rval = retrieveTypeAlias(c, container, indent);
         break;
 
-    case CXCursor_FieldDecl:
-    case CXCursor_VarDecl:
+    case fieldDecl:
+    case varDecl:
         rval = retrieveInstanceDecl(c, container, indent);
         break;
 
-    case CXCursor_ParmDecl:
+    case parmDecl:
         rval = retrieveParam(c, container, indent);
         break;
 
-    case CXCursor_TemplateTypeParameter:
+    case templateTypeParameter:
         rval = retrieveTemplateParam(c, container, indent);
         break;
 
-    case CXCursor_ClassTemplatePartialSpecialization:
-    case CXCursor_ClassTemplate:
+    case classTemplatePartialSpecialization:
+    case classTemplate:
         rval = retrieveClassTemplate(c, container, indent);
         break;
 
-    case CXCursor_StructDecl:
-    case CXCursor_UnionDecl:
-    case CXCursor_ClassDecl:
-    case CXCursor_EnumDecl:
+    case structDecl:
+    case unionDecl:
+    case classDecl:
+    case enumDecl:
         auto type = c.type;
         rval = passType(c, type, container, indent);
         break;
 
-    case CXCursor_CXXMethod:
-    case CXCursor_FunctionDecl:
+    case cxxMethod:
+    case functionDecl:
         rval = retrieveFunc(c, container, indent);
         break;
 
-    case CXCursor_Constructor:
+    case constructor:
         auto type = c.type;
         rval = typeToCtor(c, type, container, indent);
         break;
 
-    case CXCursor_Destructor:
+    case destructor:
         auto type = c.type;
         rval = typeToDtor(c, type, indent);
         break;
 
-    case CXCursor_IntegerLiteral:
+    case integerLiteral:
         auto type = c.type;
         rval = passType(c, type, container, indent);
         break;
 
-    case CXCursor_CXXBaseSpecifier:
+    case cxxBaseSpecifier:
         rval = retrieveClassBaseSpecifier(c, container, indent);
         break;
 
-    case CXCursor_TypeRef:
-    case CXCursor_TemplateRef:
-    case CXCursor_NamespaceRef:
-    case CXCursor_MemberRef:
-    case CXCursor_LabelRef:
+    case typeRef:
+    case templateRef:
+    case namespaceRef:
+    case memberRef:
+    case labelRef:
         auto refc = c.referenced;
         rval = retrieveType(refc, container, indent);
         break;
 
-    case CXCursor_NoDeclFound:
+    case noDeclFound:
         // nothing to do
         break;
 
-    case CXCursor_UnexposedDecl:
+    case unexposedDecl:
         rval = retrieveUnexposed(c, container, indent);
         if (rval.isNull) {
             logger.trace("Not implemented type retrieval for node ", c.usr);
@@ -573,13 +573,13 @@ body {
 // the function name.
 private bool isUnexposedDeclWithUSR(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
-    case CXCursor_TypedefDecl:
-    case CXCursor_TemplateTypeParameter:
-    case CXCursor_ClassTemplate:
-    case CXCursor_StructDecl:
-    case CXCursor_UnionDecl:
-    case CXCursor_ClassDecl:
-    case CXCursor_EnumDecl:
+    case typedefDecl:
+    case templateTypeParameter:
+    case classTemplate:
+    case structDecl:
+    case unionDecl:
+    case classDecl:
+    case enumDecl:
         return true;
     default:
         return false;
@@ -588,18 +588,18 @@ private bool isUnexposedDeclWithUSR(CXCursorKind kind) {
 
 private bool canConvertNodeDeclToType(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
-    case CXCursor_TypedefDecl:
-    case CXCursor_TemplateTypeParameter:
-    case CXCursor_ClassTemplate:
-    case CXCursor_StructDecl:
-    case CXCursor_UnionDecl:
-    case CXCursor_ClassDecl:
-    case CXCursor_EnumDecl:
-    case CXCursor_CXXMethod:
-    case CXCursor_FunctionDecl:
-    case CXCursor_Constructor:
-    case CXCursor_Destructor:
-    case CXCursor_IntegerLiteral:
+    case typedefDecl:
+    case templateTypeParameter:
+    case classTemplate:
+    case structDecl:
+    case unionDecl:
+    case classDecl:
+    case enumDecl:
+    case cxxMethod:
+    case functionDecl:
+    case constructor:
+    case destructor:
+    case integerLiteral:
         return true;
     default:
         return false;
@@ -608,12 +608,12 @@ private bool canConvertNodeDeclToType(CXCursorKind kind) {
 
 private bool isRefNode(CXCursorKind kind) {
     switch (kind) with (CXCursorKind) {
-    case CXCursor_TypeRef:
-    case CXCursor_CXXBaseSpecifier:
-    case CXCursor_TemplateRef:
-    case CXCursor_NamespaceRef:
-    case CXCursor_MemberRef:
-    case CXCursor_LabelRef:
+    case typeRef:
+    case cxxBaseSpecifier:
+    case templateRef:
+    case namespaceRef:
+    case memberRef:
+    case labelRef:
         return true;
     default:
         return false;
@@ -624,7 +624,7 @@ private Nullable!TypeResults retrieveUnexposed(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.CXCursor_UnexposedDecl);
+    assert(c.kind == CXCursorKind.unexposedDecl);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -637,8 +637,8 @@ body {
 
     foreach (child; c.children.takeOne) {
         switch (child.kind) with (CXCursorKind) {
-        case CXCursor_CXXMethod:
-        case CXCursor_FunctionDecl:
+        case cxxMethod:
+        case functionDecl:
             rval = pass4(child, container, indent);
             if (!rval.isNull && rval.primary.type.kind.info.kind != TypeKind.Info.Kind.func) {
                 // cases like typeof(x) y;
@@ -676,18 +676,18 @@ body {
     Nullable!TypeResults rval;
 
     switch (type.kind) with (CXTypeKind) {
-    case CXType_FunctionNoProto:
-    case CXType_FunctionProto:
+    case functionNoProto:
+    case functionProto:
         rval = typeToFuncProto(c, type, container, indent);
         break;
 
-    case CXType_BlockPointer:
+    case blockPointer:
         rval = typeToFuncPtr(c, type, container, indent);
         break;
 
         // handle ref and ptr the same way
-    case CXType_LValueReference:
-    case CXType_Pointer:
+    case lValueReference:
+    case pointer:
         //TODO fix architecture so this check isn't needed.
         //Should be possible to merge typeToFunPtr and typeToPointer
         if (type.isFunctionPointerType) {
@@ -697,27 +697,27 @@ body {
         }
         break;
 
-    case CXType_ConstantArray:
-    case CXType_IncompleteArray:
+    case constantArray:
+    case incompleteArray:
         rval = typeToArray(c, type, container, indent);
         break;
 
-    case CXType_Record:
+    case record:
         rval = typeToRecord(c, type, indent);
         break;
 
-    case CXType_Typedef:
+    case typedef_:
         // unable to represent a typedef as a typedef.
         // Falling back on representing as a Simple.
         // Note: the usr from the cursor is null.
         rval = typeToFallBackTypeDef(c, type, indent);
         break;
 
-    case CXType_Unexposed:
+    case unexposed:
         debug {
             logger.trace("Unexposed, investigate if any other action should be taken");
         }
-        if (!c.kind.among(CXCursorKind.CXCursor_FunctionDecl, CXCursorKind.CXCursor_CXXMethod)) {
+        if (!c.kind.among(CXCursorKind.functionDecl, CXCursorKind.cxxMethod)) {
             // see retrieveUnexposed for why
             rval = typeToSimple(c, type, indent);
         } else if (type.isFunctionType) {
@@ -860,7 +860,7 @@ private TypeResults typeToTypedef(ref const(Cursor) c, ref Type type, USRType ty
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.kind == CXTypeKind.CXType_Typedef);
+    assert(type.kind == CXTypeKind.typedef_);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -929,7 +929,7 @@ private TypeResults typeToRecord(ref const(Cursor) c, ref Type type, in uint ind
 in {
     logNode(c, indent);
     logType(type, indent);
-    assert(type.kind == CXTypeKind.CXType_Record);
+    assert(type.kind == CXTypeKind.record);
 }
 out (result) {
     logTypeResult(result, indent);
@@ -967,7 +967,7 @@ private TypeResults typeToPointer(ref const(Cursor) c, ref Type type,
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference));
+    assert(type.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference));
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -993,11 +993,11 @@ body {
         TypeResults rval;
 
         // find the underlying type information
-        if (c_pointee.kind == CXCursorKind.CXCursor_TypedefDecl) {
+        if (c_pointee.kind == CXCursorKind.typedefDecl) {
             rval = retrieveType(c_pointee, container, indent).get;
-        } else if (pointee.kind == CXTypeKind.CXType_Unexposed) {
+        } else if (pointee.kind == CXTypeKind.unexposed) {
             pointee = type.canonicalType;
-            while (pointee.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
+            while (pointee.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference)) {
                 pointee = pointee.pointeeType;
             }
             rval = passType(c, pointee, container, indent).get;
@@ -1019,14 +1019,14 @@ body {
                 // If this hasn't been changed for 6 month remove this comment.
                 // Written at 2016-07-01, remove by 2017-02-01.
             }
-        } else if (c_pointee.kind == CXCursorKind.CXCursor_NoDeclFound) {
-            while (pointee.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
+        } else if (c_pointee.kind == CXCursorKind.noDeclFound) {
+            while (pointee.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference)) {
                 pointee = pointee.pointeeType;
             }
 
             auto c_decl = pointee.declaration;
 
-            if (c_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
+            if (c_decl.kind == CXCursorKind.noDeclFound) {
                 // primitive types do not have a declaration cursor.
                 // find the underlying primitive type.
                 rval = passType(c, pointee, container, indent).get;
@@ -1084,7 +1084,7 @@ private TypeResults typeToFuncPtr(ref const(Cursor) c, ref Type type,
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference));
+    assert(type.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference));
     assert(type.isFunctionPointerType);
 }
 out (result) {
@@ -1101,7 +1101,7 @@ body {
 
     // find the underlying function prototype
     auto pointee_type = type;
-    while (pointee_type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
+    while (pointee_type.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference)) {
         pointee_type = pointee_type.pointeeType;
     }
     debug {
@@ -1138,7 +1138,7 @@ private TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.CXType_FunctionNoProto);
+    assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.functionNoProto);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -1161,7 +1161,7 @@ body {
             logType(result_type, indent);
         }
 
-        if (result_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
+        if (result_decl.kind == CXCursorKind.noDeclFound) {
             rval = passType(result_decl, result_type, container, indent + 1).get;
         } else {
             rval = retrieveType(result_decl, container, indent + 1).get;
@@ -1200,8 +1200,8 @@ body {
     primary.type.kind.usr = c.usr;
     if (primary.type.kind.usr.length == 0) {
         primary.type.kind.usr = makeFallbackUSR(c, indent);
-    } else if (c.kind.among(CXCursorKind.CXCursor_VarDecl, CXCursorKind.CXCursor_FieldDecl,
-            CXCursorKind.CXCursor_TemplateTypeParameter, CXCursorKind.CXCursor_ParmDecl)) {
+    } else if (c.kind.among(CXCursorKind.varDecl, CXCursorKind.fieldDecl,
+            CXCursorKind.templateTypeParameter, CXCursorKind.parmDecl)) {
         // TODO consider how the knowledge of the field could be "moved" out of
         // this function.
         // Instances must result in a unique USR. Otherwise it is impossible to
@@ -1222,7 +1222,7 @@ private TypeResults typeToCtor(ref const(Cursor) c, ref Type type,
 in {
     logNode(c, indent);
     logType(type, indent);
-    assert(c.kind == CXCursorKind.CXCursor_Constructor);
+    assert(c.kind == CXCursorKind.constructor);
 }
 out (result) {
     logTypeResult(result, indent);
@@ -1257,7 +1257,7 @@ private TypeResults typeToDtor(ref const(Cursor) c, ref Type type, in uint inden
 in {
     logNode(c, indent);
     logType(type, indent);
-    assert(c.kind == CXCursorKind.CXCursor_Destructor);
+    assert(c.kind == CXCursorKind.destructor);
 }
 out (result) {
     logTypeResult(result, indent);
@@ -1307,7 +1307,7 @@ body {
     PointerTypeAttr rval;
     auto decl_c = type.declaration;
 
-    if (type.kind.among(CXTypeKind.CXType_Pointer, CXTypeKind.CXType_LValueReference)) {
+    if (type.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference)) {
         // recursive
         auto pointee = type.pointeeType;
         rval = retrievePointeeAttr(pointee, indent);
@@ -1341,14 +1341,14 @@ body {
     static void gatherIndexesToElement(Type start, ref ArrayInfoIndex[] indexes, ref Type element) {
         Type curr = start;
 
-        while (curr.kind.among(CXTypeKind.CXType_ConstantArray, CXTypeKind.CXType_IncompleteArray)) {
+        while (curr.kind.among(CXTypeKind.constantArray, CXTypeKind.incompleteArray)) {
             auto arr = curr.array;
 
             switch (curr.kind) with (CXTypeKind) {
-            case CXType_ConstantArray:
+            case constantArray:
                 indexes ~= ArrayInfoIndex(arr.size);
                 break;
-            case CXType_IncompleteArray:
+            case incompleteArray:
                 indexes ~= ArrayInfoIndex();
                 break;
             default:
@@ -1366,7 +1366,7 @@ body {
             ref LocationTag primary_loc, ref TypeResults element, const uint indent) {
         auto index_decl = ele_type.declaration;
 
-        if (index_decl.kind == CXCursorKind.CXCursor_NoDeclFound) {
+        if (index_decl.kind == CXCursorKind.noDeclFound) {
             // on purpuse not checking if it is null before using
             element = passType(c, ele_type, container, indent).get;
 
@@ -1451,8 +1451,7 @@ private Nullable!TypeResults retrieveInstanceDecl(ref const(Cursor) c,
 in {
     logNode(c, this_indent);
     with (CXCursorKind) {
-        assert(c.kind.among(CXCursor_VarDecl, CXCursor_FieldDecl,
-                CXCursor_TemplateTypeParameter, CXCursor_ParmDecl));
+        assert(c.kind.among(varDecl, fieldDecl, templateTypeParameter, parmDecl));
     }
 }
 out (result) {
@@ -1469,8 +1468,8 @@ body {
             // Is it a pointer?
             // Then preserve the pointer structure but dig deeper for the
             // pointed at type.
-        case CXType_LValueReference:
-        case CXType_Pointer:
+        case lValueReference:
+        case pointer:
             // must retrieve attributes from the pointed at type thus need a
             // more convulated deduction
             rval = passType(c, c_type, container, indent);
@@ -1494,10 +1493,10 @@ body {
         // VarDecl -> TypedefDecl
         // VarDecl -> TypeRef -> TypedefDecl
         foreach (child; c.visitBreathFirst.until!(a => a.depth == 3)) {
-            if (child.kind == CXCursorKind.CXCursor_TypeRef) {
+            if (child.kind == CXCursorKind.typeRef) {
                 rval = retrieveType(child, container, indent);
                 break;
-            } else if (child.kind == CXCursorKind.CXCursor_TypedefDecl) {
+            } else if (child.kind == CXCursorKind.typedefDecl) {
                 rval = retrieveType(child, container, indent);
                 break;
             }
@@ -1564,7 +1563,7 @@ private Nullable!TypeResults retrieveTypeAlias(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.CXCursor_TypeAliasDecl);
+    assert(c.kind == CXCursorKind.typeAliasDecl);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -1575,7 +1574,7 @@ body {
     Nullable!TypeResults rval;
 
     foreach (child; c.children) {
-        if (child.kind != CXCursorKind.CXCursor_TypeRef) {
+        if (child.kind != CXCursorKind.typeRef) {
             continue;
         }
 
@@ -1604,7 +1603,7 @@ private Nullable!TypeResults retrieveTypeDef(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.CXCursor_TypedefDecl);
+    assert(c.kind == CXCursorKind.typedefDecl);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -1622,7 +1621,7 @@ body {
 
         // any TypeRef children and thus need to traverse the tree?
         foreach (child; c.children.filterByTypeRef) {
-            if (!child.kind.among(CXCursorKind.CXCursor_TypeRef)) {
+            if (!child.kind.among(CXCursorKind.typeRef)) {
                 break;
             }
 
@@ -1685,7 +1684,7 @@ body {
 
         auto child = c.children[0];
         auto ref_child = child.referenced;
-        if (ref_child.kind != CXCursorKind.CXCursor_TypedefDecl) {
+        if (ref_child.kind != CXCursorKind.typedefDecl) {
             return;
         }
 
@@ -1778,7 +1777,7 @@ private Nullable!TypeResults retrieveFunc(ref const(Cursor) c,
         ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind.among(CXCursorKind.CXCursor_FunctionDecl, CXCursorKind.CXCursor_CXXMethod));
+    assert(c.kind.among(CXCursorKind.functionDecl, CXCursorKind.cxxMethod));
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -1799,7 +1798,7 @@ body {
             auto tmp = a.referenced.usr;
             return tmp != result_decl_usr;
         })) {
-        if (child.kind != CXCursorKind.CXCursor_TypeRef) {
+        if (child.kind != CXCursorKind.typeRef) {
             break;
         }
         auto retrieved_ref = retrieveType(child, container, indent);
@@ -1855,8 +1854,8 @@ in {
     import std.algorithm : among;
 
     logNode(c, indent);
-    assert(c.kind.among(CXCursorKind.CXCursor_ClassTemplate,
-            CXCursorKind.CXCursor_ClassTemplatePartialSpecialization));
+    assert(c.kind.among(CXCursorKind.classTemplate,
+            CXCursorKind.classTemplatePartialSpecialization));
 }
 body {
     TypeResults rval;
@@ -1874,7 +1873,7 @@ private Nullable!TypeResults retrieveClassBaseSpecifier(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.CXCursor_CXXBaseSpecifier);
+    assert(c.kind == CXCursorKind.cxxBaseSpecifier);
 }
 body {
     import dextool.logger : trace;
@@ -1886,7 +1885,7 @@ body {
         trace("", this_indent);
         auto c_ref = c.referenced;
 
-        if (c_ref.kind == CXCursorKind.CXCursor_NoDeclFound) {
+        if (c_ref.kind == CXCursorKind.noDeclFound) {
             return false;
         }
 
@@ -1979,7 +1978,7 @@ private ExtractParamsResults extractParams(ref const(Cursor) c, ref Type type,
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.CXType_FunctionNoProto);
+    assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.functionNoProto);
 }
 out (result) {
     import dextool.logger : trace;
@@ -1999,7 +1998,7 @@ body {
         import std.range : enumerate;
 
         foreach (idx, p; c.children.enumerate) {
-            if (p.kind != CXCursorKind.CXCursor_ParmDecl) {
+            if (p.kind != CXCursorKind.parmDecl) {
                 logNode(p, this_indent);
                 continue;
             }
@@ -2028,7 +2027,7 @@ body {
 
     ExtractParamsResults rval;
 
-    if (c.kind == CXCursorKind.CXCursor_TypeRef) {
+    if (c.kind == CXCursorKind.typeRef) {
         auto cref = c.referenced;
         appendParams(cref, rval);
     } else {
@@ -2073,103 +2072,109 @@ body {
     Nullable!string r;
 
     with (CXTypeKind) switch (kind) {
-    case CXType_Invalid:
+    case invalid:
         break;
-    case CXType_Unexposed:
+    case unexposed:
         break;
-    case CXType_Void:
+    case void_:
         r = "void";
         break;
-    case CXType_Bool:
+    case bool_:
         r = "bool";
         break;
-    case CXType_Char_U:
+    case charU:
         r = "unsigned char";
         break;
-    case CXType_UChar:
+    case uChar:
         r = "unsigned char";
         break;
-    case CXType_Char16:
+    case char16:
         break;
-    case CXType_Char32:
+    case char32:
         break;
-    case CXType_UShort:
+    case uShort:
         r = "unsigned short";
         break;
-    case CXType_UInt:
+    case uInt:
         r = "unsigned int";
         break;
-    case CXType_ULong:
+    case uLong:
         r = "unsigned long";
         break;
-    case CXType_ULongLong:
+    case uLongLong:
         r = "unsigned long long";
         break;
-    case CXType_UInt128:
+    case uInt128:
         break;
-    case CXType_Char_S:
+    case charS:
         r = "char";
         break;
-    case CXType_SChar:
+    case sChar:
         r = "char";
         break;
-    case CXType_WChar:
+    case wChar:
         r = "wchar_t";
         break;
-    case CXType_Short:
+    case short_:
         r = "short";
         break;
-    case CXType_Int:
+    case int_:
         r = "int";
         break;
-    case CXType_Long:
+    case long_:
         r = "long";
         break;
-    case CXType_LongLong:
+    case longLong:
         r = "long long";
         break;
-    case CXType_Int128:
+    case int128:
         break;
-    case CXType_Float:
+    case float_:
         r = "float";
         break;
-    case CXType_Double:
+    case double_:
         r = "double";
         break;
-    case CXType_LongDouble:
+    case longDouble:
         r = "long double";
         break;
-    case CXType_NullPtr:
+    case nullPtr:
         r = "null";
         break;
-    case CXType_Overload:
+    case overload:
         break;
-    case CXType_Dependent:
-        break;
-
-    case CXType_ObjCId:
-    case CXType_ObjCClass:
-    case CXType_ObjCSel:
+    case dependent:
         break;
 
-    case CXType_Complex:
-    case CXType_Pointer:
-    case CXType_BlockPointer:
-    case CXType_LValueReference:
-    case CXType_RValueReference:
-    case CXType_Record:
-    case CXType_Enum:
-    case CXType_Typedef:
-    case CXType_FunctionNoProto:
-    case CXType_FunctionProto:
-    case CXType_Vector:
-    case CXType_IncompleteArray:
-    case CXType_VariableArray:
-    case CXType_DependentSizedArray:
-    case CXType_MemberPointer:
+    case objCId:
+    case objCClass:
+    case objCSel:
         break;
 
-        // CXTypeKind == 119 is elaborated kind. From libclang 3.9+
+    case complex:
+    case pointer:
+    case blockPointer:
+    case lValueReference:
+    case rValueReference:
+    case record:
+    case enum_:
+    case typedef_:
+    case functionNoProto:
+    case functionProto:
+    case vector:
+    case incompleteArray:
+    case variableArray:
+    case dependentSizedArray:
+    case memberPointer:
+    case auto_:
+
+        /**
+     * \brief Represents a type that was referred to using an elaborated type keyword.
+     *
+     * E.g., struct S, or via a qualified name, e.g., N::M::type, or both.
+     */
+    case elaborated:
+        break;
 
     default:
         logger.trace("Unhandled type kind ", to!string(kind));

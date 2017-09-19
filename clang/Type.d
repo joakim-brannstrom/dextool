@@ -12,7 +12,7 @@
  */
 module clang.Type;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Cursor;
 import clang.Util;
@@ -90,43 +90,39 @@ struct Type {
     }
 
     @property bool isTypedef() const {
-        return kind == CXTypeKind.CXType_Typedef;
+        return kind == CXTypeKind.typedef_;
     }
 
     @property bool isEnum() const {
-        return kind == CXTypeKind.CXType_Enum;
+        return kind == CXTypeKind.enum_;
     }
 
     @property bool isValid() const {
-        return kind != CXTypeKind.CXType_Invalid;
+        return kind != CXTypeKind.invalid;
     }
 
     @property bool isFunctionType() {
-        return canonicalType.kind == CXTypeKind.CXType_FunctionProto;
+        return canonicalType.kind == CXTypeKind.functionProto;
     }
 
     @property bool isFunctionPointerType() {
-        with (CXTypeKind)
-            return kind == CXType_Pointer && pointeeType.isFunctionType;
+        return kind == CXTypeKind.pointer && pointeeType.isFunctionType;
     }
 
     @property bool isObjCIdType() {
-        return isTypedef && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer
-            && spelling == "id";
+        return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "id";
     }
 
     @property bool isObjCClassType() {
-        return isTypedef && canonicalType.kind == CXTypeKind.CXType_ObjCObjectPointer
-            && spelling == "Class";
+        return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "Class";
     }
 
     @property bool isObjCSelType() {
-        with (CXTypeKind)
-            if (isTypedef) {
-                auto c = canonicalType;
-                return c.kind == CXType_Pointer && c.pointeeType.kind == CXType_ObjCSel;
-            } else
-                return false;
+        if (isTypedef) {
+            auto c = canonicalType;
+            return c.kind == CXTypeKind.pointer && c.pointeeType.kind == CXTypeKind.objCSel;
+        } else
+            return false;
     }
 
     @property bool isObjCBuiltinType() {
@@ -134,8 +130,7 @@ struct Type {
     }
 
     @property bool isWideCharType() const {
-        with (CXTypeKind)
-            return kind == CXType_WChar;
+        return kind == CXTypeKind.wChar;
     }
 
     /** Determine whether a CXType has the "const" qualifier set, without
@@ -147,11 +142,11 @@ struct Type {
     }
 
     @property bool isExposed() const {
-        return kind != CXTypeKind.CXType_Unexposed;
+        return kind != CXTypeKind.unexposed;
     }
 
     @property bool isArray() const {
-        return kind == CXTypeKind.CXType_ConstantArray || kind == CXTypeKind.CXType_IncompleteArray;
+        return kind == CXTypeKind.constantArray || kind == CXTypeKind.incompleteArray;
     }
 
     @property bool isAnonymous() {
@@ -183,8 +178,8 @@ struct Type {
         import std.algorithm : among;
 
         with (CXTypeKind) {
-            return kind.among(CXType_Pointer, CXType_BlockPointer, CXType_MemberPointer,
-                    CXType_LValueReference, CXType_RValueReference) != 0;
+            return kind.among(pointer, blockPointer, memberPointer,
+                    lValueReference, rValueReference) != 0;
         }
     }
 
@@ -291,20 +286,20 @@ struct Arguments {
 }
 
 @property bool isUnsigned(CXTypeKind kind) {
-    with (CXTypeKind) switch (kind) {
-    case CXType_Char_U:
+    switch (kind) with (CXTypeKind) {
+    case charU:
         return true;
-    case CXType_UChar:
+    case uChar:
         return true;
-    case CXType_UShort:
+    case uShort:
         return true;
-    case CXType_UInt:
+    case uInt:
         return true;
-    case CXType_ULong:
+    case uLong:
         return true;
-    case CXType_ULongLong:
+    case uLongLong:
         return true;
-    case CXType_UInt128:
+    case uInt128:
         return true;
 
     default:

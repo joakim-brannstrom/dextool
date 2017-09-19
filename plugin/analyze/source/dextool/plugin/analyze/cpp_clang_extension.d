@@ -7,7 +7,7 @@ This file uses the same license as the C++ source code.
 */
 module dextool.plugin.analyze.cpp_clang_extension;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 extern (C++, dextool_clang_extension) {
     extern (C++, McCabe) {

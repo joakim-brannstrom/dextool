@@ -34,7 +34,7 @@ struct ClangContext {
     import cpptooling.utility.virtualfilesystem : VirtualFileSystem, FileName,
         Content;
 
-    import deimos.clang.index : CXTranslationUnit_Flags;
+    import clang.c.Index : CXTranslationUnit_Flags;
 
     private {
         Index index;
@@ -94,7 +94,7 @@ struct ClangContext {
      * The translation unit is NOT kept by the context.
      */
     auto makeTranslationUnit(in string sourceFilename, in string[] commandLineArgs = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @safe {
+            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @safe {
         import std.array : join;
 
         auto prependDefaultFlags(string[] in_cflags) {

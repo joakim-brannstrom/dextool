@@ -19,14 +19,13 @@ import std.traits : Unqual;
 import std.typecons : Nullable, tuple, Flag, Yes, No;
 import std.meta : staticIndexOf;
 
-import deimos.clang.index : CX_CXXAccessSpecifier, CX_StorageClass,
-    CXLanguageKind;
+import clang.c.Index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
 import cpptooling.analyzer.clang.ast : ClassTemplate,
-    ClassTemplatePartialSpecialization, Constructor, CXXMethod, ClassDecl,
-    CXXBaseSpecifier, Destructor, FieldDecl, FunctionDecl, StructDecl,
+    ClassTemplatePartialSpecialization, Constructor, CxxMethod, ClassDecl,
+    CxxBaseSpecifier, Destructor, FieldDecl, FunctionDecl, StructDecl,
     TranslationUnit, UnionDecl, VarDecl, Visitor;
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
@@ -58,22 +57,22 @@ private CppVirtualMethod classify(T)(T c) @safe if (is(Unqual!T == Cursor)) {
 /// Convert a clang access specifier to dextool representation.
 AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) @safe {
     final switch (accessSpec) with (CX_CXXAccessSpecifier) {
-    case CX_CXXInvalidAccessSpecifier:
+    case cxxInvalidAccessSpecifier:
         return AccessType.Public;
-    case CX_CXXPublic:
+    case cxxPublic:
         return AccessType.Public;
-    case CX_CXXProtected:
+    case cxxProtected:
         return AccessType.Protected;
-    case CX_CXXPrivate:
+    case cxxPrivate:
         return AccessType.Private;
     }
 }
 
 StorageClass toStorageClass(CX_StorageClass storageClass) @safe pure nothrow @nogc {
     switch (storageClass) with (CX_StorageClass) {
-    case CX_SC_Extern:
+    case extern_:
         return StorageClass.Extern;
-    case CX_SC_Static:
+    case static_:
         return StorageClass.Static;
     default:
         return StorageClass.None;
@@ -154,13 +153,13 @@ body {
     }
 
     final switch (c.language) with (CXLanguageKind) {
-    case CXLanguage_Invalid:
+    case invalid:
         return Language.unknown;
-    case CXLanguage_C:
+    case c:
         return Language.c;
-    case CXLanguage_ObjC:
+    case objC:
         return Language.unknown;
-    case CXLanguage_CPlusPlus:
+    case cPlusPlus:
         return Language.cpp;
     }
 }
@@ -184,9 +183,9 @@ FunctionDeclResult analyzeFunctionDecl(const(FunctionDecl) v, ref Container cont
 
 FunctionDeclResult analyzeFunctionDecl(const(Cursor) c_in, ref Container container, in uint indent) @safe
 in {
-    import deimos.clang.index : CXCursorKind;
+    import clang.c.Index : CXCursorKind;
 
-    assert(c_in.kind == CXCursorKind.CXCursor_FunctionDecl);
+    assert(c_in.kind == CXCursorKind.functionDecl);
 }
 body {
     import std.algorithm : among;
@@ -314,9 +313,9 @@ VarDeclResult analyzeVarDecl(const(VarDecl) v, ref Container container, in uint 
 /// ditto
 VarDeclResult analyzeVarDecl(const(Cursor) v, ref Container container, in uint indent) @safe
 in {
-    import deimos.clang.index : CXCursorKind;
+    import clang.c.Index : CXCursorKind;
 
-    assert(v.kind == CXCursorKind.CXCursor_VarDecl);
+    assert(v.kind == CXCursorKind.varDecl);
 }
 body {
     import clang.Cursor : Cursor;
@@ -395,7 +394,7 @@ struct CXXMethodResult {
     LocationTag location;
 }
 
-CXXMethodResult analyzeCXXMethod(const(CXXMethod) v, ref Container container, in uint indent) @safe {
+CXXMethodResult analyzeCXXMethod(const(CxxMethod) v, ref Container container, in uint indent) @safe {
     return analyzeCXXMethod(v.cursor, container, indent);
 }
 
@@ -464,8 +463,8 @@ struct CXXBaseSpecifierResult {
  * It is possible to inherit from for example a typedef. canonicalUSR would be
  * the class the typedef refers.
  */
-auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container, in uint indent) @safe {
-    import deimos.clang.index : CXCursorKind;
+auto analyzeCXXBaseSpecified(const(CxxBaseSpecifier) v, ref Container container, in uint indent) @safe {
+    import clang.c.Index : CXCursorKind;
     import std.array : array;
     import std.algorithm : map;
     import cpptooling.data.type : CppAccess;
@@ -485,7 +484,7 @@ auto analyzeCXXBaseSpecified(const(CXXBaseSpecifier) v, ref Container container,
 
     CppNs[] namespace;
     auto c_ref = v.cursor.referenced;
-    if (c_ref.kind == CXCursorKind.CXCursor_NoDeclFound) {
+    if (c_ref.kind == CXCursorKind.noDeclFound) {
         namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array();
     } else {
         namespace = backtrackScopeRange(v.cursor).map!(a => CppNs(a.spelling)).array();
@@ -565,10 +564,10 @@ final class ClassVisitor : Visitor {
         this.root.usr = result.type.kind.usr;
     }
 
-    override void visit(const(CXXBaseSpecifier) v) {
+    override void visit(const(CxxBaseSpecifier) v) {
         import std.range : retro;
         import std.array : appender;
-        import deimos.clang.index : CXCursorKind;
+        import clang.c.Index : CXCursorKind;
 
         mixin(mixinNodeLog!());
 
@@ -605,7 +604,7 @@ final class ClassVisitor : Visitor {
         logger.trace("dtor: ", tor.toString);
     }
 
-    override void visit(const(CXXMethod) v) @trusted {
+    override void visit(const(CxxMethod) v) @trusted {
         import cpptooling.data : CppMethodOp;
 
         mixin(mixinNodeLog!());
@@ -627,7 +626,7 @@ final class ClassVisitor : Visitor {
         }
     }
 
-    override void visit(const(CXXAccessSpecifier) v) @trusted {
+    override void visit(const(CxxAccessSpecifier) v) @trusted {
         mixin(mixinNodeLog!());
 
         accessType = CppAccess(toAccessType(v.cursor.access.accessSpecifier));

@@ -341,7 +341,7 @@ struct AnalyzeCollection {
     void register(TUVisitor v) {
         if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
-            v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
+            v.onCxxMethod ~= &mcCabe.analyze!CxxMethod;
             v.onConstructor ~= &mcCabe.analyze!Constructor;
             v.onDestructor ~= &mcCabe.analyze!Destructor;
             v.onConversionFunction ~= &mcCabe.analyze!ConversionFunction;

@@ -25,7 +25,7 @@ import logger = std.experimental.logger;
 import clang.SourceLocation : SourceLocation;
 import clang.SourceRange : SourceRange;
 
-import deimos.clang.index : CXUnsavedFile;
+import clang.c.Index : CXUnsavedFile;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;

@@ -11,7 +11,8 @@ module cpptooling.analyzer.clang.cursor_backtrack;
 
 import clang.Cursor : Cursor;
 
-import deimos.clang.index : CXCursorKind;
+// TODO remove this, shouldn't be needed.
+import clang.c.Index : CXCursorKind;
 
 private struct BacktrackResult {
     private Cursor cursor;
@@ -52,11 +53,10 @@ auto backtrackScopeRange(NodeT)(const(NodeT) node) {
     }
 
     import std.algorithm : among, filter;
-    import deimos.clang.index : CXCursorKind;
+    import clang.c.Index : CXCursorKind;
 
-    return BacktrackResult(c).filter!(a => a.kind.among(CXCursorKind.CXCursor_UnionDecl,
-            CXCursorKind.CXCursor_StructDecl, CXCursorKind.CXCursor_ClassDecl,
-            CXCursorKind.CXCursor_Namespace));
+    return BacktrackResult(c).filter!(a => a.kind.among(CXCursorKind.unionDecl,
+            CXCursorKind.structDecl, CXCursorKind.classDecl, CXCursorKind.namespace));
 }
 
 /// Backtrack a cursor until the top cursor is reached.
@@ -75,14 +75,14 @@ auto backtrack(NodeT)(const(NodeT) node) {
 /// Determine if a kind creates a local scope.
 bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
     switch (kind) with (CXCursorKind) {
-    case CXCursor_ClassTemplate:
-    case CXCursor_StructDecl:
-    case CXCursor_UnionDecl:
-    case CXCursor_ClassDecl:
-    case CXCursor_CXXMethod:
-    case CXCursor_FunctionDecl:
-    case CXCursor_Constructor:
-    case CXCursor_Destructor:
+    case classTemplate:
+    case structDecl:
+    case unionDecl:
+    case classDecl:
+    case cxxMethod:
+    case functionDecl:
+    case constructor:
+    case destructor:
         return true;
     default:
         return false;
@@ -92,11 +92,11 @@ bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
 /// Determine if a cursor is in the global or namespace scope.
 bool isGlobalOrNamespaceScope(const(Cursor) c) @safe {
     import std.algorithm : among;
-    import deimos.clang.index : CXCursorKind;
+    import clang.c.Index : CXCursorKind;
 
     // if the loop is never ran it is in the global namespace
     foreach (bt; c.backtrack) {
-        if (bt.kind.among(CXCursorKind.CXCursor_Namespace, CXCursorKind.CXCursor_TranslationUnit)) {
+        if (bt.kind.among(CXCursorKind.namespace, CXCursorKind.translationUnit)) {
             return true;
         } else if (bt.kind.isLocalScope) {
             return false;

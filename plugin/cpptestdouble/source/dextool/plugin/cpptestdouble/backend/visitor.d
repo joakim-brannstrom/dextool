@@ -108,13 +108,13 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     }
 
     override void visit(const(VarDecl) v) @trusted {
-        import deimos.clang.index : CX_StorageClass;
+        import clang.c.Index : CX_StorageClass;
 
         mixin(mixinNodeLog!());
 
         // TODO investigate if linkage() == CXLinkage_External should be used
         // instead.
-        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
+        if (v.cursor.storageClass() == CX_StorageClass.extern_) {
             auto result = analyzeVarDecl(v, container, indent);
             auto var = CxGlobalVariable(result.instanceUSR,
                     TypeKindVariable(result.type, result.name));

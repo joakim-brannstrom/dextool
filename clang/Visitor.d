@@ -6,7 +6,7 @@
  */
 module clang.Visitor;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Cursor;
 import clang.TranslationUnit;
@@ -62,7 +62,7 @@ private:
     extern (C) static CXChildVisitResult visitorFunction(CXCursor cursor,
             CXCursor parent, CXClientData data) @trusted {
         if (data is null)
-            return CXChildVisitResult.CXChildVisit_Continue;
+            return CXChildVisitResult.continue_;
 
         auto tmp = cast(OpApplyData*) data;
 
@@ -71,7 +71,7 @@ private:
             auto dParent = Cursor(parent);
             auto r = tmp.dg(dCursor, dParent);
             tmp.returnCode = r;
-            return r ? CXChildVisit_Break : CXChildVisit_Continue;
+            return r ? break_ : continue_;
         }
     }
 
@@ -217,17 +217,17 @@ struct TypedVisitor(CXCursorKind kind) {
     }
 }
 
-alias ObjCInstanceMethodVisitor = TypedVisitor!(CXCursorKind.CXCursor_ObjCInstanceMethodDecl);
-alias ObjCClassMethodVisitor = TypedVisitor!(CXCursorKind.CXCursor_ObjCClassMethodDecl);
-alias ObjCPropertyVisitor = TypedVisitor!(CXCursorKind.CXCursor_ObjCPropertyDecl);
-alias ObjCProtocolVisitor = TypedVisitor!(CXCursorKind.CXCursor_ObjCProtocolRef);
+alias ObjCInstanceMethodVisitor = TypedVisitor!(CXCursorKind.objCInstanceMethodDecl);
+alias ObjCClassMethodVisitor = TypedVisitor!(CXCursorKind.objCClassMethodDecl);
+alias ObjCPropertyVisitor = TypedVisitor!(CXCursorKind.objCPropertyDecl);
+alias ObjCProtocolVisitor = TypedVisitor!(CXCursorKind.objCProtocolRef);
 
 struct ParamVisitor {
     mixin Visitor.Constructors;
 
     int opApply(int delegate(ref ParamCursor) dg) {
         foreach (cursor, parent; visitor) {
-            if (cursor.kind == CXCursorKind.CXCursor_ParmDecl) {
+            if (cursor.kind == CXCursorKind.parmDecl) {
                 auto paramCursor = ParamCursor(cursor);
 
                 if (auto result = dg(paramCursor))

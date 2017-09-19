@@ -294,13 +294,13 @@ final class CVisitor : Visitor {
 
     override void visit(const(VarDecl) v) @trusted {
         import cpptooling.data : TypeKindVariable;
-        import deimos.clang.index : CX_StorageClass;
+        import clang.c.Index : CX_StorageClass;
 
         mixin(mixinNodeLog!());
 
         //TODO ugly hack. Move this information to the representation. But for
         //now skipping all definitions
-        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
+        if (v.cursor.storageClass() == CX_StorageClass.extern_) {
             auto result = analyzeVarDecl(v, container, indent);
             auto var = CxGlobalVariable(result.instanceUSR,
                     TypeKindVariable(result.type, result.name));

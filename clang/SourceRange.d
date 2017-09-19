@@ -9,7 +9,7 @@ import std.conv;
 import std.string;
 import std.experimental.logger;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.SourceLocation;
 

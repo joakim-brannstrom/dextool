@@ -9,7 +9,7 @@ module clang.Diagnostic;
 
 import std.typecons : RefCounted;
 
-import deimos.clang.index;
+import clang.c.Index;
 import clang.Util;
 
 struct Diagnostic {

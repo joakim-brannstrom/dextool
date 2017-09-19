@@ -64,7 +64,7 @@ static import cpptooling.data.class_classification;
 final class GraphMLAnalyzer(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : TranslationUnit, ClassDecl, VarDecl,
         FunctionDecl, Namespace, UnexposedDecl, StructDecl, CompoundStmt,
-        Constructor, Destructor, CXXMethod, Declaration, ClassTemplate,
+        Constructor, Destructor, CxxMethod, Declaration, ClassTemplate,
         ClassTemplatePartialSpecialization, FunctionTemplate, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
@@ -260,19 +260,19 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         visitClassStructMethod(v);
     }
 
-    override void visit(const(CXXMethod) v) {
+    override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
         visitClassStructMethod(v);
     }
 
     private auto visitClassStructMethod(T)(const(T) v) {
         import std.algorithm : among;
-        import deimos.clang.index : CXCursorKind;
+        import clang.c.Index : CXCursorKind;
 
         auto parent = v.cursor.semanticParent;
 
         // can't handle ClassTemplates etc yet
-        if (!parent.kind.among(CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_StructDecl)) {
+        if (!parent.kind.among(CXCursorKind.classDecl, CXCursorKind.structDecl)) {
             return;
         }
 
@@ -302,8 +302,8 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     import std.typecons : scoped, TypedefType, NullableRef;
 
     import cpptooling.analyzer.clang.ast : ClassDecl, ClassTemplate,
-        ClassTemplatePartialSpecialization, StructDecl, CXXBaseSpecifier,
-        Constructor, Destructor, CXXMethod, FieldDecl, CXXAccessSpecifier,
+        ClassTemplatePartialSpecialization, StructDecl, CxxBaseSpecifier,
+        Constructor, Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier,
         TypedefDecl, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
@@ -441,7 +441,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     }
 
     /// Analyze the inheritance(s).
-    override void visit(const(CXXBaseSpecifier) v) {
+    override void visit(const(CxxBaseSpecifier) v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCXXBaseSpecified(v, *container, indent);
@@ -487,7 +487,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         }();
     }
 
-    override void visit(const(CXXMethod) v) {
+    override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
         import cpptooling.data : CppMethod, CppConstMethod;
 
@@ -542,7 +542,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         }
     }
 
-    override void visit(const(CXXAccessSpecifier) v) @trusted {
+    override void visit(const(CxxAccessSpecifier) v) @trusted {
         mixin(mixinNodeLog!());
         access = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }
@@ -670,7 +670,7 @@ private final class RefVisitor : Visitor {
     import std.typecons;
 
     import clang.Cursor : Cursor;
-    import deimos.clang.index : CXCursorKind;
+    import clang.c.Index : CXCursorKind;
 
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
@@ -768,7 +768,7 @@ private final class RefVisitor : Visitor {
         extraTypes.put(result.type);
     }
 
-    override void visit(const(CXXMethod) v) {
+    override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
         auto result = analyzeCXXMethod(v, *container, indent);
         destinations.put(result.type.kind.usr);

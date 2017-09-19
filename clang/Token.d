@@ -16,7 +16,7 @@ module clang.Token;
 import std.conv : to;
 import std.typecons;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Cursor;
 import clang.SourceLocation;

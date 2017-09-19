@@ -26,161 +26,140 @@ abstract class Reference : Node {
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
+
 final class ObjCSuperClassRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class ObjCProtocolRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class ObjCClassRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class TypeRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
-final class CXXBaseSpecifier : Reference {
+final class CxxBaseSpecifier : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class TemplateRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class NamespaceRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class MemberRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class LabelRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class OverloadedDeclRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class VariableRef : Reference {
     import clang.Cursor : Cursor;
-
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
-
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
+

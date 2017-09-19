@@ -11,7 +11,7 @@ module cpptooling.analyzer.clang.ast.translationunit;
 
 import std.meta : AliasSeq;
 
-import deimos.clang.index : CXCursorKind;
+import clang.c.Index : CXCursorKind;
 
 import cpptooling.analyzer.clang.ast.node : Node;
 

@@ -16,7 +16,7 @@ import clang.TranslationUnit : TranslationUnit;
  * Returns: True if errors where found.
  */
 bool hasParseErrors(ref TranslationUnit tu) @safe {
-    import deimos.clang.index : CXDiagnosticSeverity;
+    import clang.c.Index : CXDiagnosticSeverity;
 
     if (!tu.isValid)
         return true;
@@ -28,12 +28,12 @@ bool hasParseErrors(ref TranslationUnit tu) @safe {
             auto severity = diag.severity;
 
             final switch (severity) with (CXDiagnosticSeverity) {
-            case CXDiagnostic_Ignored:
-            case CXDiagnostic_Note:
-            case CXDiagnostic_Warning:
+            case ignored:
+            case note:
+            case warning:
                 break;
-            case CXDiagnostic_Error:
-            case CXDiagnostic_Fatal:
+            case error:
+            case fatal:
                 return true;
             }
         }
@@ -50,7 +50,7 @@ bool hasParseErrors(ref TranslationUnit tu) @safe {
 void logDiagnostic(ref TranslationUnit tu) @safe {
     import logger = std.experimental.logger;
 
-    import deimos.clang.index : CXDiagnosticSeverity;
+    import clang.c.Index : CXDiagnosticSeverity;
 
     auto dia = tu.diagnostics;
 
@@ -59,19 +59,19 @@ void logDiagnostic(ref TranslationUnit tu) @safe {
             auto severity = diag.severity;
 
             final switch (severity) with (CXDiagnosticSeverity) {
-            case CXDiagnostic_Ignored:
+            case ignored:
                 logger.info(diag.format);
                 break;
-            case CXDiagnostic_Note:
+            case note:
                 logger.info(diag.format);
                 break;
-            case CXDiagnostic_Warning:
+            case warning:
                 logger.warning(diag.format);
                 break;
-            case CXDiagnostic_Error:
+            case error:
                 logger.error(diag.format);
                 break;
-            case CXDiagnostic_Fatal:
+            case fatal:
                 logger.error(diag.format);
                 break;
             }
