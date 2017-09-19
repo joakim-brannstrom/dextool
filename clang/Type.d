@@ -67,6 +67,15 @@ struct Type {
         return Type(cursor, r);
     }
 
+    /** Retrieve the type named by the qualified-id.
+     *
+     * If a non-elaborated type is passed in, an invalid type is returned.
+     */
+    @property Type elaboratedType() @trusted {
+        auto r = clang_Type_getNamedType(cx);
+        return Type(cursor, r);
+    }
+
     /// Return: the cursor for the declaration of the given type.
     @property Cursor declaration() @trusted {
         auto r = clang_getTypeDeclaration(cx);
