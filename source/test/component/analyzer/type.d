@@ -638,3 +638,39 @@ const some_array& some_func();
     visitor.funcs.length.shouldEqual(1);
     visitor.funcs[0].returnType.toStringDecl("x").shouldEqual("const some_array &x");
 }
+
+@("shall be a TypeRef with a canonical ref referencing the type at the end of the typedef chain")
+unittest {
+    immutable code = "
+#include <string>
+typedef std::string myString1;
+typedef myString1 myString2;
+typedef myString2 myString3;
+
+void my_func(myString3 s);
+";
+
+    // arrange
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+    auto visitor = new TestVisitor;
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.found.shouldBeTrue;
+
+    auto type2 = visitor.container.find!TypeKind(USRType("c:issue.hpp@T@myString3"));
+    type2.length.shouldEqual(1);
+    auto type = type2.front;
+    type.info.kind.shouldEqual(TypeKind.Info.Kind.typeRef);
+
+    // should NOT point to myString1
+    // can't test the USR more specific because it is different on different
+    // systems.
+    type.info.canonicalRef.dup.shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
+}

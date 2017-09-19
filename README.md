@@ -29,11 +29,11 @@ Please open an issue if _you_ need a plugin to stabilize.
 
 deXtool depends on the following software packages:
 
- * [libclang](http://releases.llvm.org/download.html) (3.7+)
+ * [libclang](http://releases.llvm.org/download.html) (3.9+)
  * [cmake](https://cmake.org/download) (2.8+)
  * [D compiler](https://dlang.org/download.html) (dmd 2.072+, ldc 1.1.0+)
 
-deXtool has been tested with libclang [3.7, 3.8, 3.9, 4.0].
+deXtool has been tested with libclang [3.9, 4.0, 5.0].
 
 For people running Ubuntu two of the dependencies can be installed via apt-get.
 The libclang version depend on your ubuntu version.

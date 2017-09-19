@@ -9,6 +9,9 @@
  *
  *  1.1+ additional features missing compared to cindex.py. 2015-03-07 $(BR)
  *    Joakim Brännström
+ *
+ * TODO split the specific C++ stuff to a dedicated cursor.
+ * TODO implement cxxMangling.
  */
 module clang.Cursor;
 
@@ -114,7 +117,16 @@ import clang.Visitor;
      */
     @property string mangling() const @trusted {
         return toD(clang_Cursor_getMangling(cx));
+
     }
+
+    /**
+     * \brief Retrieve the CXStrings representing the mangled symbols of the C++
+     * constructor or destructor at the cursor.
+     */
+    //@property string[] cxxMangling() const @trusted {
+    //    CXStringSet *clang_Cursor_getCXXManglings(CXCursor);
+    //}
 
     /// Return: the kind of this cursor.
     @property CXCursorKind kind() const @trusted {
@@ -423,6 +435,11 @@ import clang.Visitor;
         }
     }
 
+    /// Determine whether the given cursor has any attributes.
+    @property bool hasAttributes() const @trusted {
+        return clang_Cursor_hasAttrs(cx) != 0;
+    }
+
     /// Determine whether the given cursor kind represents a declaration.
     @property bool isDeclaration() const @trusted {
         return clang_isDeclaration(cx.kind) != 0;
@@ -545,6 +562,72 @@ import clang.Visitor;
     bool isPredefined() const @trusted {
         auto xkind = usr in predefined;
         return xkind !is null && *xkind == kind;
+    }
+
+    /** Determine whether a CXCursor that is a macro, is function like.
+     */
+    bool isMacroFunctionLike() const @trusted {
+        return clang_Cursor_isMacroFunctionLike(cx) != 0;
+    }
+
+    /** Determine whether a CXCursor that is a macro, is a builtin one.
+     */
+    bool isMacroBuiltin() const @trusted {
+        return clang_Cursor_isMacroBuiltin(cx) != 0;
+    }
+
+    /** Determine whether a CXCursor that is a function declaration, is an
+     * inline declaration.
+     */
+    bool isFunctionInlined() const @trusted {
+        return clang_Cursor_isFunctionInlined(cx) != 0;
+    }
+
+    /// Determine if a C++ constructor is a converting constructor.
+    bool isConvertingConstructor() const @trusted {
+        return clang_CXXConstructor_isConvertingConstructor(cx) != 0;
+    }
+
+    /// Determine if a C++ constructor is a copy constructor.
+    bool isCopyConstructor() const @trusted {
+        return clang_CXXConstructor_isCopyConstructor(cx) != 0;
+    }
+
+    /// Determine if a C++ constructor is the default constructor.
+    bool isDefaultConstructor() const @trusted {
+        return clang_CXXConstructor_isDefaultConstructor(cx) != 0;
+    }
+
+    /// Determine if a C++ constructor is a move constructor.
+    bool isMoveConstructor() const @trusted {
+        return clang_CXXConstructor_isMoveConstructor(cx) != 0;
+    }
+
+    /// Determine if a C++ field is declared 'mutable'.
+    bool isMutable() const @trusted {
+        return clang_CXXField_isMutable(cx) != 0;
+    }
+
+    /// Determine if a C++ method is declared '= default'.
+    bool isDefaulted() const @trusted {
+        return clang_CXXMethod_isDefaulted(cx) != 0;
+    }
+
+    /** Describe the visibility of the entity referred to by a cursor.
+     *
+     * Note: This is linker visibility.
+     *
+     * This returns the default visibility if not explicitly specified by
+     * a visibility attribute. The default visibility may be changed by
+     * commandline arguments.
+     *
+     * Params:
+     *  cursor The cursor to query.
+     *
+     * Returns: The visibility of the cursor.
+     */
+    CXVisibilityKind visibility() const @trusted {
+        return clang_getCursorVisibility(cx);
     }
 
     private static CXCursorKind[string] queryPredefined() {

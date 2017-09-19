@@ -50,6 +50,12 @@ Closing this issue. Good enough for now
  - [WONTFIX]A GUI to navigate the UML diagrams. Maybe with ImGUI?
     Better to generate data in a format that _other_ programs can use.
 
+## CTestDouble
+ - use this API to determine the linker visibility, cursor.visibility().
+
+## Clang API
+ - update the clang API with the evaluators.
+
 ## Features
  - Infer purity for functions in graphml plugin.
  - Calculate software entropy.
