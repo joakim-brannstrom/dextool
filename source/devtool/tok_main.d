@@ -193,7 +193,7 @@ int dumpBody(string fname, string[] flags) {
                 auto result = analyzeFunctionDecl(c_func, container, indent);
                 () @trusted{ logger.trace("result: ", result); }();
             } else if (c_func.kind == CXCursorKind.cxxMethod) {
-                auto result = analyzeCXXMethod(c_func, container, indent);
+                auto result = analyzeCxxMethod(c_func, container, indent);
                 () @trusted{ logger.trace("result: ", result); }();
             } else {
                 logger.trace("unknown callexpr: ", c_func.kind.to!string());

@@ -383,7 +383,7 @@ auto analyzeDestructor(const(Destructor) v, ref Container container, in uint ind
     return DestructorResult(type.primary.type, name, virtual_kind, type.primary.location);
 }
 
-struct CXXMethodResult {
+struct CxxMethodResult {
     TypeKindAttr type;
     CppMethodName name;
     CxParam[] params;
@@ -394,12 +394,12 @@ struct CXXMethodResult {
     LocationTag location;
 }
 
-CXXMethodResult analyzeCXXMethod(const(CxxMethod) v, ref Container container, in uint indent) @safe {
-    return analyzeCXXMethod(v.cursor, container, indent);
+CxxMethodResult analyzeCxxMethod(const(CxxMethod) v, ref Container container, in uint indent) @safe {
+    return analyzeCxxMethod(v.cursor, container, indent);
 }
 
 /// ditto
-CXXMethodResult analyzeCXXMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
+CxxMethodResult analyzeCxxMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
     auto type = () @trusted{ return retrieveType(v, container, indent); }();
     assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
     put(type, container, indent);
@@ -410,7 +410,7 @@ CXXMethodResult analyzeCXXMethod(const(Cursor) v, ref Container container, in ui
             type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
     auto is_virtual = classify(v);
 
-    return CXXMethodResult(type.primary.type, name, params,
+    return CxxMethodResult(type.primary.type, name, params,
             cast(Flag!"isOperator") isOperator(name), return_type, is_virtual,
             cast(Flag!"isConst") type.primary.type.attr.isConst, type.primary.location);
 }
@@ -443,7 +443,7 @@ auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint inden
     return FieldDeclResult(type.primary.type, name, instance_usr, loc);
 }
 
-struct CXXBaseSpecifierResult {
+struct CxxBaseSpecifierResult {
     TypeKindAttr type;
     CppClassName name;
     CppNs[] reverseScope;
@@ -463,7 +463,7 @@ struct CXXBaseSpecifierResult {
  * It is possible to inherit from for example a typedef. canonicalUSR would be
  * the class the typedef refers.
  */
-auto analyzeCXXBaseSpecified(const(CxxBaseSpecifier) v, ref Container container, in uint indent) @safe {
+auto analyzeCxxBaseSpecified(const(CxxBaseSpecifier) v, ref Container container, in uint indent) @safe {
     import clang.c.Index : CXCursorKind;
     import std.array : array;
     import std.algorithm : map;
@@ -495,7 +495,7 @@ auto analyzeCXXBaseSpecified(const(CxxBaseSpecifier) v, ref Container container,
         namespace = namespace[1 .. $];
     }
 
-    return CXXBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
+    return CxxBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
 }
 
 struct RecordResult {
@@ -571,7 +571,7 @@ final class ClassVisitor : Visitor {
 
         mixin(mixinNodeLog!());
 
-        auto result = analyzeCXXBaseSpecified(v, *container, indent);
+        auto result = analyzeCxxBaseSpecified(v, *container, indent);
         auto inherit = CppInherit(result.name, result.access);
         inherit.usr = result.canonicalUSR;
 
@@ -609,7 +609,7 @@ final class ClassVisitor : Visitor {
 
         mixin(mixinNodeLog!());
 
-        auto result = analyzeCXXMethod(v, *container, indent);
+        auto result = analyzeCxxMethod(v, *container, indent);
 
         if (result.isOperator) {
             auto op = CppMethodOp(result.type.kind.usr, result.name, result.params,

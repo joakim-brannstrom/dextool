@@ -1019,8 +1019,8 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         Constructor, Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier,
         generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
-        analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
-        analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
+        analyzeConstructor, analyzeDestructor, analyzeCxxMethod,
+        analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess,
         MemberVirtualType;
@@ -1097,7 +1097,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         mixin(mixinNodeLog!());
 
-        auto result = analyzeCXXBaseSpecified(v, *container, indent);
+        auto result = analyzeCxxBaseSpecified(v, *container, indent);
 
         debug {
             import std.algorithm : each;
@@ -1144,7 +1144,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
 
-        auto result = analyzeCXXMethod(v, *container, indent);
+        auto result = analyzeCxxMethod(v, *container, indent);
 
         classification = classifyClass(classification, MethodKind.Method,
                 cast(MemberVirtualType) result.virtualKind, hasMember);
@@ -1297,9 +1297,9 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
 
 private struct TransformToClassDiagram(ControllerT, LookupT) {
 @safe:
-    import cpptooling.analyzer.clang.analyze_helper : CXXMethodResult,
+    import cpptooling.analyzer.clang.analyze_helper : CxxMethodResult,
         ConstructorResult, DestructorResult, FieldDeclResult,
-        CXXBaseSpecifierResult;
+        CxxBaseSpecifierResult;
     import cpptooling.data.type : CppAccess;
     import cpptooling.data.type : CppNs;
 
@@ -1338,7 +1338,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only, retro;
@@ -1357,7 +1357,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     }
 
     /// Reconstruct the function signature as a UML comment.
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
         import std.range : chain, only;
@@ -1515,8 +1515,8 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.algorithm : map, copy, each, joiner;
     import std.range : chain;
 
-    import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        CXXMethodResult, ConstructorResult, DestructorResult, RecordResult,
+    import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
+        CxxMethodResult, ConstructorResult, DestructorResult, RecordResult,
         FieldDeclResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.data.symbol : Container;
@@ -1708,7 +1708,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         putParamsToCache(src, result.params, dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
         import std.range : only;
 
         putParamsToCache(src, result.params, dcache, lookup);
@@ -1728,7 +1728,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         putToCache(src.kind.usr, only(result.type), dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
         auto r0 = lookup.kind(result.canonicalUSR).map!(a => TypeKindAttr(a.get, TypeAttr.init));
 
         putToCache(src.kind.usr, r0, dcache, lookup);
@@ -1789,8 +1789,8 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
 class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
-    import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
+    import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
+        RecordResult, FieldDeclResult, CxxMethodResult, ConstructorResult,
         DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.data.symbol.types : USRType;
@@ -1826,12 +1826,12 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.put(result);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
         to_class.put(src, result);
         to_component.put(src, result);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
         to_class.put(src, result, access);
         to_component.put(src, result, access);
     }

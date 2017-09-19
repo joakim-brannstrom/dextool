@@ -307,8 +307,8 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         TypedefDecl, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
-        analyzeConstructor, analyzeDestructor, analyzeCXXMethod,
-        analyzeFieldDecl, analyzeCXXBaseSpecified, toAccessType;
+        analyzeConstructor, analyzeDestructor, analyzeCxxMethod,
+        analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
     import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess, CppDtor,
         CppCtor, CppMethod, CppClassName, MemberVirtualType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
@@ -444,7 +444,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(CxxBaseSpecifier) v) {
         mixin(mixinNodeLog!());
 
-        auto result = analyzeCXXBaseSpecified(v, *container, indent);
+        auto result = analyzeCxxBaseSpecified(v, *container, indent);
 
         recv.put(this_, result);
     }
@@ -491,7 +491,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.data : CppMethod, CppConstMethod;
 
-        auto result = analyzeCXXMethod(v, *container, indent);
+        auto result = analyzeCxxMethod(v, *container, indent);
         updateClassification(MethodKind.Method, cast(MemberVirtualType) result.virtualKind);
 
         auto method = CppMethod(result.type.kind.usr, result.name, result.params,
@@ -770,7 +770,7 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
-        auto result = analyzeCXXMethod(v, *container, indent);
+        auto result = analyzeCxxMethod(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
         extraTypes.put(result.type);
@@ -949,8 +949,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     import std.range : only;
     import std.typecons : NullableRef;
 
-    import cpptooling.analyzer.clang.analyze_helper : CXXBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CXXMethodResult, ConstructorResult,
+    import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
+        RecordResult, FieldDeclResult, CxxMethodResult, ConstructorResult,
         DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.data.type : USRType, LocationTag, Location, CppNs,
@@ -1277,7 +1277,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     }
 
     /// Create relations to the parameters of a method.
-    void put(ref const(TypeKindAttr) src, ref const(CXXMethodResult) result, in CppAccess access) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
         import std.algorithm : map, filter, joiner;
         import std.range : only, chain;
         import cpptooling.data : unpackParam;
@@ -1322,7 +1322,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     }
 
     /// Avoid code duplication by creating nodes via the node_cache.
-    void put(ref const(TypeKindAttr) src, ref const(CXXBaseSpecifierResult) result) {
+    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
         putToCache(NodeData(NodeData.Tag(NodeType(result.type))));
         // by definition it can never be a primitive type so no check needed.
         addEdge(streamed_edges, recv, src.kind.usr, result.canonicalUSR, EdgeKind.Generalization);
