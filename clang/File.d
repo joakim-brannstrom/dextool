@@ -15,7 +15,7 @@ module clang.File;
 
 import core.stdc.time;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Util;
 

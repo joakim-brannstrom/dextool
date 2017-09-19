@@ -12,7 +12,7 @@ module generate_clang_ast_nodes;
 
 import std.format : format;
 import std.stdio : File;
-import std.string : toLower;
+import std.string : toLower, toUpper;
 import std.typecons : Unique;
 
 import cpptooling.analyzer.clang.ast.nodes;
@@ -29,6 +29,7 @@ void main(string[] args) {
     generateNodeCode(DeclarationSeq, "Declaration");
     generateNodeCode(DirectiveSeq, "Directive");
     generateNodeCode(ExpressionSeq, "Expression");
+    generateNodeCode(ExtraSeq, "Extra");
     generateNodeCode(PreprocessorSeq, "Preprocessor");
     generateNodeCode(ReferenceSeq, "Reference");
     generateNodeCode(StatementSeq, "Statement");
@@ -44,9 +45,10 @@ void main(string[] args) {
                         SeqBase(DeclarationSeq, "Declaration"),
                         SeqBase(DirectiveSeq, "Directive"),
                         SeqBase(ExpressionSeq, "Expression"),
+                        SeqBase(ExtraSeq, "Extra"),
                         SeqBase(PreprocessorSeq, "Preprocessor"),
                         SeqBase(ReferenceSeq, "Reference"),
-                        SeqBase(StatementSeq, "Statement")
+                        SeqBase(StatementSeq, "Statement"),
                         );
     // dfmt on
 }
@@ -119,9 +121,8 @@ template generateNodeCtor() {
 string generateNodeClass(string kind, string base) {
     import std.format : format;
 
-    string k_str = kind[CXCursorKind_PrefixLen .. $];
     return format(q{
-final class %s : %s {%s%s}}, k_str, base,
+final class %s : %s {%s%s}}, makeNodeClassName(kind), base,
             generateNodeCtor!(), generateNodeAccept!());
 }
 
@@ -129,7 +130,7 @@ unittest {
     // @Name("Should be the mixin string of an AST node")
 
     // dfmt off
-    generateNodeClass("CXCursorKind.CXCursor_UnexposedDecl", "UtNode")
+    generateNodeClass("CXCursorKind.unexposedDecl", "UtNode")
         .splitter('\n')
         .map!(a => a.strip)
         .shouldEqualPretty(
@@ -166,8 +167,8 @@ unittest {
     // @Name("Should be the mixin string for many AST nodes")
 
     // dfmt off
-    generateNodes(["CXCursor_UnexposedDecl",
-            "CXCursor_StructDecl"], "UtNode")
+    generateNodes(["unexposedDecl",
+            "structDecl"], "UtNode")
         .splitter('\n')
         .map!(a => a.strip)
         .shouldEqualPretty(
@@ -246,20 +247,18 @@ abstract class Visitor {
 
 string generateVisit(string Base, immutable(string)[] E) {
     import std.format : format;
-    import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
 
     string result = format(q{
     void visit(const(%s)) {}
 }, Base);
 
     foreach (e; E) {
-        string e_str = e[CXCursorKind_PrefixLen .. $];
 
         result ~= format(q{
     void visit(const(%s) value) {
         visit(cast(const(%s)) value);
     }
-}, e_str, Base);
+}, makeNodeClassName(e), Base);
     }
 
     return result;
@@ -271,8 +270,8 @@ unittest {
     }
 
     // dfmt off
-    generateVisit("Declaration", ["CXCursor_UnexposedDecl",
-                   "CXCursor_UnionDecl"])
+    generateVisit("Declaration", ["unexposedDecl",
+                   "unionDecl"])
         .splitter('\n')
         .map!(a => a.strip)
         .array()

@@ -12,7 +12,7 @@ History:
 */
 module clang.Index;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 /** An "index" that consists of a set of translation units that would typically
  * be linked together into an executable or library.

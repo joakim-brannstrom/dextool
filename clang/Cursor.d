@@ -12,7 +12,7 @@
  */
 module clang.Cursor;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.File;
 import clang.SourceLocation;
@@ -499,8 +499,8 @@ import clang.Visitor;
         // implementation from DStep.
 
         //CXCursorKind kind = clang_getCursorKind(cx);
-        //return CXCursorKind.CXCursor_FirstPreprocessing <= kind &&
-        //    kind <= CXCursorKind.CXCursor_LastPreprocessing;
+        //return CXCursorKind.firstPreprocessing <= kind &&
+        //    kind <= CXCursorKind.lastPreprocessing;
     }
 
     /** Determine whether the given cursor represents a currently unexposed
@@ -590,7 +590,7 @@ struct ObjcCursor {
     }
 
     @property Cursor superClass() {
-        foreach (cursor, parent; TypedVisitor!(CXCursorKind.CXCursor_ObjCSuperClassRef)(cursor))
+        foreach (cursor, parent; TypedVisitor!(CXCursorKind.objCSuperClassRef)(cursor))
             return cursor;
 
         return Cursor.empty();
@@ -601,9 +601,9 @@ struct ObjcCursor {
     }
 
     @property Cursor category() {
-        assert(cursor.kind == CXCursorKind.CXCursor_ObjCCategoryDecl);
+        assert(cursor.kind == CXCursorKind.objCCategoryDecl);
 
-        foreach (c, _; TypedVisitor!(CXCursorKind.CXCursor_ObjCClassRef)(cursor))
+        foreach (c, _; TypedVisitor!(CXCursorKind.objCClassRef)(cursor))
             return c;
 
         assert(0, "This cursor does not have a class reference.");
@@ -754,16 +754,16 @@ struct EnumCursor {
             t = Type(cursor, clang_getCursorType(cx));
         }
 
-        with (CXTypeKind) switch (t.kind) {
-        case CXType_Char_U:
-        case CXType_UChar:
-        case CXType_Char16:
-        case CXType_Char32:
-        case CXType_UShort:
-        case CXType_UInt:
-        case CXType_ULong:
-        case CXType_ULongLong:
-        case CXType_UInt128:
+        switch (t.kind) with (CXTypeKind) {
+        case charU:
+        case uChar:
+        case char16:
+        case char32:
+        case uShort:
+        case uInt:
+        case uLong:
+        case uLongLong:
+        case uInt128:
             return false;
         default:
             return true;

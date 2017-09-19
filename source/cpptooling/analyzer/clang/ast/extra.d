@@ -10,10 +10,10 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.preprocessor;
+module cpptooling.analyzer.clang.ast.extra;
 import cpptooling.analyzer.clang.ast.node : Node;
 
-abstract class Preprocessor : Node {
+abstract class Extra : Node {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.ast : Visitor;
 
@@ -31,7 +31,7 @@ abstract class Preprocessor : Node {
 }
 
 
-final class PreprocessingDirective : Preprocessor {
+final class ModuleImportDecl : Extra {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
         super(cursor);
@@ -43,7 +43,7 @@ final class PreprocessingDirective : Preprocessor {
     }
 }
 
-final class MacroDefinition : Preprocessor {
+final class TypeAliasTemplateDecl : Extra {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
         super(cursor);
@@ -55,7 +55,7 @@ final class MacroDefinition : Preprocessor {
     }
 }
 
-final class MacroExpansion : Preprocessor {
+final class StaticAssert : Extra {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
         super(cursor);
@@ -67,7 +67,7 @@ final class MacroExpansion : Preprocessor {
     }
 }
 
-final class InclusionDirective : Preprocessor {
+final class FriendDecl : Extra {
     import clang.Cursor : Cursor;
     this(Cursor cursor) @safe {
         super(cursor);

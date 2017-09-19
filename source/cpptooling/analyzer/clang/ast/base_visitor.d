@@ -27,30 +27,29 @@ abstract class Visitor {
     void visit(const TranslationUnit) {
     }
 
-    void visit(const(Attribute)) {
-    }
+    void visit(const(Attribute)) {}
 
     void visit(const(UnexposedAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(IBActionAttr) value) {
+    void visit(const(IbActionAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(IBOutletAttr) value) {
+    void visit(const(IbOutletAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(IBOutletCollectionAttr) value) {
+    void visit(const(IbOutletCollectionAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CXXFinalAttr) value) {
+    void visit(const(CxxFinalAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CXXOverrideAttr) value) {
+    void visit(const(CxxOverrideAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
@@ -78,28 +77,39 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CUDAConstantAttr) value) {
+    void visit(const(CudaConstantAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CUDADeviceAttr) value) {
+    void visit(const(CudaDeviceAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CUDAGlobalAttr) value) {
+    void visit(const(CudaGlobalAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CUDAHostAttr) value) {
+    void visit(const(CudaHostAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(CUDASharedAttr) value) {
+    void visit(const(CudaSharedAttr) value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(Declaration)) {
+    void visit(const(VisibilityAttr) value) {
+        visit(cast(const(Attribute)) value);
     }
+
+    void visit(const(DllExport) value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(const(DllImport) value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(const(Declaration)) {}
 
     void visit(const(UnexposedDecl) value) {
         visit(cast(const(Declaration)) value);
@@ -181,7 +191,7 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(const(CXXMethod) value) {
+    void visit(const(CxxMethod) value) {
         visit(cast(const(Declaration)) value);
     }
 
@@ -249,115 +259,201 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(const(CXXAccessSpecifier) value) {
+    void visit(const(CxxAccessSpecifier) value) {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(const(Directive)) {
-    }
+    void visit(const(Directive)) {}
 
-    void visit(const(OMPParallelDirective) value) {
+    void visit(const(OmpParallelDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPSimdDirective) value) {
+    void visit(const(OmpSimdDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPForDirective) value) {
+    void visit(const(OmpForDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPSectionsDirective) value) {
+    void visit(const(OmpSectionsDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPSectionDirective) value) {
+    void visit(const(OmpSectionDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPSingleDirective) value) {
+    void visit(const(OmpSingleDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPParallelForDirective) value) {
+    void visit(const(OmpParallelForDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPParallelSectionsDirective) value) {
+    void visit(const(OmpParallelSectionsDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTaskDirective) value) {
+    void visit(const(OmpTaskDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPMasterDirective) value) {
+    void visit(const(OmpMasterDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPCriticalDirective) value) {
+    void visit(const(OmpCriticalDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTaskyieldDirective) value) {
+    void visit(const(OmpTaskyieldDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPBarrierDirective) value) {
+    void visit(const(OmpBarrierDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTaskwaitDirective) value) {
+    void visit(const(OmpTaskwaitDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPFlushDirective) value) {
+    void visit(const(OmpFlushDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(SEHLeaveStmt) value) {
+    void visit(const(OmpOrderedDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPOrderedDirective) value) {
+    void visit(const(OmpAtomicDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPAtomicDirective) value) {
+    void visit(const(OmpForSimdDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPForSimdDirective) value) {
+    void visit(const(OmpParallelForSimdDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPParallelForSimdDirective) value) {
+    void visit(const(OmpTargetDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTargetDirective) value) {
+    void visit(const(OmpTeamsDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTeamsDirective) value) {
+    void visit(const(OmpTaskgroupDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPTaskgroupDirective) value) {
+    void visit(const(OmpCancellationPointDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPCancellationPointDirective) value) {
+    void visit(const(OmpCancelDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(OMPCancelDirective) value) {
+    void visit(const(OmpTargetDataDirective) value) {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(Expression)) {
+    void visit(const(OmpTaskLoopDirective) value) {
+        visit(cast(const(Directive)) value);
     }
+
+    void visit(const(OmpTaskLoopSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpDistributeDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetEnterDataDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetExitDataDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetParallelDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetParallelForDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetUpdateDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpDistributeParallelForDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpDistributeParallelForSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpDistributeSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetParallelForSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTeamsDistributeDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTeamsDistributeSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTeamsDistributeParallelForSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTeamsDistributeParallelForDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetTeamsDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetTeamsDistributeDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetTeamsDistributeParallelForDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetTeamsDistributeParallelForSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(OmpTargetTeamsDistributeSimdDirective) value) {
+        visit(cast(const(Directive)) value);
+    }
+
+    void visit(const(Expression)) {}
 
     void visit(const(UnexposedExpr) value) {
         visit(cast(const(Expression)) value);
@@ -451,55 +547,55 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(GNUNullExpr) value) {
+    void visit(const(GnuNullExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXStaticCastExpr) value) {
+    void visit(const(CxxStaticCastExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXDynamicCastExpr) value) {
+    void visit(const(CxxDynamicCastExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXReinterpretCastExpr) value) {
+    void visit(const(CxxReinterpretCastExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXConstCastExpr) value) {
+    void visit(const(CxxConstCastExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXFunctionalCastExpr) value) {
+    void visit(const(CxxFunctionalCastExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXTypeidExpr) value) {
+    void visit(const(CxxTypeidExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXBoolLiteralExpr) value) {
+    void visit(const(CxxBoolLiteralExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXNullPtrLiteralExpr) value) {
+    void visit(const(CxxNullPtrLiteralExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXThisExpr) value) {
+    void visit(const(CxxThisExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXThrowExpr) value) {
+    void visit(const(CxxThrowExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXNewExpr) value) {
+    void visit(const(CxxNewExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(CXXDeleteExpr) value) {
+    void visit(const(CxxDeleteExpr) value) {
         visit(cast(const(Expression)) value);
     }
 
@@ -547,8 +643,33 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(Preprocessor)) {
+    void visit(const(OmpArraySectionExpr) value) {
+        visit(cast(const(Expression)) value);
     }
+
+    void visit(const(ObjCAvailabilityCheckExpr) value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(const(Extra)) {}
+
+    void visit(const(ModuleImportDecl) value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(const(TypeAliasTemplateDecl) value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(const(StaticAssert) value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(const(FriendDecl) value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(const(Preprocessor)) {}
 
     void visit(const(PreprocessingDirective) value) {
         visit(cast(const(Preprocessor)) value);
@@ -566,8 +687,7 @@ abstract class Visitor {
         visit(cast(const(Preprocessor)) value);
     }
 
-    void visit(const(Reference)) {
-    }
+    void visit(const(Reference)) {}
 
     void visit(const(ObjCSuperClassRef) value) {
         visit(cast(const(Reference)) value);
@@ -585,7 +705,7 @@ abstract class Visitor {
         visit(cast(const(Reference)) value);
     }
 
-    void visit(const(CXXBaseSpecifier) value) {
+    void visit(const(CxxBaseSpecifier) value) {
         visit(cast(const(Reference)) value);
     }
 
@@ -613,8 +733,7 @@ abstract class Visitor {
         visit(cast(const(Reference)) value);
     }
 
-    void visit(const(Statement)) {
-    }
+    void visit(const(Statement)) {}
 
     void visit(const(UnexposedStmt) value) {
         visit(cast(const(Statement)) value);
@@ -708,31 +827,31 @@ abstract class Visitor {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(CXXCatchStmt) value) {
+    void visit(const(CxxCatchStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(CXXTryStmt) value) {
+    void visit(const(CxxTryStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(CXXForRangeStmt) value) {
+    void visit(const(CxxForRangeStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(SEHTryStmt) value) {
+    void visit(const(SehTryStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(SEHExceptStmt) value) {
+    void visit(const(SehExceptStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(SEHFinallyStmt) value) {
+    void visit(const(SehFinallyStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(MSAsmStmt) value) {
+    void visit(const(MsAsmStmt) value) {
         visit(cast(const(Statement)) value);
     }
 
@@ -741,6 +860,10 @@ abstract class Visitor {
     }
 
     void visit(const(DeclStmt) value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(const(SehLeaveStmt) value) {
         visit(cast(const(Statement)) value);
     }
 

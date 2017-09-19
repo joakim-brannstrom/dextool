@@ -9,7 +9,7 @@ module clang.TranslationUnit;
 
 import std.string;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Cursor;
 import clang.Diagnostic;
@@ -43,9 +43,9 @@ struct TranslationUnit {
      * Trusted: on the assumption that clang_parseTranslationUnit is
      * implemented by the LLVM team.
      */
-    static TranslationUnit parse(ref Index index, string sourceFilename,
-            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @trusted {
+    static TranslationUnit parse(ref Index index, string sourceFilename, string[] commandLineArgs,
+            CXUnsavedFile[] unsavedFiles = null,
+            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @trusted {
 
         // dfmt off
         // Trusted: on the assumption that the LLVM team are competent. That
@@ -72,9 +72,9 @@ struct TranslationUnit {
      * Trusted: on the assumption that
      * clang.TranslationUnit.TranslationUnit.~this is correctly implemented.
      */
-    static TranslationUnit parseString(ref Index index, string source,
-            string[] commandLineArgs, CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @trusted {
+    static TranslationUnit parseString(ref Index index, string source, string[] commandLineArgs,
+            CXUnsavedFile[] unsavedFiles = null,
+            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @trusted {
         import std.string : toStringz;
 
         string path = randomSourceFileName;
@@ -197,7 +197,7 @@ struct TranslationUnit {
         SourceLocation[] locations = [location("", 0), location(file.name, 0)];
 
         foreach (idx, cursor; cursors) {
-            if (cursor.kind == CXCursorKind.CXCursor_InclusionDirective) {
+            if (cursor.kind == CXCursorKind.inclusionDirective) {
                 auto path = cursor.location.spelling.file.name;
                 auto ptr = path in stacked;
 

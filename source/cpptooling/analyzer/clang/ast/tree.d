@@ -13,18 +13,19 @@ import logger = std.experimental.logger;
 
 import clang.Cursor : Cursor;
 
-import deimos.clang.index : CXCursorKind;
+import clang.c.Index : CXCursorKind;
 
 import cpptooling.analyzer.clang.ast.attribute;
 import cpptooling.analyzer.clang.ast.declaration;
 import cpptooling.analyzer.clang.ast.directive;
 import cpptooling.analyzer.clang.ast.expression;
+import cpptooling.analyzer.clang.ast.extra;
 import cpptooling.analyzer.clang.ast.preprocessor;
 import cpptooling.analyzer.clang.ast.reference;
 import cpptooling.analyzer.clang.ast.statement;
 import cpptooling.analyzer.clang.ast.translationunit;
 
-import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
+import cpptooling.analyzer.clang.ast.nodes : makeNodeClassName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue;
@@ -121,6 +122,7 @@ void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
         mixin(wrapCursor!(visitor, cursor)(DeclarationSeq));
         mixin(wrapCursor!(visitor, cursor)(DirectiveSeq));
         mixin(wrapCursor!(visitor, cursor)(ExpressionSeq));
+        mixin(wrapCursor!(visitor, cursor)(ExtraSeq));
         mixin(wrapCursor!(visitor, cursor)(PreprocessorSeq));
         mixin(wrapCursor!(visitor, cursor)(ReferenceSeq));
         mixin(wrapCursor!(visitor, cursor)(StatementSeq));
@@ -134,7 +136,6 @@ void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
 private:
 
 string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
-    import cpptooling.analyzer.clang.ast.nodes : CXCursorKind_PrefixLen;
     import std.format : format;
 
     static if (is(typeof(visitor) : T[], T)) {
@@ -148,9 +149,8 @@ string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     string result;
 
     foreach (case_; cases) {
-        string case_skip = case_[CXCursorKind_PrefixLen .. $];
         result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s break;\n",
-                case_, case_skip, cursor.stringof, visit);
+                case_, makeNodeClassName(case_), cursor.stringof, visit);
     }
 
     return result;
@@ -202,6 +202,11 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
             expression = true;
         }
 
+        bool extra;
+        override void visit(const(Extra)) {
+            extra = true;
+        }
+
         bool preprocessor;
         override void visit(const(Preprocessor)) {
             preprocessor = true;
@@ -228,16 +233,17 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
     Cursor cursor;
 
     foreach (kind; [__traits(getMember, CXCursorKind, AttributeSeq[0]), __traits(getMember,
-            CXCursorKind, DeclarationSeq[0]), __traits(getMember, CXCursorKind,
-            DirectiveSeq[0]), __traits(getMember, CXCursorKind,
-            ExpressionSeq[0]), __traits(getMember, CXCursorKind, PreprocessorSeq[0]), __traits(getMember, CXCursorKind,
-            ReferenceSeq[0]), __traits(getMember, CXCursorKind, StatementSeq[0]),
-            __traits(getMember, CXCursorKind, TranslationUnitSeq[0])]) {
+            CXCursorKind, DeclarationSeq[0]), __traits(getMember, CXCursorKind, DirectiveSeq[0]), __traits(getMember,
+            CXCursorKind, ExpressionSeq[0]), __traits(getMember, CXCursorKind,
+            ExtraSeq[0]), __traits(getMember, CXCursorKind,
+            PreprocessorSeq[0]), __traits(getMember, CXCursorKind, ReferenceSeq[0]), __traits(getMember, CXCursorKind,
+            StatementSeq[0]), __traits(getMember, CXCursorKind, TranslationUnitSeq[0])]) {
         switch (kind) {
             mixin(wrapCursor!(test, cursor)(AttributeSeq));
             mixin(wrapCursor!(test, cursor)(DeclarationSeq));
             mixin(wrapCursor!(test, cursor)(DirectiveSeq));
             mixin(wrapCursor!(test, cursor)(ExpressionSeq));
+            mixin(wrapCursor!(test, cursor)(ExtraSeq));
             mixin(wrapCursor!(test, cursor)(PreprocessorSeq));
             mixin(wrapCursor!(test, cursor)(ReferenceSeq));
             mixin(wrapCursor!(test, cursor)(StatementSeq));
@@ -251,6 +257,7 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
     test.declaration.shouldBeTrue;
     test.directive.shouldBeTrue;
     test.expression.shouldBeTrue;
+    test.extra.shouldBeTrue;
     test.preprocessor.shouldBeTrue;
     test.reference.shouldBeTrue;
     test.statement.shouldBeTrue;

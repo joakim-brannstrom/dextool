@@ -15,7 +15,7 @@ import std.typecons : Nullable;
 import std.algorithm : until, filter;
 
 import clang.Cursor : Cursor;
-import deimos.clang.index;
+import clang.c.Index;
 
 import cpptooling.analyzer.clang.cursor_visitor;
 import dextool.type : FileName;
@@ -35,8 +35,7 @@ FileName[] extractIncludes(Cursor root, int depth = 2) {
 
     auto r = appender!(FileName[])();
 
-    foreach (c; root.visitBreathFirst.filter!(
-            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
+    foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
         r.put(FileName(c.spelling));
     }
 
@@ -53,8 +52,7 @@ FileName[] extractIncludes(Cursor root, int depth = 2) {
 Nullable!FileName hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
     Nullable!FileName r;
 
-    foreach (c; root.visitBreathFirst.filter!(
-            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
+    foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
         if (matcher(c.spelling)) {
             r = FileName(c.include.file.name);
             break;

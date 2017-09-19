@@ -6,7 +6,7 @@
  */
 module clang.Util;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import std.conv;
 import std.stdio;

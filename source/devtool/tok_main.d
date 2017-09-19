@@ -11,7 +11,7 @@ import std.string;
 import std.typecons : Yes;
 import logger = std.experimental.logger;
 
-import deimos.clang.index;
+import clang.c.Index;
 
 import clang.Util;
 
@@ -23,15 +23,15 @@ void showClangVersion() {
 void showAllTokens(ref CXTranslationUnit tu, CXToken* tokens, uint numTokens) {
     static auto _getTokenKindSpelling(CXTokenKind kind) {
         with (CXTokenKind) switch (kind) {
-        case CXToken_Punctuation:
+        case punctuation:
             return "Punctuation";
-        case CXToken_Keyword:
+        case keyword:
             return "Keyword";
-        case CXToken_Identifier:
+        case identifier:
             return "Identifier";
-        case CXToken_Literal:
+        case literal:
             return "Literal";
-        case CXToken_Comment:
+        case comment:
             return "Comment";
         default:
             return "Unknown";
@@ -141,8 +141,7 @@ int dumpIncludes(string filename, string[] flags) {
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto tu = ctx.makeTranslationUnit(filename, flags);
 
-    foreach (c; tu.cursor.visitBreathFirst.filter!(
-            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
+    foreach (c; tu.cursor.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
         writefln(`#include "%s"%s  %s`, c.spelling, newline, c.include.file);
     }
 
@@ -190,11 +189,11 @@ int dumpBody(string fname, string[] flags) {
             auto c_func = v.cursor.referenced;
             logger.tracef("ref:'%s' kind:%s", c_func.spelling, c_func.kind.to!string());
 
-            if (c_func.kind == CXCursorKind.CXCursor_FunctionDecl) {
+            if (c_func.kind == CXCursorKind.functionDecl) {
                 auto result = analyzeFunctionDecl(c_func, container, indent);
                 () @trusted{ logger.trace("result: ", result); }();
-            } else if (c_func.kind == CXCursorKind.CXCursor_CXXMethod) {
-                auto result = analyzeCXXMethod(c_func, container, indent);
+            } else if (c_func.kind == CXCursorKind.cxxMethod) {
+                auto result = analyzeCxxMethod(c_func, container, indent);
                 () @trusted{ logger.trace("result: ", result); }();
             } else {
                 logger.trace("unknown callexpr: ", c_func.kind.to!string());
@@ -251,7 +250,7 @@ int dumpBody(string fname, string[] flags) {
             v.accept(visitor);
         }
 
-        override void visit(const(CXXMethod) v) @trusted {
+        override void visit(const(CxxMethod) v) @trusted {
             mixin(mixinNodeLog!());
 
             auto visitor = scoped!(BodyVisitor)(container);
