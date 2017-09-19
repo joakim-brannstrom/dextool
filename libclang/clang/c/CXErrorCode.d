@@ -11,7 +11,7 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module deimos.clang.cxerrorcode;
+module clang.c.CXErrorCode;
 
 extern (C):
 
@@ -21,33 +21,34 @@ extern (C):
  * Zero (\c CXError_Success) is the only error code indicating success.  Other
  * error codes, including not yet assigned non-zero values, indicate errors.
  */
-enum CXErrorCode {
-  /**
-   * \brief No error.
-   */
-  CXError_Success = 0,
+enum CXErrorCode
+{
+    /**
+     * \brief No error.
+     */
+    success = 0,
 
-  /**
-   * \brief A generic error code, no further details are available.
-   *
-   * Errors of this kind can get their own specific error codes in future
-   * libclang versions.
-   */
-  CXError_Failure = 1,
+    /**
+     * \brief A generic error code, no further details are available.
+     *
+     * Errors of this kind can get their own specific error codes in future
+     * libclang versions.
+     */
+    failure = 1,
 
-  /**
-   * \brief libclang crashed while performing the requested operation.
-   */
-  CXError_Crashed = 2,
+    /**
+     * \brief libclang crashed while performing the requested operation.
+     */
+    crashed = 2,
 
-  /**
-   * \brief The function detected that the arguments violate the function
-   * contract.
-   */
-  CXError_InvalidArguments = 3,
+    /**
+     * \brief The function detected that the arguments violate the function
+     * contract.
+     */
+    invalidArguments = 3,
 
-  /**
-   * \brief An AST deserialization error has occurred.
-   */
-  CXError_ASTReadError = 4
+    /**
+     * \brief An AST deserialization error has occurred.
+     */
+    astReadError = 4
 }
