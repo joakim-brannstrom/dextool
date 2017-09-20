@@ -23,7 +23,7 @@ auto makeDextool(const ref TestEnv env) {
 }
 
 auto makeCompile(const ref TestEnv env, Path srcdir) {
-    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
+    return dextool_test.makeCompile(env, "g++").addInclude(srcdir)
         .addArg(testData ~ "main1.cpp").outputToDefaultBinary;
 }
 
@@ -263,17 +263,18 @@ unittest {
 @(testId ~ "Should load compiler settings from compilation database")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file_main.c", testEnv);
-
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
-        .toString, "--file-restrict=.*/single_file.h"];
-
-    p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
-    p.compileFlags ~= "-DDEXTOOL_TEST";
-
-    p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "compile_db/single_file_main.c")
+        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
+        .addArg("--file-restrict=.*/single_file.h")
+        .run;
+    dextool_test.makeCompile(testEnv, "g++")
+        .outputToDefaultBinary
+        .addInclude(testData ~ "compile_db/dir1")
+        .addDefine("DEXTOOL_TEST")
+        .addArg(testData ~ "compile_db/single_file_main.cpp")
+        .run;
+    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
 }
 
 @(testId ~ "Should fail with an error message when file not found in the compilation database")
@@ -292,13 +293,13 @@ unittest {
 @(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
 @(Values(["compile_db/dir1/single_file.h", "use_file"], ["compile_db/single_file.h", "fallback"]))
 unittest {
-    mixin(envSetup(globalTestdir));
+    mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue!(string[])[1]);
-    testEnv.cleanOutdir;
+    testEnv.setupEnv;
 
     auto r = makeDextool(testEnv)
         .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .addInputArg(getValue!(string[])[0])
+        .addInputArg(testData ~ getValue!(string[])[0])
         .run;
 
     r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
@@ -358,15 +359,17 @@ unittest {
 @(testId ~ "Should exclude both main input file and all symbols from b*")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_exclude_match_all.h", testEnv);
-    p.dexParams ~= ["--file-exclude=.*/param_exclude_match_all.*",
-        `--file-exclude='.*/include/b\.c'`];
-    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_exclude_match_all.h")
+        .addArg(["--file-exclude", ".*/param_exclude_match_all.*"])
+        .addArg(["--file-exclude", `.*/include/b\.c`])
+        .addIncludeFlag(testData ~ "stage_2/include")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addInclude(testData ~ "stage_2/include")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
 }
 
 @(testId ~ "Should exclude this file from generation.")
@@ -417,15 +420,22 @@ unittest {
 @(testId ~ "Should only be signatures from this file and b.h in the generated stub")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_restrict.h", testEnv);
-    p.dexParams ~= ["--file-restrict=.*/" ~ p.input_ext.baseName.toString,
-        "--file-restrict=.*/include/b.h"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_restrict.h")
+        .addArg(["--file-restrict", ".*/param_restrict.h"])
+        .addArg(["--file-restrict", ".*/include/b.h"])
+        .addIncludeFlag(testData ~ "stage_2/include")
+        .addDefineFlag("TEST_INCLUDE")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "stage_2/param_restrict.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "stage_2/param_restrict.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addInclude(testData ~ "stage_2/include")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
 }
 
 @(
@@ -520,21 +530,21 @@ unittest {
 @Values(["yes", ""], ["no", "--no-zeroglobals"])
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    // don't overwrite the test result for the different tests
     testEnv.outputSuffix(getValue!(string[])[0]);
     testEnv.setupEnv;
-    auto p = genTestParams("stage_2/param_no_zeroglobals.h", testEnv);
 
-    p.dexParams ~= getValue!(string[])[1];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    if (getValue!(string[])[1].length == 0) {
-        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_yes";
-    } else {
-        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_no";
-    }
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_no_zeroglobals.h")
+        .addArg(getValue!(string[])[1])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".hpp.ref"), "test_double.hpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".cpp.ref"), "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
 }
 
 @(testId ~ "Configuration data read from a file")
