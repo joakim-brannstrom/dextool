@@ -19,13 +19,16 @@ immutable defaultBinary = "./binary";
 /** Construct an execution of a compiler.
  */
 auto makeCompile(const ref TestEnv testEnv, string compiler) {
-    return BuildCommandRun(compiler, testEnv.outdir.escapePath).addArg("-g")
-        .addArg("-I" ~ testEnv.outdir.escapePath);
+    // dfmt off
+    return BuildCommandRun(compiler, testEnv.outdir.escapePath)
+        .addArg("-g")
+        .addInclude(testEnv.outdir.escapePath);
+    // dfmt on
 }
 
 /// Use in conjunction with makeCompile to setup the default binary destination.
 auto outputToDefaultBinary(BuildCommandRun br) {
-    return br.addArg("-o" ~ (br.outdir ~ defaultBinary).escapePath);
+    return br.addArg(["-o", (br.outdir ~ defaultBinary).escapePath]);
 }
 
 /** Add recursively all files in outdir with extension ext (including dot)
@@ -46,15 +49,29 @@ auto addFilesFromOutdirWithExtension(BuildCommandRun br, string ext, string[] ex
     return br;
 }
 
-/// Add parameters to link and use gmock/gtest
+/// Add parameters to link and use gmock/gtest.
 auto addGtestArgs(BuildCommandRun br) {
     // dfmt off
     return br
-        .addArg("-Ifused_gmock")
+        .addInclude("fused_gmock")
         .addArg("-L.")
         .addArg("-lgmock_gtest")
         .addArg("-lpthread");
     // dfmt on
+}
+
+/// Add the parameter as an include (-I).
+auto addInclude(BuildCommandRun br, Path p) {
+    return br.addArg(["-I", p.toString]);
+}
+
+auto addInclude(BuildCommandRun br, string p) {
+    return br.addArg(["-I", p]);
+}
+
+/// Add the parameter as a define (-D).
+auto addDefine(BuildCommandRun br, string v) {
+    return br.addArg(["-D", v]);
 }
 
 string[] compilerFlags() {

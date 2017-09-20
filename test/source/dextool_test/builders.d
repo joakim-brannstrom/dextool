@@ -58,23 +58,33 @@ struct BuildDextoolRun {
         return this;
     }
 
+    auto addDefineFlag(string v) {
+        this.flags_ ~= ["-D", v];
+        return this;
+    }
+
+    auto addIncludeFlag(string v) {
+        this.flags_ ~= ["-I", v];
+        return this;
+    }
+
+    auto addIncludeFlag(Path v) {
+        this.flags_ ~= ["-I", v.toString];
+        return this;
+    }
+
     auto args(string[] v) {
         this.args_ = v;
         return this;
     }
 
-    auto addArg(string v) {
+    auto addArg(T)(T v) {
         this.args_ ~= v;
         return this;
     }
 
     auto addArg(Path v) {
         this.args_ ~= v.escapePath;
-        return this;
-    }
-
-    auto addArg(string[] v) {
-        this.args_ ~= v;
         return this;
     }
 

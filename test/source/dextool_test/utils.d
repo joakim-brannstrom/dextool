@@ -132,6 +132,15 @@ struct TestEnv {
         this.outdir_ = outdir__;
     }
 
+    /** Setup the test environment
+     *
+     * Example of using the outputSuffix.
+     * ---
+     * mixin(envSetup(globalTestdir, No.setupEnv));
+     * testEnv.outputSuffix("foo");
+     * testEnv.setupEnv;
+     * ---
+     */
     void outputSuffix(string suffix) {
         this.outdir_suffix = suffix;
     }
