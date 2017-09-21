@@ -21,6 +21,7 @@ immutable defaultBinary = "./binary";
 auto makeCompile(const ref TestEnv testEnv, string compiler) {
     // dfmt off
     return BuildCommandRun(compiler, testEnv.outdir.escapePath)
+        .commandInOutdir(false)
         .addArg("-g")
         .addInclude(testEnv.outdir.escapePath);
     // dfmt on
@@ -77,8 +78,8 @@ auto addDefine(BuildCommandRun br, string v) {
 string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
-    auto r = BuildCommandRun("g++", "./").addArg("-dumpversion")
-        .yapOutput(false).throwOnExitStatus(false).run;
+    auto r = BuildCommandRun("g++").addArg("-dumpversion").yapOutput(false)
+        .throwOnExitStatus(false).run;
 
     if (!r.success)
         return default_flags;

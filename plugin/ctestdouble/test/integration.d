@@ -274,7 +274,7 @@ unittest {
         .addDefine("DEXTOOL_TEST")
         .addArg(testData ~ "compile_db/single_file_main.cpp")
         .run;
-    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Should fail with an error message when file not found in the compilation database")
@@ -369,7 +369,7 @@ unittest {
         .addInclude(testData ~ "stage_2/include")
         .addDefine("TEST_INCLUDE")
         .run;
-    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Should exclude this file from generation.")
@@ -435,7 +435,7 @@ unittest {
         .addInclude(testData ~ "stage_2/include")
         .addDefine("TEST_INCLUDE")
         .run;
-    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(
@@ -544,7 +544,7 @@ unittest {
     makeCompile(testEnv, testData ~ "stage_2")
         .addDefine("TEST_INCLUDE")
         .run;
-    makeCommand(testEnv, defaultBinary).chdirToOutdir.run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Configuration data read from a file")
@@ -558,9 +558,7 @@ unittest {
     makeCompile(testEnv, testData ~ "stage_2")
         .addArg("-DTEST_INCLUDE")
         .run;
-    makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
-        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Only generate test doubles for those functions matching the symbol filter (restrict)")
@@ -641,9 +639,7 @@ unittest {
         .addGtestArgs
         .outputToDefaultBinary
         .run;
-    makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
-        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Test double of free functions shall be connected to the gmock instance")
@@ -661,7 +657,6 @@ unittest {
         .outputToDefaultBinary
         .run;
     makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
         .run;
 }
 

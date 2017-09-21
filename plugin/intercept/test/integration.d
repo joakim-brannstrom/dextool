@@ -56,7 +56,7 @@ unittest {
         .addArg("-o" ~ (testEnv.outdir ~ "orig.o").toString)
         .run;
 
-    makeCommand(testEnv, "ar")
+    makeCommand("ar")
         .addArg("-r")
         .addArg(orig_lib)
         .addArg(testEnv.outdir ~ "orig.o")
@@ -69,7 +69,7 @@ unittest {
         .run;
 
     // use the generated script to generate the new lib with rename sym
-    makeCommand(testEnv, "bash")
+    makeCommand("bash")
         .addArg(testEnv.outdir ~ "intercept.sh")
         .addArg(orig_lib)
         .addArg(replace_lib)

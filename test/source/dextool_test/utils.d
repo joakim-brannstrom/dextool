@@ -510,6 +510,12 @@ auto makeDextool(const ref TestEnv testEnv) {
 
 /** Construct an execution of a command.
  */
+auto makeCommand(string command) {
+    return BuildCommandRun(command);
+}
+
+/** Construct an execution of a command.
+ */
 auto makeCommand(const ref TestEnv testEnv, string command) {
     return BuildCommandRun(command, testEnv.outdir.escapePath);
 }
