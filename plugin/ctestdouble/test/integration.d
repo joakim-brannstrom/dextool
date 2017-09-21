@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module dextool_test.integration;
 
+import std.typecons : No;
+
 import dextool_test.utility;
 
 // dfmt makes it hard to read the test cases.

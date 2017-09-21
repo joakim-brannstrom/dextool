@@ -12,8 +12,9 @@ int main(string[] args) {
     writeln(`Running integration suite`);
     // dfmt off
     return args.runTests!(
+                          "dextool_test.compilation_database_integration",
                           "dextool_test.integration",
-                          "dextool_test.compilation_database_integration"
+                          "dextool_test.xml_files",
                           );
     // dfmt on
 }

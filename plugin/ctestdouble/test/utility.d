@@ -112,3 +112,11 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
         runAndLog(p.binary).status.shouldEqual(0);
     }
 }
+
+auto readXmlLog(const ref TestEnv testEnv) {
+    // dfmt off
+    return std.file.readText((testEnv.outdir ~ xmlLog).toString)
+        .splitLines
+        .array();
+    // dfmt on
+}

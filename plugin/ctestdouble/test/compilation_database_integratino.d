@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.compilation_database_integration;
 
+import std.typecons : No;
+
 import dextool_test.utility;
 
 // dfmt off

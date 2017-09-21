@@ -8,6 +8,7 @@ module dextool_test.config;
 import scriptlike : Path, absolutePath;
 
 enum globalTestdir = "c_tests";
+enum xmlLog = "test_double_log.xml";
 
 auto testData() {
     return Path("testdata/cstub").absolutePath;
