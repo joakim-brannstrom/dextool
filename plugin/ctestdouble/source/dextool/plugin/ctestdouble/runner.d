@@ -16,6 +16,7 @@ auto runPlugin(string[] args) {
     import dextool.type;
     import dextool.utility;
     import dextool.plugin.ctestdouble.frontend.ctestdouble;
+    import dextool.plugin.ctestdouble.frontend.xml : makeXmlConfig, makeXmlLog;
 
     RawConfiguration pargs;
     pargs.parse(args);
