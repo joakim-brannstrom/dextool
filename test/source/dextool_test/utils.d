@@ -329,6 +329,7 @@ deprecated("to be removed") bool stdoutContains(const string txt) {
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
+/// Check if a log contains the fragment txt.
 bool sliceContains(const string[] log, const string txt) {
     import std.string : indexOf;
 
