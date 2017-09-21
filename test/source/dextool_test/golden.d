@@ -83,7 +83,7 @@ struct BuildCompare {
  * The purpose is to limit the amount of text that is dumped.
  * The reasoning is that it is better to give more than one line as feedback.
  */
-private CompareResult compare(in Path gold, in Path result,
+private CompareResult compare(const Path gold, const Path result,
         Flag!"sortLines" sortLines, Flag!"skipComments" skipComments) {
     import std.format : format;
     import std.stdio : File;
@@ -167,7 +167,7 @@ struct CompareResult {
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
-        formattedWrite(w, "status: %s", status);
+        formattedWrite(w, "status: %s\n", status);
 
         if (errorMsg.length) {
             put(w, errorMsg);

@@ -10,5 +10,11 @@ int main(string[] args) {
     import std.stdio;
 
     writeln(`Running integration suite`);
-    return args.runTests!("dextool_test.integration");
+    // dfmt off
+    return args.runTests!(
+                          "dextool_test.compilation_database_integration",
+                          "dextool_test.integration",
+                          "dextool_test.xml_files",
+                          );
+    // dfmt on
 }

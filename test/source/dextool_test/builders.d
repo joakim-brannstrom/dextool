@@ -58,23 +58,33 @@ struct BuildDextoolRun {
         return this;
     }
 
+    auto addDefineFlag(string v) {
+        this.flags_ ~= ["-D", v];
+        return this;
+    }
+
+    auto addIncludeFlag(string v) {
+        this.flags_ ~= ["-I", v];
+        return this;
+    }
+
+    auto addIncludeFlag(Path v) {
+        this.flags_ ~= ["-I", v.toString];
+        return this;
+    }
+
     auto args(string[] v) {
         this.args_ = v;
         return this;
     }
 
-    auto addArg(string v) {
+    auto addArg(T)(T v) {
         this.args_ ~= v;
         return this;
     }
 
     auto addArg(Path v) {
         this.args_ ~= v.escapePath;
-        return this;
-    }
-
-    auto addArg(string[] v) {
-        this.args_ ~= v;
         return this;
     }
 
@@ -182,7 +192,7 @@ struct BuildCommandRun {
         string outdir_;
         string[] args_;
 
-        bool chdir_to_outdir;
+        bool run_in_outdir;
 
         /// if the output from running the command should be yapped via scriptlike
         bool yap_output = true;
@@ -191,17 +201,29 @@ struct BuildCommandRun {
         bool throw_on_exit_status = true;
     }
 
+    this(string command) {
+        this.command = command;
+        run_in_outdir = false;
+    }
+
     this(string command, string outdir) {
         this.command = command;
         this.outdir_ = outdir;
+        run_in_outdir = true;
     }
 
     Path outdir() {
         return Path(outdir_);
     }
 
-    auto chdirToOutdir() {
-        chdir_to_outdir = true;
+    auto setOutdir(Path v) {
+        outdir_ = v.toString;
+        return this;
+    }
+
+    /// If the command to run is in outdir.
+    auto commandInOutdir(bool v) {
+        run_in_outdir = v;
         return this;
     }
 
@@ -241,8 +263,13 @@ struct BuildCommandRun {
     }
 
     auto run() {
+        import std.path : buildPath;
+
         string[] cmd;
-        cmd ~= command;
+        if (run_in_outdir)
+            cmd ~= buildPath(outdir.toString, command);
+        else
+            cmd ~= command;
         cmd ~= args_.dup;
 
         import std.datetime;
@@ -252,14 +279,6 @@ struct BuildCommandRun {
         exit_.status = -1;
         Appender!(string[]) stdout_;
         Appender!(string[]) stderr_;
-
-        immutable root = std.file.getcwd;
-        if (chdir_to_outdir) {
-            stdout_.put("cd " ~ outdir.toString);
-            std.file.chdir(outdir.toString);
-        }
-        scope (exit)
-            std.file.chdir(root);
 
         sw.start;
         try {
@@ -276,7 +295,7 @@ struct BuildCommandRun {
 
                 if (exit_.terminated)
                     break;
-                core.thread.Thread.sleep(20.msecs);
+                core.thread.Thread.sleep(10.msecs);
             }
 
             sw.stop;

@@ -5,118 +5,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module dextool_test.integration;
 
-import std.typecons : Flag, Yes, No;
+import std.typecons : No;
 
-import scriptlike;
-import dextool_test;
-
-import unit_threaded;
-
-enum globalTestdir = "c_tests";
-
-auto testData() {
-    return Path("testdata/cstub").absolutePath;
-}
-
-auto makeDextool(const ref TestEnv env) {
-    return dextool_test.makeDextool(env).args(["ctestdouble", "-d"]);
-}
-
-auto makeCompile(const ref TestEnv env, Path srcdir) {
-    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
-        .addArg(testData ~ "main1.cpp").outputToDefaultBinary;
-}
-
-struct TestParams {
-    Flag!"skipCompare" skipCompare;
-    Flag!"skipCompile" skipCompile;
-    bool useGTest;
-
-    Path root;
-    Path input_ext;
-
-    Path base_cmp;
-    Path out_hdr;
-    Path out_impl;
-    Path out_global;
-    Path out_gmock;
-
-    // dextool parameters;
-    string[] dexParams;
-    string[] dexFlags;
-
-    // Compiler flags
-    string[] compileFlags;
-    string[] compileIncls;
-
-    Path mainf;
-    Path binary;
-}
-
-TestParams genTestParams(string f, const ref TestEnv testEnv) {
-    TestParams p;
-
-    p.root = Path("testdata/cstub").absolutePath;
-    p.input_ext = p.root ~ Path(f);
-    p.base_cmp = p.input_ext.stripExtension;
-
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-    p.out_impl = testEnv.outdir ~ "test_double.cpp";
-    p.out_global = testEnv.outdir ~ "test_double_global.cpp";
-    p.out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
-
-    p.dexParams = ["--DRT-gcopt=profile:1", "ctestdouble", "--debug"];
-    p.dexFlags = [];
-
-    p.compileFlags = compilerFlags();
-    p.compileIncls = ["-I" ~ p.input_ext.dirName.toString];
-
-    p.mainf = p.root ~ Path("main1.cpp");
-    p.binary = p.root ~ testEnv.outdir ~ "binary";
-
-    return p;
-}
-
-TestParams genGtestParams(string base, const ref TestEnv testEnv) {
-    auto env = genTestParams(base, testEnv);
-    env.dexParams ~= "--gmock";
-    env.useGTest = true;
-    env.mainf = Path(env.input_ext.stripExtension.toString ~ "_test.cpp");
-
-    return env;
-}
-
-void runTestFile(const ref TestParams p, ref TestEnv testEnv,
-        Flag!"sortLines" sortLines = No.sortLines,
-        Flag!"skipComments" skipComments = Yes.skipComments) {
-    dextoolYap("Input:%s", p.input_ext.raw);
-    runDextool(p.input_ext, testEnv, p.dexParams, p.dexFlags);
-
-    if (p.useGTest) {
-        dextoolYap("Google Test");
-        testWithGTest([p.out_impl, p.mainf], p.binary, testEnv, p.compileFlags, p.compileIncls);
-        runAndLog(p.binary).status.shouldEqual(0);
-        return;
-    }
-
-    if (!p.skipCompare) {
-        dextoolYap("Comparing");
-        Path base = p.base_cmp;
-        // dfmt off
-        compareResult(sortLines, skipComments,
-                      GR(base ~ Ext(".hpp.ref"), p.out_hdr),
-                      GR(base ~ Ext(".cpp.ref"), p.out_impl),
-                      GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
-                      GR(Path(base.toString ~ "_gmock.hpp.ref"), p.out_gmock));
-        // dfmt on
-    }
-
-    if (!p.skipCompile) {
-        dextoolYap("Compiling");
-        compileResult(p.out_impl, p.binary, p.mainf, testEnv, p.compileFlags, p.compileIncls);
-        runAndLog(p.binary).status.shouldEqual(0);
-    }
-}
+import dextool_test.utility;
 
 // dfmt makes it hard to read the test cases.
 // dfmt off
@@ -258,87 +149,6 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-// BEGIN Compilation Database Tests ##########################################
-
-@(testId ~ "Should load compiler settings from compilation database")
-unittest {
-    mixin(envSetup(globalTestdir));
-    auto p = genTestParams("compile_db/single_file_main.c", testEnv);
-
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json")
-        .toString, "--file-restrict=.*/single_file.h"];
-
-    p.compileIncls ~= "-I" ~ (p.root ~ "compile_db/dir1").toString;
-    p.compileFlags ~= "-DDEXTOOL_TEST";
-
-    p.mainf = p.root ~ Path("compile_db/single_file_main.cpp");
-    runTestFile(p, testEnv);
-}
-
-@(testId ~ "Should fail with an error message when file not found in the compilation database")
-unittest {
-    mixin(envSetup(globalTestdir));
-    auto r = makeDextool(testEnv)
-        .throwOnExitStatus(false)
-        .addInputArg(testData ~ "compile_db/file_not_found.c")
-        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .run;
-
-    r.success.shouldBeFalse;
-    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeTrue;
-}
-
-@(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
-@(Values(["compile_db/dir1/single_file.h", "use_file"], ["compile_db/single_file.h", "fallback"]))
-unittest {
-    mixin(envSetup(globalTestdir));
-    testEnv.outputSuffix(getValue!(string[])[1]);
-    testEnv.cleanOutdir;
-
-    auto r = makeDextool(testEnv)
-        .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .addInputArg(getValue!(string[])[0])
-        .run;
-
-    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
-    // the file returned shall be the full path for the one searching for
-    r.stderr.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
-}
-
-@(testId ~ "Should load compiler settings from the second compilation database")
-unittest {
-    mixin(envSetup(globalTestdir));
-    TestParams p;
-    p.root = Path("testdata/compile_db").absolutePath;
-    p.input_ext = p.root ~ Path("file2.h");
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams = ["ctestdouble", "--debug", "--compile-db=" ~ (p.root ~ "db1.json")
-        .toString, "--compile-db=" ~ (p.root ~ "db2.json").toString];
-
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv);
-}
-
-@(testId ~ "Should use the exact supplied --in=... as key when looking in compile db")
-unittest {
-    mixin(envSetup(globalTestdir));
-    TestParams p;
-    p.root = Path("testdata/compile_db").absolutePath;
-    p.input_ext = p.root ~ Path("file2.h");
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-
-    p.dexParams = ["ctestdouble", "--debug",
-        "--compile-db=" ~ (p.root ~ "db2.json").toString, "--in=file2.h"];
-
-    p.skipCompile = Yes.skipCompile;
-    p.skipCompare = Yes.skipCompare;
-    runTestFile(p, testEnv);
-}
-// END   Compilation Database Tests ##########################################
-
 // BEGIN CLI Tests ###########################################################
 
 @(testId ~ "Should exclude many files from the generated test double")
@@ -358,15 +168,17 @@ unittest {
 @(testId ~ "Should exclude both main input file and all symbols from b*")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_exclude_match_all.h", testEnv);
-    p.dexParams ~= ["--file-exclude=.*/param_exclude_match_all.*",
-        `--file-exclude='.*/include/b\.c'`];
-    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_exclude_match_all.h")
+        .addArg(["--file-exclude", ".*/param_exclude_match_all.*"])
+        .addArg(["--file-exclude", `.*/include/b\.c`])
+        .addIncludeFlag(testData ~ "stage_2/include")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addInclude(testData ~ "stage_2/include")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Should exclude this file from generation.")
@@ -417,15 +229,22 @@ unittest {
 @(testId ~ "Should only be signatures from this file and b.h in the generated stub")
 unittest {
     mixin(envSetup(globalTestdir));
-    auto p = genTestParams("stage_2/param_restrict.h", testEnv);
-    p.dexParams ~= ["--file-restrict=.*/" ~ p.input_ext.baseName.toString,
-        "--file-restrict=.*/include/b.h"];
-    p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    p.dexFlags = p.compileIncls;
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_restrict.h")
+        .addArg(["--file-restrict", ".*/param_restrict.h"])
+        .addArg(["--file-restrict", ".*/include/b.h"])
+        .addIncludeFlag(testData ~ "stage_2/include")
+        .addDefineFlag("TEST_INCLUDE")
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ "stage_2/param_restrict.hpp.ref", "test_double.hpp")
+        .addCompare(testData ~ "stage_2/param_restrict.cpp.ref", "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addInclude(testData ~ "stage_2/include")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(
@@ -520,21 +339,21 @@ unittest {
 @Values(["yes", ""], ["no", "--no-zeroglobals"])
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    // don't overwrite the test result for the different tests
     testEnv.outputSuffix(getValue!(string[])[0]);
     testEnv.setupEnv;
-    auto p = genTestParams("stage_2/param_no_zeroglobals.h", testEnv);
 
-    p.dexParams ~= getValue!(string[])[1];
-    p.compileFlags ~= ["-DTEST_INCLUDE"];
-
-    if (getValue!(string[])[1].length == 0) {
-        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_yes";
-    } else {
-        p.base_cmp = p.input_ext.dirName ~ "param_no_zeroglobals_no";
-    }
-
-    runTestFile(p, testEnv);
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "stage_2/param_no_zeroglobals.h")
+        .addArg(getValue!(string[])[1])
+        .run;
+    makeCompare(testEnv)
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".hpp.ref"), "test_double.hpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".cpp.ref"), "test_double.cpp")
+        .run;
+    makeCompile(testEnv, testData ~ "stage_2")
+        .addDefine("TEST_INCLUDE")
+        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Configuration data read from a file")
@@ -548,9 +367,7 @@ unittest {
     makeCompile(testEnv, testData ~ "stage_2")
         .addArg("-DTEST_INCLUDE")
         .run;
-    makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
-        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Only generate test doubles for those functions matching the symbol filter (restrict)")
@@ -631,9 +448,7 @@ unittest {
         .addGtestArgs
         .outputToDefaultBinary
         .run;
-    makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
-        .run;
+    makeCommand(testEnv, defaultBinary).run;
 }
 
 @(testId ~ "Test double of free functions shall be connected to the gmock instance")
@@ -651,7 +466,6 @@ unittest {
         .outputToDefaultBinary
         .run;
     makeCommand(testEnv, defaultBinary)
-        .chdirToOutdir
         .run;
 }
 

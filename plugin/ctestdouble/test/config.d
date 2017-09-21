@@ -3,12 +3,13 @@ Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-import scriptlike;
+module dextool_test.config;
 
-int main(string[] args) {
-    import unit_threaded.runner;
-    import std.stdio;
+import scriptlike : Path, absolutePath;
 
-    writeln(`Running integration suite`);
-    return args.runTests!("dextool_test.integration");
+enum globalTestdir = "c_tests";
+enum xmlLog = "test_double_log.xml";
+
+auto testData() {
+    return Path("testdata/cstub").absolutePath;
 }

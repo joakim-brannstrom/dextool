@@ -132,6 +132,15 @@ struct TestEnv {
         this.outdir_ = outdir__;
     }
 
+    /** Setup the test environment
+     *
+     * Example of using the outputSuffix.
+     * ---
+     * mixin(envSetup(globalTestdir, No.setupEnv));
+     * testEnv.outputSuffix("foo");
+     * testEnv.setupEnv;
+     * ---
+     */
     void outputSuffix(string suffix) {
         this.outdir_suffix = suffix;
     }
@@ -320,6 +329,7 @@ deprecated("to be removed") bool stdoutContains(const string txt) {
     return getYapLog().joiner().array().indexOf(txt) != -1;
 }
 
+/// Check if a log contains the fragment txt.
 bool sliceContains(const string[] log, const string txt) {
     import std.string : indexOf;
 
@@ -497,6 +507,12 @@ auto makeDextool(const ref TestEnv testEnv) {
     import dextool_test.builders : BuildDextoolRun;
 
     return BuildDextoolRun(testEnv.dextool.escapePath, testEnv.outdir.escapePath);
+}
+
+/** Construct an execution of a command.
+ */
+auto makeCommand(string command) {
+    return BuildCommandRun(command);
 }
 
 /** Construct an execution of a command.
