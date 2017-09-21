@@ -63,3 +63,48 @@ Nullable!T readRawConfig(T, alias parseFunc)(FileName fname) @trusted nothrow {
 
     return rval;
 }
+
+/** Store the input in a configuration file to make it easy to regenerate the
+ * test double.
+ */
+ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
+    import std.algorithm : joiner, copy, splitter;
+    import std.array : array;
+    import std.file : thisExePath;
+    import std.format : format;
+    import std.path : baseName;
+    import std.range : dropOne, drop, takeOne;
+    import std.utf : byChar;
+    import std.xml;
+    import dextool.utility : dextoolVersion;
+    import dextool.xml : makePrelude;
+
+    auto exe_r = thisExePath.baseName.splitter('-');
+
+    auto exe_name = "dextool";
+    foreach (a; exe_r.save.takeOne) {
+        exe_name = a;
+    }
+
+    auto plugin_name = "unknown_plugin";
+    foreach (a; exe_r.save.dropOne) {
+        plugin_name = a;
+    }
+
+    auto cleaned_cli = raw_cli_flags.drop(2);
+
+    auto doc = new Document(new Tag("dextool"));
+    doc.tag.attr["version"] = dextoolVersion;
+    {
+        auto command = new Element("command");
+        command ~= new CData(format("%s %s %s", exe_name, plugin_name,
+                cleaned_cli.joiner(" ").byChar.array().idup));
+        doc ~= new Comment("command line when dextool was executed");
+        doc ~= command;
+    }
+
+    makePrelude(app);
+    doc.pretty(4).joiner("\n").copy(app);
+
+    return app;
+}
