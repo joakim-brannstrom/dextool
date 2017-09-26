@@ -1,0 +1,72 @@
+[REQ-ctestdouble]
+partof = 'REQ-purpose'
+text = '''
+C TestDouble. Analyze C code to generate a test double implementation.
+
+It is cumbersome to write and maintain a test environment for an implementation
+written in C. To make it more efficient it is desired to automatically generate
+a test environment from a bundle of implementation files that are to be tested.
+
+To do this _correctly_ libclang should be used. It has a production quality C
+frontend. This reduces the problem to understanding the C AST from LLVM and the
+LLVM libclang API.
+
+Even though the input is C code the generated code can use C++ to provide
+convinient features such as google mock integration.
+
+It shall:
+ - use a command line as the main interface to the user.
+ - generate test doubles for functions and global variables that are used by
+   the input files.
+ - be possible to swap the behavior of the test double at runtime.
+ - generate a google mock implementation of the test double interface when the
+   user specify it via CLI.
+
+See [[REQ-ctestdouble_cli]] for the specification CLI.
+'''
+
+[REQ-ctestdouble_cli]
+partof = [
+    'REQ-ctestdouble',
+    'REQ-ctestdouble_isolate_generated_code',
+]
+text = '''
+The command line should in its design use sensible defaults. The user commonly
+prefer the defaults so by having good ones most generated code will look _the
+same_.
+
+It shall have:
+ - options that allow the user to instruct ctestdouble how to generate a test
+   double that do NOT conflict other source code.
+ - options to generate pre and post hooks to _fixup_ the included source.
+   This is needed when the input source code have different personalities that
+   trigger depending on e.g. defines.
+ - a option to generate a google mock implementation.
+ - a option to specify _how_ to strip the found source files that become part
+   of the generated test double. A sane default is to use the basename.
+ - a option to generate an initializer of globals.
+ - options to control what become part of the generated test double.
+ - a option to specify a configuration file to use.
+ - a option that makes it easier for a user to understand _what a symbol in the
+   test double is derived from in the input source.
+'''
+
+[REQ-ctestdouble_isolate_generated_code]
+partof = 'REQ-ctestdouble'
+text = '''
+It is important that the generated test double do not clash with any other
+code, both test and implementation.
+
+It is therefore important that the user can control variouse aspects of the
+code generator that influences the naming and structural placement.
+
+It shall:
+ - the generated C++ code shall be in a namespace.
+ - the name of the namespace used for the test double shall be controllable via
+   the CLI.
+'''
+
+[REQ-purpose]
+text = '''
+The purpose of this project is to write tools for code generation and analysis.
+'''
