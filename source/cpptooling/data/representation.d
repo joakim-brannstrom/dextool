@@ -2415,7 +2415,6 @@ unittest {
         c.put(m);
     }
 
-    // 43 is derived from makeUniqueUSR
     shouldEqualPretty(format("%u", c), "class Foo { // Abstract
 public:
   ~Foo(); // dummyUSR
@@ -2453,15 +2452,15 @@ unittest {
 
     auto ns1 = CppNamespace(CppNsStack([CppNs("ns1")]));
     ns1.put(CppClass(CppClassName("ns1_class")));
-    ns1.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
-            CppVariable("ns1_var"))));
-    ns1.put(CFunction(makeUniqueUSR, CFunctionName("ns1_func")));
+    ns1.put(CxGlobalVariable(USRType("ns1_var"),
+            TypeKindVariable(makeSimple("int"), CppVariable("ns1_var"))));
+    ns1.put(CFunction(USRType("ns1_func"), CFunctionName("ns1_func")));
 
     auto ns2 = CppNamespace(CppNsStack([CppNs("ns2")]));
     ns2.put(CppClass(CppClassName("ns2_class")));
-    ns2.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
-            CppVariable("ns2_var"))));
-    ns2.put(CFunction(makeUniqueUSR, CFunctionName("ns2_func")));
+    ns2.put(CxGlobalVariable(USRType("ns2_var"),
+            TypeKindVariable(makeSimple("int"), CppVariable("ns2_var"))));
+    ns2.put(CFunction(USRType("ns2_func"), CFunctionName("ns2_func")));
 
     ns2.merge(ns1, MergeMode.shallow);
 
@@ -2505,9 +2504,9 @@ unittest {
 
     auto ns2 = CppNamespace(CppNsStack([CppNs("ns2")]));
     ns2.put(CppClass(CppClassName("ns2_class")));
-    ns2.put(CxGlobalVariable(makeUniqueUSR, TypeKindVariable(makeSimple("int"),
-            CppVariable("ns2_var"))));
-    ns2.put(CFunction(makeUniqueUSR, CFunctionName("ns2_func")));
+    ns2.put(CxGlobalVariable(USRType("ns2_var"),
+            TypeKindVariable(makeSimple("int"), CppVariable("ns2_var"))));
+    ns2.put(CFunction(USRType("ns2_func"), CFunctionName("ns2_func")));
 
     auto ns3_a = CppNamespace(CppNsStack([CppNs("ns3")]));
     ns3_a.put(CppClass(CppClassName("ns3_class")));
@@ -2524,9 +2523,9 @@ unittest {
 
     // expected to be merged in ns2 into the already existing ns3
     ns3_b.put(CppClass(CppClassName("ns3_b_class")));
-    ns3_b.put(CxGlobalVariable(makeUniqueUSR,
+    ns3_b.put(CxGlobalVariable(USRType("ns3_b_var"),
             TypeKindVariable(makeSimple("int"), CppVariable("ns3_b_var"))));
-    ns3_b.put(CFunction(makeUniqueUSR, CFunctionName("ns3_b_func")));
+    ns3_b.put(CFunction(USRType("ns3_b_func"), CFunctionName("ns3_b_func")));
 
     // Act
     ns1.put(ns3_a);
