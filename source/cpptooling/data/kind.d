@@ -382,6 +382,33 @@ auto resolveCanonicalType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
     return rval;
 }
 
+/** Resolve the typeref type.
+ *
+ * TODO merge with resolvePointeeType. (It wasn't done as of this writing
+ * because I'm not sure they will stay similare enough to allow a merge).
+ *
+ * Params:
+ *   LookupT = a type supporting taking a USR and returning a TypeKind.
+ *   type = the type to resolve
+ *   lookup = see $(D LookupT)
+ *
+ * Returns: TypeKind of the canonical type.
+ */
+TypeKind resolveTypeRef(LookupT)(const TypeKind type, LookupT lookup) {
+    import std.algorithm : among;
+    import std.range : only, dropOne;
+    import cpptooling.data : TypeKindAttr;
+
+    if (type.info.kind == TypeKind.Info.Kind.typeRef) {
+        foreach (a; lookup(type.info.canonicalRef)) {
+            TypeKind t = a;
+            return t;
+        }
+    }
+
+    return type;
+}
+
 /** Resolve the pointe type.
  *
  * Params:
