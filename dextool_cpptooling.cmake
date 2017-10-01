@@ -45,6 +45,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/classes.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/func.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/gmock.d
+    ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/gtest.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/includes.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/generator/utility.d
 

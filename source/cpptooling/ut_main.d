@@ -26,6 +26,7 @@ int main(string[] args) {
                           "cpptooling.generator.classes",
                           "cpptooling.generator.func",
                           "cpptooling.generator.gmock",
+                          "cpptooling.generator.gtest",
                           "cpptooling.generator.includes",
                           "cpptooling.generator.utility",
                           "cpptooling.utility.dedup",
