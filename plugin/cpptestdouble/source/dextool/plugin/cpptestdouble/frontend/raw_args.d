@@ -83,6 +83,10 @@ struct RawConfiguration {
             logger.error(ex.msg);
             help = true;
         }
+        catch (Exception ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
 
         // default arguments
         if (stripInclude.length == 0) {
