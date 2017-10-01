@@ -553,13 +553,18 @@ final class ClassVisitor : Visitor {
         CppAccess accessType;
     }
 
-    this(const(ClassDecl) decl, const(CppNsStack) reside_in_ns,
-            ref Container container, in uint indent) {
+    this(T)(const(T) decl, const(CppNsStack) reside_in_ns, RecordResult result,
+            ref Container container, const uint indent)
+            if (is(T == ClassDecl) || is(T == StructDecl)) {
         this.container = &container;
         this.indent = indent;
-        this.accessType = CppAccess(AccessType.Private);
 
-        auto result = analyzeRecord(decl, container, indent);
+        static if (is(T == StructDecl)) {
+            this.accessType = CppAccess(AccessType.Public);
+        } else {
+            this.accessType = CppAccess(AccessType.Private);
+        }
+
         this.root = CppClass(result.name, CppInherit[].init, reside_in_ns);
         this.root.usr = result.type.kind.usr;
     }
@@ -588,7 +593,7 @@ final class ClassVisitor : Visitor {
         auto tor = CppCtor(result.type.kind.usr, result.name, result.params, accessType);
         root.put(tor);
 
-        logger.trace("ctor: ", tor.toString);
+        debug logger.trace("ctor: ", tor.toString);
     }
 
     override void visit(const(Destructor) v) @trusted {
@@ -601,7 +606,7 @@ final class ClassVisitor : Visitor {
         auto tor = CppDtor(result.type.kind.usr, result.name, accessType, classify(v.cursor));
         root.put(tor);
 
-        logger.trace("dtor: ", tor.toString);
+        debug logger.trace("dtor: ", tor.toString);
     }
 
     override void visit(const(CxxMethod) v) @trusted {
@@ -616,13 +621,13 @@ final class ClassVisitor : Visitor {
                     result.returnType, accessType,
                     CppConstMethod(result.isConst), result.virtualKind);
             root.put(op);
-            logger.trace("operator: ", op.toString);
+            debug logger.trace("operator: ", op.toString);
         } else {
             auto method = CppMethod(result.type.kind.usr, result.name, result.params,
                     result.returnType, accessType,
                     CppConstMethod(result.isConst), result.virtualKind);
             root.put(method);
-            logger.trace("method: ", method.toString);
+            debug logger.trace("method: ", method.toString);
         }
     }
 
@@ -640,6 +645,6 @@ final class ClassVisitor : Visitor {
         auto result = analyzeFieldDecl(v, *container, indent);
         root.put(TypeKindVariable(result.type, result.name), accessType);
 
-        logger.trace("member: ", cast(string) result.name);
+        debug logger.trace("member: ", result.name);
     }
 }

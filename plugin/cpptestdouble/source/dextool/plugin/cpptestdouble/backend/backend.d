@@ -23,6 +23,8 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
+import cpptooling.data : CppNs, CppClassName;
+
 import dextool.type : AbsolutePath, CustomHeader, DextoolVersion, FileName,
     MainInterface, MainNs, WriteStrategy;
 import cpptooling.data : CppNsStack;
@@ -186,8 +188,10 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         .filter!(a => !a.isAnonymous)
         .map!(a => rawFilter(a, ctrl, prod, lookup))
         .each!(a => filtered.put(a));
+    // dfmt on
 
     if (ctrl.doGoogleMock) {
+        // dfmt off
         input.classRange
             // only classes with virtual functions are mocked
             .filter!(a => a.isVirtual)
@@ -197,8 +201,22 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
             .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
             // the class shall be further processed
             .each!(a => filtered.put(a.value));
+        // dfmt on
     }
-    // dfmt on
+
+    if (ctrl.doGoogleTestPODPrettyPrint) {
+        // dfmt off
+        input.classRange
+            // only those with public members are of interest
+            .filter!(a => a.memberPublicRange.length != 0)
+            // ask controller (the user) if the file should be mocked
+            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
+            // pass on location as a product to be used to calculate #include
+            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            // the class shall be further processed
+            .each!(a => filtered.put(a.value));
+        // dfmt on
+    }
 
     return filtered;
 }
@@ -224,13 +242,21 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
         impl.root.put(a);
     }
 
-    foreach (a; root.classRange
-        .map!(a => mergeClassInherit(a, container, impl))
+    foreach (a; root.classRange.map!(a => mergeClassInherit(a, container, impl))) {
+        // check it is virtual.
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)) {
-        impl.tag(a.id, Kind.gmock);
-        impl.root.put(a);
-        impl.putForLookup(a);
+        if (ctrl.doGoogleMock && a.isVirtual) {
+            import cpptooling.generator.gmock : makeGmock;
+
+            auto mock = makeGmock(a);
+            impl.tag(mock.id, Kind.gmock);
+            impl.root.put(mock);
+        }
+
+        if (ctrl.doGoogleTestPODPrettyPrint) {
+            impl.tag(a.id, Kind.gtestPrettyPrint);
+            impl.root.put(a);
+        }
     }
     // dfmt on
 }
@@ -269,11 +295,18 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         .each!(a => ns.put(a));
 
     foreach (class_; input.classRange
-        .map!(a => mergeClassInherit(a, container, data))
+        .map!(a => mergeClassInherit(a, container, data))) {
+        // check it is virtual.
         // can happen that the result is a class with no methods, thus in state Unknown
-        .filter!(a => a.isVirtual)) {
-        auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup, CppNs(params.getMainNs)), data);
-        ns.put(mock);
+        if (ctrl.doGoogleMock && class_.isVirtual) {
+            auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup, CppNs(params.getMainNs)), data);
+            ns.put(mock);
+        }
+
+        if (ctrl.doGoogleTestPODPrettyPrint) {
+            data.tag(class_.id, Kind.gtestPrettyPrint);
+            ns.put(class_);
+        }
     }
     // dfmt on
 
@@ -419,6 +452,7 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref Imp
 
 void postProcess(Controller ctrl, Parameters params, Products prods,
         Transform transf, ref GeneratedData gen_data) {
+    import std.path : baseName;
     import cpptooling.generator.includes : convToIncludeGuard,
         generatePreInclude, generatePostInclude, makeHeader;
 
@@ -468,7 +502,6 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
         import std.algorithm : joiner, map;
         import std.conv : text;
         import std.format : format;
-        import std.path : baseName;
         import std.string : toLower;
         import cpptooling.generator.gmock : generateGmockHdr;
 
@@ -483,9 +516,39 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
                 cast(FileName) fname, params.getToolVersion, params.getCustomHeader, mock));
     }
 
-    if (gen_data.gmocks.length != 0) {
-        auto fname = transf.createHeaderFile("_gmock");
-        prods.putFile(fname, outputHdr(mock_incls, fname,
+    //TODO code duplication, merge with the above
+    foreach (gtest; gen_data.gtestPPHdr) {
+        import cpptooling.generator.gtest : generateGtestHdr;
+
+        auto fname = transf.createHeaderFile(makeGtestFileName(transf, gtest.nesting, gtest.name));
+        mock_incls.include(fname.baseName);
+
+        prods.putFile(fname, generateGtestHdr(cast(FileName) test_double_hdr,
+                cast(FileName) fname, params.getToolVersion, params.getCustomHeader, gtest));
+    }
+
+    auto gtest_impl = new CppModule;
+    gtest_impl.comment("Compile this file to automatically compile all generated pretty printer");
+    //TODO code duplication, merge with the above
+    foreach (gtest; gen_data.gtestPPImpl) {
+        auto fname_hdr = transf.createHeaderFile(makeGtestFileName(transf,
+                gtest.nesting, gtest.name));
+        auto fname_cpp = transf.createImplFile(makeGtestFileName(transf,
+                gtest.nesting, gtest.name));
+        gtest_impl.include(fname_cpp.baseName);
+        prods.putFile(fname_cpp, output(gtest, fname_hdr, fname_cpp,
+                params.getToolVersion, params.getCustomHeader));
+    }
+
+    const auto f_gmock_hdr = transf.createHeaderFile("_gmock");
+    if (gen_data.gmocks.length != 0 || gen_data.gtestPPHdr.length != 0) {
+        prods.putFile(f_gmock_hdr, outputHdr(mock_incls, f_gmock_hdr,
+                params.getToolVersion, params.getCustomHeader));
+    }
+
+    if (gen_data.gtestPPHdr.length != 0) {
+        auto fname = transf.createImplFile("_fused_gtest");
+        prods.putFile(fname, output(gtest_impl, f_gmock_hdr, fname,
                 params.getToolVersion, params.getCustomHeader));
     }
 
@@ -498,4 +561,15 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
         prods.putFile(gen_data.includeHooks.postInclude,
                 generatePostInclude(gen_data.includeHooks.postInclude), WriteStrategy.skip);
     }
+}
+
+string makeGtestFileName(Transform transf, const CppNs[] nesting, const CppClassName name) {
+    import std.algorithm : joiner, map;
+    import std.conv : text;
+    import std.format : format;
+    import std.string : toLower;
+
+    string repr_ns = nesting.map!(a => a.toLower).joiner("-").text;
+    string ns_suffix = nesting.length != 0 ? "-" : "";
+    return format("_%s%s%s_gtest", repr_ns, ns_suffix, name.toLower);
 }

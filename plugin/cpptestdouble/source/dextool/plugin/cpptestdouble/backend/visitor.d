@@ -49,7 +49,8 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr;
+        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr,
+        StructDecl;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
     import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
@@ -133,9 +134,18 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         }
     }
 
-    override void visit(const(ClassDecl) v) @trusted {
+    override void visit(const(ClassDecl) v) {
+        visitRecord(v);
+    }
+
+    override void visit(const(StructDecl) v) {
+        visitRecord(v);
+    }
+
+    void visitRecord(T)(const T v) @trusted {
         import std.typecons : scoped;
-        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor;
+        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor,
+            analyzeRecord;
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
 
@@ -143,10 +153,17 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         ///TODO add metadata to the class if it is a definition or declaration
 
         mixin(mixinNodeLog!());
-        logger.trace("class: ", v.cursor.spelling);
 
-        if (v.cursor.isDefinition) {
-            auto visitor = scoped!ClassVisitor(v, ns_stack, container, indent + 1);
+        auto result = analyzeRecord(v, container, indent + 1);
+        debug logger.trace("class: ", result.name);
+
+        // TODO remove the zero length check to add support for typedef'ed structs.
+        // Example:
+        // typedef struct {
+        // } Struct;
+
+        if (result.name.length != 0 && v.cursor.isDefinition) {
+            auto visitor = scoped!ClassVisitor(v, ns_stack, result, container, indent + 1);
             v.accept(visitor);
 
             root.put(visitor.root);

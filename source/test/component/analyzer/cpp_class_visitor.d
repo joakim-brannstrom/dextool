@@ -11,6 +11,7 @@ import std.conv : to;
 import std.format : format;
 import std.typecons : scoped, Yes;
 import std.variant : visit;
+import logger = std.experimental.logger;
 
 import unit_threaded;
 import test.clang_util;
@@ -65,8 +66,11 @@ final class TestVisitor : Visitor {
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
 
+        auto result = analyzeRecord(v, container, indent + 1);
+        debug logger.trace("class: ", result.name);
+
         if (v.cursor.isDefinition) {
-            auto visitor = scoped!ClassVisitor(v, CppNsStack.init, container, indent + 1);
+            auto visitor = scoped!ClassVisitor(v, CppNsStack.init, result, container, indent + 1);
             v.accept(visitor);
             classes ~= visitor.root;
         } else {

@@ -17,6 +17,12 @@ import dextool.plugin.types : CliOptionParts;
 
 static import dextool.xml;
 
+/// Represent a yes/no configuration option
+enum ConfigBool {
+    no,
+    yes
+}
+
 struct RawConfiguration {
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
     import dextool.type : FileName;
@@ -41,6 +47,7 @@ struct RawConfiguration {
     bool shortPluginHelp;
     bool help;
     bool gmock;
+    ConfigBool gtestPODPrettyPrint = ConfigBool.yes;
     bool generatePreInclude;
     bool genPostInclude;
 
@@ -55,25 +62,28 @@ struct RawConfiguration {
 
         try {
             // dfmt off
+            // sort alphabetic
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "config", "Use configuration file", &config,
+                   "free-func", "Generate test doubles of free functions", &doFreeFuncs,
+                   "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
+                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
+                   "gmock", "Generate a gmock implementation of test double interface", &gmock,
+                   "gtest-pp", "Generate pretty printer of POD's public members for gtest [default: yes]", &gtestPODPrettyPrint,
+                   "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
+                   "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
+                   "header", "Prepends generated files with the string", &header,
+                   "header-file", "Prepend generated files with the header read from the file", &headerFile,
+                   "in", "Input file to parse (at least one)", &inFiles,
                    "main", "Used as part of interface, namespace etc [default: TestDouble]", &mainName,
                    "main-fname", "Used as part of filename for generated files [default: test_double]", &mainFileName,
                    "out", "directory for generated files [default: ./]", &out_,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
+                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "strip-incl", "A regex used to strip the include paths", &stripInclude,
-                   "header", "Prepend generated files with the string", &header,
-                   "header-file", "Prepend generated files with the header read from the file", &headerFile,
-                   "free-func", "Generate test doubles of free functions", &doFreeFuncs,
-                   "gmock", "Generate a gmock implementation of test double interface", &gmock,
-                   "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
-                   "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
                    "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
-                   "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
-                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
-                   "in", "Input file to parse (at least one)", &inFiles,
-                   "config", "Use configuration file", &config);
+                   );
             // dfmt on
             help = help_info.helpWanted;
         }
@@ -81,11 +91,14 @@ struct RawConfiguration {
             logger.error(ex.msg);
             help = true;
         }
+        catch (Exception ex) {
+            logger.error(ex.msg);
+            help = true;
+        }
 
         // default arguments
         if (stripInclude.length == 0) {
             stripInclude = r".*/(.*)";
-            logger.trace("--strip-incl: using default regex to strip include path (basename)");
         }
 
         if (config.length != 0) {
@@ -131,33 +144,6 @@ Information about --file-restrict.
   The regex must fully match the filename the AST node is located in.
   Only symbols from files matching the restrict affect the generated test double.
 ");
-    }
-
-    void dump() {
-        logger.tracef("args:
---header            :%s
---header-file       :%s
---file-restrict     :%s
---prefix            :%s
---gmock             :%s
---out               :%s
---file-exclude      :%s
---main              :%s
---strip-incl        :%s
---main-fname        :%s
---in                :%s
---compile-db        :%s
---free-func         :%s
---gen-post-incl     :%s
---gen-pre-incl      :%s
---help              :%s
---td-include        :%s
---config            :%s
-CFLAGS              :%s
-
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude, mainName,
-                stripInclude, mainFileName, inFiles, compileDb, doFreeFuncs, genPostInclude,
-                generatePreInclude, help, testDoubleInclude, config, cflags, xmlConfig);
     }
 }
 

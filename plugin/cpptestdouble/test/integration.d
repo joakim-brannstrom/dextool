@@ -7,29 +7,7 @@ module dextool_test.integration;
 
 import std.typecons : Flag, Yes, No;
 
-import scriptlike;
-import unit_threaded : shouldEqual;
-import dextool_test;
-
-enum globalTestdir = "cpp_tests";
-
-auto testData() {
-    return Path("testdata/cpp").absolutePath;
-}
-
-auto makeDextool(const ref TestEnv env) {
-    return dextool_test.makeDextool(env).args(["cpptestdouble", "-d", "--gmock"]);
-}
-
-auto makeCompile(const ref TestEnv env) {
-    return dextool_test.makeCompile(env, "g++")
-        .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
-}
-
-auto makeCompile(const ref TestEnv env, Path srcdir) {
-    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
-        .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
-}
+import dextool_test.utility;
 
 // dfmt makes it hard to read the test cases.
 // dfmt off
@@ -320,7 +298,8 @@ unittest {
 @(testId ~ "Should not crash when std::system_error isn't found during analyze")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv).addInputArg(testData ~ "dev/bug_class_not_in_ast.hpp")
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dev/bug_class_not_in_ast.hpp")
         .run;
 }
 

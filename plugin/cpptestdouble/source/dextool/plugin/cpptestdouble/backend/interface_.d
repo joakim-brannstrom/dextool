@@ -36,6 +36,9 @@ import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
     /// If any google mocks are generated.
     bool doGoogleMock();
 
+    /// If pretty print functions for google test are generated.
+    bool doGoogleTestPODPrettyPrint();
+
     /// Generate a pre_include header file from internal template?
     bool doPreIncludes();
 
