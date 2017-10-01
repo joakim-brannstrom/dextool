@@ -12,6 +12,7 @@ module dextool.plugin.runner;
 auto runPlugin(string[] args) {
     import std.array : appender;
     import std.stdio : writeln;
+    import logger = std.experimental.logger;
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
@@ -22,7 +23,8 @@ auto runPlugin(string[] args) {
 
     RawConfiguration pargs;
     pargs.parse(args);
-    pargs.dump;
+
+    debug logger.trace(pargs);
 
     if (pargs.shortPluginHelp) {
         writeln("cpptestdouble");

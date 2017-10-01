@@ -132,33 +132,6 @@ Information about --file-restrict.
   Only symbols from files matching the restrict affect the generated test double.
 ");
     }
-
-    void dump() {
-        logger.tracef("args:
---header            :%s
---header-file       :%s
---file-restrict     :%s
---prefix            :%s
---gmock             :%s
---out               :%s
---file-exclude      :%s
---main              :%s
---strip-incl        :%s
---main-fname        :%s
---in                :%s
---compile-db        :%s
---free-func         :%s
---gen-post-incl     :%s
---gen-pre-incl      :%s
---help              :%s
---td-include        :%s
---config            :%s
-CFLAGS              :%s
-
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock, out_, fileExclude, mainName,
-                stripInclude, mainFileName, inFiles, compileDb, doFreeFuncs, genPostInclude,
-                generatePreInclude, help, testDoubleInclude, config, cflags, xmlConfig);
-    }
 }
 
 /** Extracted configuration data from an XML file.
