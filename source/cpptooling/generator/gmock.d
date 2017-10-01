@@ -48,7 +48,7 @@ private void genOp(const CppMethodOp m, CppModule hdr) {
         case "=":
             return "opAssign";
         case "==":
-            return "opEquals";
+            return "opEqual";
         default:
             logger.errorf(
                     "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
