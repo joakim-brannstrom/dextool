@@ -55,25 +55,27 @@ struct RawConfiguration {
 
         try {
             // dfmt off
+            // sort alphabetic
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
-                   "main", "Used as part of interface, namespace etc [default: TestDouble]", &mainName,
-                   "main-fname", "Used as part of filename for generated files [default: test_double]", &mainFileName,
-                   "out", "directory for generated files [default: ./]", &out_,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
-                   "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
-                   "strip-incl", "A regex used to strip the include paths", &stripInclude,
-                   "header", "Prepend generated files with the string", &header,
-                   "header-file", "Prepend generated files with the header read from the file", &headerFile,
+                   "config", "Use configuration file", &config,
                    "free-func", "Generate test doubles of free functions", &doFreeFuncs,
+                   "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
+                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
                    "gmock", "Generate a gmock implementation of test double interface", &gmock,
                    "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
                    "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
-                   "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
-                   "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
-                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
+                   "header", "Prepends generated files with the string", &header,
+                   "header-file", "Prepend generated files with the header read from the file", &headerFile,
                    "in", "Input file to parse (at least one)", &inFiles,
-                   "config", "Use configuration file", &config);
+                   "main", "Used as part of interface, namespace etc [default: TestDouble]", &mainName,
+                   "main-fname", "Used as part of filename for generated files [default: test_double]", &mainFileName,
+                   "out", "directory for generated files [default: ./]", &out_,
+                   "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
+                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
+                   "strip-incl", "A regex used to strip the include paths", &stripInclude,
+                   "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
+                   );
             // dfmt on
             help = help_info.helpWanted;
         }
