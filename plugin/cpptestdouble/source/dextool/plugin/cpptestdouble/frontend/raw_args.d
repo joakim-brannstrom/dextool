@@ -87,7 +87,6 @@ struct RawConfiguration {
         // default arguments
         if (stripInclude.length == 0) {
             stripInclude = r".*/(.*)";
-            logger.trace("--strip-incl: using default regex to strip include path (basename)");
         }
 
         if (config.length != 0) {
