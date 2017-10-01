@@ -16,7 +16,7 @@ import dsrcgen.cpp : CppModule, noIndent;
 
 import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters;
 import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
-    ImplData, Kind;
+    ImplData, Kind, GtestPrettyPrint;
 
 /** Translate the structure to code.
  *
@@ -35,6 +35,8 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     import cpptooling.generator.includes : generateIncludes;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.gmock : generateGmock;
+    import cpptooling.generator.gtest : generateGtestPrettyPrintHdr,
+        generateGtestPrettyPrintImpl, generateGtestPrettyEqual;
 
     if (ctrl.doPreIncludes) {
         gen_data.make(Code.Kind.hdr).include(impl.includeHooks.preInclude.baseName);
@@ -50,13 +52,25 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     auto ns_data = GenerateNamespaceData(
         () { return gen_data.make(Code.Kind.hdr).cpp.base.noIndent; },
         () { return gen_data.make(Code.Kind.impl).cpp.base.noIndent; },
-        (const CppNs[] ns, const CppClassName name) { return gen_data.makeMock(ns, name).cpp.base.noIndent; });
+        (const CppNs[] ns, const CppClassName name) { return gen_data.makeMock(ns, name).cpp.base.noIndent; },
+        (const CppNs[] ns, const CppClassName name) { return gen_data.makeGtestPrettyPrintHdr(ns, name).cpp; },
+        (const CppNs[] ns, const CppClassName name) { return gen_data.makeGtestPrettyPrintImpl(ns, name).cpp; },
+        );
     // dfmt on
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
         auto mock_ns = ns_data.gmock(cast(const CppNs[]) a.resideInNs, a.name)
             .base.namespace(params.getMainNs).noIndent;
         generateGmock(a, mock_ns);
+    }
+
+    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gtestPrettyPrint)) {
+        auto hdr = ns_data.gtestPPHdr(a.resideInNs, a.name);
+        generateGtestPrettyEqual(a.memberPublicRange, a.fullyQualifiedName,
+                cast(string) params.getMainNs, container, hdr);
+        generateGtestPrettyPrintHdr(a.fullyQualifiedName, hdr);
+        generateGtestPrettyPrintImpl(a.memberPublicRange, a.fullyQualifiedName,
+                ns_data.gtestPPImpl(a.resideInNs, a.name));
     }
 
     foreach (a; impl.root.funcRange) {
@@ -72,14 +86,21 @@ private:
 
 alias LazyModule = CppModule delegate() @safe;
 alias LazyMockModule = CppModule delegate(const CppNs[] ns, const CppClassName name) @safe;
+alias LazyGtestModule = CppModule delegate(const CppNs[] ns, const CppClassName name) @safe;
 
 /// Lazily create the modules when they are needed.
 /// Be wary that each time a LazyModule is called it may generate code.
 @safe struct GenerateNamespaceData {
-    this(LazyModule hdr, LazyModule impl, LazyMockModule gmock) {
+    this(LazyModule hdr, LazyModule impl, LazyMockModule gmock,
+            LazyGtestModule gtestPPHdr, LazyGtestModule gtestPPImpl) {
         this.hdr = () => hdr().base.noIndent;
-        this.impl_ = impl;
         this.gmock = (const CppNs[] ns, const CppClassName name) => gmock(ns, name).base.noIndent;
+
+        this.gtestPPHdr = (const CppNs[] ns, const CppClassName name) => gtestPPHdr(ns, name).base;
+        this.gtestPPImpl = (const CppNs[] ns, const CppClassName name) => gtestPPImpl(ns, name)
+            .base;
+
+        this.impl_ = impl;
         this.impl = () => this.makeImpl().base.noIndent;
         this.implTop = () => this.makeImplTop().base.noIndent;
     }
@@ -88,6 +109,9 @@ alias LazyMockModule = CppModule delegate(const CppNs[] ns, const CppClassName n
     LazyMockModule gmock;
     LazyModule impl;
     LazyModule implTop;
+
+    LazyGtestModule gtestPPHdr;
+    LazyGtestModule gtestPPImpl;
 
 private:
     /// Position at the top of the implementation file where e.g. globals go.
@@ -111,16 +135,22 @@ private:
 }
 
 /**
+ * TODO code duplication with generate
+ *
  * recursive to handle nested namespaces.
  * the singleton ns must be the first code generate or the impl can't use the
  * instance.
  */
 void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
         GenerateNamespaceData gen_data, ref const Container container) {
+    import std.algorithm : filter;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
+    import cpptooling.generator.gtest : generateGtestPrettyPrintHdr,
+        generateGtestPrettyPrintImpl, generateGtestPrettyEqual;
 
-    auto ns_data = GenerateNamespaceData(gen_data.hdr, gen_data.impl, gen_data.gmock);
+    auto ns_data = GenerateNamespaceData(gen_data.hdr, gen_data.impl,
+            gen_data.gmock, gen_data.gtestPPHdr, gen_data.gtestPPImpl);
 
     switch (impl.lookup(ns.id)) with (Kind) {
     case none:
@@ -136,7 +166,16 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
             return gen_data.gmock(nesting, name).namespace(ns.name).noIndent;
         }
 
-        ns_data = GenerateNamespaceData(&hdrMod, &implMod, &gmockMod);
+        auto gtestModHdr(const CppNs[] nesting, const CppClassName name) {
+            return gen_data.gtestPPHdr(nesting, name).namespace(ns.name).noIndent;
+        }
+
+        auto gtestModImpl(const CppNs[] nesting, const CppClassName name) {
+            return gen_data.gtestPPImpl(nesting, name).namespace(ns.name).noIndent;
+        }
+
+        ns_data = GenerateNamespaceData(&hdrMod, &implMod, &gmockMod,
+                &gtestModHdr, &gtestModImpl);
         break;
     case testDoubleSingleton:
         import dextool.plugin.backend.cpptestdouble.adapter : generateSingleton;
@@ -157,6 +196,15 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
 
     foreach (a; ns.funcRange) {
         generateFuncImpl(a, ns_data.impl().base);
+    }
+
+    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gtestPrettyPrint)) {
+        auto hdr = ns_data.gtestPPHdr(a.resideInNs, a.name);
+        generateGtestPrettyEqual(a.memberPublicRange, a.fullyQualifiedName,
+                cast(string) params.getMainNs, container, hdr);
+        generateGtestPrettyPrintHdr(a.fullyQualifiedName, hdr);
+        generateGtestPrettyPrintImpl(a.memberPublicRange, a.fullyQualifiedName,
+                ns_data.gtestPPImpl(a.resideInNs, a.name));
     }
 
     foreach (a; ns.namespaceRange) {

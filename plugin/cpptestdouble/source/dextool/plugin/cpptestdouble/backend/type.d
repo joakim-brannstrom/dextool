@@ -27,6 +27,8 @@ enum Kind {
     adapter,
     /// gmock class
     gmock,
+    // generate a pretty print function for the class/struct
+    gtestPrettyPrint,
     /// interface for globals
     testDoubleNamespace,
     testDoubleSingleton,
@@ -70,11 +72,6 @@ struct ImplData {
         foreach (v; other.byKeyValue) {
             classes[v.key] = v.value;
         }
-    }
-
-    /// Store a class that can later be retrieved via its FQN.
-    void putForLookup(CppClass c) {
-        classes[c.fullyQualifiedName] = c;
     }
 
     /// Returns: a range containing the class matching fqn, if found.
@@ -123,6 +120,15 @@ struct Mock {
     alias cpp this;
 }
 
+struct GtestPrettyPrint {
+    // Use to generate a unique filename.
+    const CppClassName name;
+    const CppNs[] nesting;
+
+    CppModule cpp;
+    alias cpp this;
+}
+
 struct GeneratedData {
     @disable this(this);
 
@@ -131,6 +137,9 @@ struct GeneratedData {
 
     /// All gmocks to write
     Mock[] gmocks;
+
+    GtestPrettyPrint[] gtestPPHdr;
+    GtestPrettyPrint[] gtestPPImpl;
 
     IncludeHooks includeHooks;
 
@@ -150,6 +159,22 @@ struct GeneratedData {
         auto m = Mock(name, ns);
         m.cpp = (new CppModule).noIndent;
         gmocks ~= m;
+
+        return m;
+    }
+
+    auto makeGtestPrettyPrintHdr(const CppNs[] ns, const CppClassName name) {
+        auto m = GtestPrettyPrint(name, ns);
+        m.cpp = (new CppModule).noIndent;
+        gtestPPHdr ~= m;
+
+        return m;
+    }
+
+    auto makeGtestPrettyPrintImpl(const CppNs[] ns, const CppClassName name) {
+        auto m = GtestPrettyPrint(name, ns);
+        m.cpp = (new CppModule).noIndent;
+        gtestPPImpl ~= m;
 
         return m;
     }

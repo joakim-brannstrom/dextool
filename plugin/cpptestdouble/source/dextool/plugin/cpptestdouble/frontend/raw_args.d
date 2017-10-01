@@ -17,6 +17,12 @@ import dextool.plugin.types : CliOptionParts;
 
 static import dextool.xml;
 
+/// Represent a yes/no configuration option
+enum ConfigBool {
+    no,
+    yes
+}
+
 struct RawConfiguration {
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
     import dextool.type : FileName;
@@ -41,6 +47,7 @@ struct RawConfiguration {
     bool shortPluginHelp;
     bool help;
     bool gmock;
+    ConfigBool gtestPODPrettyPrint = ConfigBool.yes;
     bool generatePreInclude;
     bool genPostInclude;
 
@@ -63,6 +70,7 @@ struct RawConfiguration {
                    "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
                    "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
                    "gmock", "Generate a gmock implementation of test double interface", &gmock,
+                   "gtest-pp", "Generate pretty printer of POD's public members for gtest [default: yes]", &gtestPODPrettyPrint,
                    "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
                    "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
                    "header", "Prepends generated files with the string", &header,

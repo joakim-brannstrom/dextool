@@ -49,7 +49,8 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl;
+        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr,
+        StructDecl;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl;
     import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
@@ -143,7 +144,8 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
     void visitRecord(T)(const T v) @trusted {
         import std.typecons : scoped;
-        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor, analyzeRecord;
+        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor,
+            analyzeRecord;
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
 

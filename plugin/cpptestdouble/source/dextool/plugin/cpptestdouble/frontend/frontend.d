@@ -27,8 +27,8 @@ import dextool.type : AbsolutePath, CustomHeader, DextoolVersion,
 
 import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products,
     Transform;
-import dextool.plugin.cpptestdouble.frontend.raw_args : RawConfiguration,
-    XmlConfig;
+import dextool.plugin.cpptestdouble.frontend.raw_args : ConfigBool,
+    RawConfiguration, XmlConfig;
 
 struct FileData {
     import dextool.type : WriteStrategy;
@@ -64,6 +64,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         MainInterface main_if;
         Flag!"FreeFunction" do_free_funcs;
         Flag!"Gmock" gmock;
+        Flag!"GtestPODPrettyPrint" gtestPP;
         Flag!"PreInclude" pre_incl;
         Flag!"PostInclude" post_incl;
 
@@ -86,6 +87,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             .argMainName(args.mainName)
             .argGenFreeFunction(args.doFreeFuncs)
             .argGmock(args.gmock)
+            .argGtestPODPrettyPrint(args.gtestPODPrettyPrint)
             .argPreInclude(args.generatePreInclude)
             .argPostInclude(args.genPostInclude)
             .argForceTestDoubleIncludes(args.testDoubleInclude)
@@ -170,6 +172,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
+    auto argGtestPODPrettyPrint(ConfigBool a) {
+        this.gtestPP = cast(Flag!"GtestPODPrettyPrint")(a == ConfigBool.yes ? true : false);
+        return this;
+    }
+
     auto argPreInclude(bool a) {
         this.pre_incl = cast(Flag!"PreInclude") a;
         return this;
@@ -249,6 +256,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     bool doGoogleMock() {
         return gmock;
+    }
+
+    bool doGoogleTestPODPrettyPrint() {
+        return gtestPP;
     }
 
     bool doPreIncludes() {
