@@ -172,7 +172,7 @@ private void genMethod(const CppMethod m, CppModule hdr) {
  *
  * Gmock has a restriction of max 10 parameters in a method. This gmock
  * generator has a work-around for the limitation by splitting the parameters
- * over many gmock functions. To fullfil the interface the generator then
+ * over many gmock functions. To fulfill the interface the generator then
  * generates an inlined function that in turn calls the gmocked functions.
  *
  * See test case class_interface_more_than_10_params.hpp.
