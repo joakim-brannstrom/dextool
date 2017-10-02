@@ -198,7 +198,7 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
         generateFuncImpl(a, ns_data.impl().base);
     }
 
-    foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gtestPrettyPrint)) {
+    foreach (a; ns.classRange.filter!(a => impl.lookup(a.id) == Kind.gtestPrettyPrint)) {
         auto hdr = ns_data.gtestPPHdr(a.resideInNs, a.name);
         generateGtestPrettyEqual(a.memberPublicRange, a.fullyQualifiedName,
                 cast(string) params.getMainNs, container, hdr);

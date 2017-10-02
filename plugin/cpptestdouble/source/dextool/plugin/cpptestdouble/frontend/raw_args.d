@@ -17,8 +17,10 @@ import dextool.plugin.types : CliOptionParts;
 
 static import dextool.xml;
 
-/// Represent a yes/no configuration option
-enum ConfigBool {
+/// Represent a yes/no configuration option.
+/// Using an explicit name so the help text is improved in such a way that the
+/// user understand that the choices are between yes/no.
+enum Config_YesNo {
     no,
     yes
 }
@@ -47,7 +49,7 @@ struct RawConfiguration {
     bool shortPluginHelp;
     bool help;
     bool gmock;
-    ConfigBool gtestPODPrettyPrint = ConfigBool.yes;
+    Config_YesNo gtestPODPrettyPrint = Config_YesNo.yes;
     bool generatePreInclude;
     bool genPostInclude;
 
