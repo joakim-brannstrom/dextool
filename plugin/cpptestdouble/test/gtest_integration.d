@@ -25,3 +25,34 @@ unittest {
     makeCommand(testEnv, defaultBinary)
         .run;
 }
+
+@("shall generate pretty printers for structs in a namespace")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextool(testEnv)
+        .addInputArg(pluginTestData ~ "stage_3/test_pretty_print_in_ns.hpp")
+        .run;
+    dextool_test.makeCompile(testEnv, "g++")
+        .addInclude(pluginTestData ~ "stage_3")
+        .addArg(pluginTestData ~ "stage_3/test_pretty_print_in_ns.cpp")
+        .addFileFromOutdir("test_double_fused_gtest.cpp")
+        .addGtestArgs
+        .outputToDefaultBinary
+        .run;
+    auto r = makeCommand(testEnv, defaultBinary)
+        .run;
+
+    r.stdout.sliceContains([
+                           "Expected: a",
+                           "Which is: x:1",
+                           "To be equal to: b",
+                           "Which is: x:2",
+    ]);
+
+    r.stdout.sliceContains([
+      "Expected: a",
+      "Which is: y:1",
+      "To be equal to: b",
+      "Which is: y:2"
+    ]);
+}

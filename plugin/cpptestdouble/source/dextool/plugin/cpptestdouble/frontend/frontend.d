@@ -27,7 +27,7 @@ import dextool.type : AbsolutePath, CustomHeader, DextoolVersion,
 
 import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products,
     Transform;
-import dextool.plugin.cpptestdouble.frontend.raw_args : ConfigBool,
+import dextool.plugin.cpptestdouble.frontend.raw_args : Config_YesNo,
     RawConfiguration, XmlConfig;
 
 struct FileData {
@@ -172,8 +172,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return this;
     }
 
-    auto argGtestPODPrettyPrint(ConfigBool a) {
-        this.gtestPP = cast(Flag!"GtestPODPrettyPrint")(a == ConfigBool.yes ? true : false);
+    auto argGtestPODPrettyPrint(Config_YesNo a) {
+        this.gtestPP = cast(Flag!"GtestPODPrettyPrint")(cast(bool) a);
         return this;
     }
 
