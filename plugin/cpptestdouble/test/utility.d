@@ -23,6 +23,6 @@ auto makeCompile(const ref TestEnv env) {
 }
 
 auto makeCompile(const ref TestEnv env, Path srcdir) {
-    return dextool_test.makeCompile(env, "g++").addArg(["-I", srcdir.toString])
+    return dextool_test.makeCompile(env, "g++").addInclude(srcdir)
         .addArg(testData ~ "main_dev.cpp").outputToDefaultBinary;
 }
