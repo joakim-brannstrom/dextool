@@ -190,32 +190,19 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         .each!(a => filtered.put(a));
     // dfmt on
 
-    if (ctrl.doGoogleMock) {
-        // dfmt off
-        input.classRange
-            // only classes with virtual functions are mocked
-            .filter!(a => a.isVirtual)
-            // ask controller (the user) if the file should be mocked
-            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
-            // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
-            // the class shall be further processed
-            .each!(a => filtered.put(a.value));
-        // dfmt on
-    }
+    foreach (a; input.classRange // ask controller (the user) if the file should be mocked
+        .filterAnyLocation!(a => ctrl.doFile(a.location.file,
+            cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)) {
 
-    if (ctrl.doGoogleTestPODPrettyPrint) {
-        // dfmt off
-        input.classRange
-            // only those with public members are of interest
-            .filter!(a => a.memberPublicRange.length != 0)
-            // ask controller (the user) if the file should be mocked
-            .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
-            // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
-            // the class shall be further processed
-            .each!(a => filtered.put(a.value));
-        // dfmt on
+        if (ctrl.doGoogleMock && a.value.isVirtual) {
+        } else if (ctrl.doGoogleTestPODPrettyPrint && a.value.memberPublicRange.length != 0) {
+        } else {
+            // skip the class
+            continue;
+        }
+
+        filtered.put(a.value);
+        prod.putLocation(FileName(a.location.file), LocationType.Leaf);
     }
 
     return filtered;
@@ -236,10 +223,8 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
                 CppNsStack.init, params.getMainNs, params.getMainInterface, impl.root);
     }
 
-    // dfmt off
-    foreach (a; root.namespaceRange
-        .map!(a => translate(a, impl, container, ctrl, params))
-        .filter!(a => !a.empty)) {
+    foreach (a; root.namespaceRange.map!(a => translate(a, impl, container,
+            ctrl, params)).filter!(a => !a.empty)) {
         impl.root.put(a);
     }
 
@@ -254,18 +239,17 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
             impl.root.put(mock);
         }
 
-        if (ctrl.doGoogleTestPODPrettyPrint) {
+        if (ctrl.doGoogleTestPODPrettyPrint && a.memberPublicRange.length != 0) {
             impl.tag(a.id, Kind.gtestPrettyPrint);
             impl.root.put(a);
         }
     }
-    // dfmt on
 }
 
 /** Translate namspaces and the content to test double implementations.
  */
 CppNamespace translate(CppNamespace input, ref ImplData data,
-        ref Container container, Controller ctrl, Parameters params) {
+        const ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
     import cpptooling.data.type : CppNsStack, CppNs;
@@ -290,27 +274,23 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
                 ns.resideInNs, params.getMainNs, params.getMainInterface, ns);
     }
 
-    //dfmt off
-    input.namespaceRange()
-        .map!(a => translate(a, data, container, ctrl, params))
-        .filter!(a => !a.empty)
-        .each!(a => ns.put(a));
+    input.namespaceRange().map!(a => translate(a, data, container, ctrl,
+            params)).filter!(a => !a.empty).each!(a => ns.put(a));
 
-    foreach (class_; input.classRange
-        .map!(a => mergeClassInherit(a, container, data))) {
+    foreach (class_; input.classRange.map!(a => mergeClassInherit(a, container, data))) {
         // check it is virtual.
         // can happen that the result is a class with no methods, thus in state Unknown
         if (ctrl.doGoogleMock && class_.isVirtual) {
-            auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup, CppNs(params.getMainNs)), data);
+            auto mock = makeGmockInNs(class_, CppNsStack(ns.resideInNs.dup,
+                    CppNs(params.getMainNs)), data);
             ns.put(mock);
         }
 
-        if (ctrl.doGoogleTestPODPrettyPrint) {
+        if (ctrl.doGoogleTestPODPrettyPrint && class_.memberPublicRange.length != 0) {
             data.tag(class_.id, Kind.gtestPrettyPrint);
             ns.put(class_);
         }
     }
-    // dfmt on
 
     return ns;
 }
