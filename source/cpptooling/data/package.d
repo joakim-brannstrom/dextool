@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module cpptooling.data;
 
 // pretty unusable without the analyzer types that are used as the basis.
+public import cpptooling.data.class_merge;
 public import cpptooling.data.kind;
 public import cpptooling.data.kind_type;
 public import cpptooling.data.kind_type_format;
