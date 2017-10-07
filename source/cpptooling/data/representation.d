@@ -300,6 +300,21 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     // dfmt on
 }
 
+/// Join a range of CxParams to a string of the parameter types separated by ", ".
+string joinParamTypes(const(CxParam)[] r) @safe {
+    import std.algorithm : joiner, map;
+    import std.conv : text;
+    import std.range : enumerate;
+
+    // dfmt off
+    return r
+        .enumerate
+        .map!(a => getType(a.value))
+        .joiner(", ")
+        .text();
+    // dfmt on
+}
+
 /// Get the name of a C++ method.
 string getName()(ref const(CppClass.CppFunc) method) @trusted {
     import std.variant : visit;
@@ -314,7 +329,7 @@ string getName()(ref const(CppClass.CppFunc) method) @trusted {
 }
 
 /// Get the name of a parameter or the default.
-string getName(CxParam p, string default_) @safe {
+string getName(const CxParam p, string default_) @safe {
     static string getName(const CxParam p, string default_) @trusted {
         import std.variant : visit;
 
@@ -328,6 +343,16 @@ string getName(CxParam p, string default_) @safe {
     }
 
     return getName(p, default_);
+}
+
+/// Get the parameter type as a string.
+string getType(const CxParam p) @trusted {
+    import std.variant : visit;
+
+    return p.visit!((const TypeKindVariable t) { return t.type.toStringDecl; },
+            (const TypeKindAttr t) { return t.toStringDecl; }, (const VariadicType a) {
+                return "...";
+            });
 }
 
 /// Make a variadic parameter.
@@ -612,7 +637,7 @@ struct CFunction {
     /// C function representation.
     this(const USRType usr, const CFunctionName name, const CxParam[] params_,
             const CxReturnType return_type, const VariadicType is_variadic,
-            const StorageClass storage_class) @trusted {
+            const StorageClass storage_class) @safe {
         this.usr = usr;
         this.name_ = name;
         this.returnType_ = return_type;
@@ -621,16 +646,16 @@ struct CFunction {
 
         this.params = params_.dup;
 
-        setUniqueId(usr);
+        setUniqueId(format("%s(%s)", name, params.joinParamTypes));
     }
 
     /// Function with no parameters.
-    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @trusted {
+    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @safe {
         this(usr, name, CxParam[].init, return_type, VariadicType.no, StorageClass.None);
     }
 
     /// Function with no parameters and returning void.
-    this(USRType usr, const CFunctionName name) @trusted {
+    this(USRType usr, const CFunctionName name) @safe {
         auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, VariadicType.no, StorageClass.None);
     }
@@ -640,7 +665,8 @@ struct CFunction {
         import std.format : formattedWrite;
         import std.range : put;
 
-        formattedWrite(sink, "%s; // %s", signatureToString(), to!string(storageClass));
+        formattedWrite(sink, "%s %s(%s); // %s", returnType.toStringDecl, name,
+                paramRange.joinParams, to!string(storageClass));
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(sink, " ");
@@ -649,15 +675,6 @@ struct CFunction {
     }
 
 @safe const:
-
-    private string signatureToString() {
-        import std.array : Appender, appender;
-        import std.format : formattedWrite;
-
-        auto rval = appender!string();
-        formattedWrite(rval, "%s %s(%s)", returnType.toStringDecl, name, paramRange.joinParams);
-        return rval.data;
-    }
 
     mixin(standardToString);
 
@@ -698,11 +715,7 @@ nothrow pure @nogc:
  * };
  * ----
  */
-@safe struct CppCtor {
-    mixin mixinCommentHelper;
-    mixin mixinUniqueId!size_t;
-    mixin CppMethodGeneric.Parameters;
-
+struct CppCtor {
     Nullable!USRType usr;
 
     private {
@@ -720,17 +733,13 @@ nothrow pure @nogc:
         }
     }
 
-    this(const USRType usr, const CppMethodName name, const CxParam[] params, const CppAccess access) {
+    this(const USRType usr, const CppMethodName name, const CxParam[] params, const CppAccess access) @safe {
         this.usr = usr;
         this.name_ = name;
         this.accessType_ = access;
         this.params_ = params.dup;
 
-        import std.array : appender;
-
-        auto buf = appender!string();
-        signatureToString(buf);
-        setUniqueId(buf.data);
+        setUniqueId(format("%s(%s)", name_, paramRange.joinParamTypes));
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
@@ -738,24 +747,19 @@ nothrow pure @nogc:
         import std.range.primitives : put;
 
         helperPutComments(w);
-        signatureToString(w);
+        formattedWrite(w, "%s(%s)", name_, paramRange.joinParams);
         put(w, ";");
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
         }
     }
 
+@safe:
+    mixin mixinCommentHelper;
+    mixin mixinUniqueId!size_t;
+    mixin CppMethodGeneric.Parameters;
+
 const:
-
-    /// Signature of the method.
-    private void signatureToString(Writer)(scope Writer w) const {
-        import std.format : formattedWrite;
-        import std.range.primitives : put;
-
-        put(w, name_);
-        formattedWrite(w, "(%s)", paramRange.joinParams);
-    }
-
     mixin(standardToString);
 
     auto accessType() {
@@ -767,12 +771,7 @@ const:
     }
 }
 
-@safe struct CppDtor {
-    mixin mixinCommentHelper;
-    mixin mixinUniqueId!size_t;
-    mixin CppMethodGeneric.BaseProperties;
-    mixin CppMethodGeneric.StringHelperVirtual;
-
+struct CppDtor {
     // TODO remove the Nullable, if possible.
     Nullable!USRType usr;
 
@@ -785,7 +784,7 @@ const:
     }
 
     this(const USRType usr, const CppMethodName name, const CppAccess access,
-            const CppVirtualMethod virtual) {
+            const CppVirtualMethod virtual) @safe {
         this.usr = usr;
         this.classification_ = virtual;
         this.accessType_ = access;
@@ -804,17 +803,15 @@ const:
         }
     }
 
+@safe:
+    mixin mixinCommentHelper;
+    mixin mixinUniqueId!size_t;
+    mixin CppMethodGeneric.BaseProperties;
+    mixin CppMethodGeneric.StringHelperVirtual;
     mixin(standardToString);
 }
 
-@safe struct CppMethod {
-    mixin mixinCommentHelper;
-    mixin mixinUniqueId!size_t;
-    mixin CppMethodGeneric.Parameters;
-    mixin CppMethodGeneric.StringHelperVirtual;
-    mixin CppMethodGeneric.BaseProperties;
-    mixin CppMethodGeneric.MethodProperties;
-
+struct CppMethod {
     Nullable!USRType usr;
 
     invariant {
@@ -840,11 +837,7 @@ const:
 
         this.params_ = params.dup;
 
-        import std.array : appender;
-
-        auto buf = appender!string();
-        signatureToString(buf);
-        setUniqueId(buf.data);
+        setUniqueId(format("%s(%s)", name, paramRange.joinParamTypes));
     }
 
     /// Function with no parameters.
@@ -861,13 +854,16 @@ const:
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) @safe const {
+        import std.format : formattedWrite;
         import std.range.primitives : put;
 
         helperPutComments(w);
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
-        signatureToString(w);
+        put(w, name_);
+        formattedWrite(w, "(%s)", paramRange.joinParams);
+        put(w, helperConst(isConst));
         put(w, helperVirtualPost(classification_));
         put(w, ";");
 
@@ -877,26 +873,17 @@ const:
         }
     }
 
-    mixin(standardToString);
-
-    private void signatureToString(Writer)(scope Writer w) const {
-        import std.format : formattedWrite;
-        import std.range.primitives : put;
-
-        put(w, name_);
-        formattedWrite(w, "(%s)", paramRange.joinParams);
-        put(w, helperConst(isConst));
-    }
-}
-
-@safe struct CppMethodOp {
+@safe:
     mixin mixinCommentHelper;
     mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.Parameters;
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.MethodProperties;
+    mixin(standardToString);
+}
 
+struct CppMethodOp {
     Nullable!USRType usr;
 
     invariant() {
@@ -922,11 +909,7 @@ const:
 
         this.params_ = params.dup;
 
-        import std.array : appender;
-
-        auto buf = appender!string();
-        signatureToString(buf);
-        setUniqueId(buf.data);
+        setUniqueId(format("%s(%s)", name, paramRange.joinParamTypes));
     }
 
     /// Operator with no parameters.
@@ -944,13 +927,16 @@ const:
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.format : formattedWrite;
         import std.range.primitives : put;
 
         helperPutComments(w);
         put(w, helperVirtualPre(classification_));
         put(w, returnType_.toStringDecl);
         put(w, " ");
-        signatureToString(w);
+        put(w, name_);
+        formattedWrite(w, "(%s)", paramRange.joinParams);
+        put(w, helperConst(isConst));
         put(w, helperVirtualPost(classification_));
         put(w, ";");
 
@@ -960,17 +946,15 @@ const:
         }
     }
 
-@safe const:
+@safe:
+    mixin mixinCommentHelper;
+    mixin mixinUniqueId!size_t;
+    mixin CppMethodGeneric.Parameters;
+    mixin CppMethodGeneric.StringHelperVirtual;
+    mixin CppMethodGeneric.BaseProperties;
+    mixin CppMethodGeneric.MethodProperties;
 
-    /// Signature of the method.
-    private void signatureToString(Writer)(scope Writer w) const {
-        import std.format : formattedWrite;
-        import std.range.primitives : put;
-
-        put(w, name_);
-        formattedWrite(w, "(%s)", paramRange.joinParams);
-        put(w, helperConst(isConst));
-    }
+const:
 
     mixin(standardToString);
 
@@ -984,7 +968,7 @@ const:
     }
 }
 
-@safe struct CppInherit {
+struct CppInherit {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     Nullable!USRType usr;
@@ -1002,17 +986,9 @@ const:
         }
     }
 
-    this(CppClassName name, CppAccess access) {
+    this(CppClassName name, CppAccess access) @safe {
         this.name_ = name;
         this.access_ = access;
-    }
-
-    void put(CppNs ns) {
-        this.ns ~= ns;
-    }
-
-    auto nsRange() @nogc @safe pure nothrow inout {
-        return ns;
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
@@ -1028,6 +1004,15 @@ const:
             formattedWrite(w, "%s::", a);
         }
         put(w, cast(string) name_);
+    }
+
+@safe:
+    void put(CppNs ns) {
+        this.ns ~= ns;
+    }
+
+    auto nsRange() @nogc @safe pure nothrow inout {
+        return ns;
     }
 
 const:
@@ -1058,10 +1043,7 @@ const:
     }
 }
 
-@safe struct CppClass {
-    mixin mixinUniqueId!size_t;
-    mixin mixinCommentHelper;
-
+struct CppClass {
     import std.variant : Algebraic;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
@@ -1091,7 +1073,7 @@ const:
         TypeKindVariable[] members_priv;
     }
 
-    this(const CppClassName name, const CppInherit[] inherits, const CppNsStack ns)
+    this(const CppClassName name, const CppInherit[] inherits, const CppNsStack ns) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1112,7 +1094,7 @@ const:
     }
 
     //TODO remove
-    this(const CppClassName name, const CppInherit[] inherits)
+    this(const CppClassName name, const CppInherit[] inherits) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1121,7 +1103,7 @@ const:
     }
 
     //TODO remove
-    this(const CppClassName name)
+    this(const CppClassName name) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1129,7 +1111,8 @@ const:
         this(name, CppInherit[].init, CppNsStack.init);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    // TODO remove @safe. it isn't a requirement that the user provided Writer is @safe.
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const @safe {
         import std.algorithm : copy, joiner, map, each;
         import std.ascii : newline;
         import std.conv : to;
@@ -1211,8 +1194,6 @@ const:
         put(w, name_);
     }
 
-    mixin(standardToString);
-
     void put(T)(T func)
             if (is(Unqual!T == CppMethod) || is(Unqual!T == CppCtor)
                 || is(Unqual!T == CppDtor) || is(Unqual!T == CppMethodOp)) {
@@ -1242,6 +1223,12 @@ const:
         classification_ = cpptooling.data.class_classification.classifyClass(classification_,
                 f, cast(Flag!"hasMember")(memberRange.length > 0));
     }
+
+@safe:
+    mixin mixinUniqueId!size_t;
+    mixin mixinCommentHelper;
+
+    mixin(standardToString);
 
     void put(CppFunc f) {
         static void internalPut(T)(ref T class_, CppFunc f) @trusted {

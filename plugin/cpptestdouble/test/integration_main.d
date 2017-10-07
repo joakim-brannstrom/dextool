@@ -14,6 +14,7 @@ int main(string[] args) {
     return args.runTests!(
                           "dextool_test.integration",
                           "dextool_test.gtest_integration",
+                          "dextool_test.stage_1",
                           );
     // dfmt on
 }
