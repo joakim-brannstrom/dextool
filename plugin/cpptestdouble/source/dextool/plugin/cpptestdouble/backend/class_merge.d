@@ -16,7 +16,7 @@ import dextool.plugin.cpptestdouble.backend.type : ImplData;
 
 @safe:
 
-CppClass mergeClassInherit(ref CppClass class_, ref Container container, ref ImplData impl) {
+CppClass mergeClassInherit(ref CppClass class_, const ref Container container, ref ImplData impl) {
     if (class_.inheritRange.length == 0) {
         return class_;
     }
@@ -51,7 +51,7 @@ bool isMethodOrOperator(T)(T method) @trusted {
     // dfmt on
 }
 
-CppClass.CppFunc[] getMethods(const ref CppClass c, ref Container container, ref ImplData impl) @safe {
+CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container container, ref ImplData impl) @safe {
     import std.array : array, appender;
     import std.algorithm : cache, copy, each, filter, joiner, map;
     import std.range : chain;
