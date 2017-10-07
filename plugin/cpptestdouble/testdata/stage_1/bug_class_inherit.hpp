@@ -9,7 +9,7 @@
 /// Description
 class Interface {
 public:
-    virtual ~Interface();
+    virtual ~Interface() {}
 
     virtual int a_method(int x) = 0;
 
@@ -17,10 +17,11 @@ public:
 
 class Derived : public Interface {
 public:
-    Derived();
-    virtual ~Derived();
+    virtual ~Derived() {}
 
-    virtual int a_method(int x_value);
+    virtual int a_method(int x_value) {
+        return 42;
+    }
 };
 
 #endif // BUG_CLASS_INHERIT_HPP
