@@ -7,32 +7,36 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.cpptestdouble.backend.class_merge;
+module cpptooling.data.class_merge;
 
-import cpptooling.data : CppClass;
+import cpptooling.data.representation : CppClass;
 import cpptooling.data.symbol : Container;
+import cpptooling.data.type : FullyQualifiedNameType;
 
-import dextool.plugin.cpptestdouble.backend.type : ImplData;
+import std.typecons : NullableRef;
+import std.range : only;
 
 @safe:
 
-CppClass mergeClassInherit(ref CppClass class_, const ref Container container, ref ImplData impl) {
+alias LookupT = typeof(only(NullableRef!(CppClass).init)) delegate(FullyQualifiedNameType a);
+
+/** Create a merged class with methods from all those classes it inherits from.
+ *
+ * Params:
+ *  LookupT = a callback that takes a FullyQualifiedNameType and returns a
+ *      range with zero or one elements of type NullableRef!CppClass.
+ */
+CppClass mergeClassInherit(ref CppClass class_, const ref Container container, LookupT lookup) {
+    import std.algorithm : each;
+
     if (class_.inheritRange.length == 0) {
         return class_;
     }
 
-    //TODO inefficient, lots of intermittent arrays and allocations.
-    // Convert to a range based no-allocation.
-
-    auto methods = dedup(getMethods(class_, container, impl));
+    auto methods = dedup(getMethods(class_, container, lookup));
 
     auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
-    // dfmt off
-    () @trusted {
-        import std.algorithm : each;
-        methods.each!(a => c.put(a));
-    }();
-    // dfmt on
+    () @trusted{ methods.each!(a => c.put(a)); }();
 
     return c;
 }
@@ -41,7 +45,8 @@ private:
 
 bool isMethodOrOperator(T)(T method) @trusted {
     import std.variant : visit;
-    import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
+    import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor,
+        CppDtor;
 
     // dfmt off
     return method.visit!((const CppMethod a) => true,
@@ -51,7 +56,7 @@ bool isMethodOrOperator(T)(T method) @trusted {
     // dfmt on
 }
 
-CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container container, ref ImplData impl) @safe {
+CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container container, LookupT lookup) @safe {
     import std.array : array, appender;
     import std.algorithm : cache, copy, each, filter, joiner, map;
     import std.range : chain;
@@ -61,10 +66,10 @@ CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container containe
         .filter!(a => isMethodOrOperator(a));
 
     auto inherit_methods = c.inheritRange
-        .map!(a => impl.lookupClass(a.fullyQualifiedName))
+        .map!(a => lookup(a.fullyQualifiedName))
         // some classes do not exist in AST thus no methods returned
         .joiner
-        .map!(a => getMethods(a, container, impl));
+        .map!(a => getMethods(a, container, lookup));
     // dfmt on
 
     auto methods = appender!(CppClass.CppFunc[])();
@@ -78,7 +83,7 @@ auto dedup(CppClass.CppFunc[] methods) @trusted {
     import std.array : array;
     import std.algorithm : makeIndex, uniq, map, sort;
     import cpptooling.utility.dedup : dedup;
-    import cpptooling.data : funcToString;
+    import cpptooling.data.representation : funcToString;
 
     static auto getUniqeId(T)(ref T method) {
         import std.variant : visit;
@@ -91,6 +96,9 @@ auto dedup(CppClass.CppFunc[] methods) @trusted {
                              (CppDtor a) => a.id);
         // dfmt on
     }
+
+    //TODO inefficient, lots of intermittent arrays and allocations.
+    // Convert to a range based no-allocation.
 
     auto arr = methods.map!(a => getUniqeId(a)).array();
 

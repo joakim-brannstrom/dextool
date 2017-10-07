@@ -216,7 +216,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
 void translate(CppRoot root, ref Container container, Controller ctrl,
         Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
-    import dextool.plugin.cpptestdouble.backend.class_merge;
+    import cpptooling.data : mergeClassInherit, FullyQualifiedNameType;
 
     if (!root.funcRange.empty) {
         translateToTestDoubleForFreeFunctions(root, impl, cast(Flag!"doGoogleMock") ctrl.doGoogleMock,
@@ -228,7 +228,7 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
         impl.root.put(a);
     }
 
-    foreach (a; root.classRange.map!(a => mergeClassInherit(a, container, impl))) {
+    foreach (a; root.classRange.map!(a => mergeClassInherit(a, container, a => impl.lookupClass(a)))) {
         // check it is virtual.
         // can happen that the result is a class with no methods, thus in state Unknown
         if (ctrl.doGoogleMock && a.isVirtual) {
@@ -252,8 +252,8 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         const ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data.type : CppNsStack, CppNs;
-    import dextool.plugin.cpptestdouble.backend.class_merge;
+    import cpptooling.data : CppNsStack, CppNs, mergeClassInherit,
+        FullyQualifiedNameType;
 
     static auto makeGmockInNs(CppClass c, CppNsStack ns_hier, ref ImplData data) {
         import cpptooling.data : CppNs;
@@ -277,7 +277,8 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
     input.namespaceRange().map!(a => translate(a, data, container, ctrl,
             params)).filter!(a => !a.empty).each!(a => ns.put(a));
 
-    foreach (class_; input.classRange.map!(a => mergeClassInherit(a, container, data))) {
+    foreach (class_; input.classRange.map!(a => mergeClassInherit(a, container,
+            a => data.lookupClass(a)))) {
         // check it is virtual.
         // can happen that the result is a class with no methods, thus in state Unknown
         if (ctrl.doGoogleMock && class_.isVirtual) {
