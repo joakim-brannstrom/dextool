@@ -1,1 +1,1 @@
-{'importPaths': ['clang', 'dsrcgen/source', 'libclang/deimos', 'plugin/source', 'source']}
+{'importPaths': ['clang', 'dsrcgen/source', 'libclang/deimos', 'plugin/source', 'source', 'llvm-d/source', 'llvm_hiwrap/source']}

@@ -156,7 +156,7 @@ string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     return result;
 }
 
-@("Should be a bounch of 'case'")
+@("shall generate code for a case block that wraps a libclang Cursor in the correct class")
 unittest {
     import std.conv : to;
 
@@ -174,7 +174,7 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 ");
 }
 
-@("A name for the test")
+@("shall route nodes visits to the base node of each group")
 @safe unittest {
     import cpptooling.analyzer.clang.ast : Visitor;
     import cpptooling.analyzer.clang.ast.nodes;
