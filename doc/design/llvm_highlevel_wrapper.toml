@@ -1,0 +1,100 @@
+[REQ-llvm_hiwrap]
+partof = 'REQ-purpose'
+text = '''
+The purpose of this library is to provide a high level wrapper in D for llvm-c,
+the C API.
+
+The design should:
+ - strive to be type safe and memory safe.
+ - make it possible to do everything that the C API allow.
+
+It shall:
+ - provide debug facilities.
+'''
+
+[REQ-llvm_hiwrap-release_1]
+partof = 'REQ-purpose'
+text = '''
+Release 1.0 focus on making it possible to perform rudimentary data flow
+analysis.
+
+It is therefore important that the API provide:
+ - handling of basic blocks.
+ - handling of phi nodes.
+ - the type and values that can occur in a phi node.
+ - debug information to make it possible to backtrack from the backend to the
+   input.
+'''
+
+[SPC-llvm_hiwrap_api_convenience]
+partof = 'REQ-llvm_hiwrap'
+text = '''
+The API should be convinient to use.
+This is a non-functional requirement.
+
+This is the most crucial design req of them all. If it isn't better and easier
+to use the high level wrapper than the C API it failes the purpose.
+'''
+
+[SPC-llvm_hiwrap_debug]
+partof = 'REQ-llvm_hiwrap'
+text = '''
+It shall:
+ - provide a viewer of the CFGs for functions.
+'''
+
+[SPC-llvm_hiwrap_debug-cfg_viewer]
+text = '''
+The utility is a standalone executable to make it easy to use.
+For now it uses the convinient C API function. For good or bad that one invokes
+ghostview.
+
+It shall:
+ - read a file provided via the CLI.
+ - view the CFG to the user.
+ - automatically convert c/c++ code to LLVM-IR for viewing.
+'''
+
+[SPC-llvm_hiwrap_debug-cfg_viewer_todo]
+partof = 'SPC-llvm_hiwrap_debug-cfg_viewer'
+text = '''
+A good extension for the future is to stop using the C API to allow other
+viewers to be used. Maybe _hack_ it?
+'''
+
+[SPC-llvm_hiwrap_error_handling]
+partof = 'REQ-llvm_hiwrap'
+text = '''
+The error handling should make be easy to use, obviose where the error messages
+are.
+'''
+
+[SPC-llvm_hiwrap_module_error_handling]
+partof = 'SPC-llvm_hiwrap_error_handling'
+text = '''
+The error handling when creating a module in a context should be:
+ - obviouse where the error messages are.
+ - hard to use an invalid module.
+
+To make it easy to find the error messages package them together with the
+created module.
+'''
+
+[TST-llvm_hiwrap_debug_cfg_viewer_readfile]
+partof = 'SPC-llvm_hiwrap_debug-cfg_viewer'
+text = '''
+Verify that a CFG is displayed when the input file is {llvm IR as bitcode, c, c++}.
+'''
+
+[TST-llvm_hiwrap_test_api_read_llvm_bc]
+partof = 'SPC-llvm_hiwrap_api_convenience'
+text = '''
+Test the API by writing an application that read a LLVM IR file.
+
+The test is considered passed if the test applications are convinient to write.
+
+API inspection 1:
+The bad part of the API is how errors that occur when creating a module are
+handled. Otherwise I think it is easy enough to use as is.
+Created [[SPC-llvm_hiwrap_error_handling]] to fix this.
+'''
