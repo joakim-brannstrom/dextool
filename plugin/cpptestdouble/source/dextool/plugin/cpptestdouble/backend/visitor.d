@@ -146,8 +146,6 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         import std.typecons : scoped;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor,
             analyzeRecord;
-        import cpptooling.analyzer.clang.type : retrieveType;
-        import cpptooling.analyzer.clang.store : put;
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
@@ -168,9 +166,6 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
             root.put(visitor.root);
             analyze_data.putForLookup(visitor.root);
-        } else {
-            auto type = retrieveType(v.cursor, container, indent);
-            put(type, container, indent);
         }
     }
 
