@@ -672,5 +672,5 @@ void my_func(myString3 s);
     // should NOT point to myString1
     // can't test the USR more specific because it is different on different
     // systems.
-    type.info.canonicalRef.dup.shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
+    (USRType(type.info.canonicalRef.dup)).shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
 }
