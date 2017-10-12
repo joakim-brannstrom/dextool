@@ -108,6 +108,7 @@ struct BuildDextoolRun {
         return this;
     }
 
+    /// Activate debugging mode of the dextool binary
     auto argDebug(bool v) {
         arg_debug = v;
         return this;
