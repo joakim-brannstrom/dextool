@@ -34,3 +34,41 @@ import unit_threaded;
 void generic(T)(auto ref T thing) {
     thing.foo(2);
 }
+
+struct Namespace {
+    import std.datetime : Duration;
+    class HiddenTypes {
+        abstract Duration identity(Duration) pure @safe;
+    }
+}
+
+@safe pure unittest {
+    auto m = mock!(Namespace.HiddenTypes);
+    {
+        import std.datetime : Duration;
+        m.expect!"identity"(Duration.init);
+        m.identity(Duration.init);
+        m.verify;
+    }
+}
+
+@("private or protected members") @safe pure unittest {
+    interface InterfaceWithProtected {
+        bool result();
+        protected final void inner(int i) { }
+    }
+
+    auto m = mock!InterfaceWithProtected;
+}
+
+
+struct Struct { }
+
+@("default params")
+@safe pure unittest {
+    interface Interface {
+        void write(Struct stream, ulong nbytes = 0LU);
+    }
+
+    auto m = mock!Interface;
+}

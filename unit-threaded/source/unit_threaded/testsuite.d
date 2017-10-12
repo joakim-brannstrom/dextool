@@ -5,17 +5,7 @@
 
 module unit_threaded.testsuite;
 
-import unit_threaded.testcase;
-import unit_threaded.io;
-import unit_threaded.options;
-import unit_threaded.factory;
-import unit_threaded.reflection;
-import std.datetime;
-import std.parallelism : taskPool;
-import std.algorithm;
-import std.conv : text;
-import std.array;
-import core.runtime;
+import unit_threaded.testcase: TestCase;
 
 /*
  * taskPool.amap only works with public functions, not closures.
@@ -30,6 +20,11 @@ auto runTest(TestCase test)
  */
 struct TestSuite
 {
+    import unit_threaded.io: Output;
+    import unit_threaded.options: Options;
+    import unit_threaded.reflection: TestData;
+    import std.datetime: StopWatch, Duration;
+
     package Output output;
 
     this(in Options options, in TestData[] testData) {
@@ -43,10 +38,17 @@ struct TestSuite
      * testData = The information about the tests to run.
      */
     this(in Options options, in TestData[] testData, Output output) {
+        import unit_threaded.factory: createTestCases;
+
         _options = options;
         _testData = testData;
         _output = output;
         _testCases = createTestCases(testData, options.testsToRun);
+    }
+
+    ~this() {
+        import unit_threaded.io: WriterThread;
+        WriterThread.stop;
     }
 
     /**
@@ -54,6 +56,11 @@ struct TestSuite
      * Returns: true if no test failed, false otherwise.
      */
     bool run() {
+
+        import unit_threaded.io: writelnRed, writeln, writeRed, write, writeYellow, writelnGreen;
+        import std.algorithm: filter, count;
+        import std.conv: text;
+
         if (!_testCases.length) {
             _output.writelnRed("Error! No tests to run for args: ");
             _output.writeln(_options.testsToRun);
@@ -130,6 +137,10 @@ private:
      * Returns: how long it took to run.
      */
     Duration doRun() {
+
+        import std.algorithm: reduce;
+        import std.parallelism: taskPool;
+
         auto tests = getTests();
 
         if(_options.showChrono)
@@ -153,6 +164,8 @@ private:
     }
 
     auto getTests() {
+        import unit_threaded.io: writeln;
+
         auto tests = _testCases.dup;
         if (_options.random) {
             import std.random;
@@ -166,10 +179,14 @@ private:
     }
 
     void handleFailures() {
+        import unit_threaded.io: writeln, writeRed, write;
+        import std.array: empty;
+        import std.algorithm: canFind;
+
         if (!_failures.empty)
             _output.writeln("");
         foreach (failure; _failures) {
-            _output.write("Test ", (failure.canFind(" ") ? `"` ~ failure ~ `"` : failure), " ");
+            _output.write("Test ", (failure.canFind(" ") ? `'` ~ failure ~ `'` : failure), " ");
             _output.writeRed("failed");
             _output.writeln(".");
         }
@@ -178,6 +195,7 @@ private:
     }
 
     @property ulong numTestsRun() @trusted const {
+        import std.algorithm: map, reduce;
         return _testCases.map!(a => a.numTestsRun).reduce!((a, b) => a + b);
     }
 }
@@ -187,13 +205,12 @@ private:
  * the tests will run twice.
  */
 void replaceModuleUnitTester() {
-    import core.runtime;
-
+    import core.runtime: Runtime;
     Runtime.moduleUnitTester = &moduleUnitTester;
 }
 
 shared static this() {
-    replaceModuleUnitTester();
+    replaceModuleUnitTester;
 }
 
 /**
@@ -202,7 +219,7 @@ shared static this() {
  */
 private bool moduleUnitTester() {
     //this is so unit-threaded's own tests run
-    import std.algorithm;
+    import std.algorithm: startsWith;
     foreach(module_; ModuleInfo) {
         if(module_ && module_.unitTest &&
            module_.name.startsWith("unit_threaded") && // we want to run the "normal" unit tests

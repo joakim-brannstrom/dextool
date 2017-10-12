@@ -1,13 +1,7 @@
 module unit_threaded.dub;
 
-import unit_threaded.runtime;
-import std.json;
-import std.algorithm;
-import std.array;
-import std.process;
-import std.exception;
-import std.conv;
-import std.stdio;
+import unit_threaded.runtime: Options;
+import std.json: JSONValue;
 
 
 struct DubPackage {
@@ -31,6 +25,10 @@ struct DubInfo {
 }
 
 DubInfo getDubInfo(string jsonString) @trusted {
+    import std.json: parseJSON;
+    import std.algorithm: map, filter;
+    import std.array: array;
+
     auto json = parseJSON(jsonString);
     auto packages = json.byKey("packages").array;
     return DubInfo(packages.
@@ -53,7 +51,8 @@ DubInfo getDubInfo(string jsonString) @trusted {
 }
 
 private string[] jsonValueToFiles(JSONValue files) @trusted {
-    import std.array;
+    import std.algorithm: map, filter;
+    import std.array: array;
 
     return files.array.
         filter!(a => ("type" in a && a.byKey("type").str == "source") ||
@@ -64,52 +63,82 @@ private string[] jsonValueToFiles(JSONValue files) @trusted {
 }
 
 private string[] jsonValueToStrings(JSONValue json) @trusted {
+    import std.algorithm: map, filter;
+    import std.array: array;
+
     return json.array.map!(a => a.str).array;
 }
 
 
 private auto byKey(JSONValue json, in string key) @trusted {
-    return json.object[key];
+    import std.json: JSONException;
+    if (auto p = key in json.object)
+        return *p;
+    else throw new JSONException("\"" ~ key ~ "\" not found");
 }
 
 private auto byOptionalKey(JSONValue json, in string key, bool def) {
-    import std.conv: to;
-    auto value = json.object;
-    return key in value ? value[key].boolean : def;
+    if (auto p = key in json.object)
+        return (*p).boolean;
+    else
+        return def;
 }
 
 //std.json has no conversion to bool
 private bool boolean(JSONValue json) @trusted {
     import std.exception: enforce;
+    import std.json: JSONException, JSON_TYPE;
     enforce!JSONException(json.type == JSON_TYPE.TRUE || json.type == JSON_TYPE.FALSE,
                           "JSONValue is not a boolean");
     return json.type == JSON_TYPE.TRUE;
 }
 
 private string getOptional(JSONValue json, in string key) @trusted {
-    auto aa = json.object;
-    return key in aa ? aa[key].str : "";
+    if (auto p = key in json.object)
+        return p.str;
+    else
+        return "";
 }
 
 private string[] getOptionalList(JSONValue json, in string key) @trusted {
-    auto aa = json.object;
-    return key in aa ? aa[key].jsonValueToStrings : [];
+    if (auto p = key in json.object)
+        return (*p).jsonValueToStrings;
+    else
+        return [];
 }
 
 
 DubInfo getDubInfo(in bool verbose) {
-    import core.exception;
+    import std.json: JSONException;
+    import std.conv: text;
+    import std.algorithm: joiner, map, copy;
+    import std.stdio: writeln;
+    import std.exception: enforce;
+    import std.process: pipeProcess, Redirect, wait;
+    import std.array: join, appender;
 
     if(verbose)
         writeln("Running dub describe");
 
     immutable args = ["dub", "describe", "-c", "unittest"];
-    immutable res = execute(args);
-    enforce(res.status == 0, text("Could not execute ", args.join(" "), ":\n", res.output));
+    auto pipes = pipeProcess(args, Redirect.stdout | Redirect.stderr);
+    scope(exit) wait(pipes.pid); // avoid zombies in all cases
+    string stdoutStr;
+    string stderrStr;
+    enum chunkSize = 4096;
+    pipes.stdout.byChunk(chunkSize).joiner
+        .map!"cast(immutable char)a".copy(appender(&stdoutStr));
+    pipes.stderr.byChunk(chunkSize).joiner
+        .map!"cast(immutable char)a".copy(appender(&stderrStr));
+    auto status = wait(pipes.pid);
+    auto allOutput = "stdout:\n" ~ stdoutStr ~ "\nstderr:\n" ~ stderrStr;
+
+    enforce(status == 0, text("Could not execute ", args.join(" "),
+                ":\n", allOutput));
     try {
-        return getDubInfo(res.output.find("{"));
-    } catch(RangeError e) {
-        throw new Exception(text("Could not parse the output of dub describe:\n", res.output, "\n", e.toString));
+        return getDubInfo(stdoutStr);
+    } catch(JSONException e) {
+        throw new Exception(text("Could not parse the output of dub describe:\n", allOutput, "\n", e.toString));
     }
 }
 
@@ -121,6 +150,11 @@ bool isDubProject() {
 
 // set import paths from dub information
 void dubify(ref Options options) {
+
+    import std.path: buildPath;
+    import std.algorithm: map, reduce;
+    import std.array: array;
+
     if(!isDubProject) return;
 
     auto dubInfo = getDubInfo(options.verbose);

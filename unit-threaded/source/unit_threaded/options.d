@@ -1,10 +1,5 @@
 module unit_threaded.options;
 
-import std.getopt;
-import std.stdio;
-import std.random;
-import std.exception;
-
 
 struct Options {
     bool multiThreaded;
@@ -23,6 +18,11 @@ struct Options {
  * Parses the command-line args and returns Options
  */
 auto getOptions(string[] args) {
+
+    import std.stdio: writeln;
+    import std.random: unpredictableSeed;
+    import std.getopt: getopt;
+
     bool single;
     bool debugOutput;
     bool help;
@@ -46,8 +46,7 @@ auto getOptions(string[] args) {
         );
 
     if(help) {
-        import unit_threaded.io;
-        WriterThread.get.writeln("Usage: <progname> <options> <tests>...\n",
+        writeln("Usage: <progname> <options> <tests>...\n",
                   "Options: \n",
                   "  -h/--help: help\n",
                   "  -s/--single: single-threaded\n",
@@ -65,6 +64,9 @@ auto getOptions(string[] args) {
         if(!single) writeln("-r implies -s, running in a single thread\n");
         single = true;
     }
+
+    version(unitUnthreaded)
+        single = true;
 
     immutable exit =  help || list;
     return Options(!single, args[1..$], debugOutput, list, exit, forceEscCodes,

@@ -7,18 +7,49 @@
     "license": "BSD 3-clause",
     "targetType": "library",
     "configurations": [
+
         { "name": "library" },
+
         {
             "name": "unittest",
             "targetType": "executable",
+            "targetName": "ut_pass",
             "sourcePaths": ["tests/pass"],
             "sourceFiles": ["example/example_pass.d"],
             "mainSourceFile": "example/example_pass.d",
             "versions": ["testing_unit_threaded"]
         },
+
+        {
+            "name": "unittest-only",
+            "targetType": "executable",
+            "versions": ["testing_unit_threaded"]
+        },
+
+        {
+            "name": "unittest-unthreaded",
+            "targetType": "executable",
+            "targetName": "ut_pass",
+            "sourcePaths": ["tests/pass"],
+            "sourceFiles": ["example/example_pass.d"],
+            "mainSourceFile": "example/example_pass.d",
+            "versions": ["testing_unit_threaded", "unitUnthreaded"]
+        },
+
+        {
+            "name": "unittest-light",
+            "targetType": "executable",
+            "targetName": "ut_pass",
+            "sourcePaths": ["tests/pass"],
+            "sourceFiles": ["example/example_pass.d"],
+            "mainSourceFile": "example/example_pass.d",
+            "versions": ["testing_unit_threaded", "unitThreadedLight"]
+        },
+
         {
             "name": "unittest-fail",
             "targetType": "executable",
+            "targetName": "ut_fail",
             "sourcePaths": ["tests/pass", "tests/fail/"],
             "sourceFiles": ["example/example_fail.d"],
             "mainSourceFile": "example/example_fail.d",
@@ -28,7 +59,9 @@
         {
             "name": "gen_ut_main",
             "targetType": "executable",
+            "targetName": "gen_ut_main",
             "mainSourceFile": "gen/gen_ut_main.d"
         }
+
     ]
 }
