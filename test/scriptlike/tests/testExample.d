@@ -1,14 +1,6 @@
 /++
 This program runs and tests one or all of the "features" examples
 in this directory.
-
-Note: The tests for "DubProject" and "PlainScript" are only intended to
-test the APPROACHES they use for including Scriptlike in a script, not
-for testing Scriptlike itself (the rest of the tests do that). So IT'S OK
-they build against latest release version of Scriptlike instead of *this*
-copy of Scriptlike. (This isn't an issue on travis builds - the .travis.yml
-file is set up to automatically copy *this* Scriptlike to the path where
-dub *would've* stored the latest Scriptlike release.)
 +/
 import scriptlike;
 
@@ -33,7 +25,6 @@ void main(string[] args)
 		"features/UserInputPrompts":          &testUserInputPrompts,
 
 		"DubProject":                &testDubProject,
-		"PlainScript":               &testPlainScript,
 		"SingleFile":                &testSingleFile,
 	];
 
@@ -343,36 +334,6 @@ void testDubProject()
 
 	// Do test
 	testUseInScripts("dub-project", Path("../examples/dub-project"), "dub -q -- ");
-}
-
-void testPlainScript()
-{
-	// This test relies on "rdmd" being available on the PATH
-	auto rdmdResult = tryRunCollect("rdmd --help");
-	if(rdmdResult.status != 0)
-	{
-		writeln(`Skipping `, testName, `: Couldn't find 'rdmd' on the PATH.`);
-		return;
-	}
-
-	// Force rebuild
-	tryRemove("../examples/plain-script/.myscript");
-	tryRemove("../examples/plain-script/.myscript.exe");
-
-	// Do tests
-	writeln("    Testing from its own directory...");
-	testUseInScripts(
-		"plain-script",
-		Path("../examples/plain-script"),
-		"."~dirSeparator~"myscript"
-	);
-
-	writeln("    Testing from different directory...");
-	testUseInScripts(
-		"plain-script",
-		Path("../tests/bin"),
-		Path("../../examples/plain-script/myscript").raw
-	);
 }
 
 void testSingleFile()

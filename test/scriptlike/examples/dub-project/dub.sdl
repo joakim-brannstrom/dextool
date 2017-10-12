@@ -1,4 +1,4 @@
 name "myscript"
 targetType "executable"
 mainSourceFile "myscript.d"
-dependency "scriptlike" version="~>0.9.7"
+dependency "scriptlike" version="~>0.10.2"

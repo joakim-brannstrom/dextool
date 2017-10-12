@@ -3,7 +3,7 @@ $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 
 Extra Scriptlike-only functionality to complement $(MODULE_STD_FILE).
 
-Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/
@@ -518,7 +518,7 @@ unittest
 	});
 }
 
-version(ddoc_scriptlike_d)
+version(docs_scriptlike_d)
 {
 	/// Posix-only. If 'original' exists, then symlink. Otherwise, do nothing and return false.
 	///
@@ -953,4 +953,98 @@ unittest
 		assert(!tryRemovePath(Path( notExist ) ));
 		mixin(checkResult);
 	});
+}
+
+version(docs_scriptlike_d)
+{
+	/// Posix-only. Check the user (ie "owner") executable bit of a file. File must exist.
+	bool isUserExec(Path path);
+	///ditto
+	bool isUserExec(string path);
+
+	/// Posix-only. Check the group executable bit of a file. File must exist.
+	bool isGroupExec(Path path);
+	///ditto
+	bool isGroupExec(string path);
+
+	/// Posix-only. Check the world (ie "other") executable bit of a file. File must exist.
+	bool isWorldExec(Path path);
+	///ditto
+	bool isWorldExec(string path);
+}
+else version(Posix)
+{
+	bool isUserExec(Path path)
+	{
+		return isUserExec(path.raw);
+	}
+
+	bool isUserExec(string path)
+	{
+		import core.sys.posix.sys.stat;
+		return !!(getAttributes(path) & S_IXUSR);
+	}
+
+	bool isGroupExec(Path path)
+	{
+		return isGroupExec(path.raw);
+	}
+
+	bool isGroupExec(string path)
+	{
+		import core.sys.posix.sys.stat;
+		return !!(getAttributes(path) & S_IXGRP);
+	}
+
+	bool isWorldExec(Path path)
+	{
+		return isUserExec(path.raw);
+	}
+
+	bool isWorldExec(string path)
+	{
+		import core.sys.posix.sys.stat;
+		return !!(getAttributes(path) & S_IXOTH);
+	}
+}
+
+version(Posix)
+version(unittest_scriptlike_d)
+unittest
+{
+	import std.stdio;
+	writeln("Running Scriptlike unittests: isUserExec / isGroupExec / isWorldExec"); stdout.flush();
+
+	mixin(useSandbox);
+
+	import scriptlike.process : run;
+	
+	writeFile("noX.txt", "Hi");
+	writeFile("userX.txt", "Hi");
+	writeFile("groupX.txt", "Hi");
+	writeFile("otherX.txt", "Hi");
+	writeFile("allX.txt", "Hi");
+	run("chmod -x noX.txt");
+	run("chmod u+x,go-x userX.txt");
+	run("chmod g+x,uo-x groupX.txt");
+	run("chmod o+x,ug-x otherX.txt");
+	run("chmod +x allX.txt");
+
+	assert(!isUserExec("noX.txt"));
+	assert(isUserExec("userX.txt"));
+	assert(!isUserExec("groupX.txt"));
+	assert(!isUserExec("otherX.txt"));
+	assert(isUserExec("allX.txt"));
+
+	assert(!isGroupExec("noX.txt"));
+	assert(!isGroupExec("userX.txt"));
+	assert(isGroupExec("groupX.txt"));
+	assert(!isGroupExec("otherX.txt"));
+	assert(isGroupExec("allX.txt"));
+
+	assert(!isWorldExec("noX.txt"));
+	assert(!isWorldExec("userX.txt"));
+	assert(!isWorldExec("groupX.txt"));
+	assert(isWorldExec("otherX.txt"));
+	assert(isWorldExec("allX.txt"));
 }

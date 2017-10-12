@@ -1,7 +1,7 @@
 // Scriptlike: Utility to aid in script-like programs.
 // Written in the D programming language.
 
-/// Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+/// Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 /// License:   $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
 /// Authors:   Nick Sabalausky
 
@@ -340,9 +340,12 @@ unittest
 auto tryRunCollect(string command)
 {
 	import std.typecons : Tuple;
+	import std.traits : ReturnType;
 
 	yapFunc(command);
-	auto result = Tuple!(int, "status", string, "output")(0, null);
+	// Tuple!(int, "status", string, "output") on DMD 2.066 and up
+	// ProcessOutput on DMD 2.065
+	auto result = ReturnType!executeShell(0, null);
 
 	if(scriptlikeDryRun)
 		return result;
