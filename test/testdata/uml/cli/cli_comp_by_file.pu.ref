@@ -1,9 +1,0 @@
-@startuml
-class "b.hpp" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA {
-    testdata/uml/cli/keep_this/b.hpp
-}
-class "a.hpp" as dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw {
-    testdata/uml/cli/strip_this/a.hpp
-}
-dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA --> dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw
-@enduml

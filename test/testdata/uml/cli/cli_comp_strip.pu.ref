@@ -1,9 +1,0 @@
-@startuml
-class "keep_this" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM {
-    testdata/uml/cli/keep_this/b.hpp
-}
-class "cli" as dGVzdGRhdGEvdW1sL2NsaQ {
-    testdata/uml/cli/strip_this/a.hpp
-}
-dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM --> dGVzdGRhdGEvdW1sL2NsaQ
-@enduml

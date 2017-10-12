@@ -1,9 +1,0 @@
-@startuml
-class "b" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9i {
-    testdata/uml/component/b/b_global_in_ns.hpp
-}
-class "a" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9h {
-    testdata/uml/component/a/a.hpp
-}
-dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9i --> dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9h
-@enduml

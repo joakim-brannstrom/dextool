@@ -31,5 +31,11 @@ compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpp
 
 setup_integration_testing_env()
 
-file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_SOURCE_DIR}/test/testdata/*)
-compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_scriptlike;dextool_dextool_test" "${TESTDATA_FILES}")
+file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_CURRENT_LIST_DIR}/testdata/*)
+file(GLOB_RECURSE TEST_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.d)
+compile_d_integration_test(${EXE_NAME}
+    "${TEST_SRC_FILES}"
+    ""
+    ""
+    "dextool_scriptlike;dextool_dextool_test"
+    "${TESTDATA_FILES}")

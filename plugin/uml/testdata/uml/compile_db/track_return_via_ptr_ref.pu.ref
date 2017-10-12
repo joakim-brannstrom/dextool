@@ -1,0 +1,13 @@
+@startuml
+class "dir1" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjE {
+    plugin_testdata/uml/compile_db/dir1/track_by_rval_ptr_ref.hpp
+}
+class "dir2" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjI {
+    plugin_testdata/uml/compile_db/dir2/track_ptr.hpp
+}
+class "dir3" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjM {
+    plugin_testdata/uml/compile_db/dir3/track_ref.hpp
+}
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjE --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjM
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjE --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21waWxlX2RiL2RpcjI
+@enduml

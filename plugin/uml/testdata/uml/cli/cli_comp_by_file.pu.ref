@@ -1,0 +1,9 @@
+@startuml
+class "b.hpp" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlzL2IuaHBw {
+    plugin_testdata/uml/cli/keep_this/b.hpp
+}
+class "a.hpp" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkvc3RyaXBfdGhpcy9hLmhwcA {
+    plugin_testdata/uml/cli/strip_this/a.hpp
+}
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlzL2IuaHBw --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkvc3RyaXBfdGhpcy9hLmhwcA
+@enduml

@@ -573,9 +573,21 @@ class UMLComponentDiagram {
     }
     body {
         put(to, toDisplayName);
-        relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
 
-        components[from].toFile ~= cast(string) to;
+        auto rel = cast(Relate.Key) from in relate_to;
+        if (rel is null) {
+            relate_to[cast(Relate.Key) from] = Relate();
+            rel = cast(Relate.Key) from in relate_to;
+        }
+        rel.put(cast(Relate.Key) to, kind);
+
+        auto comp = from in components;
+        if (comp is null) {
+            // TODO this is a hack. The display name should be the froms name.
+            components[from] = Component(cast(DisplayName) from, null, new RedBlackTree!Location);
+            comp = from in components;
+        }
+        comp.toFile ~= cast(string) to;
     }
 
     /** Use to retrieve the relation struct for the key.

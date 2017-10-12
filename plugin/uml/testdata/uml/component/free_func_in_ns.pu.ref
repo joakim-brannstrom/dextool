@@ -1,0 +1,9 @@
+@startuml
+class "b" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYg {
+    plugin_testdata/uml/component/b/b_free_func_in_ns.hpp
+}
+class "a" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYQ {
+    plugin_testdata/uml/component/a/a.hpp
+}
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYg --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYQ
+@enduml
