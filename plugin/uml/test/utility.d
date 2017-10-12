@@ -14,5 +14,9 @@ public import dextool_test;
 public import dextool_test.config;
 
 auto makeDextool(const ref TestEnv env) {
-    return dextool_test.makeDextool(env).args(["uml", "-d", "--gmock"]);
+    return dextool_test.makeDextool(env).args(["uml"]).argDebug(true);
+}
+
+auto addClassArg(BuildDextoolRun br) {
+    return br.addArg(["--class-paramdep", "--class-inheritdep", "--class-memberdep"]);
 }
