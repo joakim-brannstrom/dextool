@@ -30,7 +30,7 @@ struct TestParams {
 TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("testdata/uml").absolutePath;
+    p.root = Path("plugin_testdata/uml").absolutePath;
     p.input_ext = p.root ~ Path(f);
     p.base_file_compare = p.input_ext.stripExtension;
 
@@ -46,7 +46,7 @@ TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
 TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("testdata/uml").absolutePath;
+    p.root = Path("plugin_testdata/uml").absolutePath;
     p.input_ext = p.root ~ Path(f);
     p.base_file_compare = p.input_ext.stripExtension;
 

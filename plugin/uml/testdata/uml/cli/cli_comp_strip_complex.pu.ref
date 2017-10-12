@@ -1,6 +1,6 @@
 @startuml
-class "cli" as dGVzdGRhdGEvdW1sL2NsaQ {
-    testdata/uml/cli/strip_this/a.hpp
-    testdata/uml/cli/keep_this/b.hpp
+class "cli" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGk {
+    plugin_testdata/uml/cli/strip_this/a.hpp
+    plugin_testdata/uml/cli/keep_this/b.hpp
 }
 @enduml

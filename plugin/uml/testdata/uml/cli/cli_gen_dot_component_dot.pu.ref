@@ -10,5 +10,5 @@ digraph g {
     colorscheme=svg
     node [style=rounded shape=box]
 
-    "dGVzdGRhdGEvdW1sL2NsaQ" [label="cli"]
+    "cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGk" [label="cli"]
 }

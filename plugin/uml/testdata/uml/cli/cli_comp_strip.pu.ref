@@ -1,9 +1,9 @@
 @startuml
-class "keep_this" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM {
-    testdata/uml/cli/keep_this/b.hpp
+class "keep_this" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlz {
+    plugin_testdata/uml/cli/keep_this/b.hpp
 }
-class "cli" as dGVzdGRhdGEvdW1sL2NsaQ {
-    testdata/uml/cli/strip_this/a.hpp
+class "cli" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGk {
+    plugin_testdata/uml/cli/strip_this/a.hpp
 }
-dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXM --> dGVzdGRhdGEvdW1sL2NsaQ
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlz --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGk
 @enduml

@@ -1,8 +1,8 @@
 @startuml
-class "a" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9h {
-    testdata/uml/component/a/a.hpp
+class "a" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYQ {
+    plugin_testdata/uml/component/a/a.hpp
 }
-class "b" as dGVzdGRhdGEvdW1sL2NvbXBvbmVudC9i {
-    testdata/uml/component/b/b_no_relation.hpp
+class "b" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jb21wb25lbnQvYg {
+    plugin_testdata/uml/component/b/b_no_relation.hpp
 }
 @enduml

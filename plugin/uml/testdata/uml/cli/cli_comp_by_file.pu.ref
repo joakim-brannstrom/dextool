@@ -1,9 +1,9 @@
 @startuml
-class "b.hpp" as dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA {
-    testdata/uml/cli/keep_this/b.hpp
+class "b.hpp" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlzL2IuaHBw {
+    plugin_testdata/uml/cli/keep_this/b.hpp
 }
-class "a.hpp" as dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw {
-    testdata/uml/cli/strip_this/a.hpp
+class "a.hpp" as cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkvc3RyaXBfdGhpcy9hLmhwcA {
+    plugin_testdata/uml/cli/strip_this/a.hpp
 }
-dGVzdGRhdGEvdW1sL2NsaS9rZWVwX3RoaXMvYi5ocHA --> dGVzdGRhdGEvdW1sL2NsaS9zdHJpcF90aGlzL2EuaHBw
+cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkva2VlcF90aGlzL2IuaHBw --> cGx1Z2luX3Rlc3RkYXRhL3VtbC9jbGkvc3RyaXBfdGhpcy9hLmhwcA
 @enduml
