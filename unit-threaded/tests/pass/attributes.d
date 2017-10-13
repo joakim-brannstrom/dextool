@@ -1,6 +1,7 @@
 module tests.pass.attributes;
 
 import unit_threaded;
+import tests.pass.types;
 
 enum myEnumNum = "foo.bar"; //there was a bug that made this not compile
 enum myOtherEnumNum;
@@ -98,8 +99,27 @@ void testTemplate(T)() {
     T.init.shouldEqual(0);
 }
 
+@Types!(A)
+void testTemplateWithTypeFromAnotherModule(T)() {
+
+}
+
 @("Built-in with values")
 @Values("red", "goo")
 unittest {
     getValue!string.length.shouldEqual(3);
+}
+
+@("Built-in with values range")
+@Values(["red", "goo"])
+unittest {
+    getValue!string.length.shouldEqual(3);
+}
+
+@("Test_parse_hostgroup")
+@Values("abc", "abc1", "abc.xyz", "abc1.xyz", "abc12345.xyz.asd")
+unittest {
+    import std.algorithm: startsWith;
+    string val = getValue!(string);
+    val.startsWith("abc").shouldBeTrue;
 }

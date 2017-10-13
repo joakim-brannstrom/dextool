@@ -4,7 +4,7 @@ $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 Wrappers for $(MODULE_STD_FILE) that add support for Scriptlike's
 $(API_PATH_EXTR Path), command echoing and dry-run features.
 
-Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/
@@ -437,7 +437,7 @@ unittest
 	});
 }
 
-version(ddoc_scriptlike_d)
+version(docs_scriptlike_d)
 {
 	/// Windows-only. Like $(FULL_STD_FILE getTimesWin), but supports Path and command echoing.
 	void getTimesWin(in Path name,
@@ -1062,7 +1062,7 @@ unittest
 	});
 }
 
-version(ddoc_scriptlike_d)
+version(docs_scriptlike_d)
 {
 	/// Posix-only. Like $(FULL_STD_FILE symlink), but supports Path and command echoing.
 	void symlink(Path original, Path link);

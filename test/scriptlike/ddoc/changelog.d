@@ -6,7 +6,43 @@ $(LINK http://semitwist.com/scriptlike/changelog.html)
 
 (Dates below are YYYY/MM/DD)
 
-$(H2 v0.10.0 - TBD)
+$(H2 v0.10.2 - 2017/03/03)
+
+$(UL
+	$(ENHANCE
+		Added $(API_CORE trace) functions as debugging aid. Outputs
+		file/line info and optionally a variable name/value.
+	)
+	$(ENHANCE
+		Added $(API_FILE_EXTR isUserExec), $(API_FILE_EXTR isGroupExec)
+		and $(API_FILE_EXTR isWorldExec) to check a file's executable bits on Posix.
+	)
+	$(FIXED
+		$(ISSUE 34): Unable to build docs of own project with DUB.
+	)
+	$(FIXED
+		Make sure the example tests, when run in travis-ci, always use
+		the current scriptlike commit, instead of using a scriptlike release
+		from the published dub repos.
+	)
+	$(FIXED
+		Docs weren't being correctly built for $(API_FILE_WRAP symlink),
+		$(API_FILE_WRAP readLink), $(API_FILE_WRAP getTimesWin) and $(API_FILE_EXTR trySymlink).
+	)
+	$(CHANGE
+		Removed outdated, messy and problematic "plain script" example.
+	)
+)
+
+$(H2 v0.10.1 - 2017/02/25)
+
+$(UL
+	$(FIXED
+		Fix some minor doc and travis-ci issues with v0.10.0's release.
+	)
+)
+
+$(H2 v0.10.0 - 2017/02/25)
 
 $(UL
 	$(CHANGE
@@ -16,9 +52,18 @@ $(UL
 		Deprecated `Ext.toRawString`. It didn't do anything
 		different from `Ext.toString` and thus wasn't needed.
 	)
+	$(FIXED
+		$(ISSUE 19): Compile error with DMDFE 2.065. Note, Scriptlike
+		still $(I officially) requires at least DMDFE 2.066, mainly because
+		of a bugfix for Windows, but DMDFE 2.065 appears to still be
+		important for Debian's GDC.
+	)
+	$(FIXED
+		Excess blank lines and malformed `</p><p>` in this changelog.
+	)
 )
 
-$(H2 v0.9.7 - 2017/07/23)
+$(H2 v0.9.7 - 2017/01/23)
 
 $(UL
 	$(ENHANCE
@@ -296,7 +341,7 @@ $(UL
 )
 
 Copyright:
-Copyright (C) 2014-2016 Nick Sabalausky.
+Copyright (C) 2014-2017 Nick Sabalausky.
 Portions Copyright (C) 2010 Jesse Phillips.
 
 License: zlib/libpng

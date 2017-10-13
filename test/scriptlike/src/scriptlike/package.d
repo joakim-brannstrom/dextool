@@ -30,7 +30,7 @@ Homepage:
 $(LINK https://github.com/abscissa/scriptlike)
 
 Copyright:
-Copyright (C) 2014-2016 Nick Sabalausky.
+Copyright (C) 2014-2017 Nick Sabalausky.
 Portions Copyright (C) 2010 Jesse Phillips.
 
 License: $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
@@ -42,7 +42,7 @@ module scriptlike;
 public import scriptlike.only;
 public import scriptlike.std;
 
-version(D_Ddoc) import changelog;
+version(docs_scriptlike_d) import changelog;
 version(unittest_scriptlike_d) void main() {}
 
 // Run tests for sample programs in 'examples'

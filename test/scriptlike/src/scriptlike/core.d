@@ -1,7 +1,7 @@
 // Scriptlike: Utility to aid in script-like programs.
 // Written in the D programming language.
 
-/// Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+/// Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 /// License:   $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
 /// Authors:   Nick Sabalausky
 
@@ -224,8 +224,8 @@ string _interp_text(T...)(T args)
 version(unittest_scriptlike_d)
 unittest
 {
-	import std.stdio : writeln;
-	writeln("Running Scriptlike unittests: interp");
+	import std.stdio;
+	writeln("Running Scriptlike unittests: interp"); stdout.flush();
 
 	assert(mixin(interp!"hello") == "hello");
 	assert(mixin(interp!"$") == "$");
@@ -259,8 +259,8 @@ immutable gagEcho = q{
 version(unittest_scriptlike_d)
 unittest
 {
-	import std.stdio : writeln;
-	writeln("Running Scriptlike unittests: gagecho");
+	import std.stdio;
+	writeln("Running Scriptlike unittests: gagecho"); stdout.flush();
 	
 	// Test 1
 	scriptlikeEcho = true;
@@ -311,6 +311,55 @@ unittest
 	assert(scriptlikeCustomEcho == &testEcho);
 }
 
+/++
+Debugging aid: Output current file/line to stderr.
+
+Also flushes stderr to ensure buffering and a subsequent crash don't
+cause the message to get lost.
+
+Example:
+--------
+// Output example:
+// src/myproj/myfile.d(42): trace
+trace();
+--------
++/
+template trace()
+{
+	void trace(string file = __FILE__, size_t line = __LINE__)()
+	{
+		stderr.writeln(file, "(", line, "): trace");
+		stderr.flush();
+	}
+}
+
+/++
+Debugging aid: Output variable name/value and file/line info to stderr.
+
+Also flushes stderr to ensure buffering and a subsequent crash don't
+cause the message to get lost.
+
+Example:
+--------
+auto x = 5;
+auto str = "Hello";
+
+// Output example:
+// src/myproj/myfile.d(42): x: 5
+// src/myproj/myfile.d(43): str: Hello
+trace!x;
+trace!str;
+--------
++/
+template trace(alias var)
+{
+	void trace(string file = __FILE__, size_t line = __LINE__)()
+	{
+		stderr.writeln(file, "(", line, "): ", var.stringof, ": ", var);
+		stderr.flush();
+	}
+}
+
 // Some tools for Scriptlike's unittests
 version(unittest_scriptlike_d)
 {
@@ -321,6 +370,35 @@ version(unittest_scriptlike_d)
 	version(Posix)        enum quiet = " >/dev/null 2>/dev/null";
 	else version(Windows) enum quiet = " > NUL 2> NUL";
 	else static assert(0);
+
+	string openSandbox(string func=__FUNCTION__)()
+	{
+		import scriptlike.file.wrappers;
+		import scriptlike.file.extras;
+		import scriptlike.path;
+
+		// Space in path is deliberate
+		auto sandboxDir = tempDir() ~ "scriptlike-d/test sandboxes" ~ func;
+		//import std.stdio; writeln("sandboxDir: ", sandboxDir.raw);
+
+		tryRmdirRecurse(sandboxDir);
+		mkdirRecurse(sandboxDir);
+		chdir(sandboxDir);
+		return sandboxDir.raw;
+	}
+	
+	enum useSandbox = q{
+		import std.stdio;
+
+		auto oldCwd = std.file.getcwd();
+		auto sandboxDir = openSandbox();
+		scope(success) // Don't cleanup upon failure, so the remains can be manually insepcted.
+			tryRmdirRecurse(sandboxDir);
+		scope(failure)
+			writeln("Sandbox directory: '", sandboxDir, "'");
+		scope(exit)
+			std.file.chdir(oldCwd);
+	};
 
 	immutable initTest(string testName, string msg = null, string module_ = __MODULE__) = `
 		import std.stdio: writeln;

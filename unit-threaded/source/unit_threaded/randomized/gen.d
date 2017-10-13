@@ -201,8 +201,7 @@ struct Gen(T, size_t low = 0, size_t high = 32) if (isSomeString!T)
     T gen(ref Random gen)
     {
         static assert(low <= high);
-        import std.range : drop;
-        import std.array : appender, front;
+        import std.array : appender;
         import std.utf : byDchar;
 
         if(_index < frontLoaded.length) {
@@ -216,8 +215,8 @@ struct Gen(T, size_t low = 0, size_t high = 32) if (isSomeString!T)
 
         for (size_t i = 0; i < numElems; ++i)
         {
-            size_t toSelect = uniform!("[)")(0, numCharsInCharSet, gen);
-            app.put(charSet.byDchar().drop(toSelect).front);
+            size_t charIndex = uniform!("[)")(0, numCharsInCharSet, gen);
+            app.put(charSet[charIndex]);
         }
 
         this.value = app.data;
@@ -274,11 +273,7 @@ unittest
         assertEqual(a.gen(r), expected);
         expected = "é";
         assertEqual(a.gen(r), expected);
-        version(Windows)
-            expected = "ę®ƖŎĒƘ²Ɣµã1úƟǣĠµĩćůƙÏl­ĥŴīƍŉů&ñ";
-        else
-            expected = "¥ǫƔSūOēǇĂ¹ũ/ŇQĚćzĬůƫË­ÔRĎƕƙĹÒ";
-        assertEqual(a.gen(r), expected);
+        assert(a.gen(r).length > 1);
     }
 }
 
@@ -545,19 +540,26 @@ struct Gen(T) if(isAggregateType!T) {
     AggregateTuple!(Fields!T) generators;
 
     alias Value = T;
+    Value value;
 
     T gen(ref Random rnd) @safe {
         static if(is(T == class))
-            auto ret = new T;
-        else
-            T ret;
+            if(value is null)
+                value = new T;
 
         foreach(i, ref g; generators) {
-            ret.tupleof[i] = g.gen(rnd);
+            value.tupleof[i] = g.gen(rnd);
         }
 
-        return ret;
+        return value;
     }
+
+    inout(T) opCall() inout {
+        return this.value;
+    }
+
+    alias opCall this;
+
 }
 
 @("struct")

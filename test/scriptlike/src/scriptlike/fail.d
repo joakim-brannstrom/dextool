@@ -1,7 +1,7 @@
 // Scriptlike: Utility to aid in script-like programs.
 // Written in the D programming language.
 
-/// Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+/// Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 /// License:   $(LINK2 https://github.com/Abscissa/scriptlike/blob/master/LICENSE.txt, zlib/libpng)
 /// Authors:   Nick Sabalausky
 

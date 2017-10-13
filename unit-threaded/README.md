@@ -7,36 +7,22 @@ unit-threaded
 
 Multi-threaded advanced unit test framework for [the D programming language](https://dlang.org/).
 
-Reasoning
----------
+Augments D's `unittest` blocks with:
 
-"But doesn't D have built-in `unittest` blocks"? Yes, and they're
-massively useful. Even short scripts can benefit from them with 0
-effort and setup. In fact, I use them to test this library. However,
-for larger projects it lacks some functionality:
+* Tests can be named and individually run
+* Custom assertions for better error reporting
+* Runs in threads by default
+* UDAs for customisation of tests
+* Value and type parameterized tests
+* Property based testing
+* Mocking
 
-1. If all tests pass, great. If one fails, it's hard to know why.
-2. The only tool is assert, and you have to write your own assert
-   messages (no assertEqual, assertNull, etc.)
-3. No possibility to run just one particular test
-4. Only runs in one thread.
+New
+---
+Fast compilation mode. Set the version to `unitThreadedLight` and it will
+compile much faster, but with no error reporting and certain features
+might not work. Experimental support.
 
-So I wrote this library in and for a language with built-in support
-for unit tests. Its goals are:
-
-1. To run in parallel by default
-2. Support for built-in `unittest` blocks - no need to reinvent the wheel
-3. To be able to run specific tests or group of tests via
-the command-line
-4. No test registration. Tests are discovered with D's compile-time
-reflection
-5. Suppress tested code stdio and stderr output by default (important
-when running in multiple threads).
-6. Have a special mode that only works when using a single thread
-under which tested code output is turned back on, as well as special
-`writelnUt` debug messages.
-7. Ability to temporarily hide tests from being run by default whilst
-still being able to run them
 
 Quick start with dub
 ----------------------
@@ -63,11 +49,26 @@ project, you can use a `unittest` configuration as exemplified in this
             "mainSourceFile": "bin/ut.d",
             "excludedSourceFiles": ["src/main.d"],
             "dependencies": {
-                "unit-threaded": "~>0.6.0"
+                "unit-threaded": "~>0.7.11"
             }
         }
     ]
 }
+```
+
+With `dub.sdl`:
+
+```
+configuration "executable" {
+}
+
+configuration "unittest" {
+    dependency "unit-threaded" version="~>0.7.11"
+    mainSourceFile "bin/ut.d"
+    excludedSourceFiles "src/main.d"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
+}
+
 ```
 
 `excludedSourceFiles` is there to not compile the file containing the
@@ -250,9 +251,8 @@ Classes could override `setup` and `shutdown` already.
 Property-based testing
 ----------------------
 
-There is preliminary and experimental support for property-based testing.
-The current types supported are all primitive types, all 3 string types,
-and arrays of these types. To check a property use the `check` function
+There is preliminary support for property-based testing.
+To check a property use the `check` function
 from `unit_threaded.property` with a function returning `bool`:
 
 ```d
@@ -317,9 +317,37 @@ Structs can also be mocked:
 
 ```d
 int fun(T)(T f, int i, string s) { return f.foo(i * 2, s ~ "stuff"); }
-auto m = mockStruct(2, 3, 4); // the ints are return values
+auto m = mockStruct(2, 3, 4); // the ints are return values (none need be passed)
 assert(fun(m, 3, "bar") == 2);
 m.expectCalled!"foo"(6, "barstuff");
+```
+
+If a struct is needed that returns different types for different functions:
+
+```d
+    auto m = mockStruct!(ReturnValues!("length", 5, 3),
+                         ReturnValues!("greet", "hello", "g'day"));
+    m.length.shouldEqual(5);
+    m.length.shouldEqual(3);
+    m.greet.shouldEqual("hello");
+    m.grett.shouldEqual("g'day");
+```
+
+
+Structs that always throw:
+
+```d
+{
+    auto m = throwStruct;
+    m.foo.shouldThrow!UnitTestException;
+}
+
+{
+    auto m = throwStruct!MyException;
+    m.foo.shouldThrow!MyException;
+}
+
+
 ```
 
 Command-line Parameters

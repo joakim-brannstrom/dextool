@@ -144,7 +144,6 @@ unittest {
 */
 template ParameterToGen(T)
 {
-    import std.traits : isIntegral, isFloatingPoint, isSomeString;
     static if (isGen!T)
         alias ParameterToGen = T;
     else static if (is(T : GenASCIIString!(S), S...))
@@ -171,13 +170,41 @@ unittest
     fun(a);
 }
 
+@("RndValueGen with user defined struct")
+unittest {
+
+    struct Foo {
+        int i;
+        short s;
+    }
+
+    auto rnd = Random(1337);
+    auto gen = rnd.RndValueGen!(Gen!Foo);
+
+    foreach(_; 0 .. 5) // get rid of front-loaded uninteresting values
+        gen.genValues;
+
+    void fun(Foo foo) {
+        import std.conv: text;
+        assert(foo == Foo(1125387415, -8003), text(foo));
+    }
+
+    fun(gen.values);
+}
+
+
 unittest
 {
     import std.meta : AliasSeq, staticMap;
 
+    struct Foo {
+        int i;
+        double d;
+    }
+
     foreach (T; AliasSeq!(byte, ubyte, ushort, short, uint, int, ulong, long,
                           float, double, real,
-                          string, wstring, dstring))
+                          string, wstring, dstring, Foo))
     {
         alias TP = staticMap!(ParameterToGen, T);
         static assert(isGen!TP);

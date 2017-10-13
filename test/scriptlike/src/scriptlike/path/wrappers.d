@@ -4,7 +4,7 @@ $(H2 Scriptlike $(SCRIPTLIKE_VERSION))
 Wrappers for $(MODULE_STD_PATH) that add support for Scriptlike's
 $(API_PATH_EXTR Path) and command echoing features.
 
-Copyright: Copyright (C) 2014-2016 Nick Sabalausky
+Copyright: Copyright (C) 2014-2017 Nick Sabalausky
 License:   zlib/libpng
 Authors:   Nick Sabalausky
 +/
