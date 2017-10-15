@@ -2260,6 +2260,10 @@ private void generate(UMLComponentDiagram.Key key,
     auto comp = m.classBody(cast(string) component.displayName);
     comp.addAs.text(cast(string) key);
 
+    // early exit because the slice of contains segfaults otherwise.
+    if (component.contains.length == 0)
+        return;
+
     // dfmt off
     foreach (fname; component.contains[]
         .map!(a => cast(string) a)
