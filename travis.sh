@@ -15,7 +15,7 @@ set -e
 
 mkdir build
 pushd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+cmake -DTEST_WITH_COV=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
 make all -j3
 make check -j3
 make check_integration -j3

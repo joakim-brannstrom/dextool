@@ -11,6 +11,7 @@ Example:
 ```sh
 mkdir build
 cd build
+# to run with coverage add -DTEST_WITH_COV=ON. Coverage is found in build/coverage
 cmake -Wdev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
 ```
 
@@ -18,10 +19,10 @@ This gives access to the make target _test_.
 
 To run the tests:
 ```sh
-# builds and runs the unittests
+# build and run the unittests
 make check
 
-# builds and runs the integration tests
+# build and run the integration tests
 make check_integration
 ```
 
