@@ -26,7 +26,9 @@ enum Config_YesNo {
 }
 
 struct RawConfiguration {
+    import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
+    import std.traits : EnumMembers;
     import dextool.type : FileName;
 
     Nullable!XmlConfig xmlConfig;
@@ -58,6 +60,8 @@ struct RawConfiguration {
     private GetoptResult help_info;
 
     void parse(string[] args) {
+        import std.format : format;
+
         static import std.getopt;
 
         originalFlags = args.dup;
@@ -72,7 +76,7 @@ struct RawConfiguration {
                    "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
                    "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
                    "gmock", "Generate a gmock implementation of test double interface", &gmock,
-                   "gtest-pp", "Generate pretty printer of POD's public members for gtest [default: yes]", &gtestPODPrettyPrint,
+                   "gtest-pp", "Generate pretty printer of POD's public members for gtest " ~ format("[%(%s|%)]", [EnumMembers!Config_YesNo]), &gtestPODPrettyPrint,
                    "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
                    "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
                    "header", "Prepends generated files with the string", &header,
@@ -88,6 +92,11 @@ struct RawConfiguration {
                    );
             // dfmt on
             help = help_info.helpWanted;
+        }
+        catch (ConvException e) {
+            logger.error(e.msg);
+            logger.errorf("Config_YesNo possible values: %(%s|%)", [EnumMembers!Config_YesNo]);
+            help = true;
         }
         catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
