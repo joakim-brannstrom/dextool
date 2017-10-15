@@ -14,6 +14,7 @@ include(BuildD)
 # Main configuration.
 #
 
+set(TEST_WITH_COV false CACHE BOOL "true to run unittest with coverage")
 set(BUILD_TEST false CACHE BOOL "true to build and run unittests")
 if(BUILD_TEST)
     enable_testing()
@@ -43,7 +44,7 @@ file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR})
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-w -wi -vcolumns")
 set(DDMD_LFLAGS "")
-set(DDMD_COV_FLAG "")
+set(DDMD_COV_FLAG "-cov")
 
 # for multi-config builds, these options have to be added later to the custom command
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
