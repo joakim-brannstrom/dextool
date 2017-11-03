@@ -8,6 +8,10 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 This module contains the functions that realize the plugin architecture.
+
+All logger.XXX calls shall be dependent on the DebugLogging enum.
+This is because this module otherwise produces a lot of junk logging that is
+almost never relevant besides when making changes to this module.
 */
 module application.plugin;
 
@@ -33,11 +37,26 @@ version (unittest) {
     import unit_threaded : shouldEqual;
 }
 
+// change this to true to activate debug logging for this module.
+private enum DebugLogging = false;
+
 private void nothrowTrace(T...)(auto ref T args) @safe nothrow {
-    try {
-        logger.trace(args);
+    if (DebugLogging) {
+        try {
+            logger.trace(args);
+        }
+        catch (Exception ex) {
+        }
     }
-    catch (Exception ex) {
+}
+
+private void nothrowTracef(T...)(auto ref T args) @safe nothrow {
+    if (DebugLogging) {
+        try {
+            logger.tracef(args);
+        }
+        catch (Exception ex) {
+        }
     }
 }
 
@@ -81,11 +100,7 @@ Validated[] scanForExecutables() {
             err_msg = ex.msg;
         }
 
-        try {
-            logger.trace(err_msg.length != 0, "Unable to access ", err_msg);
-        }
-        catch (Exception ex) {
-        }
+        nothrowTrace(err_msg.length != 0, "Unable to access ", err_msg);
 
         return res.data;
     }
@@ -129,7 +144,7 @@ Validated[] scanForExecutables() {
 
     // dfmt off
     return merge(primaryPlugins, secondaryPlugins)
-        .tee!(a => logger.trace("Found executable: ", a))
+        .tee!(a => nothrowTrace("Found executable: ", a))
         .array();
     // dfmt on
 }
@@ -219,7 +234,7 @@ Plugin[] toPlugins(alias execFunc, T)(T plugins) @safe nothrow {
     // dfmt on
 
     try {
-        res.each!(a => logger.tracef("Found plugin '%s' (%s) (%s): %s", a.name,
+        res.each!(a => nothrowTracef("Found plugin '%s' (%s) (%s): %s", a.name,
                 a.path, a.kind, a.help));
     }
     catch (Exception ex) {
