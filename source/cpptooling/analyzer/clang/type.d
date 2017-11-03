@@ -177,7 +177,6 @@ struct BacktrackLocation {
  * Return: Location and nr of backtracks needed.
  */
 private BacktrackLocation backtrackLocation(ref const(Cursor) c) @safe {
-    import clang.SourceLocation : toString;
     import cpptooling.data.type : Location;
 
     BacktrackLocation rval;
