@@ -57,6 +57,11 @@ struct BuildCompare {
         return this;
     }
 
+    auto throwOnFailure(bool v) {
+        this.throw_on_failed_compare_ = v;
+        return this;
+    }
+
     auto run() {
         CompareResult res;
 
@@ -74,6 +79,8 @@ struct BuildCompare {
         if (!res.status && throw_on_failed_compare_) {
             throw new ErrorLevelException(1, res.errorMsg);
         }
+
+        return res;
     }
 }
 
