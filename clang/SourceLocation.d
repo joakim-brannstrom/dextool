@@ -20,26 +20,6 @@ import clang.File;
 import clang.TranslationUnit;
 import clang.Util;
 
-string toString(SourceLocation.Location value) @safe {
-    import std.string;
-    import std.conv : text;
-
-    return format("[file=%s line=%d column=%d offset=%d]", text(value.file),
-            value.line, value.column, value.offset);
-}
-
-string toString(SourceLocation value) @safe {
-    import std.string;
-    import std.conv;
-
-    if (value.isValid) {
-        auto spell = value.spelling;
-        return spell.toString;
-    }
-
-    return format("%s(%s)", text(typeid(value)), text(value.cx));
-}
-
 string toInternalString(SourceLocation value) {
     import std.string;
     import std.conv;
@@ -63,6 +43,12 @@ struct SourceLocation {
         uint line;
         uint column;
         uint offset;
+
+        string toString() @safe {
+            import std.format : format;
+
+            return format("[file=%s line=%d column=%d offset=%d]", file, line, column, offset);
+        }
     }
 
     // ugly hack. Must fix to something that works for both File and string.
@@ -71,6 +57,12 @@ struct SourceLocation {
         uint line;
         uint column;
         uint offset;
+
+        string toString() @safe {
+            import std.format : format;
+
+            return format("[file=%s line=%d column=%d offset=%d]", file, line, column, offset);
+        }
     }
 
     /// Retrieve a NULL (invalid) source location.
@@ -251,5 +243,15 @@ struct SourceLocation {
         clang_getSpellingLocation(cx, &data.file.cx, &data.line, &data.column, &data.offset);
 
         return data;
+    }
+
+    string toString() @safe {
+        import std.format : format;
+
+        if (isValid) {
+            return spelling.toString;
+        }
+
+        return format("%s(%s)", typeid(this), cx);
     }
 }

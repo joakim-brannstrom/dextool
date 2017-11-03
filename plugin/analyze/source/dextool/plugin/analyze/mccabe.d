@@ -130,8 +130,6 @@ struct McCabe {
         if (!mccabe.hasValue || mccabe.value == 0)
             return;
 
-        import clang.SourceLocation : toString;
-
         auto loc = c.location;
         auto file_under_analyze = AbsolutePath(FileName(loc.file.toString));
 

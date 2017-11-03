@@ -13,23 +13,9 @@ import clang.c.Index;
 
 import clang.SourceLocation;
 
-string toString(SourceRange value) {
-    import std.string;
-    import std.conv;
-
-    auto start = value.start;
-    auto end = value.end;
-
-    if (value.isValid) {
-        return format("%s [start='%s' end='%s']", text(value.cx),
-                text(start.presumed), text(end.presumed));
-    }
-
-    return format("%s(%s)", text(typeid(value)), text(value.cx));
-}
-
 ///
 struct SourceRange {
+    import std.format : FormatSpec;
     import clang.Util;
 
     mixin CX;
@@ -64,6 +50,35 @@ struct SourceRange {
     ///
     equals_t opEquals(const ref SourceRange range2) const {
         return clang_equalRanges(cast(CXSourceRange) cx, cast(CXSourceRange) range2) != 0;
+    }
+
+    string toString() @safe const {
+        import std.exception : assumeUnique;
+        import std.format : FormatSpec;
+
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.format : formattedWrite;
+
+        auto start = this.start.presumed;
+        auto end = this.end.presumed;
+
+        if (isValid) {
+            formattedWrite(w, "%s [start='%s:%s' end='%s:%s']", start.file,
+                    start.line, start.column, end.line, end.column);
+        } else {
+            formattedWrite(w, "%s(%s)", typeid(this), cx);
+        }
     }
 }
 
