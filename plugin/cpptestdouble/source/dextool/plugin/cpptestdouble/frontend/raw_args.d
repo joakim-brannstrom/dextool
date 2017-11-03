@@ -13,8 +13,6 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
-import dextool.plugin.types : CliOptionParts;
-
 static import dextool.xml;
 
 /// Represent a yes/no configuration option.
@@ -28,7 +26,6 @@ enum Config_YesNo {
 struct RawConfiguration {
     import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
-    import std.traits : EnumMembers;
     import dextool.type : FileName;
 
     Nullable!XmlConfig xmlConfig;
@@ -60,6 +57,7 @@ struct RawConfiguration {
     private GetoptResult help_info;
 
     void parse(string[] args) {
+        import std.traits : EnumMembers;
         import std.format : format;
 
         static import std.getopt;
@@ -95,7 +93,8 @@ struct RawConfiguration {
         }
         catch (ConvException e) {
             logger.error(e.msg);
-            logger.errorf("Config_YesNo possible values: %(%s|%)", [EnumMembers!Config_YesNo]);
+            logger.errorf("%s possible values: %(%s|%)", Config_YesNo.stringof,
+                    [EnumMembers!Config_YesNo]);
             help = true;
         }
         catch (std.getopt.GetOptException ex) {
