@@ -122,7 +122,7 @@ struct McCabe {
         }
 
         auto mccabe = () @trusted{
-            import dextool.plugin.analyze.cpp_clang_extension;
+            import dextool.clang_extensions;
 
             return calculate(c.cx);
         }();
