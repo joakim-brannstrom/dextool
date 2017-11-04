@@ -23,6 +23,8 @@ version (unittest) {
     import test.extra_should : shouldEqualPretty;
 }
 
+@safe:
+
 /** Hold an entry from the compilation database.
  *
  * The following information is from the official specification.
@@ -174,7 +176,11 @@ struct CompileCommandSearch {
     alias payload this;
 }
 
-private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow {
+/**
+ * Trusted: opIndex for JSONValue is @safe in DMD-2.077.0
+ * remove the trusted attribute when the minimal requirement is upgraded.
+ */
+private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow @trusted {
     import std.algorithm : map, filter;
     import std.json : JSON_TYPE;
     import std.range : only;
@@ -296,9 +302,15 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
     }
 
     try {
-        auto json = parseJSON(raw_input);
+        // trusted: is@safe in DMD-2.077.0
+        // remove the trusted attribute when the minimal requirement is upgraded.
+        auto json = () @trusted { return parseJSON(raw_input); }();
         auto as_dir = AbsoluteCompileDbDirectory(in_file);
-        put(json, as_dir, out_range);
+
+        // trusted: this function is private so the only user of it is this module.
+        // the only problem would be in the out_range. It is assumed that the
+        // out_range takes care of the validation and other security aspects.
+        () @trusted{ put(json, as_dir, out_range); }();
     }
     catch (Exception ex) {
         import dextool.logger : error;
@@ -312,7 +324,12 @@ void fromFile(T)(CompileDbFile filename, ref T app) {
     import std.conv : text;
     import std.stdio : File;
 
-    auto raw = File(cast(string) filename).byLineCopy.joiner.text;
+    // trusted: using the GC for memory management.
+    // assuming any UTF-8 errors in the input is validated by phobos byLineCopy.
+    auto raw = () @trusted{
+        return File(cast(string) filename).byLineCopy.joiner.text;
+    }();
+
     raw.parseCommands(filename, app);
 }
 
@@ -677,7 +694,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
 }
 
 /// Import and merge many compilation databases into one DB.
-CompileCommandDB fromArgCompileDb(string[] paths) {
+CompileCommandDB fromArgCompileDb(string[] paths) @safe {
     import std.array : appender;
 
     auto app = appender!(CompileCommand[])();
@@ -901,7 +918,8 @@ unittest {
     raw_dummy3.parseCommands(CompileDbFile("path/compile_db.json"), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto abs_path = getcwd() ~ "/path";
+    // trusted: constructing a path in memory which is never used for writing.
+    auto abs_path = () @trusted{ return getcwd() ~ "/path"; }();
 
     auto found = cmds.find(abs_path ~ "/dir2/file3.cpp");
     assert(found.length == 1);
@@ -919,7 +937,8 @@ unittest {
     raw_dummy4.parseCommands(CompileDbFile("path/compile_db.json"), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto abs_path = getcwd() ~ "/path";
+    // trusted: constructing a path in memory which is never used for writing.
+    auto abs_path = () @trusted{ return getcwd() ~ "/path"; }();
 
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
@@ -939,7 +958,8 @@ unittest {
     raw_dummy4.parseCommands(CompileDbFile("path/compile_db.json"), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto abs_path = getcwd() ~ "/path";
+    // trusted: constructing a path in memory which is never used for writing.
+    auto abs_path = () @trusted{ return getcwd() ~ "/path"; }();
 
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
@@ -954,7 +974,8 @@ unittest {
     raw_dummy4.parseCommands(CompileDbFile("path/compile_db.json"), app);
     auto cmds = CompileCommandDB(app.data);
 
-    auto abs_path = getcwd() ~ "/path";
+    // trusted: constructing a path in memory which is never used for writing.
+    auto abs_path = () @trusted{ return getcwd() ~ "/path"; }();
 
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.o"));
     assert(found.length == 1);
