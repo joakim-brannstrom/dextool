@@ -24,8 +24,8 @@ execute_process(COMMAND llvm-config --version
     OUTPUT_VARIABLE llvm_config_VERSION
     RESULT_VARIABLE llvm_config_VERSION_status)
 
-execute_process(COMMAND llvm-config --includedir
-    OUTPUT_VARIABLE llvm_config_INCLUDE
+execute_process(COMMAND llvm-config --cppflags
+    OUTPUT_VARIABLE llvm_config_CPPFLAGS
     RESULT_VARIABLE llvm_config_INCLUDE_status)
 
 execute_process(COMMAND llvm-config --libdir
@@ -35,12 +35,12 @@ execute_process(COMMAND llvm-config --libdir
 string(STRIP "${llvm_config_LDFLAGS}" llvm_config_LDFLAGS)
 string(STRIP "${llvm_config_LIBS}" llvm_config_LIBS)
 string(STRIP "${llvm_config_VERSION}" llvm_config_VERSION)
-string(STRIP "${llvm_config_INCLUDE}" llvm_config_INCLUDE)
+string(STRIP "${llvm_config_CPPFLAGS}" llvm_config_CPPFLAGS)
 string(STRIP "${llvm_config_LIBDIR}" llvm_config_LIBDIR)
 message(STATUS "llvm-config VERSION: ${llvm_config_VERSION}")
 message(STATUS "llvm-config LIBDIR: ${llvm_config_LIBDIR}")
 message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
-message(STATUS "llvm-config INCLUDE: ${llvm_config_INCLUDE}")
+message(STATUS "llvm-config INCLUDE: ${llvm_config_CPPFLAGS}")
 message(STATUS "llvm-config LIBS: ${llvm_config_LIBS}")
 
 
@@ -141,7 +141,8 @@ function(try_llvm_config_find)
 
     set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
 
-    set(LIBLLVM_CXX_FLAGS "-I${llvm_config_INCLUDE} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
+    # -std=c++0x is required to run on travis.
+    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
 endfunction()
 

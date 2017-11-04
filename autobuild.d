@@ -42,6 +42,7 @@ auto sourcePath() {
     // dfmt off
     return only(
                 "clang",
+                "dextool_clang_extensions",
                 "dsrcgen/source",
                 "llvm_hiwrap/source",
                 "plugin",
@@ -707,6 +708,7 @@ int main(string[] args) {
                               "source",
                               "plugin",
                               "clang",
+                              "dextool_clang_extensions",
                               "libclang",
                               "llvm-d",
                               "dub.sdl",
