@@ -18,6 +18,8 @@ import std.traits : isSomeString;
  * The lockstep comparison then results in a more comprehensible failure
  * message.
  *
+ * trusted: it only affects unittesting.
+ *
  * Throws: UnitTestException on failure
  * Params:
  *  value = actual value.
@@ -26,7 +28,7 @@ import std.traits : isSomeString;
  *  line = line check is on.
  */
 void shouldEqualPretty(V, E)(lazy V value, lazy E expected, string file = __FILE__,
-        size_t line = __LINE__) if (!isAllSomeString!(V, E)) {
+        size_t line = __LINE__) @trusted if (!isAllSomeString!(V, E)) {
     import std.algorithm : count;
     import std.range : lockstep;
     import unit_threaded : shouldEqual, UnitTestException;
@@ -80,7 +82,7 @@ unittest {
  *  line = line check is on.
  */
 void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
-        lazy Separator sep, string file = __FILE__, size_t line = __LINE__)
+        lazy Separator sep, string file = __FILE__, size_t line = __LINE__) @safe 
         if (!isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 
@@ -102,7 +104,8 @@ void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
  *  line = line check is on.
  */
 void shouldEqualPretty(V, E)(lazy V value, lazy E expected, lazy string sep = newline,
-        string file = __FILE__, size_t line = __LINE__) if (isAllSomeString!(V, E)) {
+        string file = __FILE__, size_t line = __LINE__) @safe 
+        if (isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 
     auto rValue = value.splitter(sep);
