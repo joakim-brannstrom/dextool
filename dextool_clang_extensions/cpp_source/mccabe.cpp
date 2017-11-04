@@ -11,74 +11,15 @@
  * Some parts of the code are copied from libclang such as the data structures
  * to be able to interface with libclang.
  */
-// Clang includes
-#include <clang/Analysis/CFG.h>
-#include <clang/Frontend/FrontendAction.h>
-
-// ### begin ugly hack
-// Exposing libclang data structures that are ABI compatible with those in
-// libclang.
-
-namespace clang {
-class ASTUnit;
-class CIndexer;
-
-namespace index {
-class CommentToXMLConverter;
-} // namespace index
-
-} // namespace clang
-
-// See: CXTranslationUnit.h
-// Replaced uninteresting parts with void*
-struct CXTranslationUnitImpl {
-    clang::CIndexer* CIdx;
-    clang::ASTUnit* TheASTUnit;
-    void* StringPool;
-    void* Diagnostics;
-    void* OverridenCursorsPool;
-    clang::index::CommentToXMLConverter* CommentToXML;
-};
-
-// See: Index.h
-typedef struct CXTranslationUnitImpl* CXTranslationUnit;
+#include "libclang_interop.hpp"
 
 namespace dextool_clang_extension {
-namespace {
-
-// See: CXCursor.cpp
-CXTranslationUnit getCursorTU(CXCursor Cursor) {
-    return static_cast<CXTranslationUnit>(const_cast<void*>(Cursor.data[2]));
-}
-
-clang::ASTUnit* getCursorASTUnit(CXCursor Cursor) {
-    CXTranslationUnit TU = getCursorTU(Cursor);
-    if (!TU) {
-        return nullptr;
-    }
-    return TU->TheASTUnit;
-}
-
-// See: CXCursor.cpp
-clang::ASTContext* getCursorContext(CXCursor Cursor) {
-    return &getCursorASTUnit(Cursor)->getASTContext();
-}
-
-// See: CXCursor.cpp
-const clang::Decl* getCursorDecl(CXCursor Cursor) {
-    return static_cast<const clang::Decl*>(Cursor.data[0]);
-}
-
-} // NS:
-// ### end ugly hack
 
 namespace McCabe {
 struct Result {
     bool hasValue;
     int value;
 };
-
-using ::llvm::dyn_cast_or_null;
 
 Result calculate(CXCursor cx_decl) {
     const clang::Decl* decl = getCursorDecl(cx_decl);
