@@ -202,6 +202,37 @@ struct AbsoluteDirectory {
     }
 }
 
+/** During construction checks that the file exists on the filesystem.
+ *
+ * If it doesn't exist it will throw an Exception.
+ */
+struct Exists(T) {
+    AbsolutePath payload;
+    alias payload this;
+
+    this(AbsolutePath p) {
+        import std.file : exists, FileException;
+
+        if (!exists(p)) {
+            throw new FileException("File do not exist: " ~ cast(string) p);
+        }
+
+        payload = p;
+    }
+
+    this(Exists!T p) {
+        payload = p.payload;
+    }
+
+    void opAssign(Exists!T p) pure nothrow @nogc {
+        payload = p;
+    }
+}
+
+auto makeExists(T)(T p) {
+    return Exists!T(p);
+}
+
 @("shall always be the absolute path")
 unittest {
     import std.algorithm : canFind;
@@ -219,4 +250,15 @@ unittest {
 
     AbsolutePath(FileName(".")).canFind('.').shouldBeFalse;
     AbsolutePath(FileName("."), DirName(".")).canFind('.').shouldBeFalse;
+}
+
+@("shall be an instantiation of Exists")
+nothrow unittest {
+    // the file is not expected to exist.
+
+    try {
+        auto p = makeExists(AbsolutePath(FileName("foo")));
+    }
+    catch (Exception e) {
+    }
 }
