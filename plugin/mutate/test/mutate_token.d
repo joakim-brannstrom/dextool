@@ -9,15 +9,21 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall mutate by dropping one off the tokens in the file")
+@("shall mutate by dropping the second token")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextool(testEnv).addInputArg(testData ~ "mutate_token/three_tokens.cpp").run;
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "mutate_token/three_tokens.cpp")
+        .addArg(["--mutation", "token"])
+        .addArg(["--mutation-point", "1"])
+        .run;
     makeCompare(testEnv)
         .addCompare(testData ~ "mutate_token/three_tokens.cpp", "three_tokens.cpp")
         .throwOnFailure(false)
         .run
         .status
         .shouldBeFalse;
+
+    readOutput(testEnv, "three_tokens.cpp").sliceContains("int ;");
 }

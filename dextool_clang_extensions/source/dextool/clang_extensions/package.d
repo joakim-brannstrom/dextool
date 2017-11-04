@@ -45,6 +45,8 @@ extern (C++, dextool_clang_extension) {
     }
 
     enum OpKind {
+        // See: include/clang/AST/OperationKinds.def under section Binary Operations
+
         // [C++ 5.5] Pointer-to-member operators.
         PtrMemD, // ".*"
         PtrMemI, // "->*"
@@ -90,6 +92,29 @@ extern (C++, dextool_clang_extension) {
         OrAssign, // "|="
         // [C99 6.5.17] Comma operator.
         Comma, // ","
+
+        // See: include/clang/AST/OperationKinds.def under section Unary Operations
+        // [C99 6.5.2.4] Postfix increment and decrement
+        PostInc, // "++"
+        PostDec, // "--"
+        // [C99 6.5.3.1] Prefix increment and decrement
+        PreInc, // "++"
+        PreDec, // "--"
+        // [C99 6.5.3.2] Address and indirection
+        AddrOf, // "&"
+        Deref, // "*"
+        // [C99 6.5.3.3] Unary arithmetic
+        Plus, // "+"
+        Minus, // "-"
+        Not, // "~"
+        LNot, // "!"
+        // "__real expr"/"__imag expr" Extension.
+        Real, // "__real"
+        Imag, // "__imag"
+        // __extension__ marker.
+        Extension, // "__extension__"
+        // [C++ Coroutines] co_await operator
+        Coawait, // "co_await"
     }
 
     /** Retrieve the operator of an expression.
@@ -101,12 +126,14 @@ extern (C++, dextool_clang_extension) {
 }
 
 Operator getExprOperator(CXCursor expr) @trusted {
+    import std.algorithm : among;
+
     Operator rval;
 
     // This check is technically not needed because the C++ source code try to do a dynamic cast.
     // But by having a check here it is easier to review that THIS function is correctly implemented.
     // This function is safe for all possible inputs.
-    if (clang_getCursorKind(expr) == CXCursorKind.binaryOperator) {
+    if (clang_getCursorKind(expr).among(CXCursorKind.binaryOperator, CXCursorKind.unaryOperator)) {
         return Operator(dex_getExprOperator(expr));
     }
 

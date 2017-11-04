@@ -12,8 +12,9 @@
 
 namespace dextool_clang_extension {
 
-// See: include/clang/AST/OperationKinds.def under section Binary Operations
 enum class OpKind {
+    // See: include/clang/AST/OperationKinds.def under section Binary Operations
+
     // [C++ 5.5] Pointer-to-member operators.
     PtrMemD, // ".*"
     PtrMemI, // "->*"
@@ -59,6 +60,29 @@ enum class OpKind {
     OrAssign, // "|="
     // [C99 6.5.17] Comma operator.
     Comma, // ","
+
+    // See: include/clang/AST/OperationKinds.def under section Unary Operations
+    // [C99 6.5.2.4] Postfix increment and decrement
+    PostInc, // "++"
+    PostDec, // "--"
+    // [C99 6.5.3.1] Prefix increment and decrement
+    PreInc, // "++"
+    PreDec, // "--"
+    // [C99 6.5.3.2] Address and indirection
+    AddrOf, // "&"
+    Deref, // "*"
+    // [C99 6.5.3.3] Unary arithmetic
+    Plus, // "+"
+    Minus, // "-"
+    Not, // "~"
+    LNot, // "!"
+    // "__real expr"/"__imag expr" Extension.
+    Real, // "__real"
+    Imag, // "__imag"
+    // __extension__ marker.
+    Extension, // "__extension__"
+    // [C++ Coroutines] co_await operator
+    Coawait, // "co_await"
 };
 
 struct DXOperator {
@@ -69,35 +93,8 @@ struct DXOperator {
     int8_t opLength;
 };
 
-/** Retrieve the operator of an expression that is of the subtype BinaryOperator.
- */
-DXOperator dex_getExprOperator(CXCursor cx_expr) {
-    DXOperator rval;
-
-    const clang::Expr* expr = getCursorExpr(cx_expr);
-    if (expr == nullptr) {
-        return rval;
-    }
-
-    // add check for CXXOperatorCallExpr.
-    // From the documentation of BinaryOperator:
-    // In C++, where operators may be overloaded, a different kind of
-    // expression node (CXXOperatorCallExpr) is used to express the invocation
-    // of an overloaded operator with operator syntax. Within a C++ template,
-    // whether BinaryOperator or CXXOperatorCallExpr is used to store an
-    // expression "x + y" depends on the subexpressions for x and y. If neither
-    // x or y is type-dependent, and the "+" operator resolves to a built-in
-    // operation, BinaryOperator will be used to express the computation (x and
-    // y may still be value-dependent). If either x or y is type-dependent, or
-    // if the "+" resolves to an overloaded operator, CXXOperatorCallExpr will
-    // be used to express the computation.
-    if (!llvm::isa<clang::BinaryOperator>(expr)) {
-        return rval;
-    }
-
-    const clang::BinaryOperator* bo = llvm::cast<const clang::BinaryOperator>(expr);
-
-    switch (bo->getOpcode()) {
+static bool toOpKind(clang::BinaryOperatorKind opcode, DXOperator& rval) {
+    switch (opcode) {
     case clang::BO_PtrMemD:
         rval.kind = OpKind::PtrMemD;
         rval.opLength = 2;
@@ -228,10 +225,116 @@ DXOperator dex_getExprOperator(CXCursor cx_expr) {
         break;
     default:
         // unknown operator, skipping.
+        return false;
+    }
+
+    return true;
+}
+
+static bool toOpKind(clang::UnaryOperatorKind opcode, DXOperator& rval) {
+    switch (opcode) {
+    case clang::UO_PostInc:
+        rval.kind = OpKind::PostInc;
+        rval.opLength = 2;
+        break;
+    case clang::UO_PostDec:
+        rval.kind = OpKind::PostDec;
+        rval.opLength = 2;
+        break;
+    case clang::UO_PreInc:
+        rval.kind = OpKind::PreInc;
+        rval.opLength = 2;
+        break;
+    case clang::UO_PreDec:
+        rval.kind = OpKind::PreDec;
+        rval.opLength = 2;
+        break;
+    case clang::UO_AddrOf:
+        rval.kind = OpKind::AddrOf;
+        rval.opLength = 1;
+        break;
+    case clang::UO_Deref:
+        rval.kind = OpKind::Deref;
+        rval.opLength = 1;
+        break;
+    case clang::UO_Plus:
+        rval.kind = OpKind::Plus;
+        rval.opLength = 1;
+        break;
+    case clang::UO_Minus:
+        rval.kind = OpKind::Minus;
+        rval.opLength = 1;
+        break;
+    case clang::UO_Not:
+        rval.kind = OpKind::Not;
+        rval.opLength = 1;
+        break;
+    case clang::UO_LNot:
+        rval.kind = OpKind::LNot;
+        rval.opLength = 1;
+        break;
+    case clang::UO_Real:
+        rval.kind = OpKind::Real;
+        rval.opLength = 6;
+        break;
+    case clang::UO_Imag:
+        rval.kind = OpKind::Imag;
+        rval.opLength = 6;
+        break;
+    case clang::UO_Extension:
+        rval.kind = OpKind::Extension;
+        rval.opLength = 13;
+        break;
+    case clang::UO_Coawait:
+        rval.kind = OpKind::Coawait;
+        rval.opLength = 8;
+        break;
+    default:
+        // unknown operator, skipping.
+        return false;
+    }
+
+    return true;
+}
+
+/** Retrieve the operator of an expression that is of the subtype BinaryOperator.
+ */
+DXOperator dex_getExprOperator(CXCursor cx_expr) {
+    DXOperator rval;
+
+    const clang::Expr* expr = getCursorExpr(cx_expr);
+    if (expr == nullptr) {
         return rval;
     }
 
-    rval.location = translateSourceLocation(*getCursorContext(cx_expr), bo->getOperatorLoc());
+    // add check for CXXOperatorCallExpr.
+    // From the documentation of BinaryOperator:
+    // In C++, where operators may be overloaded, a different kind of
+    // expression node (CXXOperatorCallExpr) is used to express the invocation
+    // of an overloaded operator with operator syntax. Within a C++ template,
+    // whether BinaryOperator or CXXOperatorCallExpr is used to store an
+    // expression "x + y" depends on the subexpressions for x and y. If neither
+    // x or y is type-dependent, and the "+" operator resolves to a built-in
+    // operation, BinaryOperator will be used to express the computation (x and
+    // y may still be value-dependent). If either x or y is type-dependent, or
+    // if the "+" resolves to an overloaded operator, CXXOperatorCallExpr will
+    // be used to express the computation.
+    if (llvm::isa<clang::BinaryOperator>(expr)) {
+        const clang::BinaryOperator* bo = llvm::cast<const clang::BinaryOperator>(expr);
+        if (!toOpKind(bo->getOpcode(), rval)) {
+            return rval;
+        }
+        rval.location = translateSourceLocation(*getCursorContext(cx_expr), bo->getOperatorLoc());
+    } else if (llvm::isa<clang::UnaryOperator>(expr)) {
+        const clang::UnaryOperator* uo = llvm::cast<const clang::UnaryOperator>(expr);
+        if (!toOpKind(uo->getOpcode(), rval)) {
+            return rval;
+        }
+        rval.location = translateSourceLocation(*getCursorContext(cx_expr), uo->getOperatorLoc());
+        return rval;
+    } else {
+        return rval;
+    }
 
     // this shall be the last thing done in this function.
     rval.hasValue = true;

@@ -12,23 +12,26 @@ This module contains a token mutator.
 module dextool.plugin.mutate.backend.mutate_token;
 
 import logger = std.experimental.logger;
+import std.typecons : Nullable;
 
-import dextool.type : AbsolutePath, FileName;
+import dextool.type : AbsolutePath, FileName, Exists;
 
-void tokenMutate(const AbsolutePath input_file, const AbsolutePath output_dir, const string[] cflags) {
+@safe:
+
+/**
+ *
+ * Params:
+ *  input_file =
+ */
+void tokenMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
+        const string[] cflags, const Nullable!size_t mutation_point) {
     import std.random : uniform;
-    import std.file : exists;
     import std.typecons : Yes;
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.analyzer.clang.ast : ClangAST;
     import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
         logDiagnostic;
-
-    if (!exists(input_file)) {
-        logger.errorf("File '%s' do not exist", input_file);
-        return;
-    }
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
@@ -42,16 +45,27 @@ void tokenMutate(const AbsolutePath input_file, const AbsolutePath output_dir, c
     }
 
     auto tu_c = translation_unit.cursor;
-    auto tokens = tu_c.tokens;
-    auto drop_token = uniform(0, tokens.length);
+    size_t drop_token;
 
-    logger.info("Total number of mutation points: ", tokens.length);
-    logger.info("dropping token: ", drop_token);
+    // trusted: no references to the tokens escape the delegate.
+    auto findTokenRange() @trusted {
+        auto tokens = tu_c.tokens;
 
-    // remove the token from the source code
+        if (mutation_point.isNull || mutation_point >= tokens.length)
+            drop_token = uniform(0, tokens.length);
 
-    auto source_range = tokens[drop_token].extent;
-    logger.info("location: ", source_range);
+        logger.info("Total number of mutation points: ", tokens.length);
+        logger.info("dropping token: ", drop_token);
+
+        // remove the token from the source code
+
+        auto source_range = tokens[drop_token].extent;
+        logger.info("location: ", source_range);
+
+        return source_range;
+    }
+
+    auto source_range = findTokenRange();
 
     import dextool.plugin.mutate.backend.vfs;
 
@@ -61,6 +75,8 @@ void tokenMutate(const AbsolutePath input_file, const AbsolutePath output_dir, c
     import std.stdio : File;
     import std.path : buildPath, baseName;
 
+    auto s = ctx.virtualFileSystem.drop!(void[])(input_file, offset);
     auto fout = File(buildPath(output_dir, input_file.baseName), "w");
-    ctx.virtualFileSystem.drop!(void[])(input_file, offset).each!(a => fout.rawWrite(a));
+    // trusted: is safe in dmd-2.077.0. Remove trusted in the future
+    () @trusted{ s.each!(a => fout.rawWrite(a)); }();
 }

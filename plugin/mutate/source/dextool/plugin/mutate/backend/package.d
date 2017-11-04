@@ -10,3 +10,4 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend;
 
 public import dextool.plugin.mutate.backend.mutate_token;
+public import dextool.plugin.mutate.backend.mutate_operator;

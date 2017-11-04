@@ -20,3 +20,7 @@ auto makeDextool(const ref TestEnv env) {
 auto makeCompile(const ref TestEnv env, Path srcdir) {
     return dextool_test.makeCompile(env, "g++").addInclude(srcdir).outputToDefaultBinary;
 }
+
+auto readOutput(const ref TestEnv testEnv, string fname) {
+    return std.file.readText((testEnv.outdir ~ fname).toString).splitLines.array();
+}
