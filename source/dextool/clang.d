@@ -125,7 +125,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
             sres.original.absoluteFile, sres.derived.absoluteFile);
 
-    rval = SearchResult(sres.derived.parseFlag(flag_filter), p);
+    rval = SearchResult(flags ~ sres.derived.parseFlag(flag_filter), p);
     // the user may want to see the flags but usually uninterested
     logger.trace("Compiler flags: ", rval.cflags.join(" "));
 
