@@ -5,10 +5,14 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/stan
 
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-analyze)
 
+set(flags
+    "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -J${CMAKE_SOURCE_DIR}/clang/resources"
+    )
+
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
-    "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -J${CMAKE_SOURCE_DIR}/clang/resources"
+    "${flags}"
     ""
     "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions"
 )
