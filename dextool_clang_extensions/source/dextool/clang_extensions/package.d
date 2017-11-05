@@ -115,6 +115,53 @@ extern (C++, dextool_clang_extension) {
         Extension, // "__extension__"
         // [C++ Coroutines] co_await operator
         Coawait, // "co_await"
+
+        // See: include/clang/Basic/OperationKinds.def
+        // CXXOperatorCallExpr->getOperator kinds
+        OO_New, // "new"
+        OO_Delete, // "delete"
+        OO_Array_New, // "new[]
+        OO_Array_Delete, // "delete[]
+        OO_Plus, // "+"
+        OO_Minus, // "-"
+        OO_Star, // "*"
+        OO_Slash, // "/"
+        OO_Percent, // "%"
+        OO_Caret, // "^"
+        OO_Amp, // "&"
+        OO_Pipe, // "|"
+        OO_Tilde, // "~"
+        OO_Exclaim, // "!"
+        OO_Equal, // "="
+        OO_Less, // "<"
+        OO_Greater, // ">"
+        OO_PlusEqual, // "+="
+        OO_MinusEqual, // "-="
+        OO_StarEqual, // "*="
+        OO_SlashEqual, // "/="
+        OO_PercentEqual, // "%="
+        OO_CaretEqual, // "^="
+        OO_AmpEqual, // "&="
+        OO_PipeEqual, // "|="
+        OO_LessLess, // "<<"
+        OO_GreaterGreater, // ">>"
+        OO_LessLessEqual, // "<<="
+        OO_GreaterGreaterEqual, // ">>="
+        OO_EqualEqual, // "=="
+        OO_ExclaimEqual, // "!="
+        OO_LessEqual, // "<="
+        OO_GreaterEqual, // ">="
+        OO_AmpAmp, // "&&"
+        OO_PipePipe, // "||"
+        OO_PlusPlus, // "++"
+        OO_MinusMinus, // "--"
+        OO_Comma, // ","
+        OO_ArrowStar, // "->*"
+        OO_Arrow, // "->"
+        OO_Call, // "()"
+        OO_Subscript, // "[]"
+        OO_Conditional, // "?"
+        OO_Coawait, // "co_await"
     }
 
     /** Retrieve the operator of an expression.
@@ -133,7 +180,9 @@ Operator getExprOperator(CXCursor expr) @trusted {
     // This check is technically not needed because the C++ source code try to do a dynamic cast.
     // But by having a check here it is easier to review that THIS function is correctly implemented.
     // This function is safe for all possible inputs.
-    if (clang_getCursorKind(expr).among(CXCursorKind.binaryOperator, CXCursorKind.unaryOperator)) {
+    // Note: CXXOperatorCallExpr is denoted callExpr in the C API.
+    if (clang_getCursorKind(expr).among(CXCursorKind.binaryOperator,
+            CXCursorKind.unaryOperator, CXCursorKind.callExpr)) {
         return Operator(dex_getExprOperator(expr));
     }
 

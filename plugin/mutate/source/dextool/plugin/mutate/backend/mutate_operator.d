@@ -22,25 +22,26 @@ import dextool.clang_extensions;
 
 void aorMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
         const string[] cflags, const Nullable!size_t in_mutation_point) {
-    auto mutator = Mutate!(opMutation!(aorOps))(&operatorFilter!(aorOps));
+    auto mutator = Mutate!(opMutation!(aorOps, OO_aorOps))(&operatorFilter!(aorOps, OO_aorOps));
     mutator.run(input_file, output_dir, cflags, in_mutation_point);
 }
 
 void lcrMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
         const string[] cflags, const Nullable!size_t in_mutation_point) {
-    auto mutator = Mutate!(opMutation!(lcrOps))(&operatorFilter!(lcrOps));
+    auto mutator = Mutate!(opMutation!(lcrOps, OO_lcrOps))(&operatorFilter!(lcrOps, OO_lcrOps));
     mutator.run(input_file, output_dir, cflags, in_mutation_point);
 }
 
 void rorMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
         const string[] cflags, const Nullable!size_t in_mutation_point) {
-    auto mutator = Mutate!(opMutation!(rorOps))(&operatorFilter!(rorOps));
+    auto mutator = Mutate!(opMutation!(rorOps, OO_rorOps))(&operatorFilter!(rorOps, OO_rorOps));
     mutator.run(input_file, output_dir, cflags, in_mutation_point);
 }
 
 void uorMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
         const string[] cflags, const Nullable!size_t in_mutation_point) {
-    auto mutator = Mutate!(uorMutation)(&operatorFilter!(uorOps));
+    auto mutator = Mutate!(opMutation!(uorPostOps, uorPreOps, OO_uorOps))(
+            &operatorFilter!(uorPostOps, uorPreOps, OO_uorOps));
     mutator.run(input_file, output_dir, cflags, in_mutation_point);
 }
 
@@ -132,7 +133,15 @@ struct Mutate(alias mutateFunc) {
 immutable(string[OpKind]) rorOps() {
     immutable ops = [
         OpKind.LT : "<", OpKind.LE : "<=", OpKind.GT : ">", OpKind.GE : ">=",
-        OpKind.EQ : "==", OpKind.NE : "!="
+        OpKind.EQ : "==", OpKind.NE : "!=",
+    ];
+    return ops;
+}
+
+immutable(string[OpKind]) OO_rorOps() {
+    immutable ops = [
+        OpKind.OO_Less : "<", OpKind.OO_Greater : ">", OpKind.OO_EqualEqual : "==",
+        OpKind.OO_ExclaimEqual : "!=", OpKind.OO_LessEqual : "<=", OpKind.OO_GreaterEqual : ">=",
     ];
     return ops;
 }
@@ -142,9 +151,22 @@ immutable(string[OpKind]) lcrOps() {
     return ops;
 }
 
+immutable(string[OpKind]) OO_lcrOps() {
+    immutable ops = [OpKind.OO_AmpAmp : "&&", OpKind.OO_PipePipe : "||",];
+    return ops;
+}
+
 immutable(string[OpKind]) aorOps() {
     immutable ops = [
         OpKind.Mul : "*", OpKind.Div : "/", OpKind.Rem : "%", OpKind.Add : "+", OpKind.Sub : "-",
+    ];
+    return ops;
+}
+
+immutable(string[OpKind]) OO_aorOps() {
+    immutable ops = [
+        OpKind.OO_Plus : "+", OpKind.OO_Minus : "-", OpKind.OO_Star : "*",
+        OpKind.OO_Slash : "/", OpKind.OO_Percent : "%",
     ];
     return ops;
 }
@@ -157,10 +179,23 @@ immutable(string[OpKind]) aorAssignOps() {
     return ops;
 }
 
+immutable(string[OpKind]) OO_aorAssignOps() {
+    immutable ops = [
+        OpKind.OO_PlusEqual : "+=", OpKind.OO_MinusEqual : "-=", OpKind.OO_StarEqual
+        : "*=", OpKind.OO_SlashEqual : "/=", OpKind.OO_PercentEqual : "%=",
+    ];
+    return ops;
+}
+
 immutable(string[OpKind]) uorOps() {
     immutable ops = [
         OpKind.PostInc : "++", OpKind.PostDec : "--", OpKind.PreInc : "++", OpKind.PreDec : "--",
     ];
+    return ops;
+}
+
+immutable(string[OpKind]) OO_uorOps() {
+    immutable ops = [OpKind.OO_PlusPlus : "++", OpKind.OO_MinusMinus : "--",];
     return ops;
 }
 
@@ -174,24 +209,43 @@ immutable(string[OpKind]) uorPreOps() {
     return ops;
 }
 
-bool operatorFilter(alias ops)(OpKind kind) {
-    return (kind in ops) !is null;
+bool operatorFilter(alias ops0, alias ops1)(OpKind kind) {
+    if ((kind in ops0) !is null)
+        return true;
+    else if (((kind in ops1) !is null))
+        return true;
+    return false;
 }
 
-immutable(string)[] opMutation(alias ops)(dextool.clang_extensions.OpKind kind) @trusted {
+bool operatorFilter(alias ops0, alias ops1, alias ops2)(OpKind kind) {
+    if ((kind in ops0) !is null)
+        return true;
+    else if ((kind in ops1) !is null)
+        return true;
+    else if (((kind in ops2) !is null))
+        return true;
+    return false;
+}
+
+immutable(string)[] opMutation(alias ops0, alias ops1)(dextool.clang_extensions.OpKind kind) @trusted {
     import std.algorithm;
     import std.array : array;
 
-    return ops.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
+    if ((kind in ops0) !is null)
+        return ops0.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
+    else
+        return ops1.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
 }
 
-immutable(string)[] uorMutation(dextool.clang_extensions.OpKind kind) @trusted {
+immutable(string)[] opMutation(alias ops0, alias ops1, alias ops2)(
+        dextool.clang_extensions.OpKind kind) @trusted {
     import std.algorithm;
     import std.array : array;
 
-    if ((kind in uorPreOps) !is null) {
-        return uorPreOps.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
-    } else {
-        return uorPostOps.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
-    }
+    if ((kind in ops0) !is null)
+        return ops0.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
+    else if ((kind in ops1) !is null)
+        return ops1.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
+    else
+        return ops2.byKeyValue.filter!(a => a.key != kind).map!(a => a.value).array();
 }
