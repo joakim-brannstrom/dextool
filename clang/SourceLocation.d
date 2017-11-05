@@ -26,7 +26,7 @@ string toInternalString(SourceLocation value) {
 
     if (value.isValid) {
         auto spell = value.spelling;
-        return format("%s(%s) [file=%s('%s') line=%d column=%d offset=%d]",
+        return format("%s(%s) [%s ('%s') line=%d column=%d offset=%d]",
                 text(typeid(value)), text(value.cx), text(spell.file),
                 text(spell.file.name), spell.line, spell.column, spell.offset);
     }
@@ -47,7 +47,7 @@ struct SourceLocation {
         string toString() @safe {
             import std.format : format;
 
-            return format("[file=%s line=%d column=%d offset=%d]", file, line, column, offset);
+            return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
         }
     }
 
@@ -61,7 +61,7 @@ struct SourceLocation {
         string toString() @safe {
             import std.format : format;
 
-            return format("[file=%s line=%d column=%d offset=%d]", file, line, column, offset);
+            return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
         }
     }
 
