@@ -1,7 +1,7 @@
-[SPC-plugin_mutate_0]
-done = 'by definition'
-partof = 'REQ-plugin_mutate'
-text = '''
+# SPC-plugin_mutate_0
+partof: REQ-plugin_mutate
+done: by definition
+###
 Definitions for the mutate plugin.
 
 ## Assertions
@@ -11,7 +11,7 @@ Assertions **will** be used throughout the artifacts to mean:
 - shall: the statement must be implemented and it's
     implementation verified.
 - will: statement of fact, not subject to verification.
-    i.e. "The X system will have timing as defined in ICD 1234"
+    I.e. "The X system will have timing as defined in ICD 1234"
 - should: goals, non-mandatory provisions. Statements using "should"
     **should** be verified if possible, but verification is not mandatory if
     not possible. Is a statement of intent.
@@ -36,28 +36,28 @@ The test cases for the plugin are licensed under the Boost license.
 See [artifact security threat analysis](https://github.com/vitiral/artifact/blob/master/design/security.toml) for an example.
 
 Risks are to be written with three sets of terms in mind:
-- likelyhood
+- likelihood
 - impact
 - product placement
 
-likelyhood has three categores:
+Likelihood has three categories:
  1. low
  2. medium
  3. high
 
-impact has five categories:
+Impact has five categories:
  1. sand
  2. pebble
  3. rock
  4. boulder
  5. avalanche
 
-product placement has three categores:
+Product placement has three categories:
  1. cosmetic
  3. necessary
  5. critical
 
-The value of these three categoires will be multiplied to
+The value of these three categories will be multiplied to
 determine the weight to assign to the risk.
 
 > sand may seem small, but if you have enough sand in your
@@ -82,19 +82,19 @@ The reasons are:
  - tooling to help keep the tracing between design artifacts cohesive.
    This ruled out pure markdown.
  - a choice had to be made between doorstep and artifact. The feature set of
-   them are in practise equivalent on a higher level.
+   them are in practice equivalent on a higher level.
    Artifact was chosen.
  - during the evaluation the tool has been extraordinarily stable.
 
 ## Programming Language
-The mutation plugin **will* be written entirely in the D programming language
+The mutation plugin **will** be written entirely in the D programming language
 for the purpose of:
 - cross compilation: D can be compiled on many platforms
 - safety: SafeD catches memory safety bugs
 - speed: D is as fast as C++
 - static checking: the power of the static type checking in the language makes
   it easier to refactor the code
-- scale-out: single threaded code can easiely be made higly concurrent with the
+- scale-out: single threaded code can easily be made highly concurrent with the
   D standard library
 - fun: D is a fun and productive language to write in.
 
@@ -103,7 +103,7 @@ bridges may be developed in C++.
 
 ## DO-178C
 The military standard used in the avionics industry for developing software.
-'''
 
-[TST-plugin_mutate_0]
-done = 'by definition'
+# TST-plugin_mutate_0
+done: by definition
+###
