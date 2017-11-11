@@ -1,4 +1,4 @@
-# SPC-plugin_mutate_0
+# SPC-plugin_mutate_definitions
 partof: REQ-plugin_mutate
 done: by definition
 ###
@@ -102,8 +102,38 @@ Exception: For interoperability with the clang AST and LLVM backend certain
 bridges may be developed in C++.
 
 ## DO-178C
-The military standard used in the avionics industry for developing software.
+Standard used in the avionics industry for developing software.
 
-# TST-plugin_mutate_0
+## Mutation Testing
+Faults are injected into the SUT. Each such injection is a mutant.
+Each mutant contains only one fault.
+Test cases from the SUT are applied on the mutant.
+The mutant is killed if the test suit fails.
+
+## Test Case Adequacy
+A test case is classified as adequate if it detects faults in the SUT.
+A test case is shown to be adequate if it kills at least one mutant that generates an output that is different from the SUT.
+
+## Mutation Testing Algorithm
+Generate mutants.
+Run test cases on the mutant.
+ - if the test case *fail* the mutant is considered killed.
+
+## Mutation Score
+The mutation score of a test set T, designed to test P, is computed as:
+MS(P, T) = Mk / (Mt - Mq)
+Mk = mutants killed
+Mq = equivalent mutants
+Mt = total number of mutants
+
+## Data Flow Score
+DFS = Bu/Bt
+Bu = Number of blocks (decision, p-uses, c-uses, all-uses) covered
+Bt = Total number of feasable blocks
+
+## SUT
+System Under Test
+
+# TST-plugin_mutate_definitions
 done: by definition
 ###
