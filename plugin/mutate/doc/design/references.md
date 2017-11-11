@@ -4,6 +4,8 @@ done: by definition
 
 1. [ROR Logic](https://cs.gmu.edu/~offutt/rsrch/papers/rorlogic-jss.pdf)
 2. [An Analysis and Survey of the Development of Mutation Testing](http://crest.cs.ucl.ac.uk/fileadmin/crest/sebasepaper/JiaH10.pdf)
+ or [An Analysis and Survey of the Development of Mutation Testing](http://www0.cs.ucl.ac.uk/staff/mharman/tse-mutation-survey.pdf)
+3. [An Experimental Determination of Sufficient Mutant Operators](http://cse.unl.edu/~grother/papers/tosem96apr.pdf)
 
 ## Classification of equivalent mutants
 
@@ -23,21 +25,28 @@ compiler optimization technique [178].*
 
 # REQ-plugin_mutate-mutations
 ###
-
-## Choice of mutations
-The plugin shall support **at least** the mutations ROR, AOR, LCR and UOR.
+The plugin shall support **at least** the mutations ROR, AOR, LCR, UOI and ABS.
 
 [[SPC-plugin_mutate_references]] Quote from 2, p.6:
+*Offutt et al. [182] extended their 6-selective mutation further
+using a similar selection strategy. Based on the type of the Mothra
+mutation operators, they divided them into three categories:
+statements, operands and expressions. They tried to omit operators
+from each class in turn. They discovered that 5 operators from
+the operands and expressions class became the key operators.
+These 5 operators are ABS, UOI, LCR, AOR and ROR. These
+key operators achieved 99.5% mutation score.*
 
-*The most recent research work on selective mutation was conducted by Namin et
-al. [168]–[170]. They formulated the selective mutation problem as a
-statistical problem: the variable selection or reduction problem. They applied
-linear statistical approaches to identify a subset of 28 mutation operators
-from 108 C mutation operators. The results suggested that these 28 operators
-are sufficient to predict the effectiveness of a test suite and it reduced 92%
-of all generated mutants. According to their results, this approach achieved
-the highest rate of reduction compared with other approaches.*
-
+[[SPC-plugin_mutate_references]] Conclusions from 3, p.18:
+*The 5 sufficient operators are ABS, whic forces each arithmetic expression to
+take on the value 0, a positive value and a negative value, AOR, which replaces
+each arithmetic operator with every syntactically legal operator, LCR, which
+replaces each logical connector (AND and OR) with several kinds of logical
+connectors, ROR, which replaces relational operators with other relational
+operators, and UOI, which insert unary operators in front of expressions. It is
+interetsting to note that this set includes the operators that are required to
+satisfy branch and extended branch coverage leading us to believe that extended
+branch coverage is in some sense a major part of mutation.*
 
 # TST-plugin_mutate_references
 done: by definition
