@@ -1,7 +1,7 @@
-[SPC-plugin_mutate_0]
-done = 'by definition'
-partof = 'REQ-plugin_mutate'
-text = '''
+# SPC-plugin_mutate_0
+partof: REQ-plugin_mutate
+done: by definition
+###
 Definitions for the mutate plugin.
 
 ## Assertions
@@ -87,7 +87,7 @@ The reasons are:
  - during the evaluation the tool has been extraordinarily stable.
 
 ## Programming Language
-The mutation plugin **will* be written entirely in the D programming language
+The mutation plugin **will** be written entirely in the D programming language
 for the purpose of:
 - cross compilation: D can be compiled on many platforms
 - safety: SafeD catches memory safety bugs
@@ -103,7 +103,7 @@ bridges may be developed in C++.
 
 ## DO-178C
 The military standard used in the avionics industry for developing software.
-'''
 
-[TST-plugin_mutate_0]
-done = 'by definition'
+# TST-plugin_mutate_0
+done: by definition
+###
