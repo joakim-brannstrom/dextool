@@ -1,4 +1,4 @@
-# SPC-plugin_mutate_0
+# SPC-plugin_mutate_definitions
 partof: REQ-plugin_mutate
 done: by definition
 ###
@@ -104,6 +104,6 @@ bridges may be developed in C++.
 ## DO-178C
 The military standard used in the avionics industry for developing software.
 
-# TST-plugin_mutate_0
+# TST-plugin_mutate_definitions
 done: by definition
 ###

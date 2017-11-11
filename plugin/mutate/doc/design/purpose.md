@@ -18,7 +18,7 @@ The application requirements are split into the following categories:
 - [[REQ-plugin_mutate-development_process]]
 
 # REQ-plugin_mutate-derived
-This is a meta requirement for those that are derived inside the plugin.
+This is a meta requirement for those that are derived from the implementation of the plugin.
 
 These are not directly traceable to [[REQ-plugin_mutate-use_case]].
 
@@ -33,6 +33,7 @@ Rational: the intention is to continuesly demonstrate progress to the stakeholde
 
 Priority 3: maintain code quality standards.
 Rational: reduce technical debt which has a negative impact on development speed.
+Prepare the plugin for being used outside of research projects.
 
 # REQ-plugin_mutate-use_case
 This is a meta requirement for those that are traceable to use cases.
