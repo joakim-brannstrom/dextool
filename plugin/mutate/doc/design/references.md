@@ -23,31 +23,6 @@ technique is able to detect a significant percentage of equivalent mutants
 suggest that the constraint satisfaction formulation is more powerful than the
 compiler optimization technique [178].*
 
-# REQ-plugin_mutate-mutations
-###
-The plugin shall support **at least** the mutations ROR, AOR, LCR, UOI and ABS.
-
-[[SPC-plugin_mutate_references]] Quote from 2, p.6:
-*Offutt et al. [182] extended their 6-selective mutation further
-using a similar selection strategy. Based on the type of the Mothra
-mutation operators, they divided them into three categories:
-statements, operands and expressions. They tried to omit operators
-from each class in turn. They discovered that 5 operators from
-the operands and expressions class became the key operators.
-These 5 operators are ABS, UOI, LCR, AOR and ROR. These
-key operators achieved 99.5% mutation score.*
-
-[[SPC-plugin_mutate_references]] Conclusions from 3, p.18:
-*The 5 sufficient operators are ABS, whic forces each arithmetic expression to
-take on the value 0, a positive value and a negative value, AOR, which replaces
-each arithmetic operator with every syntactically legal operator, LCR, which
-replaces each logical connector (AND and OR) with several kinds of logical
-connectors, ROR, which replaces relational operators with other relational
-operators, and UOI, which insert unary operators in front of expressions. It is
-interetsting to note that this set includes the operators that are required to
-satisfy branch and extended branch coverage leading us to believe that extended
-branch coverage is in some sense a major part of mutation.*
-
 # TST-plugin_mutate_references
 done: by definition
 ###

@@ -17,6 +17,18 @@ The application requirements are split into the following categories:
 - [[REQ-plugin_mutate-derived]]
 - [[REQ-plugin_mutate-development_process]]
 
+## What is Mutant Testning?
+Mutation testing focus on determining the adequacy of a test cases.
+
+It is a code-based testing technique.
+
+It relies on the competent programmer hypothesis which is the following
+assumption:
+ - Given a specification a programmer develops a program that is either correct or differs from the correct program by a combination of simple errors
+
+It also relies on “coupling effect” which suggests that:
+ - Test cases that detect simple types of faults are sensitive enough to detect more complex types of faults.
+
 # REQ-plugin_mutate-derived
 This is a meta requirement for those that are derived from the implementation of the plugin.
 
