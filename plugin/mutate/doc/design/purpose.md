@@ -51,3 +51,28 @@ Prepare the plugin for being used outside of research projects.
 This is a meta requirement for those that are traceable to use cases.
 
 An important aspect is ease of use in day-to-day development. When verification is performed late in the development process, one discovers generally a huge amount of problems, and fixing them requires a tremendous effort; it is sometimes extremely difficult to do when the software has already gone through various validation phases that would be ruined by massive corrections. When the tool is integrated into the development environment, programmers must be able to run it routinely each time they develop new modules or modify existing ones, ideally as part of the code compile step. The sooner checking is performed in the development process, the better.
+
+# SPC-plugin_mutate_poc_purpose
+partof: REQ-plugin_mutate
+done: by definition
+###
+
+The purpose of the PoC is to identify issues rather than solving them.
+
+The PoC should realize enough features to act as a platform for small scale mutation testing.
+The PoC should be practical to use for source code mutation for applications between 1k-10k SLOC.
+
+The PoC thus help to derive and clarify the use cases.
+ - what are the problems when scaling mutation testing?
+ - what are the important usability characteristics needed by a mutation tool for every day development?
+ - what mutations are important from a DO-178C perspective?
+ - explore Offutt's and others idea for a scalable architecture for mutation testing.
+ - explore the use cases at a small scale. What is missed? What are the future road blocks?
+
+The PoC will focus on realizing the following features:
+ - a minimal, viable set of mutation kinds derived from research papers.
+ - for the first stage the PoC will not handle the problem of equivalent mutants.
+    The PoC will be extended into this focus area in the future but first a MVP must be developed.
+ - small scale architecture for continues and incremental mutation testing of an application.
+ - ease of use.
+ - the only language supported are C and c++.
