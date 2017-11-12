@@ -39,7 +39,7 @@ private struct IncludeResult {
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
 Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb,
-        FileName fname, ref const CompileCommandFilter flag_filter) {
+        FileName fname, ref const CompileCommandFilter flag_filter, const string[] extra_flags) {
     import std.algorithm : filter;
     import std.file : exists;
     import std.path : baseName;
@@ -61,7 +61,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
     Nullable!IncludeResult r;
 
     foreach (entry; compdb.filter!(a => exists(a.absoluteFile))) {
-        auto flags = entry.parseFlag(flag_filter);
+        auto flags = extra_flags ~ entry.parseFlag(flag_filter);
         auto translation_unit = ctx.makeTranslationUnit(entry.absoluteFile, flags);
 
         if (translation_unit.hasParseErrors) {
@@ -105,7 +105,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     logger.warningf(`Analyzing all files in the compilation DB for one that has an '#include "%s"'`,
             fname.baseName);
 
-    auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter);
+    auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter, flags);
     if (sres.isNull) {
         logger.error("Unable to find any compiler flags for: ", fname);
         return rval;
