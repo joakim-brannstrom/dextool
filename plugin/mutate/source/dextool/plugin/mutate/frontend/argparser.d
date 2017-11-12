@@ -31,7 +31,9 @@ enum Mutation {
     /// Arithmetic operator replacement
     aor,
     /// Unary operator replacement
-    uor
+    uor,
+    /// Absolute value replacement
+    abs,
 }
 
 struct ArgParser {
