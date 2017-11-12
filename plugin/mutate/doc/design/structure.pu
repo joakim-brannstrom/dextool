@@ -1,0 +1,26 @@
+@startdot
+digraph G1 {
+colorscheme=svg
+node [style=rounded shape=box fontsize=10 width=0.25 height=0.375]
+edge [fontsize=10]
+
+analyse [label="Analyse" style=""]
+database [label="Database"]
+coord [label="Coordinator"]
+mutgen [label="Mutant\nGenerator"]
+report [label="Report\nGenerator" style=""]
+muttest [label="Mutant\nTester" style=""]
+
+coord -> analyse [label="command"]
+coord -> database [label="read"]
+coord -> muttest [label="command"]
+coord -> report [label="command"]
+
+analyse -> database [label="r/w"]
+
+muttest -> database [label="r/w"]
+muttest -> mutgen [label="use"]
+
+report -> database [label="read"]
+}
+@enddot

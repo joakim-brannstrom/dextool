@@ -1,0 +1,20 @@
+@startdot
+digraph G0 {
+colorscheme=svg
+node [style=rounded shape=box fontsize=10 width=0.25 height=0.375]
+edge [fontsize=10]
+
+program [label="Program\nSUT"]
+decide [label="Decide if file\nneed to be analysed" shape="diamond" style=""]
+analyse [label="Analyse\nfor mutation points"]
+database [label="Database"]
+
+"Mutation kind" -> decide
+"Compiler flags" -> decide
+program -> decide [style="dashed" label="file"]
+database -> decide [label="prev data\nabout file"]
+decide -> analyse [label="yes"]
+
+analyse -> database [label="store result"]
+}
+@enddot
