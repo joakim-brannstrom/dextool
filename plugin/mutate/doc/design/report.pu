@@ -1,0 +1,13 @@
+@startdot
+digraph G2 {
+colorscheme=svg
+node [style=rounded shape=box fontsize=10 width=0.25 height=0.375]
+edge [fontsize=10]
+
+database [label="Database"]
+report [label="Report\nGenerator" style=""]
+
+report -> database [label="read status"]
+report -> "Write to\nfile"
+}
+@enddot

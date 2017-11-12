@@ -1,0 +1,22 @@
+@startdot
+digraph G2 {
+colorscheme=svg
+node [style=rounded shape=box fontsize=10 width=0.25 height=0.375]
+edge [fontsize=10]
+
+program [label="Program\nSUT"]
+database [label="Database"]
+coord [label="Coordinator"]
+mutgen [label="Mutant\nGenerator"]
+muttest [label="Mutant\nTester" style=""]
+test_mut [label="Run test cases\non mutant" shape="diamond" style=""]
+
+coord -> database [label="get mutation point\nto test"]
+coord -> muttest [label="test mutation point"]
+
+muttest -> mutgen [label="point"]
+program -> mutgen [style="dashed"]
+mutgen -> test_mut [label="mutant" headport="n"]
+test_mut -> database [label="mark as\nlive/dead" tailport=s]
+}
+@enddot
