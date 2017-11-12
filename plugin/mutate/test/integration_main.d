@@ -11,6 +11,7 @@ int main(string[] args) {
 
     // dfmt off
     return args.runTests!(
+                          "dextool_test.mutate_abs",
                           "dextool_test.mutate_operators",
                           "dextool_test.mutate_token",
                           );
