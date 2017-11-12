@@ -44,7 +44,7 @@ struct SourceLocation {
         uint column;
         uint offset;
 
-        string toString() @safe {
+        string toString() @safe const {
             import std.format : format;
 
             return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
@@ -58,7 +58,7 @@ struct SourceLocation {
         uint column;
         uint offset;
 
-        string toString() @safe {
+        string toString() @safe const {
             import std.format : format;
 
             return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
