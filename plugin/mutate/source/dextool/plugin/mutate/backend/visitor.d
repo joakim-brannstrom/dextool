@@ -93,3 +93,118 @@ final class ExpressionOpVisitor : Visitor {
         v.accept(this);
     }
 }
+
+enum ValueKind {
+    lvalue,
+    rvalue,
+}
+
+struct MutationPoint {
+    import clang.SourceLocation;
+    import dextool.plugin.mutate.backend.vfs;
+
+    ValueKind kind;
+
+    Offset offset;
+    string spelling;
+    SourceLocation.Location2 location;
+}
+
+/** Find all mutation points that affect a whole expression.
+ *
+ */
+final class ExpressionVisitor : Visitor {
+    import std.array : Appender;
+    import clang.Cursor : Cursor;
+    import clang.SourceLocation : SourceLocation;
+    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import dextool.clang_extensions;
+
+    alias visit = Visitor.visit;
+
+    mixin generateIndentIncrDecr;
+
+    private Appender!(const(MutationPoint)[]) exprs;
+
+    auto mutationPoints() {
+        return exprs.data;
+    }
+
+    this() {
+    }
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Attribute) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Directive) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Expression) v) {
+        mixin(mixinNodeLog!());
+
+        v.accept(this);
+    }
+
+    override void visit(const(DeclRefExpr) v) @trusted {
+        mixin(mixinNodeLog!());
+        import clang.c.Index : CXCursorKind;
+
+        auto loc = v.cursor.location;
+
+        if (!loc.isFromMainFile) {
+            return;
+        }
+
+        auto ref_ = v.cursor.referenced;
+        if (ref_.kind != CXCursorKind.varDecl)
+            return;
+
+        addMutationPoint(v.cursor, loc, v.cursor.spelling, ValueKind.lvalue);
+
+        v.accept(this);
+    }
+
+    void addMutationPoint(const(Cursor) c, SourceLocation loc, string spelling, ValueKind kind) {
+        import dextool.plugin.mutate.backend.vfs;
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+        auto p = MutationPoint(kind, offs, spelling, loc.presumed);
+        exprs.put(p);
+    }
+
+    override void visit(const(Preprocessor) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Reference) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Statement) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+}

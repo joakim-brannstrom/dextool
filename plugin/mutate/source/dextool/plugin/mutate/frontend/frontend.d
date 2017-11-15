@@ -119,10 +119,10 @@ ExitStatusType runMutate(Frontend fe) {
 
             aorMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
             break;
-        case Mutation.uor:
-            import dextool.plugin.mutate.backend : uorMutate;
+        case Mutation.uoi:
+            import dextool.plugin.mutate.backend : uoiMutate;
 
-            uorMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
+            uoiMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
             break;
         case Mutation.abs:
             import dextool.plugin.mutate.backend : absMutate;

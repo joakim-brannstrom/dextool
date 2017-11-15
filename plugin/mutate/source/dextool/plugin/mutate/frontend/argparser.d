@@ -30,8 +30,8 @@ enum Mutation {
     lcr,
     /// Arithmetic operator replacement
     aor,
-    /// Unary operator replacement
-    uor,
+    /// Unary operator insert
+    uoi,
     /// Absolute value replacement
     abs,
 }
