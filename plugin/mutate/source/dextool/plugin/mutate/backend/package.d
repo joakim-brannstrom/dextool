@@ -12,3 +12,4 @@ module dextool.plugin.mutate.backend;
 public import dextool.plugin.mutate.backend.mutate_abs;
 public import dextool.plugin.mutate.backend.mutate_token;
 public import dextool.plugin.mutate.backend.mutate_operator;
+public import dextool.plugin.mutate.backend.mutate_uoi;

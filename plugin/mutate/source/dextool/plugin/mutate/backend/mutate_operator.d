@@ -38,13 +38,6 @@ void rorMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_d
     mutator.run(input_file, output_dir, cflags, in_mutation_point);
 }
 
-void uorMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
-        const string[] cflags, const Nullable!size_t in_mutation_point) {
-    auto mutator = Mutate!(opMutation!(uorPostOps, uorPreOps, OO_uorOps))(
-            &operatorFilter!(uorPostOps, uorPreOps, OO_uorOps));
-    mutator.run(input_file, output_dir, cflags, in_mutation_point);
-}
-
 private:
 
 size_t randomMutationPoint(const Nullable!size_t point, const size_t total_mutation_points) {
@@ -184,28 +177,6 @@ immutable(string[OpKind]) OO_aorAssignOps() {
         OpKind.OO_PlusEqual : "+=", OpKind.OO_MinusEqual : "-=", OpKind.OO_StarEqual
         : "*=", OpKind.OO_SlashEqual : "/=", OpKind.OO_PercentEqual : "%=",
     ];
-    return ops;
-}
-
-immutable(string[OpKind]) uorOps() {
-    immutable ops = [
-        OpKind.PostInc : "++", OpKind.PostDec : "--", OpKind.PreInc : "++", OpKind.PreDec : "--",
-    ];
-    return ops;
-}
-
-immutable(string[OpKind]) OO_uorOps() {
-    immutable ops = [OpKind.OO_PlusPlus : "++", OpKind.OO_MinusMinus : "--",];
-    return ops;
-}
-
-immutable(string[OpKind]) uorPostOps() {
-    immutable ops = [OpKind.PostInc : "++", OpKind.PostDec : "--",];
-    return ops;
-}
-
-immutable(string[OpKind]) uorPreOps() {
-    immutable ops = [OpKind.PreInc : "++", OpKind.PreDec : "--",];
     return ops;
 }
 

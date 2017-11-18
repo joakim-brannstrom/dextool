@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.mutate.backend.mutate_abs;
+module dextool.plugin.mutate.backend.mutate_uoi;
 
 import logger = std.experimental.logger;
 import std.typecons : Nullable;
@@ -16,24 +16,17 @@ import dextool.type : AbsolutePath, FileName, Exists;
 
 import dextool.clang_extensions;
 
+import dextool.plugin.mutate.backend.visitor : MutationPoint, ValueKind;
+
 @safe:
 
-// this is ugly but works for now
-immutable abs_tmpl = `
-namespace {
-template<typename T>
-T dextool_abs(T v) { return v < 0 ? -v : v; }
-}
-`;
-
-void absMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
+void uoiMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_dir,
         const string[] cflags, const Nullable!size_t in_mutation_point) {
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.type : ExitStatusType;
     import dextool.utility : analyzeFile;
-    import dextool.plugin.mutate.backend.visitor : ExpressionVisitor,
-        MutationPoint;
+    import dextool.plugin.mutate.backend.visitor : ExpressionVisitor;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto visitor = new ExpressionVisitor;
@@ -60,18 +53,17 @@ void absMutate(const Exists!AbsolutePath input_file, const AbsolutePath output_d
     import std.path : buildPath, baseName;
     import dextool.plugin.mutate.backend.vfs;
 
-    foreach (idx, mut; [&posAbs, &negAbs, &zeroAbs]) {
+    foreach (idx, kind; mutations(mp)) {
         const output_file = buildPath(output_dir, idx.to!string ~ input_file.baseName);
         auto s = ctx.virtualFileSystem.drop!(void[])(input_file, mp.offset);
 
         auto fout = File(output_file, "w");
-        fout.write(abs_tmpl);
 
         // trusted: is safe in dmd-2.077.0. Remove trusted in the future
         () @trusted{ fout.rawWrite(s.front); }();
         s.popFront;
 
-        const mut_to = mut(mp.spelling);
+        const mut_to = mutate(mp.spelling, kind);
 
         // trusted: is safe in dmd-2.077.0. Remove trusted in the future
         () @trusted{ fout.write(mut_to); fout.rawWrite(s.front); }();
@@ -84,16 +76,35 @@ private:
 
 import std.format : format;
 
-string posAbs(string expr) {
-    return format("dextool_abs(%s)", expr);
+enum MutateKind {
+    preInc,
+    preDec,
+    postInc,
+    postDec
 }
 
-string negAbs(string expr) {
-    return format("-dextool_abs(%s)", expr);
+MutateKind[] mutations(MutationPoint mp) {
+    import std.traits : EnumMembers;
+
+    final switch (mp.kind) {
+    case ValueKind.lvalue:
+        return [EnumMembers!MutateKind];
+    case ValueKind.rvalue:
+        return [MutateKind.preInc, MutateKind.preDec];
+    }
 }
 
-string zeroAbs(string expr) {
-    return "0";
+string mutate(string expr, MutateKind kind) {
+    final switch (kind) with (MutateKind) {
+    case preInc:
+        return format("++%s", expr);
+    case preDec:
+        return format("--%s", expr);
+    case postInc:
+        return format("%s++", expr);
+    case postDec:
+        return format("%s--", expr);
+    }
 }
 
 size_t randomMutationPoint(const Nullable!size_t point, const size_t total_mutation_points) {
