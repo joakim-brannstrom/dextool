@@ -114,7 +114,8 @@ function(try_llvm_config_find)
 
     string(TOUPPER "${llvm_config_VERSION}" step2_LLVM_CONF_as_upper)
     string(REGEX REPLACE "[.]" "_" step3_LLVM_VERION "${step2_LLVM_CONF_as_upper}")
-    set(LIBLLVM_VERSION "LLVM_${step3_LLVM_VERION}" CACHE "libLLVM version" string)
+    string(REGEX REPLACE "GIT-.*" "" step4_LLVM_VERSION "${step3_LLVM_VERION}")
+    set(LIBLLVM_VERSION "LLVM_${step4_LLVM_VERION}" CACHE "libLLVM version" string)
 
     # -rpath is relative path for all linked libraries.
     # The second "." is argument to rpath.
