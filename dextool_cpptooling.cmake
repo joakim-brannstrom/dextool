@@ -57,7 +57,6 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/sort.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/taggedalgebraic.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/uda.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/virtualfilesystem.d
 )
 
