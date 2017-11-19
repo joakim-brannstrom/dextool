@@ -7,23 +7,24 @@ The plugins in a standard installation of deXtool are:
  - Analyze. Analyze C/C++ code to generate complexity numbers such as McCabe.
  - C TestDouble. Analyze C code to generate a test double implementation.
  - C++ TestDouble. Analyze C++ code to generate a test double implementation.
- - UML. Analyze C/C++ code to generate PlantUML diagrams.
+ - Compilation Database. Tool for manipulating db(s) such as merge, compiler
+   flag filtering, relative->absolute path.
+   Usually called compile_commands.json.
+ - Mutate. Mutation testing tool for C/C++.
  - GraphML. Analyze C/C++ code to generate a GraphML representation.
    Call chains, type usage, classes as _groups_ of methods and members.
  - Intercept. Analyze a C header together with a config to generate interceptor
    functions.
- - Compilation Database. Tool for manipulating db(s) such as merge, compiler
-   flag filtering, relative->absolute path.
-   Usually called compile_commands.json.
+ - UML. Analyze C/C++ code to generate PlantUML diagrams.
 
 # Plugin Status
 
-The plugin "C Test Double" is with release v1.0.0 guaranteed to be stable
-regarding how the generated code behaves and the how the _user_ interacts with
-it.
+"C TestDouble", production ready.
+The API of the generated code and how it behaves is stable.
 
-The other plugins are not stable.
-Please open an issue if _you_ need a plugin to stabilize.
+"C++ TestDouble" is nearing production quality.
+
+"Mutate" is under heavy development.
 
 # Getting Started
 
@@ -31,7 +32,7 @@ deXtool depends on the following software packages:
 
  * [libclang](http://releases.llvm.org/download.html) (3.9+)
  * [cmake](https://cmake.org/download) (2.8+)
- * [D compiler](https://dlang.org/download.html) (dmd 2.072+, ldc 1.1.0+)
+ * [D compiler](https://dlang.org/download.html) (dmd 2.076.1+, ldc 1.6.0-beta1+)
 
 deXtool has been tested with libclang [3.9, 4.0, 5.0].
 
@@ -62,16 +63,6 @@ make install -j2
 Done! Have fun.
 Don't be shy to report any issue that you find.
 
-## Solutions for "Libclang Not Found"
-
-If you have libclang installed in a location such that llvm-config --libdir do not return the path it is possible to force the linker flags.
-
-To supply a new search path use:
-```sh
-cmake -DLIBCLANG_LDFLAGS="-L-L/path/to/directy/where/libclang.so/is -L--enable-new-dtags -L-rpath=/path/to/directy/where/libclang.so/is -L--no-as-needed -L-l:libclang.so" ..
-```
-
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
 this code base. Without DStep deXTool wouldn't exist.
-
