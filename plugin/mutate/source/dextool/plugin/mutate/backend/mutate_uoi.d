@@ -16,7 +16,7 @@ import dextool.type : AbsolutePath, FileName, Exists;
 
 import dextool.clang_extensions;
 
-import dextool.plugin.mutate.backend.visitor : MutationPoint, ValueKind;
+import dextool.plugin.mutate.backend.visitor : MutationPoint;
 
 @safe:
 
@@ -80,17 +80,28 @@ enum MutateKind {
     preInc,
     preDec,
     postInc,
-    postDec
+    postDec,
+    address,
+    indirection,
+    positive,
+    negative,
+    complement,
+    negation,
+    sizeof_
 }
 
 MutateKind[] mutations(MutationPoint mp) {
     import std.traits : EnumMembers;
 
-    final switch (mp.kind) {
+    final switch (mp.kind) with (MutateKind) {
     case ValueKind.lvalue:
         return [EnumMembers!MutateKind];
+    case ValueKind.unknown:
     case ValueKind.rvalue:
-        return [MutateKind.preInc, MutateKind.preDec];
+    case ValueKind.xvalue:
+    case ValueKind.glvalue:
+        return [preInc, preDec, address, indirection, positive, negative,
+            complement, negation, sizeof_];
     }
 }
 
@@ -104,6 +115,20 @@ string mutate(string expr, MutateKind kind) {
         return format("%s++", expr);
     case postDec:
         return format("%s--", expr);
+    case address:
+        return format("&%s", expr);
+    case indirection:
+        return format("*%s", expr);
+    case positive:
+        return format("+%s", expr);
+    case negative:
+        return format("-%s", expr);
+    case complement:
+        return format("~%s", expr);
+    case negation:
+        return format("!%s", expr);
+    case sizeof_:
+        return format("sizeof(%s)", expr);
     }
 }
 

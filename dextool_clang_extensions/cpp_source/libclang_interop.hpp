@@ -43,6 +43,21 @@ struct CXTranslationUnitImpl {
 // See: Index.h
 typedef struct CXTranslationUnitImpl* CXTranslationUnit;
 
+namespace clang {
+namespace cxcursor {
+
+// See: CXCursor.h
+const clang::Decl* getCursorParentDecl(CXCursor Cursor);
+
+// Based on MakeCXCursor from CXCursor.h
+// This is a minimalistic version that ONLY work for expressions.
+CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
+                          CXTranslationUnit TU,
+                          clang::SourceRange RegionOfInterest = clang::SourceRange());
+
+} // NS: cxcursor
+} // NS: clang
+
 // ### end ugly hack
 
 namespace dextool_clang_extension {

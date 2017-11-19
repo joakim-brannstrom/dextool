@@ -13,6 +13,15 @@
 
 namespace dextool_clang_extension {
 
+// See: the Expr node
+enum class ValueKind {
+    unknown,
+    lvalue,
+    rvalue,
+    xvalue,
+    glvalue
+};
+
 enum class OpKind {
     // See: include/clang/AST/OperationKinds.def under section Binary Operations
 
@@ -139,6 +148,8 @@ struct DXOperator {
     OpKind kind;
     CXSourceLocation location;
     int8_t opLength;
+
+    CXCursor cursor;
 };
 
 static bool toOpKind(clang::BinaryOperatorKind opcode, DXOperator& rval) {
@@ -533,27 +544,19 @@ static bool toOpKind(clang::OverloadedOperatorKind opcode, DXOperator& rval) {
 
 /** Retrieve the operator of an expression that is of the subtype BinaryOperator.
  */
-DXOperator dex_getExprOperator(CXCursor cx_expr) {
+DXOperator dex_getExprOperator(const CXCursor cx_expr) {
     DXOperator rval;
     rval.hasValue = false;
+    rval.cursor = cx_expr;
 
     const clang::Expr* expr = getCursorExpr(cx_expr);
     if (expr == nullptr) {
         return rval;
     }
 
-    // add check for CXXOperatorCallExpr.
-    // From the documentation of BinaryOperator:
-    // In C++, where operators may be overloaded, a different kind of
-    // expression node (CXXOperatorCallExpr) is used to express the invocation
-    // of an overloaded operator with operator syntax. Within a C++ template,
-    // whether BinaryOperator or CXXOperatorCallExpr is used to store an
-    // expression "x + y" depends on the subexpressions for x and y. If neither
-    // x or y is type-dependent, and the "+" operator resolves to a built-in
-    // operation, BinaryOperator will be used to express the computation (x and
-    // y may still be value-dependent). If either x or y is type-dependent, or
-    // if the "+" resolves to an overloaded operator, CXXOperatorCallExpr will
-    // be used to express the computation.
+    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
+    CXTranslationUnit tu = getCursorTU(cx_expr);
+
     if (llvm::isa<clang::BinaryOperator>(expr)) {
         const clang::BinaryOperator* op = llvm::cast<const clang::BinaryOperator>(expr);
         if (!toOpKind(op->getOpcode(), rval)) {
@@ -579,6 +582,117 @@ DXOperator dex_getExprOperator(CXCursor cx_expr) {
     // this shall be the last thing done in this function.
     rval.hasValue = true;
     return rval;
+}
+
+struct DXOperatorExprs {
+    CXCursor lhs;
+    CXCursor rhs;
+};
+
+// Recurse past the implicit cast expression.
+const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr) {
+    if (expr == nullptr) {
+        return nullptr;
+    }
+
+    if (llvm::isa<clang::DeclRefExpr>(expr)) {
+        return expr;
+    }
+
+    if (llvm::isa<clang::ImplicitCastExpr>(expr)) {
+        const clang::ImplicitCastExpr* e = llvm::cast<const clang::ImplicitCastExpr>(expr);
+        const clang::Expr* r = e->getSubExpr();
+        return getUnderlyingExprNode(r);
+    }
+
+    if (llvm::isa<clang::ParenExpr>(expr)) {
+        const clang::ParenExpr* e = llvm::cast<const clang::ParenExpr>(expr);
+        const clang::Expr* r = e->getSubExpr();
+        return getUnderlyingExprNode(r);
+    }
+
+    return expr;
+}
+
+CXCursor dex_getUnderlyingExprNode(const CXCursor cx_expr) {
+    const clang::Expr* expr = getCursorExpr(cx_expr);
+    expr = getUnderlyingExprNode(expr);
+    if (expr == nullptr) {
+        return clang_getNullCursor();
+    }
+
+    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
+    CXTranslationUnit tu = getCursorTU(cx_expr);
+
+    return clang::cxcursor::dex_MakeCXCursor(expr, parent, tu, expr->getSourceRange());
+}
+
+/**
+ * TODO is the location what is expected?
+ */
+DXOperatorExprs dex_getOperatorExprs(const CXCursor cx_expr) {
+    DXOperatorExprs rval;
+    rval.lhs = clang_getNullCursor();
+    rval.rhs = clang_getNullCursor();
+
+    const clang::Expr* expr = getCursorExpr(cx_expr);
+    if (expr == nullptr) {
+        return rval;
+    }
+
+    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
+    CXTranslationUnit tu = getCursorTU(cx_expr);
+
+    if (llvm::isa<clang::BinaryOperator>(expr)) {
+        const clang::BinaryOperator* op = llvm::cast<const clang::BinaryOperator>(expr);
+        const clang::Expr* lhs = op->getLHS();
+        const clang::Expr* rhs = op->getRHS();
+
+        rval.lhs = clang::cxcursor::dex_MakeCXCursor(lhs, parent, tu, lhs->getSourceRange());
+        rval.rhs = clang::cxcursor::dex_MakeCXCursor(rhs, parent, tu, rhs->getSourceRange());
+    } else if (llvm::isa<clang::UnaryOperator>(expr)) {
+        const clang::UnaryOperator* op = llvm::cast<const clang::UnaryOperator>(expr);
+        const clang::Expr* subexpr = op->getSubExpr();
+
+        rval.lhs = clang::cxcursor::dex_MakeCXCursor(subexpr, parent, tu, subexpr->getSourceRange());
+    } else if (llvm::isa<clang::CXXOperatorCallExpr>(expr)) {
+        const clang::CXXOperatorCallExpr* op = llvm::cast<const clang::CXXOperatorCallExpr>(expr);
+        if (op->getNumArgs() == 1) {
+            const clang::Expr* lhs = op->getArg(0);
+            rval.lhs = clang::cxcursor::dex_MakeCXCursor(lhs, parent, tu, lhs->getSourceRange());
+        } else if (op->getNumArgs() == 2) {
+            const clang::Expr* lhs = op->getArg(1);
+            const clang::Expr* rhs = op->getArg(2);
+            rval.lhs = clang::cxcursor::dex_MakeCXCursor(lhs, parent, tu, lhs->getSourceRange());
+            rval.rhs = clang::cxcursor::dex_MakeCXCursor(rhs, parent, tu, rhs->getSourceRange());
+        }
+    } else {
+        return rval;
+    }
+
+    return rval;
+}
+
+ValueKind dex_getExprValueKind(const CXCursor cx_expr) {
+    const clang::Expr* expr = getCursorExpr(cx_expr);
+    if (expr == nullptr) {
+        return ValueKind::unknown;
+    }
+
+    if (expr->isLValue()) {
+        return ValueKind::lvalue;
+    }
+    if (expr->isRValue()) {
+        return ValueKind::rvalue;
+    }
+    if (expr->isXValue()) {
+        return ValueKind::xvalue;
+    }
+    if (expr->isGLValue()) {
+        return ValueKind::glvalue;
+    }
+
+    return ValueKind::unknown;
 }
 
 } // NS: dextool_clang_extension

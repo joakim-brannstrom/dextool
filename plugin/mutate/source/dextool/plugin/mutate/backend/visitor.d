@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.visitor;
 
+public import dextool.clang_extensions : ValueKind;
+
 import cpptooling.analyzer.clang.ast : Visitor;
 
 @safe:
@@ -94,14 +96,10 @@ final class ExpressionOpVisitor : Visitor {
     }
 }
 
-enum ValueKind {
-    lvalue,
-    rvalue,
-}
-
 struct MutationPoint {
     import clang.SourceLocation;
-    import dextool.plugin.mutate.backend.vfs;
+    import dextool.plugin.mutate.backend.vfs : Offset;
+    import dextool.clang_extensions : ValueKind;
 
     ValueKind kind;
 
@@ -161,11 +159,35 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(DeclRefExpr) v) {
+        mixin(mixinNodeLog!());
+        unaryNode(v);
+    }
+
+    override void visit(const IntegerLiteral v) {
+        mixin(mixinNodeLog!());
+        unaryNode(v);
+    }
+
+    void unaryNode(T)(const T v) {
+        auto loc = v.cursor.location;
+
+        if (!loc.isFromMainFile) {
+            return;
+        }
+
+        // it is NOT an operator.
+        addMutationPoint(v.cursor);
 
         v.accept(this);
     }
 
-    override void visit(const(DeclRefExpr) v) @trusted {
+    // TODO should UnaryExpr also be processed?
+
+    override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
         import clang.c.Index : CXCursorKind;
 
@@ -175,22 +197,70 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
-        auto ref_ = v.cursor.referenced;
-        if (ref_.kind != CXCursorKind.varDecl)
-            return;
-
-        addMutationPoint(v.cursor, loc, v.cursor.spelling, ValueKind.lvalue);
-
-        v.accept(this);
+        auto op = getExprOperator(v.cursor);
+        if (op.isValid) {
+            auto s = op.sides;
+            addMutationPoint(s.lhs);
+            addMutationPoint(s.rhs);
+        } else {
+            // a call that is not an operator
+            v.accept(this);
+        }
     }
 
-    void addMutationPoint(const(Cursor) c, SourceLocation loc, string spelling, ValueKind kind) {
+    override void visit(const(BinaryOperator) v) {
+        mixin(mixinNodeLog!());
+        import clang.c.Index : CXCursorKind;
+
+        auto loc = v.cursor.location;
+
+        if (!loc.isFromMainFile) {
+            return;
+        }
+
+        auto op = getExprOperator(v.cursor);
+        if (op.isValid) {
+            auto s = op.sides;
+            addMutationPoint(s.lhs);
+            addMutationPoint(s.rhs);
+        }
+    }
+
+    void addMutationPoint(const(Cursor) c) {
+        import std.algorithm : among;
+        import clang.c.Index : CXCursorKind;
         import dextool.plugin.mutate.backend.vfs;
+
+        if (!c.isValid)
+            return;
+
+        const auto kind = exprValueKind(getUnderlyingExprNode(c));
+        SourceLocation loc = c.location;
+        auto spelling = exprSpelling(c);
 
         auto sr = c.extent;
         auto offs = Offset(sr.start.offset, sr.end.offset);
         auto p = MutationPoint(kind, offs, spelling, loc.presumed);
         exprs.put(p);
+    }
+
+    /**
+     * trusted: the tokens do not escape the function.
+     */
+    static string exprSpelling(const Cursor c) @trusted {
+        import std.algorithm : map;
+        import std.range : takeOne;
+
+        import clang.c.Index : CXCursorKind;
+
+        if (c.kind == CXCursorKind.integerLiteral) {
+            auto toks = c.tokens;
+            if (toks.length == 0)
+                return c.spelling;
+            return toks.map!(a => a.spelling).takeOne.front;
+        } else {
+            return c.spelling;
+        }
     }
 
     override void visit(const(Preprocessor) v) {
