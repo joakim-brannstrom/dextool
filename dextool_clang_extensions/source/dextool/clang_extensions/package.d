@@ -33,6 +33,7 @@ extern (C++, dextool_clang_extension) {
         extern (C++) Result calculate(CXCursor decl);
     }
 
+    /// Represent the operator of an expression that contains an operator (binary or unary).
     extern (C++) struct DXOperator {
         /// Only valid values if true.
         bool hasValue;
@@ -42,6 +43,17 @@ extern (C++, dextool_clang_extension) {
         CXSourceLocation location;
         /// Character length of the operator
         byte opLength;
+
+        /// The cursor for the operator.
+        CXCursor cursor;
+    }
+
+    enum ValueKind {
+        unknown,
+        lvalue,
+        rvalue,
+        xvalue,
+        glvalue
     }
 
     enum OpKind {
@@ -168,11 +180,34 @@ extern (C++, dextool_clang_extension) {
      *
      * Acceptable CXCursor kinds are:
      *  - binaryOperator
+     *  - unaryOperator
+     *  - callExpr
      */
-    extern (C++) DXOperator dex_getExprOperator(CXCursor expr);
+    extern (C++) DXOperator dex_getExprOperator(const CXCursor expr);
+
+    /// The sub-expressions of an operator expression.
+    extern (C++) struct DXOperatorExprs {
+        CXCursor lhs;
+        CXCursor rhs;
+    }
+
+    /** Retrieve the left and right side of an operator expression.
+     *
+     * Acceptable CXCursor kinds are:
+     *  - binaryOperator
+     *  - unaryOperator
+     *  - callExpr
+     */
+    extern (C++) DXOperatorExprs dex_getOperatorExprs(const CXCursor expr);
+
+    /// Retrieve the value kind of the expression.
+    extern (C++) ValueKind dex_getExprValueKind(const CXCursor expr);
+
+    /// Get the first node after the expressions.
+    extern (C++) CXCursor dex_getUnderlyingExprNode(const CXCursor expr);
 }
 
-Operator getExprOperator(CXCursor expr) @trusted {
+Operator getExprOperator(const CXCursor expr) @trusted {
     import std.algorithm : among;
 
     Operator rval;
@@ -189,8 +224,31 @@ Operator getExprOperator(CXCursor expr) @trusted {
     return rval;
 }
 
+/**
+ * trusted: the C++ impl check that the node is an expression.
+ * It can handle any CursorKind.
+ */
+ValueKind exprValueKind(const CXCursor expr) @trusted {
+    return dex_getExprValueKind(expr);
+}
+
+/**
+ * trusted: the C++ impl check that the node is an expression.
+ * It can handle any CursorKind.
+ */
+auto getUnderlyingExprNode(const CXCursor expr) @trusted {
+    return dex_getUnderlyingExprNode(expr);
+}
+
+@safe struct OperatorSubExprs {
+    import clang.Cursor;
+
+    Cursor lhs, rhs;
+}
+
 @safe struct Operator {
     import std.format : FormatSpec;
+    import clang.Cursor;
     import clang.SourceLocation;
 
     private DXOperator dx;
@@ -207,10 +265,43 @@ Operator getExprOperator(CXCursor expr) @trusted {
         return dx.kind;
     }
 
+    /// Cursor for the operator
+    Cursor cursor() const {
+        return Cursor(dx.cursor);
+    }
+
+    /** Retrieve the sub expressions of an operator expressions.
+     *
+     * rhs is the null cursor for unary operators.
+     *
+     * Returns: The sides of the expression.
+     *
+     * trusted:
+     * dex_getOperatorExprs is limited to only being able to handle operator
+     * expressions.
+     * getExprOperator only processes binary, unary and callExpr cursors.
+     * This lead to isValid only returning true when the cursor is of that type.
+     * Thus the limitation of dex_getOperatorExprs is fulfilled.
+     *
+     * TODO Further audit of the C++ implementation of dex_getOperatorExprs is
+     * needed.
+     */
+    OperatorSubExprs sides() const @trusted {
+        OperatorSubExprs r;
+
+        if (isValid) {
+            auto sub_exprs = dex_getOperatorExprs(dx.cursor);
+            r = OperatorSubExprs(Cursor(sub_exprs.lhs), Cursor(sub_exprs.rhs));
+        }
+
+        return r;
+    }
+
     SourceLocation location() const {
         return SourceLocation(dx.location);
     }
 
+    /// The character length of the operator.
     size_t length() const {
         return dx.opLength;
     }
