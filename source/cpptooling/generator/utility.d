@@ -58,7 +58,7 @@ template filterAnyLocation(alias predicate) {
     }
 }
 
-@("Should only let USRs with a location pass")
+@("shall only let USRs with a location pass")
 unittest {
     import std.algorithm : joiner;
     import std.array : array;

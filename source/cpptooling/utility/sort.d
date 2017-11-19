@@ -11,15 +11,6 @@ module cpptooling.utility.sort;
 
 import std.range.primitives : isInputRange;
 
-version (unittest) {
-    import unit_threaded : Name, shouldEqual;
-    import test.extra_should : shouldEqualPretty;
-} else {
-    private struct Name {
-        string name_;
-    }
-}
-
 /** Sort by using an index to remap the elements.
  *
  * TODO This is inefficient but gets the job done.
@@ -36,9 +27,10 @@ auto indexSort(alias Pred, T)(T[] arr) @safe {
     return index.map!(a => arr[a]);
 }
 
-@Name("Should be a sorted array")
+@("shall be a sorted array")
 unittest {
     import std.array : array;
+    import test.extra_should : shouldEqualPretty;
 
     string[] s = ["b", "c", "a", "d"];
     auto r = s.indexSort!((ref a, ref b) => a < b).array();

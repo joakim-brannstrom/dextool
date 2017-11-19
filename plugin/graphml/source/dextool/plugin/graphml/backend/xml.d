@@ -398,9 +398,8 @@ package alias StreamChar = void delegate(const(char)[]) @safe;
  *  bundle = ?
  */
 package void attrToXml(T, Writer)(ref T bundle, scope Writer recv) {
-    import std.traits : isSomeFunction, stdParameters = Parameters;
+    import std.traits : isSomeFunction, stdParameters = Parameters, getUDAs;
     import std.meta : Alias;
-    import cpptooling.utility.uda : dexGetUDAs = getUDAs;
 
     static void dataTag(Writer, T)(scope Writer recv, Attr attr, T data) {
         import std.format : formattedWrite;
@@ -424,7 +423,7 @@ package void attrToXml(T, Writer)(ref T bundle, scope Writer recv) {
 
     foreach (member_name; __traits(allMembers, T)) {
         alias memberType = Alias!(__traits(getMember, T, member_name));
-        alias res = dexGetUDAs!(memberType, Attr);
+        alias res = getUDAs!(memberType, Attr);
         // lazy helper for retrieving the compose `bundle.<field>`
         enum member = "__traits(getMember, bundle, member_name)";
 
@@ -480,9 +479,8 @@ package enum NodeAttribute;
 package void nodeToXml(T, Writer)(ref T bundle, scope Writer recv) {
     import std.format : formattedWrite;
     import std.range.primitives : put;
-    import std.traits : isSomeFunction;
+    import std.traits : isSomeFunction, getUDAs;
     import std.meta : Alias;
-    import cpptooling.utility.uda : dexGetUDAs = getUDAs;
 
     // lazy helper for retrieving the compose `bundle.<field>`
     enum member = "__traits(getMember, bundle, member_name)";
@@ -494,7 +492,7 @@ package void nodeToXml(T, Writer)(ref T bundle, scope Writer recv) {
     // Node ID. Can only have one ID.
     foreach (member_name; __traits(allMembers, T)) {
         alias memberType = Alias!(__traits(getMember, T, member_name));
-        alias res = dexGetUDAs!(memberType, NodeId);
+        alias res = getUDAs!(memberType, NodeId);
 
         static if (res.length == 0) {
             // ignore those without the UDA Attr
@@ -512,7 +510,7 @@ package void nodeToXml(T, Writer)(ref T bundle, scope Writer recv) {
     // Node xml attribute. Can be more than one.
     foreach (member_name; __traits(allMembers, T)) {
         alias memberType = Alias!(__traits(getMember, T, member_name));
-        alias res = dexGetUDAs!(memberType, NodeAttribute);
+        alias res = getUDAs!(memberType, NodeAttribute);
 
         static if (res.length == 0) {
             // ignore those without the UDA Attr
@@ -530,7 +528,7 @@ package void nodeToXml(T, Writer)(ref T bundle, scope Writer recv) {
     // Extra node stuff after the attributes
     foreach (member_name; __traits(allMembers, T)) {
         alias memberType = Alias!(__traits(getMember, T, member_name));
-        alias res = dexGetUDAs!(memberType, NodeExtra);
+        alias res = getUDAs!(memberType, NodeExtra);
 
         static if (res.length == 0) {
             // ignore those without the UDA Attr
@@ -548,7 +546,7 @@ package void nodeToXml(T, Writer)(ref T bundle, scope Writer recv) {
     }
 }
 
-@("Should serialize a node by the UDA's")
+@("shall serialize a node by the UDA's")
 unittest {
     static struct Foo {
         @NodeId int id;

@@ -28,7 +28,7 @@ import clang.SourceRange : SourceRange;
 import clang.c.Index : CXUnsavedFile;
 
 version (unittest) {
-    import unit_threaded : Name, shouldEqual;
+    import unit_threaded : shouldEqual;
 }
 
 // dfmt off
@@ -165,7 +165,7 @@ struct VirtualFileSystem {
     }
 }
 
-@("Should be an in-memory mapped file")
+@("shall be an in-memory mapped file")
 @safe unittest {
     VirtualFileSystem vfs;
     string code = "some code";
@@ -177,7 +177,7 @@ struct VirtualFileSystem {
     vfs.slice(filename).shouldEqual(code);
 }
 
-@("Should be a file from the filesystem")
+@("shall be a file from the filesystem")
 unittest {
     import std.string : toStringz;
     import std.stdio;
