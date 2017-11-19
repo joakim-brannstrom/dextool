@@ -45,11 +45,26 @@ The operands are:
 ```
 
 ## Unary Operator Insertion (UOI)
-Insert a single unary operator:
+Insert a single unary operator in expressions where it is possible.
+
 The operands are:
-```cpp
-++,--
-```
+ * Increment: ++x, x++
+ * Decrement: −−x, x−−
+ * Address: &x
+ * Indirection: *x
+ * Positive: +x
+ * Negative: −x
+ * Ones' complement: ~x
+ * Logical negation: !x
+ * Sizeof: sizeof x, sizeof(type-name)
+
+The cast operator is ignored because it is *probably* not possible to create
+any useful mutant with it.
+ * Cast: (type-name) cast-expression
+
+Note: The address, indirection and complement operator need to be evaluated to
+see how efficient those mutants are.
+Are most mutants killed? Compilation errors?
 
 ## Absolute Value Insertion (ABS)
 Replace an expression.
