@@ -11,6 +11,7 @@
 #   LIBLLVM_CXX_FLAGS   - the required flags to build C++ code using LLVM
 #   LIBLLVM_FLAGS       - the required flags by llvm-d such as version
 #   LIBLLVM_LIBS        - the required libraries for linking LLVM
+#   LIBLLVM_OSLIBS      - libs needed to link to the OS
 
 execute_process(COMMAND llvm-config --ldflags
     OUTPUT_VARIABLE llvm_config_LDFLAGS
@@ -124,8 +125,8 @@ function(try_llvm_config_find)
     elseif(UNIX)
         set(llvm_LDFLAGS_OS "-Wl,--enable-new-dtags -Wl,-rpath=${llvm_config_LIBDIR} -Wl,--no-as-needed")
     endif()
-    # sometimes llvm-config forget the dependency on the c and c++ stdlib
-    set(llvm_LIBS_OS "-lstdc++ -lc -lm")
+    # sometimes llvm-config forget the dependency on c and c++ stdlib
+    set(LLVM_LIBS_OS "-lstdc++ -lc -lm" CACHE string "libs needed to link to the OS such as stdc++, c, m")
 
     string(REPLACE "\n" " " llvm_config_LIBS_nonewline "${llvm_config_LIBS}")
     string(REPLACE " " ";" llvm_config_LIBS_aslist "${llvm_config_LIBS_nonewline}")
@@ -137,7 +138,7 @@ function(try_llvm_config_find)
         endif()
     endforeach()
 
-    string(STRIP "${llvm_config_LIBS} ${llvm_LIBS_OS}" llvm_libs_intermediate)
+    string(STRIP "${llvm_config_LIBS} ${LLVM_LIBS_OS}" llvm_libs_intermediate)
     set(LIBLLVM_LIBS "${llvm_libs_intermediate}" CACHE string "Linker libraries for libLLVM")
 
     set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
