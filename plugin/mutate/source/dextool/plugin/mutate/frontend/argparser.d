@@ -23,7 +23,6 @@ enum YesNo {
 
 /// The kind of mutation to perform
 enum Mutation {
-    token,
     /// Relational operator replacement
     ror,
     /// Logical connector replacement
