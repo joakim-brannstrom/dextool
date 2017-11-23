@@ -42,7 +42,7 @@ ref TypeResults mergeExtra(ref return TypeResults lhs, const ref TypeResults rhs
 
 /// Pretty loggning with indentation.
 void logTypeAttr(const ref TypeAttr attr, const uint indent = 0,
-        in uint extra_space = 0, in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+        in uint extra_space = 0, in string func = __FUNCTION__, in uint line = __LINE__) @trusted pure {
     import std.array : array;
     import std.range : repeat;
     import logger = std.experimental.logger;
@@ -65,7 +65,7 @@ void logTypeAttr(const ref TypeAttr attr, const uint indent = 0,
 
 /// Pretty loggning with indentation.
 void logTypeResult(ref const(TypeResult) result, in uint indent,
-        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
+        in string func = __FUNCTION__, in uint line = __LINE__) @trusted pure nothrow {
     import std.array : array;
     import std.conv : to;
     import std.range : repeat;
@@ -264,9 +264,7 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
         info.fmt.toString(txt, DeclId(id));
         break;
     case Kind.null_:
-        debug {
-            logger.error("Type is null. Identifier ", id);
-        }
+        () @trusted{ debug logger.error("Type is null. Identifier ", id); }();
         txt.put(id);
         break;
     }
@@ -380,7 +378,7 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
         // have no TypeId
         break;
     case Kind.null_:
-        debug logger.error("Type is null");
+        () @trusted{ debug logger.error("Type is null"); }();
         break;
     }
 

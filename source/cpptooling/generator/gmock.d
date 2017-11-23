@@ -43,21 +43,22 @@ private void ignore() {
 private void genOp(const CppMethodOp m, CppModule hdr) {
     import cpptooling.data : MemberVirtualType;
 
-    static string translateOp(string op) {
+    static string translateOp(string op) @safe {
         switch (op) {
         case "=":
             return "opAssign";
         case "==":
             return "opEqual";
         default:
-            logger.errorf(
-                    "Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
-                    op);
+            () @trusted{
+                logger.errorf("Operator '%s' is not supported. Create an issue on github containing the operator and example code.",
+                        op);
+            }();
             return "operator not supported";
         }
     }
 
-    static void genMockMethod(const CppMethodOp m, CppModule hdr) {
+    static void genMockMethod(const CppMethodOp m, CppModule hdr) @safe {
         string params = m.paramRange().joinParams();
         string gmock_name = translateOp(m.op);
         string gmock_macro = gmockMacro(m.paramRange().length, m.isConst);
@@ -67,7 +68,7 @@ private void genOp(const CppMethodOp m, CppModule hdr) {
         hdr.stmt(stmt);
     }
 
-    static void genMockCaller(const CppMethodOp m, CppModule hdr) {
+    static void genMockCaller(const CppMethodOp m, CppModule hdr) @safe {
         import dsrcgen.cpp : E;
 
         string gmock_name = translateOp(m.op);

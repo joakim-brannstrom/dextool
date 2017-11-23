@@ -49,9 +49,7 @@ static import cpptooling.data.class_classification;
 
 version (unittest) {
     import test.extra_should : shouldEqualPretty;
-    import unit_threaded : Name;
     import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
-    import unit_threaded : writelnUt;
 
     private enum dummyUSR = USRType("dummyUSR");
 }
@@ -720,13 +718,12 @@ struct CppCtor {
 
     private {
         CppAccess accessType_;
-        Nullable!CppMethodName name_;
+        CppMethodName name_;
     }
 
     invariant() {
-        if (!name_.isNull) {
+        if (name_.length > 0) {
             assert(usr.isNull || usr.length > 0);
-            assert(name_.length > 0);
             foreach (p; params_) {
                 assertVisit(p);
             }
@@ -738,6 +735,8 @@ struct CppCtor {
         this.name_ = name;
         this.accessType_ = access;
         this.params_ = params.dup;
+
+        assert(name_.length > 0);
 
         setUniqueId(format("%s(%s)", name_, paramRange.joinParamTypes));
     }

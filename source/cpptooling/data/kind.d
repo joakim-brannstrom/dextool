@@ -280,7 +280,7 @@ pure @safe nothrow @nogc:
     Flag!"isDefinition" isDefinition;
 
     /// Returns: a string range of the attributes
-    auto stringRange() const {
+    auto stringRange() const @safe {
         import std.range : chain, only;
         import std.algorithm : filter;
 
@@ -296,13 +296,13 @@ pure @safe nothrow @nogc:
 
     ///
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
-        import std.algorithm : joiner, copy;
+        import std.algorithm : joiner;
+        import std.conv : to;
 
         // dfmt off
-        this.stringRange
-            .joiner(";")
-            .copy(w);
-        // dfmt on
+        foreach (ref e; this.stringRange.joiner(";")) {
+            w(e.to!(char[]));
+        }
     }
 
     string toString() @safe pure const {
@@ -312,7 +312,7 @@ pure @safe nothrow @nogc:
         char[] buf;
         buf.reserve(100);
         auto fmt = FormatSpec!char("%s");
-        toString((const(char)[] s) { buf ~= s; }, fmt);
+        toString((const(char)[] s) @safe { buf ~= s; }, fmt);
         auto trustedUnique(T)(T t) @trusted {
             return assumeUnique(t);
         }

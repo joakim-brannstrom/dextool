@@ -88,7 +88,7 @@ struct VirtualFileSystem {
         import std.file : getSize, exists;
 
         auto mmf_mode = mode == Mode.read ? MmFile.Mode.read : MmFile.Mode.readWriteNew;
-        debug logger.tracef("File memory mapping mode %s (%s) for '%s'", mmf_mode, mode, cast(string) fname);
+        () @trusted {debug logger.tracef("File memory mapping mode %s (%s) for '%s'", mmf_mode, mode, cast(string) fname); }();
 
         size_t sz;
         size_t buf_size;

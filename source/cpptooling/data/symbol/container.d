@@ -20,7 +20,6 @@ import cpptooling.data.symbol.types;
 import cpptooling.data.type : LocationTag;
 
 version (unittest) {
-    import unit_threaded : Name;
     import unit_threaded : shouldEqual;
 }
 
@@ -107,7 +106,7 @@ private struct FastLookup(T, K) {
     }
 }
 
-@("Should be a zero-length range")
+@("shall be a zero-length range")
 unittest {
     auto inst = FastLookup!(int, int)();
     auto result = inst.find(0);
@@ -222,7 +221,9 @@ struct Container {
      */
     auto find(T)(USRType usr) const if (is(T == TypeKind))
     out (result) {
-        logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
+        () @trusted{
+            logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
+        }();
     }
     body {
         return types.find(usr);
@@ -237,7 +238,9 @@ struct Container {
      */
     auto find(T)(USRType usr) const if (is(T == LocationTag))
     out (result) {
-        logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
+        () @trusted{
+            logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
+        }();
     }
     body {
         return locations.find(usr);
@@ -311,8 +314,10 @@ struct Container {
             import cpptooling.data : TypeKind, toStringDecl, TypeAttr,
                 LocationTag, Location;
 
-            logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
-                    cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));
+            () @trusted{
+                logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
+                        cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));
+            }();
         }
     }
 
@@ -330,8 +335,10 @@ struct Container {
 
         if (is_definition) {
             if (decl.hasDefinition) {
-                debug logger.tracef("Definition already in container, %s (%s)",
-                        cast(string) usr, location);
+                () @trusted{
+                    debug logger.tracef("Definition already in container, %s (%s)",
+                            cast(string) usr, location);
+                }();
             } else {
                 decl.definition = location;
             }
@@ -341,7 +348,7 @@ struct Container {
     }
 }
 
-@("Should find the value corresponding to the key")
+@("shall find the value corresponding to the key")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -364,7 +371,7 @@ unittest {
     }
 }
 
-@("Should skip inserting the value if it already exist in the container")
+@("shall skip inserting the value if it already exist in the container")
 unittest {
     import cpptooling.data.type : Location;
 
@@ -407,7 +414,7 @@ locations [
   key0 -> File:file0 Line:1 Column:2]`);
 }
 
-@("Should allow only one definition location but multiple declaration locations")
+@("shall allow only one definition location but multiple declaration locations")
 unittest {
     import cpptooling.data.type : Location;
 

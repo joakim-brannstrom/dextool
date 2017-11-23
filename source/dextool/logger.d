@@ -16,7 +16,7 @@ static import std.experimental.logger;
 
 /// Only use via the aliases
 auto internalLog(alias level)(const(char)[] txt, const uint indent = 0,
-        string func = __FUNCTION__, uint line = __LINE__) nothrow {
+        string func = __FUNCTION__, uint line = __LINE__) nothrow @safe {
     import std.algorithm : min;
     import std.array : array;
     import std.range : repeat;
@@ -25,8 +25,10 @@ auto internalLog(alias level)(const(char)[] txt, const uint indent = 0,
 
     try {
         string indent_ = indent_prep[0 .. min(indent_prep.length, indent)];
-        std.experimental.logger.logf!(-1, "", "", "", "")(level,
-                "%d%s %s [%s:%d]", indent, indent_, txt, func, line);
+        () @trusted{
+            std.experimental.logger.logf!(-1, "", "", "", "")(level,
+                    "%d%s %s [%s:%d]", indent, indent_, txt, func, line);
+        }();
     }
     catch (Exception ex) {
     }

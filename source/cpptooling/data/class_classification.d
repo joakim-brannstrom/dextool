@@ -151,8 +151,10 @@ State classifyClass(in State current, in MethodKind method_kind,
     debug {
         import std.conv : to;
 
-        logger.trace(to!string(current), ":", to!string(data), ":",
-                to!string(current), "->", to!string(next));
+        () @trusted{
+            logger.trace(to!string(current), ":", to!string(data), ":",
+                    to!string(current), "->", to!string(next));
+        }();
     }
 
     return next;
