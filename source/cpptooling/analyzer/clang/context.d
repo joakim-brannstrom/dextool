@@ -8,10 +8,6 @@ module cpptooling.analyzer.clang.context;
 import std.typecons : Flag;
 import logger = std.experimental.logger;
 
-version (unittest) {
-    import unit_threaded : Name, shouldEqual;
-}
-
 @safe:
 
 /** Convenient context of items needed to practically create a clang AST.
@@ -107,11 +103,15 @@ struct ClangContext {
             }
         }
 
-        debug logger.trace("Compiler flags: ", commandLineArgs.join(" "));
+        () @trusted{
+            debug logger.trace("Compiler flags: ", commandLineArgs.join(" "));
+        }();
 
         string[] args = prependDefaultFlags(commandLineArgs ~ internal_header_arg);
 
-        debug logger.trace("Internal compiler flags: ", args.join(" "));
+        () @trusted{
+            debug logger.trace("Internal compiler flags: ", args.join(" "));
+        }();
 
         // ensure the file exist in the filesys layer.
         // it has either been added as an in-memory file by the user or it is

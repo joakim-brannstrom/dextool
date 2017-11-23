@@ -62,6 +62,7 @@ set(SRC_FILES
 
 set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources")
 
+# dmd-2.077.0. unable to add -dip1000 -dip25 because it resulted in a linking error.
 compile_d_static_lib(dextool_cpptooling
     "${SRC_FILES}"
     "${flags}"
