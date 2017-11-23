@@ -8,3 +8,10 @@ unit-threaded
 unit-threaded.exe
 dub.selections.json
 *.csv
+ut_pass*
+ut_fail*
+gen_ut_main
+perf.data
+perf.data.old
+unit-threaded-test-unittest-only
+*.lst

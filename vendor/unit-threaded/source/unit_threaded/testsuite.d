@@ -23,7 +23,11 @@ struct TestSuite
     import unit_threaded.io: Output;
     import unit_threaded.options: Options;
     import unit_threaded.reflection: TestData;
-    import std.datetime: StopWatch, Duration;
+    import std.datetime: Duration;
+    static if(__VERSION__ >= 2077)
+        import std.datetime.stopwatch: StopWatch;
+    else
+        import std.datetime: StopWatch;
 
     package Output output;
 
@@ -36,6 +40,7 @@ struct TestSuite
      * Params:
      * options = The options to run tests with.
      * testData = The information about the tests to run.
+     * output = Where to send text output.
      */
     this(in Options options, in TestData[] testData, Output output) {
         import unit_threaded.factory: createTestCases;
