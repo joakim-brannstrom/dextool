@@ -99,11 +99,6 @@ ExitStatusType runMutate(Frontend fe) {
         }
 
         final switch (fe.mutation) {
-        case Mutation.token:
-            import dextool.plugin.mutate.backend : tokenMutate;
-
-            tokenMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
         case Mutation.ror:
             import dextool.plugin.mutate.backend : rorMutate;
 
