@@ -100,6 +100,7 @@ set(DEXTOOL_MAIN_EXE_FULL ${PROJECT_BINARY_DIR}/${DEXTOOL_MAIN_EXE})
 # Distribute building
 #
 
+
 # base libraries used by binaries
 include(dextool_clang.cmake)
 include(dextool_cpptooling.cmake)
@@ -108,13 +109,13 @@ include(dextool_dsrcgen.cmake)
 include(dextool_libclang.cmake)
 add_subdirectory(dextool_clang_extensions)
 
+add_subdirectory(vendor)
+
 # TODO wrap in an if-statement that libLLVM is detected
-include(dextool_llvm_d.cmake)
 include(dextool_llvm_hiwrap.cmake)
 
 if(BUILD_TEST)
     include(dextool_devtool.cmake)
-    include(dextool_unit_threaded.cmake)
     add_subdirectory(source/test)
     add_subdirectory(test)
 endif()
