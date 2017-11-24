@@ -5,4 +5,3 @@ file(GLOB_RECURSE SCRIPTLIKE_FILES
 )
 
 compile_d_static_lib(dextool_scriptlike "${SCRIPTLIKE_FILES}" "" "" "")
-

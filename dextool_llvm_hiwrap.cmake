@@ -1,6 +1,6 @@
 # vim: filetype=cmake
 
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/llvm_hiwrap/source -I${CMAKE_SOURCE_DIR}/llvm-d/source ${LIBLLVM_FLAGS}")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/llvm_hiwrap/source -I${CMAKE_SOURCE_DIR}/vendor/llvm-d/source ${LIBLLVM_FLAGS}")
 
 set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/llvm_hiwrap/source/llvm_hiwrap/ast/tree.d
@@ -62,7 +62,7 @@ compile_d_unittest(
 build_d_executable(
     "llvm_cfg_viewer"
     "${CMAKE_CURRENT_LIST_DIR}/llvm_hiwrap/test/cfg_viewer.d"
-    "-I${CMAKE_CURRENT_LIST_DIR}/llvm-d/source -I${CMAKE_SOURCE_DIR}/llvm_hiwrap/source"
+    "${flags}"
     ""
     "dextool_llvm_hiwrap"
 )

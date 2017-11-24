@@ -710,13 +710,11 @@ int main(string[] args) {
                               "clang",
                               "dextool_clang_extensions",
                               "libclang",
-                              "llvm-d",
                               "dub.sdl",
                               "dsrcgen/source",
-                              "llvm-d",
                               "llvm_hiwrap",
                               "test/testdata",
-                              "unit-threaded",
+                              "vendor",
                               "test/source"
         )
         .map!(a => thisExePath.dirName ~ a)
