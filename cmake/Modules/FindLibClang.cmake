@@ -94,7 +94,7 @@ function(try_find_libclang)
     else()
     endif()
 
-    set(LIBCLANG_LDFLAGS "-L${llvm_config_LIBDIR} ${LIBCLANG_LDFLAGS_OS}" CACHE string "Linker flangs for libclang")
+    set(LIBCLANG_LDFLAGS "-L${llvm_config_LIBDIR} ${LIBCLANG_LDFLAGS_OS}" CACHE string "Linker flags for libclang")
     set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
 endfunction()
 
