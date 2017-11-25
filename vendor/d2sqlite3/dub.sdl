@@ -1,0 +1,27 @@
+name        "d2sqlite3"
+description "A thin wrapper around SQLite 3"
+homepage    "https://github.com/biozic/d2sqlite3"
+authors     "Nicolas Sicard" "Other contributors: see Github repo"
+copyright   "Copyright 2011-17 Nicolas Sicard"
+license     "BSL-1.0"
+targetType  "library"
+systemDependencies "SQLite version >= 3.8.7"
+configuration "with-lib" {
+    libs "sqlite3"
+}
+configuration "without-lib" {
+}
+configuration "all-included" {
+    libs "sqlite3" platform="windows"
+    copyFiles "lib/win32/sqlite3.dll" platform="win32"
+    copyFiles "lib/win64/sqlite3.dll" platform="win64"
+
+    preBuildCommands "make -C $PACKAGE_DIR -f sqlite3.mak" platform="posix"
+    sourceFiles "sqlite3.o" platform="posix"
+    libs "dl" platform="linux-gdc"
+}
+configuration "travis" {
+    preBuildCommands "make -C $PACKAGE_DIR -f sqlite3.mak" platform="posix"
+    sourceFiles "sqlite3.o" platform="posix"
+    versions "SqliteEnableColumnMetadata" "SqliteEnableUnlockNotify"
+}
