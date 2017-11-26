@@ -11,6 +11,5 @@ set(flags "-I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src -I${CMAKE_SOURCE_DIR}/tes
 
 # Setup expected test environment around the integration test binary
 execute_process(
-    COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_CURRENT_LIST_DIR}/fused_gmock ${CMAKE_BINARY_DIR}/fused_gmock
     COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_CURRENT_LIST_DIR}/testdata ${CMAKE_BINARY_DIR}/testdata
 )
