@@ -134,6 +134,46 @@ Bt = Total number of feasable blocks
 ## SUT
 System Under Test
 
+## Mutation Point
+A source code location that *can* be mutated.
+A mutation point should contains what *kind* it is.
+The kind can be what type of mutations it is applicable for, if it is an expression, statement etc.
+
+The location should be a range and a [start, end) offset. The offset shall
+completely cover the source code.
+
+A mutation point has the status:
+ - unknown
+ - alive
+ - dead
+
+## Range notation
+The notation [] and () have the same meaning as the mathematical symbols.
+[] is the closed range, () is the open range.
+An example is a c++ iterator. It has the range [), end is one beyond the last
+element with a value in it.
+
+## Mutant Testning
+Mutation testing focus on determining the adequacy of a test cases.
+
+It is a code-based testing technique.
+
+It is _fault based testing_ directed towards _typical_ faults that occur when
+constructing a program.
+
+It relies on the competent programmer hypothesis which is the following
+assumption [5]:
+ - Given a specification a programmer develops a program that is either correct or differs from the correct program by a combination of simple errors
+
+It also relies on “coupling effect” which suggests that [6]:
+ - Test cases that detect simple types of faults are sensitive enough to detect more complex types of faults.
+
+TODO check offuts book for the references [3] and [66].
+The Competent Programmer Hypothesis (CPH) [3], [66] and the Coupling Effect [66].
+
+See [1], page 3, chapter "The theory of mutation testing" for further
+elaboration on the subject.
+
 # TST-plugin_mutate_definitions
 done: by definition
 ###
