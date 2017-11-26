@@ -14,11 +14,12 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, Mutation;
+import dextool.plugin.mutate.frontend.argparser : ArgParser, Mutation, ToolMode;
 
 @safe:
 
 class Frontend {
+    import core.time : Duration;
     import std.typecons : Nullable;
 
     ExitStatusType run() {
@@ -27,25 +28,43 @@ class Frontend {
 
 private:
     string[] cflags;
-    AbsolutePath[] inputFiles;
+    string[] inputFiles;
+    AbsolutePath db;
     AbsolutePath outputDirectory;
+    AbsolutePath restrictDir;
+    AbsolutePath mutationCompile;
+    AbsolutePath mutationTester;
+    Nullable!Duration mutationTesterRuntime;
     Mutation mutation;
-    Nullable!size_t mutationPoint;
+    Nullable!long mutationId;
     CompileCommandDB compileDb;
+    ToolMode toolMode;
 }
 
 auto buildFrontend(ref ArgParser p) {
-    import std.random : uniform;
-    import std.array : array;
-    import std.algorithm : map;
+    import core.time : dur;
     import dextool.compilation_db;
 
     auto r = new Frontend;
     r.cflags = p.cflags;
-    r.inputFiles = p.inFiles.map!(a => FileName(a)).map!(a => AbsolutePath(a)).array();
-    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
+    r.inputFiles = p.inFiles;
     r.mutation = p.mutation;
-    r.mutationPoint = p.mutationPoint;
+    r.mutationId = p.mutationId;
+    r.toolMode = p.toolMode;
+    r.db = AbsolutePath(FileName(p.db));
+    r.mutationTester = AbsolutePath(FileName(p.mutationTester));
+    r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
+
+    r.restrictDir = AbsolutePath(FileName(p.restrictDir));
+
+    if (p.outputDirectory.length == 0) {
+        r.outputDirectory = r.restrictDir;
+    } else {
+        r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
+    }
+
+    if (p.mutationTesterRuntime != 0)
+        r.mutationTesterRuntime = p.mutationTesterRuntime.dur!"msecs";
 
     if (p.compileDb.length != 0) {
         r.compileDb = p.compileDb.fromArgCompileDb;
@@ -57,75 +76,139 @@ auto buildFrontend(ref ArgParser p) {
 private:
 
 ExitStatusType runMutate(Frontend fe) {
-    import std.file : exists;
-    import dextool.clang : findFlags;
     import dextool.compilation_db : CompileCommandFilter,
         defaultCompilerFlagFilter;
-    import dextool.type : AbsolutePath, FileName, makeExists, Exists;
-    import dextool.utility : prependDefaultFlags, PreferLang;
+    import dextool.user_filerange;
+    import dextool.plugin.mutate.backend : Database;
 
-    const auto user_cflags = prependDefaultFlags(fe.cflags, PreferLang.none);
-    const auto total_files = fe.inputFiles.length;
-    const auto abs_outdir = fe.outputDirectory;
+    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory);
+    auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
-    foreach (idx, in_file; fe.inputFiles) {
-        logger.infof("File %d/%d ", idx + 1, total_files);
+    auto db = Database.make(fe.db);
 
-        AbsolutePath abs_input_file;
-        string[] cflags;
+    auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+    auto frange = UserFileRange(fe.compileDb, fe.inputFiles, fe.cflags, default_filter);
 
-        if (fe.compileDb.length > 0) {
-            // TODO this should come from the user
-            auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+    final switch (fe.toolMode) {
+    case ToolMode.none:
+        break;
+    case ToolMode.analyzer:
+        import dextool.plugin.mutate.backend : runAnalyzer;
 
-            auto tmp = fe.compileDb.findFlags(FileName(in_file), user_cflags, default_filter);
-            if (tmp.isNull) {
-                return ExitStatusType.Errors;
-            }
-            abs_input_file = tmp.absoluteFile;
-            cflags = tmp.cflags;
-        } else {
-            cflags = user_cflags.dup;
-            abs_input_file = AbsolutePath(FileName(in_file));
-        }
+        return runAnalyzer(db, frange, fe_validate);
+    case ToolMode.command_center:
+        break;
+    case ToolMode.generate_mutant:
+        import dextool.plugin.mutate.backend : runGenerateMutant;
 
-        Exists!AbsolutePath checked_in_file;
-        try {
-            checked_in_file = makeExists(abs_input_file);
-        }
-        catch (Exception e) {
-            logger.warning(e.msg);
-            continue;
-        }
+        return runGenerateMutant(db, fe.mutationId, fe_io, fe_validate);
+    case ToolMode.test_mutants:
+        import dextool.plugin.mutate.backend : runTestMutant;
 
-        final switch (fe.mutation) {
-        case Mutation.ror:
-            import dextool.plugin.mutate.backend : rorMutate;
-
-            rorMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
-        case Mutation.lcr:
-            import dextool.plugin.mutate.backend : lcrMutate;
-
-            lcrMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
-        case Mutation.aor:
-            import dextool.plugin.mutate.backend : aorMutate;
-
-            aorMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
-        case Mutation.uoi:
-            import dextool.plugin.mutate.backend : uoiMutate;
-
-            uoiMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
-        case Mutation.abs:
-            import dextool.plugin.mutate.backend : absMutate;
-
-            absMutate(checked_in_file, abs_outdir, cflags, fe.mutationPoint);
-            break;
-        }
+        return runTestMutant(fe.mutationTester, fe.mutationCompile,
+                fe.mutationTesterRuntime, db, fe_io);
+    case ToolMode.report_generator:
+        break;
+    case ToolMode.information_center:
+        break;
     }
 
     return ExitStatusType.Ok;
+}
+
+import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
+
+/**
+ * Responsible for ensuring that when the output from the backend is written to
+ * a file it is within the user specified output directory.
+ *
+ * #SPC-plugin_mutate_file_security-single_output
+ */
+final class FrontendIO : FilesysIO {
+    import std.exception : collectException, Exception;
+    import std.stdio : File;
+    import dextool.type : AbsolutePath;
+    import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
+
+    private AbsolutePath restrict_dir;
+    private AbsolutePath output_dir;
+
+    this(AbsolutePath restrict_dir, AbsolutePath output_dir) {
+        this.restrict_dir = restrict_dir;
+        this.output_dir = output_dir;
+    }
+
+    override File getDevNull() {
+        return File("/dev/null", "w");
+    }
+
+    override File getStdin() {
+        static import std.stdio;
+
+        return () @trusted{ return std.stdio.stdin; }();
+    }
+
+    override AbsolutePath getOutputDir() {
+        return output_dir;
+    }
+
+    override SafeOutput makeOutput(AbsolutePath p) @safe {
+        validate(output_dir, p);
+        return SafeOutput(p, this);
+    }
+
+    override SafeInput makeInput(AbsolutePath p) @safe {
+        import std.file;
+
+        validate(restrict_dir, p);
+
+        auto d = () @trusted{ return cast(ubyte[]) std.file.read(p); }();
+        return SafeInput(d);
+    }
+
+    override void putFile(AbsolutePath fname, const(ubyte)[] data) @safe {
+        import std.stdio : File;
+
+        // because an SafeInput/SafeOutput could theoretically be created via
+        // other means than a FilesysIO.
+        // TODO fix so this validate is not needed.
+        validate(output_dir, fname);
+        File(fname, "w").rawWrite(data);
+    }
+
+private:
+    static void validate(AbsolutePath root, AbsolutePath p) {
+        import std.format : format;
+        import std.string : startsWith;
+
+        if (!(cast(string) p).startsWith((cast(string) root))) {
+            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
+        }
+    }
+}
+
+final class FrontendValidateLoc : ValidateLoc {
+    private AbsolutePath restrict_dir;
+    private AbsolutePath output_dir;
+
+    this(AbsolutePath restrict_dir, AbsolutePath output_dir) {
+        this.restrict_dir = restrict_dir;
+        this.output_dir = output_dir;
+    }
+
+    override bool shouldAnalyze(AbsolutePath p) {
+        return this.shouldAnalyze(cast(string) p);
+    }
+
+    override bool shouldAnalyze(string p) {
+        import std.string : startsWith;
+
+        return p.startsWith(restrict_dir);
+    }
+
+    override bool shouldMutate(AbsolutePath p) {
+        import std.string : startsWith;
+
+        return (cast(string) p).startsWith(output_dir);
+    }
 }

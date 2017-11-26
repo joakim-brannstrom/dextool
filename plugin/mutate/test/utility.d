@@ -14,7 +14,8 @@ public import dextool_test;
 public import dextool_test.config;
 
 auto makeDextool(const ref TestEnv env) {
-    return dextool_test.makeDextool(env).args(["mutate", "-d"]);
+    return dextool_test.makeDextool(env).args(["mutate", "-d"]).addArg(["--db",
+            (env.outdir ~ "database.sqlite3").toString]).addArg(["--out", env.outdir.toString]);
 }
 
 auto makeCompile(const ref TestEnv env, Path srcdir) {

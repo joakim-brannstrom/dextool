@@ -14,6 +14,7 @@ int main(string[] args) {
                           "dextool_test.mutate_abs",
                           "dextool_test.mutate_operators",
                           "dextool_test.mutate_uoi",
+                          "dextool_test.test_analyzer",
                           );
     // dfmt on
 }
