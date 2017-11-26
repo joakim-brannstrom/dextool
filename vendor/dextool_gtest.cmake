@@ -6,6 +6,4 @@ add_library(gmock_gtest STATIC
     )
 set_target_properties(gmock_gtest PROPERTIES
     COMPILE_FLAGS "-I${CMAKE_CURRENT_LIST_DIR}/fused_gmock"
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/
     )

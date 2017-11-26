@@ -69,10 +69,10 @@ endfunction()
 macro(setup_integration_testing_env)
     if (BUILD_TEST)
         execute_process(
-            COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_BINARY_DIR}/fused_gmock ${CMAKE_CURRENT_BINARY_DIR}/fused_gmock
+            COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_SOURCE_DIR}/vendor/fused_gmock ${CMAKE_CURRENT_BINARY_DIR}/fused_gmock
             COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_BINARY_DIR}/testdata ${CMAKE_CURRENT_BINARY_DIR}/testdata
             COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/path_to_dextool
-            COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_BINARY_DIR}/libgmock_gtest.a ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
+            COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_BINARY_DIR}/vendor/libgmock_gtest.a ${CMAKE_CURRENT_BINARY_DIR}/libgmock_gtest.a
             COMMAND ${CMAKE_SOURCE_DIR}/symlink.sh ${CMAKE_CURRENT_LIST_DIR}/testdata ${CMAKE_CURRENT_BINARY_DIR}/plugin_testdata
             )
     endif()
