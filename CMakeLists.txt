@@ -100,6 +100,9 @@ set(DEXTOOL_MAIN_EXE_FULL ${PROJECT_BINARY_DIR}/${DEXTOOL_MAIN_EXE})
 # Distribute building
 #
 
+# building vendor libs because internal dextool libs may have dependencies on
+# these.
+add_subdirectory(vendor)
 
 # base libraries used by binaries
 include(dextool_clang.cmake)
@@ -108,8 +111,6 @@ include(dextool_dextool.cmake)
 include(dextool_dsrcgen.cmake)
 include(dextool_libclang.cmake)
 add_subdirectory(dextool_clang_extensions)
-
-add_subdirectory(vendor)
 
 # TODO wrap in an if-statement that libLLVM is detected
 include(dextool_llvm_hiwrap.cmake)
