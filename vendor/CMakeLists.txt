@@ -3,5 +3,5 @@ if(BUILD_TEST)
 endif()
 
 include(dextool_scriptlike.cmake)
-
 include(dextool_llvm_d.cmake)
+include(dextool_d2sqlite3.cmake)
