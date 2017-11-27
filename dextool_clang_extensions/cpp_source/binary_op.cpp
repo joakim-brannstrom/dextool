@@ -661,8 +661,8 @@ DXOperatorExprs dex_getOperatorExprs(const CXCursor cx_expr) {
             const clang::Expr* lhs = op->getArg(0);
             rval.lhs = clang::cxcursor::dex_MakeCXCursor(lhs, parent, tu, lhs->getSourceRange());
         } else if (op->getNumArgs() == 2) {
-            const clang::Expr* lhs = op->getArg(1);
-            const clang::Expr* rhs = op->getArg(2);
+            const clang::Expr* lhs = op->getArg(0);
+            const clang::Expr* rhs = op->getArg(1);
             rval.lhs = clang::cxcursor::dex_MakeCXCursor(lhs, parent, tu, lhs->getSourceRange());
             rval.rhs = clang::cxcursor::dex_MakeCXCursor(rhs, parent, tu, rhs->getSourceRange());
         }
