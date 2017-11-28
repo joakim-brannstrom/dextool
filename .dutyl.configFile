@@ -1,1 +1,1 @@
-{'importPaths': ['clang', 'dsrcgen/source', 'libclang/deimos', 'plugin/source', 'source', 'llvm-d/source', 'llvm_hiwrap/source', 'dextool_clang_extensions/source']}
+{'importPaths': ['clang', 'dsrcgen/source', 'libclang/deimos', 'plugin/source', 'source', 'llvm-d/source', 'llvm_hiwrap/source', 'dextool_clang_extensions/source', 'vendor/d2sqlite3/source']}
