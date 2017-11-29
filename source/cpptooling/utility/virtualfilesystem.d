@@ -27,15 +27,13 @@ import clang.SourceRange : SourceRange;
 
 import clang.c.Index : CXUnsavedFile;
 
+public import dextool.type : FileName;
+
 version (unittest) {
     import unit_threaded : shouldEqual;
 }
 
 // dfmt off
-
-enum FileName : string {
-    _init = null
-}
 
 enum Content : string {
     _init = null
