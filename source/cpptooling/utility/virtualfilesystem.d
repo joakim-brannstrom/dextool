@@ -66,7 +66,7 @@ struct VirtualFileSystem {
             size_t size;
         }
 
-        void[][FileName] in_memory;
+        ubyte[][FileName] in_memory;
         MmFSize[FileName] filesys;
     }
 
@@ -139,7 +139,7 @@ struct VirtualFileSystem {
             *f ~= content.dup;
         } else if (auto f = fname in filesys) {
             if (f.mode == Mode.readWrite) {
-                auto cont_s = () @trusted { return cast(void[]) content[]; }();
+                auto cont_s = () @trusted { return cast(ubyte[]) content[]; }();
                 auto s = () @trusted { return (*f).file[f.size .. f.size + cont_s.length]; }();
                 () @trusted {
                     s[] = cont_s[];
@@ -198,14 +198,14 @@ unittest {
  *
  * Returns: slice of the whole file */
 T slice(T = string, Flag!"autoLoad" auto_load = Yes.autoLoad)(ref VirtualFileSystem vfs, FileName fname) @safe {
-    void[] data;
+    ubyte[] data;
     bool found;
 
     if (auto code = fname in vfs.in_memory) {
         data = (*code)[];
         found = true;
     } else if (auto mmf = fname in vfs.filesys) {
-        data = () @trusted { return (*mmf).file[0 .. (*mmf).size]; }();
+        data = () @trusted { return cast(ubyte[]) (*mmf).file[0 .. (*mmf).size]; }();
         found = true;
     }
 
@@ -224,7 +224,7 @@ T slice(T = string, Flag!"autoLoad" auto_load = Yes.autoLoad)(ref VirtualFileSys
 
     import std.utf : validate;
 
-    static auto trustedCast(void[] buf) @trusted {
+    static auto trustedCast(ubyte[] buf) @trusted {
         return cast(T) buf;
     }
 
