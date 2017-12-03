@@ -171,16 +171,21 @@ struct Database {
      * TODO to run many instances in parallel the mutation should be locked.
      *
      * The chosen point is randomised.
+     *
+     * Params:
+     *  kind = kind of mutation to retrieve.
      */
-    Nullable!MutationEntry nextMutation() nothrow @trusted {
+    Nullable!MutationEntry nextMutation(Mutation.Kind[] kinds) nothrow @trusted {
+        import std.algorithm : map;
         import std.exception : collectException;
+        import std.format : format;
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;
 
         typeof(return) rval;
 
         try {
-            auto stmt = db.prepare("SELECT
+            auto prep_str = format("SELECT
                                    mutation.id,
                                    mutation.kind,
                                    mutation_point.offset_begin,
@@ -191,7 +196,11 @@ struct Database {
                                    mutation.status == 0 AND
                                    mutation.mp_id == mutation_point.id AND
                                    mutation_point.file_id == files.id AND
-                                   mutation.id IN (SELECT id FROM mutation ORDER BY RANDOM() LIMIT 1)");
+                                   mutation.id IN (SELECT id FROM mutation WHERE mutation.kind in (%(%s,%)) ORDER BY RANDOM() LIMIT 1)",
+                    kinds.map!(a => cast(int) a));
+            auto stmt = db.prepare(prep_str);
+            // TODO this should work. why doesn't it?
+            //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
             auto res = stmt.execute;
             if (res.empty)
                 return rval;

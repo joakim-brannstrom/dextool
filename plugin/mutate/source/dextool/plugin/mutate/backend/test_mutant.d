@@ -18,6 +18,7 @@ import logger = std.experimental.logger;
 import dextool.type : AbsolutePath, ExitStatusType;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
 
@@ -29,10 +30,8 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
  *  compilep = program to use to compile the SUT + tests after a mutation has been performed.
  *  testerp_runtime = the time it takes to run the tests.
  */
-ExitStatusType runTestMutant(AbsolutePath testerp, AbsolutePath compilep,
-        Nullable!Duration testerp_runtime, ref Database db, FilesysIO fio) nothrow {
-    import std.conv : to;
-
+ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePath testerp,
+        AbsolutePath compilep, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
     if (compilep.length == 0) {
         logger.error("No compile command specified (--mutant-compile)").collectException;
         return ExitStatusType.Errors;
@@ -55,14 +54,17 @@ ExitStatusType runTestMutant(AbsolutePath testerp, AbsolutePath compilep,
     }
 
     import dextool.plugin.mutate.backend.type : Mutation;
+    import dextool.plugin.mutate.backend.utility : toInternal;
     import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
         GenerateMutantResult;
 
+    auto mut_kind = user_kind.toInternal;
+
     while (true) {
         // get mutant
-        auto mutp = db.nextMutation;
+        auto mutp = db.nextMutation(mut_kind);
         if (mutp.isNull) {
-            // all mutations have been tested thus nothing more to do.
+            logger.info("Done! All mutants are tested").collectException;
             return ExitStatusType.Ok;
         }
 
@@ -115,7 +117,7 @@ ExitStatusType runTestMutant(AbsolutePath testerp, AbsolutePath compilep,
             }
 
             db.updateMutation(mutp.id, mut_status);
-            logger.infof("%s Mutant is %s", mutp.id, mut_status.to!string);
+            logger.infof("%s Mutant is %s", mutp.id, mut_status);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;

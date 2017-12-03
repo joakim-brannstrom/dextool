@@ -11,21 +11,9 @@ module dextool.plugin.mutate.frontend.argparser;
 
 import logger = std.experimental.logger;
 
-@safe:
+public import dextool.plugin.mutate.type;
 
-/// The kind of mutation to perform
-enum Mutation {
-    /// Relational operator replacement
-    ror,
-    /// Logical connector replacement
-    lcr,
-    /// Arithmetic operator replacement
-    aor,
-    /// Unary operator insert
-    uoi,
-    /// Absolute value replacement
-    abs,
-}
+@safe:
 
 /// The mode the tool is operating in
 enum ToolMode {
@@ -70,7 +58,7 @@ struct ArgParser {
     bool help;
     bool shortPluginHelp;
 
-    Mutation mutation;
+    MutationKind mutation;
 
     ToolMode toolMode;
 
@@ -103,7 +91,7 @@ struct ArgParser {
                    "mutant-compile", "program to use to compile the mutant", &mutationCompile,
                    "mutant-tester", "program to use to execute the mutant tester", &mutationTester,
                    "mutant-tester-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
-                   "mutation", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!Mutation]), &mutation,
+                   "mutation", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "mutation-id", "generate a specific mutation (only useful with mode generate_mutant)", &cli_mutation_id,
                    );
             // dfmt on
@@ -123,8 +111,8 @@ struct ArgParser {
         }
         catch (ConvException e) {
             logger.error(e.msg);
-            logger.errorf("%s possible values: %(%s|%)", Mutation.stringof,
-                    [EnumMembers!Mutation]);
+            logger.errorf("%s possible values: %(%s|%)", MutationKind.stringof,
+                    [EnumMembers!MutationKind]);
             logger.errorf("%s possible values: %(%s|%)", ToolMode.stringof,
                     [EnumMembers!ToolMode]);
             help = true;

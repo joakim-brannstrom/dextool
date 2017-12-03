@@ -169,7 +169,7 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 
 int rmain(string[] args) nothrow {
     import std.conv : text;
-    import std.exception;
+    import std.exception : collectException;
     import dextool.logger_conf : confLogLevel;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
@@ -187,11 +187,7 @@ int rmain(string[] args) nothrow {
     }
 
     if (exit_status != ExitStatusType.Ok) {
-        try {
-            logger.errorf("exiting...");
-        }
-        catch (Exception ex) {
-        }
+        logger.errorf("exiting...").collectException;
     }
 
     return cast(int) exit_status;

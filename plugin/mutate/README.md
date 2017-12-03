@@ -68,5 +68,5 @@ chmod 755 compile.sh
 
 Start mutation testing!!!!:
 ```sh
-dextool_debug mutate --mode test_mutants --mutant-tester ./tester.sh --mutant-compile --out .. --restrict .. ./compile.sh
+dextool_debug mutate --mode test_mutants --mutant-tester ./tester.sh --mutant-compile ./compile.sh --out .. --restrict ..
 ```
