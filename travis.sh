@@ -43,7 +43,7 @@ set -e
 make clean
 mkdir build
 pushd build
-cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Release -DSQLITE3_LIB=${SQLITE3} ..
+cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Release -DSQLITE3_LIB="${SQLITE3}" ..
 make all -j3
 make install
 popd
