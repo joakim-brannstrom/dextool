@@ -17,10 +17,14 @@ unittest {
         .addInputArg(testData ~ "all_binary_ops.cpp")
         .addArg(["--mode", "analyzer"])
         .run;
-    makeDextool(testEnv)
+    auto r = makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
         .addArg(["--mutation", "ror"])
+        .addArg(["--mutation-id", "604"])
         .run;
+    r.stdout.sliceContains("from '||' to '!='").shouldBeTrue;
+    // wrong output
+    //info: 604 Mutate from 'a || b' to '>=' in
 }
 
 @("shall successfully run the LCR mutator (no validation of the result)")
