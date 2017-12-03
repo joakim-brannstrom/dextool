@@ -29,3 +29,24 @@ Checksum ckecksum(T)(const(T[2]) a) @safe if (T.sizeof == 8) {
 Checksum checksum(T)(const T a, const T b) @safe if (T.sizeof == 8) {
     return Checksum(cast(ulong) a, cast(ulong) b);
 }
+
+import dextool.plugin.mutate.type : MutationKind;
+
+Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
+    import std.traits : EnumMembers;
+
+    final switch (k) with (MutationKind) {
+    case any:
+        return [EnumMembers!(Mutation.Kind)];
+    case ror:
+        return rorMutations;
+    case lcr:
+        return lcrMutations;
+    case aor:
+        return aorMutations;
+    case uoi:
+        return uoiLvalueMutations;
+    case abs:
+        return absMutations;
+    }
+}

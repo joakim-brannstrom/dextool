@@ -16,9 +16,9 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "abs"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "abs"])
         .run;
 }

@@ -14,32 +14,33 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, Mutation, ToolMode;
+import dextool.plugin.mutate.frontend.argparser : ArgParser, MutationKind,
+    ToolMode;
 
-@safe:
+    @safe:
 
-class Frontend {
-    import core.time : Duration;
-    import std.typecons : Nullable;
+    class Frontend {
+        import core.time : Duration;
+        import std.typecons : Nullable;
 
-    ExitStatusType run() {
-        return runMutate(this);
+        ExitStatusType run() {
+            return runMutate(this);
+        }
+
+    private:
+        string[] cflags;
+        string[] inputFiles;
+        AbsolutePath db;
+        AbsolutePath outputDirectory;
+        AbsolutePath restrictDir;
+        AbsolutePath mutationCompile;
+        AbsolutePath mutationTester;
+        Nullable!Duration mutationTesterRuntime;
+        MutationKind mutation;
+        Nullable!long mutationId;
+        CompileCommandDB compileDb;
+        ToolMode toolMode;
     }
-
-private:
-    string[] cflags;
-    string[] inputFiles;
-    AbsolutePath db;
-    AbsolutePath outputDirectory;
-    AbsolutePath restrictDir;
-    AbsolutePath mutationCompile;
-    AbsolutePath mutationTester;
-    Nullable!Duration mutationTesterRuntime;
-    Mutation mutation;
-    Nullable!long mutationId;
-    CompileCommandDB compileDb;
-    ToolMode toolMode;
-}
 
 auto buildFrontend(ref ArgParser p) {
     import core.time : dur;
@@ -89,6 +90,8 @@ ExitStatusType runMutate(Frontend fe) {
     auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
     auto frange = UserFileRange(fe.compileDb, fe.inputFiles, fe.cflags, default_filter);
 
+    logger.trace("ToolMode: ", fe.toolMode);
+
     final switch (fe.toolMode) {
     case ToolMode.none:
         break;
@@ -101,12 +104,12 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.generate_mutant:
         import dextool.plugin.mutate.backend : runGenerateMutant;
 
-        return runGenerateMutant(db, fe.mutationId, fe_io, fe_validate);
+        return runGenerateMutant(db, fe.mutation, fe.mutationId, fe_io, fe_validate);
     case ToolMode.test_mutants:
         import dextool.plugin.mutate.backend : runTestMutant;
 
-        return runTestMutant(fe.mutationTester, fe.mutationCompile,
-                fe.mutationTesterRuntime, db, fe_io);
+        return runTestMutant(db, fe.mutation, fe.mutationTester,
+                fe.mutationCompile, fe.mutationTesterRuntime, fe_io);
     case ToolMode.report_generator:
         break;
     case ToolMode.information_center:

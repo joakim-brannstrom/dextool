@@ -16,10 +16,10 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "all_binary_ops.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "ror"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "ror"])
         .run;
 }
 
@@ -30,10 +30,10 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "all_binary_ops.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "lcr"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "lcr"])
         .run;
 }
 
@@ -44,10 +44,10 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "all_binary_ops.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "aor"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "aor"])
         .run;
 }
 
@@ -58,9 +58,9 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "all_binary_ops.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "uoi"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "uoi"])
         .run;
 }

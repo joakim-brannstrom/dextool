@@ -16,9 +16,9 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "unary_op_insert.cpp")
         .addArg(["--mode", "analyzer"])
-        .addArg(["--mutation", "uoi"])
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mutation", "uoi"])
         .run;
 }

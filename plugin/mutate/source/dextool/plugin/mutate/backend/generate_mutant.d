@@ -21,15 +21,18 @@ import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput,
     ValidateLoc;
+import dextool.plugin.mutate.type : MutationKind;
 
-ExitStatusType runGenerateMutant(ref Database db, Nullable!long user_mutation,
-        FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
+ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
+        Nullable!long user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
+    import dextool.plugin.mutate.backend.utility : toInternal;
+
     Nullable!MutationEntry mutp;
     if (!user_mutation.isNull) {
         mutp = db.getMutation(MutationId(user_mutation.get));
         logger.error(mutp.isNull, "No such mutation id: ", user_mutation.get).collectException;
     } else {
-        mutp = db.nextMutation;
+        mutp = db.nextMutation(kind.toInternal);
     }
     if (mutp.isNull)
         return ExitStatusType.Errors;
