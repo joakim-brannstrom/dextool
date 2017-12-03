@@ -12,21 +12,16 @@ This file contains functionality to manipulate the VirtualFileSystem.
 module dextool.plugin.mutate.backend.vfs;
 
 import cpptooling.utility.virtualfilesystem : VirtualFileSystem;
-import cpptooling.utility.virtualfilesystem : vfsFileName = FileName;
 import dextool.type : AbsolutePath;
 
-/// Offset range. It is a [) kind.
-struct Offset {
-    uint start;
-    uint end;
-}
+public import dextool.plugin.mutate.backend.type : Offset;
 
 auto drop(T = string)(ref VirtualFileSystem vfs, const AbsolutePath fname, const Offset offset) {
     import cpptooling.utility.virtualfilesystem;
 
-    auto content = vfs.slice!T(cast(vfsFileName) cast(string) fname);
+    auto content = vfs.slice!T(cast(FileName) fname);
 
-    return DropRange!T(content[0 .. offset.start], content[offset.end .. $]);
+    return DropRange!T(content[0 .. offset.begin], content[offset.end .. $]);
 }
 
 private:

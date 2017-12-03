@@ -1,0 +1,26 @@
+@startuml
+class mutation {
+    id      INTEGER PRIMARY KEY,
+    mp_id   INTEGER NOT NULL,
+    kind    INTEGER NOT NULL,
+    status  INTEGER NOT NULL,
+    FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
+}
+
+class mutation_point {
+    id              INTEGER PRIMARY KEY,
+    file_id         INTEGER NOT NULL,
+    offset_begin    INTEGER NOT NULL,
+    offset_end      INTEGER NOT NULL,
+    FOREIGN KEY(file_id) REFERENCES files(id)
+}
+
+class files {
+    id          INTEGER PRIMARY KEY,
+    path        TEXT NOT NULL,
+    checksum    INTEGER NOT NULL
+}
+
+mutation_point "*" --> files
+mutation "*" --> mutation_point
+@enduml

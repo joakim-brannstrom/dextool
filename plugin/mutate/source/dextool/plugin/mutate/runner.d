@@ -25,6 +25,7 @@ auto runPlugin(string[] args) @safe {
     argp.parse(args);
 
     debug logger.trace(args);
+    debug logger.trace(argp);
 
     if (argp.shortPluginHelp) {
         writeln("mutate");
@@ -33,9 +34,6 @@ auto runPlugin(string[] args) @safe {
     } else if (argp.help) {
         argp.printHelp;
         return ExitStatusType.Ok;
-    } else if (argp.inFiles.length == 0) {
-        writeln("Missing required argument --in (at least one)");
-        return ExitStatusType.Errors;
     }
 
     auto frontend = buildFrontend(argp);

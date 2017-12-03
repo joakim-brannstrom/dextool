@@ -7,6 +7,9 @@ done: by definition
 2. [An Analysis and Survey of the Development of Mutation Testing](http://crest.cs.ucl.ac.uk/fileadmin/crest/sebasepaper/JiaH10.pdf)
  or [An Analysis and Survey of the Development of Mutation Testing](http://www0.cs.ucl.ac.uk/staff/mharman/tse-mutation-survey.pdf)
 3. [An Experimental Determination of Sufficient Mutant Operators](http://cse.unl.edu/~grother/papers/tosem96apr.pdf)
+4. [Software Verification and Validation](http://www.inf.ed.ac.uk/teaching/courses/st/2016-17/Mutest.pdf)
+5. A. T. Acree, T. A. Budd, R. A. DeMillo, R. J. Lipton, and F. G. Say-ward, “Mutation Analysis,” Georgia Institute of Techn
+6. R. A. DeMillo, E. W. Krauser, and A. P. Mathur, “Compiler-Integrated Program Mutation,” in Proceedings of the 5th Annual Computer Software and Applications Conference (COMPSAC’91). Tokyo, Japan: IEEE Computer Society Press, September 1991, pp. 351–356.
 
 ## Classification of equivalent mutants
 
