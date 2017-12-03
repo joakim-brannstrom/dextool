@@ -191,7 +191,7 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
-        addExprMutationPoint(v.cursor, getExprOperator(v.cursor));
+        addExprMutationPoint(getExprOperator(v.cursor));
 
         v.accept(this);
     }
@@ -215,7 +215,7 @@ final class ExpressionVisitor : Visitor {
 
         // it is NOT an operator.
         addMutationPoint(v.cursor);
-        addExprMutationPoint(v.cursor, getExprOperator(v.cursor));
+        addExprMutationPoint(getExprOperator(v.cursor));
 
         v.accept(this);
     }
@@ -231,7 +231,7 @@ final class ExpressionVisitor : Visitor {
 
         auto op = getExprOperator(v.cursor);
         if (op.isValid) {
-            addExprMutationPoint(v.cursor, op);
+            addExprMutationPoint(op);
             auto s = op.sides;
             addMutationPoint(s.lhs);
             addMutationPoint(s.rhs);
@@ -252,7 +252,7 @@ final class ExpressionVisitor : Visitor {
 
         auto op = getExprOperator(v.cursor);
         if (op.isValid) {
-            addExprMutationPoint(v.cursor, op);
+            addExprMutationPoint(op);
             auto s = op.sides;
             addMutationPoint(s.lhs);
             addMutationPoint(s.rhs);
@@ -298,17 +298,17 @@ final class ExpressionVisitor : Visitor {
         exprs2.put(p2);
     }
 
-    void addExprMutationPoint(const(Cursor) c, const(Operator) op) {
+    void addExprMutationPoint(const(Operator) op) {
         import std.algorithm : map;
         import std.array : array;
         import std.range : chain;
         import dextool.plugin.mutate.backend.vfs;
         import dextool.plugin.mutate.backend.type;
 
-        if (!op.isValid || !c.isValid)
+        if (!op.isValid)
             return;
 
-        SourceLocation loc = c.location;
+        SourceLocation loc = op.cursor.location;
         // a bug in getExprOperator makes the path for a ++ which is overloaded
         // is null.
         auto path = loc.path;
@@ -316,8 +316,8 @@ final class ExpressionVisitor : Visitor {
             return;
         files[path] = true;
 
-        auto sr = c.extent;
-        auto offs = Offset(sr.start.offset, sr.end.offset);
+        auto sr = op.location.spelling;
+        auto offs = Offset(sr.offset, cast(uint)(sr.offset + op.length));
         auto m = chain(rorMutations, lcrMutations, aorMutations).map!(a => Mutation(a)).array();
         exprs2.put(MutationPointEntry(tMutationPoint(offs, m), AbsolutePath(FileName(path))));
     }
