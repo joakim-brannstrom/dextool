@@ -94,20 +94,18 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         if (mut_res.status == ExitStatusType.Ok) {
             logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id,
                     mut_res.from, mut_res.to, mutp.file).collectException;
-        } else {
-            continue;
-        }
 
-        // test mutant
-        try {
-            // TODO is 50% over the original runtime a resonable timeout?
-            auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
+            // test mutant
+            try {
+                // TODO is 50% over the original runtime a resonable timeout?
+                auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
 
-            db.updateMutation(mutp.id, mut_status);
-            logger.infof("%s Mutant is %s", mutp.id, mut_status);
-        }
-        catch (Exception e) {
-            logger.warning(e.msg).collectException;
+                db.updateMutation(mutp.id, mut_status);
+                logger.infof("%s Mutant is %s", mutp.id, mut_status);
+            }
+            catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
         }
 
         // restore the original file.
