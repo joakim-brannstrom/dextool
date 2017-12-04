@@ -7,16 +7,26 @@ select * from files
 
 To get mutants:
 ```sh
-# tested mutations
-sqlite3 dextool_mutate.sqlite3 "select * from mutation where status!=0"
+# untested mutations
+sqlite3 dextool_mutate.sqlite3 "select * from mutation where status==0"
 # alive
 sqlite3 dextool_mutate.sqlite3 "select * from mutation where status==2"
+```
+
+Calculate the mutation score (killed by compiler and timeout mutants do not count):
+```sh
+# dead mutants
+sqlite3 dextool_mutate.sqlite3 "select count(*) from mutation where status==1"
+# total alive+dead
+sqlite3 dextool_mutate.sqlite3 "select count(*) from mutation where status IN (1,2)"
 ```
 
 To get the location of alive mutants:
 ```sh
 sqlite3 dextool_mutate.sqlite3 "select mutation.kind,mutation_point.offset_begin,mutation_point.offset_end,files.path from mutation,mutation_point,files where mutation.status==2 and mutation.mp_id==mutation_point.id and mutation_point.file_id=files.id"
 ```
+
+The different states a mutant can be in is specified in Mutation.Kind.
 
 To get the mutation points for a specific file:
 ```sh

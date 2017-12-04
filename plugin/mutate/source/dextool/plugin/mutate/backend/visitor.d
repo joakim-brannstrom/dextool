@@ -268,7 +268,7 @@ final class ExpressionVisitor : Visitor {
         import std.range : chain;
         import clang.c.Index : CXCursorKind;
         import dextool.plugin.mutate.backend.vfs;
-        import dextool.plugin.mutate.backend.type;
+        import dextool.plugin.mutate.backend.utility;
 
         if (!c.isValid)
             return;
@@ -303,7 +303,7 @@ final class ExpressionVisitor : Visitor {
         import std.array : array;
         import std.range : chain;
         import dextool.plugin.mutate.backend.vfs;
-        import dextool.plugin.mutate.backend.type;
+        import dextool.plugin.mutate.backend.utility;
 
         if (!op.isValid)
             return;
@@ -318,8 +318,20 @@ final class ExpressionVisitor : Visitor {
 
         auto sr = op.location.spelling;
         auto offs = Offset(sr.offset, cast(uint)(sr.offset + op.length));
-        auto m = chain(rorMutations, lcrMutations, aorMutations).map!(a => Mutation(a)).array();
-        exprs2.put(MutationPointEntry(tMutationPoint(offs, m), AbsolutePath(FileName(path))));
+
+        Mutation[] m;
+
+        if (auto v = op.kind in isRor)
+            m = rorMutations(*v).map!(a => Mutation(a)).array();
+        else if (auto v = op.kind in isLcr)
+            m = lcrMutations(*v).map!(a => Mutation(a)).array();
+        else if (auto v = op.kind in isAor)
+            m = aorMutations(*v).map!(a => Mutation(a)).array();
+        else if (auto v = op.kind in isAorAssign)
+            m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
+
+        if (m.length != 0)
+            exprs2.put(MutationPointEntry(tMutationPoint(offs, m), AbsolutePath(FileName(path))));
     }
 
     /**

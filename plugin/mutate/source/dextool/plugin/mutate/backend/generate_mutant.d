@@ -55,7 +55,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
         auto res = generateMutant(db, mutp, content, fout);
         exit_st = res.status;
         if (res.status == ExitStatusType.Ok)
-            logger.infof("Mutate from '%s' to '%s' in %s", res.from, res.to, ofile);
+            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id, res.from, res.to, ofile);
     }
     catch (Exception e) {
         collectException(logger.error(e.msg));
@@ -183,19 +183,19 @@ auto makeMutation(Mutation.Kind kind) {
     case aorSub:
         m.mutate = (const(char)[] expr) { return "-"; };
         break;
-    case aorAssignMul:
+    case aorMulAssign:
         m.mutate = (const(char)[] expr) { return "*="; };
         break;
-    case aorAssignDiv:
+    case aorDivAssign:
         m.mutate = (const(char)[] expr) { return "/="; };
         break;
-    case aorAssignRem:
+    case aorRemAssign:
         m.mutate = (const(char)[] expr) { return "%="; };
         break;
-    case aorAssignAdd:
+    case aorAddAssign:
         m.mutate = (const(char)[] expr) { return "+="; };
         break;
-    case aorAssignSub:
+    case aorSubAssign:
         m.mutate = (const(char)[] expr) { return "-="; };
         break;
         /// Unary operator insert on an lvalue

@@ -196,7 +196,7 @@ struct Database {
                                    mutation.status == 0 AND
                                    mutation.mp_id == mutation_point.id AND
                                    mutation_point.file_id == files.id AND
-                                   mutation.id IN (SELECT id FROM mutation WHERE mutation.kind in (%(%s,%)) ORDER BY RANDOM() LIMIT 1)",
+                                   mutation.kind in (%(%s,%)) ORDER BY RANDOM() LIMIT 1",
                     kinds.map!(a => cast(int) a));
             auto stmt = db.prepare(prep_str);
             // TODO this should work. why doesn't it?
