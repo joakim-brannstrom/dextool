@@ -30,50 +30,6 @@ struct Offset {
     uint end;
 }
 
-Mutation.Kind[] rorMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE,];
-    }
-}
-
-Mutation.Kind[] lcrMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [lcrAnd, lcrOr,];
-    }
-}
-
-Mutation.Kind[] aorMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [aorMul, aorDiv, aorRem, aorAdd, aorSub,];
-    }
-}
-
-Mutation.Kind[] aorAssignMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [aorAssignMul, aorAssignDiv, aorAssignRem, aorAssignAdd, aorAssignSub,];
-    }
-}
-
-Mutation.Kind[] uoiLvalueMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec, uoiAddress, uoiIndirection,
-            uoiPositive, uoiNegative, uoiComplement, uoiNegation, uoiSizeof_,];
-    }
-}
-
-Mutation.Kind[] uoiRvalueMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [uoiPreInc, uoiPreDec, uoiAddress, uoiIndirection, uoiPositive,
-            uoiNegative, uoiComplement, uoiNegation, uoiSizeof_,];
-    }
-}
-
-Mutation.Kind[] absMutations() @safe pure nothrow {
-    with (Mutation.Kind) {
-        return [absPos, absNeg, absZero,];
-    }
-}
-
 /// A possible mutation and its status.
 struct Mutation {
     /// States what kind of mutations that can be performed on this mutation point.
@@ -96,11 +52,11 @@ struct Mutation {
         aorRem,
         aorAdd,
         aorSub,
-        aorAssignMul,
-        aorAssignDiv,
-        aorAssignRem,
-        aorAssignAdd,
-        aorAssignSub,
+        aorMulAssign,
+        aorDivAssign,
+        aorRemAssign,
+        aorAddAssign,
+        aorSubAssign,
         /// Unary operator insert on an lvalue
         uoiPostInc,
         uoiPostDec,
