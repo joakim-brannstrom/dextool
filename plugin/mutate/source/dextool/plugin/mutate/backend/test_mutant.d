@@ -18,6 +18,7 @@ import logger = std.experimental.logger;
 import dextool.type : AbsolutePath, ExitStatusType;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
@@ -98,23 +99,9 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         }
 
         // test mutant
-        // TODO is 50% over the original runtime a resonable timeout?
-        auto res = runTester(compilep, testerp, tester_runtime, 1.5, fio);
-
-        // save test result of the mutation
         try {
-            Mutation.Status mut_status;
-            final switch (res) with (TesterResult) {
-            case timeout:
-                mut_status = Mutation.Status.dead;
-                break;
-            case killedMutant:
-                mut_status = Mutation.Status.dead;
-                break;
-            case aliveMutant:
-                mut_status = Mutation.Status.alive;
-                break;
-            }
+            // TODO is 50% over the original runtime a resonable timeout?
+            auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
 
             db.updateMutation(mutp.id, mut_status);
             logger.infof("%s Mutant is %s", mutp.id, mut_status);
@@ -138,44 +125,40 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
 
 private:
 
-enum TesterResult {
-    /// the tester timeout. Up to the user of this value if it counts as killing.
-    timeout,
-    ///
-    killedMutant,
-    ///
-    aliveMutant,
-}
-
 /**
  *
  * Params:
  *  p = ?
  *  timeout = timeout threshold.
  */
-TesterResult runTester(AbsolutePath compile_p, AbsolutePath tester_p,
+Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
         Duration original_runtime, double timeout, FilesysIO fio) nothrow {
     import core.thread : Thread;
     import core.time : dur;
+    import std.algorithm : among;
     import std.datetime : Clock;
     import std.process : spawnProcess, tryWait, kill, wait;
+    import std.stdio : File;
 
-    auto rval = TesterResult.timeout;
+    Mutation.Status rval;
 
     try {
-        auto dev_null = fio.getDevNull;
-        auto stdin = fio.getStdin;
-
-        auto comp_res = spawnProcess(cast(string) compile_p, stdin, dev_null, dev_null).wait;
+        auto comp_res = spawnProcess(compile_p, fio.getStdin, fio.getDevNull, fio.getDevNull).wait;
         if (comp_res != 0)
-            return TesterResult.killedMutant;
+            return Mutation.Status.killedByCompiler;
+    }
+    catch (Exception e) {
+        // unable to for example execute the compiler
+        return Mutation.Status.unknown;
+    }
 
-        auto p = spawnProcess(cast(string) tester_p, stdin, dev_null, dev_null);
+    try {
+        auto p = spawnProcess(tester_p, fio.getStdin, fio.getDevNull, fio.getDevNull);
         // trusted: killing the process started in this scope
         void cleanup() @trusted {
             import core.sys.posix.signal : SIGKILL;
 
-            if (rval == TesterResult.timeout) {
+            if (rval.among(Mutation.Status.timeout, Mutation.Status.unknown)) {
                 p.kill(SIGKILL);
                 p.wait;
             }
@@ -191,9 +174,9 @@ TesterResult runTester(AbsolutePath compile_p, AbsolutePath tester_p,
             auto res = tryWait(p);
             if (res.terminated) {
                 if (res.status == 0)
-                    rval = TesterResult.aliveMutant;
+                    rval = Mutation.Status.alive;
                 else
-                    rval = TesterResult.killedMutant;
+                    rval = Mutation.Status.killed;
                 break;
             }
 
@@ -202,6 +185,8 @@ TesterResult runTester(AbsolutePath compile_p, AbsolutePath tester_p,
         }
     }
     catch (Exception e) {
+        // unable to for example execute the test suite
+        return Mutation.Status.unknown;
     }
 
     return rval;

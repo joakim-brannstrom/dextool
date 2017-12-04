@@ -121,9 +121,16 @@ struct Mutation {
     }
 
     enum Status {
+        /// the mutation isn't tested
         unknown,
-        dead,
-        alive
+        /// killed by the test suite
+        killed,
+        /// not killed by the test suite
+        alive,
+        /// the mutation resulted in invalid code that didn't compile
+        killedByCompiler,
+        /// the mutant resulted in the test suite/sut reaching the timeout threshold
+        timeout,
     }
 
     Kind kind;
