@@ -16,23 +16,10 @@ import dextool.type : AbsolutePath;
 
 @safe:
 
-// TODO remove
-struct MutationPoint {
-    import clang.SourceLocation;
-    import dextool.plugin.mutate.backend.vfs : Offset;
-    import dextool.clang_extensions : ValueKind;
-
-    ValueKind kind;
-
-    Offset offset;
-    string spelling;
-    SourceLocation.Location2 location;
-}
-
 /** Find all mutation points that affect a whole expression.
  *
- * TODO replace exprs with exprs2 in the future when the needed information
- * ValueKind can be retrieved by the mutator.
+ * TODO change the name of the class. It is more than just an expression
+ * visitor.
  */
 final class ExpressionVisitor : Visitor {
     import std.array : Appender;
@@ -42,7 +29,7 @@ final class ExpressionVisitor : Visitor {
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dextool.clang_extensions;
     import dextool.type : AbsolutePath, FileName;
-    import dextool.plugin.mutate.backend.type : tMutationPoint = MutationPoint;
+    import dextool.plugin.mutate.backend.type : MutationPoint;
     import dextool.plugin.mutate.backend.database : MutationPointEntry;
     import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
 
@@ -50,17 +37,12 @@ final class ExpressionVisitor : Visitor {
 
     mixin generateIndentIncrDecr;
 
-    private Appender!(MutationPoint[]) exprs;
-    private Appender!(MutationPointEntry[]) exprs2;
+    private Appender!(MutationPointEntry[]) exprs;
     private bool[string] files;
     private ValidateLoc val_loc;
 
-    const(MutationPoint[]) mutationPoints() {
+    const(MutationPointEntry[]) mutationPoints() {
         return exprs.data;
-    }
-
-    const(MutationPointEntry[]) mutationPointsT() {
-        return exprs2.data;
     }
 
     string[] mutationPointFiles() @trusted {
@@ -140,7 +122,6 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        import clang.c.Index : CXCursorKind;
 
         auto loc = v.cursor.location;
         if (!val_loc.shouldAnalyze(loc.path)) {
@@ -160,7 +141,6 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(BinaryOperator) v) {
         mixin(mixinNodeLog!());
-        import clang.c.Index : CXCursorKind;
 
         auto loc = v.cursor.location;
 
@@ -184,7 +164,6 @@ final class ExpressionVisitor : Visitor {
         import std.algorithm : map;
         import std.array : array;
         import std.range : chain;
-        import clang.c.Index : CXCursorKind;
         import dextool.plugin.mutate.backend.vfs;
         import dextool.plugin.mutate.backend.utility;
 
@@ -202,18 +181,14 @@ final class ExpressionVisitor : Visitor {
             return;
         files[path] = true;
 
-        auto spelling = exprSpelling(c);
-
         auto sr = c.extent;
         auto offs = Offset(sr.start.offset, sr.end.offset);
-        auto p = MutationPoint(kind, offs, spelling, loc.presumed);
-        exprs.put(p);
 
         auto m0 = absMutations;
         auto m1 = kind == ValueKind.lvalue ? uoiLvalueMutations : uoiRvalueMutations;
         auto m = chain(m0, m1).map!(a => Mutation(a)).array();
-        auto p2 = MutationPointEntry(tMutationPoint(offs, m), AbsolutePath(FileName(path)));
-        exprs2.put(p2);
+        auto p2 = MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path)));
+        exprs.put(p2);
     }
 
     void addExprMutationPoint(const(Operator) op) {
@@ -249,26 +224,7 @@ final class ExpressionVisitor : Visitor {
             m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
 
         if (m.length != 0)
-            exprs2.put(MutationPointEntry(tMutationPoint(offs, m), AbsolutePath(FileName(path))));
-    }
-
-    /**
-     * trusted: the tokens do not escape the function.
-     */
-    static string exprSpelling(const Cursor c) @trusted {
-        import std.algorithm : map;
-        import std.range : takeOne;
-
-        import clang.c.Index : CXCursorKind;
-
-        if (c.kind == CXCursorKind.integerLiteral) {
-            auto toks = c.tokens;
-            if (toks.length == 0)
-                return c.spelling;
-            return toks.map!(a => a.spelling).takeOne.front;
-        } else {
-            return c.spelling;
-        }
+            exprs.put(MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path))));
     }
 
     override void visit(const(Preprocessor) v) {
