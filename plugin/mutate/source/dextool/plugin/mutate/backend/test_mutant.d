@@ -78,6 +78,10 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     auto mut_kind = user_kind.toInternal;
 
     while (true) {
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+
+        auto mutation_sw = StopWatch(AutoStart.yes);
+
         // get mutant
         auto mutp = db.nextMutation(mut_kind);
         if (mutp.isNull) {
@@ -116,8 +120,9 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
                 // TODO is 50% over the original runtime a resonable timeout?
                 auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
 
-                db.updateMutation(mutp.id, mut_status);
-                logger.infof("%s Mutant is %s", mutp.id, mut_status);
+                mutation_sw.stop;
+                db.updateMutation(mutp.id, mut_status, mutation_sw.peek);
+                logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, mutation_sw.peek);
             }
             catch (Exception e) {
                 logger.warning(e.msg).collectException;

@@ -35,6 +35,7 @@ interchangeably.
 */
 module dextool.plugin.mutate.backend.database;
 
+import core.time : Duration, dur;
 import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath;
@@ -63,6 +64,7 @@ struct MutationEntry {
     MutationId id;
     AbsolutePath file;
     MutationPoint mp;
+    Duration timeSpentMutating;
 }
 
 struct MutationPointEntry {
@@ -158,11 +160,17 @@ struct Database {
     }
 
     /** Update the status of a mutant.
+     * Params:
+     *  id = ?
+     *  st = ?
+     *  d = time spent on veryfing the mutant
      */
-    void updateMutation(MutationId id, Mutation.Status st) @trusted {
-        auto stmt = db.prepare("UPDATE mutation SET status = :st WHERE mutation.id == :id");
+    void updateMutation(MutationId id, Mutation.Status st, Duration d) @trusted {
+        auto stmt = db.prepare(
+                "UPDATE mutation SET status=:st,time=:time WHERE mutation.id == :id");
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
+        stmt.bind(":time", d.total!"msecs");
         stmt.execute;
     }
 
@@ -190,6 +198,7 @@ struct Database {
             auto prep_str = format("SELECT
                                    mutation.id,
                                    mutation.kind,
+                                   mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
                                    files.path
@@ -209,12 +218,12 @@ struct Database {
 
             auto v = res.front;
 
-            auto mp = MutationPoint(Offset(v.peek!uint(2), v.peek!uint(3)));
+            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(4)));
+            auto file = AbsolutePath(FileName(v.peek!string(5)));
 
-            rval = MutationEntry(pkey, file, mp);
+            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -234,6 +243,7 @@ struct Database {
             auto stmt = db.prepare("SELECT
                                    mutation.id,
                                    mutation.kind,
+                                   mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
                                    files.path
@@ -249,12 +259,12 @@ struct Database {
 
             auto v = res.front;
 
-            auto mp = MutationPoint(Offset(v.peek!uint(2), v.peek!uint(3)));
+            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(4)));
+            auto file = AbsolutePath(FileName(v.peek!string(5)));
 
-            rval = MutationEntry(pkey, file, mp);
+            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -378,11 +388,13 @@ void initializeTables(ref sqlDatabase db) {
     FOREIGN KEY(file_id) REFERENCES files(id)
     )");
 
+    // time in ms spent on verifying the mutant
     db.run("CREATE TABLE mutation (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
+    time    INTEGER,
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
     )");
 }
