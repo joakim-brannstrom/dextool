@@ -18,9 +18,8 @@ unittest {
         .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mode", "test_mutants"])
         .addArg(["--mutation", "ror"])
-        .addArg(["--mutation-id", "25"])
         .run;
     r.stdout.sliceContains("'<' to '<='").shouldBeTrue;
     // wrong output

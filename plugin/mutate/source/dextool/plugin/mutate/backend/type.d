@@ -74,6 +74,8 @@ struct Mutation {
         absPos,
         absNeg,
         absZero,
+        /// statement deletion
+        stmtDel
     }
 
     enum Status {

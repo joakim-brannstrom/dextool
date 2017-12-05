@@ -79,13 +79,13 @@ struct Database {
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
         Checksum;
+    import dextool.plugin.mutate.type : MutationOrder;
 
     private sqlDatabase* db;
+    private MutationOrder mut_order;
 
-    static auto make(AbsolutePath db) @safe {
-        import dextool.type : FileName;
-
-        return Database(initializeDB(db));
+    static auto make(AbsolutePath db, MutationOrder mut_order) @safe {
+        return Database(initializeDB(db), mut_order);
     }
 
     // Not movable. The database should only be passed around as a reference,
@@ -184,6 +184,8 @@ struct Database {
 
         typeof(return) rval;
 
+        auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
+
         try {
             auto prep_str = format("SELECT
                                    mutation.id,
@@ -196,8 +198,8 @@ struct Database {
                                    mutation.status == 0 AND
                                    mutation.mp_id == mutation_point.id AND
                                    mutation_point.file_id == files.id AND
-                                   mutation.kind in (%(%s,%)) ORDER BY RANDOM() LIMIT 1",
-                    kinds.map!(a => cast(int) a));
+                                   mutation.kind in (%(%s,%)) %s LIMIT 1",
+                    kinds.map!(a => cast(int) a), order);
             auto stmt = db.prepare(prep_str);
             // TODO this should work. why doesn't it?
             //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));

@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.visitor;
 
 public import dextool.clang_extensions : ValueKind;
+import logger = std.experimental.logger;
 
 import cpptooling.analyzer.clang.ast : Visitor;
 import dextool.type : AbsolutePath;
@@ -128,6 +129,8 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
+        addStatement(v);
+
         auto op = getExprOperator(v.cursor);
         if (op.isValid) {
             addExprMutationPoint(op);
@@ -164,7 +167,7 @@ final class ExpressionVisitor : Visitor {
         import std.algorithm : map;
         import std.array : array;
         import std.range : chain;
-        import dextool.plugin.mutate.backend.vfs;
+        import dextool.plugin.mutate.backend.type : Offset;
         import dextool.plugin.mutate.backend.utility;
 
         if (!c.isValid)
@@ -195,7 +198,7 @@ final class ExpressionVisitor : Visitor {
         import std.algorithm : map;
         import std.array : array;
         import std.range : chain;
-        import dextool.plugin.mutate.backend.vfs;
+        import dextool.plugin.mutate.backend.type : Offset;
         import dextool.plugin.mutate.backend.utility;
 
         if (!op.isValid)
@@ -239,6 +242,65 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
+        addStatement(v);
         v.accept(this);
     }
+
+    void addStatement(T)(const(T) v) {
+        import std.algorithm : map;
+        import std.array : array;
+        import dextool.plugin.mutate.backend.type : Offset;
+        import dextool.plugin.mutate.backend.utility;
+
+        auto loc = v.cursor.location;
+        if (!val_loc.shouldAnalyze(loc.path)) {
+            return;
+        }
+
+        auto path = loc.path;
+        if (path is null)
+            return;
+        files[path] = true;
+
+        auto offs = calcOffset(v);
+        auto m = stmtDelMutations.map!(a => Mutation(a)).array();
+
+        exprs.put(MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path))));
+    }
+}
+
+private:
+
+import dextool.plugin.mutate.backend.type : Offset;
+
+// trusted: the tokens do not escape this function.
+Offset calcOffset(T)(const(T) v) @trusted {
+    import cpptooling.analyzer.clang.ast;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+
+    Offset rval;
+
+    static if (is(T == CallExpr)) {
+        import clang.Token;
+
+        auto sr = v.cursor.extent;
+        rval = Offset(sr.start.offset, sr.end.offset);
+
+        // TODO this is extremly inefficient. change to a more localized cursor
+        // or even better. Get the tokens at the end.
+        auto arg = v.cursor.translationUnit.cursor;
+
+        // TODO do something smarter;
+        foreach (t; arg.tokens) {
+            if (t.location.offset >= sr.end.offset) {
+                rval.end = t.extent.end.offset;
+                break;
+            }
+        }
+    } else {
+        auto sr = v.cursor.extent;
+        rval = Offset(sr.start.offset, sr.end.offset);
+    }
+
+    return rval;
 }
