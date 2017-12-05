@@ -54,6 +54,22 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         tester_runtime = testerp_runtime.get;
     }
 
+    // sanity check the compiler command. This should pass
+    try {
+        import std.process : execute;
+
+        auto comp_res = execute([cast(string) compilep]);
+        if (comp_res.status != 0) {
+            logger.error("Compiler command must succeed: ", comp_res.output);
+            return ExitStatusType.Errors;
+        }
+    }
+    catch (Exception e) {
+        // unable to for example execute the compiler
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
+
     import dextool.plugin.mutate.backend.type : Mutation;
     import dextool.plugin.mutate.backend.utility : toInternal;
     import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
@@ -147,6 +163,7 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     }
     catch (Exception e) {
         // unable to for example execute the compiler
+        logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
     }
 
@@ -184,6 +201,7 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     }
     catch (Exception e) {
         // unable to for example execute the test suite
+        logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
     }
 
