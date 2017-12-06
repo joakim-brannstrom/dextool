@@ -76,8 +76,12 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         GenerateMutantResult;
 
     auto mut_kind = user_kind.toInternal;
+    // when it reaches 100 terminate. there are too many mutations that result
+    // in the test or compiler _crashing_.
+    int unknown_mutant_cnt;
+    immutable unknown_mutant_max = 100;
 
-    while (true) {
+    while (unknown_mutant_cnt < unknown_mutant_max) {
         import std.datetime.stopwatch : StopWatch, AutoStart;
 
         auto mutation_sw = StopWatch(AutoStart.yes);
@@ -123,6 +127,10 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
                 mutation_sw.stop;
                 db.updateMutation(mutp.id, mut_status, mutation_sw.peek);
                 logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, mutation_sw.peek);
+                if (mut_status == Mutation.Status.unknown)
+                    ++unknown_mutant_cnt;
+                else
+                    unknown_mutant_cnt = 0;
             }
             catch (Exception e) {
                 logger.warning(e.msg).collectException;
@@ -140,6 +148,12 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
             return ExitStatusType.Errors;
         }
     }
+
+    if (unknown_mutant_cnt == unknown_mutant_max)
+        logger.error("Terminated early. Too many unknown mutants (%s)",
+                unknown_mutant_cnt).collectException;
+
+    return ExitStatusType.Errors;
 }
 
 private:
