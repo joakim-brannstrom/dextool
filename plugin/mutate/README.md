@@ -19,6 +19,8 @@ Calculate the mutation score (killed by compiler and timeout mutants do not coun
 sqlite3 dextool_mutate.sqlite3 "select count(*) from mutation where status==1"
 # total alive+dead
 sqlite3 dextool_mutate.sqlite3 "select count(*) from mutation where status IN (1,2)"
+# time spent on mutation (milliseconds)
+sqlite3 dextool_mutate.sqlite3 "select sum(time) from mutation where status IN (1,2)"
 ```
 
 To get the location of alive mutants:
