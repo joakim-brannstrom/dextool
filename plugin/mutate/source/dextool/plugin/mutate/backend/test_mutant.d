@@ -54,6 +54,22 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         tester_runtime = testerp_runtime.get;
     }
 
+    // sanity check the compiler command. This should pass
+    try {
+        import std.process : execute;
+
+        auto comp_res = execute([cast(string) compilep]);
+        if (comp_res.status != 0) {
+            logger.error("Compiler command must succeed: ", comp_res.output);
+            return ExitStatusType.Errors;
+        }
+    }
+    catch (Exception e) {
+        // unable to for example execute the compiler
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
+
     import dextool.plugin.mutate.backend.type : Mutation;
     import dextool.plugin.mutate.backend.utility : toInternal;
     import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
@@ -62,6 +78,10 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     auto mut_kind = user_kind.toInternal;
 
     while (true) {
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+
+        auto mutation_sw = StopWatch(AutoStart.yes);
+
         // get mutant
         auto mutp = db.nextMutation(mut_kind);
         if (mutp.isNull) {
@@ -100,8 +120,9 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
                 // TODO is 50% over the original runtime a resonable timeout?
                 auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
 
-                db.updateMutation(mutp.id, mut_status);
-                logger.infof("%s Mutant is %s", mutp.id, mut_status);
+                mutation_sw.stop;
+                db.updateMutation(mutp.id, mut_status, mutation_sw.peek);
+                logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, mutation_sw.peek);
             }
             catch (Exception e) {
                 logger.warning(e.msg).collectException;
@@ -147,6 +168,7 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     }
     catch (Exception e) {
         // unable to for example execute the compiler
+        logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
     }
 
@@ -184,6 +206,7 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     }
     catch (Exception e) {
         // unable to for example execute the test suite
+        logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
     }
 

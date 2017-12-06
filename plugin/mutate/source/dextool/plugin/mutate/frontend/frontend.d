@@ -16,31 +16,34 @@ import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
 import dextool.plugin.mutate.frontend.argparser : ArgParser, MutationKind,
     ToolMode;
+import dextool.plugin.mutate.type : MutationOrder;
 
-    @safe:
+@safe:
 
-    class Frontend {
-        import core.time : Duration;
-        import std.typecons : Nullable;
+class Frontend {
+    import core.time : Duration;
+    import std.typecons : Nullable;
 
-        ExitStatusType run() {
-            return runMutate(this);
-        }
-
-    private:
-        string[] cflags;
-        string[] inputFiles;
-        AbsolutePath db;
-        AbsolutePath outputDirectory;
-        AbsolutePath restrictDir;
-        AbsolutePath mutationCompile;
-        AbsolutePath mutationTester;
-        Nullable!Duration mutationTesterRuntime;
-        MutationKind mutation;
-        Nullable!long mutationId;
-        CompileCommandDB compileDb;
-        ToolMode toolMode;
+    ExitStatusType run() {
+        return runMutate(this);
     }
+
+private:
+    string[] cflags;
+    string[] inputFiles;
+    AbsolutePath db;
+    AbsolutePath outputDirectory;
+    AbsolutePath restrictDir;
+    AbsolutePath mutationCompile;
+    AbsolutePath mutationTester;
+    Nullable!Duration mutationTesterRuntime;
+    MutationKind mutation;
+    Nullable!long mutationId;
+    CompileCommandDB compileDb;
+    ToolMode toolMode;
+    bool dryRun;
+    MutationOrder mutationOrder;
+}
 
 auto buildFrontend(ref ArgParser p) {
     import core.time : dur;
@@ -55,6 +58,8 @@ auto buildFrontend(ref ArgParser p) {
     r.db = AbsolutePath(FileName(p.db));
     r.mutationTester = AbsolutePath(FileName(p.mutationTester));
     r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
+    r.dryRun = p.dryRun;
+    r.mutationOrder = p.mutationOrder;
 
     r.restrictDir = AbsolutePath(FileName(p.restrictDir));
 
@@ -82,10 +87,10 @@ ExitStatusType runMutate(Frontend fe) {
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory);
+    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.dryRun);
     auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
-    auto db = Database.make(fe.db);
+    auto db = Database.make(fe.db, fe.mutationOrder);
 
     auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
     auto frange = UserFileRange(fe.compileDb, fe.inputFiles, fe.cflags, default_filter);
@@ -125,6 +130,11 @@ import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
  * Responsible for ensuring that when the output from the backend is written to
  * a file it is within the user specified output directory.
  *
+ * When the mode dry_run is set no files shall be written to the filesystem.
+ * Any kind of file shall be readable and "emulated" that it is writtable.
+ *
+ * Dryrun is used for testing the mutate plugin.
+ *
  * #SPC-plugin_mutate_file_security-single_output
  */
 final class FrontendIO : FilesysIO {
@@ -135,10 +145,12 @@ final class FrontendIO : FilesysIO {
 
     private AbsolutePath restrict_dir;
     private AbsolutePath output_dir;
+    private bool dry_run;
 
-    this(AbsolutePath restrict_dir, AbsolutePath output_dir) {
+    this(AbsolutePath restrict_dir, AbsolutePath output_dir, bool dry_run) {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
+        this.dry_run = dry_run;
     }
 
     override File getDevNull() {
@@ -156,14 +168,14 @@ final class FrontendIO : FilesysIO {
     }
 
     override SafeOutput makeOutput(AbsolutePath p) @safe {
-        validate(output_dir, p);
+        validate(output_dir, p, dry_run);
         return SafeOutput(p, this);
     }
 
     override SafeInput makeInput(AbsolutePath p) @safe {
         import std.file;
 
-        validate(restrict_dir, p);
+        validate(restrict_dir, p, dry_run);
 
         auto d = () @trusted{ return cast(ubyte[]) std.file.read(p); }();
         return SafeInput(d);
@@ -175,16 +187,17 @@ final class FrontendIO : FilesysIO {
         // because an SafeInput/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
-        validate(output_dir, fname);
-        File(fname, "w").rawWrite(data);
+        validate(output_dir, fname, dry_run);
+        if (!dry_run)
+            File(fname, "w").rawWrite(data);
     }
 
 private:
-    static void validate(AbsolutePath root, AbsolutePath p) {
+    static void validate(AbsolutePath root, AbsolutePath p, bool dry_run) {
         import std.format : format;
         import std.string : startsWith;
 
-        if (!(cast(string) p).startsWith((cast(string) root))) {
+        if (!dry_run && !(cast(string) p).startsWith((cast(string) root))) {
             throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
         }
     }

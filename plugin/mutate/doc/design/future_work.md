@@ -9,6 +9,8 @@ partof: REQ-plugin_mutate_future_work
 ###
 Implement the optimization found in [Improving Quality of Avionics Software Using Mutation Testing](http://liu.diva-portal.org/smash/record.jsf?pid=diva2%3A707336&dswid=-3612) to reduce the amount of equivalent mutants.
 
+Use semantic information regarding the boundaries.
+
 # SPC-plugin_mutate_visualization
 partof: REQ-plugin_mutate_future_work
 ###
@@ -17,6 +19,13 @@ See [triangle](http://john-tornblom.github.io/llvm-p86/triangle/) for an example
 
 The code used is at [wwwroot](https://github.com/john-tornblom/llvm-p86/tree/master/wwwroot).
 The unminimized found at [shjs](http://shjs.sourceforge.net/).
+
+To present the result a webserver is needed.
+A first version can use the one from python stdlib.
+
+For the syntax highlight to work correctly a tokenizer must be implemented.
+
+Besides each file there should also be an _index_.
 
 # SPC-plugin_mutate_multiple_mutations_at_mp
 partof: REQ-plugin_mutate_future_work
@@ -49,3 +58,14 @@ of the MP-ID.
 
 A command center is expected to use the MP-ID to tell e.g. the mutation tester
 to run the tests for the MP-ID.
+
+# SPC-plugin_mutate_todo
+partof: REQ-plugin_mutate_future_work
+###
+This is a simple TODO.
+
+ * implement statement deletion.
+ * calculate mutation score.
+ * optimize the analyzer by using temporary tables.
+ * recorde the time spent for each mutation
+    * report the total time spent on mutations

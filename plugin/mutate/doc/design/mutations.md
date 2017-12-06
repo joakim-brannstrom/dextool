@@ -78,3 +78,6 @@ a = abs(b) + c
 a = -abs(b) + c
 a = 0 + c
 ```
+
+## Statement Deletion (SD)
+Delete one statement at a time.

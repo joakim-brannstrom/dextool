@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.utility;
 
 public import dextool.plugin.mutate.backend.type;
+public import dextool.clang_extensions : OpKind;
 
 /**
  * trusted: void[] is perfectly representable as ubyte[] accoding to the specification.
@@ -48,6 +49,8 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
         return uoiLvalueMutations;
     case abs:
         return absMutations;
+    case stmtDel:
+        return stmtDelMutations;
     }
 }
 
@@ -81,12 +84,16 @@ Mutation.Kind[] absMutations() @safe pure nothrow {
     return absMutationsRaw.dup;
 }
 
-public import dextool.clang_extensions : OpKind;
+Mutation.Kind[] stmtDelMutations() @safe pure nothrow {
+    return stmtDelMutationsRaw.dup;
+}
 
 immutable Mutation.Kind[OpKind] isRor;
 immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[OpKind] isAor;
 immutable Mutation.Kind[OpKind] isAorAssign;
+
+private:
 
 immutable Mutation.Kind[] rorMutationsRaw;
 immutable Mutation.Kind[] lcrMutationsRaw;
@@ -95,6 +102,7 @@ immutable Mutation.Kind[] aorAssignMutationsRaw;
 immutable Mutation.Kind[] uoiLvalueMutationsRaw;
 immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 immutable Mutation.Kind[] absMutationsRaw;
+immutable Mutation.Kind[] stmtDelMutationsRaw;
 
 shared static this() {
     // dfmt off
@@ -164,5 +172,6 @@ shared static this() {
         uoiRvalueMutationsRaw = cast(immutable)[uoiPreInc, uoiPreDec, uoiAddress,
             uoiIndirection, uoiPositive, uoiNegative, uoiComplement, uoiNegation, uoiSizeof_,];
         absMutationsRaw = cast(immutable)[absPos, absNeg, absZero,];
+        stmtDelMutationsRaw = cast(immutable)[stmtDel];
     }
 }

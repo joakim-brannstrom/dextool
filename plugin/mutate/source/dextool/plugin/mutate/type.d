@@ -23,4 +23,12 @@ enum MutationKind {
     uoi,
     /// Absolute value replacement
     abs,
+    /// Statement deletion
+    stmtDel,
+}
+
+/// The order the mutations are done when running in test_mutants mode
+enum MutationOrder {
+    random,
+    consecutive,
 }

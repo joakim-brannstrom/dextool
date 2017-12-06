@@ -246,6 +246,9 @@ auto makeMutation(Mutation.Kind kind) {
         m.top = (ref SafeOutput a) { a.write(preambleAbs); };
         m.mutate = (const(char)[] b) { return "0"; };
         break;
+    case stmtDel:
+        // it is a deletion so nothing to be done!
+        break;
     }
 
     return m;

@@ -21,7 +21,7 @@ import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
 import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
-import dextool.plugin.mutate.backend.visitor : ExpressionVisitor, MutationPoint;
+import dextool.plugin.mutate.backend.visitor : ExpressionVisitor;
 import dextool.plugin.mutate.backend.utility : checksum;
 
 /** Analyze the files in `frange` for mutations.
@@ -65,7 +65,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
             }
         }
 
-        db.put(visitor.mutationPointsT);
+        db.put(visitor.mutationPoints);
     }
 
     return ExitStatusType.Ok;

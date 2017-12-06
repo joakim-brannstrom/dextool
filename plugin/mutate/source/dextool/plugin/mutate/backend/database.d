@@ -35,6 +35,7 @@ interchangeably.
 */
 module dextool.plugin.mutate.backend.database;
 
+import core.time : Duration, dur;
 import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath;
@@ -63,6 +64,7 @@ struct MutationEntry {
     MutationId id;
     AbsolutePath file;
     MutationPoint mp;
+    Duration timeSpentMutating;
 }
 
 struct MutationPointEntry {
@@ -79,13 +81,13 @@ struct Database {
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
         Checksum;
+    import dextool.plugin.mutate.type : MutationOrder;
 
     private sqlDatabase* db;
+    private MutationOrder mut_order;
 
-    static auto make(AbsolutePath db) @safe {
-        import dextool.type : FileName;
-
-        return Database(initializeDB(db));
+    static auto make(AbsolutePath db, MutationOrder mut_order) @safe {
+        return Database(initializeDB(db), mut_order);
     }
 
     // Not movable. The database should only be passed around as a reference,
@@ -158,11 +160,17 @@ struct Database {
     }
 
     /** Update the status of a mutant.
+     * Params:
+     *  id = ?
+     *  st = ?
+     *  d = time spent on veryfing the mutant
      */
-    void updateMutation(MutationId id, Mutation.Status st) @trusted {
-        auto stmt = db.prepare("UPDATE mutation SET status = :st WHERE mutation.id == :id");
+    void updateMutation(MutationId id, Mutation.Status st, Duration d) @trusted {
+        auto stmt = db.prepare(
+                "UPDATE mutation SET status=:st,time=:time WHERE mutation.id == :id");
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
+        stmt.bind(":time", d.total!"msecs");
         stmt.execute;
     }
 
@@ -184,10 +192,13 @@ struct Database {
 
         typeof(return) rval;
 
+        auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
+
         try {
             auto prep_str = format("SELECT
                                    mutation.id,
                                    mutation.kind,
+                                   mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
                                    files.path
@@ -196,8 +207,8 @@ struct Database {
                                    mutation.status == 0 AND
                                    mutation.mp_id == mutation_point.id AND
                                    mutation_point.file_id == files.id AND
-                                   mutation.kind in (%(%s,%)) ORDER BY RANDOM() LIMIT 1",
-                    kinds.map!(a => cast(int) a));
+                                   mutation.kind in (%(%s,%)) %s LIMIT 1",
+                    kinds.map!(a => cast(int) a), order);
             auto stmt = db.prepare(prep_str);
             // TODO this should work. why doesn't it?
             //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
@@ -207,12 +218,12 @@ struct Database {
 
             auto v = res.front;
 
-            auto mp = MutationPoint(Offset(v.peek!uint(2), v.peek!uint(3)));
+            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(4)));
+            auto file = AbsolutePath(FileName(v.peek!string(5)));
 
-            rval = MutationEntry(pkey, file, mp);
+            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -232,6 +243,7 @@ struct Database {
             auto stmt = db.prepare("SELECT
                                    mutation.id,
                                    mutation.kind,
+                                   mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
                                    files.path
@@ -247,12 +259,12 @@ struct Database {
 
             auto v = res.front;
 
-            auto mp = MutationPoint(Offset(v.peek!uint(2), v.peek!uint(3)));
+            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(4)));
+            auto file = AbsolutePath(FileName(v.peek!string(5)));
 
-            rval = MutationEntry(pkey, file, mp);
+            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -376,11 +388,13 @@ void initializeTables(ref sqlDatabase db) {
     FOREIGN KEY(file_id) REFERENCES files(id)
     )");
 
+    // time in ms spent on verifying the mutant
     db.run("CREATE TABLE mutation (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
+    time    INTEGER,
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
     )");
 }

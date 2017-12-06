@@ -57,8 +57,10 @@ struct ArgParser {
 
     bool help;
     bool shortPluginHelp;
+    bool dryRun;
 
     MutationKind mutation;
+    MutationOrder mutationOrder;
 
     ToolMode toolMode;
 
@@ -83,16 +85,18 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
+                   "dry-run", "do not write data to the filesystem", &dryRun,
                    "in", "Input file to parse (at least one)", &inFiles,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "mode", "tool mode " ~ format("[%(%s|%)]", [EnumMembers!ToolMode]), &toolMode,
                    "mutant-compile", "program to use to compile the mutant", &mutationCompile,
-                   "mutant-tester", "program to use to execute the mutant tester", &mutationTester,
-                   "mutant-tester-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
+                   "mutant-test", "program to use to execute the mutant tester", &mutationTester,
+                   "mutant-test-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
                    "mutation", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "mutation-id", "generate a specific mutation (only useful with mode generate_mutant)", &cli_mutation_id,
+                   "mutation-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    );
             // dfmt on
 
