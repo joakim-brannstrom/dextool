@@ -14,11 +14,11 @@ unittest {
     mixin(EnvSetup(globalTestdir));
 
     makeDextool(testEnv)
-        .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
+        .addInputArg(testData ~ "abs.cpp")
         .addArg(["--mode", "analyzer"])
         .run;
     makeDextool(testEnv)
-        .addArg(["--mode", "generate_mutant"])
+        .addArg(["--mode", "test_mutants"])
         .addArg(["--mutation", "abs"])
         .run;
 }
