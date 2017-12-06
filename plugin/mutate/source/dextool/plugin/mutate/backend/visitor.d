@@ -146,7 +146,6 @@ final class ExpressionVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         auto loc = v.cursor.location;
-
         if (!val_loc.shouldAnalyze(loc.path)) {
             return;
         }
@@ -160,6 +159,22 @@ final class ExpressionVisitor : Visitor {
         }
 
         v.accept(this);
+    }
+
+    override void visit(const(CompoundAssignOperator) v) {
+        mixin(mixinNodeLog!());
+        import std.range : dropOne;
+        import cpptooling.analyzer.clang.ast.tree : dispatch;
+
+        auto loc = v.cursor.location;
+        if (!val_loc.shouldAnalyze(loc.path)) {
+            return;
+        }
+
+        // not adding the left side because it results in nonsense mutations for UOI.
+        foreach (child; v.cursor.children.dropOne) {
+            dispatch(child, this);
+        }
     }
 
     // TODO ugly duplication between this and addExprMutationPoint. Fix it.

@@ -17,8 +17,11 @@ unittest {
         .addInputArg(testData ~ "uoi.cpp")
         .addArg(["--mode", "analyzer"])
         .run;
-    makeDextool(testEnv)
+    auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutation", "uoi"])
         .run;
+
+    // shall NOT insert unary operators on the lhs of the assignment
+    r.stdout.sliceContains("'case_2_a' to 'case_2_a").shouldBeFalse;
 }

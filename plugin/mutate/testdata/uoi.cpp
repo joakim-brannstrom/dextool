@@ -46,6 +46,9 @@ void func() {
 }
 
 void case_2() {
-    int a = 1 + 5;
-    int b = a + 3;
+    int case_2_a = 1 + 5;
+    case_2_a += 3;
+
+    int case_2_b0;
+    int case_2_b1 = case_2_b0 + 3;
 }
