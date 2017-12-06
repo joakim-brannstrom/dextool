@@ -167,10 +167,14 @@ shared static this() {
         aorMutationsRaw = cast(immutable)[aorMul, aorDiv, aorRem, aorAdd, aorSub,];
         aorAssignMutationsRaw = cast(immutable)[aorMulAssign, aorDivAssign,
             aorRemAssign, aorAddAssign, aorSubAssign,];
-        uoiLvalueMutationsRaw = cast(immutable)[uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec, uoiAddress,
-            uoiIndirection, uoiPositive, uoiNegative, uoiComplement, uoiNegation, uoiSizeof_,];
-        uoiRvalueMutationsRaw = cast(immutable)[uoiPreInc, uoiPreDec, uoiAddress,
-            uoiIndirection, uoiPositive, uoiNegative, uoiComplement, uoiNegation, uoiSizeof_,];
+        // inactivating unary that seem to be nonsense
+        uoiLvalueMutationsRaw = cast(immutable)[uoiPostInc, uoiPostDec,
+            uoiPreInc, uoiPreDec, uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
+            uoiIndirection, uoiComplement, uoiSizeof_,*/
+            ];
+        uoiRvalueMutationsRaw = cast(immutable)[uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
+            uoiIndirection*, uoiPositive, uoiComplement, uoiSizeof_,*/
+        ];
         absMutationsRaw = cast(immutable)[absPos, absNeg, absZero,];
         stmtDelMutationsRaw = cast(immutable)[stmtDel];
     }
