@@ -158,7 +158,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
 
 private:
 
-/**
+/** Run the test suite to verify a mutation.
  *
  * Params:
  *  p = ?
