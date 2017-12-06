@@ -81,3 +81,25 @@ a = 0 + c
 
 ## Statement Deletion (SD)
 Delete one statement at a time.
+
+# SPC-plugin_mutate_statement_del
+partof: REQ-plugin_mutate-mutations
+###
+
+The plugin shall remove one statement when generating a _statement deletion_ mutation.
+
+# SPC-plugin_mutate_statement_del-call_expression
+partof: SPC-plugin_mutate_statement_del
+###
+
+The plugin shall remove function calls.
+
+## Clarification
+Technically a function call is an expression in the clang AST.
+
+A statement include call expressions in the AST.
+
+# TST-plugin_mutate_statement_del-call_expression
+###
+
+A mutation is expected to result in valid code.

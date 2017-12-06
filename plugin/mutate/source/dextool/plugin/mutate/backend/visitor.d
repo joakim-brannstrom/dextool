@@ -275,6 +275,7 @@ import dextool.plugin.mutate.backend.type : Offset;
 
 // trusted: the tokens do not escape this function.
 Offset calcOffset(T)(const(T) v) @trusted {
+    import clang.c.Index : CXTokenKind;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
@@ -292,8 +293,12 @@ Offset calcOffset(T)(const(T) v) @trusted {
 
         // TODO do something smarter;
         foreach (t; arg.tokens) {
+            // only interested in the punctuation ";" because it must also be
+            // deleted when removing a function call.
             if (t.location.offset >= sr.end.offset) {
-                rval.end = t.extent.end.offset;
+                if (t.kind == CXTokenKind.punctuation && t.spelling == ";") {
+                    rval.end = t.extent.end.offset;
+                }
                 break;
             }
         }
