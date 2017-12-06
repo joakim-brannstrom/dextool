@@ -19,9 +19,6 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutant-compile", "/bin/true"])
-        .addArg(["--mutant-test", "/bin/true"])
-        .addArg(["--mutant-test-runtime", "10000"])
         .addArg(["--mutation", "stmtDel"])
         .run;
 }
@@ -37,9 +34,6 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutant-compile", "/bin/true"])
-        .addArg(["--mutant-test", "/bin/true"])
-        .addArg(["--mutant-test-runtime", "10000"])
         .addArg(["--mutation", "stmtDel"])
         .run;
 

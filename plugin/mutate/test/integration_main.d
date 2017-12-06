@@ -12,7 +12,9 @@ int main(string[] args) {
     // dfmt off
     return args.runTests!(
                           "dextool_test.mutate_abs",
-                          "dextool_test.mutate_operators",
+                          "dextool_test.mutate_aor",
+                          "dextool_test.mutate_lcr",
+                          "dextool_test.mutate_ror",
                           "dextool_test.mutate_stmt_deletion",
                           "dextool_test.mutate_uoi",
                           "dextool_test.test_analyzer",
