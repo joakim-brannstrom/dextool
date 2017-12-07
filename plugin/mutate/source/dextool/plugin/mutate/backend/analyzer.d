@@ -35,6 +35,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
     import dextool.type : FileName, Exists, makeExists;
     import dextool.utility : analyzeFile;
 
+    bool[string] analyzed_files;
     foreach (in_file; frange) {
         // find the file and flags to analyze
 
@@ -47,8 +48,9 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
             continue;
         }
 
-        if (db.isAnalyzed(checked_in_file))
+        if (checked_in_file in analyzed_files || db.isAnalyzed(checked_in_file))
             continue;
+        analyzed_files[checked_in_file] = true;
 
         // analye the file
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
