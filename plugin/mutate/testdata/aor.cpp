@@ -21,8 +21,11 @@ void arithemtic_operators() {
     int d = a - b;
     int e = a * b;
     int f = a / b;
+}
 
+void arith_op_on_object() {
     OpOverload oa, ob;
+
     oa + ob;
     oa - ob;
     oa* ob;

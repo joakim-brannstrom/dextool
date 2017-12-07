@@ -287,6 +287,9 @@ struct Database {
 
     /** Save mutation points found in a specific file.
      *
+     * Note: this assumes a file is never added more than once.
+     * If it where ever to be the mutation points would be duplicated.
+     *
      * trusted: the d2sqlite3 interface is assumed to work correctly when the
      * data via bind is *ok*.
      */
@@ -304,13 +307,12 @@ struct Database {
 
         FileId[string] file_ids;
         foreach (a; mps) {
-            FileId id;
-
             if (a.file is null) {
                 debug logger.trace("this should not happen. The file is null file");
                 continue;
             }
 
+            FileId id;
             // assuming it is slow to lookup in the database so cache the lookups.
             if (auto e = a.file in file_ids) {
                 id = *e;
@@ -370,31 +372,37 @@ do {
     return db;
 }
 
-void initializeTables(ref sqlDatabase db) {
-    // checksum is 128bit. Using a integer to better represent and search for
-    // them in queries.
-    db.run("CREATE TABLE files (
+immutable files_tbl = "CREATE %s TABLE %s (
     id          INTEGER PRIMARY KEY,
     path        TEXT NOT NULL,
     checksum0   INTEGER NOT NULL,
     checksum1   INTEGER NOT NULL
-    )");
-
-    db.run("CREATE TABLE mutation_point (
+    )";
+immutable mutation_point_tbl = "CREATE %s TABLE %s (
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
     offset_end      INTEGER NOT NULL,
     FOREIGN KEY(file_id) REFERENCES files(id)
-    )");
-
-    // time in ms spent on verifying the mutant
-    db.run("CREATE TABLE mutation (
+    )";
+immutable mutation_tbl = "CREATE %s TABLE %s (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
     time    INTEGER,
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
-    )");
+    )";
+
+void initializeTables(ref sqlDatabase db) {
+    import std.format : format;
+
+    // checksum is 128bit. Using a integer to better represent and search for
+    // them in queries.
+    db.run(format(files_tbl, "", "files"));
+
+    db.run(format(mutation_point_tbl, "", "mutation_point"));
+
+    // time in ms spent on verifying the mutant
+    db.run(format(mutation_tbl, "", "mutation"));
 }
