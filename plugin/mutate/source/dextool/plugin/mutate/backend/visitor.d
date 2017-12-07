@@ -306,10 +306,8 @@ Offset calcOffset(T)(const(T) v) @trusted {
         // or even better. Get the tokens at the end.
         auto arg = v.cursor.translationUnit.cursor;
 
-        // TODO do something smarter;
         foreach (t; arg.tokens) {
-            // only interested in the punctuation ";" because it must also be
-            // deleted when removing a function call.
+            // also delete the punctuation ";" when removing a function call
             if (t.location.offset >= sr.end.offset) {
                 if (t.kind == CXTokenKind.punctuation && t.spelling == ";") {
                     rval.end = t.extent.end.offset;
