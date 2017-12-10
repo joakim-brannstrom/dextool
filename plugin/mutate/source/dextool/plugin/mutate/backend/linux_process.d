@@ -1,0 +1,155 @@
+/**
+Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+License: MPL-2
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at http://mozilla.org/MPL/2.0/.
+
+This module contains process funtions to use session groups when running
+processes.
+*/
+module dextool.plugin.mutate.backend.linux_process;
+
+struct PidSession {
+    import core.sys.posix.unistd : pid_t;
+
+    enum Status {
+        failed,
+        active
+    }
+
+    Status status;
+    pid_t pid;
+}
+
+/** Fork to a new session and process group.
+ *
+ * The first index of args must be the path to the program.
+ * The path must be absolute for the effect to be visible when running e.g. ps.
+ *
+ * trusted: the input and memory allocations use the GC and the facilities in D
+ * to keep array's safe.
+ *
+ * Params:
+ *  args = arguments to run.
+ */
+PidSession spawnSession(const char[][] args) @trusted nothrow {
+    import core.stdc.stdlib;
+    import core.sys.posix.unistd;
+    import core.sys.posix.signal;
+    import std.string : toStringz;
+
+    // use the GC before forking to avoid possible problems with deadlocks
+    auto argz = new const(char)*[args.length + 1];
+    foreach (i; 0 .. args.length)
+        argz[i] = toStringz(args[i]);
+    argz[$ - 1] = null;
+
+    // NO GC after this point.
+    auto pid = fork();
+    if (pid < 0) {
+        // failed to fork
+        return PidSession();
+    } else if (pid > 0) {
+        // parent
+        return PidSession(PidSession.Status.active, pid);
+    }
+
+    close(0);
+    close(1);
+    close(2);
+
+    auto sid = setsid();
+    if (sid < 0) {
+        // unfortantly unable to inform the parent of the failure
+        exit(-1);
+        return PidSession();
+    }
+
+    // note: if a pre execve function are to be called do it here.
+
+    execve(argz[0], argz.ptr, null);
+
+    // dummy, this is never reached.
+    return PidSession();
+}
+
+struct Wait {
+    bool terminated;
+    int status;
+}
+
+/**
+ * trusted: no memory is accessed thus no memory unsafe operations are
+ * performed.
+ */
+private Wait performWait(const PidSession p, bool blocking) @trusted nothrow @nogc {
+    import core.sys.posix.unistd;
+    import core.sys.posix.sys.wait;
+    import core.stdc.errno : errno, ECHILD;
+
+    if (p.status != PidSession.Status.active)
+        return Wait(true);
+
+    int status;
+    int exitCode;
+    bool result;
+
+    while (true) {
+        auto check = waitpid(p.pid, &status, blocking ? 0 : WNOHANG);
+        if (check < 0) {
+            if (errno == ECHILD) {
+                result = true;
+                break;
+            } else {
+                continue;
+            }
+        } else if (check == 0) {
+            break;
+        }
+
+        result = true;
+
+        if (WIFEXITED(status)) {
+            exitCode = WEXITSTATUS(status);
+            break;
+        } else if (WIFSIGNALED(status)) {
+            exitCode = -WTERMSIG(status);
+            break;
+        }
+
+        if (check > 0)
+            break;
+    }
+
+    return Wait(result, exitCode);
+}
+
+Wait tryWait(const PidSession p) @safe nothrow @nogc {
+    return performWait(p, false);
+}
+
+Wait wait(const PidSession p) @safe nothrow @nogc {
+    return performWait(p, true);
+}
+
+enum KillResult {
+    error,
+    success
+}
+
+/**
+ * trusted: no memory is manipulated thus it is memory safe.
+ */
+KillResult kill(const PidSession p, int signal) @trusted nothrow @nogc {
+    import core.sys.posix.unistd;
+    import core.sys.posix.signal;
+
+    if (p.status != PidSession.Status.active)
+        return KillResult.error;
+
+    auto res = killpg(p.pid, signal);
+    return res == 0 ? KillResult.success : KillResult.error;
+}
