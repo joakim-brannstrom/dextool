@@ -19,7 +19,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutation", "stmtDel"])
+        .addArg(["--mutant", "stmtDel"])
         .run;
 }
 
@@ -34,7 +34,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutation", "stmtDel"])
+        .addArg(["--mutant", "stmtDel"])
         .run;
 
     r.stdout.sliceContains("'gun();' to ''").shouldBeTrue;

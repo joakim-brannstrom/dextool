@@ -19,6 +19,6 @@ unittest {
         .run;
     makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutation", "lcr"])
+        .addArg(["--mutant", "lcr"])
         .run;
 }

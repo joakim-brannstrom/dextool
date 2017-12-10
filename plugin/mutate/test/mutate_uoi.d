@@ -19,7 +19,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutation", "uoi"])
+        .addArg(["--mutant", "uoi"])
         .run;
 
     // shall NOT insert unary operators on the lhs of the assignment
