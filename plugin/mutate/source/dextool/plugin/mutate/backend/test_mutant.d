@@ -170,31 +170,31 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     import core.time : dur;
     import std.algorithm : among;
     import std.datetime : Clock;
-    import std.process : spawnProcess, tryWait, kill, wait;
+    import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
+        kill, wait;
     import std.stdio : File;
 
     Mutation.Status rval;
 
-    try {
-        auto comp_res = spawnProcess(compile_p, fio.getStdin, fio.getDevNull, fio.getDevNull).wait;
-        if (comp_res != 0)
+    {
+        auto res = spawnSession([cast(string) compile_p]).wait;
+        if (res.terminated && res.status != 0)
             return Mutation.Status.killedByCompiler;
-    }
-    catch (Exception e) {
-        // unable to for example execute the compiler
-        logger.warning(e.msg).collectException;
-        return Mutation.Status.unknown;
+        else if (!res.terminated) {
+            logger.warning("unknown error when executing the compiler").collectException;
+            return Mutation.Status.unknown;
+        }
     }
 
     try {
-        auto p = spawnProcess(tester_p, fio.getStdin, fio.getDevNull, fio.getDevNull);
+        auto p = spawnSession([cast(string) tester_p]);
         // trusted: killing the process started in this scope
-        void cleanup() @trusted {
+        void cleanup() @safe nothrow {
             import core.sys.posix.signal : SIGKILL;
 
             if (rval.among(Mutation.Status.timeout, Mutation.Status.unknown)) {
-                p.kill(SIGKILL);
-                p.wait;
+                kill(p, SIGKILL);
+                wait(p);
             }
         }
 
