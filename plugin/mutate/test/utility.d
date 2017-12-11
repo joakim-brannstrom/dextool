@@ -15,9 +15,9 @@ public import dextool_test.config;
 
 auto makeDextool(const ref TestEnv env) {
     return dextool_test.makeDextool(env).args(["mutate"]).addArg(["--db",
-            (env.outdir ~ "database.sqlite3").toString]).addArg(["--out", env.outdir.toString]).addArg("--dry-run")
-        .addArg(["--mutation-order", "consecutive"]).addArg(["--mutant-compile", "/bin/true"])
-        .addArg(["--mutant-test", "/bin/true"]).addArg(["--mutant-test-runtime", "10000"]);
+            (env.outdir ~ "database.sqlite3").toString]).addArg("--dry-run").addArg(["--mutant-order", "consecutive"])
+        .addArg(["--mutant-compile", "/bin/true"]).addArg(["--mutant-test",
+                "/bin/true"]).addArg(["--mutant-test-runtime", "10000"]);
 }
 
 auto makeCompile(const ref TestEnv env, Path srcdir) {

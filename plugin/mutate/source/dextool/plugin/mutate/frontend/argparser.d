@@ -91,12 +91,12 @@ struct ArgParser {
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "mode", "tool mode " ~ format("[%(%s|%)]", [EnumMembers!ToolMode]), &toolMode,
+                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "mutant-compile", "program to use to compile the mutant", &mutationCompile,
+                   "mutant-id", "generate a specific mutation (only useful with mode generate_mutant)", &cli_mutation_id,
+                   "mutant-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    "mutant-test", "program to use to execute the mutant tester", &mutationTester,
                    "mutant-test-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
-                   "mutation", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "mutation-id", "generate a specific mutation (only useful with mode generate_mutant)", &cli_mutation_id,
-                   "mutation-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    );
             // dfmt on
 
