@@ -143,6 +143,18 @@ final class ExpressionVisitor : Visitor {
         v.accept(this);
     }
 
+    override void visit(const(BreakStmt) v) {
+        mixin(mixinNodeLog!());
+
+        auto loc = v.cursor.location;
+        if (!val_loc.shouldAnalyze(loc.path)) {
+            return;
+        }
+
+        addStatement(v);
+        v.accept(this);
+    }
+
     override void visit(const(BinaryOperator) v) {
         mixin(mixinNodeLog!());
 
@@ -287,6 +299,7 @@ final class ExpressionVisitor : Visitor {
 
 private:
 
+import clang.c.Index : CXTokenKind;
 import dextool.plugin.mutate.backend.type : Offset;
 
 // trusted: the tokens do not escape this function.
@@ -297,29 +310,32 @@ Offset calcOffset(T)(const(T) v) @trusted {
 
     Offset rval;
 
-    static if (is(T == CallExpr)) {
-        import clang.Token;
+    auto sr = v.cursor.extent;
+    rval = Offset(sr.start.offset, sr.end.offset);
 
-        auto sr = v.cursor.extent;
-        rval = Offset(sr.start.offset, sr.end.offset);
+    static if (is(T == CallExpr) || is(T == BreakStmt)) {
+        import clang.Token;
 
         // TODO this is extremly inefficient. change to a more localized cursor
         // or even better. Get the tokens at the end.
         auto arg = v.cursor.translationUnit.cursor;
 
-        foreach (t; arg.tokens) {
-            // also delete the punctuation ";" when removing a function call
-            if (t.location.offset >= sr.end.offset) {
-                if (t.kind == CXTokenKind.punctuation && t.spelling == ";") {
-                    rval.end = t.extent.end.offset;
-                }
-                break;
-            }
-        }
-    } else {
-        auto sr = v.cursor.extent;
-        rval = Offset(sr.start.offset, sr.end.offset);
+        rval.end = findTokenOffset(arg.tokens, rval, CXTokenKind.punctuation, ";");
     }
 
     return rval;
+}
+
+/// trusted: trusting the impl in clang.
+uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind, string spelling) @trusted {
+    foreach (ref t; toks) {
+        if (t.location.offset >= sr.end) {
+            if (t.kind == kind && t.spelling == spelling) {
+                return t.extent.end.offset;
+            }
+            break;
+        }
+    }
+
+    return sr.end;
 }
