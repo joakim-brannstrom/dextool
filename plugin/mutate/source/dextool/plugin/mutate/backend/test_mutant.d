@@ -177,7 +177,7 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
 
     Mutation.Status rval;
 
-    {
+    try {
         auto p = spawnSession([cast(string) compile_p]);
         auto res = p.wait;
         if (res.terminated && res.status != 0)
@@ -186,6 +186,9 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
             logger.warning("unknown error when executing the compiler").collectException;
             return Mutation.Status.unknown;
         }
+    }
+    catch (Exception e) {
+        logger.warning(e.msg).collectException;
     }
 
     try {
