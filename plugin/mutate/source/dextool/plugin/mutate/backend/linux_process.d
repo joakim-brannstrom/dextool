@@ -17,11 +17,19 @@ struct PidSession {
 
     enum Status {
         failed,
-        active
+        active,
     }
 
     Status status;
     pid_t pid;
+
+    @disable this(this);
+
+    ~this() @safe nothrow @nogc {
+        import core.sys.posix.signal : SIGKILL;
+
+        kill(this, SIGKILL);
+    }
 }
 
 /** Fork to a new session and process group.
@@ -35,11 +43,20 @@ struct PidSession {
  * Params:
  *  args = arguments to run.
  */
-PidSession spawnSession(const char[][] args) @trusted nothrow {
+PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted nothrow {
     import core.stdc.stdlib;
     import core.sys.posix.unistd;
     import core.sys.posix.signal;
     import std.string : toStringz;
+
+    const(char*)* envz;
+
+    try {
+        envz = createEnv(null, true);
+    }
+    catch (Exception e) {
+        return PidSession();
+    }
 
     // use the GC before forking to avoid possible problems with deadlocks
     auto argz = new const(char)*[args.length + 1];
@@ -57,9 +74,11 @@ PidSession spawnSession(const char[][] args) @trusted nothrow {
         return PidSession(PidSession.Status.active, pid);
     }
 
-    close(0);
-    close(1);
-    close(2);
+    if (!debug_) {
+        close(0);
+        close(1);
+        close(2);
+    }
 
     auto sid = setsid();
     if (sid < 0) {
@@ -70,7 +89,7 @@ PidSession spawnSession(const char[][] args) @trusted nothrow {
 
     // note: if a pre execve function are to be called do it here.
 
-    execve(argz[0], argz.ptr, null);
+    execve(argz[0], argz.ptr, envz);
 
     // dummy, this is never reached.
     return PidSession();
@@ -85,7 +104,7 @@ struct Wait {
  * trusted: no memory is accessed thus no memory unsafe operations are
  * performed.
  */
-private Wait performWait(const PidSession p, bool blocking) @trusted nothrow @nogc {
+private Wait performWait(const ref PidSession p, bool blocking) @trusted nothrow @nogc {
     import core.sys.posix.unistd;
     import core.sys.posix.sys.wait;
     import core.stdc.errno : errno, ECHILD;
@@ -93,24 +112,24 @@ private Wait performWait(const PidSession p, bool blocking) @trusted nothrow @no
     if (p.status != PidSession.Status.active)
         return Wait(true);
 
-    int status;
     int exitCode;
-    bool result;
 
     while (true) {
+        int status;
         auto check = waitpid(p.pid, &status, blocking ? 0 : WNOHANG);
-        if (check < 0) {
+        if (check == -1) {
             if (errno == ECHILD) {
-                result = true;
-                break;
+                // process does not exist
+                return Wait(true, 0);
             } else {
+                // interrupted by a signal
                 continue;
             }
-        } else if (check == 0) {
-            break;
         }
 
-        result = true;
+        if (!blocking && check == 0) {
+            return Wait(false, 0);
+        }
 
         if (WIFEXITED(status)) {
             exitCode = WEXITSTATUS(status);
@@ -120,18 +139,18 @@ private Wait performWait(const PidSession p, bool blocking) @trusted nothrow @no
             break;
         }
 
-        if (check > 0)
+        if (!blocking)
             break;
     }
 
-    return Wait(result, exitCode);
+    return Wait(true, exitCode);
 }
 
-Wait tryWait(const PidSession p) @safe nothrow @nogc {
+Wait tryWait(const ref PidSession p) @safe nothrow @nogc {
     return performWait(p, false);
 }
 
-Wait wait(const PidSession p) @safe nothrow @nogc {
+Wait wait(const ref PidSession p) @safe nothrow @nogc {
     return performWait(p, true);
 }
 
@@ -143,13 +162,60 @@ enum KillResult {
 /**
  * trusted: no memory is manipulated thus it is memory safe.
  */
-KillResult kill(const PidSession p, int signal) @trusted nothrow @nogc {
+KillResult kill(const ref PidSession p, int signal) @trusted nothrow @nogc {
     import core.sys.posix.unistd;
     import core.sys.posix.signal;
+    import core.stdc.errno : errno, EINVAL, EPERM, ESRCH;
 
     if (p.status != PidSession.Status.active)
         return KillResult.error;
 
-    auto res = killpg(p.pid, signal);
-    return res == 0 ? KillResult.success : KillResult.error;
+    auto sid = getpgid(p.pid);
+    return killpg(sid, signal) == 0 ? KillResult.success : KillResult.error;
+}
+
+// COPIED FROM PHOBOS.
+private extern (C) extern __gshared const char** environ;
+// Made available by the C runtime:
+private const(char**) getEnvironPtr() @trusted {
+    return environ;
+}
+
+// Converts childEnv to a zero-terminated array of zero-terminated strings
+// on the form "name=value", optionally adding those of the current process'
+// environment strings that are not present in childEnv.  If the parent's
+// environment should be inherited without modification, this function
+// returns environ directly.
+private const(char*)* createEnv(const string[string] childEnv, bool mergeWithParentEnv) @trusted {
+
+    // Determine the number of strings in the parent's environment.
+    int parentEnvLength = 0;
+    auto environ = getEnvironPtr;
+    if (mergeWithParentEnv) {
+        if (childEnv.length == 0)
+            return environ;
+        while (environ[parentEnvLength] != null)
+            ++parentEnvLength;
+    }
+
+    // Convert the "new" variables to C-style strings.
+    auto envz = new const(char)*[parentEnvLength + childEnv.length + 1];
+    int pos = 0;
+    foreach (var, val; childEnv)
+        envz[pos++] = (var ~ '=' ~ val ~ '\0').ptr;
+
+    // Add the parent's environment.
+    foreach (environStr; environ[0 .. parentEnvLength]) {
+        int eqPos = 0;
+        while (environStr[eqPos] != '=' && environStr[eqPos] != '\0')
+            ++eqPos;
+        if (environStr[eqPos] != '=')
+            continue;
+        auto var = environStr[0 .. eqPos];
+        if (var in childEnv)
+            continue;
+        envz[pos++] = environStr;
+    }
+    envz[pos] = null;
+    return envz.ptr;
 }

@@ -173,11 +173,13 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
     import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
         kill, wait;
     import std.stdio : File;
+    import core.sys.posix.signal : SIGKILL;
 
     Mutation.Status rval;
 
     {
-        auto res = spawnSession([cast(string) compile_p]).wait;
+        auto p = spawnSession([cast(string) compile_p]);
+        auto res = p.wait;
         if (res.terminated && res.status != 0)
             return Mutation.Status.killedByCompiler;
         else if (!res.terminated) {
