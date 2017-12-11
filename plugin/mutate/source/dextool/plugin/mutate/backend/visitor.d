@@ -92,6 +92,7 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
+        addStatement(v);
         addExprMutationPoint(getExprOperator(v.cursor));
 
         v.accept(this);
