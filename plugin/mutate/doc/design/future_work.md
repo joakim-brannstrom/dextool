@@ -65,8 +65,11 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * fix stmtDel
+    * a parenthesis too much is removed in the initialization list
+ * implement the command_center that makes it possible to run multiple test_mutants.
+ * report mutations performed in the console
  * implement boundary value for floating points.
  * calculate mutation score.
  * optimize the analyzer by using temporary tables.
- * recorde the time spent for each mutation
-    * report the total time spent on mutations
+ * report the total time spent on mutations

@@ -12,6 +12,18 @@ processes.
 */
 module dextool.plugin.mutate.backend.linux_process;
 
+import core.sys.posix.unistd : pid_t;
+
+enum KillResult {
+    error,
+    success
+}
+
+struct Wait {
+    bool terminated;
+    int status;
+}
+
 struct PidSession {
     import core.sys.posix.unistd : pid_t;
 
@@ -28,7 +40,7 @@ struct PidSession {
     ~this() @safe nothrow @nogc {
         import core.sys.posix.signal : SIGKILL;
 
-        kill(this, SIGKILL);
+        killImpl(pid, SIGKILL);
     }
 }
 
@@ -43,11 +55,23 @@ struct PidSession {
  * Params:
  *  args = arguments to run.
  */
-PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted nothrow {
-    import core.stdc.stdlib;
+PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted {
+    import core.stdc.stdlib : exit;
     import core.sys.posix.unistd;
     import core.sys.posix.signal;
     import std.string : toStringz;
+    import std.stdio : File;
+
+    static import core.stdc.stdio;
+
+    static int getFD(ref File f) {
+        return core.stdc.stdio.fileno(f.getFP());
+    }
+
+    // running a compiler/make etc requires stdin/out/err
+    auto stdin_ = File("/dev/null", "r");
+    auto stdout_ = File("/dev/null", "w");
+    auto stderr_ = File("/dev/null", "w");
 
     const(char*)* envz;
 
@@ -74,11 +98,17 @@ PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted nothr
         return PidSession(PidSession.Status.active, pid);
     }
 
-    if (!debug_) {
-        close(0);
-        close(1);
-        close(2);
-    }
+    auto stdin_fd = getFD(stdin_);
+    auto stdout_fd = getFD(stdout_);
+    auto stderr_fd = getFD(stderr_);
+
+    dup2(stdin_fd, STDIN_FILENO);
+    dup2(stdout_fd, STDOUT_FILENO);
+    dup2(stderr_fd, STDERR_FILENO);
+
+    setCLOEXEC(STDIN_FILENO, false);
+    setCLOEXEC(STDOUT_FILENO, false);
+    setCLOEXEC(STDERR_FILENO, false);
 
     auto sid = setsid();
     if (sid < 0) {
@@ -93,11 +123,6 @@ PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted nothr
 
     // dummy, this is never reached.
     return PidSession();
-}
-
-struct Wait {
-    bool terminated;
-    int status;
 }
 
 /**
@@ -154,28 +179,26 @@ Wait wait(const ref PidSession p) @safe nothrow @nogc {
     return performWait(p, true);
 }
 
-enum KillResult {
-    error,
-    success
-}
-
 /**
  * trusted: no memory is manipulated thus it is memory safe.
  */
 KillResult kill(const ref PidSession p, int signal) @trusted nothrow @nogc {
-    import core.sys.posix.unistd;
-    import core.sys.posix.signal;
-    import core.stdc.errno : errno, EINVAL, EPERM, ESRCH;
-
     if (p.status != PidSession.Status.active)
         return KillResult.error;
 
-    auto sid = getpgid(p.pid);
-    return killpg(sid, signal) == 0 ? KillResult.success : KillResult.error;
+    return killImpl(p.pid, signal);
+}
+
+private KillResult killImpl(const pid_t p, int signal) @trusted nothrow @nogc {
+    import core.sys.posix.signal : killpg;
+
+    auto res = killpg(p, signal);
+    return res == 0 ? KillResult.success : KillResult.error;
 }
 
 // COPIED FROM PHOBOS.
 private extern (C) extern __gshared const char** environ;
+
 // Made available by the C runtime:
 private const(char**) getEnvironPtr() @trusted {
     return environ;
@@ -218,4 +241,20 @@ private const(char*)* createEnv(const string[string] childEnv, bool mergeWithPar
     }
     envz[pos] = null;
     return envz.ptr;
+}
+
+// Sets or unsets the FD_CLOEXEC flag on the given file descriptor.
+private void setCLOEXEC(int fd, bool on) nothrow @nogc {
+    import core.stdc.errno : errno, EBADF;
+    import core.sys.posix.fcntl : fcntl, F_GETFD, FD_CLOEXEC, F_SETFD;
+
+    auto flags = fcntl(fd, F_GETFD);
+    if (flags >= 0) {
+        if (on)
+            flags |= FD_CLOEXEC;
+        else
+            flags &= ~(cast(typeof(flags)) FD_CLOEXEC);
+        flags = fcntl(fd, F_SETFD, flags);
+    }
+    assert(flags != -1 || errno == EBADF);
 }
