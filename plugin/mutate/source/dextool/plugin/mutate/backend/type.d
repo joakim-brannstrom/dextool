@@ -30,6 +30,12 @@ struct Offset {
     uint end;
 }
 
+/// Location in the source code.
+struct SourceLoc {
+    uint line;
+    uint column;
+}
+
 /// A possible mutation and its status.
 struct Mutation {
     /// States what kind of mutations that can be performed on this mutation point.
