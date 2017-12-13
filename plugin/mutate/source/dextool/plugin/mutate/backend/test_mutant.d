@@ -116,8 +116,9 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
             logger.warning(e.msg).collectException;
         }
         if (mut_res.status == ExitStatusType.Ok) {
-            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id,
-                    mut_res.from, mut_res.to, mutp.file).collectException;
+            logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
+                    mut_res.from, mut_res.to, mutp.file, mutp.sloc.line, mutp.sloc.column)
+                .collectException;
 
             // test mutant
             try {
@@ -222,6 +223,8 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
             // trusted: a hard coded value is used, no user input.
             () @trusted{ Thread.sleep(1.dur!"msecs"); }();
         }
+
+        rval = Mutation.Status.timeout;
     }
     catch (Exception e) {
         // unable to for example execute the test suite

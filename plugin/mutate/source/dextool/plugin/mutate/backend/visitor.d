@@ -30,7 +30,7 @@ final class ExpressionVisitor : Visitor {
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dextool.clang_extensions;
     import dextool.type : AbsolutePath, FileName;
-    import dextool.plugin.mutate.backend.type : MutationPoint;
+    import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
     import dextool.plugin.mutate.backend.database : MutationPointEntry;
     import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
 
@@ -218,7 +218,8 @@ final class ExpressionVisitor : Visitor {
         auto m0 = absMutations;
         auto m1 = kind == ValueKind.lvalue ? uoiLvalueMutations : uoiRvalueMutations;
         auto m = chain(m0, m1).map!(a => Mutation(a)).array();
-        auto p2 = MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path)));
+        auto p2 = MutationPointEntry(MutationPoint(offs, m),
+                AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column));
         exprs.put(p2);
     }
 
@@ -255,7 +256,8 @@ final class ExpressionVisitor : Visitor {
             m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
 
         if (m.length != 0)
-            exprs.put(MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path))));
+            exprs.put(MutationPointEntry(MutationPoint(offs, m),
+                    AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column)));
     }
 
     override void visit(const(Preprocessor) v) {
@@ -293,7 +295,8 @@ final class ExpressionVisitor : Visitor {
         auto offs = calcOffset(v);
         auto m = stmtDelMutations.map!(a => Mutation(a)).array();
 
-        exprs.put(MutationPointEntry(MutationPoint(offs, m), AbsolutePath(FileName(path))));
+        exprs.put(MutationPointEntry(MutationPoint(offs, m),
+                AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column)));
     }
 }
 

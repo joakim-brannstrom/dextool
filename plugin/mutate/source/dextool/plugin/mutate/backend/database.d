@@ -63,6 +63,7 @@ struct MutationEntry {
 
     MutationId id;
     AbsolutePath file;
+    SourceLoc sloc;
     MutationPoint mp;
     Duration timeSpentMutating;
 }
@@ -72,6 +73,7 @@ struct MutationPointEntry {
 
     MutationPoint mp;
     AbsolutePath file;
+    SourceLoc sloc;
 }
 
 /**
@@ -201,6 +203,8 @@ struct Database {
                                    mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
+                                   mutation_point.line,
+                                   mutation_point.column,
                                    files.path
                                    FROM mutation,mutation_point,files
                                    WHERE
@@ -221,9 +225,10 @@ struct Database {
             auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(5)));
+            auto file = AbsolutePath(FileName(v.peek!string(7)));
+            auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
 
-            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
+            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -246,6 +251,8 @@ struct Database {
                                    mutation.time,
                                    mutation_point.offset_begin,
                                    mutation_point.offset_end,
+                                   mutation_point.line,
+                                   mutation_point.column,
                                    files.path
                                    FROM mutation,mutation_point,files
                                    WHERE
@@ -262,9 +269,10 @@ struct Database {
             auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(5)));
+            auto file = AbsolutePath(FileName(v.peek!string(7)));
+            auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
 
-            rval = MutationEntry(pkey, file, mp, v.peek!long(2).dur!"msecs");
+            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
             collectException(logger.warning(e.msg));
@@ -294,8 +302,7 @@ struct Database {
      * data via bind is *ok*.
      */
     void put(const(MutationPointEntry)[] mps) @trusted {
-        auto mp_stmt = db.prepare(
-                "INSERT INTO mutation_point (file_id, offset_begin, offset_end) VALUES (:fid, :begin, :end)");
+        auto mp_stmt = db.prepare("INSERT INTO mutation_point (file_id, offset_begin, offset_end, line, column) VALUES (:fid, :begin, :end, :line, :column)");
         auto m_stmt = db.prepare(
                 "INSERT INTO mutation (mp_id, kind, status) VALUES (:mp_id, :kind, :status)");
 
@@ -334,6 +341,8 @@ struct Database {
                 mp_stmt.bind(":fid", cast(long) id);
                 mp_stmt.bind(":begin", a.mp.offset.begin);
                 mp_stmt.bind(":end", a.mp.offset.end);
+                mp_stmt.bind(":line", a.sloc.line);
+                mp_stmt.bind(":column", a.sloc.column);
                 mp_stmt.execute;
                 return db.lastInsertRowid;
             }();
@@ -378,13 +387,19 @@ immutable files_tbl = "CREATE %s TABLE %s (
     checksum0   INTEGER NOT NULL,
     checksum1   INTEGER NOT NULL
     )";
+
+// line start from zero
 immutable mutation_point_tbl = "CREATE %s TABLE %s (
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
     offset_end      INTEGER NOT NULL,
+    line            INTEGER,
+    column          INTEGER,
     FOREIGN KEY(file_id) REFERENCES files(id)
     )";
+
+// time in ms spent on verifying the mutant
 immutable mutation_tbl = "CREATE %s TABLE %s (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
@@ -403,6 +418,5 @@ void initializeTables(ref sqlDatabase db) {
 
     db.run(format(mutation_point_tbl, "", "mutation_point"));
 
-    // time in ms spent on verifying the mutant
     db.run(format(mutation_tbl, "", "mutation"));
 }
