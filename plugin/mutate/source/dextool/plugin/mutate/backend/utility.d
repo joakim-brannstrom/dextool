@@ -40,11 +40,11 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
     case any:
         return [EnumMembers!(Mutation.Kind)];
     case ror:
-        return rorMutationsRaw.dup;
+        return rorMutationsAll.dup;
     case lcr:
-        return lcrMutationsRaw.dup;
+        return lcrMutationsAll.dup;
     case aor:
-        return aorMutationsRaw.dup ~ aorAssignMutationsRaw;
+        return aorMutationsAll.dup ~ aorAssignMutationsAll;
     case uoi:
         return uoiLvalueMutations;
     case abs:
@@ -57,19 +57,19 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
 import std.algorithm : filter;
 
 auto rorMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return rorMutationsRaw.filter!(a => a != is_a);
+    return rorMutationsAll.filter!(a => a != is_a);
 }
 
 auto lcrMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return lcrMutationsRaw.filter!(a => a != is_a);
+    return lcrMutationsAll.filter!(a => a != is_a);
 }
 
 auto aorMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return aorMutationsRaw.filter!(a => a != is_a);
+    return aorMutationsAll.filter!(a => a != is_a);
 }
 
 auto aorAssignMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return aorAssignMutationsRaw.filter!(a => a != is_a);
+    return aorAssignMutationsAll.filter!(a => a != is_a);
 }
 
 Mutation.Kind[] uoiLvalueMutations() @safe pure nothrow {
@@ -93,12 +93,10 @@ immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[OpKind] isAor;
 immutable Mutation.Kind[OpKind] isAorAssign;
 
-private:
-
-immutable Mutation.Kind[] rorMutationsRaw;
-immutable Mutation.Kind[] lcrMutationsRaw;
-immutable Mutation.Kind[] aorMutationsRaw;
-immutable Mutation.Kind[] aorAssignMutationsRaw;
+immutable Mutation.Kind[] rorMutationsAll;
+immutable Mutation.Kind[] lcrMutationsAll;
+immutable Mutation.Kind[] aorMutationsAll;
+immutable Mutation.Kind[] aorAssignMutationsAll;
 immutable Mutation.Kind[] uoiLvalueMutationsRaw;
 immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 immutable Mutation.Kind[] absMutationsRaw;
@@ -162,10 +160,10 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        rorMutationsRaw = cast(immutable)[rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE,];
-        lcrMutationsRaw = cast(immutable)[lcrAnd, lcrOr,];
-        aorMutationsRaw = cast(immutable)[aorMul, aorDiv, aorRem, aorAdd, aorSub,];
-        aorAssignMutationsRaw = cast(immutable)[aorMulAssign, aorDivAssign,
+        rorMutationsAll = cast(immutable)[rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE,];
+        lcrMutationsAll = cast(immutable)[lcrAnd, lcrOr,];
+        aorMutationsAll = cast(immutable)[aorMul, aorDiv, aorRem, aorAdd, aorSub,];
+        aorAssignMutationsAll = cast(immutable)[aorMulAssign, aorDivAssign,
             aorRemAssign, aorAddAssign, aorSubAssign,];
         // inactivating unary that seem to be nonsense
         uoiLvalueMutationsRaw = cast(immutable)[uoiPostInc, uoiPostDec,

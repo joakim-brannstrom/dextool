@@ -28,7 +28,7 @@ enum ToolMode {
     /// test mutation points with a test suite
     test_mutants,
     /// generate a report of the mutation points
-    report_generator,
+    report,
     /// API for external programs to access the internal information
     information_center,
 }

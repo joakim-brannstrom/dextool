@@ -13,4 +13,5 @@ public import dextool.plugin.mutate.backend.analyzer;
 public import dextool.plugin.mutate.backend.database;
 public import dextool.plugin.mutate.backend.generate_mutant;
 public import dextool.plugin.mutate.backend.interface_;
+public import dextool.plugin.mutate.backend.report;
 public import dextool.plugin.mutate.backend.test_mutant;
