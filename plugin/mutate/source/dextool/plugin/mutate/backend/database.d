@@ -76,14 +76,23 @@ struct MutationPointEntry {
     SourceLoc sloc;
 }
 
+struct MutationReportEntry {
+    import core.time : Duration;
+
+    long count;
+    Duration time;
+}
+
 /**
  */
 struct Database {
     import std.conv : to;
+    import std.exception : collectException;
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
         Checksum;
     import dextool.plugin.mutate.type : MutationOrder;
+    import d2sqlite3 : Row;
 
     private sqlDatabase* db;
     private MutationOrder mut_order;
@@ -211,7 +220,7 @@ struct Database {
                                    mutation.status == 0 AND
                                    mutation.mp_id == mutation_point.id AND
                                    mutation_point.file_id == files.id AND
-                                   mutation.kind in (%(%s,%)) %s LIMIT 1",
+                                   mutation.kind IN (%(%s,%)) %s LIMIT 1",
                     kinds.map!(a => cast(int) a), order);
             auto stmt = db.prepare(prep_str);
             // TODO this should work. why doesn't it?
@@ -238,7 +247,6 @@ struct Database {
     }
 
     Nullable!MutationEntry getMutation(MutationId id) nothrow @trusted {
-        import std.exception : collectException;
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;
 
@@ -275,7 +283,59 @@ struct Database {
             rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
-            collectException(logger.warning(e.msg));
+            logger.warning(e.msg).collectException;
+        }
+
+        return rval;
+    }
+
+    void iterateMutants(void delegate(ref Row) dg) nothrow @trusted {
+        immutable all_mutants = "SELECT
+            mutation.id,
+            mutation.kind,
+            mutation.time,
+            mutation_point.offset_begin,
+            mutation_point.offset_end,
+            mutation_point.line,
+            mutation_point.column,
+            files.path
+            FROM mutation,mutation_point,files
+            ";
+
+        try {
+            auto stmt = db.prepare(all_mutants);
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    import dextool.plugin.mutate.backend.type;
+
+    alias aliveMutants = countMutants!(Mutation.Status.alive);
+    alias killedMutants = countMutants!(Mutation.Status.killed);
+    alias timeoutMutants = countMutants!(Mutation.Status.timeout);
+    alias unknownMutants = countMutants!(Mutation.Status.unknown);
+
+    private Nullable!MutationReportEntry countMutants(int status)(Mutation.Kind[] kinds) nothrow @trusted {
+        import core.time : dur;
+        import std.algorithm : map;
+        import std.format : format;
+
+        enum query = format("SELECT count(*),sum(mutation.time) FROM mutation WHERE status==%s AND kind IN (%s)",
+                    status, "%(%s,%)");
+
+        typeof(return) rval;
+        try {
+            auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
+            auto res = stmt.execute;
+            if (res.empty)
+                return rval;
+            rval = MutationReportEntry(res.front.peek!long(0),
+                    res.front.peek!long(1).dur!"msecs");
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
 
         return rval;

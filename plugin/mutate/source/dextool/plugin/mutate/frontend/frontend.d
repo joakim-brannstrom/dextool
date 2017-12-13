@@ -115,8 +115,10 @@ ExitStatusType runMutate(Frontend fe) {
 
         return runTestMutant(db, fe.mutation, fe.mutationTester,
                 fe.mutationCompile, fe.mutationTesterRuntime, fe_io);
-    case ToolMode.report_generator:
-        break;
+    case ToolMode.report:
+        import dextool.plugin.mutate.backend : runReport;
+
+        return runReport(db, fe.mutation);
     case ToolMode.information_center:
         break;
     }
