@@ -316,6 +316,7 @@ struct Database {
     alias killedMutants = countMutants!(Mutation.Status.killed);
     alias timeoutMutants = countMutants!(Mutation.Status.timeout);
     alias unknownMutants = countMutants!(Mutation.Status.unknown);
+    alias killedByCompilerMutants = countMutants!(Mutation.Status.killedByCompiler);
 
     private Nullable!MutationReportEntry countMutants(int status)(Mutation.Kind[] kinds) nothrow @trusted {
         import core.time : dur;
