@@ -37,13 +37,14 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
             .map!(a => a.count).sum;
         const auto untested_cnt = untested.isNull ? 0 : untested.count;
         const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
-            : 9999.dur!"days";
+            : 0.dur!"msecs";
 
         logger.infof("Mutation statistics (%s)", kind);
         logger.info("Total time running mutation testing (compilation + test): ", total_time);
-        logger.infof(total_cnt > 0, "Predicted time until mutation testing is done: %s (%s)",
+        logger.infof(untested_cnt > 0 && predicted > 0.dur!"msecs",
+                "Predicted time until mutation testing is done: %s (%s)",
                 predicted, Clock.currTime + predicted);
-        logger.infof(!timeout.isNull, "Untested: %s", untested.count);
+        logger.infof(!untested.isNull && untested.count > 0, "Untested: %s", untested.count);
         logger.infof(!alive.isNull, "Alive: %s (%s)", alive.count, alive.time);
         logger.infof(!killed.isNull, "Killed: %s (%s)", killed.count, killed.time);
         logger.infof(!timeout.isNull, "Timeout: %s (%s)", timeout.count, timeout.time);
