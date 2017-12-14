@@ -289,9 +289,13 @@ struct Database {
         return rval;
     }
 
-    void iterateMutants(void delegate(ref Row) dg) nothrow @trusted {
+    void iterateMutants(Mutation.Kind[] kinds, void delegate(ref Row) dg) nothrow @trusted {
+        import std.algorithm : map;
+        import std.format : format;
+
         immutable all_mutants = "SELECT
             mutation.id,
+            mutation.status,
             mutation.kind,
             mutation.time,
             mutation_point.offset_begin,
@@ -300,10 +304,17 @@ struct Database {
             mutation_point.column,
             files.path
             FROM mutation,mutation_point,files
-            ";
+            WHERE
+            mutation.kind IN (%(%s,%)) AND
+            mutation.mp_id == mutation_point.id AND
+            mutation_point.file_id == files.id
+            ORDER BY mutation.status";
 
         try {
-            auto stmt = db.prepare(all_mutants);
+            auto res = db.prepare(format(all_mutants, kinds.map!(a => cast(int) a))).execute;
+            foreach (ref row; res) {
+                dg(row);
+            }
         }
         catch (Exception e) {
             logger.error(e.msg).collectException;
