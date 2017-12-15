@@ -24,10 +24,12 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
     import std.datetime : Clock;
     import dextool.plugin.mutate.backend.utility;
 
-    auto alive = db.aliveMutants(kind.toInternal);
-    auto killed = db.killedMutants(kind.toInternal);
-    auto timeout = db.timeoutMutants(kind.toInternal);
-    auto untested = db.unknownMutants(kind.toInternal);
+    auto kinds = kind.toInternal;
+
+    auto alive = db.aliveMutants(kinds);
+    auto killed = db.killedMutants(kinds);
+    auto timeout = db.timeoutMutants(kinds);
+    auto untested = db.unknownMutants(kinds);
     auto killed_by_compiler = db.killedByCompilerMutants(kind.toInternal);
 
     try {
@@ -56,6 +58,32 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
     catch (Exception e) {
         logger.error(e.msg).collectException;
     }
+
+    import d2sqlite3 : Row;
+
+    // trusted: trustin gthat d2sqlite3 and sqlite3 is memory safe.
+    void locationPrinter(ref Row r) @trusted nothrow {
+        import std.conv : to;
+        import std.format : format;
+
+        try {
+            auto status = r.peek!int(1).to!(Mutation.Status);
+            auto msg = format("%s %s %s %s:%s:%s", r.peek!long(0), status,
+                    r.peek!int(2).to!(Mutation.Kind), r.peek!string(8),
+                    r.peek!long(6), r.peek!long(7));
+            if (status == Mutation.Status.killedByCompiler)
+                logger.trace(msg);
+            else
+                logger.info(msg);
+
+        }
+        catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+    }
+
+    logger.info("ID Status Kind Location").collectException;
+    db.iterateMutants(kinds, &locationPrinter);
 
     return ExitStatusType.Ok;
 }
