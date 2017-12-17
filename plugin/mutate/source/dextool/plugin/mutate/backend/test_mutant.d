@@ -15,7 +15,7 @@ import std.exception : collectException;
 
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath, ExitStatusType;
+import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -93,23 +93,33 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
             return ExitStatusType.Ok;
         }
 
+        AbsolutePath mut_file;
+        try {
+            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getRestrictDir));
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+
         // get content
         ubyte[] content;
         try {
-            content = fio.makeInput(mutp.file).read;
+            content = fio.makeInput(mut_file).read;
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
         if (content.length == 0) {
-            logger.warning("Unable to read ", mutp.file).collectException;
+            logger.warning("Unable to read ", mut_file).collectException;
+            // to avoid deadlocks when the database contains out of sync files.
+            ++unknown_mutant_cnt;
             continue;
         }
 
         // mutate
         auto mut_res = GenerateMutantResult(ExitStatusType.Errors);
         try {
-            auto fout = fio.makeOutput(mutp.file);
+            auto fout = fio.makeOutput(mut_file);
             mut_res = generateMutant(db, mutp, content, fout);
         }
         catch (Exception e) {
@@ -117,7 +127,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         }
         if (mut_res.status == ExitStatusType.Ok) {
             logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
-                    mut_res.from, mut_res.to, mutp.file, mutp.sloc.line, mutp.sloc.column)
+                    mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column)
                 .collectException;
 
             // test mutant
@@ -140,7 +150,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
 
         // restore the original file.
         try {
-            fio.makeOutput(mutp.file).write(content);
+            fio.makeOutput(mut_file).write(content);
         }
         catch (Exception e) {
             logger.error(e.msg).collectException;
@@ -151,7 +161,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     }
 
     if (unknown_mutant_cnt == unknown_mutant_max)
-        logger.error("Terminated early. Too many unknown mutants (%s)",
+        logger.errorf("Terminated early. Too many unknown mutants (%s)",
                 unknown_mutant_cnt).collectException;
 
     return ExitStatusType.Errors;

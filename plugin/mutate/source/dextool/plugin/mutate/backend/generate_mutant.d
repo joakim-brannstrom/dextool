@@ -15,8 +15,9 @@ module dextool.plugin.mutate.backend.generate_mutant;
 import std.exception : collectException;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
+import std.path : buildPath;
 
-import dextool.type : AbsolutePath, ExitStatusType;
+import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput,
@@ -37,9 +38,18 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
     if (mutp.isNull)
         return ExitStatusType.Errors;
 
+    AbsolutePath mut_file;
+    try {
+        mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getRestrictDir));
+    }
+    catch (Exception e) {
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
+
     ubyte[] content;
     try {
-        content = fio.makeInput(mutp.file).read;
+        content = fio.makeInput(mut_file).read;
         if (content.length == 0)
             return ExitStatusType.Errors;
     }
@@ -50,7 +60,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
 
     ExitStatusType exit_st;
     try {
-        auto ofile = makeOutputFilename(val_loc, fio, mutp.file);
+        auto ofile = makeOutputFilename(val_loc, fio, mut_file);
         auto fout = fio.makeOutput(ofile);
         auto res = generateMutant(db, mutp, content, fout);
         exit_st = res.status;

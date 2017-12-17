@@ -165,8 +165,12 @@ final class FrontendIO : FilesysIO {
         return () @trusted{ return std.stdio.stdin; }();
     }
 
-    override AbsolutePath getOutputDir() {
+    override AbsolutePath getOutputDir() @safe pure nothrow @nogc {
         return output_dir;
+    }
+
+    override AbsolutePath getRestrictDir() @safe pure nothrow @nogc {
+        return restrict_dir;
     }
 
     override SafeOutput makeOutput(AbsolutePath p) @safe {
@@ -212,6 +216,10 @@ final class FrontendValidateLoc : ValidateLoc {
     this(AbsolutePath restrict_dir, AbsolutePath output_dir) {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
+    }
+
+    override AbsolutePath getRestrictDir() nothrow {
+        return this.restrict_dir;
     }
 
     override bool shouldAnalyze(AbsolutePath p) {

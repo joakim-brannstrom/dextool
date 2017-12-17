@@ -15,19 +15,20 @@ import logger = std.experimental.logger;
 
 import dextool.plugin.mutate.backend.database : Database;
 
-import dextool.type : ExitStatusType, AbsolutePath;
+import dextool.type : ExitStatusType, AbsolutePath, Path;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB;
 import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
 import dextool.plugin.mutate.backend.visitor : ExpressionVisitor;
-import dextool.plugin.mutate.backend.utility : checksum;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
 
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLoc val_loc) @safe {
     import std.algorithm : map;
+    import std.path : relativePath;
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
@@ -58,16 +59,18 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
         analyzeFile(checked_in_file, in_file.cflags, visitor, ctx);
 
         foreach (a; visitor.mutationPointFiles.map!(a => FileName(a))) {
+            auto relp = trustedRelativePath(a, val_loc.getRestrictDir);
+
             try {
-                auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(cast(FileName) a));
-                db.put(AbsolutePath(a), cs);
+                auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a));
+                db.put(Path(relp), cs);
             }
             catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
 
-        db.put(visitor.mutationPoints);
+        db.put(visitor.mutationPoints, val_loc.getRestrictDir);
     }
 
     return ExitStatusType.Ok;

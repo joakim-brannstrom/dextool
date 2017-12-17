@@ -13,7 +13,7 @@ public import dextool.clang_extensions : ValueKind;
 import logger = std.experimental.logger;
 
 import cpptooling.analyzer.clang.ast : Visitor;
-import dextool.type : AbsolutePath;
+import dextool.type : AbsolutePath, Path, FileName;
 
 @safe:
 
@@ -29,24 +29,23 @@ final class ExpressionVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dextool.clang_extensions;
-    import dextool.type : AbsolutePath, FileName;
-    import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
     import dextool.plugin.mutate.backend.database : MutationPointEntry;
     import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
+    import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
 
     alias visit = Visitor.visit;
 
     mixin generateIndentIncrDecr;
 
     private Appender!(MutationPointEntry[]) exprs;
-    private bool[string] files;
+    private bool[Path] files;
     private ValidateLoc val_loc;
 
     const(MutationPointEntry[]) mutationPoints() {
         return exprs.data;
     }
 
-    string[] mutationPointFiles() @trusted {
+    Path[] mutationPointFiles() @trusted {
         import std.array : array;
 
         return files.byKey.array();
@@ -208,7 +207,7 @@ final class ExpressionVisitor : Visitor {
 
         // a bug in getExprOperator makes the path for a ++ which is overloaded
         // is null.
-        string path = loc.path;
+        auto path = loc.path.Path;
         if (path is null)
             return;
         files[path] = true;
@@ -219,8 +218,8 @@ final class ExpressionVisitor : Visitor {
         auto m0 = absMutations;
         auto m1 = kind == ValueKind.lvalue ? uoiLvalueMutations : uoiRvalueMutations;
         auto m = chain(m0, m1).map!(a => Mutation(a)).array();
-        auto p2 = MutationPointEntry(MutationPoint(offs, m),
-                AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column));
+        auto p2 = MutationPointEntry(MutationPoint(offs, m), path,
+                SourceLoc(loc.line, loc.column));
         exprs.put(p2);
     }
 
@@ -237,7 +236,7 @@ final class ExpressionVisitor : Visitor {
         SourceLocation loc = op.cursor.location;
         // a bug in getExprOperator makes the path for a ++ which is overloaded
         // is null.
-        auto path = loc.path;
+        auto path = loc.path.Path;
         if (path is null)
             return;
         files[path] = true;
@@ -257,8 +256,8 @@ final class ExpressionVisitor : Visitor {
             m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
 
         if (m.length != 0)
-            exprs.put(MutationPointEntry(MutationPoint(offs, m),
-                    AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column)));
+            exprs.put(MutationPointEntry(MutationPoint(offs, m), path,
+                    SourceLoc(loc.line, loc.column)));
     }
 
     override void visit(const(Preprocessor) v) {
@@ -288,7 +287,7 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
-        auto path = loc.path;
+        auto path = loc.path.Path;
         if (path is null)
             return;
         files[path] = true;
@@ -296,8 +295,8 @@ final class ExpressionVisitor : Visitor {
         auto offs = calcOffset(v);
         auto m = stmtDelMutations.map!(a => Mutation(a)).array();
 
-        exprs.put(MutationPointEntry(MutationPoint(offs, m),
-                AbsolutePath(FileName(path)), SourceLoc(loc.line, loc.column)));
+        exprs.put(MutationPointEntry(MutationPoint(offs, m), path,
+                SourceLoc(loc.line, loc.column)));
     }
 }
 

@@ -38,7 +38,7 @@ module dextool.plugin.mutate.backend.database;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath;
+import dextool.type : AbsolutePath, Path;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -62,7 +62,7 @@ struct MutationEntry {
     import dextool.plugin.mutate.backend.type;
 
     MutationId id;
-    AbsolutePath file;
+    Path file;
     SourceLoc sloc;
     MutationPoint mp;
     Duration timeSpentMutating;
@@ -72,7 +72,7 @@ struct MutationPointEntry {
     import dextool.plugin.mutate.backend.type;
 
     MutationPoint mp;
-    AbsolutePath file;
+    Path file;
     SourceLoc sloc;
 }
 
@@ -110,7 +110,7 @@ struct Database {
     }
 
     /// If the file has already been analyzed.
-    bool isAnalyzed(const AbsolutePath p) @trusted {
+    bool isAnalyzed(const Path p) @trusted {
         auto stmt = db.prepare("SELECT count(*) FROM files WHERE PATH=:path LIMIT 1");
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
@@ -118,7 +118,7 @@ struct Database {
     }
 
     /// If the file has already been analyzed.
-    bool isAnalyzed(const AbsolutePath p, const Checksum cs) @trusted {
+    bool isAnalyzed(const Path p, const Checksum cs) @trusted {
         auto stmt = db.prepare(
                 "SELECT count(*) FROM files WHERE PATH=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
         stmt.bind(":path", cast(string) p);
@@ -128,7 +128,7 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
-    Nullable!FileId getFileId(const AbsolutePath p) @trusted {
+    Nullable!FileId getFileId(const Path p) @trusted {
         auto stmt = db.prepare("SELECT id FROM files WHERE PATH=:path");
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
@@ -141,7 +141,7 @@ struct Database {
         return rval;
     }
 
-    Nullable!Checksum getFileChecksum(const AbsolutePath p) @trusted {
+    Nullable!Checksum getFileChecksum(const Path p) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 
         auto stmt = db.prepare("SELECT checksum0,checksum1 FROM files WHERE PATH=:path");
@@ -234,7 +234,7 @@ struct Database {
             auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(7)));
+            auto file = Path(FileName(v.peek!string(7)));
             auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
 
             rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
@@ -277,7 +277,7 @@ struct Database {
             auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
             mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
             auto pkey = MutationId(v.peek!long(0));
-            auto file = AbsolutePath(FileName(v.peek!string(7)));
+            auto file = Path(FileName(v.peek!string(7)));
             auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
 
             rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
@@ -353,7 +353,7 @@ struct Database {
         return rval;
     }
 
-    void put(const AbsolutePath p, Checksum cs) @trusted {
+    void put(const Path p, Checksum cs) @trusted {
         if (isAnalyzed(p))
             return;
 
@@ -373,7 +373,9 @@ struct Database {
      * trusted: the d2sqlite3 interface is assumed to work correctly when the
      * data via bind is *ok*.
      */
-    void put(const(MutationPointEntry)[] mps) @trusted {
+    void put(const(MutationPointEntry)[] mps, AbsolutePath rel_dir) @trusted {
+        import dextool.plugin.mutate.backend.utility : trustedRelativePath;
+
         auto mp_stmt = db.prepare("INSERT INTO mutation_point (file_id, offset_begin, offset_end, line, column) VALUES (:fid, :begin, :end, :line, :column)");
         auto m_stmt = db.prepare(
                 "INSERT INTO mutation (mp_id, kind, status) VALUES (:mp_id, :kind, :status)");
@@ -384,20 +386,29 @@ struct Database {
         scope (failure)
             db.rollback;
 
-        FileId[string] file_ids;
+        FileId[Path] file_ids;
         foreach (a; mps) {
             if (a.file is null) {
                 debug logger.trace("this should not happen. The file is null file");
                 continue;
             }
+            auto rel_file = trustedRelativePath(a.file, rel_dir);
 
             FileId id;
             // assuming it is slow to lookup in the database so cache the lookups.
-            if (auto e = a.file in file_ids) {
+            if (auto e = rel_file in file_ids) {
                 id = *e;
-            } else if (auto e = getFileId(a.file)) {
+            } else {
+                auto e = getFileId(rel_file);
+                if (e.isNull) {
+                    // this only happens when the database is out of sync with
+                    // the filesystem or absolute paths are used.
+                    logger.errorf("File '%s' do not exist in the database",
+                            rel_file).collectException;
+                    continue;
+                }
                 id = e;
-                file_ids[a.file] = id;
+                file_ids[rel_file] = id;
             }
 
             // TODO device a way that this call to hasMutationPoint isn't
@@ -428,7 +439,6 @@ struct Database {
             }
         }
     }
-
 }
 
 private:
