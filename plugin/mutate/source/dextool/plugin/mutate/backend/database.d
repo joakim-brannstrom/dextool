@@ -289,7 +289,7 @@ struct Database {
         return rval;
     }
 
-    void iterateMutants(Mutation.Kind[] kinds, void delegate(ref Row) dg) nothrow @trusted {
+    void iterateMutants(const Mutation.Kind[] kinds, void delegate(ref Row) dg) nothrow @trusted {
         import std.algorithm : map;
         import std.format : format;
 
@@ -329,7 +329,7 @@ struct Database {
     alias unknownMutants = countMutants!(Mutation.Status.unknown);
     alias killedByCompilerMutants = countMutants!(Mutation.Status.killedByCompiler);
 
-    private Nullable!MutationReportEntry countMutants(int status)(Mutation.Kind[] kinds) nothrow @trusted {
+    private Nullable!MutationReportEntry countMutants(int status)(const Mutation.Kind[] kinds) nothrow @trusted {
         import core.time : dur;
         import std.algorithm : map;
         import std.format : format;
