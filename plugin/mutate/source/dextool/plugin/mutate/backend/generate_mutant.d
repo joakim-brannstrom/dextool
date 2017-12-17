@@ -142,6 +142,7 @@ auto makeMutation(Mutation.Kind kind) {
     case none:
         break;
         /// Relational operator replacement
+        /// #SPC-plugin_mutate_mutation_ror
     case rorLT:
         m.mutate = (const(char)[] expr) { return ("<"); };
         break;
@@ -161,6 +162,7 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "!="; };
         break;
         /// Logical connector replacement
+        /// #SPC-plugin_mutate_mutation_lcr
     case lcrAnd:
         m.mutate = (const(char)[] expr) { return "&&"; };
         break;
@@ -168,6 +170,7 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "||"; };
         break;
         /// Arithmetic operator replacement
+        /// #SPC-plugin_mutate_mutation_aor
     case aorMul:
         m.mutate = (const(char)[] expr) { return "*"; };
         break;
@@ -199,6 +202,7 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "-="; };
         break;
         /// Unary operator insert on an lvalue
+        /// #SPC-plugin_mutate_mutation_uoi
     case uoiPostInc:
         m.mutate = (const(char)[] expr) { return format("%s++", expr); };
         break;
@@ -234,6 +238,7 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return format("sizeof(%s)", expr); };
         break;
         /// Absolute value replacement
+        /// #SPC-plugin_mutate_mutation_abs
     case absPos:
         m.top = (ref SafeOutput a) { a.write(preambleAbs); };
         m.mutate = (const(char)[] b) { return format("dextool_abs(%s)", b); };
@@ -248,6 +253,7 @@ auto makeMutation(Mutation.Kind kind) {
         break;
     case stmtDel:
         // it is a deletion so nothing to be done!
+        /// #SPC-plugin_mutate_mutations_statement_del
         break;
     }
 

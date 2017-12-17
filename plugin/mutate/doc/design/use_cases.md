@@ -13,6 +13,7 @@ The plugin should be easy to integrate with an IDE for visual feedback to the us
 
 # REQ-plugin_mutate_inspection_of_test_proc
 partof: REQ-plugin_mutate-use_case
+###
 This plugin should replace or simplify parts of the inspection as required by DO-178C.
 
 The type of mutations to implemented should be derived and traced to the following statement and list.
@@ -26,6 +27,9 @@ The type of mutations to implemented should be derived and traced to the followi
  * Robustness range test design for techniques above"
 
 See [[http://www.inf.ed.ac.uk/teaching/courses/st/2016-17/Mutest.pdf]] for inspiration
+
+## Note
+It is costly to develop test cases because inspection is used to verify that they adher to the test design methods by manual inspection. The intention is to try and automate parts or all of this to lower the development cost and at the same time follow DO-178C.
 
 # REQ-plugin_mutate_test_design_metric
 partof: REQ-plugin_mutate_inspection_of_test_proc
@@ -45,3 +49,19 @@ The plugin shall support incremental mutation.
 
 A change of one statement should only generate mutants for that change.
 A change to a file should only generate mutants derived from that file.
+
+## Notes
+The user will spend time on performing a manual analysis of the mutants.
+To make it easier for the user it is important that this manual analysis can be reused as much as possible when the SUT changes.
+
+A draft of a workflow and architecture would be.
+ * The user has a report of live mutants.
+ * The user goes through the live mutants and mark some as equivalent mutations.
+ * The result is saved in a file X.
+ * Time goes by and the SUT changes in a couple of files.
+ * The user rerun the analyzer.
+     The analyzer repopulates the internal database with new mutations for the changed files.
+ * The user run the mutant tester. The mutant tester only test those mutations that are in the changed files.
+ * The user import the previous analysis from file X into deXtool.
+ * The user export a mutation result report to file Y (same fileformat as X).
+ * The user only has to go through and determine equivalence for the new mutations.

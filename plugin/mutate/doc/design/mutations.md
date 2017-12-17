@@ -23,12 +23,24 @@ interesting to note that this set includes the operators that are required to
 satisfy branch and extended branch coverage leading us to believe that extended
 branch coverage is in some sense a major part of mutation.*
 
+# SPC-plugin_mutate_mutation_ror
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
+
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
 The operands are:
 ```cpp
 <,<=,>,>=,==,!=
 ```
+
+# SPC-plugin_mutate_mutation_aor
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
 
 ## Arithmetic Operator Replacement (AOR)
 Replace a single arithmetic operator with another operand.
@@ -37,12 +49,24 @@ The operators are:
 +,-,*,/,%
 ```
 
+# SPC-plugin_mutate_mutation_lcr
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
+
 ## Logical Connector Replacement (LCR)
 Replace a single operand with another operand.
 The operands are:
 ```cpp
 ||,&&
 ```
+
+# SPC-plugin_mutate_mutation_uoi
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
 
 ## Unary Operator Insertion (UOI)
 Insert a single unary operator in expressions where it is possible.
@@ -66,6 +90,12 @@ Note: The address, indirection and complement operator need to be evaluated to
 see how efficient those mutants are.
 Are most mutants killed? Compilation errors?
 
+# SPC-plugin_mutate_mutation_abs
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
+
 ## Absolute Value Insertion (ABS)
 Replace an expression.
 
@@ -79,27 +109,30 @@ a = -abs(b) + c
 a = 0 + c
 ```
 
-## Statement Deletion (SD)
-Delete one statement at a time.
+## Undesired Mutant
+The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
+Note though that abs(-0.0) is a separate case.
 
-# SPC-plugin_mutate_statement_del
+# SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations
 ###
 
 The plugin shall remove one statement when generating a _statement deletion_ mutation.
 
-# SPC-plugin_mutate_statement_del-call_expression
-partof: SPC-plugin_mutate_statement_del
+## Statement Deletion (SD)
+Delete one statement at a time.
+
+# SPC-plugin_mutate_mutations_statement_del-call_expression
 ###
 
-The plugin shall remove function calls.
+The plugin shall remove the specific function call.
 
-## Clarification
-Technically a function call is an expression in the clang AST.
+Note: How it is removed depend on where it is in the AST.
+A function call that is terminated with a `;` should remove the trailing `;`.
+In contrast with the initialization list where it should remove the trailing `,`.
 
-A statement include call expressions in the AST.
-
-# TST-plugin_mutate_statement_del-call_expression
+# TST-plugin_mutate_statement_del_call_expression
+partof: SPC-plugin_mutate-mutations_statement_del-call_expression
 ###
 
 A mutation is expected to result in valid code.

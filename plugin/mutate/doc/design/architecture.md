@@ -19,32 +19,6 @@ Figures (to be moved to each functional design when they are created):
  - figures/report.pu : generate a report for the user from the database.
  - figures/test_mutant.pu : test a mutation point.
 
-# SPC-plugin_mutate_analyzer
-partof: SPC-plugin_mutate_architecture
-###
-*Note: functional design*
-
-See:
- - figures/analyse.pu : analyse a file for mutation points.
-
-The purpose of this function is to analyze *a* file for mutations points.
-It is the command centers that should provide the file to analyze.
-
-## Requirements
-
-The analyzer shall save the mutation points to the database when analyzing the provided file.
-
-The analyzer shall save all *new* mutation point with status unknown.
-
-The analyzer shall save the checksum computed from the analyzed file+compiler flags to the database.
-
-### Incremental Mutation
-The analyzer shall compute a checksum of the provided file+compiler flags.
-
-The analyzer shall skip analysis of the provided file+compiler flags when the checksum exists in the database.
-
-*Rationale: The purpose is to speed up analysis of source code that has already been analyzed and tested, incremental mutation*
-
 # SPC-plugin_mutate_information_center
 partof: SPC-plugin_mutate_architecture
 ###

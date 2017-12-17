@@ -59,17 +59,67 @@ of the MP-ID.
 A command center is expected to use the MP-ID to tell e.g. the mutation tester
 to run the tests for the MP-ID.
 
+# SPC-plugin_mutate_distributed_mutation
+partof: REQ-plugin_mutate_future_work
+###
+
+## Step 1
+Fix so many `test_mutants` components can run in parallel against the same underlying database.
+
+The protocol for distribution can then be a simple `random selection`.
+No timeout, queue or anything is needed. Just picking a random mutation to work with is enough.
+
+What needs to be implemented is a switch to dictate the working directory.
+The paths in the database then need to be relative to this working directory.
+It is up to the user to make this _work_.
+
+This can probably be done by slightly adjusting the --restrict flag.
+
+## Step 2
+Design a network protocol to facilitate network distributed workers.
+
+The protocol shall be an open standard.
+ * This is to facilitate integration with propitiatory modules.
+
+Probably best to build upon vibe-d msgpack-rpc.
+
+This is part of the _command_center_.
+ * Implement the command_center that makes it possible to run multiple test_mutants.
+
+## Step 3
+I'm not sure this is needed or a good idea but I'm writing it down as a reminder.
+
+Make it possible to implement specialized workers.
+As is the current solution requires a worker being able to perform all the tasks.
+But this prohibits integrating specialized works such as `equivalent mutation analyzers`/`build slaves`/`test slave`
+
+To do this make a mutation go through a pipeline of states:
+unknown
+    -> passes compilation (1)
+        -> mark as alive/dead by compiler
+    -> test (2)
+        -> fast analyzer for equivalent mutation
+        -> build and run test suite
+        -> mark as alive/dead/timeout
+    -> post_test
+        -> analyze for equivalent mutation (3)
+1. a worker that check if the mutation passes the compiler. This will go fast. Can be done in memory.
+2. The slowest is _probably_ to build and run the full test suite.
+    A _fast_ symbolic execution could probably detect and eliminate some mutations.
+    It could be an early filter.
+3. This can be very time consuming.
+    But even though it takes 10min per mutation it is still better than a human having to analyze by hand.
+
 # SPC-plugin_mutate_todo
 partof: REQ-plugin_mutate_future_work
 ###
 This is a simple TODO.
 New items are added at the top
 
- * fix stmtDel
+ * Fix stmtDel
     * a parenthesis too much is removed in the initialization list
- * implement the command_center that makes it possible to run multiple test_mutants.
- * report mutations performed in the console
+ * Report mutations performed in the console
  * implement boundary value for floating points.
- * calculate mutation score.
- * optimize the analyzer by using temporary tables.
- * report the total time spent on mutations
+ * Calculate mutation score.
+ * Optimize the analyzer by using temporary tables.
+ * Report the total time spent on mutations

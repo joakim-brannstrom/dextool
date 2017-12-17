@@ -104,12 +104,6 @@ bridges may be developed in C++.
 ## DO-178C
 Standard used in the avionics industry for developing software.
 
-## Mutation Testing
-Faults are injected into the SUT. Each such injection is a mutant.
-Each mutant contains only one fault.
-Test cases from the SUT are applied on the mutant.
-The mutant is killed if the test suit fails.
-
 ## Test Case Adequacy
 A test case is classified as adequate if it detects faults in the SUT.
 A test case is shown to be adequate if it kills at least one mutant that generates an output that is different from the SUT.
@@ -139,8 +133,8 @@ A source code location that *can* be mutated.
 A mutation point should contains what *kind* it is.
 The kind can be what type of mutations it is applicable for, if it is an expression, statement etc.
 
-The location should be a range and a [start, end) offset. The offset shall
-completely cover the source code.
+The location should be a range as an offset [start, end). The offset shall
+completely cover the source code that should be mutated.
 
 A mutation point has the status:
  - unknown
@@ -153,7 +147,7 @@ The notation [] and () have the same meaning as the mathematical symbols.
 An example is a c++ iterator. It has the range [), end is one beyond the last
 element with a value in it.
 
-## Mutant Testning
+## Mutation Testning
 Mutation testing focus on determining the adequacy of a test cases.
 
 It is a code-based testing technique.
@@ -173,6 +167,15 @@ The Competent Programmer Hypothesis (CPH) [3], [66] and the Coupling Effect [66]
 
 See [1], page 3, chapter "The theory of mutation testing" for further
 elaboration on the subject.
+
+### Implementation Summary
+Faults are injected into the SUT. Each such injection is a mutant.
+Each mutant contains only one fault.
+Test cases from the SUT are applied on the mutant.
+The mutant is killed if the test suit fails.
+
+## Test Requirement
+A test requirement is a specific element of a software artifact that a test case must satisfy or cover.
 
 # TST-plugin_mutate_definitions
 done: by definition

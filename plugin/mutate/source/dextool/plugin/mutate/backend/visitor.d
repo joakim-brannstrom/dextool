@@ -130,6 +130,7 @@ final class ExpressionVisitor : Visitor {
             return;
         }
 
+        // #SPC-plugin_mutate_mutations_statement_del-call_expression
         addStatement(v);
 
         auto op = getExprOperator(v.cursor);
