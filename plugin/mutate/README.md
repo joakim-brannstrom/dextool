@@ -53,3 +53,6 @@ Start mutation testing!!!!:
 ```sh
 dextool mutate --mode test_mutants --mutant-test ./tester.sh --mutant-compile ./compile.sh --out .. --restrict ..
 ```
+
+It is possible to run multiple `test_mutants` against the same database.
+Just make sure they don't interfere with each other.
