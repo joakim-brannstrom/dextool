@@ -64,7 +64,7 @@ bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc
  */
 struct TypeKind {
     import std.traits : isSomeString;
-    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import taggedalgebraic : TaggedAlgebraic;
     import cpptooling.data.kind_type_format;
 
     this(T)(T info, USRType usr) @safe if (!is(T == TypeKind)) {

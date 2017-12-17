@@ -56,17 +56,16 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/global_unique.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/package.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/sort.d
-    ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/taggedalgebraic.d
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/virtualfilesystem.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources")
+set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source")
 
 compile_d_static_lib(dextool_cpptooling
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_libclang")
+    "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_libclang;dextool_taggedalgebraic")
 
 list(APPEND SRC_FILES "${CMAKE_SOURCE_DIR}/source/cpptooling/ut_main.d")
 compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen")

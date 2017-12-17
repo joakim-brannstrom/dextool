@@ -877,7 +877,7 @@ private bool isPrimitive(T, LookupT)(const T data, LookupT lookup) @safe nothrow
 }
 
 package struct NodeData {
-    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import taggedalgebraic : TaggedAlgebraic;
 
     alias Tag = TaggedAlgebraic!TagUnion;
 
