@@ -9,8 +9,16 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.utility;
 
+import dextool.type : Path, AbsolutePath;
+
 public import dextool.plugin.mutate.backend.type;
 public import dextool.clang_extensions : OpKind;
+
+Path trustedRelativePath(string p, AbsolutePath root) @trusted {
+    import std.path : relativePath;
+
+    return relativePath(p, root).Path;
+}
 
 /**
  * trusted: void[] is perfectly representable as ubyte[] accoding to the specification.

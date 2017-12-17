@@ -28,9 +28,13 @@ interface ValidateLoc {
 
     /// Returns: if a mutant are allowed to be written to this path.
     bool shouldMutate(AbsolutePath p);
+
+    AbsolutePath getRestrictDir() nothrow;
 }
 
 /** Filesystem I/O from the backend.
+ *
+ * TODO: rename outputDir to workdir. It is the terminology used in git.
  *
  * The implementation of the interface shall:
  *  ensure all SafeOutput objects are inside the _output directory_.
@@ -47,8 +51,11 @@ interface FilesysIO {
     File getDevNull();
     File getStdin();
 
-    ///
-    AbsolutePath getOutputDir();
+    /// File output is restricted to this directory
+    AbsolutePath getOutputDir() nothrow;
+
+    /// File input is restricted to this directory
+    AbsolutePath getRestrictDir() nothrow;
 
     ///
     SafeOutput makeOutput(AbsolutePath p);

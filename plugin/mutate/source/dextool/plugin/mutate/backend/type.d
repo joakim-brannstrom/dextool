@@ -9,7 +9,6 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.type;
 
-import dextool.type : AbsolutePath;
 import dextool.hash : Murmur3;
 
 @safe:
