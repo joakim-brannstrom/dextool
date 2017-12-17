@@ -109,6 +109,10 @@ a = -abs(b) + c
 a = 0 + c
 ```
 
+## Undesired Mutant
+The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
+Note though that abs(-0.0) is a separate case.
+
 # SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations
 ###

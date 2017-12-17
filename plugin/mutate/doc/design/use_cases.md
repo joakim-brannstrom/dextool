@@ -13,6 +13,7 @@ The plugin should be easy to integrate with an IDE for visual feedback to the us
 
 # REQ-plugin_mutate_inspection_of_test_proc
 partof: REQ-plugin_mutate-use_case
+###
 This plugin should replace or simplify parts of the inspection as required by DO-178C.
 
 The type of mutations to implemented should be derived and traced to the following statement and list.
@@ -26,6 +27,9 @@ The type of mutations to implemented should be derived and traced to the followi
  * Robustness range test design for techniques above"
 
 See [[http://www.inf.ed.ac.uk/teaching/courses/st/2016-17/Mutest.pdf]] for inspiration
+
+## Note
+It is costly to develop test cases because inspection is used to verify that they adher to the test design methods by manual inspection. The intention is to try and automate parts or all of this to lower the development cost and at the same time follow DO-178C.
 
 # REQ-plugin_mutate_test_design_metric
 partof: REQ-plugin_mutate_inspection_of_test_proc
