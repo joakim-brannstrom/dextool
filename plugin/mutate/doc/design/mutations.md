@@ -99,7 +99,8 @@ Technically a function call is an expression in the clang AST.
 
 A statement include call expressions in the AST.
 
-# TST-plugin_mutate_statement_del-call_expression
+# TST-plugin_mutate_statement_del_call_expression
+partof: SPC-plugin_mutate_statement_del-call_expression
 ###
 
 A mutation is expected to result in valid code.

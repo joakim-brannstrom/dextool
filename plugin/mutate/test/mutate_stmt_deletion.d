@@ -23,7 +23,7 @@ unittest {
         .run;
 }
 
-// #TST-plugin_mutate_statement_del-call_expression
+// #TST-plugin_mutate_statement_del_call_expression
 @("shall delete function calls")
 unittest {
     mixin(EnvSetup(globalTestdir));
