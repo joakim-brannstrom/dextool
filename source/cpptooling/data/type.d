@@ -15,7 +15,7 @@ import std.variant; // : Algebraic;
 
 import cpptooling.data.kind_type; // : TypeKind, TypeKindAttr, TypeResult;
 import cpptooling.data.symbol.types; // : USRType;
-import cpptooling.utility.taggedalgebraic;
+import taggedalgebraic;
 
 static import cpptooling.data.class_classification;
 

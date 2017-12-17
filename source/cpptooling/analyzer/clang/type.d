@@ -151,7 +151,7 @@ private void assertTypeResult(const ref TypeResults results) {
 
 struct BacktrackLocation {
     static import clang.SourceLocation;
-    import cpptooling.utility.taggedalgebraic : TaggedAlgebraic;
+    import taggedalgebraic : TaggedAlgebraic;
     import cpptooling.data.type : Location;
 
     union TagType {
