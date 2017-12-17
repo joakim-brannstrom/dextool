@@ -128,6 +128,8 @@ pure @nogc nothrow:
 
 /** The path is guaranteed to be the absolute path.
  *
+ * TODO: change to using Path instead of FileName.
+ *
  * The user of the type has to make an explicit judgment when using the
  * assignment operator. Either a `FileName` and then pay the cost of the path
  * expansion or an absolute which is already assured to be _ok_.
