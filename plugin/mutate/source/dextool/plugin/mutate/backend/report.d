@@ -19,46 +19,62 @@ import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.backend.type : Mutation;
 
 ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow {
+    import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
-
-    logger.infof("Mutation statistics (%s)", kind).collectException;
-
-    const auto kinds = kind.toInternal;
 
     import d2sqlite3 : Row;
 
-    // trusted: trustin gthat d2sqlite3 and sqlite3 is memory safe.
-    void locationPrinter(ref Row r) @trusted nothrow {
-        import std.conv : to;
-        import std.format : format;
+    const auto kinds = kind.toInternal;
 
-        try {
-            auto status = r.peek!int(1).to!(Mutation.Status);
-            auto msg = format("%s %s %s %s:%s:%s", r.peek!long(0), status,
-                    r.peek!int(2).to!(Mutation.Kind), r.peek!string(8),
-                    r.peek!long(6), r.peek!long(7));
-            if (status == Mutation.Status.alive)
-                logger.info(msg);
-            else
-                logger.trace(msg);
+    try {
+        auto report = Report!(SimpleWriter)(delegate(const(char)[] s) {
+            write(s);
+        });
 
+        report = report.heading("Mutation type %s", kind);
+
+        immutable col_w = 10;
+        auto mutations = report.heading("Locations");
+        mutations.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
+                col_w, "Kind", "Location");
+
+        // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
+        void locationPrinter(ref Row r) @trusted nothrow {
+            import std.conv : to;
+            import std.format : format;
+
+            try {
+                auto status = r.peek!int(1).to!(Mutation.Status);
+                auto kind = r.peek!int(2).to!(Mutation.Kind);
+                auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, r.peek!long(0),
+                        col_w, status, col_w, kind, r.peek!string(8),
+                        r.peek!long(6), r.peek!long(7));
+                if (status == Mutation.Status.alive)
+                    mutations.writeln(msg);
+                else
+                    mutations.trace(msg);
+
+            }
+            catch (Exception e) {
+                logger.trace(e.msg).collectException;
+            }
         }
-        catch (Exception e) {
-            logger.trace(e.msg).collectException;
-        }
+
+        db.iterateMutants(kinds, &locationPrinter);
+        mutations.popHeading;
+
+        reportStatistics(db, kinds, report);
     }
-
-    logger.info("ID Status Kind Location").collectException;
-    db.iterateMutants(kinds, &locationPrinter);
-
-    reportStatistics(db, kinds);
+    catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
 
     return ExitStatusType.Ok;
 }
 
 private:
 
-void reportStatistics(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
+void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT report) @safe nothrow {
     import core.time : dur;
     import std.algorithm : map, filter, sum;
     import std.range : only;
@@ -72,6 +88,10 @@ void reportStatistics(ref Database db, const Mutation.Kind[] kinds) @safe nothro
     auto killed_by_compiler = db.killedByCompilerMutants(kinds);
 
     try {
+        immutable align_ = 8;
+
+        auto item = report.heading("Summary");
+
         const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.time.total!"msecs").sum.dur!"msecs";
         const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
@@ -80,20 +100,79 @@ void reportStatistics(ref Database db, const Mutation.Kind[] kinds) @safe nothro
         const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
             : 0.dur!"msecs";
 
-        logger.info("Total time running mutation testing (compilation + test): ", total_time);
-        logger.infof(untested_cnt > 0 && predicted > 0.dur!"msecs",
-                "Predicted time until mutation testing is done: %s (%s)",
-                predicted, Clock.currTime + predicted);
-        logger.infof(!untested.isNull && untested.count > 0, "Untested: %s", untested.count);
-        logger.infof(!alive.isNull, "Alive: %s (%s)", alive.count, alive.time);
-        logger.infof(!killed.isNull, "Killed: %s (%s)", killed.count, killed.time);
-        logger.infof(!timeout.isNull, "Timeout: %s (%s)", timeout.count, timeout.time);
-        logger.tracef(!killed_by_compiler.isNull, "Killed by compiler: %s (%s)",
-                killed_by_compiler.count, killed_by_compiler.time);
-        logger.info(total_cnt > 0, "Score: ", (cast(double)(killed.isNull ? 0
-                : killed.count) / cast(double) total_cnt));
+        if (untested_cnt > 0 && predicted > 0.dur!"msecs")
+            item.writeln("Predicted time until mutation testing is done: %s (%s)",
+                    predicted, Clock.currTime + predicted);
+        if (!untested.isNull && untested.count > 0)
+            item.writeln("Untested: %s", untested.count);
+        if (!alive.isNull)
+            item.writeln("%-*s %-*s (%s)", align_, "Alive:", align_, alive.count, alive.time);
+        if (!killed.isNull)
+            item.writeln("%-*s %-*s (%s)", align_, "Killed:", align_, killed.count, killed.time);
+        if (!timeout.isNull)
+            item.writeln("%-*s %-*s (%s)", align_, "Timeout:", align_,
+                    timeout.count, timeout.time);
+        item.writeln("%-*s %-*s (%s)", align_, "Total:", align_, total_cnt, total_time);
+        if (total_cnt > 0)
+            item.writeln("%-*s %-*s", align_, "Score:", align_,
+                    (cast(double)(killed.isNull ? 0 : killed.count) / cast(double) total_cnt));
+        if (!killed_by_compiler.isNull)
+            item.trace("%-*s %-*s (%s)", align_, "Killed by compiler:", align_,
+                    killed_by_compiler.count, killed_by_compiler.time);
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
+    }
+}
+
+alias SimpleWriter = void delegate(const(char)[]) @safe;
+
+struct Report(Writer) {
+    import std.ascii : newline;
+    import std.format : formattedWrite, format;
+    import std.range : put;
+
+    private int curr_head;
+    private Writer w;
+
+    private this(int heading, Writer w) {
+        this.curr_head = heading;
+        this.w = w;
+    }
+
+    this(Writer w) {
+        this.w = w;
+    }
+
+    auto heading(ARGS...)(auto ref ARGS args) {
+        import std.algorithm : copy;
+        import std.range : repeat, take;
+
+        repeat('#').take(curr_head + 1).copy(w);
+        put(w, " ");
+        formattedWrite(w, args);
+        put(w, newline);
+        return (typeof(this)(curr_head + 1, w));
+    }
+
+    auto popHeading() {
+        if (curr_head != 0)
+            put(w, newline);
+        return typeof(this)(curr_head - 1, w);
+    }
+
+    auto write(ARGS...)(auto ref ARGS args) {
+        formattedWrite(w, args);
+        return this;
+    }
+
+    auto writeln(ARGS...)(auto ref ARGS args) {
+        this.write(args), put(w, newline);
+        return this;
+    }
+
+    auto trace(ARGS...)(auto ref ARGS args) {
+        logger.tracef(args);
+        return this;
     }
 }
