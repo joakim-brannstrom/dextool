@@ -99,7 +99,8 @@ ExitStatusType runMutate(Frontend fe) {
 
     final switch (fe.toolMode) {
     case ToolMode.none:
-        break;
+        logger.error("No --mode specified");
+        return ExitStatusType.Errors;
     case ToolMode.analyzer:
         import dextool.plugin.mutate.backend : runAnalyzer;
 
