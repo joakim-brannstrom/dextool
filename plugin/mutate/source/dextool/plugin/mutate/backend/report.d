@@ -151,6 +151,9 @@ struct Report(Writer) {
         repeat('#').take(curr_head + 1).copy(w);
         put(w, " ");
         formattedWrite(w, args);
+
+        // two newlines because some markdown parsers do not correctly identify a heading if it isn't separated
+        put(w, newline);
         put(w, newline);
         return (typeof(this)(curr_head + 1, w));
     }
