@@ -16,7 +16,8 @@ import std.exception : collectException;
 import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
-import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.database : Database, MutationEntry,
+    NextMutationEntry;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : MutationKind;
@@ -33,6 +34,10 @@ import dextool.plugin.mutate.type : MutationKind;
  */
 ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePath testerp,
         AbsolutePath compilep, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
+    import core.time : dur;
+    import core.thread : Thread;
+    import std.random : uniform;
+
     if (compilep.length == 0) {
         logger.error("No compile command specified (--mutant-compile)").collectException;
         return ExitStatusType.Errors;
@@ -80,6 +85,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     // in the test or compiler _crashing_.
     int unknown_mutant_cnt;
     immutable unknown_mutant_max = 100;
+    immutable wait_for_lock = 100.dur!"msecs";
 
     while (unknown_mutant_cnt < unknown_mutant_max) {
         import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -87,10 +93,18 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         auto mutation_sw = StopWatch(AutoStart.yes);
 
         // get mutant
-        auto mutp = db.nextMutation(mut_kind);
-        if (mutp.isNull) {
+        MutationEntry mutp;
+        auto next_m = db.nextMutation(mut_kind);
+        if (next_m.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
             return ExitStatusType.Ok;
+        } else if (next_m.st == NextMutationEntry.Status.queryError) {
+            () @trusted nothrow{
+                Thread.sleep(wait_for_lock + uniform(0, 200).dur!"msecs").collectException;
+            }();
+            continue;
+        } else {
+            mutp = next_m.entry;
         }
 
         AbsolutePath mut_file;

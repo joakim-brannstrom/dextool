@@ -68,6 +68,20 @@ struct MutationEntry {
     Duration timeSpentMutating;
 }
 
+struct NextMutationEntry {
+    import std.typecons : Nullable;
+    import dextool.plugin.mutate.backend.type;
+
+    enum Status {
+        ok,
+        queryError,
+        done,
+    }
+
+    Status st;
+    Nullable!MutationEntry entry;
+}
+
 struct MutationPointEntry {
     import dextool.plugin.mutate.backend.type;
 
@@ -194,7 +208,7 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    Nullable!MutationEntry nextMutation(Mutation.Kind[] kinds) nothrow @trusted {
+    NextMutationEntry nextMutation(Mutation.Kind[] kinds) nothrow @trusted {
         import std.algorithm : map;
         import std.exception : collectException;
         import std.format : format;
@@ -226,8 +240,10 @@ struct Database {
             // TODO this should work. why doesn't it?
             //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
             auto res = stmt.execute;
-            if (res.empty)
+            if (res.empty) {
+                rval.st = NextMutationEntry.Status.done;
                 return rval;
+            }
 
             auto v = res.front;
 
@@ -237,9 +253,10 @@ struct Database {
             auto file = Path(FileName(v.peek!string(7)));
             auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
 
-            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
+            rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
         }
         catch (Exception e) {
+            rval.st = NextMutationEntry.Status.queryError;
             collectException(logger.warning(e.msg));
         }
 
