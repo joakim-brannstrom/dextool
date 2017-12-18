@@ -33,7 +33,8 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
         mutp = db.getMutation(MutationId(user_mutation.get));
         logger.error(mutp.isNull, "No such mutation id: ", user_mutation.get).collectException;
     } else {
-        mutp = db.nextMutation(kind.toInternal);
+        auto next_m = db.nextMutation(kind.toInternal);
+        mutp = next_m.entry;
     }
     if (mutp.isNull)
         return ExitStatusType.Errors;
