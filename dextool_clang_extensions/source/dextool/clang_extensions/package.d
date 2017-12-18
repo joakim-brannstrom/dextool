@@ -265,7 +265,7 @@ auto getUnderlyingExprNode(const CXCursor expr) @trusted {
         return dx.kind;
     }
 
-    /// Cursor for the operator
+    /// Cursor for the expression that the operator reside in.
     Cursor cursor() const {
         return Cursor(dx.cursor);
     }
