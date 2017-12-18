@@ -241,23 +241,55 @@ final class ExpressionVisitor : Visitor {
             return;
         files[path] = true;
 
-        auto sr = op.location.spelling;
-        auto offs = Offset(sr.offset, cast(uint)(sr.offset + op.length));
+        void corExpr() {
+            auto opsr = op.location.spelling;
+            auto sr = op.cursor.extent;
+            auto sloc = SourceLoc(loc.line, loc.column);
 
-        Mutation[] m;
+            // delete rhs
+            auto offs_rhs = Offset(opsr.offset, sr.end.offset);
+            exprs.put(MutationPointEntry(MutationPoint(offs_rhs,
+                    [Mutation(Mutation.Kind.corLhs)]), path, sloc));
 
-        if (auto v = op.kind in isRor)
-            m = rorMutations(*v).map!(a => Mutation(a)).array();
-        else if (auto v = op.kind in isLcr)
-            m = lcrMutations(*v).map!(a => Mutation(a)).array();
-        else if (auto v = op.kind in isAor)
-            m = aorMutations(*v).map!(a => Mutation(a)).array();
-        else if (auto v = op.kind in isAorAssign)
-            m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
+            // delete lhs
+            auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op.length));
+            exprs.put(MutationPointEntry(MutationPoint(offs_lhs,
+                    [Mutation(Mutation.Kind.corRhs)]), path, sloc));
 
-        if (m.length != 0)
-            exprs.put(MutationPointEntry(MutationPoint(offs, m), path,
-                    SourceLoc(loc.line, loc.column)));
+            if (auto v = op.kind in isCor) {
+                auto offs_expr = Offset(sr.start.offset, sr.end.offset);
+                exprs.put(MutationPointEntry(MutationPoint(offs_expr,
+                        corExprMutations(*v).map!(a => Mutation(a)).array()), path, sloc));
+            }
+        }
+
+        void operator() {
+            auto sr = op.location.spelling;
+            auto offs = Offset(sr.offset, cast(uint)(sr.offset + op.length));
+
+            Mutation[] m;
+
+            if (auto v = op.kind in isRor)
+                m = rorMutations(*v).map!(a => Mutation(a)).array();
+            else if (auto v = op.kind in isLcr) {
+                m = lcrMutations(*v).map!(a => Mutation(a)).array();
+
+                if (auto vv = op.kind in isCor) {
+                    m ~= corOpMutations(*vv).map!(a => Mutation(a)).array();
+                    corExpr();
+                }
+            } else if (auto v = op.kind in isAor)
+                m = aorMutations(*v).map!(a => Mutation(a)).array();
+            else if (auto v = op.kind in isAorAssign)
+                m = aorAssignMutations(*v).map!(a => Mutation(a)).array();
+
+            if (m.length != 0)
+                exprs.put(MutationPointEntry(MutationPoint(offs, m), path,
+                        SourceLoc(loc.line, loc.column)));
+        }
+
+        operator();
+
     }
 
     override void visit(const(Preprocessor) v) {

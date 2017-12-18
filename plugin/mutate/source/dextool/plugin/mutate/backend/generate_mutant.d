@@ -266,6 +266,30 @@ auto makeMutation(Mutation.Kind kind) {
         // it is a deletion so nothing to be done!
         /// #SPC-plugin_mutate_mutations_statement_del
         break;
+        /// Conditional Operator Replacement (reduced set)
+        /// #SPC-plugin_mutate_mutation_cor
+    case corAnd:
+        assert(0);
+    case corOr:
+        assert(0);
+    case corFalse:
+        m.mutate = (const(char)[] expr) { return "false"; };
+        break;
+    case corLhs:
+        // do nothing, deleting
+        break;
+    case corRhs:
+        // do nothing, deleting
+        break;
+    case corEQ:
+        m.mutate = (const(char)[] expr) { return "=="; };
+        break;
+    case corNE:
+        m.mutate = (const(char)[] expr) { return "!="; };
+        break;
+    case corTrue:
+        m.mutate = (const(char)[] expr) { return "true"; };
+        break;
     }
 
     return m;

@@ -80,7 +80,16 @@ struct Mutation {
         absNeg,
         absZero,
         /// statement deletion
-        stmtDel
+        stmtDel,
+        /// Conditional Operator Replacement (reduced set)
+        corAnd,
+        corOr,
+        corFalse,
+        corLhs,
+        corRhs,
+        corEQ,
+        corNE,
+        corTrue,
     }
 
     enum Status {
