@@ -25,6 +25,8 @@ enum MutationKind {
     abs,
     /// Statement deletion
     stmtDel,
+    /// Conditional operator replacement
+    cor,
 }
 
 /// The order the mutations are done when running in test_mutants mode

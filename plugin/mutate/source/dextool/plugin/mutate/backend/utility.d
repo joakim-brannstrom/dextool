@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.utility;
 
+import std.algorithm : filter;
+
 import dextool.type : Path, AbsolutePath;
 
 public import dextool.plugin.mutate.backend.type;
@@ -59,10 +61,10 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
         return absMutations;
     case stmtDel:
         return stmtDelMutations;
+    case cor:
+        return corMutationsRaw.dup;
     }
 }
-
-import std.algorithm : filter;
 
 auto rorMutations(Mutation.Kind is_a) @safe pure nothrow {
     return rorMutationsAll.filter!(a => a != is_a);
@@ -78,6 +80,32 @@ auto aorMutations(Mutation.Kind is_a) @safe pure nothrow {
 
 auto aorAssignMutations(Mutation.Kind is_a) @safe pure nothrow {
     return aorAssignMutationsAll.filter!(a => a != is_a);
+}
+
+/// What the operator should be replaced by.
+auto corOpMutations(Mutation.Kind is_a) @safe pure nothrow {
+    if (is_a == Mutation.Kind.corAnd) {
+        with (Mutation.Kind) {
+            return [corEQ];
+        }
+    } else if (is_a == Mutation.Kind.corOr) {
+        with (Mutation.Kind) {
+            return [corNE];
+        }
+    }
+
+    return null;
+}
+
+/// What the expression should be replaced by.
+auto corExprMutations(Mutation.Kind is_a) @safe pure nothrow {
+    if (is_a == Mutation.Kind.corAnd) {
+        return [Mutation.Kind.corFalse];
+    } else if (is_a == Mutation.Kind.corOr) {
+        return [Mutation.Kind.corTrue];
+    }
+
+    return null;
 }
 
 Mutation.Kind[] uoiLvalueMutations() @safe pure nothrow {
@@ -100,6 +128,7 @@ immutable Mutation.Kind[OpKind] isRor;
 immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[OpKind] isAor;
 immutable Mutation.Kind[OpKind] isAorAssign;
+immutable Mutation.Kind[OpKind] isCor;
 
 immutable Mutation.Kind[] rorMutationsAll;
 immutable Mutation.Kind[] lcrMutationsAll;
@@ -109,6 +138,7 @@ immutable Mutation.Kind[] uoiLvalueMutationsRaw;
 immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 immutable Mutation.Kind[] absMutationsRaw;
 immutable Mutation.Kind[] stmtDelMutationsRaw;
+immutable Mutation.Kind[] corMutationsRaw;
 
 shared static this() {
     // dfmt off
@@ -164,6 +194,14 @@ shared static this() {
         OO_SlashEqual: Mutation.Kind.aorDivAssign, // "/="
         OO_PercentEqual: Mutation.Kind.aorRemAssign, // "%="
         ];
+
+    isCor = cast(immutable)
+        [
+        LAnd: Mutation.Kind.corAnd, // "&&"
+        LOr: Mutation.Kind.corOr, // "||"
+        OO_AmpAmp: Mutation.Kind.corAnd, // "&&"
+        OO_PipePipe: Mutation.Kind.corOr, // "||"
+        ];
     }
     // dfmt on
 
@@ -183,5 +221,6 @@ shared static this() {
         ];
         absMutationsRaw = cast(immutable)[absPos, absNeg, absZero,];
         stmtDelMutationsRaw = cast(immutable)[stmtDel];
+        corMutationsRaw = cast(immutable)[corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
     }
 }

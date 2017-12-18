@@ -10,6 +10,8 @@ done: by definition
 4. [Software Verification and Validation](http://www.inf.ed.ac.uk/teaching/courses/st/2016-17/Mutest.pdf)
 5. A. T. Acree, T. A. Budd, R. A. DeMillo, R. J. Lipton, and F. G. Say-ward, “Mutation Analysis,” Georgia Institute of Techn
 6. R. A. DeMillo, E. W. Krauser, and A. P. Mathur, “Compiler-Integrated Program Mutation,” in Proceedings of the 5th Annual Computer Software and Applications Conference (COMPSAC’91). Tokyo, Japan: IEEE Computer Society Press, September 1991, pp. 351–356.
+7. [Do Redundant Mutants Affect the Effectiveness and Efficiency of Mutation Analysis?](https://pdfs.semanticscholar.org/750e/e5412dc6e85c5ef6cbbc5ba4e6ef299b92ad.pdf)
+8. [Improving Quality of Avionics Software Using Mutation Testing](http://liu.diva-portal.org/smash/get/diva2:707336/FULLTEXT01.pdf)
 
 ## Classification of equivalent mutants
 
