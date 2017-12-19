@@ -51,7 +51,7 @@ chmod 755 compile.sh
 
 Start mutation testing!!!!:
 ```sh
-dextool mutate --mode test_mutants --mutant-test ./tester.sh --mutant-compile ./compile.sh --out .. --restrict ..
+dextool mutate --mode test_mutants --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
 ```
 
 It is possible to run multiple `test_mutants` against the same database.
