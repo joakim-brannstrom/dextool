@@ -22,15 +22,11 @@ enum ToolMode {
     /// analyze for mutation points
     analyzer,
     /// center that can operate and control subcomponents
-    command_center,
-    /// generate the next mutant that is in the state unknown
     generate_mutant,
     /// test mutation points with a test suite
     test_mutants,
     /// generate a report of the mutation points
     report,
-    /// API for external programs to access the internal information
-    information_center,
 }
 
 /// Extract and cleanup user input from the command line.
