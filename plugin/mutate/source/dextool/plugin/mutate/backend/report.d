@@ -96,6 +96,8 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
             .map!(a => a.time.total!"msecs").sum.dur!"msecs";
         const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.count).sum;
+        const auto killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
+            .map!(a => a.count).sum;
         const auto untested_cnt = untested.isNull ? 0 : untested.count;
         const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
             : 0.dur!"msecs";
@@ -115,7 +117,7 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
         item.writeln("%-*s %-*s (%s)", align_, "Total:", align_, total_cnt, total_time);
         if (total_cnt > 0)
             item.writeln("%-*s %-*s", align_, "Score:", align_,
-                    (cast(double)(killed.isNull ? 0 : killed.count) / cast(double) total_cnt));
+                    cast(double) killed_cnt / cast(double) total_cnt);
         if (!killed_by_compiler.isNull)
             item.trace("%-*s %-*s (%s)", align_, "Killed by compiler:", align_,
                     killed_by_compiler.count, killed_by_compiler.time);
