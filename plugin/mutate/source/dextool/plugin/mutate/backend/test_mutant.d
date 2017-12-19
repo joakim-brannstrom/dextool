@@ -43,21 +43,7 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         return ExitStatusType.Errors;
     }
 
-    Duration tester_runtime;
-    if (testerp_runtime.isNull) {
-        logger.info("Measuring the time to run the tester: ", testerp).collectException;
-        auto tester = measureTesterDuration(testerp);
-        if (tester.status.ExitStatusType != ExitStatusType.Ok) {
-            logger.errorf(
-                    "Test suite is unreliable. It must return exit status '0' when running with unmodified mutants",
-                    testerp).collectException;
-            return ExitStatusType.Errors;
-        }
-        logger.info("Tester measured to: ", tester.runtime).collectException;
-        tester_runtime = tester.runtime;
-    } else {
-        tester_runtime = testerp_runtime.get;
-    }
+    // build the SUT before trying to measure the test suite
 
     // sanity check the compiler command. This should pass
     try {
@@ -73,6 +59,22 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         // unable to for example execute the compiler
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
+    }
+
+    Duration tester_runtime;
+    if (testerp_runtime.isNull) {
+        logger.info("Measuring the time to run the tester: ", testerp).collectException;
+        auto tester = measureTesterDuration(testerp);
+        if (tester.status.ExitStatusType != ExitStatusType.Ok) {
+            logger.errorf(
+                    "Test suite is unreliable. It must return exit status '0' when running with unmodified mutants",
+                    testerp).collectException;
+            return ExitStatusType.Errors;
+        }
+        logger.info("Tester measured to: ", tester.runtime).collectException;
+        tester_runtime = tester.runtime;
+    } else {
+        tester_runtime = testerp_runtime.get;
     }
 
     import dextool.plugin.mutate.backend.type : Mutation;
