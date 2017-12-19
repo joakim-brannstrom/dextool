@@ -105,8 +105,6 @@ ExitStatusType runMutate(Frontend fe) {
         import dextool.plugin.mutate.backend : runAnalyzer;
 
         return runAnalyzer(db, frange, fe_validate);
-    case ToolMode.command_center:
-        break;
     case ToolMode.generate_mutant:
         import dextool.plugin.mutate.backend : runGenerateMutant;
 
@@ -120,11 +118,7 @@ ExitStatusType runMutate(Frontend fe) {
         import dextool.plugin.mutate.backend : runReport;
 
         return runReport(db, fe.mutation);
-    case ToolMode.information_center:
-        break;
     }
-
-    return ExitStatusType.Ok;
 }
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
