@@ -31,10 +31,24 @@ TODO: add requirement.
 
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
-The operands are:
-```cpp
-<,<=,>,>=,==,!=
-```
+
+The operands are: `<,<=,>,>=,==,!=,true,false`
+
+In [9] Kaminski et al showed that out of the seven possible mutations only
+three are required to be generated to guarantee detection of the remaining
+four.
+
+Mutation subsuming table from [8]:
+
+| Origian Exprssion | Mutant 1 | Mutant 2 | Mutant 3 |
+------------------------------------------------------
+| `x < y`           | `x <= y` | `x != y` | `false`  |
+| `x > y`           | `x >= y` | `x != y` | `false`  |
+| `x <= y`          | `x < y`  | `x == y` | `true`   |
+| `x >= y`          | `x > y`  | `x == y` | `true`   |
+| `x == y`          | `x <= y` | `x >= y` | `false`  |
+| `x != y`          | `x < y`  | `x > y`  | `true`   |
+------------------------------------------------------
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations

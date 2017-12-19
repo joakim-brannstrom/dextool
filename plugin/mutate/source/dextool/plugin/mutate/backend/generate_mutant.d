@@ -174,6 +174,12 @@ auto makeMutation(Mutation.Kind kind) {
         break;
         /// Logical connector replacement
         /// #SPC-plugin_mutate_mutation_lcr
+    case rorTrue:
+        m.mutate = (const(char)[] expr) { return "true"; };
+        break;
+    case rorFalse:
+        m.mutate = (const(char)[] expr) { return "false"; };
+        break;
     case lcrAnd:
         m.mutate = (const(char)[] expr) { return "&&"; };
         break;
