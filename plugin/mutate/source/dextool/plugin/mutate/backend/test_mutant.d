@@ -146,8 +146,8 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
 
             // test mutant
             try {
-                // TODO is 50% over the original runtime a resonable timeout?
-                auto mut_status = runTester(compilep, testerp, tester_runtime, 1.5, fio);
+                // TODO is 100% over the original runtime a resonable timeout?
+                auto mut_status = runTester(compilep, testerp, tester_runtime, 2.0, fio);
 
                 mutation_sw.stop;
                 db.updateMutation(mutp.id, mut_status, mutation_sw.peek);
