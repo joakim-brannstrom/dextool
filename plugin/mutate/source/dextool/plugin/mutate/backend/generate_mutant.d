@@ -94,6 +94,9 @@ struct GenerateMutantResult {
 auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe {
     import dextool.plugin.mutate.backend.utility : checksum;
 
+    if (mutp.mp.mutations.length == 0)
+        return GenerateMutantResult(ExitStatusType.Errors);
+
     auto db_checksum = db.getFileChecksum(mutp.file);
     auto f_checksum = checksum(cast(const(ubyte)[]) content);
     if (db_checksum.isNull) {
