@@ -405,6 +405,10 @@ struct Database {
 
         FileId[Path] file_ids;
         foreach (a; mps) {
+            // remove mutation points that would never result in a mutation
+            if (a.mp.mutations.length == 0)
+                continue;
+
             if (a.file is null) {
                 debug logger.trace("this should not happen. The file is null file");
                 continue;

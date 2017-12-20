@@ -94,6 +94,9 @@ struct GenerateMutantResult {
 auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe {
     import dextool.plugin.mutate.backend.utility : checksum;
 
+    if (mutp.mp.mutations.length == 0)
+        return GenerateMutantResult(ExitStatusType.Errors);
+
     auto db_checksum = db.getFileChecksum(mutp.file);
     auto f_checksum = checksum(cast(const(ubyte)[]) content);
     if (db_checksum.isNull) {
@@ -174,6 +177,12 @@ auto makeMutation(Mutation.Kind kind) {
         break;
         /// Logical connector replacement
         /// #SPC-plugin_mutate_mutation_lcr
+    case rorTrue:
+        m.mutate = (const(char)[] expr) { return "true"; };
+        break;
+    case rorFalse:
+        m.mutate = (const(char)[] expr) { return "false"; };
+        break;
     case lcrAnd:
         m.mutate = (const(char)[] expr) { return "&&"; };
         break;

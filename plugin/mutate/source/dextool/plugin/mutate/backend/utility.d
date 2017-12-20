@@ -66,8 +66,32 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
     }
 }
 
-auto rorMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return rorMutationsAll.filter!(a => a != is_a);
+// See #SPC-plugin_mutate_mutation_ror for the subsumed table.
+auto rorMutations(OpKind op) @safe pure nothrow {
+    import std.typecons : Tuple, Nullable;
+    import std.algorithm : among;
+
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind, "expr");
+
+    Nullable!Rval rval;
+
+    with (Mutation.Kind) {
+        if (op.among(OpKind.LT, OpKind.OO_Less)) {
+            rval = Rval([rorLE, rorNE], rorFalse);
+        } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
+            rval = Rval([rorGE, rorNE], rorFalse);
+        } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
+            rval = Rval([rorLT, rorEQ], rorTrue);
+        } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
+            rval = Rval([rorGT, rorEQ], rorTrue);
+        } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
+            rval = Rval([rorLE, rorGE], rorFalse);
+        } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
+            rval = Rval([rorLT, rorGT], rorTrue);
+        }
+    }
+
+    return rval;
 }
 
 auto lcrMutations(Mutation.Kind is_a) @safe pure nothrow {
@@ -85,13 +109,9 @@ auto aorAssignMutations(Mutation.Kind is_a) @safe pure nothrow {
 /// What the operator should be replaced by.
 auto corOpMutations(Mutation.Kind is_a) @safe pure nothrow {
     if (is_a == Mutation.Kind.corAnd) {
-        with (Mutation.Kind) {
-            return [corEQ];
-        }
+        return [Mutation.Kind.corEQ];
     } else if (is_a == Mutation.Kind.corOr) {
-        with (Mutation.Kind) {
-            return [corNE];
-        }
+        return [Mutation.Kind.corNE];
     }
 
     return null;
@@ -206,7 +226,8 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        rorMutationsAll = cast(immutable)[rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE,];
+        rorMutationsAll = cast(immutable)[rorLT, rorLE, rorGT, rorGE, rorEQ,
+            rorNE, rorTrue, rorFalse];
         lcrMutationsAll = cast(immutable)[lcrAnd, lcrOr,];
         aorMutationsAll = cast(immutable)[aorMul, aorDiv, aorRem, aorAdd, aorSub,];
         aorAssignMutationsAll = cast(immutable)[aorMulAssign, aorDivAssign,

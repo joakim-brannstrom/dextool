@@ -12,6 +12,7 @@ done: by definition
 6. R. A. DeMillo, E. W. Krauser, and A. P. Mathur, “Compiler-Integrated Program Mutation,” in Proceedings of the 5th Annual Computer Software and Applications Conference (COMPSAC’91). Tokyo, Japan: IEEE Computer Society Press, September 1991, pp. 351–356.
 7. [Do Redundant Mutants Affect the Effectiveness and Efficiency of Mutation Analysis?](https://pdfs.semanticscholar.org/750e/e5412dc6e85c5ef6cbbc5ba4e6ef299b92ad.pdf)
 8. [Improving Quality of Avionics Software Using Mutation Testing](http://liu.diva-portal.org/smash/get/diva2:707336/FULLTEXT01.pdf)
+9. TODO add reference to Kaminskis work with ROR subsumed mutations
 
 ## Classification of equivalent mutants
 
