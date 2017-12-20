@@ -60,7 +60,9 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
             }
         }
 
+        mutations.beginSyntaxBlock;
         db.iterateMutants(kinds, &locationPrinter);
+        mutations.endSyntaxBlock;
         mutations.popHeading;
 
         reportStatistics(db, kinds, report);
@@ -91,6 +93,9 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
         immutable align_ = 8;
 
         auto item = report.heading("Summary");
+        item.beginSyntaxBlock;
+        scope (success)
+            item.endSyntaxBlock;
 
         const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.time.total!"msecs").sum.dur!"msecs";
@@ -164,6 +169,20 @@ struct Report(Writer) {
         if (curr_head != 0)
             put(w, newline);
         return typeof(this)(curr_head - 1, w);
+    }
+
+    auto beginSyntaxBlock(ARGS...)(auto ref ARGS args) {
+        put(w, "```");
+        static if (ARGS.length != 0)
+            formattedWrite(w, args);
+        put(w, newline);
+        return this;
+    }
+
+    auto endSyntaxBlock() {
+        put(w, "```");
+        put(w, newline);
+        return this;
     }
 
     auto write(ARGS...)(auto ref ARGS args) {
