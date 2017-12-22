@@ -17,6 +17,13 @@ import dextool.type : AbsolutePath, Path, FileName;
 
 @safe:
 
+string makeAndCheckLocation() {
+    return q{auto loc = v.cursor.location;
+    if (!val_loc.shouldAnalyze(loc.path)) {
+        return;
+    }};
+}
+
 /** Find all mutation points that affect a whole expression.
  *
  * TODO change the name of the class. It is more than just an expression
@@ -86,10 +93,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
-
-        if (!val_loc.shouldAnalyze(v.cursor.location.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         addStatement(v);
         addExprMutationPoint(getExprOperator(v.cursor));
@@ -108,11 +112,7 @@ final class ExpressionVisitor : Visitor {
     }
 
     void unaryNode(T)(const T v) {
-        auto loc = v.cursor.location;
-
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         // it is NOT an operator.
         addMutationPoint(v.cursor);
@@ -123,11 +123,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-
-        auto loc = v.cursor.location;
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         // #SPC-plugin_mutate_mutations_statement_del-call_expression
         addStatement(v);
@@ -145,11 +141,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(BreakStmt) v) {
         mixin(mixinNodeLog!());
-
-        auto loc = v.cursor.location;
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         addStatement(v);
         v.accept(this);
@@ -157,11 +149,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(BinaryOperator) v) {
         mixin(mixinNodeLog!());
-
-        auto loc = v.cursor.location;
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         auto op = getExprOperator(v.cursor);
         if (op.isValid) {
@@ -179,10 +167,7 @@ final class ExpressionVisitor : Visitor {
         import std.range : dropOne;
         import cpptooling.analyzer.clang.ast.tree : dispatch;
 
-        auto loc = v.cursor.location;
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
+        mixin(makeAndCheckLocation);
 
         // not adding the left side because it results in nonsense mutations for UOI.
         foreach (child; v.cursor.children.dropOne) {
