@@ -66,7 +66,7 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
     }
 }
 
-// See #SPC-plugin_mutate_mutation_ror for the subsumed table.
+// See SPC-plugin_mutate_mutation_ror for the subsumed table.
 auto rorMutations(OpKind op) @safe pure nothrow {
     import std.typecons : Tuple, Nullable;
     import std.algorithm : among;

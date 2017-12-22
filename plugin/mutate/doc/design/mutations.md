@@ -13,7 +13,7 @@ These 5 operators are ABS, UOI, LCR, AOR and ROR. These
 key operators achieved 99.5% mutation score.*
 
 [[SPC-plugin_mutate_references]] Conclusions from 3, p.18:
-*The 5 sufficient operators are ABS, whic forces each arithmetic expression to
+*The 5 sufficient operators are ABS, which forces each arithmetic expression to
 take on the value 0, a positive value and a negative value, AOR, which replaces
 each arithmetic operator with every syntactically legal operator, LCR, which
 replaces each logical connector (AND and OR) with several kinds of logical
@@ -34,21 +34,26 @@ Replace a single operand with another operand.
 
 The operands are: `<,<=,>,>=,==,!=,true,false`
 
+The implementation should use what is in literature called RORG (Relational
+Operator Replacement Global) because it results in fewer mutations and less
+amplification of infeasible mutants.
+
+### RORG
+
 In [9] Kaminski et al showed that out of the seven possible mutations only
 three are required to be generated to guarantee detection of the remaining
 four.
 
 Mutation subsuming table from [8]:
 
-| Origian Exprssion | Mutant 1 | Mutant 2 | Mutant 3 |
-------------------------------------------------------
-| `x < y`           | `x <= y` | `x != y` | `false`  |
-| `x > y`           | `x >= y` | `x != y` | `false`  |
-| `x <= y`          | `x < y`  | `x == y` | `true`   |
-| `x >= y`          | `x > y`  | `x == y` | `true`   |
-| `x == y`          | `x <= y` | `x >= y` | `false`  |
-| `x != y`          | `x < y`  | `x > y`  | `true`   |
-------------------------------------------------------
+ Original Expression | Mutant 1 | Mutant 2 | Mutant 3
+-------------------|----------|----------|----------
+ `x < y`           | `x <= y` | `x != y` | `false`
+ `x > y`           | `x >= y` | `x != y` | `false`
+ `x <= y`          | `x < y`  | `x == y` | `true`
+ `x >= y`          | `x > y`  | `x == y` | `true`
+ `x == y`          | `x <= y` | `x >= y` | `false`
+ `x != y`          | `x < y`  | `x > y`  | `true`
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
@@ -123,6 +128,13 @@ a = -abs(b) + c
 a = 0 + c
 ```
 
+## Undesired Mutant
+
+The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
+Note though that abs(-0.0) is a separate case.
+
+TODO: update ABS mutator to use the semantic information to fix this.
+
 # SPC-plugin_mutate_mutation_cor
 partof: REQ-plugin_mutate-mutations
 ###
@@ -180,25 +192,42 @@ subsumed
 # SPC-plugin_mutate_mutation_dcc
 partof: REQ-plugin_mutate-mutations
 ###
-A test suite that achieve MC/DC should kill 100% of these mutation type.
 
 TODO: add requirement.
 
-## Decition/Condition Coverage
-
+## Why?
 See [8].
 
-## Undesired Mutant
-The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
-Note though that abs(-0.0) is a separate case.
+A test suite that achieve MC/DC should kill 100% of these mutation type.
+
+As discussed in [8] a specialized mutation for DC/C results in less mutation, equivalent mutations and makes it easier for the human to interpret the results.
+
+## Decision Coverage
+
+The DC criteria requires that all branches in a program are executed.
+
+As discussed in [8] p.19 the DC criteria is simulated by replacing predicates with `true` or `false`.
+For switch statements this isn't possible to do. In those cases a bomb is inserted.
+
+## Condition Coverage
+
+The CC criteria requires that all conditions clauses are executed with true/false.
+
+As discussed in [8] p.20 the CC criteria is simulated by replacing clauses with `true` or `false`.
+See [10] for further discussions.
+
+## Bomb
+
+A statement that halts the program.
 
 # SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations
 ###
 
-The plugin shall remove one statement when generating a _statement deletion_ mutation.
+The plugin shall remove one statement when generating a _SDL_ mutation.
 
-## Statement Deletion (SD)
+## Statement Deletion (SDL)
+
 Delete one statement at a time.
 
 # SPC-plugin_mutate_mutations_statement_del-call_expression
@@ -214,4 +243,33 @@ In contrast with the initialization list where it should remove the trailing `,`
 partof: SPC-plugin_mutate-mutations_statement_del-call_expression
 ###
 
-A mutation is expected to result in valid code.
+A mutation is expected to produce valid code.
+
+# TST-plugin_mutate_mutation_ror
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+Expected result when the input is a single assignment using the operator from column _original expression_.
+
+# SPC-plugin_mutate_mutant_identifier
+partof: REQ-plugin_mutate-mutations
+
+The plugin shall generate an identifier for each mutant.
+
+## Checksum algorithm
+
+The algorithm is a simple Merkel tree. It is based on [8] p. 27.
+The hash algorithm should be murmurhash3 128-bit.
+
+1. Generate the hash _s_ of the entire source code.
+2. Generate the hash _o1_ of the begin offset.
+3. Generate the hash _o2_ of the end offset.
+4. Generate the hash _m_ of the textual representation of the mutation.
+5. Generate the final hash of _s_, _o1_, _o2_ and _m_.
+
+## Why?
+
+This is to reduce the number of mutations that need to be tested by enabling reuse of the results.
+From this perspective it is an performance improvements.
+
+The checksum is intended to be used in the future for mutation metaprograms. See [8].
