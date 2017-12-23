@@ -9,8 +9,6 @@
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/ExprCXX.h"
 
-#include <stdint.h>
-
 namespace dextool_clang_extension {
 
 // See: the Expr node
