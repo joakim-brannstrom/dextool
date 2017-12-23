@@ -478,4 +478,33 @@ CXSourceLocation getLocation(CXCursor C) {
     return clang_getNullLocation();
 }
 
+// Recurse past the implicit cast expression.
+const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr) {
+    if (expr == nullptr) {
+        return nullptr;
+    }
+
+    if (llvm::isa<clang::DeclRefExpr>(expr)) {
+        return expr;
+    }
+
+    // See: clang/AST/Expr.h
+    // IgnoreParenImpCasts - Ignore parentheses and implicit casts.  Strip off
+    // any ParenExpr or ImplicitCastExprs, returning their operand.
+    return expr->IgnoreParenImpCasts();
+}
+
+CXCursor dex_getUnderlyingExprNode(const CXCursor cx_expr) {
+    const clang::Expr* expr = getCursorExpr(cx_expr);
+    expr = getUnderlyingExprNode(expr);
+    if (expr == nullptr) {
+        return clang_getNullCursor();
+    }
+
+    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
+    CXTranslationUnit tu = getCursorTU(cx_expr);
+
+    return clang::cxcursor::dex_MakeCXCursor(expr, parent, tu, expr->getSourceRange());
+}
+
 } // NS: dextool_clang_extension {
