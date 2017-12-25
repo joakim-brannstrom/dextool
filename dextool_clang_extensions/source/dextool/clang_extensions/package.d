@@ -205,6 +205,16 @@ extern (C++, dextool_clang_extension) {
 
     /// Get the first node after the expressions.
     extern (C++) CXCursor dex_getUnderlyingExprNode(const CXCursor expr);
+
+    /// The cursors that make up the inside of the if statement.
+    extern (C++) struct DXIfStmt {
+        CXCursor init_;
+        CXCursor cond;
+        CXCursor then;
+        CXCursor else_;
+    }
+
+    extern (C++) DXIfStmt dex_getIfStmt(const CXCursor cx);
 }
 
 Operator getExprOperator(const CXCursor expr) @trusted {
@@ -332,5 +342,87 @@ auto getUnderlyingExprNode(const CXCursor expr) @trusted {
         put(w, " ");
         put(w, location.toString);
         put(w, ")");
+    }
+}
+
+IfStmt getIfStmt(const CXCursor cx) @trusted {
+    IfStmt rval;
+    if (clang_getCursorKind(cx) == CXCursorKind.ifStmt)
+        return IfStmt(cx, dex_getIfStmt(cx));
+
+    return rval;
+}
+
+@safe struct IfStmt {
+    import std.format : FormatSpec;
+    import clang.Cursor;
+
+    private Cursor cx;
+    private DXIfStmt stmt;
+
+    this(const CXCursor parent_, DXIfStmt stmt) {
+        this.cx = Cursor(parent_);
+        this.stmt = stmt;
+    }
+
+    Cursor cursor() const {
+        return cx;
+    }
+
+    Cursor init_() const {
+        return Cursor(stmt.init_);
+    }
+
+    Cursor cond() const {
+        return Cursor(stmt.cond);
+    }
+
+    Cursor then() const {
+        return Cursor(stmt.then);
+    }
+
+    Cursor else_() const {
+        return Cursor(stmt.else_);
+    }
+
+    string toString() const {
+        import std.exception : assumeUnique;
+        import std.format : FormatSpec;
+
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
+        }
+
+        return trustedUnique(buf);
+    }
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.algorithm : copy, map, joiner, filter;
+        import std.range : put;
+
+        put(w, "if (");
+        if (init_.isValid) {
+            () @trusted{ init_.tokens.map!(a => a.spelling).joiner(" ").copy(w); }();
+            put(w, "; ");
+        }
+        () @trusted{ cond.tokens.map!(a => a.spelling).joiner(" ").copy(w); }();
+        put(w, ") ");
+
+        foreach (c; [then, else_].filter!(a => a.isValid)) {
+            () @trusted{
+                auto toks = c.tokens;
+                // only one case here and that is a `return foo;`. The trailing
+                // `;` is not part of the token range so an extra has to be
+                // appended at the end.
+                bool is_keyword = toks.length > 0 && toks[0].kind == CXTokenKind.keyword;
+                c.tokens.map!(a => a.spelling).joiner(" ").copy(w);
+                if (is_keyword)
+                    put(w, "; ");
+            }();
+        }
     }
 }
