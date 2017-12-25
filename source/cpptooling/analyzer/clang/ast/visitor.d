@@ -17,8 +17,10 @@ version (unittest) {
     import test.extra_should : shouldEqualPretty;
 }
 
+/// Inject incr/decr that is called by the accept function when visiting the AST.
 mixin template generateIndentIncrDecr() {
     uint indent;
+
     override void incr() @safe {
         ++indent;
     }
