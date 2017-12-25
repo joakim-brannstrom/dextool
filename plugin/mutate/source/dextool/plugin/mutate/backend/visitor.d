@@ -15,6 +15,15 @@ import logger = std.experimental.logger;
 import cpptooling.analyzer.clang.ast : Visitor;
 import dextool.type : AbsolutePath, Path, FileName;
 
+// these imports are used in visitors. They are here to avoid cluttering the
+// individual visitors with a wall of text of imports.
+import clang.Cursor : Cursor;
+import clang.SourceLocation : SourceLocation;
+import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import dextool.plugin.mutate.backend.database : MutationPointEntry;
+import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
+import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
+
 @safe:
 
 string makeAndCheckLocation() {
@@ -31,31 +40,22 @@ string makeAndCheckLocation() {
  */
 final class ExpressionVisitor : Visitor {
     import std.array : Appender;
-    import clang.Cursor : Cursor;
-    import clang.SourceLocation : SourceLocation;
     import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dextool.clang_extensions;
-    import dextool.plugin.mutate.backend.database : MutationPointEntry;
-    import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
-    import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
 
     alias visit = Visitor.visit;
 
     mixin generateIndentIncrDecr;
 
-    private Appender!(MutationPointEntry[]) exprs;
-    private bool[Path] files;
+    private AnalyzeResult result;
     private ValidateLoc val_loc;
 
     const(MutationPointEntry[]) mutationPoints() {
-        return exprs.data;
+        return result.mutationPoints;
     }
 
     Path[] mutationPointFiles() @trusted {
-        import std.array : array;
-
-        return files.byKey.array();
+        return result.mutationPointFiles;
     }
 
     /**
@@ -63,6 +63,7 @@ final class ExpressionVisitor : Visitor {
      *  restrict = only analyze files starting with this path
      */
     this(ValidateLoc val_loc) nothrow {
+        this.result = new AnalyzeResult;
         this.val_loc = val_loc;
     }
 
@@ -195,7 +196,7 @@ final class ExpressionVisitor : Visitor {
         auto path = loc.path.Path;
         if (path is null)
             return;
-        files[path] = true;
+        result.put(path);
 
         auto sr = c.extent;
         auto offs = Offset(sr.start.offset, sr.end.offset);
@@ -205,7 +206,7 @@ final class ExpressionVisitor : Visitor {
         auto m = chain(m0, m1).map!(a => Mutation(a)).array();
         auto p2 = MutationPointEntry(MutationPoint(offs, m), path,
                 SourceLoc(loc.line, loc.column));
-        exprs.put(p2);
+        result.put(p2);
     }
 
     void addExprMutationPoint(const(Operator) op_) {
@@ -224,7 +225,7 @@ final class ExpressionVisitor : Visitor {
         auto path = loc.path.Path;
         if (path is null)
             return;
-        files[path] = true;
+        result.put(path);
 
         // construct the mutations points to allow the delegates to fill with data
         auto sloc = SourceLoc(loc.line, loc.column);
@@ -286,10 +287,10 @@ final class ExpressionVisitor : Visitor {
         else if (auto v = op_.kind in isAorAssign)
             op.mp.mutations ~= aorAssignMutations(*v).map!(a => Mutation(a)).array();
 
-        exprs.put(lhs);
-        exprs.put(rhs);
-        exprs.put(op);
-        exprs.put(expr);
+        result.put(lhs);
+        result.put(rhs);
+        result.put(op);
+        result.put(expr);
     }
 
     override void visit(const(Preprocessor) v) {
@@ -322,12 +323,12 @@ final class ExpressionVisitor : Visitor {
         auto path = loc.path.Path;
         if (path is null)
             return;
-        files[path] = true;
+        result.put(path);
 
         auto offs = calcOffset(v);
         auto m = stmtDelMutations.map!(a => Mutation(a)).array();
 
-        exprs.put(MutationPointEntry(MutationPoint(offs, m), path,
+        result.put(MutationPointEntry(MutationPoint(offs, m), path,
                 SourceLoc(loc.line, loc.column)));
     }
 }
@@ -336,6 +337,31 @@ private:
 
 import clang.c.Index : CXTokenKind;
 import dextool.plugin.mutate.backend.type : Offset;
+
+class AnalyzeResult {
+    import std.array : Appender;
+
+    Appender!(MutationPointEntry[]) exprs;
+    bool[Path] files;
+
+    void put(MutationPointEntry a) {
+        exprs.put(a);
+    }
+
+    void put(Path a) {
+        files[a] = true;
+    }
+
+    const(MutationPointEntry[]) mutationPoints() {
+        return exprs.data;
+    }
+
+    Path[] mutationPointFiles() @trusted {
+        import std.array : array;
+
+        return files.byKey.array();
+    }
+}
 
 // trusted: the tokens do not escape this function.
 Offset calcOffset(T)(const(T) v) @trusted {
