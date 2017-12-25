@@ -15,6 +15,13 @@ done: by definition
 9. Kaminski, Gary, Paul Ammann, and Jeff Offutt. "Improving Logic-Based Testing." _Journal of Systems and Software (2012)_
 10. Offut, Jeff and Jeffrey M. Voas. "Subsumption of condition coverage techniques by mutation testing" (1996)
 
+## Articles and Blogs
+
+These are not intended to be references but rather a collection of links mentioning mutation testing that are of interest to either the development of this plugin or introducing mutation testing at the workplace.
+
+ * [Uncle Bob on Mutation Testing](https://www.reddit.com/r/programming/comments/4nlstd/mutation_testing_clean_coder_blog/)
+   [Uncle Bob on Mutation Testing](http://blog.cleancoder.com/uncle-bob/2016/06/10/MutationTesting.html)
+
 ## Classification of equivalent mutants
 
 A sample of some of the tested techniques. [[SPC-plugin_mutate_references]]
