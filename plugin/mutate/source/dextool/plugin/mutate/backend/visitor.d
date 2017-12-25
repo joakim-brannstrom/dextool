@@ -26,22 +26,15 @@ import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
 
 @safe:
 
-string makeAndCheckLocation() {
-    return q{auto loc = v.cursor.location;
-    if (!val_loc.shouldAnalyze(loc.path)) {
-        return;
-    }};
-}
-
 /** Find all mutation points that affect a whole expression.
  *
  * TODO change the name of the class. It is more than just an expression
  * visitor.
  */
 final class ExpressionVisitor : Visitor {
-    import std.array : Appender;
+    import std.array : array;
     import cpptooling.analyzer.clang.ast;
-    import dextool.clang_extensions;
+    import dextool.clang_extensions : getExprOperator, OpKind;
 
     alias visit = Visitor.visit;
 
@@ -49,14 +42,7 @@ final class ExpressionVisitor : Visitor {
 
     private AnalyzeResult result;
     private ValidateLoc val_loc;
-
-    const(MutationPointEntry[]) mutationPoints() {
-        return result.mutationPoints;
-    }
-
-    Path[] mutationPointFiles() @trusted {
-        return result.mutationPointFiles;
-    }
+    private Transform transf;
 
     /**
      * Params:
@@ -65,6 +51,85 @@ final class ExpressionVisitor : Visitor {
     this(ValidateLoc val_loc) nothrow {
         this.result = new AnalyzeResult;
         this.val_loc = val_loc;
+        this.transf = Transform(result, val_loc);
+
+        import dextool.plugin.mutate.backend.utility : stmtDelMutations,
+            absMutations, uoiLvalueMutations, uoiRvalueMutations;
+
+        transf.stmtCallback ~= () => stmtDelMutations;
+
+        transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
+        transf.binaryOpLhsCallback ~= (OpKind k) => absMutations;
+        transf.binaryOpRhsCallback ~= (OpKind k) => absMutations;
+
+        transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
+            ? uoiLvalueMutations : uoiRvalueMutations;
+
+        import std.algorithm : map;
+        import dextool.plugin.mutate.backend.type : Mutation;
+        import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations,
+            isAor, aorMutations, isAorAssign, aorAssignMutations, isRor,
+            rorMutations, isCor, corOpMutations, corExprMutations;
+
+        // TODO refactor so array() can be removed. It is an unnecessary allocation
+        transf.binaryOpOpCallback ~= (OpKind k) {
+            if (auto v = k in isLcr)
+                return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+
+        transf.binaryOpOpCallback ~= (OpKind k) {
+            if (auto v = k in isAor)
+                return aorMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+        transf.assignOpOpCallback ~= (OpKind k) {
+            if (auto v = k in isAorAssign)
+                return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+
+        transf.binaryOpOpCallback ~= (OpKind k) {
+            if (k in isRor)
+                return rorMutations(k).op.map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+        transf.binaryOpExprCallback ~= (OpKind k) {
+            if (k in isRor)
+                return [rorMutations(k).expr];
+            else
+                return null;
+        };
+
+        //transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
+        //transf.binaryOpRhsCallback ~= (OpKind k) => uoiLvalueMutations;
+
+        transf.binaryOpLhsCallback ~= (OpKind k) => [Mutation.Kind.corRhs];
+        transf.binaryOpRhsCallback ~= (OpKind k) => [Mutation.Kind.corLhs];
+        transf.binaryOpOpCallback ~= (OpKind k) {
+            if (auto v = k in isCor)
+                return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+        transf.binaryOpExprCallback ~= (OpKind k) {
+            if (auto v = k in isCor)
+                return corExprMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+            else
+                return null;
+        };
+    }
+
+    const(MutationPointEntry[]) mutationPoints() {
+        return result.mutationPoints;
+    }
+
+    Path[] mutationPointFiles() @trusted {
+        return result.mutationPointFiles;
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -94,203 +159,49 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
-        mixin(makeAndCheckLocation);
-
-        addStatement(v);
-        addExprMutationPoint(getExprOperator(v.cursor));
-
+        transf.statement(v);
         v.accept(this);
     }
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
-        unaryNode(v);
+        transf.unaryInject(v.cursor);
+        v.accept(this);
     }
 
     override void visit(const IntegerLiteral v) {
         mixin(mixinNodeLog!());
-        unaryNode(v);
-    }
-
-    void unaryNode(T)(const T v) {
-        mixin(makeAndCheckLocation);
-
-        // it is NOT an operator.
-        addMutationPoint(v.cursor);
-        addExprMutationPoint(getExprOperator(v.cursor));
-
+        transf.unaryInject(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        mixin(makeAndCheckLocation);
 
         // #SPC-plugin_mutate_mutations_statement_del-call_expression
-        addStatement(v);
+        transf.statement(v);
 
-        auto op = getExprOperator(v.cursor);
-        if (op.isValid) {
-            addExprMutationPoint(op);
-            auto s = op.sides;
-            addMutationPoint(s.lhs);
-            addMutationPoint(s.rhs);
-        }
+        transf.binaryOp(v.cursor);
 
         v.accept(this);
     }
 
     override void visit(const(BreakStmt) v) {
         mixin(mixinNodeLog!());
-        mixin(makeAndCheckLocation);
-
-        addStatement(v);
+        transf.statement(v);
         v.accept(this);
     }
 
     override void visit(const(BinaryOperator) v) {
         mixin(mixinNodeLog!());
-        mixin(makeAndCheckLocation);
-
-        auto op = getExprOperator(v.cursor);
-        if (op.isValid) {
-            addExprMutationPoint(op);
-            auto s = op.sides;
-            addMutationPoint(s.lhs);
-            addMutationPoint(s.rhs);
-        }
-
+        transf.binaryOp(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(CompoundAssignOperator) v) {
         mixin(mixinNodeLog!());
-        import std.range : dropOne;
-        import cpptooling.analyzer.clang.ast.tree : dispatch;
-
-        mixin(makeAndCheckLocation);
-
-        // not adding the left side because it results in nonsense mutations for UOI.
-        foreach (child; v.cursor.children.dropOne) {
-            dispatch(child, this);
-        }
-    }
-
-    // TODO ugly duplication between this and addExprMutationPoint. Fix it.
-    void addMutationPoint(const(Cursor) c) {
-        import std.algorithm : map;
-        import std.array : array;
-        import std.range : chain;
-        import dextool.plugin.mutate.backend.type : Offset;
-        import dextool.plugin.mutate.backend.utility;
-
-        if (!c.isValid)
-            return;
-
-        const auto kind = exprValueKind(getUnderlyingExprNode(c));
-
-        SourceLocation loc = c.location;
-
-        // a bug in getExprOperator makes the path for a ++ which is overloaded
-        // is null.
-        auto path = loc.path.Path;
-        if (path is null)
-            return;
-        result.put(path);
-
-        auto sr = c.extent;
-        auto offs = Offset(sr.start.offset, sr.end.offset);
-
-        auto m0 = absMutations;
-        auto m1 = kind == ValueKind.lvalue ? uoiLvalueMutations : uoiRvalueMutations;
-        auto m = chain(m0, m1).map!(a => Mutation(a)).array();
-        auto p2 = MutationPointEntry(MutationPoint(offs, m), path,
-                SourceLoc(loc.line, loc.column));
-        result.put(p2);
-    }
-
-    void addExprMutationPoint(const(Operator) op_) {
-        import std.algorithm : map;
-        import std.array : array;
-        import std.range : chain;
-        import dextool.plugin.mutate.backend.type : Offset;
-        import dextool.plugin.mutate.backend.utility;
-
-        if (!op_.isValid)
-            return;
-
-        SourceLocation loc = op_.cursor.location;
-        // a bug in getExprOperator makes the path for a ++ which is overloaded
-        // is null.
-        auto path = loc.path.Path;
-        if (path is null)
-            return;
-        result.put(path);
-
-        // construct the mutations points to allow the delegates to fill with data
-        auto sloc = SourceLoc(loc.line, loc.column);
-        MutationPointEntry lhs, rhs, op, expr;
-
-        void sidesPoint() {
-            auto opsr = op_.location.spelling;
-            auto sr = op_.cursor.extent;
-
-            auto offs_rhs = Offset(opsr.offset, sr.end.offset);
-            rhs = MutationPointEntry(MutationPoint(offs_rhs, null), path, sloc);
-
-            auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op_.length));
-            lhs = MutationPointEntry(MutationPoint(offs_lhs, null), path, sloc);
-        }
-
-        void opPoint() {
-            auto sr = op_.location.spelling;
-            auto offs = Offset(sr.offset, cast(uint)(sr.offset + op_.length));
-            op = MutationPointEntry(MutationPoint(offs, null), path, sloc);
-        }
-
-        void exprPoint() {
-            auto sr = op_.cursor.extent;
-            auto offs_expr = Offset(sr.start.offset, sr.end.offset);
-            expr = MutationPointEntry(MutationPoint(offs_expr, null), path, sloc);
-        }
-
-        sidesPoint();
-        opPoint();
-        exprPoint();
-
-        void cor() {
-            // delete rhs
-            rhs.mp.mutations ~= [Mutation(Mutation.Kind.corLhs)];
-
-            // delete lhs
-            lhs.mp.mutations ~= [Mutation(Mutation.Kind.corRhs)];
-
-            if (auto v = op_.kind in isCor) {
-                op.mp.mutations ~= corOpMutations(*v).map!(a => Mutation(a)).array();
-                expr.mp.mutations ~= corExprMutations(*v).map!(a => Mutation(a)).array();
-            }
-        }
-
-        void ror() {
-            auto mut = rorMutations(op_.kind);
-            op.mp.mutations ~= mut.op.map!(a => Mutation(a)).array();
-            expr.mp.mutations ~= Mutation(mut.expr);
-        }
-
-        if (op_.kind in isRor)
-            ror();
-        else if (auto v = op_.kind in isLcr) {
-            op.mp.mutations ~= lcrMutations(*v).map!(a => Mutation(a)).array();
-            cor();
-        } else if (auto v = op_.kind in isAor)
-            op.mp.mutations ~= aorMutations(*v).map!(a => Mutation(a)).array();
-        else if (auto v = op_.kind in isAorAssign)
-            op.mp.mutations ~= aorAssignMutations(*v).map!(a => Mutation(a)).array();
-
-        result.put(lhs);
-        result.put(rhs);
-        result.put(op);
-        result.put(expr);
+        transf.assignOp(v.cursor);
+        v.accept(this);
     }
 
     override void visit(const(Preprocessor) v) {
@@ -305,35 +216,224 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
-        addStatement(v);
+        transf.statement(v);
         v.accept(this);
-    }
-
-    void addStatement(T)(const(T) v) {
-        import std.algorithm : map;
-        import std.array : array;
-        import dextool.plugin.mutate.backend.type : Offset;
-        import dextool.plugin.mutate.backend.utility;
-
-        auto loc = v.cursor.location;
-        if (!val_loc.shouldAnalyze(loc.path)) {
-            return;
-        }
-
-        auto path = loc.path.Path;
-        if (path is null)
-            return;
-        result.put(path);
-
-        auto offs = calcOffset(v);
-        auto m = stmtDelMutations.map!(a => Mutation(a)).array();
-
-        result.put(MutationPointEntry(MutationPoint(offs, m), path,
-                SourceLoc(loc.line, loc.column)));
     }
 }
 
 private:
+
+/** Inject code to validate and check the location of a cursor.
+ *
+ * Params:
+ *   cursor = code snippet to get the cursor from a variable accessable in the method.
+ */
+string makeAndCheckLocation(string cursor) {
+    import std.format : format;
+
+    return format(q{auto loc = %s.location;
+    if (!val_loc.shouldAnalyze(loc.path)) {
+        return;
+    }}, cursor);
+}
+
+struct Transform {
+    import std.algorithm : map;
+    import std.array : array;
+    import dextool.clang_extensions : OpKind;
+    import dextool.plugin.mutate.backend.type : Offset;
+    import dextool.plugin.mutate.backend.utility;
+
+    AnalyzeResult result;
+    ValidateLoc val_loc;
+
+    /// Any statement
+    alias StatementEvent = Mutation.Kind[]delegate();
+    StatementEvent[] stmtCallback;
+
+    /// Any statement that should have a unary operator inserted before/after
+    alias UnaryInjectEvent = Mutation.Kind[]delegate(ValueKind);
+    UnaryInjectEvent[] unaryInjectCallback;
+
+    /// Any binary operator
+    alias BinaryOpEvent = Mutation.Kind[]delegate(OpKind kind);
+    BinaryOpEvent[] binaryOpOpCallback;
+    BinaryOpEvent[] binaryOpLhsCallback;
+    BinaryOpEvent[] binaryOpRhsCallback;
+    BinaryOpEvent[] binaryOpExprCallback;
+
+    /// Assignment operators
+    alias AssignOpKindEvent = Mutation.Kind[]delegate(OpKind kind);
+    alias AssignOpEvent = Mutation.Kind[]delegate();
+    AssignOpKindEvent[] assignOpOpCallback;
+    AssignOpEvent[] assignOpLhsCallback;
+    AssignOpEvent[] assignOpRhsCallback;
+
+    void statement(T)(const(T) v) {
+        mixin(makeAndCheckLocation("v.cursor"));
+        mixin(mixinPath);
+
+        auto offs = calcOffset(v);
+        Mutation[] m;
+        foreach (cb; stmtCallback) {
+            m ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(MutationPointEntry(MutationPoint(offs, m), path,
+                SourceLoc(loc.line, loc.column)));
+    }
+
+    void unaryInject(const(Cursor) c) {
+        import dextool.clang_extensions : exprValueKind, getUnderlyingExprNode;
+
+        // nodes from getOperator can be invalid.
+        if (!c.isValid)
+            return;
+
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+
+        const auto kind = exprValueKind(getUnderlyingExprNode(c));
+        Mutation[] m;
+        foreach (cb; unaryInjectCallback) {
+            m ~= cb(kind).map!(a => Mutation(a)).array();
+        }
+
+        auto p2 = MutationPointEntry(MutationPoint(offs, m), path,
+                SourceLoc(loc.line, loc.column));
+        result.put(p2);
+    }
+
+    void binaryOp(const(Cursor) c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto mp = getOperatorMP(c);
+        if (!mp.isValid)
+            return;
+
+        foreach (cb; binaryOpOpCallback)
+            mp.op.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+        foreach (cb; binaryOpLhsCallback)
+            mp.lhs.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+        foreach (cb; binaryOpRhsCallback)
+            mp.rhs.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+        foreach (cb; binaryOpExprCallback)
+            mp.expr.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+
+        result.put(mp.lhs);
+        result.put(mp.rhs);
+        result.put(mp.op);
+        result.put(mp.expr);
+    }
+
+    void assignOp(const Cursor c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto mp = getOperatorMP(c);
+        if (!mp.isValid)
+            return;
+
+        foreach (cb; assignOpOpCallback)
+            mp.op.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+
+        foreach (cb; assignOpLhsCallback)
+            mp.lhs.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+
+        foreach (cb; assignOpRhsCallback)
+            mp.lhs.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+
+        result.put(mp.lhs);
+        result.put(mp.rhs);
+        result.put(mp.op);
+    }
+
+    private static struct OperatorMP {
+        bool isValid;
+        Operator rawOp;
+        /// the left side INCLUDING the operator
+        MutationPointEntry lhs;
+        /// the right side INCLUDING the operator
+        MutationPointEntry rhs;
+        /// the operator
+        MutationPointEntry op;
+        /// the whole operator expression
+        MutationPointEntry expr;
+    }
+
+    OperatorMP getOperatorMP(const(Cursor) c) {
+        import dextool.clang_extensions : getExprOperator;
+
+        typeof(return) rval;
+
+        auto op_ = getExprOperator(c);
+        if (!op_.isValid)
+            return rval;
+
+        rval.rawOp = op_;
+
+        SourceLocation loc = op_.cursor.location;
+
+        auto path = loc.path.Path;
+        if (path is null)
+            return rval;
+        result.put(path);
+
+        rval.isValid = op_.isValid;
+
+        // construct the mutations points to allow the delegates to fill with data
+        auto sloc = SourceLoc(loc.line, loc.column);
+
+        void sidesPoint() {
+            auto opsr = op_.location.spelling;
+            auto sr = op_.cursor.extent;
+
+            auto offs_rhs = Offset(opsr.offset, sr.end.offset);
+            rval.rhs = MutationPointEntry(MutationPoint(offs_rhs, null), path, sloc);
+
+            auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op_.length));
+            rval.lhs = MutationPointEntry(MutationPoint(offs_lhs, null), path, sloc);
+        }
+
+        void opPoint() {
+            auto sr = op_.location.spelling;
+            auto offs = Offset(sr.offset, cast(uint)(sr.offset + op_.length));
+            rval.op = MutationPointEntry(MutationPoint(offs, null), path, sloc);
+        }
+
+        void exprPoint() {
+            // TODO this gives a slightly different result from calling getUnderlyingExprNode on v.cursor.
+            // Investigate which one is the "correct" way.
+            auto sr = op_.cursor.extent;
+            auto offs_expr = Offset(sr.start.offset, sr.end.offset);
+            rval.expr = MutationPointEntry(MutationPoint(offs_expr, null), path, sloc);
+        }
+
+        sidesPoint();
+        opPoint();
+        exprPoint();
+
+        return rval;
+    }
+
+    // expects a makeAndCheckLocation exists before.
+    private static string mixinPath() {
+        // a bug in getExprOperator makes the path for a ++ which is overloaded
+        // is null.
+        return q{
+            auto path = loc.path.Path;
+            if (path is null)
+                return;
+            result.put(path);
+        };
+    }
+}
+
+import dextool.clang_extensions : Operator;
 
 import clang.c.Index : CXTokenKind;
 import dextool.plugin.mutate.backend.type : Offset;
