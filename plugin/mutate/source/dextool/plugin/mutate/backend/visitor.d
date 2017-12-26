@@ -33,6 +33,7 @@ import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
  */
 final class ExpressionVisitor : Visitor {
     import std.array : array;
+    import clang.c.Index : CXCursorKind;
     import cpptooling.analyzer.clang.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
 
@@ -43,6 +44,8 @@ final class ExpressionVisitor : Visitor {
     private AnalyzeResult result;
     private ValidateLoc val_loc;
     private Transform transf;
+
+    private Stack!CXCursorKind kindStack;
 
     /**
      * Params:
@@ -165,7 +168,8 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
-        transf.unaryInject(v.cursor);
+        if (kindStack.hasValue(CXCursorKind.compoundAssignOperator).isNull)
+            transf.unaryInject(v.cursor);
         v.accept(this);
     }
 
@@ -200,6 +204,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(CompoundAssignOperator) v) {
         mixin(mixinNodeLog!());
+        mixin(pushPopStack("kindStack", "v.cursor.kind"));
         transf.assignOp(v.cursor);
         v.accept(this);
     }
@@ -235,6 +240,45 @@ string makeAndCheckLocation(string cursor) {
     if (!val_loc.shouldAnalyze(loc.path)) {
         return;
     }}, cursor);
+}
+
+struct Stack(T) {
+    import std.typecons : Nullable;
+    import std.container : Array;
+
+    Array!T arr;
+
+    // trusted: as long as arr do not escape the instance
+    void put(T a) @trusted {
+        arr.insertBack(a);
+    }
+
+    // trusted: as long as arr do not escape the instance
+    void pop() @trusted {
+        arr.removeBack;
+    }
+
+    /** Check from the top of the stack if v is in the stack
+     *
+     * trusted: the slice never escape the method and v never affects the
+     * slicing thus the memory.
+     */
+    Nullable!size_t hasValue(T v) @trusted {
+        import std.range : retro, enumerate;
+
+        foreach (idx, a; arr[].retro.enumerate) {
+            if (a == v)
+                return typeof(return)(idx);
+        }
+
+        return typeof(return)();
+    }
+}
+
+string pushPopStack(string instance, string value) {
+    import std.format : format;
+
+    return format(q{%s.put(%s); scope(exit) %s.pop;}, instance, value, instance);
 }
 
 struct Transform {
