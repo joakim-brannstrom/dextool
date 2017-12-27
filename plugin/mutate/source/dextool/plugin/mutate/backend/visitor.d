@@ -59,6 +59,7 @@ final class ExpressionVisitor : Visitor {
         import dextool.plugin.mutate.backend.utility : stmtDelMutations,
             absMutations, uoiLvalueMutations, uoiRvalueMutations;
 
+        // #SPC-plugin_mutate_mutations_statement_del-call_expression
         transf.stmtCallback ~= () => stmtDelMutations;
 
         transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
@@ -182,7 +183,6 @@ final class ExpressionVisitor : Visitor {
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
 
-        // #SPC-plugin_mutate_mutations_statement_del-call_expression
         transf.statement(v);
 
         transf.binaryOp(v.cursor);
