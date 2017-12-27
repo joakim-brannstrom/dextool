@@ -14,6 +14,7 @@ int main(string[] args) {
                           "dextool_test.mutate_abs",
                           "dextool_test.mutate_aor",
                           "dextool_test.mutate_cor",
+                          "dextool_test.mutate_dcc",
                           "dextool_test.mutate_lcr",
                           "dextool_test.mutate_ror",
                           "dextool_test.mutate_stmt_deletion",

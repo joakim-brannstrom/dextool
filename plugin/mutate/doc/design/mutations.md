@@ -329,6 +329,7 @@ partof: SPC-plugin_mutate_mutation_dcc
 
 ifstmt = {
  * `if` stmt with one clause
+ * `if` stmt with multiple clauses
  * nested `if` stmts
 }
 
@@ -345,8 +346,10 @@ Expected result for _switchstmt_.
 
 ifstmt = {
  * `if` stmt with one clause
- * `if` stmt with more >1 clause
+ * `if` stmt with multiple clauses
  * `if` stmt with nested clauses
 }
 
 Expected result for _ifstmt_.
+
+Note: For the one clause case only ONE mutation point shall be generated.

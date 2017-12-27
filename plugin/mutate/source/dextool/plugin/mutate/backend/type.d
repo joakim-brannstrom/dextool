@@ -94,6 +94,9 @@ struct Mutation {
         /// Relational operator replacement
         rorTrue,
         rorFalse,
+        /// Decision/Condition Coverage
+        dccTrue,
+        dccFalse,
     }
 
     enum Status {
