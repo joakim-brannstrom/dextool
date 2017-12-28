@@ -293,6 +293,19 @@ ops = {&&,||}
 Expected result when for a C++ file containg _ops_ between integers.
 
 Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_ror
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+```
+ops = {<,<=,>,>=,==,!=}
+```
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
 # TST-plugin_mutate_mutation_cor
 partof: SPC-plugin_mutate_mutation_cor
 ###

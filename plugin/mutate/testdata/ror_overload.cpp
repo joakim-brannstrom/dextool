@@ -16,21 +16,11 @@ public:
 };
 
 void relation_operators() {
-    int a = 1;
-    int b = 2;
-
-    bool c = a < b;
-    bool d = a <= b;
-    bool e = a > b;
-    bool f = a >= b;
-    bool g = a == b;
-    bool h = a != b;
-
-    OpOverload oa, ob;
-    oa < ob;
-    oa <= ob;
-    oa > ob;
-    oa >= ob;
-    oa == ob;
-    oa != ob;
+    OpOverload a, b;
+    a < b;
+    a <= b;
+    a > b;
+    a >= b;
+    a == b;
+    a != b;
 }
