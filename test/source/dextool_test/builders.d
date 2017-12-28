@@ -347,8 +347,8 @@ struct BuildCommandRunResult {
     /// actual exit status
     const int status;
     /// captured output
-    const string[] stdout;
-    const string[] stderr;
+    string[] stdout;
+    string[] stderr;
     /// time to execute the command. TODO: change to Duration after DMD v2.076
     const long executionMsecs;
 
