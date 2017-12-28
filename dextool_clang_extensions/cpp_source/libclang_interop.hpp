@@ -55,6 +55,13 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
                           CXTranslationUnit TU,
                           clang::SourceRange RegionOfInterest = clang::SourceRange());
 
+
+/// Returns the underlying node that is not an reference or implicit cast.
+const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr);
+
+/// Returns a Cursor for the underlying node that is not an reference or implicit cast.
+CXCursor dex_getUnderlyingExprNode(const CXCursor cx_expr);
+
 } // NS: cxcursor
 } // NS: clang
 

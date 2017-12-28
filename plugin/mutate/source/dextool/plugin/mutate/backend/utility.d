@@ -226,22 +226,22 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        rorMutationsAll = cast(immutable)[rorLT, rorLE, rorGT, rorGE, rorEQ,
+        rorMutationsAll = [rorLT, rorLE, rorGT, rorGE, rorEQ,
             rorNE, rorTrue, rorFalse];
-        lcrMutationsAll = cast(immutable)[lcrAnd, lcrOr,];
-        aorMutationsAll = cast(immutable)[aorMul, aorDiv, aorRem, aorAdd, aorSub,];
-        aorAssignMutationsAll = cast(immutable)[aorMulAssign, aorDivAssign,
+        lcrMutationsAll = [lcrAnd, lcrOr,];
+        aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub,];
+        aorAssignMutationsAll = [aorMulAssign, aorDivAssign,
             aorRemAssign, aorAddAssign, aorSubAssign,];
         // inactivating unary that seem to be nonsense
-        uoiLvalueMutationsRaw = cast(immutable)[uoiPostInc, uoiPostDec,
+        uoiLvalueMutationsRaw = [uoiPostInc, uoiPostDec,
             uoiPreInc, uoiPreDec, uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
             uoiIndirection, uoiComplement, uoiSizeof_,*/
             ];
-        uoiRvalueMutationsRaw = cast(immutable)[uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
+        uoiRvalueMutationsRaw = [uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
             uoiIndirection*, uoiPositive, uoiComplement, uoiSizeof_,*/
         ];
-        absMutationsRaw = cast(immutable)[absPos, absNeg, absZero,];
-        stmtDelMutationsRaw = cast(immutable)[stmtDel];
-        corMutationsRaw = cast(immutable)[corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
+        absMutationsRaw = [absPos, absNeg, absZero,];
+        stmtDelMutationsRaw = [stmtDel];
+        corMutationsRaw = [corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
     }
 }

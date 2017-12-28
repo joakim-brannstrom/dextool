@@ -273,3 +273,45 @@ This is to reduce the number of mutations that need to be tested by enabling reu
 From this perspective it is an performance improvements.
 
 The checksum is intended to be used in the future for mutation metaprograms. See [8].
+
+# TST-plugin_mutate_mutation_aor
+partof: SPC-plugin_mutate_mutation_aor
+###
+
+ops = {+,-,/,%,*}
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_lcr
+partof: SPC-plugin_mutate_mutation_lcr
+###
+
+ops = {&&,||}
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_ror
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+```
+ops = {<,<=,>,>=,==,!=}
+```
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_cor
+partof: SPC-plugin_mutate_mutation_cor
+###
+
+ops = {&&,||}
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
