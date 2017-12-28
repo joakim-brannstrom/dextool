@@ -8,7 +8,8 @@ module dextool_test.utils;
 import scriptlike;
 
 import std.range : isInputRange;
-import std.typecons : Yes, No, Flag;
+import std.typecons : Flag;
+public import std.typecons : Yes, No;
 
 import logger = std.experimental.logger;
 
