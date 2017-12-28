@@ -12,9 +12,8 @@ import dextool_test.utility;
 @("shall successfully run the COD mutator (no validation of the result)")
 unittest {
     mixin(EnvSetup(globalTestdir));
-
     makeDextool(testEnv)
-        .addInputArg(testData ~ "lcr.cpp")
+        .addInputArg(testData ~ "lcr_primitive.cpp")
         .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)

@@ -283,3 +283,13 @@ ops = {+,-,/,%,*}
 Expected result when for a C++ file containg _ops_ between integers.
 
 Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_lcr
+partof: SPC-plugin_mutate_mutation_lcr
+###
+
+ops = {&&,||}
+
+Expected result when for a C++ file containg _ops_ between integers.
+
+Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
