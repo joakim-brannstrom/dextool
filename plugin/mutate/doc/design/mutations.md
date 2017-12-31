@@ -200,7 +200,10 @@ See [8].
 
 A test suite that achieve MC/DC should kill 100% of these mutation type.
 
-As discussed in [8] a specialized mutation for DC/C results in less mutation, equivalent mutations and makes it easier for the human to interpret the results.
+As discussed in [8] a specialized mutation for DC/C results in:
+ * less mutations overall
+ * less equivalent mutations
+ * makes it easier for the human to interpret the results
 
 ## Decision Coverage
 
@@ -278,11 +281,13 @@ The checksum is intended to be used in the future for mutation metaprograms. See
 partof: SPC-plugin_mutate_mutation_aor
 ###
 
+```
 ops = {+,-,/,%,*}
+```
 
-Expected result when for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg _ops_ between integers.
 
-Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_lcr
 partof: SPC-plugin_mutate_mutation_lcr
@@ -290,9 +295,9 @@ partof: SPC-plugin_mutate_mutation_lcr
 
 ops = {&&,||}
 
-Expected result when for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg _ops_ between integers.
 
-Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_ror
 partof: SPC-plugin_mutate_mutation_ror
@@ -302,9 +307,9 @@ partof: SPC-plugin_mutate_mutation_ror
 ops = {<,<=,>,>=,==,!=}
 ```
 
-Expected result when for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg _ops_ between integers.
 
-Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_cor
 partof: SPC-plugin_mutate_mutation_cor
@@ -312,6 +317,39 @@ partof: SPC-plugin_mutate_mutation_cor
 
 ops = {&&,||}
 
-Expected result when for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg _ops_ between integers.
 
-Expected result when for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+
+# TST-plugin_mutate_mutation_dcc
+partof: SPC-plugin_mutate_mutation_dcc
+###
+
+## Decision Coverage
+
+ifstmt = {
+ * `if` stmt with one clause
+ * `if` stmt with multiple clauses
+ * nested `if` stmts
+}
+
+Expected result for _ifstmt_.
+
+switchstmt = {
+ * `switch` stmt with one case and the default branch
+ * empty `switch` stmt
+}
+
+Expected result for _switchstmt_.
+
+## Condition Coverage
+
+ifstmt = {
+ * `if` stmt with one clause
+ * `if` stmt with multiple clauses
+ * `if` stmt with nested clauses
+}
+
+Expected result for _ifstmt_.
+
+Note: For the one clause case only ONE mutation point shall be generated.

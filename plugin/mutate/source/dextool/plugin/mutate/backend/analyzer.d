@@ -21,7 +21,7 @@ import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
 import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
-import dextool.plugin.mutate.backend.visitor : ExpressionVisitor;
+import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
 
 /** Analyze the files in `frange` for mutations.
@@ -55,10 +55,10 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
 
         // analye the file
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        auto visitor = new ExpressionVisitor(val_loc);
-        analyzeFile(checked_in_file, in_file.cflags, visitor, ctx);
+        auto root = makeRootVisitor(val_loc);
+        analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
-        foreach (a; visitor.mutationPointFiles.map!(a => FileName(a))) {
+        foreach (a; root.mutationPointFiles.map!(a => FileName(a))) {
             auto relp = trustedRelativePath(a, val_loc.getRestrictDir);
 
             try {
@@ -70,7 +70,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
             }
         }
 
-        db.put(visitor.mutationPoints, val_loc.getRestrictDir);
+        db.put(root.mutationPoints, val_loc.getRestrictDir);
     }
 
     return ExitStatusType.Ok;

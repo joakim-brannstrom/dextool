@@ -299,6 +299,12 @@ auto makeMutation(Mutation.Kind kind) {
     case corTrue:
         m.mutate = (const(char)[] expr) { return "true"; };
         break;
+    case dccTrue:
+        m.mutate = (const(char)[] expr) { return "true"; };
+        break;
+    case dccFalse:
+        m.mutate = (const(char)[] expr) { return "false"; };
+        break;
     }
 
     return m;

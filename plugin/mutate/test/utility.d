@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.utility;
 
-import std.typecons : Flag, Yes, No;
+public import std.typecons : Yes, No;
 
 public import scriptlike;
 public import unit_threaded;

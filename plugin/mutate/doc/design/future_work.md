@@ -116,6 +116,8 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
+ * Change name of stmtDel to SDL
  * Fix stmtDel
     * a parenthesis too much is removed in the initialization list
  * Report mutations performed in the console

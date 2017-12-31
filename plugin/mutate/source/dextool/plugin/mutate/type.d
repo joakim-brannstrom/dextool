@@ -27,6 +27,8 @@ enum MutationKind {
     stmtDel,
     /// Conditional operator replacement
     cor,
+    /// Decision/Condition Coverage
+    dcc,
 }
 
 /// The order the mutations are done when running in test_mutants mode

@@ -63,6 +63,8 @@ Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
         return stmtDelMutations;
     case cor:
         return corMutationsRaw.dup;
+    case dcc:
+        return dccMutationsRaw.dup;
     }
 }
 
@@ -144,6 +146,10 @@ Mutation.Kind[] stmtDelMutations() @safe pure nothrow {
     return stmtDelMutationsRaw.dup;
 }
 
+Mutation.Kind[] dccMutations() @safe pure nothrow {
+    return dccMutationsRaw.dup;
+}
+
 immutable Mutation.Kind[OpKind] isRor;
 immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[OpKind] isAor;
@@ -159,6 +165,7 @@ immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 immutable Mutation.Kind[] absMutationsRaw;
 immutable Mutation.Kind[] stmtDelMutationsRaw;
 immutable Mutation.Kind[] corMutationsRaw;
+immutable Mutation.Kind[] dccMutationsRaw;
 
 shared static this() {
     // dfmt off
@@ -226,22 +233,21 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        rorMutationsAll = [rorLT, rorLE, rorGT, rorGE, rorEQ,
-            rorNE, rorTrue, rorFalse];
+        rorMutationsAll = [rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE, rorTrue, rorFalse];
         lcrMutationsAll = [lcrAnd, lcrOr,];
         aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub,];
-        aorAssignMutationsAll = [aorMulAssign, aorDivAssign,
-            aorRemAssign, aorAddAssign, aorSubAssign,];
+        aorAssignMutationsAll = [aorMulAssign, aorDivAssign, aorRemAssign,
+            aorAddAssign, aorSubAssign,];
         // inactivating unary that seem to be nonsense
-        uoiLvalueMutationsRaw = [uoiPostInc, uoiPostDec,
-            uoiPreInc, uoiPreDec, uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
+        uoiLvalueMutationsRaw = [uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec, uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
             uoiIndirection, uoiComplement, uoiSizeof_,*/
-            ];
+        ];
         uoiRvalueMutationsRaw = [uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
             uoiIndirection*, uoiPositive, uoiComplement, uoiSizeof_,*/
         ];
         absMutationsRaw = [absPos, absNeg, absZero,];
         stmtDelMutationsRaw = [stmtDel];
         corMutationsRaw = [corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
+        dccMutationsRaw = [dccTrue, dccFalse];
     }
 }

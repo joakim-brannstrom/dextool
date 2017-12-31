@@ -26,114 +26,147 @@ import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
 
 @safe:
 
-/** Find all mutation points that affect a whole expression.
- *
- * TODO change the name of the class. It is more than just an expression
- * visitor.
- */
-final class ExpressionVisitor : Visitor {
-    import std.array : array;
-    import clang.c.Index : CXCursorKind;
-    import cpptooling.analyzer.clang.ast;
-    import dextool.clang_extensions : getExprOperator, OpKind;
-
-    alias visit = Visitor.visit;
-
-    mixin generateIndentIncrDecr;
-
-    private AnalyzeResult result;
-    private ValidateLoc val_loc;
-    private Transform transf;
-
-    private Stack!CXCursorKind kindStack;
-
-    /**
-     * Params:
-     *  restrict = only analyze files starting with this path
-     */
-    this(ValidateLoc val_loc) nothrow {
-        this.result = new AnalyzeResult;
-        this.val_loc = val_loc;
-        this.transf = Transform(result, val_loc);
-
-        import dextool.plugin.mutate.backend.utility : stmtDelMutations,
-            absMutations, uoiLvalueMutations, uoiRvalueMutations;
-
-        // #SPC-plugin_mutate_mutations_statement_del-call_expression
-        transf.stmtCallback ~= () => stmtDelMutations;
-
-        transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
-        transf.binaryOpLhsCallback ~= (OpKind k) => absMutations;
-        transf.binaryOpRhsCallback ~= (OpKind k) => absMutations;
-
-        transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
-            ? uoiLvalueMutations : uoiRvalueMutations;
-
-        import std.algorithm : map;
-        import dextool.plugin.mutate.backend.type : Mutation;
-        import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations,
-            isAor, aorMutations, isAorAssign, aorAssignMutations, isRor,
-            rorMutations, isCor, corOpMutations, corExprMutations;
-
-        // TODO refactor so array() can be removed. It is an unnecessary allocation
-        transf.binaryOpOpCallback ~= (OpKind k) {
-            if (auto v = k in isLcr)
-                return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-
-        transf.binaryOpOpCallback ~= (OpKind k) {
-            if (auto v = k in isAor)
-                return aorMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-        transf.assignOpOpCallback ~= (OpKind k) {
-            if (auto v = k in isAorAssign)
-                return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-
-        transf.binaryOpOpCallback ~= (OpKind k) {
-            if (k in isRor)
-                return rorMutations(k).op.map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-        transf.binaryOpExprCallback ~= (OpKind k) {
-            if (k in isRor)
-                return [rorMutations(k).expr];
-            else
-                return null;
-        };
-
-        //transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
-        //transf.binaryOpRhsCallback ~= (OpKind k) => uoiLvalueMutations;
-
-        transf.binaryOpLhsCallback ~= (OpKind k) => [Mutation.Kind.corRhs];
-        transf.binaryOpRhsCallback ~= (OpKind k) => [Mutation.Kind.corLhs];
-        transf.binaryOpOpCallback ~= (OpKind k) {
-            if (auto v = k in isCor)
-                return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-        transf.binaryOpExprCallback ~= (OpKind k) {
-            if (auto v = k in isCor)
-                return corExprMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-            else
-                return null;
-        };
-    }
-
+/// Contain a visitor and the data.
+struct VisitorResult {
     const(MutationPointEntry[]) mutationPoints() {
         return result.mutationPoints;
     }
 
     Path[] mutationPointFiles() @trusted {
         return result.mutationPointFiles;
+    }
+
+    ExtendedVisitor visitor;
+
+private:
+    ValidateLoc validateLoc;
+    AnalyzeResult result;
+    Transform transf;
+}
+
+/** Construct and configure a visitor to analyze a clang AST for mutations.
+ *
+ * Params:
+ *  val_loc_ = queried by the visitor with paths for the AST nodes to determine
+ *      if they should be analyzed.
+ */
+VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
+    typeof(return) rval;
+    rval.validateLoc = val_loc_;
+    rval.result = new AnalyzeResult;
+    rval.transf = new Transform(rval.result, val_loc_);
+    rval.visitor = new BaseVisitor(rval.transf);
+
+    import dextool.clang_extensions : OpKind;
+    import dextool.plugin.mutate.backend.utility : stmtDelMutations,
+        absMutations, uoiLvalueMutations, uoiRvalueMutations, dccMutations;
+
+    rval.transf.stmtCallback ~= () => stmtDelMutations;
+
+    rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
+    rval.transf.binaryOpLhsCallback ~= (OpKind k) => absMutations;
+    rval.transf.binaryOpRhsCallback ~= (OpKind k) => absMutations;
+
+    rval.transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
+        ? uoiLvalueMutations : uoiRvalueMutations;
+
+    rval.transf.branchCondCallback ~= () => dccMutations;
+    rval.transf.branchClauseCallback ~= () => dccMutations;
+
+    import std.algorithm : map;
+    import std.array : array;
+    import dextool.plugin.mutate.backend.type : Mutation;
+    import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations, isAor,
+        aorMutations, isAorAssign, aorAssignMutations, isRor, rorMutations,
+        isCor, corOpMutations, corExprMutations;
+
+    // TODO refactor so array() can be removed. It is an unnecessary allocation
+    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isLcr)
+            return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+
+    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isAor)
+            return aorMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+    rval.transf.assignOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isAorAssign)
+            return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+
+    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+        if (k in isRor)
+            return rorMutations(k).op.map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+    rval.transf.binaryOpExprCallback ~= (OpKind k) {
+        if (k in isRor)
+            return [rorMutations(k).expr];
+        else
+            return null;
+    };
+
+    //rval.transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
+    //rval.transf.binaryOpRhsCallback ~= (OpKind k) => uoiLvalueMutations;
+
+    rval.transf.binaryOpLhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corRhs] : null;
+    rval.transf.binaryOpRhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corLhs] : null;
+    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isCor)
+            return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+    rval.transf.binaryOpExprCallback ~= (OpKind k) {
+        if (auto v = k in isCor)
+            return corExprMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+
+    return rval;
+}
+
+private:
+
+/** Find all mutation points that affect a whole expression.
+ *
+ * TODO change the name of the class. It is more than just an expression
+ * visitor.
+ *
+ * # Usage of kind_stack
+ * All usage of the kind_stack shall be documented here.
+ *  - track assignments to avoid generating unary insert operators for the LHS.
+ */
+class BaseVisitor : ExtendedVisitor {
+    import clang.c.Index : CXCursorKind;
+    import cpptooling.analyzer.clang.ast;
+    import dextool.clang_extensions : getExprOperator, OpKind;
+
+    alias visit = ExtendedVisitor.visit;
+
+    mixin generateIndentIncrDecr;
+
+    private Transform transf;
+
+    /// Track the visited nodes
+    private Stack!CXCursorKind kind_stack;
+
+    /**
+     * Params:
+     *  restrict = only analyze files starting with this path
+     */
+    this(Transform transf, const uint indent = 0) nothrow {
+        this.transf = transf;
+        this.indent = indent;
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -169,7 +202,8 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
-        if (kindStack.hasValue(CXCursorKind.compoundAssignOperator).isNull)
+
+        if (kind_stack.hasValue(CXCursorKind.compoundAssignOperator).isNull)
             transf.unaryInject(v.cursor);
         v.accept(this);
     }
@@ -182,11 +216,8 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-
         transf.statement(v);
-
         transf.binaryOp(v.cursor);
-
         v.accept(this);
     }
 
@@ -204,7 +235,7 @@ final class ExpressionVisitor : Visitor {
 
     override void visit(const(CompoundAssignOperator) v) {
         mixin(mixinNodeLog!());
-        mixin(pushPopStack("kindStack", "v.cursor.kind"));
+        mixin(pushPopStack("kind_stack", "v.cursor.kind"));
         transf.assignOp(v.cursor);
         v.accept(this);
     }
@@ -224,9 +255,19 @@ final class ExpressionVisitor : Visitor {
         transf.statement(v);
         v.accept(this);
     }
-}
 
-private:
+    // trusted: the scope allocated visitor do not escape the method
+    override void visit(const IfStmt v) @trusted {
+        mixin(mixinNodeLog!());
+        import std.typecons : scoped;
+
+        transf.statement(v);
+
+        auto clause = scoped!IfStmtClauseVisitor(transf, indent);
+        auto ifstmt = scoped!IfStmtVisitor(transf, this, clause, indent);
+        accept(v, cast(IfStmtVisitor) ifstmt);
+    }
+}
 
 /** Inject code to validate and check the location of a cursor.
  *
@@ -281,15 +322,19 @@ string pushPopStack(string instance, string value) {
     return format(q{%s.put(%s); scope(exit) %s.pop;}, instance, value, instance);
 }
 
-struct Transform {
+/** Transform the AST to mutation poins and mutations.
+ *
+ * The intent is to decouple the AST visitor from the transformation logic.
+ *
+ * TODO reduce code duplication. Do it after the first batch of mutations are
+ * implemented.
+ */
+class Transform {
     import std.algorithm : map;
     import std.array : array;
     import dextool.clang_extensions : OpKind;
     import dextool.plugin.mutate.backend.type : Offset;
     import dextool.plugin.mutate.backend.utility;
-
-    AnalyzeResult result;
-    ValidateLoc val_loc;
 
     /// Any statement
     alias StatementEvent = Mutation.Kind[]delegate();
@@ -312,6 +357,21 @@ struct Transform {
     AssignOpKindEvent[] assignOpOpCallback;
     AssignOpEvent[] assignOpLhsCallback;
     AssignOpEvent[] assignOpRhsCallback;
+
+    /// Branch condition expression such as those in an if stmt
+    alias BranchEvent = Mutation.Kind[]delegate();
+    BranchEvent[] branchCondCallback;
+    BranchEvent[] branchClauseCallback;
+    BranchEvent[] branchThenCallback;
+    BranchEvent[] branchElseCallback;
+
+    private AnalyzeResult result;
+    private ValidateLoc val_loc;
+
+    this(AnalyzeResult res, ValidateLoc vloc) {
+        this.result = res;
+        this.val_loc = vloc;
+    }
 
     void statement(T)(const(T) v) {
         mixin(makeAndCheckLocation("v.cursor"));
@@ -359,6 +419,15 @@ struct Transform {
         if (!mp.isValid)
             return;
 
+        binaryOpInternal(mp);
+
+        result.put(mp.lhs);
+        result.put(mp.rhs);
+        result.put(mp.op);
+        result.put(mp.expr);
+    }
+
+    private void binaryOpInternal(ref OperatorMP mp) {
         foreach (cb; binaryOpOpCallback)
             mp.op.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpLhsCallback)
@@ -367,11 +436,6 @@ struct Transform {
             mp.rhs.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpExprCallback)
             mp.expr.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
-
-        result.put(mp.lhs);
-        result.put(mp.rhs);
-        result.put(mp.op);
-        result.put(mp.expr);
     }
 
     void assignOp(const Cursor c) {
@@ -394,6 +458,90 @@ struct Transform {
         result.put(mp.lhs);
         result.put(mp.rhs);
         result.put(mp.op);
+    }
+
+    void branchCond(const Cursor c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto mp = getOperatorMP(c);
+        if (mp.isValid) {
+            binaryOpInternal(mp);
+
+            foreach (cb; branchClauseCallback) {
+                mp.expr.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
+
+            result.put(mp.lhs);
+            result.put(mp.rhs);
+            result.put(mp.op);
+            result.put(mp.expr);
+        } else {
+            auto sr = c.extent;
+            auto offs = Offset(sr.start.offset, sr.end.offset);
+            auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                    SourceLoc(loc.line, loc.column));
+
+            foreach (cb; branchCondCallback) {
+                p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
+
+            result.put(p);
+        }
+    }
+
+    void branchClause(const Cursor c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto mp = getOperatorMP(c);
+        if (!mp.isValid)
+            return;
+
+        binaryOpInternal(mp);
+
+        foreach (cb; branchClauseCallback) {
+            mp.expr.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(mp.lhs);
+        result.put(mp.rhs);
+        result.put(mp.op);
+        result.put(mp.expr);
+    }
+
+    void branchThen(const Cursor c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+
+        auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                SourceLoc(loc.line, loc.column));
+
+        foreach (cb; branchThenCallback) {
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(p);
+    }
+
+    void branchElse(const Cursor c) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+
+        auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                SourceLoc(loc.line, loc.column));
+
+        foreach (cb; branchElseCallback) {
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(p);
     }
 
     private static struct OperatorMP {
@@ -544,3 +692,192 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind, string spelling) @t
 
     return sr.end;
 }
+
+final class IfStmtVisitor : ExtendedVisitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = ExtendedVisitor.visit;
+
+    mixin generateIndentIncrDecr;
+
+    private {
+        Transform transf;
+        ExtendedVisitor sub_visitor;
+        ExtendedVisitor cond_visitor;
+    }
+
+    /**
+     * Params:
+     *  sub_visitor = visitor used for recursive analyze.
+     */
+    this(Transform transf, ExtendedVisitor sub_visitor,
+            ExtendedVisitor cond_visitor, const uint indent) {
+        this.transf = transf;
+        this.sub_visitor = sub_visitor;
+        this.cond_visitor = cond_visitor;
+        this.indent = indent;
+    }
+
+    override void visit(const IfStmtCond v) {
+        mixin(mixinNodeLog!());
+        transf.branchCond(v.cursor);
+        v.accept(cond_visitor);
+    }
+
+    override void visit(const IfStmtThen v) {
+        mixin(mixinNodeLog!());
+        transf.branchThen(v.cursor);
+        v.accept(sub_visitor);
+    }
+
+    override void visit(const IfStmtElse v) {
+        mixin(mixinNodeLog!());
+        transf.branchElse(v.cursor);
+        v.accept(sub_visitor);
+    }
+}
+
+/// Visit all clauses in the condition of a statement.
+final class IfStmtClauseVisitor : BaseVisitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = BaseVisitor.visit;
+
+    /**
+     * Params:
+     *  transf = ?
+     *  sub_visitor = visitor used for recursive analyze.
+     */
+    this(Transform transf, const uint indent) {
+        super(transf, indent);
+    }
+
+    override void visit(const(BinaryOperator) v) {
+        mixin(mixinNodeLog!());
+        transf.branchClause(v.cursor);
+        v.accept(this);
+    }
+}
+
+// Intende to move this code to clang_extensions if this approach to extending the clang AST works well.
+// --- BEGIN
+
+static import dextool.clang_extensions;
+
+static import cpptooling.analyzer.clang.ast;
+
+class ExtendedVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+    import dextool.clang_extensions;
+
+    alias visit = Visitor.visit;
+
+    void visit(const(IfStmtInit) value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(const(IfStmtCond) value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(const(IfStmtThen) value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(const(IfStmtElse) value) {
+        visit(cast(const(Statement)) value);
+    }
+}
+
+final class IfStmtInit : cpptooling.analyzer.clang.ast.Statement {
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    void accept(ExtendedVisitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class IfStmtCond : cpptooling.analyzer.clang.ast.Expression {
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    void accept(ExtendedVisitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class IfStmtThen : cpptooling.analyzer.clang.ast.Statement {
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    void accept(ExtendedVisitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+final class IfStmtElse : cpptooling.analyzer.clang.ast.Statement {
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    void accept(ExtendedVisitor v) @safe const {
+        static import cpptooling.analyzer.clang.ast;
+
+        cpptooling.analyzer.clang.ast.accept(cursor, v);
+    }
+}
+
+void accept(T)(const(cpptooling.analyzer.clang.ast.IfStmt) n, T v)
+        if (is(T : ExtendedVisitor)) {
+    import dextool.clang_extensions;
+
+    auto stmt = getIfStmt(n.cursor);
+    accept(stmt, v);
+}
+
+void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
+        if (is(T : ExtendedVisitor)) {
+    import std.traits : hasMember;
+
+    static if (hasMember!(T, "incr"))
+        v.incr;
+    {
+        if (n.init_.isValid) {
+            auto sub = new IfStmtInit(n.init_);
+            v.visit(sub);
+        }
+    }
+    {
+        if (n.cond.isValid) {
+            auto sub = new IfStmtCond(n.cond);
+            v.visit(sub);
+        }
+    }
+    {
+        if (n.then.isValid) {
+            auto sub = new IfStmtThen(n.then);
+            v.visit(sub);
+        }
+    }
+    {
+        if (n.else_.isValid) {
+            auto sub = new IfStmtElse(n.else_);
+            v.visit(sub);
+        }
+    }
+
+    static if (hasMember!(T, "decr"))
+        v.decr;
+}
+
+// --- END
