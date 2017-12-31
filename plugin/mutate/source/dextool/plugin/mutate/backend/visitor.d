@@ -117,8 +117,8 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     //rval.transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
     //rval.transf.binaryOpRhsCallback ~= (OpKind k) => uoiLvalueMutations;
 
-    rval.transf.binaryOpLhsCallback ~= (OpKind k) => [Mutation.Kind.corRhs];
-    rval.transf.binaryOpRhsCallback ~= (OpKind k) => [Mutation.Kind.corLhs];
+    rval.transf.binaryOpLhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corRhs] : null;
+    rval.transf.binaryOpRhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corLhs] : null;
     rval.transf.binaryOpOpCallback ~= (OpKind k) {
         if (auto v = k in isCor)
             return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
