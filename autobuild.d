@@ -173,7 +173,7 @@ void playSound(Flag!"Positive" positive) nothrow {
             last_pid.wait;
         }
 
-        auto a = ["mplayer"];
+        auto a = ["mplayer", "-nostop-xscreensaver"];
         if (positive)
             a ~= "/usr/share/sounds/KDE-Sys-App-Positive.ogg";
         else
