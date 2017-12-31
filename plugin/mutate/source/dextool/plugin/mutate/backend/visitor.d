@@ -464,17 +464,30 @@ class Transform {
         mixin(makeAndCheckLocation("c"));
         mixin(mixinPath);
 
-        auto sr = c.extent;
-        auto offs = Offset(sr.start.offset, sr.end.offset);
+        auto mp = getOperatorMP(c);
+        if (mp.isValid) {
+            binaryOpInternal(mp);
 
-        auto p = MutationPointEntry(MutationPoint(offs, null), path,
-                SourceLoc(loc.line, loc.column));
+            foreach (cb; branchClauseCallback) {
+                mp.expr.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
 
-        foreach (cb; branchCondCallback) {
-            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            result.put(mp.lhs);
+            result.put(mp.rhs);
+            result.put(mp.op);
+            result.put(mp.expr);
+        } else {
+            auto sr = c.extent;
+            auto offs = Offset(sr.start.offset, sr.end.offset);
+            auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                    SourceLoc(loc.line, loc.column));
+
+            foreach (cb; branchCondCallback) {
+                p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
+
+            result.put(p);
         }
-
-        result.put(p);
     }
 
     void branchClause(const Cursor c) {

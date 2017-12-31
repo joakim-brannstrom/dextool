@@ -12,7 +12,7 @@ import dextool_test.utility;
 // dfmt off
 
 @("shall produce all COR mutations for primitive types")
-@Values("lcr_primitive.cpp", "lcr_overload.cpp")
+@Values("lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue!string);
