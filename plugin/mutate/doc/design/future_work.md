@@ -116,6 +116,9 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * impl switch bombs for DCC.
+ * report alive mutants as "gcc compiler warnings" to make them integreate with e.g. eclipse easiely.
+   note: the report should be to stderr.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
  * Change name of stmtDel to SDL
  * Fix stmtDel
