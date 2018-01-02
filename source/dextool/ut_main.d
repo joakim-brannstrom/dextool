@@ -17,6 +17,7 @@ int main(string[] args) {
                           "dextool.compilation_db",
                           "dextool.type",
                           "dextool.utility",
+                          "dextool.vfs",
                           );
     //dfmt on
 }

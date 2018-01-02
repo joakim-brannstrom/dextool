@@ -10,6 +10,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/dextool/user_filerange.d
     ${CMAKE_SOURCE_DIR}/source/dextool/type.d
     ${CMAKE_SOURCE_DIR}/source/dextool/utility.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/vfs.d
     ${CMAKE_SOURCE_DIR}/source/dextool/xml.d
     )
 
