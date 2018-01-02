@@ -27,45 +27,16 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
     const auto kinds = kind.toInternal;
 
     try {
-        auto report = Report!(SimpleWriter)(delegate(const(char)[] s) {
-            write(s);
-        });
+        auto genrep = ReportGenerator.make(kind);
+        genrep.mutationKindEvent(kind);
 
-        report = report.heading("Mutation type %s", kind);
+        genrep.locationStartEvent;
+        db.iterateMutants(kinds, &genrep.locationEvent);
+        genrep.locationEndEvent;
 
-        immutable col_w = 10;
-        auto mutations = report.heading("Locations");
-        mutations.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
-                col_w, "Kind", "Location");
-
-        // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
-        void locationPrinter(ref Row r) @trusted nothrow {
-            import std.conv : to;
-            import std.format : format;
-
-            try {
-                auto status = r.peek!int(1).to!(Mutation.Status);
-                auto kind = r.peek!int(2).to!(Mutation.Kind);
-                auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, r.peek!long(0),
-                        col_w, status, col_w, kind, r.peek!string(8),
-                        r.peek!long(6), r.peek!long(7));
-                if (status == Mutation.Status.alive)
-                    mutations.writeln(msg);
-                else
-                    mutations.trace(msg);
-
-            }
-            catch (Exception e) {
-                logger.trace(e.msg).collectException;
-            }
-        }
-
-        mutations.beginSyntaxBlock;
-        db.iterateMutants(kinds, &locationPrinter);
-        mutations.endSyntaxBlock;
-        mutations.popHeading;
-
-        reportStatistics(db, kinds, report);
+        genrep.statStartEvent;
+        genrep.statEvent(db);
+        genrep.statEndEvent;
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -74,9 +45,93 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
     return ExitStatusType.Ok;
 }
 
+@safe:
 private:
 
-void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT report) @safe nothrow {
+/**
+ * Expects the event to come in the following order:
+ *  - mutationKindEvent
+ *  - locationStartEvent
+ *  - locationEvent
+ *  - locationEndEvent
+ *  - statStartEvent
+ *  - statEvent
+ *  - statEndEvent
+ */
+struct ReportGenerator {
+    import std.conv : to;
+    import std.format : format;
+    import d2sqlite3 : Row;
+    import dextool.plugin.mutate.backend.utility;
+
+    static immutable col_w = 10;
+
+    const Mutation.Kind[] kinds;
+
+    Report!(SimpleWriter) markdown;
+    Report!(SimpleWriter) markdown_loc;
+    Report!(SimpleWriter) markdown_sum;
+
+    static auto make(MutationKind kind) {
+        return ReportGenerator(kind.toInternal);
+    }
+
+    void mutationKindEvent(MutationKind kind_) {
+        markdown = Report!(SimpleWriter)(delegate(const(char)[] s) {
+            import std.stdio : write;
+
+            write(s);
+        });
+
+        markdown = markdown.heading("Mutation Type %s", kind_);
+    }
+
+    void locationStartEvent() {
+        markdown_loc = markdown.heading("Locations");
+        markdown_loc.beginSyntaxBlock;
+        markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
+                col_w, "Kind", "Location");
+    }
+
+    // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
+    void locationEvent(ref Row r) @trusted {
+        try {
+            auto status = r.peek!int(1).to!(Mutation.Status);
+            auto kind = r.peek!int(2).to!(Mutation.Kind);
+            auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, r.peek!long(0),
+                    col_w, status, col_w, kind, r.peek!string(8),
+                    r.peek!long(6), r.peek!long(7));
+            if (status == Mutation.Status.alive) {
+                markdown.writeln(msg);
+            } else {
+                markdown.trace(msg);
+            }
+
+        }
+        catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+    }
+
+    void locationEndEvent() {
+        markdown_loc.endSyntaxBlock;
+        markdown_loc.popHeading;
+    }
+
+    void statStartEvent() {
+        markdown_sum = markdown.heading("Summary");
+    }
+
+    void statEvent(ref Database db) {
+        reportStatistics(db, kinds, markdown_sum);
+    }
+
+    void statEndEvent() {
+        markdown_sum.popHeading;
+    }
+}
+
+void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
     import core.time : dur;
     import std.algorithm : map, filter, sum;
     import std.range : only;
@@ -91,11 +146,6 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
 
     try {
         immutable align_ = 8;
-
-        auto item = report.heading("Summary");
-        item.beginSyntaxBlock;
-        scope (success)
-            item.endSyntaxBlock;
 
         const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.time.total!"msecs").sum.dur!"msecs";
