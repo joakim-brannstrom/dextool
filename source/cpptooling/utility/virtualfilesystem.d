@@ -15,6 +15,8 @@ cache.
 
 The VFS provides an agnostic access to files both in-memory and on the
 filesystem with helper functions for SourceRange/SourceLocation.
+
+TODO this is deprecated. Migrate to using `dextool.vfs`.
 */
 module cpptooling.utility.virtualfilesystem;
 
