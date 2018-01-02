@@ -36,3 +36,21 @@ enum MutationOrder {
     random,
     consecutive,
 }
+
+/// The kind of report to generate to the user
+enum ReportKind {
+    /// As a markdown report that
+    markdown,
+    /// As compiler warnings and a fix-it hint for the mutation
+    compiler
+}
+
+/// The level of reporting
+enum ReportLevel {
+    /// Report a summary of the mutation statistics
+    summary,
+    /// Report alive mutants
+    alive,
+    /// Report all mutants
+    all
+}

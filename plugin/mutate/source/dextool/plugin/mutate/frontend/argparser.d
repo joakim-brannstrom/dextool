@@ -57,6 +57,8 @@ struct ArgParser {
 
     MutationKind mutation;
     MutationOrder mutationOrder;
+    ReportKind reportKind;
+    ReportLevel reportLevel;
 
     ToolMode toolMode;
 
@@ -93,6 +95,8 @@ struct ArgParser {
                    "mutant-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    "mutant-test", "program to use to execute the mutant tester", &mutationTester,
                    "mutant-test-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
+                   "report", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
+                   "report-level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
                    );
             // dfmt on
 
@@ -110,11 +114,13 @@ struct ArgParser {
             help = help_info.helpWanted;
         }
         catch (ConvException e) {
+            import std.meta : AliasSeq;
+
             logger.error(e.msg);
-            logger.errorf("%s possible values: %(%s|%)", MutationKind.stringof,
-                    [EnumMembers!MutationKind]);
-            logger.errorf("%s possible values: %(%s|%)", ToolMode.stringof,
-                    [EnumMembers!ToolMode]);
+
+            foreach (k; AliasSeq!(MutationKind, ToolMode, ReportKind, ReportLevel)) {
+                logger.errorf("%s possible values: %(%s|%)", k.stringof, [EnumMembers!k]);
+            }
             help = true;
         }
         catch (std.getopt.GetOptException ex) {

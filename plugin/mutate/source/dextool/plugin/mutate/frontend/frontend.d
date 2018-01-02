@@ -14,13 +14,11 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, MutationKind,
-    ToolMode;
-import dextool.plugin.mutate.type : MutationOrder;
+import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode;
+import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
+    ReportLevel;
 
-@safe:
-
-class Frontend {
+@safe class Frontend {
     import core.time : Duration;
     import std.typecons : Nullable;
 
@@ -43,13 +41,18 @@ private:
     ToolMode toolMode;
     bool dryRun;
     MutationOrder mutationOrder;
+    ReportKind reportKind;
+    ReportLevel reportLevel;
 }
+
+@safe:
 
 auto buildFrontend(ref ArgParser p) {
     import core.time : dur;
     import dextool.compilation_db;
 
     auto r = new Frontend;
+
     r.cflags = p.cflags;
     r.inputFiles = p.inFiles;
     r.mutation = p.mutation;
@@ -60,6 +63,8 @@ auto buildFrontend(ref ArgParser p) {
     r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
     r.dryRun = p.dryRun;
     r.mutationOrder = p.mutationOrder;
+    r.reportKind = p.reportKind;
+    r.reportLevel = p.reportLevel;
 
     r.restrictDir = AbsolutePath(FileName(p.restrictDir));
 
@@ -117,20 +122,23 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.report:
         import dextool.plugin.mutate.backend : runReport;
 
-        return runReport(db, fe.mutation);
+        return runReport(db, fe.mutation, fe.reportKind, fe.reportLevel, fe_io);
     }
 }
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
 
-/**
- * Responsible for ensuring that when the output from the backend is written to
- * a file it is within the user specified output directory.
+/** Responsible for ensuring that when the output from the backend is written
+ * to a file it is within the user specified output directory.
  *
  * When the mode dry_run is set no files shall be written to the filesystem.
  * Any kind of file shall be readable and "emulated" that it is writtable.
  *
  * Dryrun is used for testing the mutate plugin.
+ *
+ * TODO use the VFS module (dextool.vfs) instead of std.file.File because the
+ * VFS module memory maps the files which should improve performance and lower
+ * the GC memory usage.
  *
  * #SPC-plugin_mutate_file_security-single_output
  */
