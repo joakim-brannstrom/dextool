@@ -1,6 +1,10 @@
 # TODO
 Feature requests, todos etc that aren't covered by code comments.
 
+Remove this file.
+
+Autogenerate documentation and publish to gh-pages. See Martin Nowarks bloom filter for an example.
+
 ## Performance
 Closing this issue. Good enough for now
 
