@@ -43,13 +43,6 @@ partof: REQ-plugin_mutate-report
 
 The plugin shall produce a report in markdown format when commanded via the *CLI*.
 
-The report shall contain:
- * the mutation kind
- * the mutation location, id and status
- * a summary of the mutations at the end of the report
-
-The plugin shall a prediction as a date and absolute time for when the current running mutation is done when producing a report.
-
 **Rationale**: The user is interested in when the mutation is finished because it can take a long time to go through all mutations. All the data to do a simple *mean* approximation is available.
 
 ## Why?
@@ -57,9 +50,73 @@ The plugin shall a prediction as a date and absolute time for when the current r
 Markdown is chosen because there exist many tools to convert it to other formats.
 It is also easy for a human to read in the raw form thus it can be used as the default *console* report.
 
-## TODO
+### Git Diff like Report
 
 The user may want the output to be like `git diff`. But keep in mind that this is an *information leak* of the source code which may prohibit its usage when publishing to content systems so should be controllable by the user.
+
+Decision: Not needed. The tool integration can be used for this.
+
+# SPC-plugin_mutate_report_for_human-cli
+partof: SPC-plugin_mutate_report_for_human
+###
+
+The command line argument *--report-level* shall control the *report level* of the human readable report.
+
+The default *report level* shall be *summary*.
+
+The plugin shall support the *report levels* {summary, alive, full}.
+
+## Summary
+
+The report shall contain a summary of the mutation testing.
+
+The summary shall contain the following information:
+ * number of untested mutants
+ * number of alive/kiled/timeout mutants
+ * the sum of the mutants (alive+killed+timeout)
+ * the mutation score
+ * the time spent on testing alive/killed/timeout mutants in a human readable format (days/hours/minutes/seconds...)
+ * the total time spent on mutation testing
+
+The plugin shall calculate a prediction as a date and absolute time for when the current running mutation is done when producing a report and there are any mutants left to test.
+
+## Alive
+
+The report shall contain the location of alive mutations.
+
+A location for a mutant shall containg the following information:
+ * the mutation ID
+ * the status of the mutant (alive, unknown etc)
+ * the kind of mutant (ror negation etc)
+ * the file location
+    * the path to the file
+    * the line and column
+
+The summary shall be the last section in the report.
+**Note**: See ## Summary for the specification of the content
+**Rationale**: This requirement is based on the assumption that the user is first interested in reading the summary of the mutation testing. By printing the summary last the user do not have to scroll in the console. This is though inverted if the user renders the markdown report as a webpage. Then the user probably want the summary at the top.
+
+## Full
+
+The report shall contain the location of all mutations.
+**Note**: See ## Alive for the specification of the content.
+
+The summary shall be the last section in the report.
+**Note**: See ## Summary for the specification of the content
+
+# TST-plugin_mutate_report_for_human
+partof: SPC-plugin_mutate_report_for_human
+###
+
+*database content* = {
+ * only untested mutants
+ * one alive mutant
+ * one alive and one killed mutant
+ * one alive, one killed and one timeout mutant
+ * one alive, one killed, one timeout and one killed by the compiler mutant
+}
+
+Verify that the produced report contains the expected result when the input is a database with untested muta
 
 # SPC-plugin_mutate_report_for_tool_integration
 partof: REQ-plugin_mutate-report
