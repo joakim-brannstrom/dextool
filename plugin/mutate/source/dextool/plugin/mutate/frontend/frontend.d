@@ -93,6 +93,8 @@ ExitStatusType runMutate(Frontend fe) {
     import dextool.plugin.mutate.backend : Database;
 
     auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.dryRun);
+    scope (success)
+        fe_io.release;
     auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
     auto db = Database.make(fe.db, fe.mutationOrder);
@@ -136,10 +138,6 @@ import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
  *
  * Dryrun is used for testing the mutate plugin.
  *
- * TODO use the VFS module (dextool.vfs) instead of std.file.File because the
- * VFS module memory maps the files which should improve performance and lower
- * the GC memory usage.
- *
  * #SPC-plugin_mutate_file_security-single_output
  */
 final class FrontendIO : FilesysIO {
@@ -147,6 +145,9 @@ final class FrontendIO : FilesysIO {
     import std.stdio : File;
     import dextool.type : AbsolutePath;
     import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
+    import dextool.vfs : VirtualFileSystem, VfsFile;
+
+    VirtualFileSystem vfs;
 
     private AbsolutePath restrict_dir;
     private AbsolutePath output_dir;
@@ -156,6 +157,10 @@ final class FrontendIO : FilesysIO {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
         this.dry_run = dry_run;
+    }
+
+    void release() {
+        vfs.release();
     }
 
     override File getDevNull() {
@@ -186,14 +191,14 @@ final class FrontendIO : FilesysIO {
 
         validate(restrict_dir, p, dry_run);
 
-        auto d = () @trusted{ return cast(ubyte[]) std.file.read(p); }();
-        return SafeInput(d);
+        auto f = vfs.open(cast(FileName) p);
+        return SafeInput(f[]);
     }
 
     override void putFile(AbsolutePath fname, const(ubyte)[] data) @safe {
         import std.stdio : File;
 
-        // because an SafeInput/SafeOutput could theoretically be created via
+        // because a SafeInput/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
         validate(output_dir, fname, dry_run);
