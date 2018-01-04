@@ -28,6 +28,15 @@ Another positive effect is that the time to inspect live mutants are reduced com
 
 The intention is to generate a report such that it is easy to publish in other content systems.
 
+## TODO
+
+ * In the summary print a list of the mutations in the order of most -> least alive. Include the number.
+ * Develop a statistical model for how potentially how many bugs there are left in the program that has not been discovered by tests.
+ * The offset calculated as "column + offset_end - offset_begin" for the ROR mutations of operators end up removing the "beginning" of the whole expression, not just the operator.
+ * Should the checksum be used when reporting mutations?
+   It is probably a bad idea to "stop" reporting because the source code is not always accessable.
+   But the user should be informed that the content is different.
+
 # SPC-plugin_mutate_report_for_human
 partof: REQ-plugin_mutate-report
 ###
