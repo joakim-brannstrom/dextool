@@ -327,29 +327,29 @@ partof: SPC-plugin_mutate_mutation_dcc
 
 ## Decision Coverage
 
-ifstmt = {
+*ifstmt* = {
  * `if` stmt with one clause
  * `if` stmt with multiple clauses
  * nested `if` stmts
 }
 
-Expected result for _ifstmt_.
+Expected result for *ifstmt*.
 
-switchstmt = {
+*switchstmt* = {
  * `switch` stmt with one case and the default branch
  * empty `switch` stmt
 }
 
-Expected result for _switchstmt_.
+Expected result for *switchstmt*.
 
 ## Condition Coverage
 
-ifstmt = {
+*ifstmt* = {
  * `if` stmt with one clause
  * `if` stmt with multiple clauses
  * `if` stmt with nested clauses
 }
 
-Expected result for _ifstmt_.
+Expected result for *ifstmt*.
 
 Note: For the one clause case only ONE mutation point shall be generated.
