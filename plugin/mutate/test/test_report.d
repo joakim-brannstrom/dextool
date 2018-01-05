@@ -41,13 +41,8 @@ unittest {
         .addInputArg(input_src)
         .addArg(["--mode", "analyzer"])
         .run;
-    auto r = dextool_test.makeDextool(testEnv)
-        .args(["mutate"])
-        .addArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-        .setWorkdir(testData.dirName.toString)
-        .addArg(["--restrict", testData.dirName.toString])
+    auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "ror"])
-        .addArg(["--mode", "report"])
         .addArg(["--report", "compiler"])
         .addArg(["--report-level", "all"])
         .run;
