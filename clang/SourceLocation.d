@@ -20,22 +20,10 @@ import clang.File;
 import clang.TranslationUnit;
 import clang.Util;
 
-string toInternalString(SourceLocation value) {
-    import std.string;
-    import std.conv;
-
-    if (value.isValid) {
-        auto spell = value.spelling;
-        return format("%s(%s) [%s ('%s') line=%d column=%d offset=%d]",
-                text(typeid(value)), text(value.cx), text(spell.file),
-                text(spell.file.name), spell.line, spell.column, spell.offset);
-    }
-
-    return format("%s(%s)", text(typeid(value)), text(value.cx));
-}
-
 /// A SourceLocation represents a particular location within a source file.
 struct SourceLocation {
+    import std.format : FormatSpec, format, formattedWrite, formatValue;
+
     mixin CX;
 
     struct Location {
@@ -45,9 +33,22 @@ struct SourceLocation {
         uint offset;
 
         string toString() @safe const {
-            import std.format : format;
+            import std.exception : assumeUnique;
+            import std.format : FormatSpec;
 
-            return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
+            char[] buf;
+            buf.reserve(100);
+            auto fmt = FormatSpec!char("%s");
+            toString((const(char)[] s) { buf ~= s; }, fmt);
+            auto trustedUnique(T)(T t) @trusted {
+                return assumeUnique(t);
+            }
+
+            return trustedUnique(buf);
+        }
+
+        void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+            formattedWrite(w, "[%s line=%d column=%d offset=%d]", file.name, line, column, offset);
         }
     }
 
@@ -59,9 +60,22 @@ struct SourceLocation {
         uint offset;
 
         string toString() @safe const {
-            import std.format : format;
+            import std.exception : assumeUnique;
+            import std.format : FormatSpec;
 
-            return format("[%s line=%d column=%d offset=%d]", file, line, column, offset);
+            char[] buf;
+            buf.reserve(100);
+            auto fmt = FormatSpec!char("%s");
+            toString((const(char)[] s) { buf ~= s; }, fmt);
+            auto trustedUnique(T)(T t) @trusted {
+                return assumeUnique(t);
+            }
+
+            return trustedUnique(buf);
+        }
+
+        void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+            formattedWrite(w, "[%s line=%d column=%d offset=%d]", file, line, column, offset);
         }
     }
 
@@ -245,13 +259,22 @@ struct SourceLocation {
         return data;
     }
 
-    string toString() @safe {
-        import std.format : format;
+    string toString() @safe const {
+        import std.exception : assumeUnique;
 
-        if (isValid) {
-            return spelling.toString;
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+        auto trustedUnique(T)(T t) @trusted {
+            return assumeUnique(t);
         }
 
-        return format("%s(%s)", typeid(this), cx);
+        return trustedUnique(buf);
+    }
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        if (isValid)
+            formatValue(w, spelling, fmt);
     }
 }
