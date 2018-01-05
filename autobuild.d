@@ -366,10 +366,10 @@ struct Fsm {
         case State.Ut_run:
             next_ = State.ExitOrRestart;
             if (flagUtTestPassed)
-                next_ = State.Integration_test;
+                next_ = State.Debug_build;
             break;
         case State.Ut_skip:
-            next_ = State.Integration_test;
+            next_ = State.Debug_build;
             break;
         case State.Debug_build:
             next_ = State.Integration_test;
@@ -488,15 +488,10 @@ struct Fsm {
         immutable test_header = "Compile and run unittest";
         printStatus(Status.Run, test_header);
 
-        auto r = tryRunCollect(cmakeDir, "make check -j $(nproc)");
-        flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
+        auto status = tryRun(cmakeDir, "make check -j $(nproc)");
+        flagUtTestPassed = cast(Flag!"UtTestPassed")(status == 0);
 
-        if (!flagUtTestPassed || flagUtDebug) {
-            consoleToFile(cmakeDir ~ "test" ~ "unittest" ~ Ext(".log"), r.output);
-            writeln(r.output);
-        }
-
-        printExitStatus(r.status, test_header);
+        printExitStatus(status, test_header);
     }
 
     void stateUt_skip() {
@@ -515,13 +510,13 @@ struct Fsm {
         immutable test_header = "Compile and run integration tests";
         printStatus(Status.Run, test_header);
 
-        if (tryRun(cmakeDir, `make check_integration -j $(nproc)`) != 0) {
+        auto status = tryRun(cmakeDir, `make check_integration -j $(nproc)`);
+
+        if (status != 0) {
             testErrorLog ~= ErrorMsg(cmakeDir, "integration_test", "failed");
-            printExitStatus(1, test_header);
-            return;
         }
 
-        printExitStatus(0, test_header);
+        printExitStatus(status, test_header);
     }
 
     void stateTest_passed() {
