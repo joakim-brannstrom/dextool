@@ -10,6 +10,13 @@ The plugin shall use the *human readable report* as the default report.
 
 **Rationale**: This is based on the assumption that it is important to use defaults for the standalone scenario that make it easy for a human to interpret the results.
 
+## Report Level
+
+The supported report levels are:
+ * summary
+ * alive
+ * all
+
 ## Human Readable Report Content
 
 The report shall at least contain information regarding the mutants as absolute numbers and the mutation score.
@@ -92,15 +99,19 @@ A location for a mutant shall containg the following information:
     * the line and column
 
 The summary shall be the last section in the report.
+
 **Note**: See ## Summary for the specification of the content
+
 **Rationale**: This requirement is based on the assumption that the user is first interested in reading the summary of the mutation testing. By printing the summary last the user do not have to scroll in the console. This is though inverted if the user renders the markdown report as a webpage. Then the user probably want the summary at the top.
 
 ## Full
 
 The report shall contain the location of all mutations.
+
 **Note**: See ## Alive for the specification of the content.
 
 The summary shall be the last section in the report.
+
 **Note**: See ## Summary for the specification of the content
 
 # TST-plugin_mutate_report_for_human
@@ -121,11 +132,17 @@ Verify that the produced report contains the expected result when the input is a
 partof: REQ-plugin_mutate-report
 ###
 
-The plugin shall produce a report of live mutants as *gcc compiler warnings* when commanded via the *CLI*.
+The plugin shall report mutants as *gcc compiler warnings* when commanded via the *CLI*.
+
+The plugin shall filter the reported mutants by the *report level*:
+ * *all*. All mutants are reported.
+ * otherwise. Alive mutants are reported.
+
+The plugin shall produce a *fixit hint* for each reported mutant.
 
 The plugin shall write the report to stderr.
 
-**Rationale**: This is how gcc do it.
+**Rationale**: The format of the messages are derived from how gcc output when using `-fdiagnostics-parseable-fixits`.
 
 ## GCC Compiler Warnings
 
@@ -135,17 +152,28 @@ file:line:column category: text
 ```
 
 Example:
-```sh
+```cpp
 foo.cpp: In function ‘int main(int, char**)’:
-foo.cpp:4:5: error: expected initializer before ‘return’
-     return 'c';
-     ^~~~~~
+foo.cpp:2:9: error: ‘argcc’ was not declared in this scope
+     if (argcc > 3)
+         ^~~~~
 ```
 
 Categories are error and warning.
 
 **Note**: There are more categories so update the list when they are found. As of this writing the others aren't important.
 
+Fixit format is (this is directly after the error in the previous example):
+```cpp
+foo.cpp:2:9: note: suggested alternative: ‘argc’
+     if (argcc > 3)
+         ^~~~~
+         argc
+fix-it:"foo.cpp":{2:9-2:14}:"argc"
+```
+
 ## Why?
 
 The assumption made by this requirement is that IDE's that are used have good integration with compilers. They can parse the output from compilers. By outputting the mutants in the same way the only integration of the mutation plugin needed is to add a compilation target in the IDE.
+
+The fixit hint is intended to make it easy for a user to see how the mutant modified the source code. This is especially important for those cases where there are many mutations for the same line. Some IDE's such as Eclipse do not move the cursor to the column which makes it harder for the human to manually inspect the mutation.
