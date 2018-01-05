@@ -577,27 +577,34 @@ class Transform {
 
         rval.isValid = op_.isValid;
 
-        // construct the mutations points to allow the delegates to fill with data
-        auto sloc = SourceLoc(loc.line, loc.column);
-
         void sidesPoint() {
+            auto sides = op_.sides;
             auto opsr = op_.location.spelling;
             auto sr = op_.cursor.extent;
 
-            auto offs_rhs = Offset(opsr.offset, sr.end.offset);
-            rval.rhs = MutationPointEntry(MutationPoint(offs_rhs, null), path, sloc);
+            if (sides.rhs.isValid) {
+                auto offs_rhs = Offset(opsr.offset, sr.end.offset);
+                rval.rhs = MutationPointEntry(MutationPoint(offs_rhs, null), path,
+                        SourceLoc(sides.rhs.location.line, sides.rhs.location.column));
+            }
 
-            auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op_.length));
-            rval.lhs = MutationPointEntry(MutationPoint(offs_lhs, null), path, sloc);
+            if (sides.lhs.isValid) {
+                auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op_.length));
+                rval.lhs = MutationPointEntry(MutationPoint(offs_lhs, null), path,
+                        SourceLoc(sides.lhs.location.line, sides.lhs.location.column));
+            }
         }
 
         void opPoint() {
             auto sr = op_.location.spelling;
             auto offs = Offset(sr.offset, cast(uint)(sr.offset + op_.length));
-            rval.op = MutationPointEntry(MutationPoint(offs, null), path, sloc);
+            rval.op = MutationPointEntry(MutationPoint(offs, null), path,
+                    SourceLoc(op_.location.line, op_.location.column));
         }
 
         void exprPoint() {
+            auto sloc = SourceLoc(loc.line, loc.column);
+
             // TODO this gives a slightly different result from calling getUnderlyingExprNode on v.cursor.
             // Investigate which one is the "correct" way.
             auto sr = op_.cursor.extent;
