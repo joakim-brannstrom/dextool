@@ -4,6 +4,7 @@
 
 set(dextool_cpp_clang_extension_SRC
     ${CMAKE_CURRENT_LIST_DIR}/cpp_source/binary_op.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/cpp_source/casestmt.cpp
     ${CMAKE_CURRENT_LIST_DIR}/cpp_source/ifstmt.cpp
     ${CMAKE_CURRENT_LIST_DIR}/cpp_source/libclang_interop.cpp
     ${CMAKE_CURRENT_LIST_DIR}/cpp_source/mccabe.cpp

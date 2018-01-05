@@ -545,6 +545,7 @@ static bool toOpKind(clang::OverloadedOperatorKind opcode, DXOperator& rval) {
 DXOperator dex_getExprOperator(const CXCursor cx_expr) {
     DXOperator rval;
     rval.hasValue = false;
+    rval.location = clang_getNullLocation();
     rval.cursor = cx_expr;
 
     const clang::Expr* expr = getCursorExpr(cx_expr);

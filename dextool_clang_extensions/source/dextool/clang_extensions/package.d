@@ -215,12 +215,18 @@ extern (C++, dextool_clang_extension) {
     }
 
     extern (C++) DXIfStmt dex_getIfStmt(const CXCursor cx);
+
+    extern (C++) struct DXCaseStmt {
+        bool hasValue;
+        CXSourceLocation colonLoc;
+        CXCursor subStmt;
+    }
+
+    extern (C++) DXCaseStmt dex_getCaseStmt(const CXCursor cx);
 }
 
 Operator getExprOperator(const CXCursor expr) @trusted {
     import std.algorithm : among;
-
-    Operator rval;
 
     // This check is technically not needed because the C++ source code try to do a dynamic cast.
     // But by having a check here it is easier to review that THIS function is correctly implemented.
@@ -231,7 +237,7 @@ Operator getExprOperator(const CXCursor expr) @trusted {
         return Operator(dex_getExprOperator(expr));
     }
 
-    return rval;
+    return Operator();
 }
 
 /**
@@ -316,21 +322,6 @@ auto getUnderlyingExprNode(const CXCursor expr) @trusted {
         return dx.opLength;
     }
 
-    string toString() const {
-        import std.exception : assumeUnique;
-        import std.format : FormatSpec;
-
-        char[] buf;
-        buf.reserve(100);
-        auto fmt = FormatSpec!char("%s");
-        toString((const(char)[] s) { buf ~= s; }, fmt);
-        auto trustedUnique(T)(T t) @trusted {
-            return assumeUnique(t);
-        }
-
-        return trustedUnique(buf);
-    }
-
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formatValue, formattedWrite;
         import std.range.primitives : put;
@@ -340,17 +331,16 @@ auto getUnderlyingExprNode(const CXCursor expr) @trusted {
         put(w, " len:");
         formatValue(w, length, fmt);
         put(w, " ");
-        put(w, location.toString);
+        formatValue(w, location, fmt);
         put(w, ")");
     }
 }
 
 IfStmt getIfStmt(const CXCursor cx) @trusted {
-    IfStmt rval;
     if (clang_getCursorKind(cx) == CXCursorKind.ifStmt)
         return IfStmt(cx, dex_getIfStmt(cx));
 
-    return rval;
+    return IfStmt();
 }
 
 @safe struct IfStmt {
@@ -425,4 +415,50 @@ IfStmt getIfStmt(const CXCursor cx) @trusted {
             }();
         }
     }
+}
+
+@safe struct CaseStmt {
+    import std.format : FormatSpec;
+    import clang.Cursor;
+    import clang.SourceLocation;
+
+    private DXCaseStmt dx;
+
+    this(DXCaseStmt dx) {
+        this.dx = dx;
+    }
+
+    bool isValid() const {
+        return dx.hasValue;
+    }
+
+    /// Cursor for the sub-stmt that reside inside the case.
+    Cursor subStmt() const {
+        return Cursor(dx.subStmt);
+    }
+
+    SourceLocation colonLocation() const {
+        return SourceLocation(dx.colonLoc);
+    }
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.format : formatValue;
+        import std.range.primitives : put;
+
+        put(w, "CaseStmt(colon:");
+        put(w, subStmt.spelling);
+        put(w, " colon:");
+        formatValue(w, location, fmt);
+        put(w, ")");
+    }
+}
+
+CaseStmt getCaseStmt(const CXCursor c) @trusted {
+    // This check is technically not needed because the C++ source code perform a dynamic cast.
+    // But extra safety can't hurt?
+    if (clang_getCursorKind(c) == CXCursorKind.caseStmt) {
+        return CaseStmt(dex_getCaseStmt(c));
+    }
+
+    return CaseStmt();
 }

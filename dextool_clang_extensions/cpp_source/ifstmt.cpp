@@ -12,13 +12,13 @@
 namespace dextool_clang_extension {
 
 struct DXIfStmt {
-    /// Returns: Stmt
+    /// Kind Stmt
     CXCursor init_;
-    /// Returns: Expr
+    /// Kind Expr
     CXCursor cond;
-    /// Returns: Stmt
+    /// Kind Stmt
     CXCursor then;
-    /// Returns: Stmt
+    /// Kind Stmt
     CXCursor else_;
 };
 
