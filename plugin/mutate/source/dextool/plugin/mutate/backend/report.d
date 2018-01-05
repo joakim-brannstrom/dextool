@@ -6,6 +6,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+This module contains functionality for reporting the mutations. Both the
+summary and details for each mutation.
 */
 module dextool.plugin.mutate.backend.report;
 
@@ -15,57 +18,30 @@ import logger = std.experimental.logger;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database;
-import dextool.plugin.mutate.type : MutationKind;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow {
+ExitStatusType runReport(ref Database db, const MutationKind kind,
+        const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
 
     import d2sqlite3 : Row;
 
-    const auto kinds = kind.toInternal;
+    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
     try {
-        auto report = Report!(SimpleWriter)(delegate(const(char)[] s) {
-            write(s);
-        });
+        auto genrep = ReportGenerator.make(kind, report_kind, report_level, fio);
+        genrep.mutationKindEvent(kind);
 
-        report = report.heading("Mutation type %s", kind);
+        genrep.locationStartEvent;
+        db.iterateMutants(kinds, &genrep.locationEvent);
+        genrep.locationEndEvent;
 
-        immutable col_w = 10;
-        auto mutations = report.heading("Locations");
-        mutations.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
-                col_w, "Kind", "Location");
-
-        // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
-        void locationPrinter(ref Row r) @trusted nothrow {
-            import std.conv : to;
-            import std.format : format;
-
-            try {
-                auto status = r.peek!int(1).to!(Mutation.Status);
-                auto kind = r.peek!int(2).to!(Mutation.Kind);
-                auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, r.peek!long(0),
-                        col_w, status, col_w, kind, r.peek!string(8),
-                        r.peek!long(6), r.peek!long(7));
-                if (status == Mutation.Status.alive)
-                    mutations.writeln(msg);
-                else
-                    mutations.trace(msg);
-
-            }
-            catch (Exception e) {
-                logger.trace(e.msg).collectException;
-            }
-        }
-
-        mutations.beginSyntaxBlock;
-        db.iterateMutants(kinds, &locationPrinter);
-        mutations.endSyntaxBlock;
-        mutations.popHeading;
-
-        reportStatistics(db, kinds, report);
+        genrep.statStartEvent;
+        genrep.statEvent(db);
+        genrep.statEndEvent;
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -74,9 +50,73 @@ ExitStatusType runReport(ref Database db, const MutationKind kind) @safe nothrow
     return ExitStatusType.Ok;
 }
 
+@safe:
 private:
 
-void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT report) @safe nothrow {
+/**
+ * Expects the event to come in the following order:
+ *  - mutationKindEvent
+ *  - locationStartEvent
+ *  - locationEvent
+ *  - locationEndEvent
+ *  - statStartEvent
+ *  - statEvent
+ *  - statEndEvent
+ */
+struct ReportGenerator {
+    import std.algorithm : each;
+    import d2sqlite3 : Row;
+
+    ReportEvens[] listeners;
+
+    static auto make(MutationKind kind, ReportKind report_kind,
+            ReportLevel report_level, FilesysIO fio) {
+        import dextool.plugin.mutate.backend.utility;
+
+        auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
+        ReportEvens[] listeners;
+        final switch (report_kind) {
+        case ReportKind.markdown:
+            listeners = [new ReportMarkdown(kinds, report_level)];
+            break;
+        case ReportKind.compiler:
+            listeners = [new ReportCompiler(kinds, report_level, fio)];
+            break;
+        }
+        return ReportGenerator(listeners);
+    }
+
+    void mutationKindEvent(MutationKind kind_) {
+        listeners.each!(a => a.mutationKindEvent(kind_));
+    }
+
+    void locationStartEvent() {
+        listeners.each!(a => a.locationStartEvent);
+    }
+
+    // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
+    void locationEvent(ref Row r) @trusted {
+        listeners.each!(a => a.locationEvent(r));
+    }
+
+    void locationEndEvent() {
+        listeners.each!(a => a.locationEndEvent);
+    }
+
+    void statStartEvent() {
+        listeners.each!(a => a.statStartEvent);
+    }
+
+    void statEvent(ref Database db) {
+        listeners.each!(a => a.statEvent(db));
+    }
+
+    void statEndEvent() {
+        listeners.each!(a => a.statEndEvent);
+    }
+}
+
+void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
     import core.time : dur;
     import std.algorithm : map, filter, sum;
     import std.range : only;
@@ -91,11 +131,6 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
 
     try {
         immutable align_ = 8;
-
-        auto item = report.heading("Summary");
-        item.beginSyntaxBlock;
-        scope (success)
-            item.endSyntaxBlock;
 
         const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.time.total!"msecs").sum.dur!"msecs";
@@ -134,21 +169,24 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
 
 alias SimpleWriter = void delegate(const(char)[]) @safe;
 
-struct Report(Writer) {
+struct Markdown(Writer, TraceWriter) {
     import std.ascii : newline;
     import std.format : formattedWrite, format;
     import std.range : put;
 
     private int curr_head;
     private Writer w;
+    private TraceWriter w_trace;
 
-    private this(int heading, Writer w) {
+    private this(int heading, Writer w, TraceWriter w_trace) {
         this.curr_head = heading;
         this.w = w;
+        this.w_trace = w_trace;
     }
 
-    this(Writer w) {
+    this(Writer w, TraceWriter w_trace) {
         this.w = w;
+        this.w_trace = w_trace;
     }
 
     auto heading(ARGS...)(auto ref ARGS args) {
@@ -159,16 +197,17 @@ struct Report(Writer) {
         put(w, " ");
         formattedWrite(w, args);
 
-        // two newlines because some markdown parsers do not correctly identify a heading if it isn't separated
+        // two newlines because some markdown parsers do not correctly identify
+        // a heading if it isn't separated
         put(w, newline);
         put(w, newline);
-        return (typeof(this)(curr_head + 1, w));
+        return (typeof(this)(curr_head + 1, w, w_trace));
     }
 
     auto popHeading() {
         if (curr_head != 0)
             put(w, newline);
-        return typeof(this)(curr_head - 1, w);
+        return typeof(this)(curr_head - 1, w, w_trace);
     }
 
     auto beginSyntaxBlock(ARGS...)(auto ref ARGS args) {
@@ -191,12 +230,357 @@ struct Report(Writer) {
     }
 
     auto writeln(ARGS...)(auto ref ARGS args) {
-        this.write(args), put(w, newline);
+        this.write(args);
+        put(w, newline);
         return this;
     }
 
     auto trace(ARGS...)(auto ref ARGS args) {
-        logger.tracef(args);
+        formattedWrite(w_trace, args);
+        put(w_trace, newline);
         return this;
+    }
+}
+
+struct CompilerConsole(Writer) {
+    import std.ascii : newline;
+    import std.format : formattedWrite, format;
+    import std.range : put;
+
+    private Writer w;
+
+    this(Writer w) {
+        this.w = w;
+    }
+
+    auto build() {
+        return CompilerMsgBuilder!Writer(w);
+    }
+}
+
+/** Build a compiler msg that follows how GCC would print to the console.
+ *
+ * Note that it should write to stderr.
+ */
+struct CompilerMsgBuilder(Writer) {
+    import std.ascii : newline;
+    import std.format : formattedWrite;
+    import std.range : put;
+
+    private {
+        Writer w;
+        string file_;
+        long line_;
+        long column_;
+    }
+
+    this(Writer w) {
+        this.w = w;
+    }
+
+    auto file(string a) {
+        file_ = a;
+        return this;
+    }
+
+    auto line(long a) {
+        line_ = a;
+        return this;
+    }
+
+    auto column(long a) {
+        column_ = a;
+        return this;
+    }
+
+    auto begin(ARGS...)(auto ref ARGS args) {
+        // for now the severity is hard coded to warning because nothing else
+        // needs to be supported.
+        formattedWrite(w, "%s:%s:%s: warning: ", file_, line_, column_);
+        formattedWrite(w, args);
+        put(w, newline);
+        return this;
+    }
+
+    auto note(ARGS...)(auto ref ARGS args) {
+        formattedWrite(w, "%s:%s:%s: note: ", file_, line_, column_);
+        formattedWrite(w, args);
+        put(w, newline);
+        return this;
+    }
+
+    auto fixit(long offset, string mutation) {
+        // Example of a fixit hint from gcc:
+        // fix-it:"foo.cpp":{5:12-5:17}:"argc"
+        // the second value in the location is bytes (starting from 1) from the
+        // start of the line.
+        formattedWrite(w, `fix-it:"%s":{%s:%s-%s:%s}:"%s"`, file_, line_,
+                column_, line_, column_ + offset, mutation);
+        put(w, newline);
+        return this;
+    }
+
+    void end() {
+    }
+}
+
+immutable invalidFile = "Dextool: Invalid UTF-8 content";
+
+string toInternal(ubyte[] data) @safe nothrow {
+    import std.utf : validate;
+
+    try {
+        auto result = () @trusted{ return cast(string) data; }();
+        validate(result);
+        return result;
+    }
+    catch (Exception e) {
+    }
+
+    return invalidFile;
+}
+
+/// Generic interface that a report event listeners shall implement.
+@safe interface ReportEvens {
+    import d2sqlite3 : Row;
+
+    void mutationKindEvent(MutationKind);
+    void locationStartEvent();
+    void locationEvent(ref Row);
+    void locationEndEvent();
+    void statStartEvent();
+    void statEvent(ref Database db);
+    void statEndEvent();
+}
+
+/** Report mutations in a format easily readable by a human.
+ *
+ * #SPC-plugin_mutate_report_for_human
+ */
+@safe final class ReportMarkdown : ReportEvens {
+    import std.conv : to;
+    import std.format : format;
+    import d2sqlite3 : Row;
+    import dextool.plugin.mutate.backend.utility;
+
+    static immutable col_w = 10;
+
+    const Mutation.Kind[] kinds;
+    const ReportLevel report_level;
+
+    Markdown!(SimpleWriter, SimpleWriter) markdown;
+    Markdown!(SimpleWriter, SimpleWriter) markdown_loc;
+    Markdown!(SimpleWriter, SimpleWriter) markdown_sum;
+
+    this(Mutation.Kind[] kinds, ReportLevel report_level) {
+        this.kinds = kinds;
+        this.report_level = report_level;
+    }
+
+    override void mutationKindEvent(MutationKind kind_) {
+        auto writer = delegate(const(char)[] s) {
+            import std.stdio : write;
+
+            write(s);
+        };
+
+        SimpleWriter tracer;
+        if (report_level == ReportLevel.all) {
+            tracer = writer;
+        } else {
+            tracer = delegate(const(char)[] s) {  };
+        }
+
+        markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
+        markdown = markdown.heading("Mutation Type %s", kind_);
+    }
+
+    override void locationStartEvent() {
+        if (report_level == ReportLevel.summary)
+            return;
+        markdown_loc = markdown.heading("Locations");
+        markdown_loc.beginSyntaxBlock;
+        markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
+                col_w, "Kind", "Location");
+    }
+
+    override void locationEvent(ref Row r) @trusted {
+        if (report_level == ReportLevel.summary)
+            return;
+
+        try {
+            auto status = r.peek!int(1).to!(Mutation.Status);
+            auto kind = r.peek!int(2).to!(Mutation.Kind);
+            const id = r.peek!long(0);
+            const file = r.peek!string(8);
+            const line = r.peek!long(6);
+            const column = r.peek!long(7);
+
+            const offs = [r.peek!long(4), r.peek!long(5)];
+
+            auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, id, col_w,
+                    status, col_w, kind, file, line, column);
+            final switch (report_level) {
+            case ReportLevel.summary:
+                break;
+            case ReportLevel.alive:
+                if (status == Mutation.Status.alive) {
+                    markdown.writeln(msg);
+                }
+                break;
+            case ReportLevel.all:
+                markdown.writeln(msg);
+                break;
+            }
+        }
+        catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+    }
+
+    override void locationEndEvent() {
+        if (report_level == ReportLevel.summary)
+            return;
+
+        markdown_loc.endSyntaxBlock;
+        markdown_loc.popHeading;
+    }
+
+    override void statStartEvent() {
+        markdown_sum = markdown.heading("Summary");
+        markdown_sum.beginSyntaxBlock;
+    }
+
+    override void statEvent(ref Database db) {
+        reportStatistics(db, kinds, markdown_sum);
+    }
+
+    override void statEndEvent() {
+        markdown_sum.endSyntaxBlock;
+        markdown_sum.popHeading;
+    }
+}
+
+/** Report mutations as gcc would do for compilation warnings with fixit hints.
+ *
+ * #SPC-plugin_mutate_report_for_tool_integration
+ */
+@safe final class ReportCompiler : ReportEvens {
+    import std.algorithm : each;
+    import std.conv : to;
+    import std.format : format;
+    import d2sqlite3 : Row;
+    import dextool.plugin.mutate.backend.utility;
+
+    static immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
+
+    const Mutation.Kind[] kinds;
+    const ReportLevel report_level;
+    FilesysIO fio;
+
+    // Assuming mutation points are consecutive.
+    string last_file_path;
+    string last_absolute_path;
+    SafeInput last_file;
+
+    CompilerConsole!SimpleWriter compiler;
+
+    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
+        this.kinds = kinds;
+        this.report_level = report_level;
+        this.fio = fio;
+    }
+
+    override void mutationKindEvent(MutationKind) {
+        compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted{
+            import std.stdio : stderr, write;
+
+            stderr.write(s);
+        });
+    }
+
+    override void locationStartEvent() {
+    }
+
+    override void locationEvent(ref Row r) @trusted {
+        import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
+
+        try {
+            auto status = r.peek!int(1).to!(Mutation.Status);
+            auto kind = r.peek!int(2).to!(Mutation.Kind);
+            const id = r.peek!long(0);
+            const file = r.peek!string(8);
+            const line = r.peek!long(6);
+            const column = r.peek!long(7);
+
+            const offs = [r.peek!long(4), r.peek!long(5)];
+
+            string orig_content = originalIsCorrupt;
+            string mut_content;
+            try {
+                if (last_file_path != file) {
+                    try {
+                        auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
+                        last_absolute_path = cast(string) abs_path;
+                        last_file = fio.makeInput(abs_path);
+                    }
+                    catch (Exception e) {
+                        last_absolute_path = file;
+                        logger.warning(e.msg);
+                    }
+                    last_file_path = file;
+                }
+
+                if (offs[0] < last_file.read.length) {
+                    orig_content = last_file.read[offs[0] .. offs[1]].toInternal;
+                }
+
+                auto mut = makeMutation(kind);
+                mut_content = mut.mutate(orig_content);
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
+            }
+
+            void report() {
+                // dfmt off
+                compiler.build
+                    .file(last_absolute_path)
+                    .line(line)
+                    .column(column)
+                    .begin("‘%s’ (%s %s mutant:%s)", orig_content, status, kind, id)
+                    .note("to ’%s’", mut_content).fixit(offs[1] - offs[0], mut_content)
+                    .end;
+                // dfmt on
+            }
+
+            final switch (report_level) {
+            case ReportLevel.summary:
+                break;
+            case ReportLevel.alive:
+                if (status == Mutation.Status.alive) {
+                    report();
+                }
+                break;
+            case ReportLevel.all:
+                report();
+                break;
+            }
+        }
+        catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+    }
+
+    override void locationEndEvent() {
+    }
+
+    override void statStartEvent() {
+    }
+
+    override void statEvent(ref Database db) {
+    }
+
+    override void statEndEvent() {
     }
 }

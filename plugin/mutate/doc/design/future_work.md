@@ -116,6 +116,8 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * automatic "reanalyze" of files that has changed compared to those in the database.
+   this should use the checksum.
  * impl switch bombs for DCC.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
  * Change name of stmtDel to SDL
@@ -124,4 +126,3 @@ New items are added at the top
  * implement boundary value for floating points.
  * Optimize the analyzer by using temporary tables.
    Another approach would be to use UNIQUE for a mutation point combined with `INSERT OR IGNORE`.
- * Report the total time spent on mutations

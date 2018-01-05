@@ -130,22 +130,6 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     return GenerateMutantResult(ExitStatusType.Ok, from_, to_);
 }
 
-private:
-@safe:
-
-import dextool.plugin.mutate.backend.type : Offset, Mutation;
-
-struct MutateImpl {
-    alias CallbackTop = void function(ref SafeOutput f) @safe;
-    alias CallbackMut = string function(const(char)[] from) @safe;
-
-    /// Called before any other data has been written to the file.
-    CallbackTop top = (ref SafeOutput) {  };
-
-    /// Called at the mutation point.
-    CallbackMut mutate = (const(char)[] from) { return null; };
-}
-
 auto makeMutation(Mutation.Kind kind) {
     import std.stdio : File;
 
@@ -308,6 +292,22 @@ auto makeMutation(Mutation.Kind kind) {
     }
 
     return m;
+}
+
+private:
+@safe:
+
+import dextool.plugin.mutate.backend.type : Offset, Mutation;
+
+struct MutateImpl {
+    alias CallbackTop = void function(ref SafeOutput f) @safe;
+    alias CallbackMut = string function(const(char)[] from) @safe;
+
+    /// Called before any other data has been written to the file.
+    CallbackTop top = (ref SafeOutput) {  };
+
+    /// Called at the mutation point.
+    CallbackMut mutate = (const(char)[] from) { return null; };
 }
 
 import std.format : format;

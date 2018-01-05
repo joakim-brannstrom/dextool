@@ -14,13 +14,11 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, MutationKind,
-    ToolMode;
-import dextool.plugin.mutate.type : MutationOrder;
+import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode;
+import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
+    ReportLevel;
 
-@safe:
-
-class Frontend {
+@safe class Frontend {
     import core.time : Duration;
     import std.typecons : Nullable;
 
@@ -43,13 +41,18 @@ private:
     ToolMode toolMode;
     bool dryRun;
     MutationOrder mutationOrder;
+    ReportKind reportKind;
+    ReportLevel reportLevel;
 }
+
+@safe:
 
 auto buildFrontend(ref ArgParser p) {
     import core.time : dur;
     import dextool.compilation_db;
 
     auto r = new Frontend;
+
     r.cflags = p.cflags;
     r.inputFiles = p.inFiles;
     r.mutation = p.mutation;
@@ -60,6 +63,8 @@ auto buildFrontend(ref ArgParser p) {
     r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
     r.dryRun = p.dryRun;
     r.mutationOrder = p.mutationOrder;
+    r.reportKind = p.reportKind;
+    r.reportLevel = p.reportLevel;
 
     r.restrictDir = AbsolutePath(FileName(p.restrictDir));
 
@@ -88,6 +93,8 @@ ExitStatusType runMutate(Frontend fe) {
     import dextool.plugin.mutate.backend : Database;
 
     auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.dryRun);
+    scope (success)
+        fe_io.release;
     auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
     auto db = Database.make(fe.db, fe.mutationOrder);
@@ -117,15 +124,14 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.report:
         import dextool.plugin.mutate.backend : runReport;
 
-        return runReport(db, fe.mutation);
+        return runReport(db, fe.mutation, fe.reportKind, fe.reportLevel, fe_io);
     }
 }
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
 
-/**
- * Responsible for ensuring that when the output from the backend is written to
- * a file it is within the user specified output directory.
+/** Responsible for ensuring that when the output from the backend is written
+ * to a file it is within the user specified output directory.
  *
  * When the mode dry_run is set no files shall be written to the filesystem.
  * Any kind of file shall be readable and "emulated" that it is writtable.
@@ -139,6 +145,9 @@ final class FrontendIO : FilesysIO {
     import std.stdio : File;
     import dextool.type : AbsolutePath;
     import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
+    import dextool.vfs : VirtualFileSystem, VfsFile;
+
+    VirtualFileSystem vfs;
 
     private AbsolutePath restrict_dir;
     private AbsolutePath output_dir;
@@ -148,6 +157,10 @@ final class FrontendIO : FilesysIO {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
         this.dry_run = dry_run;
+    }
+
+    void release() {
+        vfs.release();
     }
 
     override File getDevNull() {
@@ -178,14 +191,14 @@ final class FrontendIO : FilesysIO {
 
         validate(restrict_dir, p, dry_run);
 
-        auto d = () @trusted{ return cast(ubyte[]) std.file.read(p); }();
-        return SafeInput(d);
+        auto f = vfs.open(cast(FileName) p);
+        return SafeInput(f[]);
     }
 
     override void putFile(AbsolutePath fname, const(ubyte)[] data) @safe {
         import std.stdio : File;
 
-        // because an SafeInput/SafeOutput could theoretically be created via
+        // because a SafeInput/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
         validate(output_dir, fname, dry_run);

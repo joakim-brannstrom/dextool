@@ -24,7 +24,8 @@ struct BuildDextoolRun {
 
     private {
         string dextool;
-        string outdir;
+        string workdir;
+        string test_outputdir;
         string[] args_;
         string[] flags_;
 
@@ -38,9 +39,15 @@ struct BuildDextoolRun {
         bool throw_on_exit_status = true;
     }
 
-    this(string dextool, string outdir) {
+    this(string dextool, string workdir) {
         this.dextool = dextool;
-        this.outdir = outdir;
+        this.workdir = workdir;
+        this.test_outputdir = workdir;
+    }
+
+    auto setWorkdir(string a) {
+        this.workdir = a;
+        return this;
     }
 
     auto throwOnExitStatus(bool v) {
@@ -126,7 +133,7 @@ struct BuildDextoolRun {
         string[] cmd;
         cmd ~= dextool;
         cmd ~= args_.dup;
-        cmd ~= "--out=" ~ outdir;
+        cmd ~= "--out=" ~ workdir;
 
         if (arg_debug) {
             cmd ~= "--debug";
@@ -172,7 +179,7 @@ struct BuildDextoolRun {
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
-            auto f = File(nextFreeLogfile(outdir), "w");
+            auto f = File(nextFreeLogfile(test_outputdir), "w");
             f.writef("%s", rval);
         }
 
@@ -190,7 +197,7 @@ struct BuildCommandRun {
 
     private {
         string command;
-        string outdir_;
+        string workdir_;
         string[] args_;
 
         bool run_in_outdir;
@@ -207,22 +214,22 @@ struct BuildCommandRun {
         run_in_outdir = false;
     }
 
-    this(string command, string outdir) {
+    this(string command, string workdir) {
         this.command = command;
-        this.outdir_ = outdir;
+        this.workdir_ = workdir;
         run_in_outdir = true;
     }
 
-    Path outdir() {
-        return Path(outdir_);
+    Path workdir() {
+        return Path(workdir_);
     }
 
-    auto setOutdir(Path v) {
-        outdir_ = v.toString;
+    auto setWorkdir(Path v) {
+        workdir_ = v.toString;
         return this;
     }
 
-    /// If the command to run is in outdir.
+    /// If the command to run is in workdir.
     auto commandInOutdir(bool v) {
         run_in_outdir = v;
         return this;
@@ -254,7 +261,7 @@ struct BuildCommandRun {
     }
 
     auto addFileFromOutdir(string v) {
-        this.args_ ~= buildPath(outdir_, v);
+        this.args_ ~= buildPath(workdir_, v);
         return this;
     }
 
@@ -268,7 +275,7 @@ struct BuildCommandRun {
 
         string[] cmd;
         if (run_in_outdir)
-            cmd ~= buildPath(outdir.toString, command);
+            cmd ~= buildPath(workdir.toString, command);
         else
             cmd ~= command;
         cmd ~= args_.dup;
@@ -309,7 +316,7 @@ struct BuildCommandRun {
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.msecs, cmd);
         if (yap_output) {
-            auto f = File(nextFreeLogfile(outdir_), "w");
+            auto f = File(nextFreeLogfile(workdir_), "w");
             f.writef("%s", rval);
         }
 
@@ -322,7 +329,7 @@ struct BuildCommandRun {
     }
 }
 
-private auto nextFreeLogfile(string outdir) {
+private auto nextFreeLogfile(string workdir) {
     import std.file : exists;
     import std.path : baseName;
     import std.string : format;
@@ -330,7 +337,7 @@ private auto nextFreeLogfile(string outdir) {
     int idx;
     string f;
     do {
-        f = buildPath(outdir, format("run_command%s.log", idx));
+        f = buildPath(workdir, format("run_command%s.log", idx));
         ++idx;
     }
     while (exists(f));
