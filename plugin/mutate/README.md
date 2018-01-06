@@ -69,5 +69,5 @@ cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprof
 To generate a HTML coverage report:
 ```sh
 lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
-genhtml app.info
+genhtml app.info -o html
 ```
