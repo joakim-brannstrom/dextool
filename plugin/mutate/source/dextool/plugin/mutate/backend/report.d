@@ -399,9 +399,9 @@ string toInternal(ubyte[] data) @safe nothrow {
         if (report_level == ReportLevel.summary)
             return;
         markdown_loc = markdown.heading("Locations");
-        markdown_loc.beginSyntaxBlock;
         markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
                 col_w, "Kind", "Location");
+        markdown_loc.beginSyntaxBlock;
     }
 
     override void locationEvent(ref Row r) @trusted {
