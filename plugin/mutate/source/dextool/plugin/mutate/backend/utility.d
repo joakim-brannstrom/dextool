@@ -159,6 +159,7 @@ immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[OpKind] isAor;
 immutable Mutation.Kind[OpKind] isAorAssign;
 immutable Mutation.Kind[OpKind] isCor;
+immutable Mutation.Kind[OpKind] isDcc;
 
 immutable Mutation.Kind[] rorMutationsAll;
 immutable Mutation.Kind[] lcrMutationsAll;
@@ -175,6 +176,9 @@ immutable Mutation.Kind[] dccMutationsRaw;
 immutable Mutation.Kind[] dccBombMutationsRaw;
 
 shared static this() {
+    import std.algorithm : each;
+    import std.range : chain;
+
     // dfmt off
     with (OpKind) {
     isRor = cast(immutable)
@@ -200,6 +204,10 @@ shared static this() {
         OO_AmpAmp: Mutation.Kind.lcrAnd, // "&&"
         OO_PipePipe: Mutation.Kind.lcrOr, // "||"
         ];
+
+    Mutation.Kind[OpKind] is_dcc;
+    chain(isLcr.byKeyValue, isRor.byKeyValue).each!(a => is_dcc[a.key] = a.value);
+    isDcc = cast(immutable) is_dcc.dup;
 
     isAor = cast(immutable)
         [

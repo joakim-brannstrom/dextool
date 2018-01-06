@@ -2,7 +2,7 @@
 /// @date 2017
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-bool isPredicateFunc(int x) {
+bool isPredicateFunc(int x, int y) {
     if (x == 0) {
         return true;
     } else {
@@ -14,4 +14,10 @@ bool isPredicateFunc(int x) {
     } else {
         return false;
     }
+
+    if (y > 0 && x > 2) {
+        return true;
+    }
+
+    return false;
 }
