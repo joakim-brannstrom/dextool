@@ -561,11 +561,13 @@ string toInternal(ubyte[] data) @safe nothrow {
                     .file(last_absolute_path)
                     .line(line)
                     .column(column)
-                    .begin("%s: replace ‘%s’ with ‘%s’", kind, window(orig_content), window(mut_content))
+                    .begin("%s: replace `%s` with `%s`", kind, window(orig_content), window(mut_content))
                     .note("status:%s id:%s", status, id);
 
+                if (orig_content.length > magic_num)
+                    b = b.note("replace `%s`", orig_content);
                 if (mut_content.length > magic_num)
-                    b = b.note("with ’%s’", mut_content);
+                    b = b.note("with `%s`", mut_content);
 
                 b.fixit(offs[1] - offs[0], mut_content)
                     .end;
