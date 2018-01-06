@@ -94,7 +94,7 @@ enum Mode {
         return this.length;
     }
 
-    void write(ubyte[] content) {
+    void write(const(ubyte)[] content) {
         assert(payload.isInitialized);
 
         if (payload.mem.isMmf) {
@@ -108,12 +108,14 @@ enum Mode {
         this.write(trustedCast!(ubyte[])(content));
     }
 
-    string toString() @safe {
+    // Note: it is NOT safe to return a string because the buffer mutates if
+    // the file on disk is changed.
+    scope const(char)[] toChars() @safe {
         import std.utf : validate;
 
         auto data = this.opSlice();
 
-        auto result = trustedCast!string(data);
+        auto result = trustedCast!(const(char)[])(data);
         validate(result);
         return result;
     }
@@ -264,7 +266,7 @@ struct VirtualFileSystem {
     }
 
     /** Append data to a memory mapped file. */
-    private void appendMmf(VirtualFileSystem.RefCntMem* mem, ubyte[] data) @safe {
+    private void appendMmf(VirtualFileSystem.RefCntMem* mem, const(ubyte)[] data) @safe {
         assert(mem.isMmf);
 
         if (auto mmf = mem in filesys) {
@@ -303,7 +305,7 @@ version (unittest) {
     auto f = vfs.openInMemory(filename);
     f.write(code);
 
-    f.toString.shouldEqual(code);
+    f.toChars.shouldEqual(code);
 
     () @trusted{
         f[].shouldEqual(cast(ubyte[]) code);
@@ -334,5 +336,5 @@ unittest {
         remove(filename.toStringz);
 
     auto f = vfs.open(filename);
-    f.toString.shouldEqual(code);
+    f.toChars.shouldEqual(code);
 }
