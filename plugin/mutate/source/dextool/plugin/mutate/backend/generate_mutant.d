@@ -131,7 +131,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
 }
 
 auto makeMutation(Mutation.Kind kind) {
-    import std.stdio : File;
+    import std.format : format;
 
     MutateImpl m;
 
@@ -289,6 +289,10 @@ auto makeMutation(Mutation.Kind kind) {
     case dccFalse:
         m.mutate = (const(char)[] expr) { return "false"; };
         break;
+    case dccBomb:
+        // assigning null should crash the program, thus a 'bomb'
+        m.mutate = (const(char)[] expr) { return `*((char*)0)='x';break;`; };
+        break;
     }
 
     return m;
@@ -310,11 +314,11 @@ struct MutateImpl {
     CallbackMut mutate = (const(char)[] from) { return null; };
 }
 
-import std.format : format;
+immutable string preambleAbs;
 
-string preambleAbs() {
+shared static this() {
     // this is ugly but works for now
-    immutable abs_tmpl = `
+    immutable preambleAbs = `
 #ifndef DEXTOOL_INJECTED_ABS_FUNCTION
 #define DEXTOOL_INJECTED_ABS_FUNCTION
 namespace {
@@ -323,7 +327,6 @@ T dextool_abs(T v) { return v < 0 ? -v : v; }
 }
 #endif
 `;
-    return abs_tmpl;
 }
 
 auto drop(T = void[])(T content, const Offset offset) {
