@@ -572,9 +572,11 @@ string toInternal(ubyte[] data) @safe nothrow {
                 // dfmt on
             }
 
+            // summary is the default and according to the specification of the
+            // default for tool integration alive mutations shall be printed.
             final switch (report_level) {
             case ReportLevel.summary:
-                break;
+                goto case;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
                     report();
