@@ -24,16 +24,18 @@ struct File {
     mixin CX;
 
     /// Returns: the complete file and path name of the file.
-    @property string name() @trusted {
-        return toD(clang_getFileName(cx));
+    @property string name() const @trusted {
+        // OK to throw away const because the C functions do not change the ptr.
+        return toD(clang_getFileName(cast(CType) cx));
     }
 
     /// Return the last modification time of the file.
-    @property time_t time() @trusted {
-        return clang_getFileTime(cx);
+    @property time_t time() const @trusted {
+        // OK to throw away const because the C functions do not change the ptr.
+        return clang_getFileTime(cast(CType) cx);
     }
 
-    string toString() @safe {
+    string toString() @safe const {
         return name;
     }
 }

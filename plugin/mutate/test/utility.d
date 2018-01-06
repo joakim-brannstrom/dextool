@@ -28,6 +28,17 @@ auto makeDextool(const ref TestEnv env) {
     // dfmt on
 }
 
+auto makeDextoolReport(const ref TestEnv env, Path test_data) {
+    // dfmt off
+    return dextool_test.makeDextool(env)
+        .args(["mutate"])
+        .addArg(["--db", (env.outdir ~ defaultDb).toString])
+        .setWorkdir(test_data.toString)
+        .addArg(["--restrict", test_data.toString])
+        .addArg(["--mode", "report"]);
+    // dfmt on
+}
+
 auto makeCompile(const ref TestEnv env, Path srcdir) {
     return dextool_test.makeCompile(env, "g++").addInclude(srcdir).outputToDefaultBinary;
 }

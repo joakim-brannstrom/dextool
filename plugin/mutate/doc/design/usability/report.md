@@ -151,6 +151,10 @@ The format is:
 file:line:column category: text
 ```
 
+Categories are error and warning.
+
+**Note**: There are more categories so update the list when they are found. As of this writing the others aren't important.
+
 Example:
 ```cpp
 foo.cpp: In function ‘int main(int, char**)’:
@@ -158,10 +162,6 @@ foo.cpp:2:9: error: ‘argcc’ was not declared in this scope
      if (argcc > 3)
          ^~~~~
 ```
-
-Categories are error and warning.
-
-**Note**: There are more categories so update the list when they are found. As of this writing the others aren't important.
 
 Fixit format is (this is directly after the error in the previous example):
 ```cpp

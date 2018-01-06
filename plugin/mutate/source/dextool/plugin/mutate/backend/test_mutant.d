@@ -118,9 +118,10 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         }
 
         // get content
-        ubyte[] content;
+        const(ubyte)[] content;
         try {
-            content = fio.makeInput(mut_file).read;
+            // must duplicate because the buffer is memory mapped thus it can change
+            content = fio.makeInput(mut_file).read.dup;
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;

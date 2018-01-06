@@ -59,7 +59,8 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
 
     import dextool.clang_extensions : OpKind;
     import dextool.plugin.mutate.backend.utility : stmtDelMutations,
-        absMutations, uoiLvalueMutations, uoiRvalueMutations, dccMutations;
+        absMutations, uoiLvalueMutations, uoiRvalueMutations, dccMutations,
+        dccBombMutations;
 
     rval.transf.stmtCallback ~= () => stmtDelMutations;
 
@@ -72,6 +73,8 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
 
     rval.transf.branchCondCallback ~= () => dccMutations;
     rval.transf.branchClauseCallback ~= () => dccMutations;
+
+    rval.transf.caseSubStmtCallback ~= () => dccBombMutations;
 
     import std.algorithm : map;
     import std.array : array;
@@ -267,6 +270,12 @@ class BaseVisitor : ExtendedVisitor {
         auto ifstmt = scoped!IfStmtVisitor(transf, this, clause, indent);
         accept(v, cast(IfStmtVisitor) ifstmt);
     }
+
+    override void visit(const CaseStmt v) {
+        mixin(mixinNodeLog!());
+        transf.caseStmt(v.cursor);
+        v.accept(this);
+    }
 }
 
 /** Inject code to validate and check the location of a cursor.
@@ -365,6 +374,11 @@ class Transform {
     BranchEvent[] branchThenCallback;
     BranchEvent[] branchElseCallback;
 
+    /// Switch condition
+    alias CaseEvent = Mutation.Kind[]delegate();
+    /// the statement after the `case 2:` until the next one
+    CaseEvent[] caseSubStmtCallback;
+
     private AnalyzeResult result;
     private ValidateLoc val_loc;
 
@@ -378,13 +392,12 @@ class Transform {
         mixin(mixinPath);
 
         auto offs = calcOffset(v);
-        Mutation[] m;
+        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
         foreach (cb; stmtCallback) {
-            m ~= cb().map!(a => Mutation(a)).array();
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
         }
 
-        result.put(MutationPointEntry(MutationPoint(offs, m), path,
-                SourceLoc(loc.line, loc.column)));
+        result.put(p);
     }
 
     void unaryInject(const(Cursor) c) {
@@ -401,14 +414,14 @@ class Transform {
         auto offs = Offset(sr.start.offset, sr.end.offset);
 
         const auto kind = exprValueKind(getUnderlyingExprNode(c));
-        Mutation[] m;
+
+        auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                SourceLoc(loc.line, loc.column));
         foreach (cb; unaryInjectCallback) {
-            m ~= cb(kind).map!(a => Mutation(a)).array();
+            p.mp.mutations ~= cb(kind).map!(a => Mutation(a)).array();
         }
 
-        auto p2 = MutationPointEntry(MutationPoint(offs, m), path,
-                SourceLoc(loc.line, loc.column));
-        result.put(p2);
+        result.put(p);
     }
 
     void binaryOp(const(Cursor) c) {
@@ -538,6 +551,37 @@ class Transform {
                 SourceLoc(loc.line, loc.column));
 
         foreach (cb; branchElseCallback) {
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(p);
+    }
+
+    void caseStmt(const Cursor c) {
+        import clang.c.Index : CXTokenKind, CXCursorKind;
+        import dextool.clang_extensions : getCaseStmt;
+
+        auto mp = getCaseStmt(c);
+        if (!mp.isValid)
+            return;
+
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = mp.subStmt.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+        if (mp.subStmt.kind == CXCursorKind.caseStmt) {
+            // a case statement with fallthrough. the only point to inject a bomb is directly efter the colon
+            offs.begin = mp.colonLocation.offset + 1;
+            offs.end = offs.begin;
+        } else if (mp.subStmt.kind != CXCursorKind.compoundStmt) {
+            offs.end = findTokenOffset(c.translationUnit.cursor.tokens, offs,
+                    CXTokenKind.punctuation);
+        }
+
+        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
+
+        foreach (cb; caseSubStmtCallback) {
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
         }
 
@@ -685,12 +729,25 @@ Offset calcOffset(T)(const(T) v) @trusted {
 
     return rval;
 }
-
 /// trusted: trusting the impl in clang.
 uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind, string spelling) @trusted {
     foreach (ref t; toks) {
         if (t.location.offset >= sr.end) {
             if (t.kind == kind && t.spelling == spelling) {
+                return t.extent.end.offset;
+            }
+            break;
+        }
+    }
+
+    return sr.end;
+}
+
+/// trusted: trusting the impl in clang.
+uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
+    foreach (ref t; toks) {
+        if (t.location.offset >= sr.end) {
+            if (t.kind == kind) {
                 return t.extent.end.offset;
             }
             break;

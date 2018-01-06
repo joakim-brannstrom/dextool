@@ -97,6 +97,7 @@ struct Mutation {
         /// Decision/Condition Coverage
         dccTrue,
         dccFalse,
+        dccBomb,
     }
 
     enum Status {

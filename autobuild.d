@@ -278,13 +278,11 @@ struct Fsm {
         Wait,
         Start,
         Ut_run,
-        Ut_cov,
         Ut_skip,
         Debug_build,
-        Debug_test,
+        Integration_test,
         Test_passed,
         Test_failed,
-        StaticAnalyse,
         Doc_check_counter,
         Doc_build,
         Sloc_check_counter,
@@ -367,28 +365,18 @@ struct Fsm {
             break;
         case State.Ut_run:
             next_ = State.ExitOrRestart;
-            if (flagUtTestPassed && !travis)
-                next_ = State.Ut_cov;
-            else if (flagUtTestPassed && travis) {
-                // skip statick analysis
+            if (flagUtTestPassed)
                 next_ = State.Debug_build;
-            }
-            break;
-        case State.Ut_cov:
-            next_ = State.StaticAnalyse;
             break;
         case State.Ut_skip:
-            next_ = State.StaticAnalyse;
-            break;
-        case State.StaticAnalyse:
             next_ = State.Debug_build;
             break;
         case State.Debug_build:
-            next_ = State.Debug_test;
+            next_ = State.Integration_test;
             if (flagCompileError)
                 next_ = State.ExitOrRestart;
             break;
-        case State.Debug_test:
+        case State.Integration_test:
             next_ = State.ExitOrRestart;
             if (flagTotalTestPassed)
                 next_ = State.Test_passed;
@@ -497,40 +485,13 @@ struct Fsm {
     }
 
     void stateUt_run() {
-        printStatus(Status.Run, "Compile and run unittest");
+        immutable test_header = "Compile and run unittest";
+        printStatus(Status.Run, test_header);
 
-        if (tryRun(cmakeDir, "make check") != 0) {
-            flagUtTestPassed = cast(Flag!"UtTestPassed") false;
-            return;
-        }
+        auto status = tryRun(cmakeDir, "make check -j $(nproc)");
+        flagUtTestPassed = cast(Flag!"UtTestPassed")(status == 0);
 
-        auto r = tryRunCollect(cmakeDir, `make test ARGS="--output-on-failure -R .*unittest_"`);
-        flagUtTestPassed = cast(Flag!"UtTestPassed")(r.status == 0);
-
-        if (!flagUtTestPassed || flagUtDebug) {
-            writeln(r.output);
-        }
-
-        consoleToFile(cmakeDir ~ "test" ~ "unittest" ~ Ext(".log"), r.output);
-        printExitStatus(r.status, "Compile and run unittest");
-    }
-
-    void stateUt_cov() {
-        //CHECK_STATUS_RVAL=0
-        //for F in $(find . -iname "*.lst"|grep -v 'dub-packages'); do
-        //    tail -n1 "$F"| grep -q "100% cov"
-        //    if [[ $? -ne 0 ]]; then
-        //        echo -e "${C_RED}Warning${C_NONE} missing coverage in ${C_YELLOW}${F}${C_NONE}"
-        //        CHECK_STATUS_RVAL=1
-        //    fi
-        //done
-        //
-        //MSG="Coverage stat of unittests is"
-        //if [[ $CHECK_STATUS_RVAL -eq 0 ]]; then
-        //    echo -e "${C_GREEN}=== $MSG OK ===${C_NONE}"
-        //else
-        //    echo -e "${C_RED}=== $MSG ERROR ===${C_NONE}"
-        //fi
+        printExitStatus(status, test_header);
     }
 
     void stateUt_skip() {
@@ -545,16 +506,17 @@ struct Fsm {
         printExitStatus(r, "Debug build with debug symbols");
     }
 
-    void stateDebug_test() {
-        printStatus(Status.Run, "Test of code generation");
+    void stateIntegration_test() {
+        immutable test_header = "Compile and run integration tests";
+        printStatus(Status.Run, test_header);
 
-        if (tryRun(cmakeDir, `make check_integration`) != 0) {
-            testErrorLog ~= ErrorMsg(Path(""), "integration_test", "failed building");
-            printExitStatus(1, "Test of code generation");
-            return;
+        auto status = tryRun(cmakeDir, `make check_integration -j $(nproc)`);
+
+        if (status != 0) {
+            testErrorLog ~= ErrorMsg(cmakeDir, "integration_test", "failed");
         }
 
-        printExitStatus(0, "Test of code generation");
+        printExitStatus(status, test_header);
     }
 
     void stateTest_passed() {

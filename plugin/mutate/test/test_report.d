@@ -41,26 +41,21 @@ unittest {
         .addInputArg(input_src)
         .addArg(["--mode", "analyzer"])
         .run;
-    auto r = dextool_test.makeDextool(testEnv)
-        .args(["mutate"])
-        .addArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-        .setWorkdir(testData.dirName.toString)
-        .addArg(["--restrict", testData.dirName.toString])
+    auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "ror"])
-        .addArg(["--mode", "report"])
         .addArg(["--report", "compiler"])
         .addArg(["--report-level", "all"])
         .run;
 
     makeSubSeq!SubStr([
-                      ":2:11: warning: ‘>’",
-                      ":2:11: note: to ’>=’",
+                      ":2:11: warning: rorGE: replace ‘>’ with ‘>=’",
+                      ":2:11: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{2:11-2:12}:">="`,
-                      ":2:11: warning: ‘>’",
-                      ":2:11: note: to ’!=’",
+                      ":2:11: warning: rorNE: replace ‘>’ with ‘!=’",
+                      ":2:11: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{2:11-2:12}:"!="`,
-                      ":2:9: warning: ‘x > 3’",
-                      ":2:9: note: to ’false’",
+                      ":2:9: warning: rorFalse: replace ‘x > 3’ with ‘false’",
+                      ":2:9: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{2:9-2:14}:"false"`,
     ]).shouldBeIn(r.stderr);
 }

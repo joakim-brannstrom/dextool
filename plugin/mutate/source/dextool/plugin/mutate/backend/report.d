@@ -543,20 +543,40 @@ string toInternal(ubyte[] data) @safe nothrow {
             }
 
             void report() {
+                import std.algorithm : filter, among, joiner;
+                import std.range : take, only, chain;
+
+                // 5 because it covers all the operators and true/false
+                immutable magic_num = 5;
+
+                auto window(T)(T a) {
+                    // dfmt off
+                    return chain(a.take(magic_num).filter!(a => !a.among('\n')),
+                                 only(a.length > magic_num ? "..." : null).joiner);
+                    // dfmt on
+                }
+
                 // dfmt off
-                compiler.build
+                auto b = compiler.build
                     .file(last_absolute_path)
                     .line(line)
                     .column(column)
-                    .begin("‘%s’ (%s %s mutant:%s)", orig_content, status, kind, id)
-                    .note("to ’%s’", mut_content).fixit(offs[1] - offs[0], mut_content)
+                    .begin("%s: replace ‘%s’ with ‘%s’", kind, window(orig_content), window(mut_content))
+                    .note("status:%s id:%s", status, id);
+
+                if (mut_content.length > magic_num)
+                    b = b.note("with ’%s’", mut_content);
+
+                b.fixit(offs[1] - offs[0], mut_content)
                     .end;
                 // dfmt on
             }
 
+            // summary is the default and according to the specification of the
+            // default for tool integration alive mutations shall be printed.
             final switch (report_level) {
             case ReportLevel.summary:
-                break;
+                goto case;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
                     report();

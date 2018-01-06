@@ -198,7 +198,7 @@ TODO: add requirement.
 ## Why?
 See [8].
 
-A test suite that achieve MC/DC should kill 100% of these mutation type.
+A test suite that achieve MC/DC should kill 100% of these mutants.
 
 As discussed in [8] a specialized mutation for DC/C results in:
  * less mutations overall

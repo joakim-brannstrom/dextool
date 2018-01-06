@@ -80,3 +80,22 @@ unittest {
     r.stdout.joiner.count("'x == 1'").shouldEqual(2);
     r.stdout.joiner.count("'x == 2'").shouldEqual(2);
 }
+
+@("shall produce 4 switch bomb mutations")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dcc_dc_switch1.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "dcc"])
+        .run;
+    makeSubSeq!SubStr([
+        "from 'return -1 ;' to '*((char*)0)='x';break;'",
+        "from 'return 1;' to '*((char*)0)='x';break;'",
+        "from 'break;' to '*((char*)0)='x';break;'",
+        "from '' to '*((char*)0)='x';break;'",
+    ]).shouldBeIn(r.stdout);
+}
