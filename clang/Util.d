@@ -59,9 +59,9 @@ U* toCArray(U, T)(T[] arr) @safe {
 
 mixin template CX(string name = "") {
     static if (name.length == 0) {
-        mixin("private alias " ~ cxName!(typeof(this)) ~ " CType;");
+        mixin("private alias CType = " ~ cxName!(typeof(this)) ~ ";");
     } else {
-        mixin("private alias CX" ~ name ~ " CType;");
+        mixin("private alias  CType = CX" ~ name ~ ";");
     }
 
     CType cx;
