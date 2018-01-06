@@ -48,14 +48,41 @@ unittest {
         .run;
 
     makeSubSeq!SubStr([
-                      ":2:11: warning: rorGE: replace ‘>’ with ‘>=’",
-                      ":2:11: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{2:11-2:12}:">="`,
-                      ":2:11: warning: rorNE: replace ‘>’ with ‘!=’",
-                      ":2:11: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{2:11-2:12}:"!="`,
-                      ":2:9: warning: rorFalse: replace ‘x > 3’ with ‘false’",
-                      ":2:9: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{2:9-2:14}:"false"`,
+                      ":6:11: warning: rorGE: replace `>` with `>=`",
+                      ":6:11: note: status:unknown id:",
+                      `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:">="`,
+                      ":6:11: warning: rorNE: replace `>` with `!=`",
+                      ":6:11: note: status:unknown id:",
+                      `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:"!="`,
+                      ":6:9: warning: rorFalse: replace `x > 3` with `false`",
+                      ":6:9: note: status:unknown id:",
+                      `fix-it:"` ~ input_src.toString ~ `":{6:9-6:14}:"false"`,
+    ]).shouldBeIn(r.stderr);
+}
+
+@("shall report tool integration notes with the full text for dccTrue and dccBomb")
+unittest {
+    auto input_src = testData ~ "report_tool_integration.cpp";
+    mixin(EnvSetup(globalTestdir));
+    makeDextool(testEnv)
+        .addInputArg(input_src)
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--mutant", "dcc"])
+        .addArg(["--report", "compiler"])
+        .addArg(["--report-level", "all"])
+        .run;
+
+    makeSubSeq!SubStr([
+                      ":7:9: warning: dccTrue: replace `var1_...` with `true`",
+                      ":7:9: note: status:unknown id:",
+                      ":7:9: note: replace `var1_long_text > 5`",
+                      `fix-it:"` ~ input_src.toString ~ `":{7:9-7:27}:"true"`,
+                      ":11:5: warning: dccBomb: replace `retur...` with `*((ch...`",
+                      ":11:5: note: status:unknown id:",
+                      ":11:5: note: replace `return true;`",
+                      ":11:5: note: with `*((char*)0)='x';break;`",
+                      `fix-it:"` ~ input_src.toString ~ `":{11:5-11:17}:"*((char*)0)='x';break;"`,
     ]).shouldBeIn(r.stderr);
 }
