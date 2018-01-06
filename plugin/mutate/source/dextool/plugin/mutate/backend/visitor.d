@@ -59,8 +59,8 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
 
     import dextool.clang_extensions : OpKind;
     import dextool.plugin.mutate.backend.utility : stmtDelMutations,
-        absMutations, uoiLvalueMutations, uoiRvalueMutations, dccMutations,
-        dccBombMutations;
+        absMutations, uoiLvalueMutations, uoiRvalueMutations, isDcc,
+        dccMutations, dccBombMutations;
 
     rval.transf.stmtCallback ~= () => stmtDelMutations;
 
@@ -72,7 +72,9 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
         ? uoiLvalueMutations : uoiRvalueMutations;
 
     rval.transf.branchCondCallback ~= () => dccMutations;
-    rval.transf.branchClauseCallback ~= () => dccMutations;
+    rval.transf.binaryOpExprCallback ~= (OpKind k) {
+        return k in isDcc ? dccMutations : null;
+    };
 
     rval.transf.caseSubStmtCallback ~= () => dccBombMutations;
 
@@ -473,6 +475,8 @@ class Transform {
         result.put(mp.op);
     }
 
+    /** Callback for the whole condition in a if statement.
+     */
     void branchCond(const Cursor c) {
         mixin(makeAndCheckLocation("c"));
         mixin(mixinPath);
@@ -503,6 +507,8 @@ class Transform {
         }
     }
 
+    /** Callback for the individual clauses in an if statement.
+     */
     void branchClause(const Cursor c) {
         mixin(makeAndCheckLocation("c"));
         mixin(mixinPath);
