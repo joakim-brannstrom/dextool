@@ -170,20 +170,6 @@ struct Database {
         return rval;
     }
 
-    bool hasMutationPoint(const FileId id, const MutationPoint mp) @trusted {
-        auto stmt = db.prepare("SELECT count(*) FROM mutation_point WHERE
-                               file_id=:id AND
-                               offset_begin=:begin AND
-                               offset_end=:end
-                               LIMIT 1");
-        stmt.bind(":id", cast(long) id);
-        stmt.bind(":begin", mp.offset.begin);
-        stmt.bind(":end", mp.offset.end);
-        auto res = stmt.execute;
-
-        return res.oneValue!long != 0;
-    }
-
     /** Update the status of a mutant.
      * Params:
      *  id = ?
