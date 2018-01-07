@@ -125,7 +125,7 @@ struct Database {
 
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p) @trusted {
-        auto stmt = db.prepare("SELECT count(*) FROM files WHERE PATH=:path LIMIT 1");
+        auto stmt = db.prepare("SELECT count(*) FROM files WHERE path=:path LIMIT 1");
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
         return res.oneValue!long != 0;
@@ -134,7 +134,7 @@ struct Database {
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p, const Checksum cs) @trusted {
         auto stmt = db.prepare(
-                "SELECT count(*) FROM files WHERE PATH=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
+                "SELECT count(*) FROM files WHERE path=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
         stmt.bind(":path", cast(string) p);
         stmt.bind(":cs0", cs.c0);
         stmt.bind(":cs1", cs.c1);
@@ -143,7 +143,7 @@ struct Database {
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
-        auto stmt = db.prepare("SELECT id FROM files WHERE PATH=:path");
+        auto stmt = db.prepare("SELECT id FROM files WHERE path=:path");
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
 
@@ -158,7 +158,7 @@ struct Database {
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        auto stmt = db.prepare("SELECT checksum0,checksum1 FROM files WHERE PATH=:path");
+        auto stmt = db.prepare("SELECT checksum0,checksum1 FROM files WHERE path=:path");
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
 
@@ -168,6 +168,13 @@ struct Database {
         }
 
         return rval;
+    }
+
+    /// Remove the file with all mutations that are coupled to it.
+    void removeFile(const Path p) @trusted {
+        auto stmt = db.prepare("DELETE FROM files WHERE path=:path");
+        stmt.bind(":path", cast(string) p);
+        stmt.execute;
     }
 
     /** Update the status of a mutant.
@@ -457,7 +464,10 @@ do {
     import d2sqlite3;
 
     try {
-        return new sqlDatabase(p, SQLITE_OPEN_READWRITE);
+        auto db = new sqlDatabase(p, SQLITE_OPEN_READWRITE);
+        // required for foreign keys with cascade to work
+        db.run("PRAGMA foreign_keys=ON;");
+        return db;
     }
     catch (Exception e) {
         logger.trace(e.msg);
@@ -465,6 +475,9 @@ do {
     }
 
     auto db = new sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+    // required for foreign keys with cascade to work
+    db.run("PRAGMA foreign_keys=ON;");
+
     initializeTables( * db);
     return db;
 }
@@ -485,7 +498,7 @@ immutable mutation_point_tbl = "CREATE %s TABLE %s (
     offset_end      INTEGER NOT NULL,
     line            INTEGER,
     column          INTEGER,
-    FOREIGN KEY(file_id) REFERENCES files(id),
+    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
     )";
 
@@ -496,7 +509,7 @@ immutable mutation_tbl = "CREATE %s TABLE %s (
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
     time    INTEGER,
-    FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
+    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 
 void initializeTables(ref sqlDatabase db) {

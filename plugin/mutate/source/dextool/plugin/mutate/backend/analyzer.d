@@ -8,6 +8,8 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 #SPC-plugin_mutate_analyzer
+
+TODO cache the checksums. They are *heavy*.
 */
 module dextool.plugin.mutate.backend.analyzer;
 
@@ -15,18 +17,19 @@ import logger = std.experimental.logger;
 
 import dextool.plugin.mutate.backend.database : Database;
 
-import dextool.type : ExitStatusType, AbsolutePath, Path;
+import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB;
 import dextool.user_filerange;
 
-import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
+import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLoc val_loc) @safe {
+ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
+        ValidateLoc val_loc, FilesysIO fio) @safe {
     import std.algorithm : map;
     import std.path : relativePath;
     import std.typecons : Yes;
@@ -49,8 +52,10 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
             continue;
         }
 
-        if (checked_in_file in analyzed_files || db.isAnalyzed(checked_in_file))
+        if (checked_in_file in analyzed_files) {
             continue;
+        }
+
         analyzed_files[checked_in_file] = true;
 
         // analye the file
@@ -62,6 +67,13 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
             auto relp = trustedRelativePath(a, val_loc.getRestrictDir);
 
             try {
+                auto f_status = isFileChanged(db, AbsolutePath(a,
+                        DirName(fio.getRestrictDir)), fio);
+                if (f_status == FileStatus.changed) {
+                    logger.infof("Updating analyze of '%s'", a);
+                    db.removeFile(relp);
+                }
+
                 auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a));
                 db.put(Path(relp), cs);
             }
@@ -78,19 +90,24 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange, ValidateLo
 
 private:
 
-/**
- * trusted: no validation that the read data is a string.
- */
-ubyte[] safeRead(AbsolutePath p) @trusted nothrow {
-    import std.file;
-    import std.exception : collectException;
+enum FileStatus {
+    noChange,
+    notInDatabase,
+    changed
+}
 
-    try {
-        return cast(ubyte[]) std.file.read(p);
-    }
-    catch (Exception e) {
-        collectException(logger.warning(e.msg));
-    }
+FileStatus isFileChanged(ref Database db, AbsolutePath p, FilesysIO fio) @safe {
+    auto relp = trustedRelativePath(p, fio.getRestrictDir);
 
-    return null;
+    if (!db.isAnalyzed(relp))
+        return FileStatus.notInDatabase;
+
+    auto db_checksum = db.getFileChecksum(relp);
+    auto f_checksum = checksum(fio.makeInput(p).read[]);
+
+    auto rval = (!db_checksum.isNull && db_checksum != f_checksum) ? FileStatus.changed
+        : FileStatus.noChange;
+    debug logger.trace(rval == FileStatus.changed, "db: ", db_checksum, " file: ", f_checksum);
+
+    return rval;
 }
