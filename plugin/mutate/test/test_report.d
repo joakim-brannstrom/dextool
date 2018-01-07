@@ -22,7 +22,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv).addArg(["--mode", "report"]).run;
 
-    makeSubSeq!SubStr([
+    testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Summary",
         "Untested:",
@@ -47,7 +47,7 @@ unittest {
         .addArg(["--report-level", "all"])
         .run;
 
-    makeSubSeq!SubStr([
+    testConsecutiveSparseOrder!SubStr([
                       ":6:11: warning: rorGE: replace `>` with `>=`",
                       ":6:11: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:">="`,
@@ -74,7 +74,7 @@ unittest {
         .addArg(["--report-level", "all"])
         .run;
 
-    makeSubSeq!SubStr([
+    testConsecutiveSparseOrder!SubStr([
                       ":7:9: warning: dccTrue: replace `var1_...` with `true`",
                       ":7:9: note: status:unknown id:",
                       ":7:9: note: replace `var1_long_text > 5`",

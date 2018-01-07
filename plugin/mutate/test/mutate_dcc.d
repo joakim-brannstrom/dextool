@@ -22,8 +22,10 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "dcc"])
         .run;
-    r.stdout.sliceContains("from 'x' to 'true'").shouldBeTrue;
-    r.stdout.sliceContains("from 'x' to 'false'").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "from 'x' to 'true'",
+        "from 'x' to 'false'",
+    ]).shouldBeIn(r.stdout);
 }
 
 @("shall produce 4 predicate mutations")
@@ -37,10 +39,12 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "dcc"])
         .run;
-    r.stdout.sliceContains("from 'x' to 'true'").shouldBeTrue;
-    r.stdout.sliceContains("from 'x' to 'false'").shouldBeTrue;
-    r.stdout.sliceContains("from 'y' to 'true'").shouldBeTrue;
-    r.stdout.sliceContains("from 'y' to 'false'").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "from 'x' to 'true'",
+        "from 'x' to 'false'",
+        "from 'y' to 'true'",
+        "from 'y' to 'false'",
+    ]).shouldBeIn(r.stdout);
 }
 
 @("shall produce 2 predicate mutations for an expression of multiple clauses")
@@ -58,7 +62,7 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "dcc"])
         .run;
-    makeSubSeq!SubStr([
+    testAnyOrder!SubStr([
         "from 'x == 0 || y == 0' to 'true'",
         "from 'x == 0 || y == 0' to 'false'",
     ]).shouldBeIn(r.stdout);
@@ -79,7 +83,7 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "dcc"])
         .run;
-    makeSubSeq!SubStr([
+    testAnyOrder!SubStr([
         "from 'x == 0' to 'true'",
         "from 'x == 0' to 'false'",
         "from 'x == 1' to 'true'",
@@ -110,7 +114,7 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "dcc"])
         .run;
-    makeSubSeq!SubStr([
+    testAnyOrder!SubStr([
         "from 'return -1 ;' to '*((char*)0)='x';break;'",
         "from 'return 1;' to '*((char*)0)='x';break;'",
         "from 'break;' to '*((char*)0)='x';break;'",
