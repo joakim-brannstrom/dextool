@@ -170,20 +170,6 @@ struct Database {
         return rval;
     }
 
-    bool hasMutationPoint(const FileId id, const MutationPoint mp) @trusted {
-        auto stmt = db.prepare("SELECT count(*) FROM mutation_point WHERE
-                               file_id=:id AND
-                               offset_begin=:begin AND
-                               offset_end=:end
-                               LIMIT 1");
-        stmt.bind(":id", cast(long) id);
-        stmt.bind(":begin", mp.offset.begin);
-        stmt.bind(":end", mp.offset.end);
-        auto res = stmt.execute;
-
-        return res.oneValue!long != 0;
-    }
-
     /** Update the status of a mutant.
      * Params:
      *  id = ?
@@ -432,31 +418,30 @@ struct Database {
                 file_ids[rel_file] = id;
             }
 
-            // TODO device a way that this call to hasMutationPoint isn't
-            // necessary. This is extremly slow, ~10-100x slower than adding
-            // the points without a check.
-            if (hasMutationPoint(id, a.mp)) {
-                continue;
+            // fails if the constraint for mutation_point is violated
+            // TODO still a bit slow because this generates many exceptions.
+            try {
+                const long mp_id = () {
+                    scope (exit)
+                        mp_stmt.reset;
+                    mp_stmt.bind(":fid", cast(long) id);
+                    mp_stmt.bind(":begin", a.mp.offset.begin);
+                    mp_stmt.bind(":end", a.mp.offset.end);
+                    mp_stmt.bind(":line", a.sloc.line);
+                    mp_stmt.bind(":column", a.sloc.column);
+                    mp_stmt.execute;
+                    return db.lastInsertRowid;
+                }();
+
+                m_stmt.bind(":mp_id", mp_id);
+                foreach (k; a.mp.mutations) {
+                    m_stmt.bind(":kind", k.kind);
+                    m_stmt.bind(":status", k.status);
+                    m_stmt.execute;
+                    m_stmt.reset;
+                }
             }
-
-            const long mp_id = () {
-                scope (exit)
-                    mp_stmt.reset;
-                mp_stmt.bind(":fid", cast(long) id);
-                mp_stmt.bind(":begin", a.mp.offset.begin);
-                mp_stmt.bind(":end", a.mp.offset.end);
-                mp_stmt.bind(":line", a.sloc.line);
-                mp_stmt.bind(":column", a.sloc.column);
-                mp_stmt.execute;
-                return db.lastInsertRowid;
-            }();
-
-            m_stmt.bind(":mp_id", mp_id);
-            foreach (k; a.mp.mutations) {
-                m_stmt.bind(":kind", k.kind);
-                m_stmt.bind(":status", k.status);
-                m_stmt.execute;
-                m_stmt.reset;
+            catch (Exception e) {
             }
         }
     }
@@ -492,6 +477,7 @@ immutable files_tbl = "CREATE %s TABLE %s (
     )";
 
 // line start from zero
+// there shall never exist two mutations points for the same file+offset.
 immutable mutation_point_tbl = "CREATE %s TABLE %s (
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
@@ -499,7 +485,8 @@ immutable mutation_point_tbl = "CREATE %s TABLE %s (
     offset_end      INTEGER NOT NULL,
     line            INTEGER,
     column          INTEGER,
-    FOREIGN KEY(file_id) REFERENCES files(id)
+    FOREIGN KEY(file_id) REFERENCES files(id),
+    CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
     )";
 
 // time in ms spent on verifying the mutant
