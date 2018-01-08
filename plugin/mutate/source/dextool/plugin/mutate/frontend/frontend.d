@@ -111,7 +111,7 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.analyzer:
         import dextool.plugin.mutate.backend : runAnalyzer;
 
-        return runAnalyzer(db, frange, fe_validate);
+        return runAnalyzer(db, frange, fe_validate, fe_io);
     case ToolMode.generate_mutant:
         import dextool.plugin.mutate.backend : runGenerateMutant;
 
