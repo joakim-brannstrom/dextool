@@ -14,6 +14,7 @@ module dextool.compilation_db;
 import std.json : JSONValue;
 import std.typecons : Nullable;
 import logger = std.experimental.logger;
+import std.exception : collectException;
 
 import dextool.type : AbsolutePath;
 
@@ -181,10 +182,12 @@ struct CompileCommandSearch {
  * remove the trusted attribute when the minimal requirement is upgraded.
  */
 private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow @trusted {
-    import std.algorithm : map, filter;
+    import std.algorithm : map, filter, joiner;
+    import std.exception : assumeUnique;
     import std.json : JSON_TYPE;
     import std.range : only;
     import dextool.logger : error;
+    import std.utf : byUTF;
 
     string command;
     try {
@@ -195,13 +198,24 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
 
     string arguments;
     try {
-        arguments = v["arguments"].str;
+        enum j_arg = "arguments";
+        const auto j_type = v[j_arg].type;
+        if (j_type == JSON_TYPE.STRING)
+            arguments = v[j_arg].str;
+        else if (j_type == JSON_TYPE.ARRAY) {
+            import std.range;
+
+            // TODO unnecessary to join it
+            arguments = v[j_arg].arrayNoRef.filter!(a => a.type == JSON_TYPE.STRING)
+                .map!(a => a.str).joiner(" ").byUTF!char.array().assumeUnique;
+        }
     }
     catch (Exception ex) {
     }
 
     if (command.length == 0 && arguments.length == 0) {
-        error("Unable to parse json tuple, both command and arguments are empty");
+        logger.error("Unable to parse json tuple, both command and arguments are empty")
+            .collectException;
         return typeof(return)();
     }
 
@@ -304,7 +318,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
     try {
         // trusted: is@safe in DMD-2.077.0
         // remove the trusted attribute when the minimal requirement is upgraded.
-        auto json = () @trusted { return parseJSON(raw_input); }();
+        auto json = () @trusted{ return parseJSON(raw_input); }();
         auto as_dir = AbsoluteCompileDbDirectory(in_file);
 
         // trusted: this function is private so the only user of it is this module.
@@ -810,6 +824,21 @@ version (unittest) {
         "output": "file3.o"
     }
 ]`;
+
+    enum raw_dummy5 = `[
+    {
+        "directory": "dir1",
+        "arguments": ["-Idir1", "-c", "-o", "binary", "file3.cpp"],
+        "file": "file3.cpp",
+        "output": "file3.o"
+    },
+    {
+        "directory": "dir2",
+        "arguments": ["-Idir1", "-c", "-o", "binary", "file3.cpp"],
+        "file": "file3.cpp",
+        "output": "file3.o"
+    }
+]`;
 }
 
 version (unittest) {
@@ -972,6 +1001,21 @@ unittest {
 unittest {
     auto app = appender!(CompileCommand[])();
     raw_dummy4.parseCommands(CompileDbFile("path/compile_db.json"), app);
+    auto cmds = CompileCommandDB(app.data);
+
+    // trusted: constructing a path in memory which is never used for writing.
+    auto abs_path = () @trusted{ return getcwd() ~ "/path"; }();
+
+    auto found = cmds.find(buildPath(abs_path, "dir2", "file3.o"));
+    assert(found.length == 1);
+
+    found[0].absoluteFile.shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
+}
+
+@("shall parse the compilation database when *arguments* is a json list")
+unittest {
+    auto app = appender!(CompileCommand[])();
+    raw_dummy5.parseCommands(CompileDbFile("path/compile_db.json"), app);
     auto cmds = CompileCommandDB(app.data);
 
     // trusted: constructing a path in memory which is never used for writing.
