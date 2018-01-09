@@ -48,13 +48,13 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-                      ":6:11: warning: rorGE: replace `>` with `>=`",
+                      ":6:11: warning: rorGE: replace '>' with '>='",
                       ":6:11: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:">="`,
-                      ":6:11: warning: rorNE: replace `>` with `!=`",
+                      ":6:11: warning: rorNE: replace '>' with '!='",
                       ":6:11: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:"!="`,
-                      ":6:9: warning: rorFalse: replace `x > 3` with `false`",
+                      ":6:9: warning: rorFalse: replace 'x > 3' with 'false'",
                       ":6:9: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{6:9-6:14}:"false"`,
     ]).shouldBeIn(r.stderr);
@@ -75,14 +75,14 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-                      ":7:9: warning: dccTrue: replace `var1_...` with `true`",
+                      ":7:9: warning: dccTrue: replace 'var1_...' with 'true'",
                       ":7:9: note: status:unknown id:",
-                      ":7:9: note: replace `var1_long_text > 5`",
+                      ":7:9: note: replace 'var1_long_text > 5'",
                       `fix-it:"` ~ input_src.toString ~ `":{7:9-7:27}:"true"`,
-                      ":11:5: warning: dccBomb: replace `retur...` with `*((ch...`",
+                      ":11:5: warning: dccBomb: replace 'retur...' with '*((ch...'",
                       ":11:5: note: status:unknown id:",
-                      ":11:5: note: replace `return true;`",
-                      ":11:5: note: with `*((char*)0)='x';break;`",
+                      ":11:5: note: replace 'return true;'",
+                      ":11:5: note: with '*((char*)0)='x';break;'",
                       `fix-it:"` ~ input_src.toString ~ `":{11:5-11:17}:"*((char*)0)='x';break;"`,
     ]).shouldBeIn(r.stderr);
 }
