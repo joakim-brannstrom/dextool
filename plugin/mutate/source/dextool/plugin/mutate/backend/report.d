@@ -53,6 +53,11 @@ ExitStatusType runReport(ref Database db, const MutationKind kind,
 @safe:
 private:
 
+// 5 because it covers all the operators and true/false
+immutable windowSize = 5;
+
+immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
+
 /**
  * Expects the event to come in the following order:
  *  - mutationKindEvent
@@ -77,7 +82,7 @@ struct ReportGenerator {
         ReportEvens[] listeners;
         final switch (report_kind) {
         case ReportKind.markdown:
-            listeners = [new ReportMarkdown(kinds, report_level)];
+            listeners = [new ReportMarkdown(kinds, report_level, fio)];
             break;
         case ReportKind.compiler:
             listeners = [new ReportCompiler(kinds, report_level, fio)];
@@ -364,17 +369,20 @@ string toInternal(ubyte[] data) @safe nothrow {
     import dextool.plugin.mutate.backend.utility;
 
     static immutable col_w = 10;
+    static immutable mutation_w = 10 + 8 + 8;
 
     const Mutation.Kind[] kinds;
     const ReportLevel report_level;
+    FilesysIO fio;
 
     Markdown!(SimpleWriter, SimpleWriter) markdown;
     Markdown!(SimpleWriter, SimpleWriter) markdown_loc;
     Markdown!(SimpleWriter, SimpleWriter) markdown_sum;
 
-    this(Mutation.Kind[] kinds, ReportLevel report_level) {
+    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
         this.report_level = report_level;
+        this.fio = fio;
     }
 
     override void mutationKindEvent(MutationKind kind_) {
@@ -399,8 +407,8 @@ string toInternal(ubyte[] data) @safe nothrow {
         if (report_level == ReportLevel.summary)
             return;
         markdown_loc = markdown.heading("Locations");
-        markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
-                col_w, "Kind", "Location");
+        markdown_loc.writeln("%-*s %-*s %-*s %-*s %s", col_w, "ID", col_w,
+                "Status", col_w, "Kind", mutation_w, "Mutation", "Location");
         markdown_loc.beginSyntaxBlock;
     }
 
@@ -416,10 +424,29 @@ string toInternal(ubyte[] data) @safe nothrow {
             const line = r.peek!long(6);
             const column = r.peek!long(7);
 
-            const offs = [r.peek!long(4), r.peek!long(5)];
+            long[2] offs = [r.peek!long(4), r.peek!long(5)];
 
-            auto msg = format("%-*s %-*s %-*s %s %s:%s", col_w, id, col_w,
-                    status, col_w, kind, file, line, column);
+            MakeMutationTextResult mut_txt;
+            if (report_level != ReportLevel.summary) {
+                try {
+                    auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
+                    mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
+                }
+                catch (Exception e) {
+                    logger.warning(e.msg);
+                }
+            }
+
+            // dfmt off
+            auto msg = format("%-*s %-*s %-*s %-*s %s %s:%s",
+                              col_w, id,
+                              col_w, status,
+                              col_w, kind,
+                              mutation_w, format("'%s' with '%s'",
+                                                 window(mut_txt.original, windowSize),
+                                                 window(mut_txt.mutation, windowSize)),
+                              file, line, column);
+            // dfmt on
             final switch (report_level) {
             case ReportLevel.summary:
                 break;
@@ -472,16 +499,9 @@ string toInternal(ubyte[] data) @safe nothrow {
     import d2sqlite3 : Row;
     import dextool.plugin.mutate.backend.utility;
 
-    static immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
-
     const Mutation.Kind[] kinds;
     const ReportLevel report_level;
     FilesysIO fio;
-
-    // Assuming mutation points are consecutive.
-    string last_file_path;
-    string last_absolute_path;
-    SafeInput last_file;
 
     CompilerConsole!SimpleWriter compiler;
 
@@ -513,63 +533,35 @@ string toInternal(ubyte[] data) @safe nothrow {
             const line = r.peek!long(6);
             const column = r.peek!long(7);
 
-            const offs = [r.peek!long(4), r.peek!long(5)];
+            long[2] offs = [r.peek!long(4), r.peek!long(5)];
+            AbsolutePath abs_path;
 
-            string orig_content = originalIsCorrupt;
-            string mut_content;
+            MakeMutationTextResult mut_txt;
             try {
-                if (last_file_path != file) {
-                    try {
-                        auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
-                        last_absolute_path = cast(string) abs_path;
-                        last_file = fio.makeInput(abs_path);
-                    }
-                    catch (Exception e) {
-                        last_absolute_path = file;
-                        logger.warning(e.msg);
-                    }
-                    last_file_path = file;
-                }
-
-                if (offs[0] < last_file.read.length) {
-                    orig_content = last_file.read[offs[0] .. offs[1]].toInternal;
-                }
-
-                auto mut = makeMutation(kind);
-                mut_content = mut.mutate(orig_content);
+                abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
+                mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
             }
             catch (Exception e) {
                 logger.warning(e.msg);
             }
 
             void report() {
-                import std.algorithm : filter, among, joiner;
-                import std.range : take, only, chain;
-
-                // 5 because it covers all the operators and true/false
-                immutable magic_num = 5;
-
-                auto window(T)(T a) {
-                    // dfmt off
-                    return chain(a.take(magic_num).filter!(a => !a.among('\n')),
-                                 only(a.length > magic_num ? "..." : null).joiner);
-                    // dfmt on
-                }
-
                 // dfmt off
                 auto b = compiler.build
-                    .file(last_absolute_path)
+                    .file(abs_path)
                     .line(line)
                     .column(column)
-                    .begin("%s: replace '%s' with '%s'", kind, window(orig_content), window(mut_content))
+                    .begin("%s: replace '%s' with '%s'", kind,
+                           window(mut_txt.original, windowSize),
+                           window(mut_txt.mutation, windowSize))
                     .note("status:%s id:%s", status, id);
 
-                if (orig_content.length > magic_num)
-                    b = b.note("replace '%s'", orig_content);
-                if (mut_content.length > magic_num)
-                    b = b.note("with '%s'", mut_content);
+                if (mut_txt.original.length > windowSize)
+                    b = b.note("replace '%s'", mut_txt.original);
+                if (mut_txt.mutation.length > windowSize)
+                    b = b.note("with '%s'", mut_txt.mutation);
 
-                b.fixit(offs[1] - offs[0], mut_content)
+                b.fixit(offs[1] - offs[0], mut_txt.mutation)
                     .end;
                 // dfmt on
             }
@@ -605,4 +597,40 @@ string toInternal(ubyte[] data) @safe nothrow {
 
     override void statEndEvent() {
     }
+}
+
+/// Create a range from `a` that has at most maxlen+3 letters in it.
+auto window(T)(T a, size_t maxlen) {
+    import std.algorithm : filter, among, joiner;
+    import std.range : take, only, chain;
+
+    // dfmt off
+    return chain(a.take(maxlen).filter!(a => !a.among('\n')),
+                 only(a.length > maxlen ? "..." : null).joiner);
+    // dfmt on
+}
+
+struct MakeMutationTextResult {
+    string original = originalIsCorrupt;
+    string mutation;
+}
+
+auto makeMutationText(SafeInput file_, const long[2] offs, Mutation.Kind kind) nothrow {
+    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
+
+    MakeMutationTextResult rval;
+
+    try {
+        if (offs[0] < file_.read.length) {
+            rval.original = file_.read[offs[0] .. offs[1]].toInternal;
+        }
+
+        auto mut = makeMutation(kind);
+        rval.mutation = mut.mutate(rval.original);
+    }
+    catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+
+    return rval;
 }
