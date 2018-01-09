@@ -407,8 +407,8 @@ string toInternal(ubyte[] data) @safe nothrow {
         if (report_level == ReportLevel.summary)
             return;
         markdown_loc = markdown.heading("Locations");
-        markdown_loc.writeln("%-*s %-*s %-*s %-*s %s", col_w, "ID", col_w,
-                "Status", col_w, "Kind", mutation_w, "Mutation", "Location");
+        markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
+                mutation_w, "Mutation", "Location");
         markdown_loc.beginSyntaxBlock;
     }
 
@@ -438,10 +438,9 @@ string toInternal(ubyte[] data) @safe nothrow {
             }
 
             // dfmt off
-            auto msg = format("%-*s %-*s %-*s %-*s %s %s:%s",
+            auto msg = format("%-*s %-*s %-*s %s %s:%s",
                               col_w, id,
                               col_w, status,
-                              col_w, kind,
                               mutation_w, format("'%s' with '%s'",
                                                  window(mut_txt.original, windowSize),
                                                  window(mut_txt.mutation, windowSize)),
