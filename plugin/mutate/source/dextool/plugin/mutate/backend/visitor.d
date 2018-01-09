@@ -62,7 +62,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
         absMutations, uoiLvalueMutations, uoiRvalueMutations, isDcc,
         dccMutations, dccBombMutations;
 
-    rval.transf.stmtCallback ~= () => stmtDelMutations;
+    //rval.transf.stmtCallback ~= () => stmtDelMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
     rval.transf.binaryOpLhsCallback ~= (OpKind k) => absMutations;
@@ -726,11 +726,13 @@ Offset calcOffset(T)(const(T) v) @trusted {
     static if (is(T == CallExpr) || is(T == BreakStmt)) {
         import clang.Token;
 
+        // TODO inactivated because it leaks memory. Unable to run on sqlite3.
+
         // TODO this is extremly inefficient. change to a more localized cursor
         // or even better. Get the tokens at the end.
-        auto arg = v.cursor.translationUnit.cursor;
-
-        rval.end = findTokenOffset(arg.tokens, rval, CXTokenKind.punctuation, ";");
+        //auto arg = v.cursor.translationUnit.cursor;
+        //
+        //rval.end = findTokenOffset(arg.tokens, rval, CXTokenKind.punctuation, ";");
     }
 
     return rval;
