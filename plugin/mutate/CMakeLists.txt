@@ -19,6 +19,13 @@ collect_binary_in_root(${EXE_NAME})
 
 install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
+list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d)
+
+list(APPEND SRC_FILES
+    ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
+)
+compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_d2sqlite3")
+
 setup_integration_testing_env()
 
 file(GLOB_RECURSE TEST_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.d)
