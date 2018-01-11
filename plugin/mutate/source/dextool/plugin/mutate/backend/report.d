@@ -148,24 +148,24 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
             : 0.dur!"msecs";
 
         if (untested_cnt > 0 && predicted > 0.dur!"msecs")
-            item.writeln("Predicted time until mutation testing is done: %s (%s)",
+            item.writefln("Predicted time until mutation testing is done: %s (%s)",
                     predicted, Clock.currTime + predicted);
         if (!untested.isNull && untested.count > 0)
-            item.writeln("Untested: %s", untested.count);
+            item.writefln("Untested: %s", untested.count);
         if (!alive.isNull)
-            item.writeln("%-*s %-*s (%s)", align_, "Alive:", align_, alive.count, alive.time);
+            item.writefln("%-*s %-*s (%s)", align_, "Alive:", align_, alive.count, alive.time);
         if (!killed.isNull)
-            item.writeln("%-*s %-*s (%s)", align_, "Killed:", align_, killed.count, killed.time);
+            item.writefln("%-*s %-*s (%s)", align_, "Killed:", align_, killed.count, killed.time);
         if (!timeout.isNull)
-            item.writeln("%-*s %-*s (%s)", align_, "Timeout:", align_,
+            item.writefln("%-*s %-*s (%s)", align_, "Timeout:", align_,
                     timeout.count, timeout.time);
-        item.writeln("%-*s %-*s (%s)", align_, "Total:", align_, total_cnt, total_time);
+        item.writefln("%-*s %-*s (%s)", align_, "Total:", align_, total_cnt, total_time);
         if (total_cnt > 0)
-            item.writeln("%-*s %-*s", align_, "Score:", align_,
+            item.writefln("%-*s %-*s", align_, "Score:", align_,
                     cast(double) killed_cnt / cast(double) total_cnt);
         if (!killed_by_compiler.isNull)
-            item.trace("%-*s %-*s (%s)", align_, "Killed by compiler:", align_,
-                    killed_by_compiler.count, killed_by_compiler.time);
+            item.tracef("%-*s %-*s (%s)", align_, "Killed by compiler:",
+                    align_, killed_by_compiler.count, killed_by_compiler.time);
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -230,6 +230,11 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     auto write(ARGS...)(auto ref ARGS args) {
+        formattedWrite(w, "%s", args);
+        return this;
+    }
+
+    auto writef(ARGS...)(auto ref ARGS args) {
         formattedWrite(w, args);
         return this;
     }
@@ -240,7 +245,18 @@ struct Markdown(Writer, TraceWriter) {
         return this;
     }
 
+    auto writefln(ARGS...)(auto ref ARGS args) {
+        this.writef(args);
+        put(w, newline);
+        return this;
+    }
+
     auto trace(ARGS...)(auto ref ARGS args) {
+        this.writeln(w_trace, args);
+        return this;
+    }
+
+    auto tracef(ARGS...)(auto ref ARGS args) {
         formattedWrite(w_trace, args);
         put(w_trace, newline);
         return this;
@@ -407,8 +423,8 @@ string toInternal(ubyte[] data) @safe nothrow {
         if (report_level == ReportLevel.summary)
             return;
         markdown_loc = markdown.heading("Locations");
-        markdown_loc.writeln("%-*s %-*s %-*s %s", col_w, "ID", col_w, "Status",
-                mutation_w, "Mutation", "Location");
+        markdown_loc.writefln("%-*s %-*s %-*s %s", col_w, "ID", col_w,
+                "Status", mutation_w, "Mutation", "Location");
         markdown_loc.beginSyntaxBlock;
     }
 
