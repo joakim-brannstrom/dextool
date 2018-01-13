@@ -193,11 +193,11 @@ private:
  *  timeout = timeout threshold.
  */
 Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
-        Duration original_runtime, double timeout, FilesysIO fio) nothrow {
+        Duration original_runtime, double timeout_scalefactor, FilesysIO fio) nothrow {
     import core.thread : Thread;
     import core.time : dur;
     import std.algorithm : among;
-    import std.datetime : Clock;
+    import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
         kill, wait;
     import std.stdio : File;
@@ -234,11 +234,13 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
         scope (exit)
             cleanup;
 
-        auto end_t = Clock.currTime + (1L + (cast(long)(original_runtime.total!"msecs" * timeout)))
-            .dur!"msecs";
+        import dextool.plugin.mutate.backend.watchdog : StaticTime;
+
+        auto watchdog = StaticTime!StopWatch((1L + (cast(long)(
+                original_runtime.total!"msecs" * timeout_scalefactor))).dur!"msecs");
 
         rval = Mutation.Status.timeout;
-        while (Clock.currTime < end_t) {
+        while (watchdog.isOk) {
             auto res = tryWait(p);
             if (res.terminated) {
                 if (res.status == 0)
