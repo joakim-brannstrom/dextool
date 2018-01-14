@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration;
-import std.typecons : Nullable;
+import std.typecons : Nullable, NullableRef;
 import std.exception : collectException;
 
 import logger = std.experimental.logger;
@@ -34,9 +34,6 @@ import dextool.plugin.mutate.type : MutationKind;
  */
 ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePath testerp,
         AbsolutePath compilep, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
-    import core.time : dur;
-    import core.thread : Thread;
-    import std.random : uniform;
     import dextool.plugin.mutate.backend.utility : toInternal;
 
     auto mut_kind = user_kind.toInternal;
@@ -85,109 +82,25 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         tester_runtime = testerp_runtime.get;
     }
 
-    import dextool.plugin.mutate.backend.type : Mutation;
-    import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
-        GenerateMutantResult;
-
-    // when it reaches 100 terminate. there are too many mutations that result
-    // in the test or compiler _crashing_.
-    int unknown_mutant_cnt;
-    immutable unknown_mutant_max = 100;
-    immutable wait_for_lock = 100.dur!"msecs";
-
-    while (unknown_mutant_cnt < unknown_mutant_max) {
+    while (true) {
         import std.datetime.stopwatch : StopWatch, AutoStart;
 
-        auto mutation_sw = StopWatch(AutoStart.yes);
+        auto impl = ImplDriver(fio, () @trusted{ return &db; }(), mut_kind,
+                compilep, testerp, tester_runtime);
 
-        // get mutant
-        MutationEntry mutp;
-        auto next_m = db.nextMutation(mut_kind);
-        if (next_m.st == NextMutationEntry.Status.done) {
-            logger.info("Done! All mutants are tested").collectException;
-            return ExitStatusType.Ok;
-        } else if (next_m.st == NextMutationEntry.Status.queryError) {
-            () @trusted nothrow{
-                Thread.sleep(wait_for_lock + uniform(0, 200).dur!"msecs").collectException;
-            }();
-            continue;
-        } else {
-            mutp = next_m.entry;
+        auto mut_driver = MutationTestDriver!(ImplDriver*)(() @trusted{
+            return &impl;
+        }());
+
+        while (mut_driver.isRunning) {
+            mut_driver.execute();
         }
 
-        AbsolutePath mut_file;
-        try {
-            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getRestrictDir));
-        }
-        catch (Exception e) {
-            logger.error(e.msg).collectException;
-        }
-
-        // get content
-        const(ubyte)[] content;
-        try {
-            // must duplicate because the buffer is memory mapped thus it can change
-            content = fio.makeInput(mut_file).read.dup;
-        }
-        catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
-        if (content.length == 0) {
-            logger.warning("Unable to read ", mut_file).collectException;
-            // to avoid deadlocks when the database contains out of sync files.
-            ++unknown_mutant_cnt;
-            continue;
-        }
-
-        // mutate
-        auto mut_res = GenerateMutantResult(ExitStatusType.Errors);
-        try {
-            auto fout = fio.makeOutput(mut_file);
-            mut_res = generateMutant(db, mutp, content, fout);
-        }
-        catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
-        if (mut_res.status == ExitStatusType.Ok) {
-            logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
-                    mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column)
-                .collectException;
-
-            // test mutant
-            try {
-                // TODO is 100% over the original runtime a resonable timeout?
-                auto mut_status = runTester(compilep, testerp, tester_runtime, 2.0, fio);
-
-                mutation_sw.stop;
-                db.updateMutation(mutp.id, mut_status, mutation_sw.peek);
-                logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, mutation_sw.peek);
-                if (mut_status == Mutation.Status.unknown)
-                    ++unknown_mutant_cnt;
-                else
-                    unknown_mutant_cnt = 0;
-            }
-            catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-        }
-
-        // restore the original file.
-        try {
-            fio.makeOutput(mut_file).write(content);
-        }
-        catch (Exception e) {
-            logger.error(e.msg).collectException;
-            // fatal error because being unable to restore a file prohibit
-            // future mutations.
+        if (mut_driver.stopBecauseError)
             return ExitStatusType.Errors;
-        }
+        else if (mut_driver.stopMutationTesting)
+            return ExitStatusType.Ok;
     }
-
-    if (unknown_mutant_cnt == unknown_mutant_max)
-        logger.errorf("Terminated early. Too many unknown mutants (%s)",
-                unknown_mutant_cnt).collectException;
-
-    return ExitStatusType.Errors;
 }
 
 private:
@@ -315,5 +228,286 @@ auto measureTesterDuration(AbsolutePath p) nothrow {
     catch (Exception e) {
         collectException(logger.error(e.msg));
         return MeasureTestDurationResult(ExitStatusType.Errors);
+    }
+}
+
+enum DriverSignal {
+    stop,
+    next,
+    /// All mutants are tested. Stopping mutation testing
+    allMutantsTested,
+    /// Filesystem error. Stopping all mutation testing
+    filesysError,
+    /// An error for a single mutation. It skips the mutant.
+    mutationError,
+    /// Done testing the mutation
+    done,
+}
+
+/** Drive the testing of a mutant.
+ *
+ * # Signals
+ * next: the purpose is to advance to the next mutation state. Only effective for a subset of the states
+ *
+ * The architecture assume that there will be behavior changes therefore a
+ * strict FSM that separate the context, action and next_state.
+ */
+struct MutationTestDriver(ImplT) {
+    import std.experimental.typecons : Final;
+
+    /// The internal state of the FSM.
+    private enum State {
+        none,
+        initialize,
+        mutateCode,
+        testMutant,
+        restoreCode,
+        done,
+        allMutantsTested,
+        filesysError,
+        /// happens when an error occurs during mutations testing but that do not prohibit testing of other mutants
+        noResult,
+    }
+
+    private {
+        State st;
+        ImplT impl;
+    }
+
+    this(ImplT cb) {
+        this.impl = cb;
+        this.st = State.none;
+    }
+
+    /// Returns: true as long as the driver is processing a mutant.
+    bool isRunning() {
+        import std.algorithm : among;
+
+        return st.among(State.done, State.allMutantsTested, State.filesysError, State.noResult) == 0;
+    }
+
+    bool stopBecauseError() {
+        return st == State.filesysError;
+    }
+
+    /// Returns: true when the mutation testing should be stopped
+    bool stopMutationTesting() {
+        import std.algorithm : among;
+
+        return st.among(State.allMutantsTested, State.filesysError) != 0;
+    }
+
+    void execute() {
+        auto signal = impl.signal;
+
+        st = nextState(st, signal);
+
+        debug logger.trace(st).collectException;
+
+        final switch (st) {
+        case State.none:
+            break;
+        case State.initialize:
+            impl.initialize;
+            break;
+        case State.mutateCode:
+            impl.mutateCode;
+            break;
+        case State.testMutant:
+            impl.testMutant;
+            break;
+        case State.restoreCode:
+            impl.cleanup;
+            break;
+        case State.done:
+            break;
+        case State.allMutantsTested:
+            break;
+        case State.filesysError:
+            break;
+        case State.noResult:
+            break;
+        }
+    }
+
+    private static State nextState(State current, DriverSignal signal) {
+        auto next_ = current;
+
+        final switch (current) {
+        case State.none:
+            next_ = State.initialize;
+            break;
+        case State.initialize:
+            if (signal == DriverSignal.next)
+                next_ = State.mutateCode;
+            break;
+        case State.mutateCode:
+            if (signal == DriverSignal.next)
+                next_ = State.testMutant;
+            else if (signal == DriverSignal.allMutantsTested)
+                next_ = State.allMutantsTested;
+            else if (signal == DriverSignal.filesysError)
+                next_ = State.filesysError;
+            break;
+        case State.testMutant:
+            if (signal == DriverSignal.next)
+                next_ = State.restoreCode;
+            else if (signal == DriverSignal.mutationError)
+                next_ = State.noResult;
+            break;
+        case State.restoreCode:
+            if (signal == DriverSignal.next)
+                next_ = State.done;
+            else if (signal == DriverSignal.filesysError)
+                next_ = State.filesysError;
+            break;
+        case State.done:
+            break;
+        case State.allMutantsTested:
+            break;
+        case State.filesysError:
+            break;
+        case State.noResult:
+            break;
+        }
+
+        return next_;
+    }
+}
+
+struct ImplDriver {
+    import core.time : dur;
+    import std.datetime.stopwatch : StopWatch;
+
+nothrow:
+
+    immutable wait_for_lock = 100.dur!"msecs";
+
+    FilesysIO fio;
+    NullableRef!Database db;
+
+    StopWatch sw;
+    DriverSignal driver_sig;
+
+    Nullable!MutationEntry mutp;
+    AbsolutePath mut_file;
+    const(ubyte)[] original_content;
+    // change to const
+    Mutation.Kind[] mut_kind;
+    AbsolutePath compile_cmd;
+    AbsolutePath test_cmd;
+    Duration tester_runtime;
+
+    this(FilesysIO fio, Database* db, Mutation.Kind[] mut_kind,
+            AbsolutePath compile_cmd, AbsolutePath test_cmd, Duration tester_runtime) {
+        this.fio = fio;
+        this.db = db;
+        this.mut_kind = mut_kind;
+        this.compile_cmd = compile_cmd;
+        this.test_cmd = test_cmd;
+        this.tester_runtime = tester_runtime;
+    }
+
+    void initialize() {
+        sw.start;
+        driver_sig = DriverSignal.next;
+    }
+
+    void mutateCode() {
+        import core.thread : Thread;
+        import std.random : uniform;
+        import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
+            GenerateMutantResult;
+
+        driver_sig = DriverSignal.stop;
+
+        auto next_m = db.nextMutation(mut_kind);
+        if (next_m.st == NextMutationEntry.Status.done) {
+            logger.info("Done! All mutants are tested").collectException;
+            driver_sig = DriverSignal.allMutantsTested;
+            return;
+        } else if (next_m.st == NextMutationEntry.Status.queryError) {
+            () @trusted nothrow{
+                Thread.sleep(wait_for_lock + uniform(0, 200).dur!"msecs").collectException;
+            }();
+            return;
+        } else {
+            mutp = next_m.entry;
+        }
+
+        try {
+            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getRestrictDir));
+
+            // must duplicate because the buffer is memory mapped thus it can change
+            original_content = fio.makeInput(mut_file).read.dup;
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+            driver_sig = DriverSignal.filesysError;
+            return;
+        }
+
+        if (original_content.length == 0) {
+            logger.warning("Unable to read ", mut_file).collectException;
+            driver_sig = DriverSignal.filesysError;
+            return;
+        }
+
+        // mutate
+        auto mut_res = GenerateMutantResult(ExitStatusType.Errors);
+        try {
+            auto fout = fio.makeOutput(mut_file);
+            mut_res = generateMutant(db.get, mutp, original_content, fout);
+
+            driver_sig = DriverSignal.next;
+
+            if (mut_res.status == ExitStatusType.Ok) {
+                logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
+                        mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
+            }
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            driver_sig = DriverSignal.filesysError;
+        }
+    }
+
+    void testMutant() {
+        assert(!mutp.isNull);
+        driver_sig = DriverSignal.mutationError;
+
+        try {
+            // TODO is 100% over the original runtime a resonable timeout?
+            auto mut_status = runTester(compile_cmd, test_cmd, tester_runtime, 2.0, fio);
+
+            sw.stop;
+            db.updateMutation(mutp.id, mut_status, sw.peek);
+            logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek).collectException;
+
+            driver_sig = DriverSignal.next;
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    void cleanup() {
+        driver_sig = DriverSignal.next;
+
+        // restore the original file.
+        try {
+            fio.makeOutput(mut_file).write(original_content);
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+            // fatal error because being unable to restore a file prohibit
+            // future mutations.
+            driver_sig = DriverSignal.filesysError;
+        }
+    }
+
+    /// Signal from the ImplDriver to the Driver.
+    auto signal() {
+        return driver_sig;
     }
 }
