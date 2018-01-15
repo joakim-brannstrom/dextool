@@ -116,7 +116,7 @@ partof: REQ-plugin_mutate-mutations
 TODO: add requirement.
 
 ## Absolute Value Insertion (ABS)
-Replace an expression.
+Replace a numerical expression with the absolute value.
 
 Example:
 ```cpp
