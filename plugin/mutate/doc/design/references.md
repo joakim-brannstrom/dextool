@@ -3,17 +3,18 @@ partof: REQ-plugin_mutate
 done: by definition
 ###
 
-1. [ROR Logic](https://cs.gmu.edu/~offutt/rsrch/papers/rorlogic-jss.pdf)
-2. [An Analysis and Survey of the Development of Mutation Testing](http://crest.cs.ucl.ac.uk/fileadmin/crest/sebasepaper/JiaH10.pdf)
- or [An Analysis and Survey of the Development of Mutation Testing](http://www0.cs.ucl.ac.uk/staff/mharman/tse-mutation-survey.pdf)
-3. [An Experimental Determination of Sufficient Mutant Operators](http://cse.unl.edu/~grother/papers/tosem96apr.pdf)
-4. [Software Verification and Validation](http://www.inf.ed.ac.uk/teaching/courses/st/2016-17/Mutest.pdf)
-5. A. T. Acree, T. A. Budd, R. A. DeMillo, R. J. Lipton, and F. G. Say-ward, “Mutation Analysis,” Georgia Institute of Techn
-6. R. A. DeMillo, E. W. Krauser, and A. P. Mathur, “Compiler-Integrated Program Mutation,” in Proceedings of the 5th Annual Computer Software and Applications Conference (COMPSAC’91). Tokyo, Japan: IEEE Computer Society Press, September 1991, pp. 351–356.
-7. [Do Redundant Mutants Affect the Effectiveness and Efficiency of Mutation Analysis?](https://pdfs.semanticscholar.org/750e/e5412dc6e85c5ef6cbbc5ba4e6ef299b92ad.pdf)
-8. [Improving Quality of Avionics Software Using Mutation Testing](http://liu.diva-portal.org/smash/get/diva2:707336/FULLTEXT01.pdf)
-9. Kaminski, Gary, Paul Ammann, and Jeff Offutt. "Improving Logic-Based Testing." _Journal of Systems and Software (2012)_
-10. Offut, Jeff and Jeffrey M. Voas. "Subsumption of condition coverage techniques by mutation testing" (1996)
+1. @rorLogic
+2. @mutationSurvey
+3. @detSufficientMutOperators
+4. @softwareVerAndVal
+5. @mutationAnalysis
+6. @compilerIntegratedProgramMutation1991
+7. @conf:1
+8. @thesis:1
+9. @improvingLogicBasedTesting
+10. @subsumeCondMutTesting
+
+TODO remove this table
 
 ## Articles and Blogs
 
