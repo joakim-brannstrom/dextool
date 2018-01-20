@@ -1,7 +1,4 @@
-# SPC-plugin_mutate_references
-partof: REQ-plugin_mutate
-done: by definition
-###
+# Appendix 
 
 ## Articles and Blogs
 
@@ -26,8 +23,3 @@ technique is able to detect a significant percentage of equivalent mutants
 suggest that the constraint satisfaction formulation is more powerful than the
 compiler optimization technique [178].*
 
-# TST-plugin_mutate_references
-done: by definition
-###
-
-# References

@@ -1,9 +1,5 @@
 # Definitions
 
-# SPC-plugin_mutate_definitions
-partof: REQ-plugin_mutate
-done: by definition
-###
 Definitions for the mutate plugin.
 
 ## Assertions
@@ -180,7 +176,3 @@ The mutant is killed if the test suit fails.
 
 ## Test Requirement
 A test requirement is a specific element of a software artifact that a test case must satisfy or cover.
-
-# TST-plugin_mutate_definitions
-done: by definition
-###
