@@ -1,3 +1,5 @@
+# Definitions
+
 # SPC-plugin_mutate_definitions
 partof: REQ-plugin_mutate
 done: by definition
@@ -156,17 +158,19 @@ It is _fault based testing_ directed towards _typical_ faults that occur when
 constructing a program.
 
 It relies on the competent programmer hypothesis which is the following
-assumption [5]:
+assumption @mutationAnalysis :
  - Given a specification a programmer develops a program that is either correct or differs from the correct program by a combination of simple errors
 
-It also relies on “coupling effect” which suggests that [6]:
+It also relies on “coupling effect” which suggests that @compilerIntegratedProgramMutation1991 @testDataSelection1978 :
  - Test cases that detect simple types of faults are sensitive enough to detect more complex types of faults.
+
+The formal definition is @testDataSelection1978:
+"test data that distinguishes all programs differing from a correct one by only simple errors is so sensitive that it also implicitly distinguishes more complex errors"
 
 TODO check offuts book for the references [3] and [66].
 The Competent Programmer Hypothesis (CPH) [3], [66] and the Coupling Effect [66].
 
-See [1], page 3, chapter "The theory of mutation testing" for further
-elaboration on the subject.
+See [@rorLogic, p. 3, chapter "The theory of mutation testing"] for further elaboration on the subject.
 
 ### Implementation Summary
 Faults are injected into the SUT. Each such injection is a mutant.
