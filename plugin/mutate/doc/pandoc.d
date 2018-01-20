@@ -51,16 +51,12 @@ void main(string[] args) {
     design_chapters ~= "usability/sanity_check.md";
     design_chapters ~= "usability/report.md";
     design_chapters ~= "future_work.md";
-    design_chapters ~= "definitions.md";
-    design_chapters ~= "abbrevations.md";
-    design_chapters ~= "references.md";
 
     // dfmt off
     pandoc(
         dat,
-        design_chapters
-        .map!(a => buildPath(root, "design", a))
-        .array,
+        chain(design_chapters.map!(a => buildPath(root, "design", a)),
+              ["definitions.md", "abbrevations.md", "references.md"].map!(a => buildPath(root, a))).array,
         output);
     // dfmt on
 }
