@@ -3,6 +3,10 @@ The purpose of this plugin is to perform mutation testing of a _target_.
 
 The focus of this plugin is to use mutation testing to automate whole or part of the manual inspection of test procedures that are required when developing software to DAL-A and C according to RTCA-178C.
 
+[@mutationSurvey pp. 1-12; also @mutationAnalysis chap. 2]
+
+@mutationAnalysis [p. 20-24] also says.
+
 A useful mutation tool must have *at least* the following characteristics:
 - easy to use in the day-to-day development.
 - performant _enough_ to give feedback early.
