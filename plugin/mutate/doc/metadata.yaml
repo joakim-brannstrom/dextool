@@ -7,5 +7,5 @@ rights: CCO
 language: en-US
 stylesheet: epub.css
 abstract: |
-    This is an abstract.
+    The purpose of this plugin is to perform mutation testing of a _target_.
 ...
