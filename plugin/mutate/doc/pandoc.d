@@ -40,8 +40,8 @@ void main(string[] args) {
     auto dat = Pandoc(metadata, latex_template, biblio);
 
     string[] design_chapters;
-    design_chapters ~= "purpose.md";
     design_chapters ~= "use_cases.md";
+    design_chapters ~= "purpose.md";
     design_chapters ~= "security.md";
     design_chapters ~= "architecture.md";
     design_chapters ~= "mutations.md";

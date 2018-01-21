@@ -39,11 +39,6 @@ Priority 3: maintain code quality standards.
 Rational: reduce technical debt which has a negative impact on development speed.
 Prepare the plugin for being used outside of research projects.
 
-# REQ-plugin_mutate-use_case
-This is a meta requirement for those that are traceable to use cases.
-
-An important aspect is ease of use in day-to-day development. When verification is performed late in the development process, one discovers generally a huge amount of problems, and fixing them requires a tremendous effort; it is sometimes extremely difficult to do when the software has already gone through various validation phases that would be ruined by massive corrections. When the tool is integrated into the development environment, programmers must be able to run it routinely each time they develop new modules or modify existing ones, ideally as part of the code compile step. The sooner checking is performed in the development process, the better.
-
 # SPC-plugin_mutate_poc_purpose
 partof: REQ-plugin_mutate
 done: by definition
