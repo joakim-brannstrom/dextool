@@ -1,11 +1,12 @@
 # REQ-plugin_mutate-mutations
+partof: REQ-plugin_mutate
 ###
 
 The plugin shall support **at least** the mutations ROR, AOR, LCR, UOI and ABS.
 
 ## Why?
 
-[[SPC-plugin_mutate_references]] Quote from 2, p.6:
+Quote from [@mutationSurvey, p. 6] :
 *Offutt et al. [182] extended their 6-selective mutation further
 using a similar selection strategy. Based on the type of the Mothra
 mutation operators, they divided them into three categories:
@@ -15,7 +16,7 @@ the operands and expressions class became the key operators.
 These 5 operators are ABS, UOI, LCR, AOR and ROR. These
 key operators achieved 99.5% mutation score.*
 
-[[SPC-plugin_mutate_references]] Conclusions from 3, p.18:
+Quote from [@detSufficientMutOperators, p. 18] :
 *The 5 sufficient operators are ABS, which forces each arithmetic expression to
 take on the value 0, a positive value and a negative value, AOR, which replaces
 each arithmetic operator with every syntactically legal operator, LCR, which
@@ -247,7 +248,7 @@ A function call that is terminated with a `;` should remove the trailing `;`.
 In contrast with the initialization list where it should remove the trailing `,`.
 
 # TST-plugin_mutate_statement_del_call_expression
-partof: SPC-plugin_mutate-mutations_statement_del-call_expression
+partof: SPC-plugin_mutate_mutations_statement_del-call_expression
 ###
 
 A mutation is expected to produce valid code.
@@ -260,6 +261,7 @@ Expected result when the input is a single assignment using the operator from co
 
 # SPC-plugin_mutate_mutant_identifier
 partof: REQ-plugin_mutate-mutations
+###
 
 The plugin shall generate an identifier for each mutant.
 
