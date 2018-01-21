@@ -116,6 +116,8 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * split the total time spent on mutation testing in: compile and execute tests
+ * the time spent on mutations should always be added to the existing time, not overwritten.
  * Write requirement for the automatic "reanalyze" of files that has changed
    compared to those in the database.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
