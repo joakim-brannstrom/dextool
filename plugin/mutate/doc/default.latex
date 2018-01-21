@@ -109,6 +109,8 @@ $endif$
 $if(natbib)$
 \usepackage[numbers, sort, comma, square]{natbib}
 \bibliographystyle{$if(biblio-style)$$biblio-style$$else$plainnat$endif$}
+% turn off the title
+\renewcommand{\bibsection}{}
 $endif$
 
 $if(biblatex)$
