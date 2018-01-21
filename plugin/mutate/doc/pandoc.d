@@ -3,9 +3,7 @@
  * documentation for the deXtool mutation testing plugin.
  *
  * Dependent on the following packages (Ubuntu):
- *  - texlive-bibtex-extra biber
- *  - pandoc
- *  - pandoc-citeproc
+ * `sudo apt install texlive-bibtex-extra biber pandoc pandoc-citeproc`
  */
 
 import std.algorithm;
