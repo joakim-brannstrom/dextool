@@ -3,9 +3,7 @@
  * documentation for the deXtool mutation testing plugin.
  *
  * Dependent on the following packages (Ubuntu):
- *  - texlive-bibtex-extra biber
- *  - pandoc
- *  - pandoc-citeproc
+ * `sudo apt install texlive-bibtex-extra biber pandoc pandoc-citeproc`
  */
 
 import std.algorithm;
@@ -56,7 +54,7 @@ void main(string[] args) {
     pandoc(
         dat,
         chain(design_chapters.map!(a => buildPath(root, "design", a)),
-              ["definitions.md", "abbrevations.md", "references.md"].map!(a => buildPath(root, a))).array,
+              ["definitions.md", "abbrevations.md", "appendix.md", "references.md"].map!(a => buildPath(root, a))).array,
         output);
     // dfmt on
 }
@@ -84,7 +82,7 @@ void pandoc(Pandoc dat, string[] files, const string output) {
          //"--biblio", dat.biblio,
          //"--biblatex", "-M", "biblio-style=numeric-comp",
          //"--csl", "chicago-author-date.csl",
-         "--natbib", "-M", "biblio-style=unsrtnat",
+         "--natbib", "-M", "biblio-style=unsrtnat", "-M", "biblio-title=heading=none",
          //"--to", "latex",
          //"-o", output ~ ".pdf",
          "-o", output ~ ".latex",
