@@ -37,6 +37,14 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     import core.time : dur;
     import core.thread : Thread;
     import std.random : uniform;
+    import dextool.plugin.mutate.backend.utility : toInternal;
+
+    auto mut_kind = user_kind.toInternal;
+
+    if (db.nextMutation(mut_kind).st == NextMutationEntry.Status.done) {
+        logger.info("Done! All mutants are tested").collectException;
+        return ExitStatusType.Ok;
+    }
 
     if (compilep.length == 0) {
         logger.error("No compile command specified (--mutant-compile)").collectException;
@@ -78,11 +86,9 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
     }
 
     import dextool.plugin.mutate.backend.type : Mutation;
-    import dextool.plugin.mutate.backend.utility : toInternal;
     import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
         GenerateMutantResult;
 
-    auto mut_kind = user_kind.toInternal;
     // when it reaches 100 terminate. there are too many mutations that result
     // in the test or compiler _crashing_.
     int unknown_mutant_cnt;
