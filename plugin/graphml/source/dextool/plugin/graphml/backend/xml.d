@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 XML utility for generating GraphML content.
 Contains data structures and serializers.
 */
-module dextool.plugin.backend.graphml.xml;
+module dextool.plugin.graphml.backend.xml;
 
 import std.format : FormatSpec;
 import logger = std.experimental.logger;

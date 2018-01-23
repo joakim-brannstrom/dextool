@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.backend.graphml.base;
+module dextool.plugin.graphml.backend.base;
 
 import std.format : FormatSpec;
 import std.range : isOutputRange;
@@ -23,7 +23,8 @@ import cpptooling.data : resolveCanonicalType, resolvePointeeType, TypeKindAttr,
     AccessType;
 import cpptooling.data.symbol : Container;
 
-import dextool.plugin.backend.graphml.xml;
+import dextool.plugin.graphml.backend.xml;
+import dextool.plugin.graphml.backend.interface_;
 
 version (unittest) {
     import unit_threaded;
@@ -41,25 +42,6 @@ version (unittest) {
 }
 
 static import cpptooling.data.class_classification;
-
-@safe interface Controller {
-}
-
-@safe interface Parameters {
-}
-
-/// Data produced by the backend to be handled by the frontend.
-@safe interface Products {
-    import dextool.type : FileName;
-
-    /** Put content, by appending, to specified file.
-     *
-     * Params:
-     *   fname = filename
-     *   content = slice to write
-     */
-    void put(FileName fname, const(char)[] content);
-}
 
 final class GraphMLAnalyzer(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : TranslationUnit, ClassDecl, VarDecl,
@@ -116,6 +98,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.spelling))
+            return;
+
         auto result = analyzeTranslationUnit(v, *container, indent);
         recv.put(result);
 
@@ -126,6 +111,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto type = () @trusted{
             return retrieveType(v.cursor, *container, indent);
@@ -153,6 +141,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeVarDecl(v, *container, indent);
 
         if (scope_stack.length == 0) {
@@ -164,6 +155,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeFunctionDecl(v, *container, indent);
         recv.put(result);
@@ -197,6 +191,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
      */
     override void visit(const(ClassDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -204,6 +202,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplate) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -211,6 +213,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplatePartialSpecialization) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -218,6 +224,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(StructDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -225,6 +235,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(UnionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -252,16 +266,28 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     // These functions may ONLY ever create relations. Never new nodes.
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
@@ -380,6 +406,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     /// Nested class definitions.
     override void visit(const(ClassDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -388,6 +418,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplate) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -396,6 +430,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplatePartialSpecialization) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -404,6 +442,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(StructDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -412,6 +454,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(UnionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -444,6 +490,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(CxxBaseSpecifier) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeCxxBaseSpecified(v, *container, indent);
 
         recv.put(this_, result);
@@ -451,6 +500,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeConstructor(v, *container, indent);
         updateClassification(MethodKind.Ctor, MemberVirtualType.Unknown);
@@ -471,6 +523,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeDestructor(v, *container, indent);
         updateClassification(MethodKind.Dtor, cast(MemberVirtualType) result.virtualKind);
 
@@ -490,6 +545,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
         import cpptooling.data : CppMethod, CppConstMethod;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeCxxMethod(v, *container, indent);
         updateClassification(MethodKind.Method, cast(MemberVirtualType) result.virtualKind);
@@ -512,6 +570,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(FieldDecl) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFieldDecl(v, *container, indent);
 
         auto field = NodeField(result.instanceUSR, result.name, result.type,
@@ -530,6 +591,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = () @trusted{
             return retrieveType(v.cursor, *container, indent + 1);
@@ -590,22 +654,37 @@ private final class BodyVisitor(ReceiveT) : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         // accessing a global
         if (v.cursor.isGlobalOrNamespaceScope) {
@@ -620,6 +699,9 @@ private final class BodyVisitor(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         // assuming the needed reference information of the node is found by traversing the AST
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto visitor = scoped!(RefVisitor)(ctrl, *container, indent + 1);
         v.accept(visitor);
 
@@ -628,11 +710,19 @@ private final class BodyVisitor(ReceiveT) : Visitor {
 
     override void visit(const(DeclRefExpr) v) @trusted {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitRef(v);
     }
 
     override void visit(const(MemberRefExpr) v) @trusted {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitRef(v);
     }
 
@@ -725,12 +815,20 @@ private final class RefVisitor : Visitor {
     // Begin: Referencing
     override void visit(const(MemberRefExpr) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitReferenced(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitReferenced(v.cursor);
         v.accept(this);
     }
@@ -738,6 +836,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFunctionDecl(v, *container, indent);
         if (result.isValid) {
             destinations.put(result.type.kind.usr);
@@ -748,6 +850,9 @@ private final class RefVisitor : Visitor {
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         // the root node for the visitor is a reference.
         // it may therefor be an access to a global variable.
@@ -762,6 +867,10 @@ private final class RefVisitor : Visitor {
     // Begin: Class struct
     override void visit(const(FieldDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFieldDecl(v, *container, indent);
         destinations.put(result.instanceUSR);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -770,6 +879,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeCxxMethod(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -778,6 +891,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeConstructor(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -786,6 +903,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeDestructor(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -796,16 +917,28 @@ private final class RefVisitor : Visitor {
     // Begin: Generic
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
     // End: Generic
@@ -1023,10 +1156,11 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     void put(ref const(TranslationUnitResult) result) {
         xmlComment(recv, result.fileName);
 
-        // empty the cache if anything is left in it
         if (node_cache.data.length == 0) {
             return;
         }
+
+        // empty the cache if anything is left in it
 
         debug logger.tracef("%d nodes left in cache", node_cache.data.length);
 
@@ -1083,15 +1217,13 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     /** Create a raw relation between two identifiers.
      */
     void put(const(USRType) src, const(USRType) dst) {
-        addEdge(streamed_edges, recv, src, dst);
-        addFallbackNodes(streamed_nodes, node_cache, [src, dst]);
+        addEdge(streamed_nodes, node_cache, streamed_edges, recv, src, dst);
     }
 
     /** Create a raw relation between two types.
      */
     void put(const(TypeKindAttr) src, const(TypeKindAttr) dst) {
-        edgeIfNotPrimitive(streamed_edges, recv, src, dst, lookup);
-        addFallbackNodes(streamed_nodes, node_cache, [src, dst]);
+        edgeIfNotPrimitive(streamed_nodes, node_cache, streamed_edges, recv, src, dst, lookup);
     }
 
     /** Create a raw node for a type.
@@ -1145,14 +1277,15 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
 
         if (!parent.isNull) {
             // connect namespace to instance
-            addEdge(streamed_edges, recv, parent, result.instanceUSR);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv, parent, result.instanceUSR);
         }
 
         // type node
         if (!result.type.kind.isPrimitive(lookup)) {
             auto node = NodeType(result.type, result.location);
             putToCache(NodeData(NodeData.Tag(node)));
-            addEdge(streamed_edges, recv, result.instanceUSR, result.type.kind.usr);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv,
+                    result.instanceUSR, result.type.kind.usr);
         }
     }
 
@@ -1163,9 +1296,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
      * traversing the AST.
      * */
     void put(ref const(TypeKindAttr) src, ref const(VarDeclResult) result) {
-        addEdge(streamed_edges, recv, src.kind.usr, result.instanceUSR);
-        addFallbackNodes(streamed_nodes, node_cache, [src]);
-        addFallbackNodes(streamed_nodes, node_cache, [result.instanceUSR]);
+        addEdge(streamed_nodes, node_cache, streamed_edges, recv,
+                src.kind.usr, result.instanceUSR);
     }
 
     ///
@@ -1192,7 +1324,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
                                 .joiner
                                 .map!(a => TypeKindAttr(a.kind, TypeAttr.init)))) {
             putToCache(NodeData(NodeData.Tag(NodeType(target))));
-            edgeIfNotPrimitive(streamed_edges, recv, src, target, lookup);
+            edgeIfNotPrimitive(streamed_nodes, node_cache, streamed_edges, recv, src, target, lookup);
         }
         // dfmt on
     }
@@ -1204,21 +1336,14 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
      * Only interested in the relation from src to the function.
      */
     void put(ref const(TypeKindAttr) src, ref const(FunctionDeclResult) result) {
-        // TODO this is a bug. The source node should have been added by the
-        // one calling this function.
-        addFallbackNodes(streamed_nodes, node_cache, [src]);
-
         // TODO investigate if the resolve is needed. I don't think so.
         auto target = resolveCanonicalType(result.type.kind, result.type.attr, lookup).front;
-
-        // TODO this should not be needed.
-        addFallbackNodes(streamed_nodes, node_cache, [target]);
 
         auto node = NodeFunction(result.type.kind.usr,
                 result.type.toStringDecl(result.name), result.name, result.location);
         putToCache(NodeData(NodeData.Tag(node)));
 
-        edgeIfNotPrimitive(streamed_edges, recv, src, target, lookup);
+        edgeIfNotPrimitive(streamed_nodes, node_cache, streamed_edges, recv, src, target, lookup);
     }
 
     /** The node_cache may contain class/struct that have been put there by a parameter item.
@@ -1244,7 +1369,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
 
         auto ns_usr = addNamespaceNode(streamed_nodes, recv, ns);
         if (!ns_usr.isNull) {
-            addEdge(streamed_edges, recv, ns_usr, result.type);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv, ns_usr, result.type);
         }
     }
 
@@ -1252,9 +1377,6 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
         import std.algorithm : map, filter, joiner;
         import cpptooling.data : unpackParam;
-
-        // TODO this should not be needed. Fix caller of this function.
-        addFallbackNodes(streamed_nodes, node_cache, [src]);
 
         // dfmt off
         foreach (target; result.params
@@ -1265,7 +1387,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
             .map!(a => TypeKindAttr(a.kind, TypeAttr.init))) {
             if (!target.kind.isPrimitive(lookup)) {
                 putToCache(NodeData(NodeData.Tag(NodeType(target))));
-                addEdge(streamed_edges, recv, result.type.kind.usr, target.kind.usr);
+                addEdge(streamed_nodes, node_cache, streamed_edges, recv, result.type.kind.usr, target.kind.usr);
             }
         }
         // dfmt on
@@ -1282,9 +1404,6 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
         import std.range : only, chain;
         import cpptooling.data : unpackParam;
 
-        // TODO this should not be needed. Fix caller of this function.
-        addFallbackNodes(streamed_nodes, node_cache, [src]);
-
         // dfmt off
         foreach (target; chain(only(cast(TypeKindAttr) result.returnType),
                                    result.params
@@ -1295,7 +1414,7 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
                         .map!(a => TypeKindAttr(a.kind, TypeAttr.init))) {
             if (!target.kind.isPrimitive(lookup)) {
                 putToCache(NodeData(NodeData.Tag(NodeType(target))));
-                addEdge(streamed_edges, recv, result.type.kind.usr, target.kind.usr);
+                addEdge(streamed_nodes, node_cache, streamed_edges, recv, result.type.kind.usr, target.kind.usr);
             }
         }
         // dfmt on
@@ -1314,10 +1433,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
 
         if (!target.kind.isPrimitive(lookup)) {
             putToCache(NodeData(NodeData.Tag(NodeType(target))));
-            addEdge(streamed_edges, recv, result.instanceUSR, target.kind.usr);
-
-            // TODO this should not be needed
-            addFallbackNodes(streamed_nodes, node_cache, [result.instanceUSR]);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv,
+                    result.instanceUSR, target.kind.usr);
         }
     }
 
@@ -1325,7 +1442,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
         putToCache(NodeData(NodeData.Tag(NodeType(result.type))));
         // by definition it can never be a primitive type so no check needed.
-        addEdge(streamed_edges, recv, src.kind.usr, result.canonicalUSR, EdgeKind.Generalization);
+        addEdge(streamed_nodes, node_cache, streamed_edges, recv, src.kind.usr,
+                result.canonicalUSR, EdgeKind.Generalization);
     }
 
 private:
@@ -1459,17 +1577,21 @@ private:
         return false;
     }
 
-    static void edgeIfNotPrimitive(EdgeStoreT, RecvT, LookupT)(ref EdgeStoreT edges,
-            ref RecvT recv, TypeKindAttr src, TypeKindAttr target, LookupT lookup) {
+    static void edgeIfNotPrimitive(NoDupNodesT, NodeStoreT, EdgeStoreT, RecvT, LookupT)(
+            ref NoDupNodesT nodup_nodes, ref NodeStoreT node_store,
+            ref EdgeStoreT edges, ref RecvT recv, TypeKindAttr src,
+            TypeKindAttr target, LookupT lookup) {
         if (isEitherPrimitive(src, target, lookup)) {
             return;
         }
 
-        addEdge(edges, recv, src, target);
+        addEdge(nodup_nodes, node_store, edges, recv, src, target);
     }
 
-    static void addEdge(EdgeStoreT, RecvT, SrcT, TargetT)(ref EdgeStoreT edges,
-            ref RecvT recv, SrcT src, TargetT target, EdgeKind kind = EdgeKind.Directed) {
+    static void addEdge(NoDupNodesT, NodeStoreT, EdgeStoreT, RecvT, SrcT, TargetT)(
+            ref NoDupNodesT nodup_nodes, ref NodeStoreT node_store,
+            ref EdgeStoreT edges, ref RecvT recv, SrcT src, TargetT target,
+            EdgeKind kind = EdgeKind.Directed) {
         string target_usr;
         static if (is(Unqual!TargetT == TypeKindAttr)) {
             if (target.kind.info.kind == TypeKind.Info.Kind.null_) {
@@ -1501,6 +1623,7 @@ private:
 
         xmlEdge(recv, src_usr, target_usr, kind);
         edges[edge_key] = true;
+        addFallbackNodes(nodup_nodes, node_store, [USRType(src_usr), USRType(target_usr)]);
     }
 
     static void addFallbackNodes(NoDupNodesT, NodeStoreT, NodeT)(

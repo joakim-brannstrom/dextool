@@ -19,97 +19,8 @@ import dextool.compilation_db;
 import dextool.type;
 
 import dextool.plugin.types;
-import dextool.plugin.backend.graphml : Controller, Parameters, Products;
-
-// dfmt off
-static auto graphml_opt = CliOptionParts(
-    "usage:
- dextool graphml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
- dextool graphml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
-    // -------------
-    " --out=dir           directory for generated files [default: ./]
- --file-prefix=p     Prefix used for generated files [default: dextool_]
- --class-method      Analyse class methods
- --class-paramdep    Analyse class method parameters
- --class-inheritdep  Analyse class inheritance
- --class-memberdep   Analyse class member
- --skip-file-error   Skip files that result in compile errors (only when using compile-db and processing all files)",
-    // -------------
-"others:
- --in=               Input files to parse
- --compile-db=j      Retrieve compilation parameters from the file
- --file-exclude=     Exclude files from generation matching the regex
- --file-restrict=    Restrict the scope of the test double to those files
-                     matching the regex
- --short-plugin-help Required by plugin architecture of dextool
-"
-);
-// dfmt on
-
-struct RawConfiguration {
-    string[] cflags;
-    string[] compileDb;
-    string[] fileExclude;
-    string[] fileRestrict;
-    string[] inFiles;
-    string filePrefix = "dextool_";
-    string out_;
-    bool classInheritDep;
-    bool classMemberDep;
-    bool classMethod;
-    bool classParamDep;
-    bool help;
-    bool shortPluginHelp;
-    bool skipFileError;
-
-    string[] originalFlags;
-
-    void parse(string[] args) {
-        import std.getopt;
-
-        originalFlags = args.dup;
-
-        // dfmt off
-        try {
-            getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-                   "class-method", &classMethod,
-                   "class-paramdep", &classParamDep,
-                   "class-inheritdep", &classInheritDep,
-                   "class-memberdep", &classMemberDep,
-                   "compile-db", &compileDb,
-                   "file-exclude", &fileExclude,
-                   "file-prefix", &filePrefix,
-                   "file-restrict", &fileRestrict,
-                   "in", &inFiles,
-                   "out", &out_,
-                   "short-plugin-help", &shortPluginHelp,
-                   "skip-file-error", &skipFileError,
-                   );
-        }
-        catch (std.getopt.GetOptException ex) {
-            logger.error(ex.msg);
-            help = true;
-        }
-        // dfmt on
-
-        import std.algorithm : find;
-        import std.array : array;
-        import std.range : drop;
-
-        // at this point args contain "what is left". What is interesting then is those after "--".
-        cflags = args.find("--").drop(1).array();
-    }
-
-    void printHelp() {
-        import std.stdio : writefln;
-
-        writefln("%s\n\n%s\n%s", graphml_opt.usage, graphml_opt.optional, graphml_opt.others);
-    }
-
-    void dump() {
-        logger.trace(this);
-    }
-}
+import dextool.plugin.graphml.backend : Controller, Parameters, Products;
+import dextool.plugin.graphml.frontend.argsparser;
 
 class GraphMLFrontend : Controller, Parameters, Products {
     import std.typecons : Tuple;
@@ -181,9 +92,28 @@ class GraphMLFrontend : Controller, Parameters, Products {
                 cast(string) file_prefix ~ "raw" ~ fileExt));
     }
 
-    // -- Products --
+    // -- Controller --
+    override bool doFile(const string filename) {
+        import dextool.plugin.regex_matchers : matchAny;
 
-    override void put(FileName fname, const(char)[] content) {
+        bool restrict_pass = true;
+        bool exclude_pass = true;
+
+        if (restrict.length > 0) {
+            restrict_pass = matchAny(filename, restrict);
+            debug {
+                logger.tracef(!restrict_pass, "--file-restrict skipping %s", filename);
+            }
+        }
+
+        if (exclude.length > 0) {
+            exclude_pass = !matchAny(filename, exclude);
+            debug {
+                logger.tracef(!exclude_pass, "--file-exclude skipping %s", filename);
+            }
+        }
+
+        return restrict_pass && exclude_pass;
     }
 }
 
@@ -241,7 +171,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
     import cpptooling.data.symbol : Container;
     import cpptooling.utility.virtualfilesystem : vfsFileName = FileName,
         vfsMode = Mode;
-    import dextool.plugin.backend.graphml : GraphMLAnalyzer,
+    import dextool.plugin.graphml.backend : GraphMLAnalyzer,
         TransformToXmlStream;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
@@ -296,7 +226,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
         return ExitStatusType.Ok;
     }
 
-    import dextool.plugin.backend.graphml : xmlHeader, xmlFooter;
+    import dextool.plugin.graphml.backend : xmlHeader, xmlFooter;
 
     string[] skipped_files;
     ExitStatusType exit_status;
