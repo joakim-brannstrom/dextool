@@ -7,7 +7,8 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.backend.graphml;
+module dextool.plugin.graphml.backend;
 
-public import dextool.plugin.backend.graphml.base;
-public import dextool.plugin.backend.graphml.xml;
+public import dextool.plugin.graphml.backend.base;
+public import dextool.plugin.graphml.backend.interface_;
+public import dextool.plugin.graphml.backend.xml;

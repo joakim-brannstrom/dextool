@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.backend.graphml.base;
+module dextool.plugin.graphml.backend.base;
 
 import std.format : FormatSpec;
 import std.range : isOutputRange;
@@ -23,7 +23,8 @@ import cpptooling.data : resolveCanonicalType, resolvePointeeType, TypeKindAttr,
     AccessType;
 import cpptooling.data.symbol : Container;
 
-import dextool.plugin.backend.graphml.xml;
+import dextool.plugin.graphml.backend.xml;
+import dextool.plugin.graphml.backend.interface_;
 
 version (unittest) {
     import unit_threaded;
@@ -41,25 +42,6 @@ version (unittest) {
 }
 
 static import cpptooling.data.class_classification;
-
-@safe interface Controller {
-}
-
-@safe interface Parameters {
-}
-
-/// Data produced by the backend to be handled by the frontend.
-@safe interface Products {
-    import dextool.type : FileName;
-
-    /** Put content, by appending, to specified file.
-     *
-     * Params:
-     *   fname = filename
-     *   content = slice to write
-     */
-    void put(FileName fname, const(char)[] content);
-}
 
 final class GraphMLAnalyzer(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : TranslationUnit, ClassDecl, VarDecl,

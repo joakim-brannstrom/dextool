@@ -19,7 +19,7 @@ import dextool.compilation_db;
 import dextool.type;
 
 import dextool.plugin.types;
-import dextool.plugin.backend.graphml : Controller, Parameters, Products;
+import dextool.plugin.graphml.backend : Controller, Parameters, Products;
 import dextool.plugin.graphml.frontend.argsparser;
 
 class GraphMLFrontend : Controller, Parameters, Products {
@@ -152,7 +152,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
     import cpptooling.data.symbol : Container;
     import cpptooling.utility.virtualfilesystem : vfsFileName = FileName,
         vfsMode = Mode;
-    import dextool.plugin.backend.graphml : GraphMLAnalyzer,
+    import dextool.plugin.graphml.backend : GraphMLAnalyzer,
         TransformToXmlStream;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
@@ -207,7 +207,7 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
         return ExitStatusType.Ok;
     }
 
-    import dextool.plugin.backend.graphml : xmlHeader, xmlFooter;
+    import dextool.plugin.graphml.backend : xmlHeader, xmlFooter;
 
     string[] skipped_files;
     ExitStatusType exit_status;

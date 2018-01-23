@@ -15,7 +15,7 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           //"dextool.plugin.backend.graphml.base",
-                          "dextool.plugin.backend.graphml.xml",
+                          "dextool.plugin.graphml.backend.xml",
                           );
     //dfmt on
 }
