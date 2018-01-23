@@ -98,6 +98,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.spelling))
+            return;
+
         auto result = analyzeTranslationUnit(v, *container, indent);
         recv.put(result);
 
@@ -108,6 +111,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto type = () @trusted{
             return retrieveType(v.cursor, *container, indent);
@@ -135,6 +141,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeVarDecl(v, *container, indent);
 
         if (scope_stack.length == 0) {
@@ -146,6 +155,9 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeFunctionDecl(v, *container, indent);
         recv.put(result);
@@ -179,6 +191,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
      */
     override void visit(const(ClassDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -186,6 +202,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplate) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -193,6 +213,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplatePartialSpecialization) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -200,6 +224,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(StructDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -207,6 +235,10 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
     override void visit(const(UnionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
         auto node = visitRecord(v, result);
         recv.put(result, scope_stack, node);
@@ -234,16 +266,28 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     // These functions may ONLY ever create relations. Never new nodes.
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitClassStructMethod(v);
     }
 
@@ -362,6 +406,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     /// Nested class definitions.
     override void visit(const(ClassDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -370,6 +418,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplate) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -378,6 +430,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(ClassTemplatePartialSpecialization) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -386,6 +442,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(StructDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -394,6 +454,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(UnionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeRecord(v, *container, indent + 1);
 
         auto node = visitRecord(v, result);
@@ -426,6 +490,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(CxxBaseSpecifier) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeCxxBaseSpecified(v, *container, indent);
 
         recv.put(this_, result);
@@ -433,6 +500,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeConstructor(v, *container, indent);
         updateClassification(MethodKind.Ctor, MemberVirtualType.Unknown);
@@ -453,6 +523,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeDestructor(v, *container, indent);
         updateClassification(MethodKind.Dtor, cast(MemberVirtualType) result.virtualKind);
 
@@ -472,6 +545,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
         import cpptooling.data : CppMethod, CppConstMethod;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = analyzeCxxMethod(v, *container, indent);
         updateClassification(MethodKind.Method, cast(MemberVirtualType) result.virtualKind);
@@ -494,6 +570,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
     override void visit(const(FieldDecl) v) {
         mixin(mixinNodeLog!());
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFieldDecl(v, *container, indent);
 
         auto field = NodeField(result.instanceUSR, result.name, result.type,
@@ -512,6 +591,9 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.type : retrieveType;
         import cpptooling.analyzer.clang.store : put;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         auto result = () @trusted{
             return retrieveType(v.cursor, *container, indent + 1);
@@ -572,22 +654,37 @@ private final class BodyVisitor(ReceiveT) : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         // accessing a global
         if (v.cursor.isGlobalOrNamespaceScope) {
@@ -602,6 +699,9 @@ private final class BodyVisitor(ReceiveT) : Visitor {
         mixin(mixinNodeLog!());
         // assuming the needed reference information of the node is found by traversing the AST
 
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto visitor = scoped!(RefVisitor)(ctrl, *container, indent + 1);
         v.accept(visitor);
 
@@ -610,11 +710,19 @@ private final class BodyVisitor(ReceiveT) : Visitor {
 
     override void visit(const(DeclRefExpr) v) @trusted {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitRef(v);
     }
 
     override void visit(const(MemberRefExpr) v) @trusted {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitRef(v);
     }
 
@@ -707,12 +815,20 @@ private final class RefVisitor : Visitor {
     // Begin: Referencing
     override void visit(const(MemberRefExpr) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitReferenced(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         visitReferenced(v.cursor);
         v.accept(this);
     }
@@ -720,6 +836,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFunctionDecl(v, *container, indent);
         if (result.isValid) {
             destinations.put(result.type.kind.usr);
@@ -730,6 +850,9 @@ private final class RefVisitor : Visitor {
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack : isGlobalOrNamespaceScope;
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
 
         // the root node for the visitor is a reference.
         // it may therefor be an access to a global variable.
@@ -744,6 +867,10 @@ private final class RefVisitor : Visitor {
     // Begin: Class struct
     override void visit(const(FieldDecl) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeFieldDecl(v, *container, indent);
         destinations.put(result.instanceUSR);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -752,6 +879,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeCxxMethod(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -760,6 +891,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(Constructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeConstructor(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -768,6 +903,10 @@ private final class RefVisitor : Visitor {
 
     override void visit(const(Destructor) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         auto result = analyzeDestructor(v, *container, indent);
         destinations.put(result.type.kind.usr);
         // a template may result in extra nodes. e.g std::string's .c_str()
@@ -778,16 +917,28 @@ private final class RefVisitor : Visitor {
     // Begin: Generic
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
+
+        if (!ctrl.doFile(v.cursor.location.spelling.file.name))
+            return;
+
         v.accept(this);
     }
     // End: Generic

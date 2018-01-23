@@ -10,6 +10,9 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.graphml.backend.interface_;
 
 @safe interface Controller {
+    /// Query the controller with the filename of the AST node for a decision
+    /// if it shall be processed.
+    bool doFile(const string filename);
 }
 
 @safe interface Parameters {
@@ -17,13 +20,4 @@ module dextool.plugin.graphml.backend.interface_;
 
 /// Data produced by the backend to be handled by the frontend.
 @safe interface Products {
-    import dextool.type : FileName;
-
-    /** Put content, by appending, to specified file.
-     *
-     * Params:
-     *   fname = filename
-     *   content = slice to write
-     */
-    void put(FileName fname, const(char)[] content);
 }

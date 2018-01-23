@@ -92,9 +92,28 @@ class GraphMLFrontend : Controller, Parameters, Products {
                 cast(string) file_prefix ~ "raw" ~ fileExt));
     }
 
-    // -- Products --
+    // -- Controller --
+    override bool doFile(const string filename) {
+        import dextool.plugin.regex_matchers : matchAny;
 
-    override void put(FileName fname, const(char)[] content) {
+        bool restrict_pass = true;
+        bool exclude_pass = true;
+
+        if (restrict.length > 0) {
+            restrict_pass = matchAny(filename, restrict);
+            debug {
+                logger.tracef(!restrict_pass, "--file-restrict skipping %s", filename);
+            }
+        }
+
+        if (exclude.length > 0) {
+            exclude_pass = !matchAny(filename, exclude);
+            debug {
+                logger.tracef(!exclude_pass, "--file-exclude skipping %s", filename);
+            }
+        }
+
+        return restrict_pass && exclude_pass;
     }
 }
 
