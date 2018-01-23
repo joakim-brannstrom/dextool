@@ -11,6 +11,8 @@ module dextool.plugin.runner;
 
 import std.typecons : Flag;
 
+import logger = std.experimental.logger;
+
 auto runPlugin(string[] args) {
     import std.array : appender;
     import std.stdio : writeln;
@@ -18,10 +20,10 @@ auto runPlugin(string[] args) {
     import dextool.type;
     import dextool.utility;
     import dextool.plugin.frontend.graphml;
+    import dextool.plugin.graphml.frontend.argsparser;
 
     RawConfiguration pargs;
     pargs.parse(args);
-    pargs.dump;
 
     if (pargs.shortPluginHelp) {
         writeln("graphml");
@@ -31,6 +33,8 @@ auto runPlugin(string[] args) {
         pargs.printHelp;
         return ExitStatusType.Ok;
     }
+
+    debug logger.trace(pargs);
 
     auto variant = GraphMLFrontend.makeVariant(pargs);
 
