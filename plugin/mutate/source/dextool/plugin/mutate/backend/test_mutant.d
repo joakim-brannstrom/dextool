@@ -262,10 +262,12 @@ struct MutationTestDriver(ImplT) {
         mutateCode,
         testMutant,
         restoreCode,
+        storeResult,
         done,
         allMutantsTested,
         filesysError,
         /// happens when an error occurs during mutations testing but that do not prohibit testing of other mutants
+        noResultRestoreCode,
         noResult,
     }
 
@@ -319,11 +321,17 @@ struct MutationTestDriver(ImplT) {
         case State.restoreCode:
             impl.cleanup;
             break;
+        case State.storeResult:
+            impl.storeResult;
+            break;
         case State.done:
             break;
         case State.allMutantsTested:
             break;
         case State.filesysError:
+            break;
+        case State.noResultRestoreCode:
+            impl.cleanup;
             break;
         case State.noResult:
             break;
@@ -353,19 +361,25 @@ struct MutationTestDriver(ImplT) {
             if (signal == DriverSignal.next)
                 next_ = State.restoreCode;
             else if (signal == DriverSignal.mutationError)
-                next_ = State.noResult;
+                next_ = State.noResultRestoreCode;
             break;
         case State.restoreCode:
             if (signal == DriverSignal.next)
-                next_ = State.done;
+                next_ = State.storeResult;
             else if (signal == DriverSignal.filesysError)
                 next_ = State.filesysError;
+            break;
+        case State.storeResult:
+            if (signal == DriverSignal.next)
+                next_ = State.done;
             break;
         case State.done:
             break;
         case State.allMutantsTested:
             break;
         case State.filesysError:
+            break;
+        case State.noResultRestoreCode:
             break;
         case State.noResult:
             break;
@@ -375,6 +389,8 @@ struct MutationTestDriver(ImplT) {
     }
 }
 
+/** Implementation of the actions during the test of a mutant.
+ */
 struct ImplDriver {
     import core.time : dur;
     import std.datetime.stopwatch : StopWatch;
@@ -392,11 +408,15 @@ nothrow:
     Nullable!MutationEntry mutp;
     AbsolutePath mut_file;
     const(ubyte)[] original_content;
+
     // change to const
     Mutation.Kind[] mut_kind;
+
     AbsolutePath compile_cmd;
     AbsolutePath test_cmd;
     Duration tester_runtime;
+
+    Mutation.Status mut_status;
 
     this(FilesysIO fio, Database* db, Mutation.Kind[] mut_kind,
             AbsolutePath compile_cmd, AbsolutePath test_cmd, Duration tester_runtime) {
@@ -478,13 +498,23 @@ nothrow:
 
         try {
             // TODO is 100% over the original runtime a resonable timeout?
-            auto mut_status = runTester(compile_cmd, test_cmd, tester_runtime, 2.0, fio);
-
-            sw.stop;
-            db.updateMutation(mutp.id, mut_status, sw.peek);
-            logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek).collectException;
-
+            mut_status = runTester(compile_cmd, test_cmd, tester_runtime, 2.0, fio);
             driver_sig = DriverSignal.next;
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        sw.stop;
+    }
+
+    void storeResult() {
+        driver_sig = DriverSignal.stop;
+
+        try {
+            db.updateMutation(mutp.id, mut_status, sw.peek);
+            driver_sig = DriverSignal.next;
+            logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
