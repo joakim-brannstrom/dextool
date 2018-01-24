@@ -24,6 +24,14 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput,
     ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
 
+enum GenerateMutantStatus {
+    error,
+    databaseError,
+    checksumError,
+    noMutation,
+    ok
+}
+
 ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
         Nullable!long user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
@@ -64,9 +72,10 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
         auto ofile = makeOutputFilename(val_loc, fio, mut_file);
         auto fout = fio.makeOutput(ofile);
         auto res = generateMutant(db, mutp, content, fout);
-        exit_st = res.status;
-        if (res.status == ExitStatusType.Ok)
+        if (res.status == GenerateMutantStatus.ok) {
             logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id, res.from, res.to, ofile);
+            exit_st = ExitStatusType.Ok;
+        }
     }
     catch (Exception e) {
         collectException(logger.error(e.msg));
@@ -86,7 +95,7 @@ private AbsolutePath makeOutputFilename(ValidateLoc val_loc, FilesysIO fio, Abso
 }
 
 struct GenerateMutantResult {
-    ExitStatusType status;
+    GenerateMutantStatus status;
     const(char)[] from;
     const(char)[] to;
 }
@@ -95,19 +104,19 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     import dextool.plugin.mutate.backend.utility : checksum;
 
     if (mutp.mp.mutations.length == 0)
-        return GenerateMutantResult(ExitStatusType.Errors);
+        return GenerateMutantResult(GenerateMutantStatus.noMutation);
 
     auto db_checksum = db.getFileChecksum(mutp.file);
     auto f_checksum = checksum(cast(const(ubyte)[]) content);
     if (db_checksum.isNull) {
         logger.errorf("Database contains erronious data. A mutation point for %s exist but the file has no checksum",
                 mutp.file);
-        return GenerateMutantResult(ExitStatusType.Errors);
+        return GenerateMutantResult(GenerateMutantStatus.databaseError);
     } else if (db_checksum != f_checksum) {
         logger.errorf(
                 "Unable to mutate %s (%s%s) because the checksum is different from the one in the database (%s%s)",
                 mutp.file, f_checksum.c0, f_checksum.c1, db_checksum.c0, db_checksum.c1);
-        return GenerateMutantResult(ExitStatusType.Errors);
+        return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 
     const auto from_ = () {
@@ -127,7 +136,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     fout.write(to_);
     fout.write(s.front);
 
-    return GenerateMutantResult(ExitStatusType.Ok, from_, to_);
+    return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
 }
 
 auto makeMutation(Mutation.Kind kind) {
