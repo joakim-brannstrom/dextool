@@ -361,6 +361,8 @@ struct MutationTestDriver(ImplT) {
                 next_ = State.allMutantsTested;
             else if (signal == DriverSignal.filesysError)
                 next_ = State.filesysError;
+            else if (signal == DriverSignal.mutationError)
+                next_ = State.noResultRestoreCode;
             break;
         case State.testMutant:
             if (signal == DriverSignal.next)
@@ -444,7 +446,7 @@ nothrow:
         import core.thread : Thread;
         import std.random : uniform;
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
-            GenerateMutantResult;
+            GenerateMutantResult, GenerateMutantStatus;
 
         driver_sig = DriverSignal.stop;
 
@@ -481,16 +483,27 @@ nothrow:
         }
 
         // mutate
-        auto mut_res = GenerateMutantResult(ExitStatusType.Errors);
         try {
             auto fout = fio.makeOutput(mut_file);
-            mut_res = generateMutant(db.get, mutp, original_content, fout);
+            auto mut_res = generateMutant(db.get, mutp, original_content, fout);
 
             driver_sig = DriverSignal.next;
 
-            if (mut_res.status == ExitStatusType.Ok) {
+            final switch (mut_res.status) with (GenerateMutantStatus) {
+            case error:
+                goto case;
+            case databaseError:
+                goto case;
+            case checksumError:
+                driver_sig = DriverSignal.filesysError;
+                break;
+            case noMutation:
+                driver_sig = DriverSignal.mutationError;
+                break;
+            case ok:
                 logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
                         mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
+                break;
             }
         }
         catch (Exception e) {
