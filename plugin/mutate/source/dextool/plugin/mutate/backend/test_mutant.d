@@ -240,17 +240,22 @@ enum DriverSignal {
     filesysError,
     /// An error for a single mutation. It skips the mutant.
     mutationError,
-    /// Done testing the mutation
-    done,
 }
 
-/** Drive the testing of a mutant.
- *
- * # Signals
- * next: the purpose is to advance to the next mutation state. Only effective for a subset of the states
+/** Drive the control flow when testing a mutant.
  *
  * The architecture assume that there will be behavior changes therefore a
  * strict FSM that separate the context, action and next_state.
+ *
+ * The intention is to separate the control flow from the implementation of the
+ * actions that are done when mutation testing.
+ *
+ * # Signals
+ * stop: stay in the current state
+ * next: advance to the next state
+ * allMutantsTested: no more mutants to test.
+ * filesysError: an error occured when interacting with the filesystem (fatal)
+ * mutationError: an error occured when testing a mutant (not fatal)
  */
 struct MutationTestDriver(ImplT) {
     import std.experimental.typecons : Final;
@@ -390,6 +395,8 @@ struct MutationTestDriver(ImplT) {
 }
 
 /** Implementation of the actions during the test of a mutant.
+ *
+ * The intention is that this driver do NOT control the flow.
  */
 struct ImplDriver {
     import core.time : dur;
