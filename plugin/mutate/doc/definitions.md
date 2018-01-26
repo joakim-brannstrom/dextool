@@ -174,7 +174,7 @@ Mutation testing focus on determining the adequacy of a test cases.
 
 It is a code-based testing technique.
 
-It is _fault based testing_ directed towards _typical_ faults that occur when
+It is *fault based testing* directed towards *typical* faults that occur when
 constructing a program.
 
 It relies on the competent programmer hypothesis which is the following
