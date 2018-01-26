@@ -47,8 +47,9 @@ There *shall* be only one class that create and write generic files to the files
 # SPC-plugin_mutate_file_security-header_as_warning
 partof: SPC-plugin_mutate_file_security
 ###
-The plugin shall write a header to the mutated file.
-_rationale: minor help for users with an adequate source code version system, major help for users without one._
+The plugin shall write a line at the end of the mutated file to indicate that it has been mutated.
+*Rationale: minor help for users with an adequate source code version system, major help for users without one.*
+*Rationale: by writing to the end of the file it doesn't affect the generated reports so much*
 
 # SPC-plugin_mutate_memory_safety
 partof: REQ-plugin_mutate
