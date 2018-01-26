@@ -491,9 +491,15 @@ nothrow:
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
-                goto case;
+                driver_sig = DriverSignal.mutationError;
+                break;
+            case filesysError:
+                driver_sig = DriverSignal.filesysError;
+                break;
             case databaseError:
-                goto case;
+                // such as when the database is locked
+                driver_sig = DriverSignal.mutationError;
+                break;
             case checksumError:
                 driver_sig = DriverSignal.filesysError;
                 break;
@@ -508,7 +514,7 @@ nothrow:
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
-            driver_sig = DriverSignal.filesysError;
+            driver_sig = DriverSignal.mutationError;
         }
     }
 

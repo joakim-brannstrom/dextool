@@ -86,3 +86,8 @@ unittest {
                       `fix-it:"` ~ input_src.toString ~ `":{11:5-11:17}:"*((char*)0)='x';break;"`,
     ]).shouldBeIn(r.stderr);
 }
+
+@("shall append a line indicating that the file is mutated")
+unittest {
+    // TODO
+}
