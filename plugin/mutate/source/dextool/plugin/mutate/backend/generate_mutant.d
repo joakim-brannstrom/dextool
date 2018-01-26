@@ -26,6 +26,7 @@ import dextool.plugin.mutate.type : MutationKind;
 
 enum GenerateMutantStatus {
     error,
+    filesysError,
     databaseError,
     checksumError,
     noMutation,
@@ -100,22 +101,39 @@ struct GenerateMutantResult {
     const(char)[] to;
 }
 
-auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe {
-    import dextool.plugin.mutate.backend.utility : checksum;
+auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe nothrow {
+    import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
     if (mutp.mp.mutations.length == 0)
         return GenerateMutantResult(GenerateMutantStatus.noMutation);
 
-    auto db_checksum = db.getFileChecksum(mutp.file);
-    auto f_checksum = checksum(cast(const(ubyte)[]) content);
+    Nullable!Checksum db_checksum;
+    try {
+        db_checksum = db.getFileChecksum(mutp.file);
+    }
+    catch (Exception e) {
+        logger.warning(e.msg).collectException;
+        return GenerateMutantResult(GenerateMutantStatus.databaseError);
+    }
+
+    Checksum f_checksum;
+    try {
+        f_checksum = checksum(cast(const(ubyte)[]) content);
+    }
+    catch (Exception e) {
+        logger.warning(e.msg).collectException;
+        return GenerateMutantResult(GenerateMutantStatus.filesysError);
+    }
+
     if (db_checksum.isNull) {
         logger.errorf("Database contains erronious data. A mutation point for %s exist but the file has no checksum",
-                mutp.file);
+                mutp.file).collectException;
         return GenerateMutantResult(GenerateMutantStatus.databaseError);
     } else if (db_checksum != f_checksum) {
         logger.errorf(
                 "Unable to mutate %s (%s%s) because the checksum is different from the one in the database (%s%s)",
-                mutp.file, f_checksum.c0, f_checksum.c1, db_checksum.c0, db_checksum.c1);
+                mutp.file, f_checksum.c0,
+                f_checksum.c1, db_checksum.c0, db_checksum.c1).collectException;
         return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 
@@ -125,18 +143,23 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
 
     auto mut = makeMutation(mutp.mp.mutations[0].kind);
 
-    // #SPC-plugin_mutate_file_security-header_as_warning
-    fout.write("/* DEXTOOL: THIS FILE IS MUTATED */\n");
+    try {
+        mut.top(fout);
+        auto s = content.drop(mutp.mp.offset);
+        fout.write(s.front);
+        s.popFront;
+        const string to_ = mut.mutate(from_);
+        fout.write(to_);
+        fout.write(s.front);
 
-    mut.top(fout);
-    auto s = content.drop(mutp.mp.offset);
-    fout.write(s.front);
-    s.popFront;
-    const string to_ = mut.mutate(from_);
-    fout.write(to_);
-    fout.write(s.front);
+        // #SPC-plugin_mutate_file_security-header_as_warning
+        fout.write("\n/* DEXTOOL: THIS FILE IS MUTATED */");
 
-    return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
+        return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
+    }
+    catch (Exception e) {
+        return GenerateMutantResult(GenerateMutantStatus.filesysError);
+    }
 }
 
 auto makeMutation(Mutation.Kind kind) {
