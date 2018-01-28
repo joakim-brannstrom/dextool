@@ -19,12 +19,15 @@ static import core.thread;
 
 import dextool_test.utils : escapePath;
 
+/** Build the command line arguments and working directory to use when invoking
+ * dextool.
+ */
 struct BuildDextoolRun {
     import std.ascii : newline;
 
     private {
         string dextool;
-        string workdir;
+        string workdir_;
         string test_outputdir;
         string[] args_;
         string[] flags_;
@@ -39,14 +42,26 @@ struct BuildDextoolRun {
         bool throw_on_exit_status = true;
     }
 
+    /**
+     * Params:
+     *  command = the executable to run
+     *  workdir = directory to run the executable from
+     */
     this(string dextool, string workdir) {
         this.dextool = dextool;
-        this.workdir = workdir;
+        this.workdir_ = workdir;
         this.test_outputdir = workdir;
     }
 
-    auto setWorkdir(string a) {
-        this.workdir = a;
+    Path workdir() {
+        return Path(workdir_);
+    }
+
+    auto setWorkdir(T)(T v) {
+        static if (is(T == string))
+            workdir_ = v;
+        else
+            workdir_ = v.toString;
         return this;
     }
 
@@ -133,7 +148,7 @@ struct BuildDextoolRun {
         string[] cmd;
         cmd ~= dextool;
         cmd ~= args_.dup;
-        cmd ~= "--out=" ~ workdir;
+        cmd ~= "--out=" ~ workdir_;
 
         if (arg_debug) {
             cmd ~= "--debug";
@@ -192,6 +207,9 @@ struct BuildDextoolRun {
     }
 }
 
+/** Build the command line arguments and working directory to use when invoking
+ * a command.
+ */
 struct BuildCommandRun {
     import std.ascii : newline;
 
@@ -214,6 +232,11 @@ struct BuildCommandRun {
         run_in_outdir = false;
     }
 
+    /**
+     * Params:
+     *  command = the executable to run
+     *  workdir = directory to run the executable from
+     */
     this(string command, string workdir) {
         this.command = command;
         this.workdir_ = workdir;
