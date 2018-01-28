@@ -331,6 +331,18 @@ struct Database {
         }
     }
 
+    /** Reset all timeout mutations of the specified kind.
+     */
+    void resetTimeout(Mutation.Kind[] kinds) @trusted {
+        import std.algorithm : map;
+        import std.format : format;
+
+        auto s = format("UPDATE mutation SET status=0 WHERE status == %s AND kind IN (%(%s,%))",
+                Mutation.Status.timeout.to!long, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(s);
+        stmt.execute;
+    }
+
     import dextool.plugin.mutate.backend.type;
 
     alias aliveMutants = countMutants!(Mutation.Status.alive);
