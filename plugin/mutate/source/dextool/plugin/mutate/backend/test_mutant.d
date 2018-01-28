@@ -497,10 +497,8 @@ nothrow:
         try {
             import dextool.plugin.mutate.backend.watchdog : StaticTime;
 
-            auto watchdog = StaticTime!StopWatch(
-                    (1L + (cast(long)(tester_runtime.total!"msecs" * 2.0))).dur!"msecs");
+            auto watchdog = StaticTime!StopWatch(tester_runtime);
 
-            // TODO is 100% over the original runtime a resonable timeout?
             mut_status = runTester(compile_cmd, test_cmd, watchdog, fio);
             driver_sig = MutationDriverSignal.next;
         }
@@ -744,7 +742,12 @@ nothrow:
     }
 
     void preMutationTest() {
-        mut_driver = mutationDriverFactory(data, test_base_timeout);
+        import core.time : dur;
+
+        // TODO is 100% over the original runtime a resonable timeout?
+        auto timeout = 1.dur!"msecs" + test_base_timeout * 2;
+
+        mut_driver = mutationDriverFactory(data, timeout);
     }
 
     void testMutant() {
