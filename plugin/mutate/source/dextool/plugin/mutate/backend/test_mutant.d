@@ -92,8 +92,8 @@ struct DriverData {
  *  p = ?
  *  timeout = timeout threshold.
  */
-Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
-        Duration original_runtime, double timeout_scalefactor, FilesysIO fio) nothrow {
+Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
+        AbsolutePath tester_p, WatchdogT watchdog, FilesysIO fio) nothrow {
     import core.thread : Thread;
     import core.time : dur;
     import std.algorithm : among;
@@ -133,11 +133,6 @@ Mutation.Status runTester(AbsolutePath compile_p, AbsolutePath tester_p,
 
         scope (exit)
             cleanup;
-
-        import dextool.plugin.mutate.backend.watchdog : StaticTime;
-
-        auto watchdog = StaticTime!StopWatch((1L + (cast(long)(
-                original_runtime.total!"msecs" * timeout_scalefactor))).dur!"msecs");
 
         rval = Mutation.Status.timeout;
         while (watchdog.isOk) {
@@ -500,8 +495,13 @@ nothrow:
         driver_sig = MutationDriverSignal.mutationError;
 
         try {
+            import dextool.plugin.mutate.backend.watchdog : StaticTime;
+
+            auto watchdog = StaticTime!StopWatch(
+                    (1L + (cast(long)(tester_runtime.total!"msecs" * 2.0))).dur!"msecs");
+
             // TODO is 100% over the original runtime a resonable timeout?
-            mut_status = runTester(compile_cmd, test_cmd, tester_runtime, 2.0, fio);
+            mut_status = runTester(compile_cmd, test_cmd, watchdog, fio);
             driver_sig = MutationDriverSignal.next;
         }
         catch (Exception e) {
