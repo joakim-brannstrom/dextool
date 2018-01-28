@@ -135,6 +135,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
             cleanup;
 
         rval = Mutation.Status.timeout;
+        watchdog.start;
         while (watchdog.isOk) {
             auto res = tryWait(p);
             if (res.terminated) {
@@ -550,6 +551,7 @@ enum TestDriverSignal {
     unreliableTestSuite,
     compilationError,
     mutationError,
+    timeoutUnchanged,
 }
 
 struct TestDriver(ImplT) {
@@ -561,6 +563,9 @@ struct TestDriver(ImplT) {
         measureTestSuite,
         preMutationTest,
         mutationTest,
+        checkTimeout,
+        incrWatchdog,
+        resetTimeout,
         done,
         error,
     }
@@ -617,6 +622,15 @@ struct TestDriver(ImplT) {
         case mutationTest:
             impl.testMutant;
             break;
+        case checkTimeout:
+            impl.checkTimeout;
+            break;
+        case incrWatchdog:
+            impl.incrWatchdog;
+            break;
+        case resetTimeout:
+            impl.resetTimeout;
+            break;
         case done:
             break;
         case error:
@@ -660,9 +674,22 @@ struct TestDriver(ImplT) {
             if (signal == TestDriverSignal.next)
                 next_ = State.preMutationTest;
             else if (signal == TestDriverSignal.allMutantsTested)
-                next_ = State.done;
+                next_ = State.checkTimeout;
             else if (signal == TestDriverSignal.mutationError)
                 next_ = State.error;
+            break;
+        case checkTimeout:
+            if (signal == TestDriverSignal.timeoutUnchanged)
+                next_ = State.done;
+            else if (signal == TestDriverSignal.next)
+                next_ = State.incrWatchdog;
+            break;
+        case incrWatchdog:
+            next_ = State.resetTimeout;
+            break;
+        case resetTimeout:
+            if (signal == TestDriverSignal.next)
+                next_ = State.preMutationTest;
             break;
         case done:
             break;
@@ -675,14 +702,16 @@ struct TestDriver(ImplT) {
 }
 
 struct ImplTestDriver(alias mutationDriverFactory) {
+    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
     import std.traits : ReturnType;
 
 nothrow:
     DriverData data;
 
-    Duration test_base_timeout;
+    ProgressivWatchdog prog_wd;
     TestDriverSignal driver_sig;
     ReturnType!mutationDriverFactory mut_driver;
+    long last_timeout_mutant_count = long.max;
 
     this(DriverData data) {
         this.data = data;
@@ -728,7 +757,7 @@ nothrow:
             auto tester = measureTesterDuration(data.testProgram);
             if (tester.status == ExitStatusType.Ok) {
                 logger.info("Tester measured to: ", tester.runtime).collectException;
-                test_base_timeout = tester.runtime;
+                prog_wd = ProgressivWatchdog(tester.runtime);
                 driver_sig = TestDriverSignal.next;
             } else {
                 logger.error(
@@ -736,18 +765,13 @@ nothrow:
                     .collectException;
             }
         } else {
-            test_base_timeout = data.testProgramTimeout.get;
+            prog_wd = ProgressivWatchdog(data.testProgramTimeout.get);
             driver_sig = TestDriverSignal.next;
         }
     }
 
     void preMutationTest() {
-        import core.time : dur;
-
-        // TODO is 100% over the original runtime a resonable timeout?
-        auto timeout = 1.dur!"msecs" + test_base_timeout * 2;
-
-        mut_driver = mutationDriverFactory(data, timeout);
+        mut_driver = mutationDriverFactory(data, prog_wd.timeout);
     }
 
     void testMutant() {
@@ -760,6 +784,49 @@ nothrow:
             driver_sig = TestDriverSignal.mutationError;
         } else if (mut_driver.stopMutationTesting) {
             driver_sig = TestDriverSignal.allMutantsTested;
+        }
+    }
+
+    void checkTimeout() {
+        driver_sig = TestDriverSignal.stop;
+
+        try {
+            auto entry = data.db.timeoutMutants(data.mutKind);
+
+            if (!data.testProgramTimeout.isNull) {
+                // the user have supplied a timeout thus ignore this algorithm
+                // for increasing the timeout
+                driver_sig = TestDriverSignal.timeoutUnchanged;
+            } else if (entry.count == 0) {
+                driver_sig = TestDriverSignal.timeoutUnchanged;
+            } else if (entry.count < last_timeout_mutant_count) {
+                driver_sig = TestDriverSignal.next;
+                logger.info("Mutants with the status timeout: ", entry.count);
+            }
+
+            last_timeout_mutant_count = entry.count;
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    void incrWatchdog() {
+        driver_sig = TestDriverSignal.next;
+        prog_wd.incrTimeout;
+        logger.info("Increasing timeout to: ", prog_wd.timeout).collectException;
+    }
+
+    void resetTimeout() {
+        // database is locked
+        driver_sig = TestDriverSignal.stop;
+
+        try {
+            data.db.resetTimeout(data.mutKind);
+            driver_sig = TestDriverSignal.next;
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
     }
 
