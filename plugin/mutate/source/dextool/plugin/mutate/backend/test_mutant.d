@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration;
-import std.typecons : Nullable, NullableRef;
+import std.typecons : Nullable, NullableRef, nullableRef;
 import std.exception : collectException;
 
 import logger = std.experimental.logger;
@@ -36,74 +36,55 @@ ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePa
         AbsolutePath compilep, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
-    auto mut_kind = user_kind.toInternal;
+    auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
+        static class Rval {
+            ImplMutationDriver impl;
+            MutationTestDriver!(ImplMutationDriver*) driver;
 
-    if (db.nextMutation(mut_kind).st == NextMutationEntry.Status.done) {
-        logger.info("Done! All mutants are tested").collectException;
-        return ExitStatusType.Ok;
-    }
+            this(DriverData d, Duration test_base_timeout) {
+                this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind,
+                        d.compilerProgram, d.testProgram, test_base_timeout);
 
-    if (compilep.length == 0) {
-        logger.error("No compile command specified (--mutant-compile)").collectException;
-        return ExitStatusType.Errors;
-    }
+                this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
+                    return &impl;
+                }());
+            }
 
-    // build the SUT before trying to measure the test suite
-
-    // sanity check the compiler command. This should pass
-    try {
-        import std.process : execute;
-
-        auto comp_res = execute([cast(string) compilep]);
-        if (comp_res.status != 0) {
-            logger.error("Compiler command must succeed: ", comp_res.output);
-            return ExitStatusType.Errors;
-        }
-    }
-    catch (Exception e) {
-        // unable to for example execute the compiler
-        logger.error(e.msg).collectException;
-        return ExitStatusType.Errors;
-    }
-
-    Duration tester_runtime;
-    if (testerp_runtime.isNull) {
-        logger.info("Measuring the time to run the tester: ", testerp).collectException;
-        auto tester = measureTesterDuration(testerp);
-        if (tester.status.ExitStatusType != ExitStatusType.Ok) {
-            logger.errorf(
-                    "Test suite is unreliable. It must return exit status '0' when running with unmodified mutants",
-                    testerp).collectException;
-            return ExitStatusType.Errors;
-        }
-        logger.info("Tester measured to: ", tester.runtime).collectException;
-        tester_runtime = tester.runtime;
-    } else {
-        tester_runtime = testerp_runtime.get;
-    }
-
-    while (true) {
-        import std.datetime.stopwatch : StopWatch, AutoStart;
-
-        auto impl = ImplDriver(fio, () @trusted{ return &db; }(), mut_kind,
-                compilep, testerp, tester_runtime);
-
-        auto mut_driver = MutationTestDriver!(ImplDriver*)(() @trusted{
-            return &impl;
-        }());
-
-        while (mut_driver.isRunning) {
-            mut_driver.execute();
+            alias driver this;
         }
 
-        if (mut_driver.stopBecauseError)
-            return ExitStatusType.Errors;
-        else if (mut_driver.stopMutationTesting)
-            return ExitStatusType.Ok;
+        return new Rval(data, test_base_timeout);
     }
+
+    // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
+    auto db_ref = () @trusted{ return nullableRef(&db); }();
+
+    auto driver_data = DriverData(db_ref, fio, user_kind.toInternal, compilep,
+            testerp, testerp_runtime);
+
+    auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
+    auto test_driver_impl_ref = () @trusted{
+        return nullableRef(&test_driver_impl);
+    }();
+    auto test_driver = TestDriver!(typeof(test_driver_impl_ref))(test_driver_impl_ref);
+
+    while (test_driver.isRunning) {
+        test_driver.execute;
+    }
+
+    return test_driver.status;
 }
 
 private:
+
+struct DriverData {
+    NullableRef!Database db;
+    FilesysIO filesysIO;
+    Mutation.Kind[] mutKind;
+    AbsolutePath compilerProgram;
+    AbsolutePath testProgram;
+    Nullable!Duration testProgramTimeout;
+}
 
 /** Run the test suite to verify a mutation.
  *
@@ -231,14 +212,16 @@ auto measureTesterDuration(AbsolutePath p) nothrow {
     }
 }
 
-enum DriverSignal {
+enum MutationDriverSignal {
+    /// stay in the current state
     stop,
+    /// advance to the next state
     next,
     /// All mutants are tested. Stopping mutation testing
     allMutantsTested,
-    /// Filesystem error. Stopping all mutation testing
+    /// An error occured when interacting with the filesystem (fatal). Stopping all mutation testing
     filesysError,
-    /// An error for a single mutation. It skips the mutant.
+    /// An error for a single mutation. It is skipped.
     mutationError,
 }
 
@@ -249,13 +232,6 @@ enum DriverSignal {
  *
  * The intention is to separate the control flow from the implementation of the
  * actions that are done when mutation testing.
- *
- * # Signals
- * stop: stay in the current state
- * next: advance to the next state
- * allMutantsTested: no more mutants to test.
- * filesysError: an error occured when interacting with the filesystem (fatal)
- * mutationError: an error occured when testing a mutant (not fatal)
  */
 struct MutationTestDriver(ImplT) {
     import std.experimental.typecons : Final;
@@ -281,9 +257,8 @@ struct MutationTestDriver(ImplT) {
         ImplT impl;
     }
 
-    this(ImplT cb) {
-        this.impl = cb;
-        this.st = State.none;
+    this(ImplT impl) {
+        this.impl = impl;
     }
 
     /// Returns: true as long as the driver is processing a mutant.
@@ -305,11 +280,13 @@ struct MutationTestDriver(ImplT) {
     }
 
     void execute() {
-        auto signal = impl.signal;
+        const auto signal = impl.signal;
+
+        debug auto old_st = st;
 
         st = nextState(st, signal);
 
-        debug logger.trace(st).collectException;
+        debug logger.trace(old_st, "->", st, ":", signal).collectException;
 
         final switch (st) {
         case State.none:
@@ -343,41 +320,41 @@ struct MutationTestDriver(ImplT) {
         }
     }
 
-    private static State nextState(State current, DriverSignal signal) {
-        auto next_ = current;
+    private static State nextState(const State current, const MutationDriverSignal signal) {
+        State next_ = current;
 
         final switch (current) {
         case State.none:
             next_ = State.initialize;
             break;
         case State.initialize:
-            if (signal == DriverSignal.next)
+            if (signal == MutationDriverSignal.next)
                 next_ = State.mutateCode;
             break;
         case State.mutateCode:
-            if (signal == DriverSignal.next)
+            if (signal == MutationDriverSignal.next)
                 next_ = State.testMutant;
-            else if (signal == DriverSignal.allMutantsTested)
+            else if (signal == MutationDriverSignal.allMutantsTested)
                 next_ = State.allMutantsTested;
-            else if (signal == DriverSignal.filesysError)
+            else if (signal == MutationDriverSignal.filesysError)
                 next_ = State.filesysError;
-            else if (signal == DriverSignal.mutationError)
+            else if (signal == MutationDriverSignal.mutationError)
                 next_ = State.noResultRestoreCode;
             break;
         case State.testMutant:
-            if (signal == DriverSignal.next)
+            if (signal == MutationDriverSignal.next)
                 next_ = State.restoreCode;
-            else if (signal == DriverSignal.mutationError)
+            else if (signal == MutationDriverSignal.mutationError)
                 next_ = State.noResultRestoreCode;
             break;
         case State.restoreCode:
-            if (signal == DriverSignal.next)
+            if (signal == MutationDriverSignal.next)
                 next_ = State.storeResult;
-            else if (signal == DriverSignal.filesysError)
+            else if (signal == MutationDriverSignal.filesysError)
                 next_ = State.filesysError;
             break;
         case State.storeResult:
-            if (signal == DriverSignal.next)
+            if (signal == MutationDriverSignal.next)
                 next_ = State.done;
             break;
         case State.done:
@@ -400,7 +377,7 @@ struct MutationTestDriver(ImplT) {
  *
  * The intention is that this driver do NOT control the flow.
  */
-struct ImplDriver {
+struct ImplMutationDriver {
     import core.time : dur;
     import std.datetime.stopwatch : StopWatch;
 
@@ -412,7 +389,7 @@ nothrow:
     NullableRef!Database db;
 
     StopWatch sw;
-    DriverSignal driver_sig;
+    MutationDriverSignal driver_sig;
 
     Nullable!MutationEntry mutp;
     AbsolutePath mut_file;
@@ -427,7 +404,7 @@ nothrow:
 
     Mutation.Status mut_status;
 
-    this(FilesysIO fio, Database* db, Mutation.Kind[] mut_kind,
+    this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind,
             AbsolutePath compile_cmd, AbsolutePath test_cmd, Duration tester_runtime) {
         this.fio = fio;
         this.db = db;
@@ -439,7 +416,7 @@ nothrow:
 
     void initialize() {
         sw.start;
-        driver_sig = DriverSignal.next;
+        driver_sig = MutationDriverSignal.next;
     }
 
     void mutateCode() {
@@ -448,12 +425,12 @@ nothrow:
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
             GenerateMutantResult, GenerateMutantStatus;
 
-        driver_sig = DriverSignal.stop;
+        driver_sig = MutationDriverSignal.stop;
 
         auto next_m = db.nextMutation(mut_kind);
         if (next_m.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
-            driver_sig = DriverSignal.allMutantsTested;
+            driver_sig = MutationDriverSignal.allMutantsTested;
             return;
         } else if (next_m.st == NextMutationEntry.Status.queryError) {
             () @trusted nothrow{
@@ -472,13 +449,13 @@ nothrow:
         }
         catch (Exception e) {
             logger.error(e.msg).collectException;
-            driver_sig = DriverSignal.filesysError;
+            driver_sig = MutationDriverSignal.filesysError;
             return;
         }
 
         if (original_content.length == 0) {
             logger.warning("Unable to read ", mut_file).collectException;
-            driver_sig = DriverSignal.filesysError;
+            driver_sig = MutationDriverSignal.filesysError;
             return;
         }
 
@@ -487,24 +464,24 @@ nothrow:
             auto fout = fio.makeOutput(mut_file);
             auto mut_res = generateMutant(db.get, mutp, original_content, fout);
 
-            driver_sig = DriverSignal.next;
+            driver_sig = MutationDriverSignal.next;
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
-                driver_sig = DriverSignal.mutationError;
+                driver_sig = MutationDriverSignal.mutationError;
                 break;
             case filesysError:
-                driver_sig = DriverSignal.filesysError;
+                driver_sig = MutationDriverSignal.filesysError;
                 break;
             case databaseError:
                 // such as when the database is locked
-                driver_sig = DriverSignal.mutationError;
+                driver_sig = MutationDriverSignal.mutationError;
                 break;
             case checksumError:
-                driver_sig = DriverSignal.filesysError;
+                driver_sig = MutationDriverSignal.filesysError;
                 break;
             case noMutation:
-                driver_sig = DriverSignal.mutationError;
+                driver_sig = MutationDriverSignal.mutationError;
                 break;
             case ok:
                 logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
@@ -514,18 +491,18 @@ nothrow:
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
-            driver_sig = DriverSignal.mutationError;
+            driver_sig = MutationDriverSignal.mutationError;
         }
     }
 
     void testMutant() {
         assert(!mutp.isNull);
-        driver_sig = DriverSignal.mutationError;
+        driver_sig = MutationDriverSignal.mutationError;
 
         try {
             // TODO is 100% over the original runtime a resonable timeout?
             mut_status = runTester(compile_cmd, test_cmd, tester_runtime, 2.0, fio);
-            driver_sig = DriverSignal.next;
+            driver_sig = MutationDriverSignal.next;
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -535,11 +512,11 @@ nothrow:
     }
 
     void storeResult() {
-        driver_sig = DriverSignal.stop;
+        driver_sig = MutationDriverSignal.stop;
 
         try {
             db.updateMutation(mutp.id, mut_status, sw.peek);
-            driver_sig = DriverSignal.next;
+            driver_sig = MutationDriverSignal.next;
             logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }
         catch (Exception e) {
@@ -548,7 +525,7 @@ nothrow:
     }
 
     void cleanup() {
-        driver_sig = DriverSignal.next;
+        driver_sig = MutationDriverSignal.next;
 
         // restore the original file.
         try {
@@ -558,11 +535,231 @@ nothrow:
             logger.error(e.msg).collectException;
             // fatal error because being unable to restore a file prohibit
             // future mutations.
-            driver_sig = DriverSignal.filesysError;
+            driver_sig = MutationDriverSignal.filesysError;
         }
     }
 
-    /// Signal from the ImplDriver to the Driver.
+    /// Signal from the ImplMutationDriver to the Driver.
+    auto signal() {
+        return driver_sig;
+    }
+}
+
+enum TestDriverSignal {
+    stop,
+    next,
+    allMutantsTested,
+    unreliableTestSuite,
+    compilationError,
+    mutationError,
+}
+
+struct TestDriver(ImplT) {
+    private enum State {
+        none,
+        initialize,
+        checkMutantsLeft,
+        preCompileSut,
+        measureTestSuite,
+        preMutationTest,
+        mutationTest,
+        done,
+        error,
+    }
+
+    private {
+        State st;
+        ImplT impl;
+    }
+
+    this(ImplT impl) {
+        this.impl = impl;
+    }
+
+    bool isRunning() {
+        import std.algorithm : among;
+
+        return st.among(State.done, State.error) == 0;
+    }
+
+    ExitStatusType status() {
+        if (st == State.done)
+            return ExitStatusType.Ok;
+        else
+            return ExitStatusType.Errors;
+    }
+
+    void execute() {
+        const auto signal = impl.signal;
+
+        debug auto old_st = st;
+
+        st = nextState(st, signal);
+
+        debug logger.trace(old_st, "->", st, ":", signal).collectException;
+
+        final switch (st) with (State) {
+        case none:
+            break;
+        case initialize:
+            impl.initialize;
+            break;
+        case checkMutantsLeft:
+            impl.checkMutantsLeft;
+            break;
+        case preCompileSut:
+            impl.compileProgram;
+            break;
+        case measureTestSuite:
+            impl.measureTestSuite;
+            break;
+        case preMutationTest:
+            impl.preMutationTest;
+            break;
+        case mutationTest:
+            impl.testMutant;
+            break;
+        case done:
+            break;
+        case error:
+            break;
+        }
+    }
+
+    private static State nextState(const State current, const TestDriverSignal signal) {
+        State next_ = current;
+
+        final switch (current) with (State) {
+        case none:
+            next_ = State.initialize;
+            break;
+        case initialize:
+            if (signal == TestDriverSignal.next)
+                next_ = State.checkMutantsLeft;
+            break;
+        case checkMutantsLeft:
+            if (signal == TestDriverSignal.next)
+                next_ = State.preCompileSut;
+            else if (signal == TestDriverSignal.allMutantsTested)
+                next_ = State.done;
+            break;
+        case preCompileSut:
+            if (signal == TestDriverSignal.next)
+                next_ = State.measureTestSuite;
+            else if (signal == TestDriverSignal.compilationError)
+                next_ = State.error;
+            break;
+        case measureTestSuite:
+            if (signal == TestDriverSignal.next)
+                next_ = State.preMutationTest;
+            else if (signal == TestDriverSignal.unreliableTestSuite)
+                next_ = State.error;
+            break;
+        case preMutationTest:
+            next_ = State.mutationTest;
+            break;
+        case mutationTest:
+            if (signal == TestDriverSignal.next)
+                next_ = State.preMutationTest;
+            else if (signal == TestDriverSignal.allMutantsTested)
+                next_ = State.done;
+            else if (signal == TestDriverSignal.mutationError)
+                next_ = State.error;
+            break;
+        case done:
+            break;
+        case error:
+            break;
+        }
+
+        return next_;
+    }
+}
+
+struct ImplTestDriver(alias mutationDriverFactory) {
+    import std.traits : ReturnType;
+
+nothrow:
+    DriverData data;
+
+    Duration test_base_timeout;
+    TestDriverSignal driver_sig;
+    ReturnType!mutationDriverFactory mut_driver;
+
+    this(DriverData data) {
+        this.data = data;
+    }
+
+    void initialize() {
+        driver_sig = TestDriverSignal.next;
+    }
+
+    void checkMutantsLeft() {
+        driver_sig = TestDriverSignal.next;
+
+        if (data.db.nextMutation(data.mutKind).st == NextMutationEntry.Status.done) {
+            logger.info("Done! All mutants are tested").collectException;
+            driver_sig = TestDriverSignal.allMutantsTested;
+        }
+    }
+
+    void compileProgram() {
+        driver_sig = TestDriverSignal.compilationError;
+
+        try {
+            import std.process : execute;
+
+            auto comp_res = execute([cast(string) data.compilerProgram]);
+            if (comp_res.status == 0) {
+                driver_sig = TestDriverSignal.next;
+            } else {
+                logger.error("Compiler command failed: ", comp_res.output);
+            }
+        }
+        catch (Exception e) {
+            // unable to for example execute the compiler
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    void measureTestSuite() {
+        driver_sig = TestDriverSignal.unreliableTestSuite;
+
+        if (data.testProgramTimeout.isNull) {
+            logger.info("Measuring the time to run the tests: ", data.testProgram).collectException;
+            auto tester = measureTesterDuration(data.testProgram);
+            if (tester.status == ExitStatusType.Ok) {
+                logger.info("Tester measured to: ", tester.runtime).collectException;
+                test_base_timeout = tester.runtime;
+                driver_sig = TestDriverSignal.next;
+            } else {
+                logger.error(
+                        "Test suite is unreliable. It must return exit status '0' when running with unmodified mutants")
+                    .collectException;
+            }
+        } else {
+            test_base_timeout = data.testProgramTimeout.get;
+            driver_sig = TestDriverSignal.next;
+        }
+    }
+
+    void preMutationTest() {
+        mut_driver = mutationDriverFactory(data, test_base_timeout);
+    }
+
+    void testMutant() {
+        driver_sig = TestDriverSignal.next;
+
+        if (mut_driver.isRunning) {
+            mut_driver.execute();
+            driver_sig = TestDriverSignal.stop;
+        } else if (mut_driver.stopBecauseError) {
+            driver_sig = TestDriverSignal.mutationError;
+        } else if (mut_driver.stopMutationTesting) {
+            driver_sig = TestDriverSignal.allMutantsTested;
+        }
+    }
+
     auto signal() {
         return driver_sig;
     }
