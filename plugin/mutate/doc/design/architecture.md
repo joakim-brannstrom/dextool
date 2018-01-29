@@ -80,7 +80,7 @@ $timeout(R, n) = R \times
 \end{cases}$
  * n = iteration
  * R = test suite runtime when tests passes
- * $C_0$ = 2
+ * $C_0$ = 1.5
  * $C_1$ = 10
 
 Pseudo-code:
