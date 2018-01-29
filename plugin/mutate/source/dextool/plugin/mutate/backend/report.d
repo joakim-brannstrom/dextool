@@ -168,7 +168,52 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
                     align_, killed_by_compiler.count, killed_by_compiler.time);
     }
     catch (Exception e) {
-        logger.error(e.msg).collectException;
+        logger.warning(e.msg).collectException;
+    }
+}
+
+void reportMutationSubtypeStats(ReportT)(ref Database db,
+        const Mutation.Kind[] kinds, ref ReportT item, const int align_) @safe nothrow {
+    const auto total_entry = db.aliveMutants(kinds);
+    if (total_entry.isNull || total_entry.count == 0)
+        return;
+
+    auto total = total_entry.count;
+
+    long[Mutation.Kind] alive;
+
+    foreach (k; kinds) {
+        auto v = db.aliveMutants([k]);
+        if (!v.isNull && v.count > 0) {
+            alive[k] = v.count;
+        }
+    }
+
+    import std.algorithm : sort, map;
+    import std.array : array;
+    import std.typecons : Tuple;
+
+    // trusted because it is marked as @safe in dmd-2.078.1
+    // TODO remove this trusted when upgrading the minimal compiler
+    // can be simplified to:
+    // foreach (v, alive.byKeyValue.array.sort!((a, b) => a.value > b.value))....
+    auto kv = () @trusted{
+        return alive.byKeyValue.array.sort!((a, b) => a.value > b.value)
+            .map!(a => Tuple!(Mutation.Kind, "key", long, "value")(a.key, a.value)).array;
+    }();
+
+    foreach (v; kv) {
+        try {
+            import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
+
+            auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
+
+            item.writefln("%-*s %-*s %-*s %-*s", align_, percentage, align_,
+                    v.value, align_, v.key, align_, makeMutation(v.key).mutate("x"));
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
     }
 }
 
@@ -490,15 +535,27 @@ string toInternal(ubyte[] data) @safe nothrow {
 
     override void statStartEvent() {
         markdown_sum = markdown.heading("Summary");
-        markdown_sum.beginSyntaxBlock;
     }
 
     override void statEvent(ref Database db) {
+        markdown_sum.beginSyntaxBlock;
         reportStatistics(db, kinds, markdown_sum);
+        markdown_sum.endSyntaxBlock;
+
+        markdown_sum.writeln("");
+
+        immutable col_w = 10;
+        auto item = markdown_sum.heading("Alive Mutation Subtype");
+
+        item.writefln("%-*s %-*s %-*s %-*s", col_w, "Percentage", col_w,
+                "Count", col_w, "Type", col_w, "Explanation");
+
+        item.beginSyntaxBlock;
+        reportMutationSubtypeStats(db, kinds, item, col_w);
+        item.endSyntaxBlock;
     }
 
     override void statEndEvent() {
-        markdown_sum.endSyntaxBlock;
         markdown_sum.popHeading;
     }
 }
