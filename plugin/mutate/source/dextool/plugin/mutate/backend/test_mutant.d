@@ -788,6 +788,7 @@ nothrow:
     }
 
     void checkTimeout() {
+        // the database is locked
         driver_sig = TestDriverSignal.stop;
 
         try {
@@ -798,6 +799,9 @@ nothrow:
                 // for increasing the timeout
                 driver_sig = TestDriverSignal.timeoutUnchanged;
             } else if (entry.count == 0) {
+                driver_sig = TestDriverSignal.timeoutUnchanged;
+            } else if (entry.count == last_timeout_mutant_count) {
+                // no change between current pool of timeout mutants and the previous
                 driver_sig = TestDriverSignal.timeoutUnchanged;
             } else if (entry.count < last_timeout_mutant_count) {
                 driver_sig = TestDriverSignal.next;
