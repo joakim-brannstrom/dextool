@@ -11,6 +11,8 @@ This file contains functional *watchdog*s.
 */
 module dextool.plugin.mutate.backend.watchdog;
 
+import logger = std.experimental.logger;
+
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeFalse, shouldBeTrue;
 }
@@ -54,6 +56,7 @@ public:
         import std.algorithm : among;
 
         assert(st.among(State.waiting, State.done));
+        st = State.active;
         watch.start;
     }
 
@@ -74,14 +77,42 @@ public:
     }
 }
 
+/** Watchdog that signal *timeout* after a static time.
+ *
+ * Progressive watchdog
+ */
+struct ProgressivWatchdog {
+nothrow:
+private:
+    static immutable double constant_factor = 1.5;
+    static immutable double scale_factor = 2.0;
+
+    Duration base_timeout;
+    double n = 0;
+
+public:
+    this(Duration timeout) {
+        this.base_timeout = timeout;
+    }
+
+    void incrTimeout() {
+        ++n;
+    }
+
+    Duration timeout() {
+        import std.math : sqrt;
+
+        double scale = constant_factor + sqrt(n) * scale_factor;
+        return (1L + (cast(long)(base_timeout.total!"msecs" * scale))).dur!"msecs";
+    }
+}
+
 private:
 
 import core.time : dur;
 
-@("shall signal timeout when the watch has passed the timeout")
-unittest {
-    // arrange
-    static struct FakeWatch {
+version (unittest) {
+    struct FakeWatch {
         Duration d;
         void start() {
         }
@@ -96,24 +127,56 @@ unittest {
             return d;
         }
     }
+}
 
-    // act
+@("shall signal timeout when the watch has passed the timeout")
+unittest {
+    // arrange
     auto wd = StaticTime!FakeWatch(10.dur!"seconds");
+
     // assert
     wd.isOk.shouldBeTrue;
 
-    // act
     wd.start;
-    // assert
     wd.isOk.shouldBeTrue;
 
-    // act
+    // at the limit so should still be ok
     wd.watch.d = 9.dur!"seconds";
+    wd.isOk.shouldBeTrue;
+
+    // just past the limit for a ProgressivWatchdog so should trigger
+    wd.watch.d = 11.dur!"seconds";
+    wd.isOk.shouldBeFalse;
+}
+
+@("shall increment the timeout")
+unittest {
+    import unit_threaded;
+
+    auto pwd = ProgressivWatchdog(2.dur!"seconds");
+    auto wd = StaticTime!FakeWatch(pwd.timeout);
+
+    wd.isOk.shouldBeTrue;
+
+    wd.start;
+    wd.isOk.shouldBeTrue;
+
+    // shall be not OK because the timer have just passed the timeout
+    wd.watch.d = 5.dur!"seconds";
+    wd.isOk.shouldBeFalse;
+
+    // arrange
+    pwd.incrTimeout;
+    wd = StaticTime!FakeWatch(pwd.timeout);
+
     // assert
     wd.isOk.shouldBeTrue;
 
-    // act
-    wd.watch.d = 11.dur!"seconds";
-    // assert
+    // shall be OK because it is just at the timeout
+    wd.watch.d = 6.dur!"seconds";
+    wd.isOk.shouldBeTrue;
+
+    // shall trigger because it just passed the timeout
+    wd.watch.d = 8.dur!"seconds";
     wd.isOk.shouldBeFalse;
 }
