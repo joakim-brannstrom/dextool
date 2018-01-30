@@ -32,8 +32,8 @@ struct Function {
 
         auto hash = makeDigest!CRC32();
         () @trusted{
-            hash.put(cast(ubyte[]) cast(string) file);
-            hash.put(cast(ubyte[]) cast(string) name);
+            hash.put(cast(const(ubyte)[]) cast(string) file);
+            hash.put(cast(const(ubyte)[]) cast(string) name);
         }();
         hash.finish;
 
