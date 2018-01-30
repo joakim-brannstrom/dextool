@@ -39,6 +39,8 @@ ExitStatusType runReport(ref Database db, const MutationKind kind,
         db.iterateMutants(kinds, &genrep.locationEvent);
         genrep.locationEndEvent;
 
+        genrep.locationStatEvent;
+
         genrep.statStartEvent;
         genrep.statEvent(db);
         genrep.statEndEvent;
@@ -108,6 +110,10 @@ struct ReportGenerator {
         listeners.each!(a => a.locationEndEvent);
     }
 
+    void locationStatEvent() {
+        listeners.each!(a => a.locationStatEvent);
+    }
+
     void statStartEvent() {
         listeners.each!(a => a.statStartEvent);
     }
@@ -172,44 +178,36 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     }
 }
 
-void reportMutationSubtypeStats(ReportT)(ref Database db,
-        const Mutation.Kind[] kinds, ref ReportT item, const int align_) @safe nothrow {
-    const auto total_entry = db.aliveMutants(kinds);
-    if (total_entry.isNull || total_entry.count == 0)
-        return;
+void reportMutationSubtypeStats(ReportT)(
+        ref const long[MakeMutationTextResult] mut_stat, ref ReportT item, const int align_) @safe nothrow {
+    import std.algorithm : sum, map, sort, filter;
 
-    auto total = total_entry.count;
+    // trusted because it is @safe in dmd-2.078.1
+    // TODO remove the trusted wrapper
+    long total = () @trusted{ return mut_stat.byValue.sum; }();
 
-    long[Mutation.Kind] alive;
-
-    foreach (k; kinds) {
-        auto v = db.aliveMutants([k]);
-        if (!v.isNull && v.count > 0) {
-            alive[k] = v.count;
-        }
-    }
-
-    import std.algorithm : sort, map;
     import std.array : array;
+    import std.range : take;
     import std.typecons : Tuple;
 
+    // mutation with a count of 1 isn't interesting to show because it adds a lot of noise
     // trusted because it is marked as @safe in dmd-2.078.1
     // TODO remove this trusted when upgrading the minimal compiler
     // can be simplified to:
     // foreach (v, alive.byKeyValue.array.sort!((a, b) => a.value > b.value))....
     auto kv = () @trusted{
-        return alive.byKeyValue.array.sort!((a, b) => a.value > b.value)
-            .map!(a => Tuple!(Mutation.Kind, "key", long, "value")(a.key, a.value)).array;
+        return mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value)
+            .take(20).map!(a => Tuple!(MakeMutationTextResult, "key", long,
+                    "value")(a.key, a.value)).array;
     }();
 
     foreach (v; kv) {
         try {
-            import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
 
-            item.writefln("%-*s %-*s %-*s %-*s", align_, percentage, align_,
-                    v.value, align_, v.key, align_, makeMutation(v.key).mutate("x"));
+            item.writefln("%-*s %-*s '%s' to '%s'", align_, percentage, align_,
+                    v.value, window(v.key.original, windowSize),
+                    window(v.key.mutation, windowSize));
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -414,6 +412,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     void locationStartEvent();
     void locationEvent(ref Row);
     void locationEndEvent();
+    void locationStatEvent();
     void statStartEvent();
     void statEvent(ref Database db);
     void statEndEvent();
@@ -439,6 +438,8 @@ string toInternal(ubyte[] data) @safe nothrow {
     Markdown!(SimpleWriter, SimpleWriter) markdown;
     Markdown!(SimpleWriter, SimpleWriter) markdown_loc;
     Markdown!(SimpleWriter, SimpleWriter) markdown_sum;
+
+    long[MakeMutationTextResult] mutationStat;
 
     this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
@@ -498,6 +499,13 @@ string toInternal(ubyte[] data) @safe nothrow {
                 }
             }
 
+            if (status == Mutation.Status.alive) {
+                if (auto v = mut_txt in mutationStat)
+                    ++(*v);
+                else
+                    mutationStat[mut_txt] = 1;
+            }
+
             // dfmt off
             auto msg = format("%-*s %-*s %-*s %s %s:%s",
                               col_w, id,
@@ -533,6 +541,21 @@ string toInternal(ubyte[] data) @safe nothrow {
         markdown_loc.popHeading;
     }
 
+    override void locationStatEvent() {
+        if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
+            immutable col_w = 10;
+            auto item = markdown.heading("Alive Mutation Statistics");
+
+            item.writefln("%-*s %-*s %-*s", col_w, "Percentage", col_w,
+                    "Count", col_w, "Description");
+
+            item.beginSyntaxBlock;
+            reportMutationSubtypeStats(mutationStat, item, col_w);
+            item.endSyntaxBlock;
+            item.popHeading;
+        }
+    }
+
     override void statStartEvent() {
         markdown_sum = markdown.heading("Summary");
     }
@@ -542,17 +565,6 @@ string toInternal(ubyte[] data) @safe nothrow {
         reportStatistics(db, kinds, markdown_sum);
         markdown_sum.endSyntaxBlock;
 
-        markdown_sum.writeln("");
-
-        immutable col_w = 10;
-        auto item = markdown_sum.heading("Alive Mutation Subtype");
-
-        item.writefln("%-*s %-*s %-*s %-*s", col_w, "Percentage", col_w,
-                "Count", col_w, "Type", col_w, "Explanation");
-
-        item.beginSyntaxBlock;
-        reportMutationSubtypeStats(db, kinds, item, col_w);
-        item.endSyntaxBlock;
     }
 
     override void statEndEvent() {
@@ -661,6 +673,9 @@ string toInternal(ubyte[] data) @safe nothrow {
     override void locationEndEvent() {
     }
 
+    override void locationStatEvent() {
+    }
+
     override void statStartEvent() {
     }
 
@@ -685,6 +700,20 @@ auto window(T)(T a, size_t maxlen) {
 struct MakeMutationTextResult {
     string original = originalIsCorrupt;
     string mutation;
+
+    nothrow @safe size_t toHash() {
+        import std.digest.murmurhash;
+
+        MurmurHash3!32 hash;
+        hash.put(cast(const(ubyte)[]) original);
+        hash.put(cast(const(ubyte)[]) mutation);
+        auto h = hash.finish;
+        return ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]);
+    }
+
+    bool opEquals(const this o) const nothrow @safe {
+        return original == o.original && mutation == o.mutation;
+    }
 }
 
 auto makeMutationText(SafeInput file_, const long[2] offs, Mutation.Kind kind) nothrow {
