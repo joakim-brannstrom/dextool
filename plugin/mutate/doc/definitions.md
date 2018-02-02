@@ -170,27 +170,27 @@ An example is a c++ iterator. It has the range [), end is one beyond the last
 element with a value in it.
 
 ## Mutation Testing
-Mutation testing focus on determining the adequacy of a test cases.
+Mutation testing focus on determining the adequacy of a test suite.
 
-It is a code-based testing technique.
+It is *fault based testing* directed towards *typical* syntatical faults that occur when constructing a program.
 
-It is *fault based testing* directed towards *typical* faults that occur when
-constructing a program.
+It relies on the Competent Programmer Hypothesis (CPH) and the Coupling Effect Hypothesis (CEH).
 
-It relies on the competent programmer hypothesis which is the following
-assumption [@mutationAnalysis]:
- - Given a specification a programmer develops a program that is either correct or differs from the correct program by a combination of simple errors
+CPH [@mutationAnalysis]
+ * Given a specification a programmer develops a program that is either correct or differs from the correct program by a combination of simple errors
 
-It also relies on “coupling effect” which suggests that [@compilerIntegratedProgramMutation1991] [@testDataSelection1978]:
- - Test cases that detect simple types of faults are sensitive enough to detect more complex types of faults.
+CEH [@testDataSelection1978] (extra material in [@compilerIntegratedProgramMutation1991])
+ * *test data that distinguishes all programs differing from a correct one by only simple errors is so sensitive that it also implicitly distinguishes more complex errors*
 
-The formal definition is [@testDataSelection1978]:
-*test data that distinguishes all programs differing from a correct one by only simple errors is so sensitive that it also implicitly distinguishes more complex errors*
+MCEH [@invTestCouplingEffect]
+ * Simple mutants are coupled to complex ones in such a way that a test suite that kill all the simple mutants are likely to kill all significantly larger portions of the complex mutants as well.
+
+The end result of CPH, CEH and MCEH is that most mutation tools only create a limited set of changes to the original program for each mutant.
+
+See [@rorLogic, p. 3, chapter "The theory of mutation testing"] for further elaboration on the subject.
 
 TODO check offuts book for the references [3] and [66].
 The Competent Programmer Hypothesis (CPH) [3], [66] and the Coupling Effect [66].
-
-See [@rorLogic, p. 3, chapter "The theory of mutation testing"] for further elaboration on the subject.
 
 ## Test Requirement
 A test requirement is a specific element of a software artifact that a test case must satisfy or cover.

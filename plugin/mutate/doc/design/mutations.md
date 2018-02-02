@@ -59,6 +59,28 @@ Mutation subsuming table from [@thesis1]:
  `x == y`          | `x <= y` | `x >= y` | `false`
  `x != y`          | `x < y`  | `x > y`  | `true`
 
+### Reduce Equivalens Mutants
+
+This is a simple schema that is type aware with the intention of reducing the number of equivalent mutants that are generated.
+
+1. If either side is a boolean type use the following schema instead:
+
+ Original Expression | Mutant 1 | Mutant 2
+-------------------|------------|-----------
+ `x == y`          | `x != y`   |  `false`
+ `x != y`          | `x == y`   |  `true`
+
+2. If either side is a floating point type use the following schema instead:
+
+ Original Expression | Mutant 1 | Mutant 2 | Mutant 3
+-------------------|----------|----------|----------
+ `x < y`           | `x > y`  |          | `false`
+ `x > y`           | `x < y`  |          | `false`
+ `x <= y`          | `x > y`  |          | `true`
+ `x >= y`          | `x < y`  |          | `true`
+ `x == y`          | `x <= y` | `x >= y` | `false`
+ `x != y`          | `x < y`  | `x > y`  | `true`
+
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
 ###
