@@ -290,8 +290,9 @@ auto makeMutation(Mutation.Kind kind) {
         };
         break;
     case stmtDel:
-        // it is a deletion so nothing to be done!
         /// #SPC-plugin_mutate_mutations_statement_del
+        // delete by commenting out the code block
+        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
         break;
         /// Conditional Operator Replacement (reduced set)
         /// #SPC-plugin_mutate_mutation_cor
@@ -303,10 +304,12 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "false"; };
         break;
     case corLhs:
-        // do nothing, deleting
+        // delete by commenting out
+        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
         break;
     case corRhs:
-        // do nothing, deleting
+        // delete by commenting out
+        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
         break;
     case corEQ:
         m.mutate = (const(char)[] expr) { return "=="; };
