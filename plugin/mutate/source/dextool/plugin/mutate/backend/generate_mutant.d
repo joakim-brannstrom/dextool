@@ -33,7 +33,7 @@ enum GenerateMutantStatus {
     ok
 }
 
-ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
+ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
         Nullable!long user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 

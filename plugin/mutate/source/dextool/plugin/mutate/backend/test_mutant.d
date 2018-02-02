@@ -32,8 +32,9 @@ import dextool.plugin.mutate.type : MutationKind;
  *  compilep = program to use to compile the SUT + tests after a mutation has been performed.
  *  testerp_runtime = the time it takes to run the tests.
  */
-ExitStatusType runTestMutant(ref Database db, MutationKind user_kind, AbsolutePath testerp,
-        AbsolutePath compilep, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
+ExitStatusType runTestMutant(ref Database db, const MutationKind[] user_kind,
+        AbsolutePath testerp, AbsolutePath compilep,
+        Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
     auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {

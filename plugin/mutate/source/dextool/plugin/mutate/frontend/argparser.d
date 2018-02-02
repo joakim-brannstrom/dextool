@@ -55,7 +55,7 @@ struct ArgParser {
     bool shortPluginHelp;
     bool dryRun;
 
-    MutationKind mutation;
+    MutationKind[] mutation;
     MutationOrder mutationOrder;
     ReportKind reportKind;
     ReportLevel reportLevel;

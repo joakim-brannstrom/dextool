@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-ExitStatusType runReport(ref Database db, const MutationKind kind,
+ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
@@ -33,7 +33,7 @@ ExitStatusType runReport(ref Database db, const MutationKind kind,
 
     try {
         auto genrep = ReportGenerator.make(kind, report_kind, report_level, fio);
-        genrep.mutationKindEvent(kind);
+        genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
 
         genrep.locationStartEvent;
         db.iterateMutants(kinds, &genrep.locationEvent);
@@ -76,7 +76,7 @@ struct ReportGenerator {
 
     ReportEvens[] listeners;
 
-    static auto make(MutationKind kind, ReportKind report_kind,
+    static auto make(const MutationKind[] kind, ReportKind report_kind,
             ReportLevel report_level, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
@@ -93,7 +93,7 @@ struct ReportGenerator {
         return ReportGenerator(listeners);
     }
 
-    void mutationKindEvent(MutationKind kind_) {
+    void mutationKindEvent(const MutationKind[] kind_) {
         listeners.each!(a => a.mutationKindEvent(kind_));
     }
 
@@ -408,7 +408,7 @@ string toInternal(ubyte[] data) @safe nothrow {
 @safe interface ReportEvens {
     import d2sqlite3 : Row;
 
-    void mutationKindEvent(MutationKind);
+    void mutationKindEvent(const MutationKind[]);
     void locationStartEvent();
     void locationEvent(ref Row);
     void locationEndEvent();
@@ -447,7 +447,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         this.fio = fio;
     }
 
-    override void mutationKindEvent(MutationKind kind_) {
+    override void mutationKindEvent(const MutationKind[] kind_) {
         auto writer = delegate(const(char)[] s) {
             import std.stdio : write;
 
@@ -462,7 +462,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         }
 
         markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
-        markdown = markdown.heading("Mutation Type %s", kind_);
+        markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
     }
 
     override void locationStartEvent() {
@@ -595,7 +595,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         this.fio = fio;
     }
 
-    override void mutationKindEvent(MutationKind) {
+    override void mutationKindEvent(const MutationKind[]) {
         compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted{
             import std.stdio : stderr, write;
 
