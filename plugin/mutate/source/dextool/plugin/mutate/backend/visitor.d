@@ -63,6 +63,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
         dccMutations, dccBombMutations;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
+    rval.transf.funcCallCallback ~= () => stmtDelMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
     rval.transf.binaryOpExprCallback ~= (OpKind k) => absMutations;
@@ -220,8 +221,9 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        transf.statement(v);
+        //transf.statement(v);
         transf.binaryOp(v.cursor);
+        transf.funcCall(v.cursor);
         v.accept(this);
     }
 
@@ -348,7 +350,9 @@ class Transform {
 
     /// Any statement
     alias StatementEvent = Mutation.Kind[]delegate();
+    alias FunctionCallEvent = Mutation.Kind[]delegate();
     StatementEvent[] stmtCallback;
+    FunctionCallEvent[] funcCallCallback;
 
     /// Any statement that should have a unary operator inserted before/after
     alias UnaryInjectEvent = Mutation.Kind[]delegate(ValueKind);
@@ -388,6 +392,21 @@ class Transform {
         this.val_loc = vloc;
     }
 
+    private void noArgCallback(T)(const Cursor c, T callbacks) {
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset, sr.end.offset);
+
+        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
+        foreach (cb; callbacks) {
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+        }
+
+        result.put(p);
+    }
+
     void statement(T)(const(T) v) {
         mixin(makeAndCheckLocation("v.cursor"));
         mixin(mixinPath);
@@ -399,6 +418,10 @@ class Transform {
         }
 
         result.put(p);
+    }
+
+    void funcCall(const Cursor c) {
+        noArgCallback(c, funcCallCallback);
     }
 
     void unaryInject(const(Cursor) c) {
