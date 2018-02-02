@@ -184,37 +184,10 @@ See [@conf:1, p. 2].
 >  * true : Always evaluate to the boolean value true
 >  * false : Always evaluate to the boolean value false
 
-a && b:
-```
-1:  a && b --> false
-2:  a && b --> a
-3:  a && b --> b
-4:  a && b --> a == b
-
-subsumed
-5:  a && b --> a || b
-6:  a && b --> a != b
-7:  a && b --> !(a && b)
-8:  a && b --> !a && b
-9:  a && b --> a && !b
-10: a&& b --> true
-```
-
-a || b:
-```
-1:  a || b --> a != b
-2:  a || b --> b
-3:  a || b --> a
-4:  a || b --> true
-
-subsumed
-5:  a || b --> a == b
-6:  a || b --> a || b
-7:  a || b --> !(a && b)
-8:  a || b --> !a && b
-9:  a || b --> a && !b
-10: a || b --> false
-```
+Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4
+--------------------|----------|----------|----------|---------
+ `a && b`           | `false`  | `a`      | `b`      | `a == b`
+ `a || b`           | `true`   | `a`      | `b`      | `a != b`
 
 # SPC-plugin_mutate_mutation_dcc
 partof: REQ-plugin_mutate-mutations
