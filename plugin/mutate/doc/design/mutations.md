@@ -143,16 +143,20 @@ partof: REQ-plugin_mutate-mutations
 TODO: add requirement.
 
 ## Absolute Value Insertion (ABS)
+
 Replace a numerical expression with the absolute value.
+
 
 Example:
 ```cpp
 // original
 a = b + c
-// the three resulting mutants
-a = abs(b) + c
-a = -abs(b) + c
-a = 0 + c
+// the absolute value
+a = abs(b + c)
+// the negative absolute value
+a = -abs(b + c)
+// a bomb that go of if the expression is evaluated to zero
+a = fail_on_zero(b + c)
 ```
 
 ## Undesired Mutant

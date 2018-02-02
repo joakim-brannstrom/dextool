@@ -9,7 +9,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall successfully run the ABS mutator (no validation of the result)")
+@("shall produce all ABS mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
@@ -17,8 +17,20 @@ unittest {
         .addInputArg(testData ~ "abs.cpp")
         .addArg(["--mode", "analyzer"])
         .run;
-    makeDextool(testEnv)
+    auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "abs"])
         .run;
+
+    testAnyOrder!SubStr([
+        "abs_dextool(a + b)",
+        "-abs_dextool(a + b)",
+        "fail_on_zero_dextool(a + b)",
+        "abs_dextool(a)",
+        "-abs_dextool(a)",
+        "fail_on_zero_dextool(a)",
+        "abs_dextool(b)",
+        "-abs_dextool(b)",
+        "fail_on_zero_dextool(b)",
+    ]).shouldBeIn(r.stdout);
 }

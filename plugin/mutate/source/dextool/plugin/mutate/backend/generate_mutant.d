@@ -144,7 +144,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     auto mut = makeMutation(mutp.mp.mutations[0].kind);
 
     try {
-        mut.top(fout);
+        fout.write(mut.top());
         auto s = content.drop(mutp.mp.offset);
         fout.write(s.front);
         s.popFront;
@@ -276,16 +276,18 @@ auto makeMutation(Mutation.Kind kind) {
         /// Absolute value replacement
         /// #SPC-plugin_mutate_mutation_abs
     case absPos:
-        m.top = (ref SafeOutput a) { a.write(preambleAbs); };
-        m.mutate = (const(char)[] b) { return format("dextool_abs(%s)", b); };
+        m.top = () { return preambleAbs; };
+        m.mutate = (const(char)[] b) { return format("abs_dextool(%s)", b); };
         break;
     case absNeg:
-        m.top = (ref SafeOutput a) { a.write(preambleAbs); };
-        m.mutate = (const(char)[] b) { return format("-dextool_abs(%s)", b); };
+        m.top = () { return preambleAbs; };
+        m.mutate = (const(char)[] b) { return format("-abs_dextool(%s)", b); };
         break;
     case absZero:
-        m.top = (ref SafeOutput a) { a.write(preambleAbs); };
-        m.mutate = (const(char)[] b) { return "0"; };
+        m.top = () { return preambleAbs; };
+        m.mutate = (const(char)[] b) {
+            return format("fail_on_zero_dextool(%s)", b);
+        };
         break;
     case stmtDel:
         // it is a deletion so nothing to be done!
@@ -336,11 +338,11 @@ private:
 import dextool.plugin.mutate.backend.type : Offset, Mutation;
 
 struct MutateImpl {
-    alias CallbackTop = void function(ref SafeOutput f) @safe;
+    alias CallbackTop = string function() @safe;
     alias CallbackMut = string function(const(char)[] from) @safe;
 
     /// Called before any other data has been written to the file.
-    CallbackTop top = (ref SafeOutput) {  };
+    CallbackTop top = () { return null; };
 
     /// Called at the mutation point.
     CallbackMut mutate = (const(char)[] from) { return null; };
@@ -350,12 +352,14 @@ immutable string preambleAbs;
 
 shared static this() {
     // this is ugly but works for now
-    immutable preambleAbs = `
+    preambleAbs = `
 #ifndef DEXTOOL_INJECTED_ABS_FUNCTION
 #define DEXTOOL_INJECTED_ABS_FUNCTION
 namespace {
 template<typename T>
-T dextool_abs(T v) { return v < 0 ? -v : v; }
+T abs_dextool(T v) { return v < 0 ? -v : v; }
+template<typename T>
+T fail_on_zero_dextool(T v) { if (v == 0) { *((char*)0)='x'; }; return v; }
 }
 #endif
 `;
