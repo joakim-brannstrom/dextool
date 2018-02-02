@@ -475,9 +475,6 @@ string toInternal(ubyte[] data) @safe nothrow {
     }
 
     override void locationEvent(ref Row r) @trusted {
-        if (report_level == ReportLevel.summary)
-            return;
-
         try {
             auto status = r.peek!int(1).to!(Mutation.Status);
             auto kind = r.peek!int(2).to!(Mutation.Kind);
@@ -488,43 +485,46 @@ string toInternal(ubyte[] data) @safe nothrow {
 
             long[2] offs = [r.peek!long(4), r.peek!long(5)];
 
-            MakeMutationTextResult mut_txt;
-            if (report_level != ReportLevel.summary) {
+            void report() {
+                MakeMutationTextResult mut_txt;
                 try {
                     auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
                     mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
+
+                    if (status == Mutation.Status.alive) {
+                        if (auto v = mut_txt in mutationStat)
+                            ++(*v);
+                        else
+                            mutationStat[mut_txt] = 1;
+                    }
                 }
                 catch (Exception e) {
                     logger.warning(e.msg);
                 }
+
+                // dfmt off
+                auto msg = format("%-*s %-*s %-*s %s %s:%s",
+                                  col_w, id,
+                                  col_w, status,
+                                  mutation_w, format("'%s' with '%s'",
+                                                     window(mut_txt.original, windowSize),
+                                                     window(mut_txt.mutation, windowSize)),
+                                  file, line, column);
+                // dfmt on
+
+                markdown.writeln(msg);
             }
 
-            if (status == Mutation.Status.alive) {
-                if (auto v = mut_txt in mutationStat)
-                    ++(*v);
-                else
-                    mutationStat[mut_txt] = 1;
-            }
-
-            // dfmt off
-            auto msg = format("%-*s %-*s %-*s %s %s:%s",
-                              col_w, id,
-                              col_w, status,
-                              mutation_w, format("'%s' with '%s'",
-                                                 window(mut_txt.original, windowSize),
-                                                 window(mut_txt.mutation, windowSize)),
-                              file, line, column);
-            // dfmt on
             final switch (report_level) {
             case ReportLevel.summary:
                 break;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
-                    markdown.writeln(msg);
+                    report();
                 }
                 break;
             case ReportLevel.all:
-                markdown.writeln(msg);
+                report();
                 break;
             }
         }
@@ -618,18 +618,18 @@ string toInternal(ubyte[] data) @safe nothrow {
             const column = r.peek!long(7);
 
             long[2] offs = [r.peek!long(4), r.peek!long(5)];
-            AbsolutePath abs_path;
-
-            MakeMutationTextResult mut_txt;
-            try {
-                abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
-                mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
-            }
-            catch (Exception e) {
-                logger.warning(e.msg);
-            }
 
             void report() {
+                AbsolutePath abs_path;
+                MakeMutationTextResult mut_txt;
+                try {
+                    abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
+                    mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
+                }
+                catch (Exception e) {
+                    logger.warning(e.msg);
+                }
+
                 // dfmt off
                 auto b = compiler.build
                     .file(abs_path)
@@ -654,7 +654,7 @@ string toInternal(ubyte[] data) @safe nothrow {
             // default for tool integration alive mutations shall be printed.
             final switch (report_level) {
             case ReportLevel.summary:
-                goto case;
+                break;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
                     report();
