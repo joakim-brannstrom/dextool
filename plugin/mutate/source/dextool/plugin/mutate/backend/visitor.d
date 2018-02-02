@@ -65,8 +65,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
-    rval.transf.binaryOpLhsCallback ~= (OpKind k) => absMutations;
-    rval.transf.binaryOpRhsCallback ~= (OpKind k) => absMutations;
+    rval.transf.binaryOpExprCallback ~= (OpKind k) => absMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
         ? uoiLvalueMutations : uoiRvalueMutations;
@@ -215,7 +214,7 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IntegerLiteral v) {
         mixin(mixinNodeLog!());
-        transf.unaryInject(v.cursor);
+        //transf.unaryInject(v.cursor);
         v.accept(this);
     }
 

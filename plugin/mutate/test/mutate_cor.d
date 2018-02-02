@@ -31,14 +31,18 @@ unittest {
 
 void verifyCor(const(string)[] txt) {
     // &&
-    txt.sliceContains("'a && b' to 'false'").shouldBeTrue;
-    txt.sliceContains("'&& b' to ''").shouldBeTrue;
-    txt.sliceContains("'a &&' to ''").shouldBeTrue;
-    txt.sliceContains("'&&' to '=='").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "'a && b' to 'false'",
+        "'&& b' to '/*&& b*/'",
+        "'a &&' to '/*a &&*/'",
+        "'&&' to '=='",
+    ]).shouldBeIn(txt);
 
     // ||
-    txt.sliceContains("'||' to '!='").shouldBeTrue;
-    txt.sliceContains("'a ||' to ''").shouldBeTrue;
-    txt.sliceContains("'|| b' to ''").shouldBeTrue;
-    txt.sliceContains("'a || b' to 'true'").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "'||' to '!='",
+        "'a ||' to '/*a ||*/'",
+        "'|| b' to '/*|| b*/'",
+        "'a || b' to 'true'",
+    ]).shouldBeIn(txt);
 }

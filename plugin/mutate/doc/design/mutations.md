@@ -59,6 +59,28 @@ Mutation subsuming table from [@thesis1]:
  `x == y`          | `x <= y` | `x >= y` | `false`
  `x != y`          | `x < y`  | `x > y`  | `true`
 
+### Reduce Equivalens Mutants
+
+This is a simple schema that is type aware with the intention of reducing the number of equivalent mutants that are generated.
+
+1. If either side is a boolean type use the following schema instead:
+
+ Original Expression | Mutant 1 | Mutant 2
+-------------------|------------|-----------
+ `x == y`          | `x != y`   |  `false`
+ `x != y`          | `x == y`   |  `true`
+
+2. If either side is a floating point type use the following schema instead:
+
+ Original Expression | Mutant 1 | Mutant 2 | Mutant 3
+-------------------|----------|----------|----------
+ `x < y`           | `x > y`  |          | `false`
+ `x > y`           | `x < y`  |          | `false`
+ `x <= y`          | `x > y`  |          | `true`
+ `x >= y`          | `x < y`  |          | `true`
+ `x == y`          | `x <= y` | `x >= y` | `false`
+ `x != y`          | `x < y`  | `x > y`  | `true`
+
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
 ###
@@ -121,16 +143,20 @@ partof: REQ-plugin_mutate-mutations
 TODO: add requirement.
 
 ## Absolute Value Insertion (ABS)
+
 Replace a numerical expression with the absolute value.
+
 
 Example:
 ```cpp
 // original
 a = b + c
-// the three resulting mutants
-a = abs(b) + c
-a = -abs(b) + c
-a = 0 + c
+// the absolute value
+a = abs(b + c)
+// the negative absolute value
+a = -abs(b + c)
+// a bomb that go of if the expression is evaluated to zero
+a = fail_on_zero(b + c)
 ```
 
 ## Undesired Mutant
@@ -162,37 +188,10 @@ See [@conf:1, p. 2].
 >  * true : Always evaluate to the boolean value true
 >  * false : Always evaluate to the boolean value false
 
-a && b:
-```
-1:  a && b --> false
-2:  a && b --> a
-3:  a && b --> b
-4:  a && b --> a == b
-
-subsumed
-5:  a && b --> a || b
-6:  a && b --> a != b
-7:  a && b --> !(a && b)
-8:  a && b --> !a && b
-9:  a && b --> a && !b
-10: a&& b --> true
-```
-
-a || b:
-```
-1:  a || b --> a != b
-2:  a || b --> b
-3:  a || b --> a
-4:  a || b --> true
-
-subsumed
-5:  a || b --> a == b
-6:  a || b --> a || b
-7:  a || b --> !(a && b)
-8:  a || b --> !a && b
-9:  a || b --> a && !b
-10: a || b --> false
-```
+Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4
+--------------------|----------|----------|----------|---------
+ `a && b`           | `false`  | `a`      | `b`      | `a == b`
+ `a || b`           | `true`   | `a`      | `b`      | `a != b`
 
 # SPC-plugin_mutate_mutation_dcc
 partof: REQ-plugin_mutate-mutations
