@@ -214,7 +214,7 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IntegerLiteral v) {
         mixin(mixinNodeLog!());
-        transf.unaryInject(v.cursor);
+        //transf.unaryInject(v.cursor);
         v.accept(this);
     }
 
