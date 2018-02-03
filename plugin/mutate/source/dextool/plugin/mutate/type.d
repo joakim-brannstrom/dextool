@@ -24,7 +24,7 @@ enum MutationKind {
     /// Absolute value replacement
     abs,
     /// Statement deletion
-    stmtDel,
+    sdl,
     /// Conditional operator replacement
     cor,
     /// Decision/Condition Coverage

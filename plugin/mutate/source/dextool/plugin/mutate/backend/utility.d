@@ -62,7 +62,7 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
             return uoiLvalueMutations;
         case abs:
             return absMutations;
-        case stmtDel:
+        case sdl:
             return stmtDelMutations;
         case cor:
             return corMutationsRaw.dup;
