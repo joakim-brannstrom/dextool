@@ -67,7 +67,9 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
         case cor:
             return corMutationsRaw.dup;
         case dcc:
-            return dccMutationsAll.dup;
+            return dccMutationsRaw.dup;
+        case dccBomb:
+            return dccBombMutationsRaw.dup;
         }
     }
 

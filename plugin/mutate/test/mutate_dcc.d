@@ -112,7 +112,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dccBomb"])
         .run;
     testAnyOrder!SubStr([
         "from 'return -1 ;' to '*((char*)0)='x';break;'",

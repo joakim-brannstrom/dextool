@@ -227,6 +227,13 @@ See [@subsumeCondMutTesting] for further discussions.
 
 A statement that halts the program.
 
+The DCC bomb is only needed for case statements.
+
+This is separated to a dccBomb mutation.
+The reason is that a bomb do not force the test suite to evaluate the result.
+It just halts the execution at that point.
+Because of this it equivalent to code coverage information.
+
 # SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations
 ###

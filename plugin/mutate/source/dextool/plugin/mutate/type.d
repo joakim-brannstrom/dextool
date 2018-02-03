@@ -29,6 +29,8 @@ enum MutationKind {
     cor,
     /// Decision/Condition Coverage
     dcc,
+    /// Decision/Condition bomb for case statements
+    dccBomb,
 }
 
 /// The order the mutations are done when running in test_mutants mode
