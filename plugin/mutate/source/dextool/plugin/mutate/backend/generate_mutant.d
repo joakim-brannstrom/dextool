@@ -330,6 +330,10 @@ auto makeMutation(Mutation.Kind kind) {
         // assigning null should crash the program, thus a 'bomb'
         m.mutate = (const(char)[] expr) { return `*((char*)0)='x';break;`; };
         break;
+    case dccCaseDel:
+        // delete by commenting out
+        m.mutate = (const(char)[] expr) { return format("/*%s*/break;", expr); };
+        break;
     }
 
     return m;

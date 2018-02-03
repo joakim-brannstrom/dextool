@@ -60,7 +60,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     import dextool.clang_extensions : OpKind;
     import dextool.plugin.mutate.backend.utility : stmtDelMutations,
         absMutations, uoiLvalueMutations, uoiRvalueMutations, isDcc,
-        dccMutations, dccBombMutations;
+        dccMutations, dccCaseMutations;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
@@ -76,7 +76,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
         return k in isDcc ? dccMutations : null;
     };
 
-    rval.transf.caseSubStmtCallback ~= () => dccBombMutations;
+    rval.transf.caseSubStmtCallback ~= () => dccCaseMutations;
 
     import std.algorithm : map;
     import std.array : array;

@@ -98,6 +98,7 @@ struct Mutation {
         dccTrue,
         dccFalse,
         dccBomb,
+        dccCaseDel,
     }
 
     enum Status {

@@ -31,6 +31,8 @@ enum MutationKind {
     dcc,
     /// Decision/Condition bomb for case statements
     dccBomb,
+    /// Decision/Condition deletion of the content of case statements
+    dccDel,
 }
 
 /// The order the mutations are done when running in test_mutants mode

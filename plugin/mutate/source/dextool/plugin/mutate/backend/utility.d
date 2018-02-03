@@ -70,6 +70,8 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
             return dccMutationsRaw.dup;
         case dccBomb:
             return dccBombMutationsRaw.dup;
+        case dccDel:
+            return dccCaseMutationsRaw.dup;
         }
     }
 
@@ -158,8 +160,8 @@ Mutation.Kind[] dccMutations() @safe pure nothrow {
     return dccMutationsRaw.dup;
 }
 
-Mutation.Kind[] dccBombMutations() @safe pure nothrow {
-    return dccBombMutationsRaw.dup;
+Mutation.Kind[] dccCaseMutations() @safe pure nothrow {
+    return dccBombMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
 }
 
 immutable Mutation.Kind[OpKind] isRor;
@@ -182,6 +184,7 @@ immutable Mutation.Kind[] corMutationsRaw;
 immutable Mutation.Kind[] dccMutationsAll;
 immutable Mutation.Kind[] dccMutationsRaw;
 immutable Mutation.Kind[] dccBombMutationsRaw;
+immutable Mutation.Kind[] dccCaseMutationsRaw;
 
 shared static this() {
     import std.algorithm : each;
@@ -279,6 +282,7 @@ shared static this() {
 
         dccMutationsRaw = [dccTrue, dccFalse];
         dccBombMutationsRaw = [dccBomb];
-        dccMutationsAll = [dccTrue, dccFalse, dccBomb];
+        dccCaseMutationsRaw = [dccCaseDel];
+        dccMutationsAll = [dccTrue, dccFalse, dccBomb, dccCaseDel];
     }
 }

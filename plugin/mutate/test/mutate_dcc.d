@@ -121,3 +121,22 @@ unittest {
         "from '' to '*((char*)0)='x';break;'",
     ]).shouldBeIn(r.stdout);
 }
+
+@("shall produce 4 switch deletion mutations")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "dcc_dc_switch1.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "dccDel"])
+        .run;
+    testAnyOrder!SubStr([
+        "from 'return -1 ;' to '/*return -1 ;*/break;'",
+        "from 'return 1;' to '/*return 1;*/break;'",
+        "from 'break;' to '/*break;*/break;'",
+        "from '' to '/**/break;'",
+    ]).shouldBeIn(r.stdout);
+}
