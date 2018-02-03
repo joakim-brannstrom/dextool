@@ -201,7 +201,6 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(Expression) v) {
         mixin(mixinNodeLog!());
-        transf.statement(v);
         v.accept(this);
     }
 
@@ -221,7 +220,6 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        //transf.statement(v);
         transf.binaryOp(v.cursor);
         transf.funcCall(v.cursor);
         v.accept(this);
@@ -229,7 +227,6 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(BreakStmt) v) {
         mixin(mixinNodeLog!());
-        transf.statement(v);
         v.accept(this);
     }
 
@@ -258,7 +255,6 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
-        transf.statement(v);
         v.accept(this);
     }
 
@@ -266,8 +262,6 @@ class BaseVisitor : ExtendedVisitor {
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
         import std.typecons : scoped;
-
-        transf.statement(v);
 
         auto clause = scoped!IfStmtClauseVisitor(transf, indent);
         auto ifstmt = scoped!IfStmtVisitor(transf, this, clause, indent);
