@@ -146,7 +146,6 @@ TODO: add requirement.
 
 Replace a numerical expression with the absolute value.
 
-
 Example:
 ```cpp
 // original
@@ -161,10 +160,11 @@ a = fail_on_zero(b + c)
 
 ## Undesired Mutant
 
-The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
-Note though that abs(-0.0) is a separate case.
+Based on empirical observations integer literals are not mutated because they usually result in equivalent mutants.
+Further studies on this subject is needed.
 
-TODO: update ABS mutator to use the semantic information to fix this.
+> The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
+> Note though that abs(-0.0) is a separate case.
 
 # SPC-plugin_mutate_mutation_cor
 partof: REQ-plugin_mutate-mutations
@@ -226,6 +226,13 @@ See [@subsumeCondMutTesting] for further discussions.
 ## Bomb
 
 A statement that halts the program.
+
+The DCC bomb is only needed for case statements.
+
+This is separated to a dccBomb mutation.
+The reason is that a bomb do not force the test suite to evaluate the result.
+It just halts the execution at that point.
+Because of this it equivalent to code coverage information.
 
 # SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations

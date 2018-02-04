@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-ExitStatusType runReport(ref Database db, const MutationKind kind,
+ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
@@ -33,7 +33,7 @@ ExitStatusType runReport(ref Database db, const MutationKind kind,
 
     try {
         auto genrep = ReportGenerator.make(kind, report_kind, report_level, fio);
-        genrep.mutationKindEvent(kind);
+        genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
 
         genrep.locationStartEvent;
         db.iterateMutants(kinds, &genrep.locationEvent);
@@ -76,7 +76,7 @@ struct ReportGenerator {
 
     ReportEvens[] listeners;
 
-    static auto make(MutationKind kind, ReportKind report_kind,
+    static auto make(const MutationKind[] kind, ReportKind report_kind,
             ReportLevel report_level, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
@@ -93,7 +93,7 @@ struct ReportGenerator {
         return ReportGenerator(listeners);
     }
 
-    void mutationKindEvent(MutationKind kind_) {
+    void mutationKindEvent(const MutationKind[] kind_) {
         listeners.each!(a => a.mutationKindEvent(kind_));
     }
 
@@ -408,7 +408,7 @@ string toInternal(ubyte[] data) @safe nothrow {
 @safe interface ReportEvens {
     import d2sqlite3 : Row;
 
-    void mutationKindEvent(MutationKind);
+    void mutationKindEvent(const MutationKind[]);
     void locationStartEvent();
     void locationEvent(ref Row);
     void locationEndEvent();
@@ -447,7 +447,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         this.fio = fio;
     }
 
-    override void mutationKindEvent(MutationKind kind_) {
+    override void mutationKindEvent(const MutationKind[] kind_) {
         auto writer = delegate(const(char)[] s) {
             import std.stdio : write;
 
@@ -462,7 +462,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         }
 
         markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
-        markdown = markdown.heading("Mutation Type %s", kind_);
+        markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
     }
 
     override void locationStartEvent() {
@@ -475,9 +475,6 @@ string toInternal(ubyte[] data) @safe nothrow {
     }
 
     override void locationEvent(ref Row r) @trusted {
-        if (report_level == ReportLevel.summary)
-            return;
-
         try {
             auto status = r.peek!int(1).to!(Mutation.Status);
             auto kind = r.peek!int(2).to!(Mutation.Kind);
@@ -488,43 +485,46 @@ string toInternal(ubyte[] data) @safe nothrow {
 
             long[2] offs = [r.peek!long(4), r.peek!long(5)];
 
-            MakeMutationTextResult mut_txt;
-            if (report_level != ReportLevel.summary) {
+            void report() {
+                MakeMutationTextResult mut_txt;
                 try {
                     auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
                     mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
+
+                    if (status == Mutation.Status.alive) {
+                        if (auto v = mut_txt in mutationStat)
+                            ++(*v);
+                        else
+                            mutationStat[mut_txt] = 1;
+                    }
                 }
                 catch (Exception e) {
                     logger.warning(e.msg);
                 }
+
+                // dfmt off
+                auto msg = format("%-*s %-*s %-*s %s %s:%s",
+                                  col_w, id,
+                                  col_w, status,
+                                  mutation_w, format("'%s' with '%s'",
+                                                     window(mut_txt.original, windowSize),
+                                                     window(mut_txt.mutation, windowSize)),
+                                  file, line, column);
+                // dfmt on
+
+                markdown.writeln(msg);
             }
 
-            if (status == Mutation.Status.alive) {
-                if (auto v = mut_txt in mutationStat)
-                    ++(*v);
-                else
-                    mutationStat[mut_txt] = 1;
-            }
-
-            // dfmt off
-            auto msg = format("%-*s %-*s %-*s %s %s:%s",
-                              col_w, id,
-                              col_w, status,
-                              mutation_w, format("'%s' with '%s'",
-                                                 window(mut_txt.original, windowSize),
-                                                 window(mut_txt.mutation, windowSize)),
-                              file, line, column);
-            // dfmt on
             final switch (report_level) {
             case ReportLevel.summary:
                 break;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
-                    markdown.writeln(msg);
+                    report();
                 }
                 break;
             case ReportLevel.all:
-                markdown.writeln(msg);
+                report();
                 break;
             }
         }
@@ -595,7 +595,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         this.fio = fio;
     }
 
-    override void mutationKindEvent(MutationKind) {
+    override void mutationKindEvent(const MutationKind[]) {
         compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted{
             import std.stdio : stderr, write;
 
@@ -618,18 +618,18 @@ string toInternal(ubyte[] data) @safe nothrow {
             const column = r.peek!long(7);
 
             long[2] offs = [r.peek!long(4), r.peek!long(5)];
-            AbsolutePath abs_path;
-
-            MakeMutationTextResult mut_txt;
-            try {
-                abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
-                mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
-            }
-            catch (Exception e) {
-                logger.warning(e.msg);
-            }
 
             void report() {
+                AbsolutePath abs_path;
+                MakeMutationTextResult mut_txt;
+                try {
+                    abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
+                    mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
+                }
+                catch (Exception e) {
+                    logger.warning(e.msg);
+                }
+
                 // dfmt off
                 auto b = compiler.build
                     .file(abs_path)
@@ -654,7 +654,7 @@ string toInternal(ubyte[] data) @safe nothrow {
             // default for tool integration alive mutations shall be printed.
             final switch (report_level) {
             case ReportLevel.summary:
-                goto case;
+                break;
             case ReportLevel.alive:
                 if (status == Mutation.Status.alive) {
                     report();

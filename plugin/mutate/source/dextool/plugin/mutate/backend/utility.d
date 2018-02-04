@@ -43,29 +43,39 @@ Checksum checksum(T)(const T a, const T b) @safe if (T.sizeof == 8) {
 
 import dextool.plugin.mutate.type : MutationKind;
 
-Mutation.Kind[] toInternal(MutationKind k) @safe pure nothrow {
+Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
+    import std.algorithm : map, joiner;
+    import std.array : array;
     import std.traits : EnumMembers;
 
-    final switch (k) with (MutationKind) {
-    case any:
-        return [EnumMembers!(Mutation.Kind)];
-    case ror:
-        return rorMutationsAll.dup;
-    case lcr:
-        return lcrMutationsAll.dup;
-    case aor:
-        return aorMutationsAll.dup ~ aorAssignMutationsAll;
-    case uoi:
-        return uoiLvalueMutations;
-    case abs:
-        return absMutations;
-    case stmtDel:
-        return stmtDelMutations;
-    case cor:
-        return corMutationsRaw.dup;
-    case dcc:
-        return dccMutationsAll.dup;
+    auto kinds(const MutationKind k) {
+        final switch (k) with (MutationKind) {
+        case any:
+            return [EnumMembers!(Mutation.Kind)];
+        case ror:
+            return rorMutationsAll.dup;
+        case lcr:
+            return lcrMutationsAll.dup;
+        case aor:
+            return aorMutationsAll.dup ~ aorAssignMutationsAll;
+        case uoi:
+            return uoiLvalueMutations;
+        case abs:
+            return absMutations;
+        case sdl:
+            return stmtDelMutations;
+        case cor:
+            return corMutationsRaw.dup;
+        case dcc:
+            return dccMutationsRaw.dup;
+        case dccBomb:
+            return dccBombMutationsRaw.dup;
+        case dccDel:
+            return dccCaseMutationsRaw.dup;
+        }
     }
+
+    return (k is null ? [MutationKind.any] : k).map!(a => kinds(a)).joiner.array;
 }
 
 // See SPC-plugin_mutate_mutation_ror for the subsumed table.
@@ -150,8 +160,8 @@ Mutation.Kind[] dccMutations() @safe pure nothrow {
     return dccMutationsRaw.dup;
 }
 
-Mutation.Kind[] dccBombMutations() @safe pure nothrow {
-    return dccBombMutationsRaw.dup;
+Mutation.Kind[] dccCaseMutations() @safe pure nothrow {
+    return dccBombMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
 }
 
 immutable Mutation.Kind[OpKind] isRor;
@@ -174,6 +184,7 @@ immutable Mutation.Kind[] corMutationsRaw;
 immutable Mutation.Kind[] dccMutationsAll;
 immutable Mutation.Kind[] dccMutationsRaw;
 immutable Mutation.Kind[] dccBombMutationsRaw;
+immutable Mutation.Kind[] dccCaseMutationsRaw;
 
 shared static this() {
     import std.algorithm : each;
@@ -271,6 +282,7 @@ shared static this() {
 
         dccMutationsRaw = [dccTrue, dccFalse];
         dccBombMutationsRaw = [dccBomb];
-        dccMutationsAll = [dccTrue, dccFalse, dccBomb];
+        dccCaseMutationsRaw = [dccCaseDel];
+        dccMutationsAll = [dccTrue, dccFalse, dccBomb, dccCaseDel];
     }
 }

@@ -35,7 +35,7 @@ private:
     AbsolutePath mutationCompile;
     AbsolutePath mutationTester;
     Nullable!Duration mutationTesterRuntime;
-    MutationKind mutation;
+    MutationKind[] mutation;
     Nullable!long mutationId;
     CompileCommandDB compileDb;
     ToolMode toolMode;

@@ -33,7 +33,7 @@ enum GenerateMutantStatus {
     ok
 }
 
-ExitStatusType runGenerateMutant(ref Database db, MutationKind kind,
+ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
         Nullable!long user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
@@ -329,6 +329,10 @@ auto makeMutation(Mutation.Kind kind) {
     case dccBomb:
         // assigning null should crash the program, thus a 'bomb'
         m.mutate = (const(char)[] expr) { return `*((char*)0)='x';break;`; };
+        break;
+    case dccCaseDel:
+        // delete by commenting out
+        m.mutate = (const(char)[] expr) { return format("/*%s*/break;", expr); };
         break;
     }
 
