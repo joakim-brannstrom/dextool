@@ -59,3 +59,92 @@ void verifyRor(string[] txt) {
         txt.sliceContains(expected).shouldBeTrue;
     }
 }
+
+@("shall produce all ROR mutations according to the alternative schema when both types are floating point types")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_float_primitive.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "ror"])
+        .run;
+    verifyFloatRor(r.stdout);
+}
+
+void verifyFloatRor(string[] txt) {
+    import std.algorithm;
+
+    static struct Ex {
+        string[] ops;
+        string expr;
+    }
+    Ex[string] tbl = [
+        "<": Ex([">"], "false"),
+        ">": Ex(["<"], "false"),
+        "<=": Ex([">"], "true"),
+        ">=": Ex(["<"], "true"),
+        "==": Ex(["<=", ">="], "false"),
+        "!=": Ex(["<", ">"], "true"),
+    ];
+
+    foreach (mut; tbl.byKeyValue) {
+        foreach (op; mut.value.ops) {
+            auto expected = format("from '%s' to '%s'", mut.key, op);
+            dextoolYap("Testing: " ~ expected);
+            txt.sliceContains(expected).shouldBeTrue;
+        }
+
+        auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
+        dextoolYap("Testing: " ~ expected);
+        txt.sliceContains(expected).shouldBeTrue;
+    }
+}
+
+@("shall produce all ROR mutations according to the alternative schema when both types are enum type")
+@ShouldFail
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_enum_primitive.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "ror"])
+        .run;
+    verifyEnumRor(r.stdout);
+}
+
+void verifyEnumRor(string[] txt) {
+    import std.algorithm;
+
+    static struct Ex {
+        string[] ops;
+        string expr;
+    }
+    Ex[string] tbl = [
+        "<": Ex([">"], "false"),
+        ">": Ex(["<"], "false"),
+        "<=": Ex([">"], "true"),
+        ">=": Ex(["<"], "true"),
+        "==": Ex(["<=", ">="], "false"),
+        "!=": Ex(["<", ">"], "true"),
+    ];
+
+    foreach (mut; tbl.byKeyValue) {
+        foreach (op; mut.value.ops) {
+            auto expected = format("from '%s' to '%s'", mut.key, op);
+            dextoolYap("Testing: " ~ expected);
+            txt.sliceContains(expected).shouldBeTrue;
+        }
+
+        auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
+        dextoolYap("Testing: " ~ expected);
+        txt.sliceContains(expected).shouldBeTrue;
+    }
+}

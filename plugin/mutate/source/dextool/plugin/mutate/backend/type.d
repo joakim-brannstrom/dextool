@@ -118,3 +118,10 @@ struct Mutation {
     Kind kind;
     Status status;
 }
+
+/// Deducted type information for relational operators
+enum OpTypeInfo {
+    none,
+    floatingPoint,
+    enum_,
+}
