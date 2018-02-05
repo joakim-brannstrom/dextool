@@ -193,11 +193,15 @@ Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4
  `a && b`           | `false`  | `a`      | `b`      | `a == b`
  `a || b`           | `true`   | `a`      | `b`      | `a != b`
 
+
 # SPC-plugin_mutate_mutation_dcc
 partof: REQ-plugin_mutate-mutations
 ###
 
 TODO: add requirement.
+
+The intention is to be at least equivalent to a coverage tools report for decision/condition coverage.
+This is the reason why a *bomb* is part of DCC.
 
 ## Why?
 See [@thesis1].
@@ -229,10 +233,60 @@ A statement that halts the program.
 
 The DCC bomb is only needed for case statements.
 
-This is separated to a dccBomb mutation.
-The reason is that a bomb do not force the test suite to evaluate the result.
-It just halts the execution at that point.
-Because of this it equivalent to code coverage information.
+Note that the bomb do not provide any more information than a coverage report do because it doesn't force the test suite to check the output of the program. It is equivalent to coverage information.
+
+# SPC-plugin_mutate_mutation_dcr
+partof: REQ-plugin_mutate-mutations
+###
+
+TODO: add requirement.
+
+## Why?
+
+This is a twist of DCC. It replaces the bomb with statement deletion.
+The intention is to require the test suite to check the output.
+
+## Case Deletion
+
+This is only needed for switch statements.
+It deletes case branch in a switch statement.
+It is equivalent as decision coverage that is set to *false*.
+
+Motivation why it is equivalent.
+
+Consider the following switch statement:
+```cpp
+switch (x) {
+case A: y = 1; break;
+case B: y = 2; break;
+default: y = 3; break;
+}
+```
+
+It can be rewritten as (assuming the compiler do the simplest transformation):
+```cpp
+if (x == A) { y = 1; }
+else if (x == B) { y = 2; }
+else { y = 3; }
+```
+
+A decision mutation of the first branch is equivalent to replacement of `x == A` with `true`/`false`.
+```cpp
+if (false) { y = 1; }
+else if (x == B) { y = 2; }
+else { y = 3; }
+```
+
+Note that when it is set to `false` it is equivalent to *never* being taken.
+It is thus equivalent to the rewrite:
+```cpp
+if (x == B) { y = 2; }
+else { y = 3; }
+```
+
+The branch is deleted.
+
+Thus `false` is equivalent to statement deletion of the branch content.
 
 # SPC-plugin_mutate_mutations_statement_del
 partof: REQ-plugin_mutate-mutations

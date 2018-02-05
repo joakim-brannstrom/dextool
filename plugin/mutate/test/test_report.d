@@ -69,7 +69,7 @@ unittest {
         .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--mutant", "dcc", "--mutant", "dccBomb"])
+        .addArg(["--mutant", "dcc"])
         .addArg(["--report", "compiler"])
         .addArg(["--report-level", "all"])
         .run;

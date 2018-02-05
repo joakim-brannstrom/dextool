@@ -67,11 +67,9 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
         case cor:
             return corMutationsRaw.dup;
         case dcc:
-            return dccMutationsRaw.dup;
-        case dccBomb:
-            return dccBombMutationsRaw.dup;
-        case dccDel:
-            return dccCaseMutationsRaw.dup;
+            return dccBranchMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
+        case dcr:
+            return dccBranchMutationsRaw.dup ~ dcrCaseMutationsRaw.dup;
         }
     }
 
@@ -156,12 +154,16 @@ Mutation.Kind[] stmtDelMutations() @safe pure nothrow {
     return stmtDelMutationsRaw.dup;
 }
 
-Mutation.Kind[] dccMutations() @safe pure nothrow {
-    return dccMutationsRaw.dup;
+Mutation.Kind[] dccBranchMutations() @safe pure nothrow {
+    return dccBranchMutationsRaw.dup;
 }
 
 Mutation.Kind[] dccCaseMutations() @safe pure nothrow {
-    return dccBombMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
+    return dccCaseMutationsRaw.dup;
+}
+
+Mutation.Kind[] dcrCaseMutations() @safe pure nothrow {
+    return dcrCaseMutationsRaw.dup;
 }
 
 immutable Mutation.Kind[OpKind] isRor;
@@ -181,10 +183,9 @@ immutable Mutation.Kind[] absMutationsRaw;
 immutable Mutation.Kind[] stmtDelMutationsRaw;
 immutable Mutation.Kind[] corMutationsRaw;
 
-immutable Mutation.Kind[] dccMutationsAll;
-immutable Mutation.Kind[] dccMutationsRaw;
-immutable Mutation.Kind[] dccBombMutationsRaw;
+immutable Mutation.Kind[] dccBranchMutationsRaw;
 immutable Mutation.Kind[] dccCaseMutationsRaw;
+immutable Mutation.Kind[] dcrCaseMutationsRaw;
 
 shared static this() {
     import std.algorithm : each;
@@ -280,9 +281,8 @@ shared static this() {
 
         corMutationsRaw = [corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
 
-        dccMutationsRaw = [dccTrue, dccFalse];
-        dccBombMutationsRaw = [dccBomb];
-        dccCaseMutationsRaw = [dccCaseDel];
-        dccMutationsAll = [dccTrue, dccFalse, dccBomb, dccCaseDel];
+        dccBranchMutationsRaw = [dccTrue, dccFalse];
+        dccCaseMutationsRaw = [dccBomb];
+        dcrCaseMutationsRaw = [dcrCaseDel];
     }
 }

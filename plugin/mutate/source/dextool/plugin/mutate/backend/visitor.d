@@ -60,7 +60,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     import dextool.clang_extensions : OpKind;
     import dextool.plugin.mutate.backend.utility : stmtDelMutations,
         absMutations, uoiLvalueMutations, uoiRvalueMutations, isDcc,
-        dccMutations, dccCaseMutations;
+        dccBranchMutations, dccCaseMutations, dcrCaseMutations;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
@@ -71,12 +71,13 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     rval.transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
         ? uoiLvalueMutations : uoiRvalueMutations;
 
-    rval.transf.branchCondCallback ~= () => dccMutations;
+    rval.transf.branchCondCallback ~= () => dccBranchMutations;
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
-        return k in isDcc ? dccMutations : null;
+        return k in isDcc ? dccBranchMutations : null;
     };
 
     rval.transf.caseSubStmtCallback ~= () => dccCaseMutations;
+    rval.transf.caseStmtCallback ~= () => dcrCaseMutations;
 
     import std.algorithm : map;
     import std.array : array;
@@ -376,6 +377,7 @@ class Transform {
     /// Switch condition
     alias CaseEvent = Mutation.Kind[]delegate();
     /// the statement after the `case 2:` until the next one
+    CaseEvent[] caseStmtCallback;
     CaseEvent[] caseSubStmtCallback;
 
     private AnalyzeResult result;
@@ -593,7 +595,7 @@ class Transform {
         auto sr = mp.subStmt.extent;
         auto offs = Offset(sr.start.offset, sr.end.offset);
         if (mp.subStmt.kind == CXCursorKind.caseStmt) {
-            // a case statement with fallthrough. the only point to inject a bomb is directly efter the colon
+            // a case statement with fallthrough. the only point to inject a bomb is directly efter the semicolon
             offs.begin = mp.colonLocation.offset + 1;
             offs.end = offs.begin;
         } else if (mp.subStmt.kind != CXCursorKind.compoundStmt) {
@@ -601,13 +603,34 @@ class Transform {
                     CXTokenKind.punctuation);
         }
 
-        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
+        void subStmt() {
+            auto p = MutationPointEntry(MutationPoint(offs), path,
+                    SourceLoc(loc.line, loc.column));
 
-        foreach (cb; caseSubStmtCallback) {
-            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            foreach (cb; caseSubStmtCallback) {
+                p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
+
+            result.put(p);
         }
 
-        result.put(p);
+        void stmt() {
+            auto stmt_sr = c.extent;
+            // reuse the end from offs because it also covers either only the fallthrough OR also the end semicolon
+            auto stmt_offs = Offset(stmt_sr.start.offset, offs.end);
+
+            auto p = MutationPointEntry(MutationPoint(stmt_offs), path,
+                    SourceLoc(loc.line, loc.column));
+
+            foreach (cb; caseStmtCallback) {
+                p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+            }
+
+            result.put(p);
+        }
+
+        stmt();
+        subStmt();
     }
 
     private static struct OperatorMP {

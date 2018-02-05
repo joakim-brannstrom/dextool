@@ -112,7 +112,7 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutant", "dccBomb"])
+        .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
         "from 'return -1 ;' to '*((char*)0)='x';break;'",
@@ -131,12 +131,21 @@ unittest {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["--mode", "test_mutants"])
-        .addArg(["--mutant", "dccDel"])
+        .addArg(["--mutant", "dcr"])
         .run;
-    testAnyOrder!SubStr([
-        "from 'return -1 ;' to '/*return -1 ;*/break;'",
-        "from 'return 1;' to '/*return 1;*/break;'",
-        "from 'break;' to '/*break;*/break;'",
-        "from '' to '/**/break;'",
+    testConsecutiveSparseOrder!SubStr([
+        "from 'case 0:",
+        "return -1 ;' to '/*case 0:",
+        "return -1 ;*/'",
+
+        "from 'case 1:",
+        "return 1;' to '/*case 1:",
+        "return 1;*/'",
+
+        "from 'case 3:",
+        "break;' to '/*case 3:",
+        "break;*/'",
+
+        "from 'case 4:' to '/*case 4:*/'",
     ]).shouldBeIn(r.stdout);
 }
