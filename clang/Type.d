@@ -37,12 +37,12 @@ struct Type {
      *
      * If the type is invalid, an empty string is returned.
      */
-    @property string spelling() {
+    @property string spelling() @trusted {
         auto r = toD(clang_getTypeSpelling(cx));
         return r;
     }
 
-    @property string typeKindSpelling() {
+    @property string typeKindSpelling() @trusted {
         auto r = toD(clang_getTypeKindSpelling(cx.kind));
         return r;
     }
@@ -54,13 +54,13 @@ struct Type {
      * type with all the "sugar" removed.  For example, if 'T' is a typedef for
      * 'int', the canonical type for 'T' would be 'int'.
      */
-    @property Type canonicalType() {
+    @property Type canonicalType() @trusted {
         auto r = clang_getCanonicalType(cx);
         return Type(cursor, r);
     }
 
     /// For pointer types, returns the type of the pointee.
-    @property Type pointeeType() {
+    @property Type pointeeType() @trusted {
         auto r = clang_getPointeeType(cx);
         //TODO investigate if it is buggy behaviour to reuse THIS cursor.
         // Shouldn't it be the pointee types cursor
@@ -98,35 +98,35 @@ struct Type {
         return clang_equalTypes(cast(CXType) type_.cx, cast(CXType) cx) != 0;
     }
 
-    @property bool isTypedef() const {
+    @property bool isTypedef() const @safe {
         return kind == CXTypeKind.typedef_;
     }
 
-    @property bool isEnum() const {
+    @property bool isEnum() const @safe {
         return kind == CXTypeKind.enum_;
     }
 
-    @property bool isValid() const {
+    @property bool isValid() const @safe {
         return kind != CXTypeKind.invalid;
     }
 
-    @property bool isFunctionType() {
+    @property bool isFunctionType() @safe {
         return canonicalType.kind == CXTypeKind.functionProto;
     }
 
-    @property bool isFunctionPointerType() {
+    @property bool isFunctionPointerType() @safe {
         return kind == CXTypeKind.pointer && pointeeType.isFunctionType;
     }
 
-    @property bool isObjCIdType() {
+    @property bool isObjCIdType() @safe {
         return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "id";
     }
 
-    @property bool isObjCClassType() {
+    @property bool isObjCClassType() @safe {
         return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "Class";
     }
 
-    @property bool isObjCSelType() {
+    @property bool isObjCSelType() @safe {
         if (isTypedef) {
             auto c = canonicalType;
             return c.kind == CXTypeKind.pointer && c.pointeeType.kind == CXTypeKind.objCSel;
@@ -134,11 +134,11 @@ struct Type {
             return false;
     }
 
-    @property bool isObjCBuiltinType() {
+    @property bool isObjCBuiltinType() @safe {
         return isObjCIdType || isObjCClassType || isObjCSelType;
     }
 
-    @property bool isWideCharType() const {
+    @property bool isWideCharType() const @safe {
         return kind == CXTypeKind.wChar;
     }
 
@@ -150,15 +150,15 @@ struct Type {
         return clang_isConstQualifiedType(cx) == 1;
     }
 
-    @property bool isExposed() const {
+    @property bool isExposed() const @safe {
         return kind != CXTypeKind.unexposed;
     }
 
-    @property bool isArray() const {
+    @property bool isArray() const @safe {
         return kind == CXTypeKind.constantArray || kind == CXTypeKind.incompleteArray;
     }
 
-    @property bool isAnonymous() {
+    @property bool isAnonymous() @safe {
         return spelling.length == 0;
     }
 
