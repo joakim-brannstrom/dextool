@@ -72,6 +72,8 @@ This is a simple schema that is type aware with the intention of reducing the nu
 
 2. If both sides are floating point types use the following schema instead:
 
+TODO investigate Mutant 3. What should it be?
+
  Original Expression | Mutant 1 | Mutant 2 | Mutant 3
 -------------------|----------|----------|----------
  `x < y`           | `x > y`  |          | `false`
