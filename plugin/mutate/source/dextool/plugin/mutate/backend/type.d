@@ -123,5 +123,10 @@ struct Mutation {
 enum OpTypeInfo {
     none,
     floatingPoint,
-    enum_,
+    /// the lhs and rhs sides are the same enum decl
+    enumLhsRhsIsSame,
+    enumLhsIsMin,
+    enumLhsIsMax,
+    enumRhsIsMin,
+    enumRhsIsMax,
 }
