@@ -104,8 +104,7 @@ void verifyFloatRor(string[] txt) {
     }
 }
 
-@("shall produce all ROR mutations according to the alternative schema when both types are enum type")
-@ShouldFail
+@("shall produce all ROR mutations according to the alternative schema when both types are enum type and one is an enum const declaration")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -117,34 +116,34 @@ unittest {
         .addArg(["--mode", "test_mutants"])
         .addArg(["--mutant", "ror"])
         .run;
-    verifyEnumRor(r.stdout);
-}
 
-void verifyEnumRor(string[] txt) {
-    import std.algorithm;
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '<='",
+        "from '==' to '>='",
+        "from 'a == b'",
 
-    static struct Ex {
-        string[] ops;
-        string expr;
-    }
-    Ex[string] tbl = [
-        "<": Ex([">"], "false"),
-        ">": Ex(["<"], "false"),
-        "<=": Ex([">"], "true"),
-        ">=": Ex(["<"], "true"),
-        "==": Ex(["<=", ">="], "false"),
-        "!=": Ex(["<", ">"], "true"),
-    ];
+        "from '==' to '>='",
+        "from 'MyE::A == b' to 'false'",
 
-    foreach (mut; tbl.byKeyValue) {
-        foreach (op; mut.value.ops) {
-            auto expected = format("from '%s' to '%s'", mut.key, op);
-            dextoolYap("Testing: " ~ expected);
-            txt.sliceContains(expected).shouldBeTrue;
-        }
+        "from '==' to '<='",
+        "from '==' to '>='",
+        "from 'MyE::B == b' to 'false'",
 
-        auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
-        dextoolYap("Testing: " ~ expected);
-        txt.sliceContains(expected).shouldBeTrue;
-    }
+        "from '==' to '<='",
+        "from 'a == MyE::C' to 'false'",
+
+        "from '!=' to '<'",
+        "from '!=' to '>'",
+        "from 'a != b' to 'true'",
+
+        "from '!=' to '>'",
+        "from 'MyE::A != b' to 'true'",
+
+        "from '!=' to '<'",
+        "from '!=' to '>'",
+        "from 'MyE::B != b' to 'true'",
+
+        "from '!=' to '<'",
+        "from 'a != MyE::C' to 'true'",
+    ]).shouldBeIn(r.stdout);
 }
