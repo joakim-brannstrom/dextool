@@ -77,7 +77,7 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
 }
 
 // See SPC-plugin_mutate_mutation_ror for the subsumed table.
-auto rorMutations(OpKind op) @safe pure nothrow {
+auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
     import std.typecons : Tuple, Nullable;
     import std.algorithm : among;
 
@@ -88,12 +88,24 @@ auto rorMutations(OpKind op) @safe pure nothrow {
     with (Mutation.Kind) {
         if (op.among(OpKind.LT, OpKind.OO_Less)) {
             rval = Rval([rorLE, rorNE], rorFalse);
+            if (tyi == OpTypeInfo.floatingPoint) {
+                rval.op = [rorGT];
+            }
         } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
             rval = Rval([rorGE, rorNE], rorFalse);
+            if (tyi == OpTypeInfo.floatingPoint) {
+                rval.op = [rorLT];
+            }
         } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
             rval = Rval([rorLT, rorEQ], rorTrue);
+            if (tyi == OpTypeInfo.floatingPoint) {
+                rval.op = [rorGT];
+            }
         } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
             rval = Rval([rorGT, rorEQ], rorTrue);
+            if (tyi == OpTypeInfo.floatingPoint) {
+                rval.op = [rorLT];
+            }
         } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
             rval = Rval([rorLE, rorGE], rorFalse);
         } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {

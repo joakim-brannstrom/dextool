@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.visitor;
 
+@safe:
+
 public import dextool.clang_extensions : ValueKind;
 import logger = std.experimental.logger;
 
@@ -22,9 +24,8 @@ import clang.SourceLocation : SourceLocation;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import dextool.plugin.mutate.backend.database : MutationPointEntry;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
-import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc;
-
-@safe:
+import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc,
+    OpTypeInfo;
 
 /// Contain a visitor and the data.
 struct VisitorResult {
@@ -87,14 +88,14 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
         isCor, corOpMutations, corExprMutations;
 
     // TODO refactor so array() can be removed. It is an unnecessary allocation
-    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+    rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isLcr)
             return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
         else
             return null;
     };
 
-    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+    rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isAor)
             return aorMutations(*v).map!(a => cast(Mutation.Kind) a).array();
         else
@@ -107,15 +108,15 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
             return null;
     };
 
-    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+    rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo tyi) {
         if (k in isRor)
-            return rorMutations(k).op.map!(a => cast(Mutation.Kind) a).array();
+            return rorMutations(k, tyi).op.map!(a => cast(Mutation.Kind) a).array();
         else
             return null;
     };
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         if (k in isRor)
-            return [rorMutations(k).expr];
+            return [rorMutations(k, OpTypeInfo.none).expr];
         else
             return null;
     };
@@ -123,9 +124,11 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     //rval.transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
     //rval.transf.binaryOpRhsCallback ~= (OpKind k) => uoiLvalueMutations;
 
-    rval.transf.binaryOpLhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corRhs] : null;
-    rval.transf.binaryOpRhsCallback ~= (OpKind k) => k in isCor ? [Mutation.Kind.corLhs] : null;
-    rval.transf.binaryOpOpCallback ~= (OpKind k) {
+    rval.transf.binaryOpLhsCallback ~= (OpKind k, OpTypeInfo) => k in isCor
+        ? [Mutation.Kind.corRhs] : null;
+    rval.transf.binaryOpRhsCallback ~= (OpKind k, OpTypeInfo) => k in isCor
+        ? [Mutation.Kind.corLhs] : null;
+    rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isCor)
             return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
         else
@@ -323,6 +326,7 @@ struct Stack(T) {
     }
 }
 
+/// A mixin string that pushes `value` to `instance` and pops on scope exit.
 string pushPopStack(string instance, string value) {
     import std.format : format;
 
@@ -354,11 +358,12 @@ class Transform {
     UnaryInjectEvent[] unaryInjectCallback;
 
     /// Any binary operator
-    alias BinaryOpEvent = Mutation.Kind[]delegate(OpKind kind);
+    alias BinaryOpEvent = Mutation.Kind[]delegate(OpKind kind, OpTypeInfo tyi);
+    alias BinaryExprEvent = Mutation.Kind[]delegate(OpKind kind);
     BinaryOpEvent[] binaryOpOpCallback;
     BinaryOpEvent[] binaryOpLhsCallback;
     BinaryOpEvent[] binaryOpRhsCallback;
-    BinaryOpEvent[] binaryOpExprCallback;
+    BinaryExprEvent[] binaryOpExprCallback;
 
     /// Assignment operators
     alias AssignOpKindEvent = Mutation.Kind[]delegate(OpKind kind);
@@ -462,11 +467,11 @@ class Transform {
 
     private void binaryOpInternal(ref OperatorMP mp) {
         foreach (cb; binaryOpOpCallback)
-            mp.op.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+            mp.op.mp.mutations ~= cb(mp.rawOp.kind, mp.typeInfo).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpLhsCallback)
-            mp.lhs.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+            mp.lhs.mp.mutations ~= cb(mp.rawOp.kind, mp.typeInfo).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpRhsCallback)
-            mp.rhs.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+            mp.rhs.mp.mutations ~= cb(mp.rawOp.kind, mp.typeInfo).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpExprCallback)
             mp.expr.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
     }
@@ -644,6 +649,8 @@ class Transform {
         MutationPointEntry op;
         /// the whole operator expression
         MutationPointEntry expr;
+        /// Type information of the types on the sides of the operator
+        OpTypeInfo typeInfo;
     }
 
     OperatorMP getOperatorMP(const(Cursor) c) {
@@ -689,6 +696,9 @@ class Transform {
             auto offs = Offset(sr.offset, cast(uint)(sr.offset + op_.length));
             rval.op = MutationPointEntry(MutationPoint(offs, null), path,
                     SourceLoc(op_.location.line, op_.location.column));
+
+            auto sides = op_.sides;
+            rval.typeInfo = deriveOpTypeInfo(sides.lhs, sides.rhs);
         }
 
         void exprPoint() {
@@ -719,6 +729,36 @@ class Transform {
             result.put(path);
         };
     }
+}
+
+OpTypeInfo deriveOpTypeInfo(const Cursor lhs_, const Cursor rhs_) @safe {
+    import std.meta : AliasSeq;
+    import std.algorithm : among;
+    import clang.c.Index : CXTypeKind;
+    import clang.Type : Type;
+    import dextool.clang_extensions : getUnderlyingExprNode;
+
+    auto lhs = Cursor(getUnderlyingExprNode(lhs_));
+    auto rhs = Cursor(getUnderlyingExprNode(rhs_));
+
+    if (!lhs.isValid || !rhs.isValid)
+        return OpTypeInfo.none;
+
+    auto lhs_ty = lhs.type.canonicalType;
+    auto rhs_ty = rhs.type.canonicalType;
+
+    if (!lhs_ty.isValid || !rhs_ty.isValid)
+        return OpTypeInfo.none;
+
+    auto floatCategory = AliasSeq!(CXTypeKind.float_, CXTypeKind.double_, CXTypeKind.longDouble);
+
+    if (lhs_ty.isEnum && rhs_ty.isEnum) {
+        return OpTypeInfo.enum_;
+    } else if (lhs_ty.kind.among(floatCategory) && rhs_ty.kind.among(floatCategory)) {
+        return OpTypeInfo.floatingPoint;
+    }
+
+    return OpTypeInfo.none;
 }
 
 import dextool.clang_extensions : Operator;

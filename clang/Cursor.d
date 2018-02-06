@@ -117,7 +117,6 @@ import clang.Visitor;
      */
     @property string mangling() const @trusted {
         return toD(clang_Cursor_getMangling(cx));
-
     }
 
     /**

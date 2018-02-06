@@ -51,26 +51,28 @@ four.
 Mutation subsuming table from [@thesis1]:
 
  Original Expression | Mutant 1 | Mutant 2 | Mutant 3
--------------------|----------|----------|----------
- `x < y`           | `x <= y` | `x != y` | `false`
- `x > y`           | `x >= y` | `x != y` | `false`
- `x <= y`          | `x < y`  | `x == y` | `true`
- `x >= y`          | `x > y`  | `x == y` | `true`
- `x == y`          | `x <= y` | `x >= y` | `false`
- `x != y`          | `x < y`  | `x > y`  | `true`
+---------------------|----------|----------|----------
+ `x < y`             | `x <= y` | `x != y` | `false`
+ `x > y`             | `x >= y` | `x != y` | `false`
+ `x <= y`            | `x < y`  | `x == y` | `true`
+ `x >= y`            | `x > y`  | `x == y` | `true`
+ `x == y`            | `x <= y` | `x >= y` | `false`
+ `x != y`            | `x < y`  | `x > y`  | `true`
 
 ### Reduce Equivalens Mutants
 
 This is a simple schema that is type aware with the intention of reducing the number of equivalent mutants that are generated.
 
-1. If either side is a boolean type use the following schema instead:
+1. If both sides are boolean types use the following schema instead:
 
  Original Expression | Mutant 1 | Mutant 2
--------------------|------------|-----------
- `x == y`          | `x != y`   |  `false`
- `x != y`          | `x == y`   |  `true`
+---------------------|----------|----------
+ `x == y`            | `x != y` |  `false`
+ `x != y`            | `x == y` |  `true`
 
-2. If either side is a floating point type use the following schema instead:
+2. If both sides are floating point types use the following schema instead:
+
+TODO investigate Mutant 3. What should it be?
 
  Original Expression | Mutant 1 | Mutant 2 | Mutant 3
 -------------------|----------|----------|----------
@@ -80,6 +82,24 @@ This is a simple schema that is type aware with the intention of reducing the nu
  `x >= y`          | `x < y`  |          | `true`
  `x == y`          | `x <= y` | `x >= y` | `false`
  `x != y`          | `x < y`  | `x > y`  | `true`
+
+Note that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
+
+3. If both sides are enum types and the enum is the same use:
+
+ Original Expression | Mutant 1 | Mutant 2 | Mutant 3
+---------------------|----------|----------|----------
+ `x < y`             | `x <= y` | `x != y` | `false`
+ `x > y`             | `x >= y` | `x != y` | `false`
+ `x <= y`            | `x < y`  | `x == y` | `true` if y isn't the max enum literal
+ `x >= y`            | `x > y`  | `x == y` | `true` if x isn't the min enum literal
+ `x == y`            | `x <= y` if x isn't the min enum literal
+ `x == y`            | `x >= y` if y isn't the max enum literla
+ `x == y`            | `false`
+ `x != y`            | `x < y` if x isn't the min enum literal
+ `x != y`            | `x > y` if y isn't the max enum literal
+ `x != y`            | `true`
+
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
@@ -250,7 +270,7 @@ The intention is to require the test suite to check the output.
 
 This is only needed for switch statements.
 It deletes case branch in a switch statement.
-It is equivalent as decision coverage that is set to *false*.
+It is equivalent to the DCC mutation for predicates (decision) that is set to *false*.
 
 Motivation why it is equivalent.
 
@@ -263,7 +283,7 @@ default: y = 3; break;
 }
 ```
 
-It can be rewritten as (assuming the compiler do the simplest transformation):
+It can be rewritten as:
 ```cpp
 if (x == A) { y = 1; }
 else if (x == B) { y = 2; }
