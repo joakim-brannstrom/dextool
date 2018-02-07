@@ -116,12 +116,16 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * add an improved inspection "viewer"
+ * add functionality to "reset" the status of mutants that are alive/timeout/killed by compiler
+ * add an attribute to mutants so they can be marked as "inspected/equivalent"
+ * add support for configuration files
+ * Separate the *time* statistics for mutation testing to a separate chapter because when it is written at the same line it creates unnecessary git conflicts
  * split the total time spent on mutation testing in: compile and execute tests
  * the time spent on mutations should always be added to the existing time, not overwritten.
  * Write requirement for the automatic "reanalyze" of files that has changed
    compared to those in the database.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
  * Change name of stmtDel to SDL
- * Fix stmtDel
-    * a parenthesis too much is removed in the initialization list
- * implement boundary value for floating points.
+ * Fix sdl
+     It only implements function deletion. Which are "wrong" when inside a binary operator.
