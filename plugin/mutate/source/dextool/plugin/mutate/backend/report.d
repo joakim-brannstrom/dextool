@@ -41,9 +41,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
 
         genrep.locationStatEvent;
 
-        genrep.statStartEvent;
         genrep.statEvent(db);
-        genrep.statEndEvent;
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -114,16 +112,8 @@ struct ReportGenerator {
         listeners.each!(a => a.locationStatEvent);
     }
 
-    void statStartEvent() {
-        listeners.each!(a => a.statStartEvent);
-    }
-
     void statEvent(ref Database db) {
         listeners.each!(a => a.statEvent(db));
-    }
-
-    void statEndEvent() {
-        listeners.each!(a => a.statEndEvent);
     }
 }
 
@@ -153,25 +143,33 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
         const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
             : 0.dur!"msecs";
 
+        // execution time
         if (untested_cnt > 0 && predicted > 0.dur!"msecs")
             item.writefln("Predicted time until mutation testing is done: %s (%s)",
                     predicted, Clock.currTime + predicted);
+        item.writefln("%-*s %s", align_ * 4, "Mutation execution time:", total_time);
+        if (!killed_by_compiler.isNull)
+            item.tracef("%-*s %s", align_ * 4, "Mutants killed by compiler:",
+                    killed_by_compiler.time);
+
+        item.writeln("");
+
+        // mutation score and details
         if (!untested.isNull && untested.count > 0)
             item.writefln("Untested: %s", untested.count);
         if (!alive.isNull)
-            item.writefln("%-*s %-*s (%s)", align_, "Alive:", align_, alive.count, alive.time);
+            item.writefln("%-*s %-*s", align_, "Alive:", align_, alive.count);
         if (!killed.isNull)
-            item.writefln("%-*s %-*s (%s)", align_, "Killed:", align_, killed.count, killed.time);
+            item.writefln("%-*s %-*s", align_, "Killed:", align_, killed.count);
         if (!timeout.isNull)
-            item.writefln("%-*s %-*s (%s)", align_, "Timeout:", align_,
-                    timeout.count, timeout.time);
-        item.writefln("%-*s %-*s (%s)", align_, "Total:", align_, total_cnt, total_time);
+            item.writefln("%-*s %-*s", align_, "Timeout:", align_, timeout.count);
+        item.writefln("%-*s %-*s", align_, "Total:", align_, total_cnt);
         if (total_cnt > 0)
             item.writefln("%-*s %-*s", align_, "Score:", align_,
                     cast(double) killed_cnt / cast(double) total_cnt);
         if (!killed_by_compiler.isNull)
-            item.tracef("%-*s %-*s (%s)", align_, "Killed by compiler:",
-                    align_, killed_by_compiler.count, killed_by_compiler.time);
+            item.tracef("%-*s %-*s", align_, "Killed by compiler:", align_,
+                    killed_by_compiler.count);
     }
     catch (Exception e) {
         logger.warning(e.msg).collectException;
@@ -413,9 +411,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     void locationEvent(ref Row);
     void locationEndEvent();
     void locationStatEvent();
-    void statStartEvent();
     void statEvent(ref Database db);
-    void statEndEvent();
 }
 
 /** Report mutations in a format easily readable by a human.
@@ -556,18 +552,13 @@ string toInternal(ubyte[] data) @safe nothrow {
         }
     }
 
-    override void statStartEvent() {
-        markdown_sum = markdown.heading("Summary");
-    }
-
     override void statEvent(ref Database db) {
+        markdown_sum = markdown.heading("Summary");
+
         markdown_sum.beginSyntaxBlock;
         reportStatistics(db, kinds, markdown_sum);
         markdown_sum.endSyntaxBlock;
 
-    }
-
-    override void statEndEvent() {
         markdown_sum.popHeading;
     }
 }
@@ -676,13 +667,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     override void locationStatEvent() {
     }
 
-    override void statStartEvent() {
-    }
-
     override void statEvent(ref Database db) {
-    }
-
-    override void statEndEvent() {
     }
 }
 
