@@ -78,13 +78,15 @@ The report shall contain a summary of the mutation testing.
 
 The summary shall contain the following information:
  * number of untested mutants
- * number of alive/kiled/timeout mutants
+ * number of alive/killed/timeout mutants
  * the sum of the mutants (alive+killed+timeout)
  * the mutation score
  * the time spent on testing alive/killed/timeout mutants in a human readable format (days/hours/minutes/seconds...)
  * the total time spent on mutation testing
 
 The plugin shall calculate a prediction as a date and absolute time for when the current running mutation is done when producing a report and there are any mutants left to test.
+
+The summary shall contain mutation metrics of the time spent on mutation testing.
 
 ## Alive
 
@@ -93,7 +95,6 @@ The report shall contain the location of alive mutations.
 A location for a mutant shall containg the following information:
  * the mutation ID
  * the status of the mutant (alive, unknown etc)
- * the kind of mutant (ror negation etc)
  * the file location
     * the path to the file
     * the line and column
@@ -103,6 +104,17 @@ The summary shall be the last section in the report.
 **Note**: See ## Summary for the specification of the content
 
 **Rationale**: This requirement is based on the assumption that the user is first interested in reading the summary of the mutation testing. By printing the summary last the user do not have to scroll in the console. This is though inverted if the user renders the markdown report as a webpage. Then the user probably want the summary at the top.
+
+### Alive Statistics
+
+The report shall contain the statistics of the alive mutations.
+
+The statistics shall on the original -> mutation:
+ * total of that kind
+ * percentage of the total
+ * textual description of from -> to
+
+The statistics shall be sorted by the count column.
 
 ## Full
 
