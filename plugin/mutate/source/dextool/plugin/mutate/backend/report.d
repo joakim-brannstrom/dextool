@@ -41,9 +41,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
 
         genrep.locationStatEvent;
 
-        genrep.statStartEvent;
         genrep.statEvent(db);
-        genrep.statEndEvent;
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -114,16 +112,8 @@ struct ReportGenerator {
         listeners.each!(a => a.locationStatEvent);
     }
 
-    void statStartEvent() {
-        listeners.each!(a => a.statStartEvent);
-    }
-
     void statEvent(ref Database db) {
         listeners.each!(a => a.statEvent(db));
-    }
-
-    void statEndEvent() {
-        listeners.each!(a => a.statEndEvent);
     }
 }
 
@@ -413,9 +403,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     void locationEvent(ref Row);
     void locationEndEvent();
     void locationStatEvent();
-    void statStartEvent();
     void statEvent(ref Database db);
-    void statEndEvent();
 }
 
 /** Report mutations in a format easily readable by a human.
@@ -556,18 +544,13 @@ string toInternal(ubyte[] data) @safe nothrow {
         }
     }
 
-    override void statStartEvent() {
-        markdown_sum = markdown.heading("Summary");
-    }
-
     override void statEvent(ref Database db) {
+        markdown_sum = markdown.heading("Summary");
+
         markdown_sum.beginSyntaxBlock;
         reportStatistics(db, kinds, markdown_sum);
         markdown_sum.endSyntaxBlock;
 
-    }
-
-    override void statEndEvent() {
         markdown_sum.popHeading;
     }
 }
@@ -676,13 +659,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     override void locationStatEvent() {
     }
 
-    override void statStartEvent() {
-    }
-
     override void statEvent(ref Database db) {
-    }
-
-    override void statEndEvent() {
     }
 }
 
