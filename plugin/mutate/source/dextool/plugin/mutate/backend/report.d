@@ -158,18 +158,17 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
         if (!untested.isNull && untested.count > 0)
             item.writefln("Untested: %s", untested.count);
         if (!alive.isNull)
-            item.writefln("%-*s %-*s", align_, "Alive:", align_, alive.count);
+            item.writefln("%-*s %s", align_, "Alive:", alive.count);
         if (!killed.isNull)
-            item.writefln("%-*s %-*s", align_, "Killed:", align_, killed.count);
+            item.writefln("%-*s %s", align_, "Killed:", killed.count);
         if (!timeout.isNull)
-            item.writefln("%-*s %-*s", align_, "Timeout:", align_, timeout.count);
-        item.writefln("%-*s %-*s", align_, "Total:", align_, total_cnt);
+            item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
+        item.writefln("%-*s %s", align_, "Total:", total_cnt);
         if (total_cnt > 0)
-            item.writefln("%-*s %-*s", align_, "Score:", align_,
+            item.writefln("%-*s %s", align_, "Score:",
                     cast(double) killed_cnt / cast(double) total_cnt);
         if (!killed_by_compiler.isNull)
-            item.tracef("%-*s %-*s", align_, "Killed by compiler:", align_,
-                    killed_by_compiler.count);
+            item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
     }
     catch (Exception e) {
         logger.warning(e.msg).collectException;
