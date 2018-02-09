@@ -187,7 +187,6 @@ void reportMutationSubtypeStats(ReportT)(
     import std.range : take;
     import std.typecons : Tuple;
 
-    // mutation with a count of 1 isn't interesting to show because it adds a lot of noise
     // trusted because it is marked as @safe in dmd-2.078.1
     // TODO remove this trusted when upgrading the minimal compiler
     // can be simplified to:
