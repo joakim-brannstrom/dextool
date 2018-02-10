@@ -32,18 +32,8 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
             rval = Rval([rorGT, rorEQ], rorTrue);
         } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
             rval = Rval([rorLE, rorGE], rorFalse);
-            if (tyi == OpTypeInfo.enumLhsIsMin) {
-                rval.op = [rorGE];
-            } else if (tyi == OpTypeInfo.enumRhsIsMax) {
-                rval.op = [rorLE];
-            }
         } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
             rval = Rval([rorLT, rorGT], rorTrue);
-            if (tyi == OpTypeInfo.enumLhsIsMin) {
-                rval.op = [rorGT];
-            } else if (tyi == OpTypeInfo.enumRhsIsMax) {
-                rval.op = [rorLT];
-            }
         }
     }
 
@@ -79,6 +69,9 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
                 }
             }
         }
+    }
+
+    void pointerSchema() {
     }
 
     if (tyi == OpTypeInfo.floatingPoint)
