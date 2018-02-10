@@ -24,8 +24,7 @@ import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
 
-/**
- * TODO add nothrow
+/** Test mutations.
  *
  * Params:
  *  tester = a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
