@@ -63,6 +63,8 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
             return [EnumMembers!(Mutation.Kind)];
         case ror:
             return rorMutationsAll.dup;
+        case rorp:
+            return rorpMutationsAll.dup;
         case lcr:
             return lcrMutationsAll.dup;
         case aor:

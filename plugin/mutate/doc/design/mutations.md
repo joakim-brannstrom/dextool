@@ -137,10 +137,14 @@ Normally an enum can't be *less than* the lowest enum literal of that type thus 
 partof: SPC-plugin_mutate_mutation_ror
 ###
 
-This schema is only applicable when type of the expressions on both sides of an operator are floating point type.
+This schema is only applicable when type of the expressions either sides is a pointer type.
 
-| Original Expression | Mutant 1 | Mutant 2 |
-| ------------------- | -------- | -------- |
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | -------- |
+| `x < y`             | `x <= y` | `x != y` | `false`  |
+| `x > y`             | `x >= y` | `x != y` | `false`  |
+| `x <= y`            | `x < y`  | `x == y` | `true`   |
+| `x >= y`            | `x > y`  | `x == y` | `true`   |
 | `x == y`            | `x != y` | `false`  |
 | `x != y`            | `x == y` | `true`   |
 
@@ -150,7 +154,7 @@ The goal is to reduce the number of undesired mutants when the user of the plugi
 
 Design knowledge: Do the program use such C++ constructs that guarantee memory address order and use this guarantees?
 
-This schema can't replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
+This schema can't fully replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations

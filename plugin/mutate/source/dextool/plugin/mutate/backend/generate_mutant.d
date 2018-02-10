@@ -172,23 +172,34 @@ auto makeMutation(Mutation.Kind kind) {
     case none:
         break;
         /// Relational operator replacement
-        /// #SPC-plugin_mutate_mutation_ror
     case rorLT:
+        goto case;
+    case rorpLT:
         m.mutate = (const(char)[] expr) { return ("<"); };
         break;
     case rorLE:
+        goto case;
+    case rorpLE:
         m.mutate = (const(char)[] expr) { return "<="; };
         break;
     case rorGT:
+        goto case;
+    case rorpGT:
         m.mutate = (const(char)[] expr) { return ">"; };
         break;
     case rorGE:
+        goto case;
+    case rorpGE:
         m.mutate = (const(char)[] expr) { return ">="; };
         break;
     case rorEQ:
+        goto case;
+    case rorpEQ:
         m.mutate = (const(char)[] expr) { return "=="; };
         break;
     case rorNE:
+        goto case;
+    case rorpNE:
         m.mutate = (const(char)[] expr) { return "!="; };
         break;
     case rorTrue:
