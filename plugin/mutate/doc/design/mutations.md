@@ -50,14 +50,14 @@ four.
 
 Mutation subsuming table from [@thesis1]:
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
----------------------|----------|----------|----------
- `x < y`             | `x <= y` | `x != y` | `false`
- `x > y`             | `x >= y` | `x != y` | `false`
- `x <= y`            | `x < y`  | `x == y` | `true`
- `x >= y`            | `x > y`  | `x == y` | `true`
- `x == y`            | `x <= y` | `x >= y` | `false`
- `x != y`            | `x < y`  | `x > y`  | `true`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+|---------------------|----------|----------|----------|
+| `x < y`             | `x <= y` | `x != y` | `false`  |
+| `x > y`             | `x >= y` | `x != y` | `false`  |
+| `x <= y`            | `x < y`  | `x == y` | `true`   |
+| `x >= y`            | `x > y`  | `x == y` | `true`   |
+| `x == y`            | `x <= y` | `x >= y` | `false`  |
+| `x != y`            | `x < y`  | `x > y`  | `true`   |
 
 ### Reduce Equivalens Mutants
 
@@ -65,49 +65,47 @@ This is a simple schema that is type aware with the intention of reducing the nu
 
 1. If both sides are boolean types use the following schema instead:
 
- Original Expression | Mutant 1 | Mutant 2
----------------------|----------|----------
- `x == y`            | `x != y` |  `false`
- `x != y`            | `x == y` |  `true`
+| Original Expression | Mutant 1 | Mutant 2 |
+| ------------------- | -------- | -------- |
+| `x == y`            | `x != y` |  `false` |
+| `x != y`            | `x == y` |  `true`  |
 
 2. If both sides are floating point types use the following schema instead:
 
 TODO investigate Mutant 3. What should it be?
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
--------------------|----------|----------|----------
- `x < y`           | `x > y`  |          | `false`
- `x > y`           | `x < y`  |          | `false`
- `x <= y`          | `x > y`  |          | `true`
- `x >= y`          | `x < y`  |          | `true`
- `x == y`          | `x <= y` | `x >= y` | `false`
- `x != y`          | `x < y`  | `x > y`  | `true`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | ---------- |
+| `x < y`             | `x > y`  |          | `false`    |
+| `x > y`             | `x < y`  |          | `false`    |
+| `x <= y`            | `x > y`  |          | `true`     |
+| `x >= y`            | `x < y`  |          | `true`     |
+| `x == y`            | `x <= y` | `x >= y` | `false`    |
+| `x != y`            | `x < y`  | `x > y`  | `true`     |
 
 Note that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
 
 3. If both sides are enum types and the enum is the same use:
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
----------------------|----------|----------|----------
- `x < y`             | `x <= y` | `x != y` | `false`
- `x > y`             | `x >= y` | `x != y` | `false`
- `x <= y`            | `x < y`  | `x == y` | `true`
- `x >= y`            | `x > y`  | `x == y` | `true`
- `x == y`            | `x <= y` if x isn't the min enum literal
- `x == y`            | `x >= y` if y isn't the max enum literal
- `x == y`            | `false`
- `x != y`            | `x < y` if x isn't the min enum literal
- `x != y`            | `x > y` if y isn't the max enum literal
- `x != y`            | `true`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3               |
+| ------------------- | -------- | -------- | ---------------------- |
+| `x < y`             | `x <= y` | `x != y` | `false`                |
+| `x > y`             | `x >= y` | `x != y` | `false`                |
+| `x <= y`            | `x < y`  | `x == y` | `true`                 |
+| `x >= y`            | `x > y`  | `x == y` | `true`                 |
+| `x == y`            | `x <= y` if x isn't the min enum literal     |
+| `x == y`            | `x >= y` if y isn't the max enum literal     |
+| `x == y`            | `false`                                      |
+| `x != y`            | `x < y` if x isn't the min enum literal      |
+| `x != y`            | `x > y` if y isn't the max enum literal      |
+| `x != y`            | `true`                                       |
 
 4. If both sides are pointer type use:
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
----------------------|----------|----------|----------
- `x == y`            | `x != y` | `false`
- `x != y`            | `x == y` | `true`
-
-some text to break the table.
+| Original Expression | Mutant 1 | Mutant 2 |
+| ------------------- | -------- | -------- |
+| `x == y`            | `x != y` | `false`  |
+| `x != y`            | `x == y` | `true`   |
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
@@ -216,10 +214,10 @@ See [@conf:1, p. 2].
 >  * true : Always evaluate to the boolean value true
 >  * false : Always evaluate to the boolean value false
 
-Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4
---------------------|----------|----------|----------|---------
- `a && b`           | `false`  | `a`      | `b`      | `a == b`
- `a || b`           | `true`   | `a`      | `b`      | `a != b`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4 |
+| ------------------- | -------- | -------- | -------- | -------- |
+| `a && b`            | `false`  | `a`      | `b`      | `a == b` |
+| `a || b`            | `true`   | `a`      | `b`      | `a != b` |
 
 
 # SPC-plugin_mutate_mutation_dcc
