@@ -33,6 +33,10 @@ partof: REQ-plugin_mutate-mutations
 
 The plugin shall mutate the relational operators according to the RORG schema.
 
+The plugin shall use the *floating point RORG schema* when both sides are floating points.
+
+**Note**: See [[SPC-plugin_mutate_mutation_ror_float]].
+
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
 
@@ -70,21 +74,6 @@ This is a simple schema that is type aware with the intention of reducing the nu
 | `x == y`            | `x != y` |  `false` |
 | `x != y`            | `x == y` |  `true`  |
 
-2. If both sides are floating point types use the following schema instead:
-
-TODO investigate Mutant 3. What should it be?
-
-| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
-| ------------------- | -------- | -------- | ---------- |
-| `x < y`             | `x > y`  |          | `false`    |
-| `x > y`             | `x < y`  |          | `false`    |
-| `x <= y`            | `x > y`  |          | `true`     |
-| `x >= y`            | `x < y`  |          | `true`     |
-| `x == y`            | `x <= y` | `x >= y` | `false`    |
-| `x != y`            | `x < y`  | `x > y`  | `true`     |
-
-Note that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
-
 3. If both sides are enum types and the enum is the same use:
 
 | Original Expression | Mutant 1 | Mutant 2 | Mutant 3               |
@@ -106,6 +95,33 @@ Note that `==` and `!=` isn't changed compared to the original mutation schema b
 | ------------------- | -------- | -------- |
 | `x == y`            | `x != y` | `false`  |
 | `x != y`            | `x == y` | `true`   |
+
+# SPC-plugin_mutate_mutation_ror_float
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+This schema is only applicable when both the type of the expressions on both sides of an operator are of floating point type.
+
+TODO investigate Mutant 3. What should it be?
+
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | ---------- |
+| `x < y`             | `x > y`  |          | `false`    |
+| `x > y`             | `x < y`  |          | `false`    |
+| `x <= y`            | `x > y`  |          | `true`     |
+| `x >= y`            | `x < y`  |          | `true`     |
+| `x == y`            | `x <= y` | `x >= y` | `false`    |
+| `x != y`            | `x < y`  | `x > y`  | `true`     |
+
+*Note*: that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
+
+## Why?
+
+The goal is to reduce the number of *undesired* mutants.
+
+Strict equal is not recommended to ever use for floating point numbers. Because of this the test suite is probably not designed to catch these type of mutations which lead to *undesired* mutants. They are *techincally* not equivalent but they aren't supposed to be cought because the SUT is never supposed to do these type of operations.
+
+TODO empirical evidence needed to demonstrate how much the undesired mutations are reduced.
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
