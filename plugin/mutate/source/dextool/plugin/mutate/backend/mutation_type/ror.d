@@ -24,24 +24,12 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
     with (Mutation.Kind) {
         if (op.among(OpKind.LT, OpKind.OO_Less)) {
             rval = Rval([rorLE, rorNE], rorFalse);
-            if (tyi == OpTypeInfo.floatingPoint) {
-                rval.op = [rorGT];
-            }
         } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
             rval = Rval([rorGE, rorNE], rorFalse);
-            if (tyi == OpTypeInfo.floatingPoint) {
-                rval.op = [rorLT];
-            }
         } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
             rval = Rval([rorLT, rorEQ], rorTrue);
-            if (tyi == OpTypeInfo.floatingPoint) {
-                rval.op = [rorGT];
-            }
         } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
             rval = Rval([rorGT, rorEQ], rorTrue);
-            if (tyi == OpTypeInfo.floatingPoint) {
-                rval.op = [rorLT];
-            }
         } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
             rval = Rval([rorLE, rorGE], rorFalse);
             if (tyi == OpTypeInfo.enumLhsIsMin) {
@@ -58,6 +46,45 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
             }
         }
     }
+
+    // #SPC-plugin_mutate_mutation_ror_float
+    void floatingPointSchema() {
+        with (Mutation.Kind) {
+            if (op.among(OpKind.LT, OpKind.OO_Less)) {
+                rval.op = [rorGT];
+            } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
+                rval.op = [rorLT];
+            } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
+                rval.op = [rorGT];
+            } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
+                rval.op = [rorLT];
+            }
+        }
+    }
+
+    // #SPC-plugin_mutate_mutation_ror_enum
+    void enumSchema() {
+        with (Mutation.Kind) {
+            if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
+                if (tyi == OpTypeInfo.enumLhsIsMin) {
+                    rval.op = [rorGE];
+                } else if (tyi == OpTypeInfo.enumRhsIsMax) {
+                    rval.op = [rorLE];
+                }
+            } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
+                if (tyi == OpTypeInfo.enumLhsIsMin) {
+                    rval.op = [rorGT];
+                } else if (tyi == OpTypeInfo.enumRhsIsMax) {
+                    rval.op = [rorLT];
+                }
+            }
+        }
+    }
+
+    if (tyi == OpTypeInfo.floatingPoint)
+        floatingPointSchema();
+    else if (tyi.among(OpTypeInfo.enumLhsIsMin, OpTypeInfo.enumRhsIsMax))
+        enumSchema();
 
     return rval;
 }
