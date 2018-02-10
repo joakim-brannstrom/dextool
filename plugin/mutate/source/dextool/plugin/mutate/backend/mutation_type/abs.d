@@ -10,7 +10,6 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.mutation_type.abs;
 
 import dextool.plugin.mutate.backend.type;
-import dextool.clang_extensions : OpKind;
 
 Mutation.Kind[] absMutations() @safe pure nothrow {
     return absMutationsRaw.dup;

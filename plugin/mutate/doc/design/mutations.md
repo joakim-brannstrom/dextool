@@ -426,19 +426,21 @@ partof: SPC-plugin_mutate_mutation_aor
 ops = {+,-,/,%,*}
 ```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_lcr
 partof: SPC-plugin_mutate_mutation_lcr
 ###
 
-ops = {&&,||}
+```
+ops = {&&, ||}
+```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_ror
 partof: SPC-plugin_mutate_mutation_ror
@@ -448,19 +450,21 @@ partof: SPC-plugin_mutate_mutation_ror
 ops = {<,<=,>,>=,==,!=}
 ```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_cor
 partof: SPC-plugin_mutate_mutation_cor
 ###
 
-ops = {&&,||}
+```
+ops = {&&, ||}
+```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_dcc
 partof: SPC-plugin_mutate_mutation_dcc
@@ -493,4 +497,4 @@ Expected result for *switchstmt*.
 
 Expected result for *ifstmt*.
 
-Note: For the one clause case only ONE mutation point shall be generated.
+**Note**: For the one clause case only ONE mutation point shall be generated.

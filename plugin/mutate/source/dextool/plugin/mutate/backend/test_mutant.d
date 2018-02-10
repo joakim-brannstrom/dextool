@@ -511,10 +511,14 @@ nothrow:
     }
 
     void storeResult() {
+        import dextool.plugin.mutate.backend.mutation_type : broadcast;
+
         driver_sig = MutationDriverSignal.stop;
 
         try {
-            db.updateMutation(mutp.id, mut_status, sw.peek);
+            auto bcast = broadcast(mutp.mp.mutations[0].kind);
+
+            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, bcast);
             driver_sig = MutationDriverSignal.next;
             logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }

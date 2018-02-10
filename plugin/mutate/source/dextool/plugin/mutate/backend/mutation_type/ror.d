@@ -20,6 +20,13 @@ import dextool.clang_extensions : OpKind;
  *  op = the c/c++ operator in the AST
  *  tyi = type info about the expressions on the sides of the operator
  *
+ * The resulting schema is intended to be:
+ * normal + pointer - float - enum
+ *
+ * The schema when used is:
+ * ror = normal - float - enum
+ * rorp = pointer - float - enum
+ *
  * See SPC-plugin_mutate_mutation_ror for the subsumed table.
  */
 auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {

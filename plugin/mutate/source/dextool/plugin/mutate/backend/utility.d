@@ -14,15 +14,7 @@ import std.algorithm : filter;
 import dextool.type : Path, AbsolutePath;
 
 public import dextool.plugin.mutate.backend.type;
-public import dextool.plugin.mutate.backend.mutation_type.abs;
-public import dextool.plugin.mutate.backend.mutation_type.aor;
-public import dextool.plugin.mutate.backend.mutation_type.cor;
-public import dextool.plugin.mutate.backend.mutation_type.dcc;
-public import dextool.plugin.mutate.backend.mutation_type.dcr;
-public import dextool.plugin.mutate.backend.mutation_type.lcr;
-public import dextool.plugin.mutate.backend.mutation_type.ror;
-public import dextool.plugin.mutate.backend.mutation_type.sdl;
-public import dextool.plugin.mutate.backend.mutation_type.uoi;
+public import dextool.plugin.mutate.backend.mutation_type;
 public import dextool.clang_extensions : OpKind;
 
 Path trustedRelativePath(string p, AbsolutePath root) @trusted {
