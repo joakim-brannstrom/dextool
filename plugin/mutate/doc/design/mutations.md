@@ -100,6 +100,13 @@ Note that `==` and `!=` isn't changed compared to the original mutation schema b
  `x != y`            | `x > y` if y isn't the max enum literal
  `x != y`            | `true`
 
+4. If both sides are pointer type use:
+
+ Original Expression | Mutant 1 | Mutant 2 | Mutant 3
+---------------------|----------|----------|----------
+ `x == y`            | `x != y` | `false`
+ `x != y`            | `x == y` | `true`
+
 some text to break the table.
 
 # SPC-plugin_mutate_mutation_aor
