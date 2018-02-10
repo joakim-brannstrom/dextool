@@ -38,6 +38,7 @@ immutable Mutation.Kind[OpKind] isCor;
 immutable Mutation.Kind[] corMutationsRaw;
 
 shared static this() {
+    // dfmt off
     with (OpKind) {
     isCor = cast(immutable)
         [
@@ -47,6 +48,7 @@ shared static this() {
         OO_PipePipe: Mutation.Kind.corOr, // "||"
         ];
     }
+    // dfmt on
 
     with (Mutation.Kind) {
         corMutationsRaw = [corFalse, corLhs, corRhs, corEQ, corNE, corTrue];
