@@ -28,6 +28,7 @@ immutable Mutation.Kind[OpKind] isAorAssign;
 immutable Mutation.Kind[] aorMutationsAll;
 immutable Mutation.Kind[] aorAssignMutationsAll;
 shared static this() {
+    // dfmt off
     with (OpKind) {
     isAor = cast(immutable)
         [
@@ -57,6 +58,7 @@ shared static this() {
         OO_PercentEqual: Mutation.Kind.aorRemAssign, // "%="
         ];
     }
+    // dfmt on
 
     with (Mutation.Kind) {
         aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub,];

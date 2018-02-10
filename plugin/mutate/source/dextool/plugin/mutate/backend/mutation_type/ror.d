@@ -67,6 +67,7 @@ immutable Mutation.Kind[OpKind] isRor;
 immutable Mutation.Kind[] rorMutationsAll;
 
 shared static this() {
+    // dfmt off
     with (OpKind) {
     isRor = cast(immutable)
         [
@@ -84,6 +85,7 @@ shared static this() {
         OO_GreaterEqual: Mutation.Kind.rorGE, // ">="
         ];
     }
+    // dfmt on
 
     with (Mutation.Kind) {
         rorMutationsAll = [rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE, rorTrue, rorFalse];

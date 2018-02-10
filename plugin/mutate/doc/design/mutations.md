@@ -33,6 +33,18 @@ partof: REQ-plugin_mutate-mutations
 
 The plugin shall mutate the relational operators according to the RORG schema.
 
+The plugin shall use the *floating point RORG schema* when the type of the expressions on both sides of the operator are floating point types.
+
+**Note**: See [[SPC-plugin_mutate_mutation_ror_float]].
+
+The plugin shall use the *enum RORG schema* when the type of the expressions on both sides of the operator are enums and of the same enum type.
+
+**Note**: See [[SPC-plugin_mutate_mutation_ror_enum]]
+
+The plugin shall use the *pointer RORG schema* when the type of the expressions on both sides of the operator are pointer types and the mutation type is RORP.
+
+**Note**: See [[SPC-plugin_mutate_mutation_ror_ptr]]
+
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
 
@@ -50,14 +62,14 @@ four.
 
 Mutation subsuming table from [@thesis1]:
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
----------------------|----------|----------|----------
- `x < y`             | `x <= y` | `x != y` | `false`
- `x > y`             | `x >= y` | `x != y` | `false`
- `x <= y`            | `x < y`  | `x == y` | `true`
- `x >= y`            | `x > y`  | `x == y` | `true`
- `x == y`            | `x <= y` | `x >= y` | `false`
- `x != y`            | `x < y`  | `x > y`  | `true`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+|---------------------|----------|----------|----------|
+| `x < y`             | `x <= y` | `x != y` | `false`  |
+| `x > y`             | `x >= y` | `x != y` | `false`  |
+| `x <= y`            | `x < y`  | `x == y` | `true`   |
+| `x >= y`            | `x > y`  | `x == y` | `true`   |
+| `x == y`            | `x <= y` | `x >= y` | `false`  |
+| `x != y`            | `x < y`  | `x > y`  | `true`   |
 
 ### Reduce Equivalens Mutants
 
@@ -65,42 +77,80 @@ This is a simple schema that is type aware with the intention of reducing the nu
 
 1. If both sides are boolean types use the following schema instead:
 
- Original Expression | Mutant 1 | Mutant 2
----------------------|----------|----------
- `x == y`            | `x != y` |  `false`
- `x != y`            | `x == y` |  `true`
+| Original Expression | Mutant 1 | Mutant 2 |
+| ------------------- | -------- | -------- |
+| `x == y`            | `x != y` |  `false` |
+| `x != y`            | `x == y` |  `true`  |
 
-2. If both sides are floating point types use the following schema instead:
+# SPC-plugin_mutate_mutation_ror_float
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+This schema is only applicable when the type of the expressions on both sides of an operator are of floating point type.
 
 TODO investigate Mutant 3. What should it be?
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
--------------------|----------|----------|----------
- `x < y`           | `x > y`  |          | `false`
- `x > y`           | `x < y`  |          | `false`
- `x <= y`          | `x > y`  |          | `true`
- `x >= y`          | `x < y`  |          | `true`
- `x == y`          | `x <= y` | `x >= y` | `false`
- `x != y`          | `x < y`  | `x > y`  | `true`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | ---------- |
+| `x < y`             | `x > y`  |          | `false`    |
+| `x > y`             | `x < y`  |          | `false`    |
+| `x <= y`            | `x > y`  |          | `true`     |
+| `x >= y`            | `x < y`  |          | `true`     |
+| `x == y`            | `x <= y` | `x >= y` | `false`    |
+| `x != y`            | `x < y`  | `x > y`  | `true`     |
 
-Note that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
+*Note*: that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
 
-3. If both sides are enum types and the enum is the same use:
+## Why?
 
- Original Expression | Mutant 1 | Mutant 2 | Mutant 3
----------------------|----------|----------|----------
- `x < y`             | `x <= y` | `x != y` | `false`
- `x > y`             | `x >= y` | `x != y` | `false`
- `x <= y`            | `x < y`  | `x == y` | `true`
- `x >= y`            | `x > y`  | `x == y` | `true`
- `x == y`            | `x <= y` if x isn't the min enum literal
- `x == y`            | `x >= y` if y isn't the max enum literal
- `x == y`            | `false`
- `x != y`            | `x < y` if x isn't the min enum literal
- `x != y`            | `x > y` if y isn't the max enum literal
- `x != y`            | `true`
+The goal is to reduce the number of *undesired* mutants.
 
-some text to break the table.
+Strict equal is not recommended to ever use for floating point numbers. Because of this the test suite is probably not designed to catch these type of mutations which lead to *undesired* mutants. They are *techincally* not equivalent but they aren't supposed to be cought because the SUT is never supposed to do these type of operations.
+
+TODO empirical evidence needed to demonstrate how much the undesired mutations are reduced.
+
+# SPC-plugin_mutate_mutation_ror_enum
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+This schema is only applicable when type of the expressions on both sides of an operator are enums and the same enum type.
+
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3               |
+| ------------------- | -------- | -------- | ---------------------- |
+| `x < y`             | `x <= y` | `x != y` | `false`                |
+| `x > y`             | `x >= y` | `x != y` | `false`                |
+| `x <= y`            | `x < y`  | `x == y` | `true`                 |
+| `x >= y`            | `x > y`  | `x == y` | `true`                 |
+| `x == y`            | `x <= y` if x isn't the min enum literal     |
+| `x == y`            | `x >= y` if y isn't the max enum literal     |
+| `x == y`            | `false`                                      |
+| `x != y`            | `x < y` if x isn't the min enum literal      |
+| `x != y`            | `x > y` if y isn't the max enum literal      |
+| `x != y`            | `true`                                       |
+
+## Why?
+
+The goal is to reduce the number of equivalent mutants.
+Normally an enum can't be *less than* the lowest enum literal of that type thus the test suite can't possibly kill such a mutant.
+
+# SPC-plugin_mutate_mutation_ror_ptr
+partof: SPC-plugin_mutate_mutation_ror
+###
+
+This schema is only applicable when type of the expressions on both sides of an operator are floating point type.
+
+| Original Expression | Mutant 1 | Mutant 2 |
+| ------------------- | -------- | -------- |
+| `x == y`            | `x != y` | `false`  |
+| `x != y`            | `x == y` | `true`   |
+
+## Why?
+
+The goal is to reduce the number of undesired mutants when the user of the plugin has knowledge about the internal design of the program.
+
+Design knowledge: Do the program use such C++ constructs that guarantee memory address order and use this guarantees?
+
+This schema can't replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
@@ -209,10 +259,10 @@ See [@conf:1, p. 2].
 >  * true : Always evaluate to the boolean value true
 >  * false : Always evaluate to the boolean value false
 
-Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4
---------------------|----------|----------|----------|---------
- `a && b`           | `false`  | `a`      | `b`      | `a == b`
- `a || b`           | `true`   | `a`      | `b`      | `a != b`
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4 |
+| ------------------- | -------- | -------- | -------- | -------- |
+| `a && b`            | `false`  | `a`      | `b`      | `a == b` |
+| `a || b`            | `true`   | `a`      | `b`      | `a != b` |
 
 
 # SPC-plugin_mutate_mutation_dcc
