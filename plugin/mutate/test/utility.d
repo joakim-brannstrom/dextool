@@ -29,10 +29,10 @@ auto makeDextool(const ref TestEnv env) {
         .args(["mutate"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .addPostArg("--dry-run")
-        .addPostArg(["--mutant-order", "consecutive"])
-        .addPostArg(["--mutant-compile", "/bin/true"])
-        .addPostArg(["--mutant-test", "/bin/true"])
-        .addPostArg(["--mutant-test-runtime", "10000"]);
+        .addPostArg(["--order", "consecutive"])
+        .addPostArg(["--compile", "/bin/true"])
+        .addPostArg(["--test", "/bin/true"])
+        .addPostArg(["--test-timeout", "10000"]);
     // dfmt on
 }
 

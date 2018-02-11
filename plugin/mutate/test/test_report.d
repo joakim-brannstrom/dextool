@@ -41,8 +41,8 @@ unittest {
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "ror"])
-        .addArg(["--report", "compiler"])
-        .addArg(["--report-level", "all"])
+        .addArg(["--style", "compiler"])
+        .addArg(["--level", "all"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
@@ -67,8 +67,8 @@ unittest {
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "dcc"])
-        .addArg(["--report", "compiler"])
-        .addArg(["--report-level", "all"])
+        .addArg(["--style", "compiler"])
+        .addArg(["--level", "all"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([

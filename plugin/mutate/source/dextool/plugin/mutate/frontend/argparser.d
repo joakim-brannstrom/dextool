@@ -126,10 +126,10 @@ struct ArgParser {
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
                    "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "mutant-compile", "program to use to compile the mutant", &mutationCompile,
-                   "mutant-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
-                   "mutant-test", "program to use to execute the mutant tester", &mutationTester,
-                   "mutant-test-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
+                   "compile", "program to use to compile the mutant", &mutationCompile,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
+                   "test", "program to use to execute the mutant tester", &mutationTester,
+                   "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
                    );
             // dfmt on
         }
@@ -143,8 +143,8 @@ struct ArgParser {
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
                    "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "report", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
-                   "report-level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
                    );
             // dfmt on
         }
