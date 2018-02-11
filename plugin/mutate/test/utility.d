@@ -15,27 +15,34 @@ public import dextool_test.config;
 
 immutable defaultDb = "database.sqlite3";
 
+auto makeDextoolAnalyze(const ref TestEnv env) {
+    // dfmt off
+    return dextool_test.makeDextool(env)
+        .args(["mutate", "analyze"])
+        .addPostArg(["--db", (env.outdir ~ defaultDb).toString]);
+    // dfmt on
+}
+
 auto makeDextool(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
         .args(["mutate"])
-        .addArg(["--db", (env.outdir ~ defaultDb).toString])
-        .addArg("--dry-run")
-        .addArg(["--mutant-order", "consecutive"])
-        .addArg(["--mutant-compile", "/bin/true"])
-        .addArg(["--mutant-test", "/bin/true"])
-        .addArg(["--mutant-test-runtime", "10000"]);
+        .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
+        .addPostArg("--dry-run")
+        .addPostArg(["--mutant-order", "consecutive"])
+        .addPostArg(["--mutant-compile", "/bin/true"])
+        .addPostArg(["--mutant-test", "/bin/true"])
+        .addPostArg(["--mutant-test-runtime", "10000"]);
     // dfmt on
 }
 
 auto makeDextoolReport(const ref TestEnv env, Path test_data) {
     // dfmt off
     return dextool_test.makeDextool(env)
-        .args(["mutate"])
-        .addArg(["--db", (env.outdir ~ defaultDb).toString])
+        .args(["mutate", "report"])
+        .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .setWorkdir(test_data.toString)
-        .addArg(["--restrict", test_data.toString])
-        .addArg(["--mode", "report"]);
+        .addPostArg(["--restrict", test_data.toString]);
     // dfmt on
 }
 

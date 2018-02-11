@@ -15,12 +15,11 @@ import dextool_test.utility;
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "statement_deletion.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "sdl"])
         .run;
 }
@@ -29,12 +28,11 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "sdl_func_call.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "sdl"])
         .run;
 

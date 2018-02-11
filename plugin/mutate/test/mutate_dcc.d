@@ -14,12 +14,11 @@ import dextool_test.utility;
 @("shall produce 2 predicate mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "dcc_dc_ifstmt1.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
@@ -31,12 +30,11 @@ unittest {
 @("shall produce 4 predicate mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "dcc_dc_ifstmt2.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
@@ -54,12 +52,11 @@ unittest {
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ getValue!string)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
@@ -75,12 +72,11 @@ unittest {
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ getValue!string)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
@@ -106,12 +102,11 @@ unittest {
 @("shall produce 4 switch bomb mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "dcc_dc_switch1.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcc"])
         .run;
     testAnyOrder!SubStr([
@@ -125,12 +120,11 @@ unittest {
 @("shall produce 4 switch deletion mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "dcc_dc_switch1.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "dcr"])
         .run;
     testConsecutiveSparseOrder!SubStr([

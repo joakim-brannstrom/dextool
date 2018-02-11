@@ -13,12 +13,11 @@ import dextool_test.utility;
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "uoi.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "uoi"])
         .run;
 

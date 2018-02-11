@@ -16,11 +16,10 @@ import dextool_test.utility;
 @("shall report the content in the database as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
-    auto r = makeDextool(testEnv).addArg(["--mode", "report"]).run;
+    auto r = makeDextoolReport(testEnv, testData.dirName).run;
 
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
@@ -37,9 +36,8 @@ unittest {
 unittest {
     auto input_src = testData ~ "report_one_ror_mutation_point.cpp";
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(input_src)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "ror"])
@@ -64,9 +62,8 @@ unittest {
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(input_src)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "dcc"])

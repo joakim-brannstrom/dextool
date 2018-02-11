@@ -20,12 +20,11 @@ unittest {
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ getValue!string)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
     verifyRor(r.stdout);
@@ -64,12 +63,11 @@ void verifyRor(string[] txt) {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_float_primitive.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
     verifyFloatRor(r.stdout);
@@ -108,12 +106,11 @@ void verifyFloatRor(string[] txt) {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_enum_primitive.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
 
@@ -152,12 +149,11 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_pointer_primitive.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "rorp"])
         .run;
 
@@ -188,12 +184,11 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_pointer_return_value.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "rorp"])
         .run;
 
@@ -219,12 +214,11 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_bool_primitive.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
 
@@ -241,12 +235,11 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "ror_bool_return_value.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
 
