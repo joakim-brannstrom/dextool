@@ -20,7 +20,7 @@ It assumes the current directory is _build_ which is then located the google tes
 Create a database of all mutation points:
 ```sh
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
-dextool mutate --compile-db compile_commands.json --mode analyzer --restrict .. -- -D_POSIX_PATH_MAX=1024
+dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
 
 Reconfigure and prebuild with the tests activated:
@@ -51,11 +51,11 @@ chmod 755 compile.sh
 
 Start mutation testing!!!!:
 ```sh
-dextool mutate --mode test_mutants --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
+dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
 ```
 
-It is possible to run multiple `test_mutants` against the same database.
-Just make sure they don't interfere with each other.
+It is possible to run multiple `test` against the same database.
+Just make sure they don't mutate the same source code.
 
 ## Compiling Google Test with Coverage
 

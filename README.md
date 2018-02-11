@@ -24,7 +24,7 @@ The API of the generated code and how it behaves is stable.
 
 "C++ TestDouble" is nearing production quality.
 
-"Mutate" is under heavy development. [Further info](plugin/mutate/README.md)
+"Mutate" is in alpha phase. [Further info](plugin/mutate/README.md)
 
 # Getting Started
 
