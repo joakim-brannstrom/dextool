@@ -22,17 +22,18 @@ Mutation.Kind[] dccCaseMutations() @safe pure nothrow {
     return dccCaseMutationsRaw.dup;
 }
 
-immutable Mutation.Kind[OpKind] isDcc;
+immutable bool[OpKind] isDcc;
 immutable Mutation.Kind[] dccBranchMutationsRaw;
 immutable Mutation.Kind[] dccCaseMutationsRaw;
 
 shared static this() {
-    import std.algorithm : each;
-    import std.range : chain;
-
     with (OpKind) {
-        Mutation.Kind[OpKind] is_dcc;
-        chain(isLcr.byKeyValue, isRor.byKeyValue).each!(a => is_dcc[a.key] = a.value);
+        bool[OpKind] is_dcc;
+        foreach (k; isLcr.byKey)
+            is_dcc[k] = true;
+        foreach (k; isRor.byKey)
+            is_dcc[k] = true;
+
         isDcc = cast(immutable) is_dcc.dup;
     }
 

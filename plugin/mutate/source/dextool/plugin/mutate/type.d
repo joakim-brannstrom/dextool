@@ -15,6 +15,8 @@ enum MutationKind {
     any,
     /// Relational operator replacement
     ror,
+    /// Relational operator replacement for pointers
+    rorp,
     /// Logical connector replacement
     lcr,
     /// Arithmetic operator replacement

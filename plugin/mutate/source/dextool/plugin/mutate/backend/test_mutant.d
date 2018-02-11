@@ -24,8 +24,7 @@ import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
 
-/**
- * TODO add nothrow
+/** Test mutations.
  *
  * Params:
  *  tester = a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
@@ -512,10 +511,14 @@ nothrow:
     }
 
     void storeResult() {
+        import dextool.plugin.mutate.backend.mutation_type : broadcast;
+
         driver_sig = MutationDriverSignal.stop;
 
         try {
-            db.updateMutation(mutp.id, mut_status, sw.peek);
+            auto bcast = broadcast(mutp.mp.mutations[0].kind);
+
+            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, bcast);
             driver_sig = MutationDriverSignal.next;
             logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }

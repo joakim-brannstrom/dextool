@@ -116,6 +116,11 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * test mutants should check who the parent is. if the parent has changed since start it is an indication that the parent is killed and the mutation tester should stop running
+ * change the database schema to mutation -> mutation_subtype.
+        the subtype in turn have the kind and status.
+    the intention is to reduce the number of overlapping mutation testing and thus in the end reduce the execution time needed for testing all mutants.
+    such a change would make it possible to propagate the result of testing one mutation subtype to other subtypes that actually result in the same generated code.
  * add an improved inspection "viewer"
  * add functionality to "reset" the status of mutants that are alive/timeout/killed by compiler
  * add an attribute to mutants so they can be marked as "inspected/equivalent"

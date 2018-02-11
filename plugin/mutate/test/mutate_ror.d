@@ -104,7 +104,7 @@ void verifyFloatRor(string[] txt) {
     }
 }
 
-@("shall produce all ROR mutations according to the alternative schema when both types are enum type and one is an enum const declaration")
+@("shall produce all ROR mutations according to the enum schema when both types are enum type and one is an enum const declaration")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -145,5 +145,113 @@ unittest {
 
         "from '!=' to '<'",
         "from 'a != MyE::C' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to floating point schema when either type are pointers")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_pointer_primitive.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "rorp"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '!='",
+        "from 'a0 == a1' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'b0 != b1' to 'true'",
+
+        "from '==' to '!='",
+        "from 'c0 == 0' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'd0 != 0' to 'true'",
+
+        "from '==' to '<='",
+        "from '==' to '>='",
+        "from 'e0 == e1' to 'false'",
+
+        "from '!=' to '<'",
+        "from '!=' to '>'",
+        "from 'f0 != f1' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to floating point schema when either type are pointers")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_pointer_return_value.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "rorp"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '!='",
+        "from 'a0() == a1()' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'b0() != b1()' to 'true'",
+
+        "from '==' to '!='",
+        "from 'c0() == 0' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'd0() != 0' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to the bool schema when both types are bools")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_bool_primitive.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "ror"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '!='",
+        "from 'a0 == a1' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'b0 != b1' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to the bool schema when both functions return type is bool")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_bool_return_value.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "ror"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '!='",
+        "from 'a0() == a1()' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'b0() != b1()' to 'true'",
     ]).shouldBeIn(r.stdout);
 }

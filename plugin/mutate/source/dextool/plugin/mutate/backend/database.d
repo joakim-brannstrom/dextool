@@ -192,9 +192,48 @@ struct Database {
         stmt.execute;
     }
 
+    /** Update the status of a mutant and broadcast the status to other mutants at that point.
+     *
+     * Params:
+     *  bcast = mutants to broadcast the status to in addition to the id
+     */
+    void updateMutationBroadcast(MutationId id, Mutation.Status st, Duration d,
+            Mutation.Kind[] bcast) @trusted {
+        import std.algorithm : map;
+        import std.format : format;
+
+        if (bcast.length == 1) {
+            updateMutation(id, st, d);
+            return;
+        }
+
+        auto stmt = db.prepare("SELECT mp_id FROM mutation WHERE id=:id");
+        stmt.bind(":id", id.to!long);
+        auto res = stmt.execute;
+
+        if (res.empty)
+            return;
+        long mp_id = res.front.peek!long(0);
+
+        stmt = db.prepare(format("SELECT id FROM mutation WHERE mp_id=:id AND kind IN (%(%s,%))",
+                bcast.map!(a => cast(int) a)));
+        stmt.bind(":id", mp_id);
+        res = stmt.execute;
+
+        if (res.empty)
+            return;
+
+        stmt = db.prepare(format("UPDATE mutation SET status=:st,time=:time WHERE id IN (%(%s,%))",
+                res.map!(a => a.peek!long(0))));
+        stmt.bind(":st", st.to!long);
+        stmt.bind(":time", d.total!"msecs");
+        stmt.execute;
+    }
+
     /** Get the next mutation point + 1 mutant for it that has status unknown.
      *
      * TODO to run many instances in parallel the mutation should be locked.
+     * TODO remove nothrow or add a retry-loop
      *
      * The chosen point is randomised.
      *

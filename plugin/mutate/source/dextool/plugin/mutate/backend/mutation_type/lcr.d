@@ -23,13 +23,16 @@ immutable Mutation.Kind[OpKind] isLcr;
 immutable Mutation.Kind[] lcrMutationsAll;
 
 shared static this() {
+    // dfmt off
     with (OpKind) {
-        isLcr = cast(immutable)[LAnd : Mutation.Kind.lcrAnd, // "&&"
-    LOr : Mutation.Kind.lcrOr, // "||"
-    OO_AmpAmp : Mutation.Kind.lcrAnd, // "&&"
-    OO_PipePipe : Mutation.Kind.lcrOr, // "||"
+    isLcr = cast(immutable)[
+        LAnd : Mutation.Kind.lcrAnd, // "&&"
+        LOr : Mutation.Kind.lcrOr, // "||"
+        OO_AmpAmp : Mutation.Kind.lcrAnd, // "&&"
+        OO_PipePipe : Mutation.Kind.lcrOr, // "||"
     ];
     }
+    // dfmt on
 
     with (Mutation.Kind) {
         lcrMutationsAll = [lcrAnd, lcrOr,];

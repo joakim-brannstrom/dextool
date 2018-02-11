@@ -769,6 +769,9 @@ OpTypeInfo deriveOpTypeInfo(const Cursor lhs_, const Cursor rhs_, const EnumCach
         return OpTypeInfo.none;
 
     auto floatCategory = AliasSeq!(CXTypeKind.float_, CXTypeKind.double_, CXTypeKind.longDouble);
+    auto pointerCategory = AliasSeq!(CXTypeKind.nullPtr, CXTypeKind.pointer,
+            CXTypeKind.blockPointer, CXTypeKind.memberPointer);
+    auto boolCategory = AliasSeq!(CXTypeKind.bool_);
 
     if (lhs_ty.isEnum && rhs_ty.isEnum) {
         auto lhs_ref = lhs.referenced;
@@ -810,6 +813,10 @@ OpTypeInfo deriveOpTypeInfo(const Cursor lhs_, const Cursor rhs_, const EnumCach
         return OpTypeInfo.none;
     } else if (lhs_ty.kind.among(floatCategory) && rhs_ty.kind.among(floatCategory)) {
         return OpTypeInfo.floatingPoint;
+    } else if (lhs_ty.kind.among(pointerCategory) || rhs_ty.kind.among(pointerCategory)) {
+        return OpTypeInfo.pointer;
+    } else if (lhs_ty.kind.among(boolCategory) && rhs_ty.kind.among(boolCategory)) {
+        return OpTypeInfo.boolean;
     }
 
     return OpTypeInfo.none;

@@ -71,16 +71,20 @@ Mutation subsuming table from [@thesis1]:
 | `x == y`            | `x <= y` | `x >= y` | `false`  |
 | `x != y`            | `x < y`  | `x > y`  | `true`   |
 
-### Reduce Equivalens Mutants
+# SPC-plugin_mutate_mutation_ror_bool
+partof: SPC-plugin_mutate_mutation_ror
+###
 
-This is a simple schema that is type aware with the intention of reducing the number of equivalent mutants that are generated.
-
-1. If both sides are boolean types use the following schema instead:
+This schema is only applicable when the type of the expressions on both sides of an operator are of boolean type.
 
 | Original Expression | Mutant 1 | Mutant 2 |
 | ------------------- | -------- | -------- |
 | `x == y`            | `x != y` |  `false` |
 | `x != y`            | `x == y` |  `true`  |
+
+## Why?
+
+Mutations such as `<` for a boolean type is nonsensical in C++ or in C when the type is `_Bool`.
 
 # SPC-plugin_mutate_mutation_ror_float
 partof: SPC-plugin_mutate_mutation_ror
@@ -137,10 +141,14 @@ Normally an enum can't be *less than* the lowest enum literal of that type thus 
 partof: SPC-plugin_mutate_mutation_ror
 ###
 
-This schema is only applicable when type of the expressions on both sides of an operator are floating point type.
+This schema is only applicable when type of the expressions either sides is a pointer type.
 
-| Original Expression | Mutant 1 | Mutant 2 |
-| ------------------- | -------- | -------- |
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | -------- |
+| `x < y`             | `x <= y` | `x != y` | `false`  |
+| `x > y`             | `x >= y` | `x != y` | `false`  |
+| `x <= y`            | `x < y`  | `x == y` | `true`   |
+| `x >= y`            | `x > y`  | `x == y` | `true`   |
 | `x == y`            | `x != y` | `false`  |
 | `x != y`            | `x == y` | `true`   |
 
@@ -150,7 +158,7 @@ The goal is to reduce the number of undesired mutants when the user of the plugi
 
 Design knowledge: Do the program use such C++ constructs that guarantee memory address order and use this guarantees?
 
-This schema can't replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
+This schema can't fully replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
 
 # SPC-plugin_mutate_mutation_aor
 partof: REQ-plugin_mutate-mutations
@@ -422,19 +430,21 @@ partof: SPC-plugin_mutate_mutation_aor
 ops = {+,-,/,%,*}
 ```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_lcr
 partof: SPC-plugin_mutate_mutation_lcr
 ###
 
-ops = {&&,||}
+```
+ops = {&&, ||}
+```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_ror
 partof: SPC-plugin_mutate_mutation_ror
@@ -444,19 +454,21 @@ partof: SPC-plugin_mutate_mutation_ror
 ops = {<,<=,>,>=,==,!=}
 ```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_cor
 partof: SPC-plugin_mutate_mutation_cor
 ###
 
-ops = {&&,||}
+```
+ops = {&&, ||}
+```
 
-Expected result for a C++ file containg _ops_ between integers.
+Expected result for a C++ file containg *ops* between integers.
 
-Expected result for a C++ file containg _ops_ between instances of a class overloading the tested operator.
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
 # TST-plugin_mutate_mutation_dcc
 partof: SPC-plugin_mutate_mutation_dcc
@@ -489,4 +501,4 @@ Expected result for *switchstmt*.
 
 Expected result for *ifstmt*.
 
-Note: For the one clause case only ONE mutation point shall be generated.
+**Note**: For the one clause case only ONE mutation point shall be generated.

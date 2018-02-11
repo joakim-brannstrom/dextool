@@ -100,6 +100,13 @@ struct Mutation {
         dccBomb,
         /// Decision/Condition Requirement
         dcrCaseDel,
+        /// Relational operator replacement for pointers
+        rorpLT,
+        rorpLE,
+        rorpGT,
+        rorpGE,
+        rorpEQ,
+        rorpNE,
     }
 
     enum Status {
@@ -119,14 +126,23 @@ struct Mutation {
     Status status;
 }
 
-/// Deducted type information for relational operators
+/// Deducted type information for expressions on the sides of a relational operator
 enum OpTypeInfo {
     none,
+    /// Both sides are floating points
     floatingPoint,
-    /// the lhs and rhs sides are the same enum decl
+    /// Either side is a pointer
+    pointer,
+    /// Both sides are bools
+    boolean,
+    /// lhs and rhs sides are the same enum decl
     enumLhsRhsIsSame,
+    /// lhs is the minimal representation in the enum type
     enumLhsIsMin,
+    /// lhs is the maximum representation in the enum type
     enumLhsIsMax,
+    /// rhs is the minimum representation in the enum type
     enumRhsIsMin,
+    /// rhs is the maximum representation in the enum type
     enumRhsIsMax,
 }
