@@ -64,6 +64,9 @@ struct ArgParser {
 
     private GetoptResult help_info;
 
+    alias GroupF = void delegate(string[]) @system;
+    GroupF[string] groups;
+
     /**
      * trusted: getopt is safe in dmd-2.077.0.
      * Remove the trusted attribute when upgrading the minimal required version
@@ -75,28 +78,29 @@ struct ArgParser {
 
         static import std.getopt;
 
-        try {
-            string cli_mutation_id;
-
+        void analyzerG(string[] args) {
+            toolMode = ToolMode.analyzer;
             // dfmt off
-            // sort alphabetic
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
-                   "dry-run", "do not write data to the filesystem", &dryRun,
                    "in", "Input file to parse (at least one)", &inFiles,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
+                   "restrict", "restrict analysis to files in this directory tree (default: .)", &restrictDir,
+                   );
+            // dfmt on
+        }
+
+        void generateMutantG(string[] args) {
+            toolMode = ToolMode.generate_mutant;
+            string cli_mutation_id;
+            // dfmt off
+            help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "db", "sqlite3 database to use", &db,
+                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
-                   "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
-                   "mode", "tool mode " ~ format("[%(%s|%)]", [EnumMembers!ToolMode]), &toolMode,
-                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "mutant-compile", "program to use to compile the mutant", &mutationCompile,
-                   "mutant-id", "generate a specific mutation (only useful with mode generate_mutant)", &cli_mutation_id,
-                   "mutant-order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
-                   "mutant-test", "program to use to execute the mutant tester", &mutationTester,
-                   "mutant-test-runtime", "runtime of the test suite used to test a mutation (msecs)", &mutationTesterRuntime,
-                   "report", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
-                   "report-level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
+                   "mutant-id", "generate a specific mutation", &cli_mutation_id,
                    );
             // dfmt on
 
@@ -107,36 +111,88 @@ struct ArgParser {
                     mutationId = cli_mutation_id.to!long;
             }
             catch (ConvException e) {
-                logger.infof("invalid mutation point '%s'. It must be in the range [0, %s]",
+                logger.infof("Invalid mutation point '%s'. It must be in the range [0, %s]",
                         cli_mutation_id, long.max);
             }
-
-            help = help_info.helpWanted;
         }
-        catch (ConvException e) {
-            import std.meta : AliasSeq;
 
-            logger.error(e.msg);
+        void testMutantsG(string[] args) {
+            toolMode = ToolMode.test_mutants;
+            // dfmt off
+            help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "db", "sqlite3 database to use", &db,
+                   "dry-run", "do not write data to the filesystem", &dryRun,
+                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
+                   "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
+                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                   "compile", "program to use to compile the mutant", &mutationCompile,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
+                   "test", "program to use to execute the mutant tester", &mutationTester,
+                   "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   );
+            // dfmt on
+        }
 
-            foreach (k; AliasSeq!(MutationKind, ToolMode, ReportKind, ReportLevel)) {
-                logger.errorf("%s possible values: %(%s|%)", k.stringof, [EnumMembers!k]);
+        void reportG(string[] args) {
+            toolMode = ToolMode.report;
+            // dfmt off
+            help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
+                   "db", "sqlite3 database to use", &db,
+                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
+                   "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
+                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
+                   );
+            // dfmt on
+        }
+
+        groups["analyze"] = &analyzerG;
+        groups["generate"] = &generateMutantG;
+        groups["test"] = &testMutantsG;
+        groups["report"] = &reportG;
+
+        if (args.length == 2 && args[1] == "--short-plugin-help") {
+            shortPluginHelp = true;
+            return;
+        }
+
+        if (args.length < 2) {
+            logger.error("Missing command group");
+            help = true;
+            return;
+        }
+
+        const string cg = args[1];
+        string[] subargs = args[0 .. 1];
+        if (args.length > 2)
+            subargs ~= args[2 .. $];
+
+        if (auto f = cg in groups) {
+            try {
+                (*f)(subargs);
+                help = help_info.helpWanted;
             }
+            catch (std.getopt.GetOptException ex) {
+                logger.error(ex.msg);
+                help = true;
+            }
+            catch (Exception ex) {
+                logger.error(ex.msg);
+                help = true;
+            }
+        } else {
+            logger.error("Unknown command group: ", cg);
             help = true;
-        }
-        catch (std.getopt.GetOptException ex) {
-            logger.error(ex.msg);
-            help = true;
-        }
-        catch (Exception ex) {
-            logger.error(ex.msg);
-            help = true;
+            return;
         }
 
         import std.algorithm : find;
         import std.array : array;
         import std.range : drop;
 
-        // at this point args contain "what is left". What is interesting then is those after "--".
         cflags = args.find("--").drop(1).array();
     }
 
@@ -146,7 +202,32 @@ struct ArgParser {
      * Assuming that getopt in phobos behave well.
      */
     void printHelp() @trusted {
-        defaultGetoptPrinter("Usage: dextool mutate [options] [--in=] [-- CFLAGS...]",
-                help_info.options);
+        string base_help = "Usage: dextool mutate COMMAND_GROUP [options] [-- CFLAGS...]";
+
+        switch (toolMode) with (ToolMode) {
+        case none:
+            logger.errorf("The command groups are: %(%s %)", groups.byKey);
+            break;
+        case analyzer:
+            base_help = "Usage: dextool mutate analyze [options] [-- CFLAGS...]";
+            break;
+        case generate_mutant:
+            base_help = "Usage: dextool mutate generate [options] [-- CFLAGS...]";
+            break;
+        case test_mutants:
+            base_help = "Usage: dextool mutate test [options] [-- CFLAGS...]";
+            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
+            break;
+        case report:
+            base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
+            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
+            logger.errorf("--report possible values: %(%s %)", [EnumMembers!ReportKind]);
+            logger.errorf("--report-level possible values: %(%s %)", [EnumMembers!ReportLevel]);
+            break;
+        default:
+            break;
+        }
+
+        defaultGetoptPrinter(base_help, help_info.options);
     }
 }

@@ -18,12 +18,11 @@ unittest {
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ getValue!string)
-        .addArg(["--mode", "analyzer"])
         .run;
     auto r = makeDextool(testEnv)
-        .addArg(["--mode", "test_mutants"])
+        .addArg(["test"])
         .addArg(["--mutant", "cor"])
         .run;
     verifyCor(r.stdout);

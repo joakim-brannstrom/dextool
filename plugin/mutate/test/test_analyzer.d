@@ -12,8 +12,7 @@ import dextool_test.utility;
 @("shall analyze the provided file")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    makeDextool(testEnv)
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
-        .addArg(["--mode", "analyzer"])
         .run;
 }

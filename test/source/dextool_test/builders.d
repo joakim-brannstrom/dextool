@@ -30,6 +30,7 @@ struct BuildDextoolRun {
         string workdir_;
         string test_outputdir;
         string[] args_;
+        string[] post_args;
         string[] flags_;
 
         /// if the output from running the command should be yapped via scriptlike
@@ -111,22 +112,37 @@ struct BuildDextoolRun {
     }
 
     auto addInputArg(string v) {
-        args_ ~= "--in=" ~ Path(v).escapePath;
+        post_args ~= "--in=" ~ Path(v).escapePath;
         return this;
     }
 
     auto addInputArg(string[] v) {
-        args_ ~= v.map!(a => Path(a)).map!(a => "--in=" ~ a.escapePath).array();
+        post_args ~= v.map!(a => Path(a)).map!(a => "--in=" ~ a.escapePath).array();
         return this;
     }
 
     auto addInputArg(Path v) {
-        args_ ~= "--in=" ~ v.escapePath;
+        post_args ~= "--in=" ~ v.escapePath;
         return this;
     }
 
     auto addInputArg(Path[] v) {
-        args_ ~= v.map!(a => "--in=" ~ a.escapePath).array();
+        post_args ~= v.map!(a => "--in=" ~ a.escapePath).array();
+        return this;
+    }
+
+    auto postArg(string[] v) {
+        this.post_args = v;
+        return this;
+    }
+
+    auto addPostArg(T)(T v) {
+        this.post_args ~= v;
+        return this;
+    }
+
+    auto addPostArg(Path v) {
+        this.post_args ~= v.escapePath;
         return this;
     }
 
@@ -148,6 +164,7 @@ struct BuildDextoolRun {
         string[] cmd;
         cmd ~= dextool;
         cmd ~= args_.dup;
+        cmd ~= post_args;
         cmd ~= "--out=" ~ workdir_;
 
         if (arg_debug) {
