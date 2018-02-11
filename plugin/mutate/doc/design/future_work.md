@@ -121,7 +121,6 @@ New items are added at the top
     the intention is to reduce the number of overlapping mutation testing and thus in the end reduce the execution time needed for testing all mutants.
     such a change would make it possible to propagate the result of testing one mutation subtype to other subtypes that actually result in the same generated code.
  * add an improved inspection "viewer"
- * add functionality to "reset" the status of mutants that are alive/timeout/killed by compiler
  * add an attribute to mutants so they can be marked as "inspected/equivalent"
  * add support for configuration files
  * Separate the *time* statistics for mutation testing to a separate chapter because when it is written at the same line it creates unnecessary git conflicts
