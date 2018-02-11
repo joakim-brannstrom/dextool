@@ -71,16 +71,20 @@ Mutation subsuming table from [@thesis1]:
 | `x == y`            | `x <= y` | `x >= y` | `false`  |
 | `x != y`            | `x < y`  | `x > y`  | `true`   |
 
-### Reduce Equivalens Mutants
+# SPC-plugin_mutate_mutation_ror_bool
+partof: SPC-plugin_mutate_mutation_ror
+###
 
-This is a simple schema that is type aware with the intention of reducing the number of equivalent mutants that are generated.
-
-1. If both sides are boolean types use the following schema instead:
+This schema is only applicable when the type of the expressions on both sides of an operator are of boolean type.
 
 | Original Expression | Mutant 1 | Mutant 2 |
 | ------------------- | -------- | -------- |
 | `x == y`            | `x != y` |  `false` |
 | `x != y`            | `x == y` |  `true`  |
+
+## Why?
+
+Mutations such as `<` for a boolean type is nonsensical in C++ or in C when the type is `_Bool`.
 
 # SPC-plugin_mutate_mutation_ror_float
 partof: SPC-plugin_mutate_mutation_ror

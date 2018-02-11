@@ -148,7 +148,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to the alternative schema when both types are pointers")
+@("shall produce all ROR mutations according to floating point schema when either type are pointers")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -181,5 +181,27 @@ unittest {
         "from '!=' to '<'",
         "from '!=' to '>'",
         "from 'f0 != f1' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to the bool schema when both types are bools")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextool(testEnv)
+        .addInputArg(testData ~ "ror_bool_primitive.cpp")
+        .addArg(["--mode", "analyzer"])
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["--mode", "test_mutants"])
+        .addArg(["--mutant", "rorp"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "from '==' to '!='",
+        "from 'a0 == a1' to 'false'",
+
+        "from '!=' to '=='",
+        "from 'b0 != b1' to 'true'",
     ]).shouldBeIn(r.stdout);
 }

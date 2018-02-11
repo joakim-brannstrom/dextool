@@ -131,8 +131,10 @@ enum OpTypeInfo {
     none,
     /// Both sides are floating points
     floatingPoint,
-    /// Both sides are pointers
+    /// Either side is a pointer
     pointer,
+    /// Both sides are bools
+    boolean,
     /// lhs and rhs sides are the same enum decl
     enumLhsRhsIsSame,
     /// lhs is the minimal representation in the enum type

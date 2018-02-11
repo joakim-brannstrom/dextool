@@ -98,12 +98,25 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
         }
     }
 
+    // #SPC-plugin_mutate_mutation_ror_bool
+    void boolSchema() {
+        with (Mutation.Kind) {
+            if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
+                rval.op = [rorNE, rorpNE];
+            } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
+                rval.op = [rorEQ, rorpEQ];
+            }
+        }
+    }
+
     if (tyi == OpTypeInfo.floatingPoint)
         floatingPointSchema();
     else if (tyi.among(OpTypeInfo.enumLhsIsMin, OpTypeInfo.enumRhsIsMax))
         enumSchema();
     else if (tyi == OpTypeInfo.pointer)
         pointerSchema();
+    else if (tyi == OpTypeInfo.boolean)
+        boolSchema();
 
     return rval;
 }
