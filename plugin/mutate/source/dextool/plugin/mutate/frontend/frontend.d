@@ -14,7 +14,7 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode;
+import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode, Mutation;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel;
 
@@ -43,6 +43,7 @@ private:
     MutationOrder mutationOrder;
     ReportKind reportKind;
     ReportLevel reportLevel;
+    Mutation.Status mutantStatus;
 }
 
 @safe:
@@ -65,6 +66,7 @@ auto buildFrontend(ref ArgParser p) {
     r.mutationOrder = p.mutationOrder;
     r.reportKind = p.reportKind;
     r.reportLevel = p.reportLevel;
+    r.mutantStatus = p.mutantStatus;
 
     r.restrictDir = AbsolutePath(FileName(p.restrictDir));
 
@@ -125,6 +127,10 @@ ExitStatusType runMutate(Frontend fe) {
         import dextool.plugin.mutate.backend : runReport;
 
         return runReport(db, fe.mutation, fe.reportKind, fe.reportLevel, fe_io);
+    case ToolMode.admin:
+        import dextool.plugin.mutate.backend : runAdmin;
+
+        return runAdmin(db, fe.mutation, fe.mutantStatus);
     }
 }
 

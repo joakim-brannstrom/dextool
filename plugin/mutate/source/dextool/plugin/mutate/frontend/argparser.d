@@ -12,6 +12,7 @@ module dextool.plugin.mutate.frontend.argparser;
 import logger = std.experimental.logger;
 
 public import dextool.plugin.mutate.type;
+public import dextool.plugin.mutate.backend : Mutation;
 
 @safe:
 
@@ -27,6 +28,8 @@ enum ToolMode {
     test_mutants,
     /// generate a report of the mutation points
     report,
+    /// administrator interface for the mutation database
+    admin,
 }
 
 /// Extract and cleanup user input from the command line.
@@ -57,8 +60,11 @@ struct ArgParser {
 
     MutationKind[] mutation;
     MutationOrder mutationOrder;
+
     ReportKind reportKind;
     ReportLevel reportLevel;
+
+    Mutation.Status mutantStatus;
 
     ToolMode toolMode;
 
@@ -96,11 +102,10 @@ struct ArgParser {
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
-                   "mutant-id", "generate a specific mutation", &cli_mutation_id,
+                   "id", "mutate the source code as mutant ID", &cli_mutation_id,
                    );
             // dfmt on
 
@@ -120,12 +125,11 @@ struct ArgParser {
             toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "dry-run", "do not write data to the filesystem", &dryRun,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
-                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "compile", "program to use to compile the mutant", &mutationCompile,
                    "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    "test", "program to use to execute the mutant tester", &mutationTester,
@@ -138,14 +142,24 @@ struct ArgParser {
             toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
-                   "mutant", "kind of mutation to perform " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
                    );
+            // dfmt on
+        }
+
+        void adminG(string[] args) {
+            toolMode = ToolMode.admin;
+            // dfmt off
+            help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                "db", "sqlite3 database to use", &db,
+                "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                "status", "reset mutants with this status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
+                );
             // dfmt on
         }
 
@@ -153,6 +167,7 @@ struct ArgParser {
         groups["generate"] = &generateMutantG;
         groups["test"] = &testMutantsG;
         groups["report"] = &reportG;
+        groups["admin"] = &adminG;
 
         if (args.length == 2 && args[1] == "--short-plugin-help") {
             shortPluginHelp = true;
@@ -223,6 +238,10 @@ struct ArgParser {
             logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
             logger.errorf("--report possible values: %(%s %)", [EnumMembers!ReportKind]);
             logger.errorf("--report-level possible values: %(%s %)", [EnumMembers!ReportLevel]);
+            break;
+        case admin:
+            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
+            logger.errorf("--status possible values: %(%s %)", [EnumMembers!(Mutation.Status)]);
             break;
         default:
             break;

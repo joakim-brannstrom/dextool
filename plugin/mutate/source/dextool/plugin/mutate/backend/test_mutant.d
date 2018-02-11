@@ -830,7 +830,7 @@ nothrow:
         driver_sig = TestDriverSignal.stop;
 
         try {
-            data.db.resetTimeout(data.mutKind);
+            data.db.resetMutant(data.mutKind, Mutation.Status.timeout);
             driver_sig = TestDriverSignal.next;
         }
         catch (Exception e) {
