@@ -96,11 +96,10 @@ struct ArgParser {
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
-                   "mutant-id", "generate a specific mutation", &cli_mutation_id,
+                   "id", "generate a specific mutation", &cli_mutation_id,
                    );
             // dfmt on
 
@@ -120,7 +119,6 @@ struct ArgParser {
             toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "dry-run", "do not write data to the filesystem", &dryRun,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
@@ -138,7 +136,6 @@ struct ArgParser {
             toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
