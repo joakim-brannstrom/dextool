@@ -41,9 +41,13 @@ The plugin shall use the *enum RORG schema* when the type of the expressions on 
 
 **Note**: See [[SPC-plugin_mutate_mutation_ror_enum]]
 
-The plugin shall use the *pointer RORG schema* when the type of the expressions on both sides of the operator are pointer types and the mutation type is RORP.
+The plugin shall use the *pointer RORG schema* when the type of the expressions on either sides of the operator are pointer types and the mutation type is RORP.
 
 **Note**: See [[SPC-plugin_mutate_mutation_ror_ptr]]
+
+The plugin shall use the *bool RORG schema* when the type of the expressions on both sides of the operator are boolean types.
+
+**Note**: See [[SPC-plugin_mutate_mutation_ror_bool]]
 
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.

@@ -198,6 +198,9 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
+        "from '!=' to '=='",
+        "from 'clone_ != &Foo::initRef' to 'true'",
+
         "from '==' to '!='",
         "from 'a0() == a1()' to 'false'",
 

@@ -12,6 +12,17 @@ int* c0();
 
 int* d0();
 
+class Foo {
+    ~Foo() {
+        if (clone_ != &Foo::initRef) {
+            return;
+        }
+    }
+
+    void initRef(const int* a, int b) {}
+    void (Foo::*clone_)(const int* a, int);
+};
+
 void relation_operators() {
     bool a2 = a0() == a1();
 

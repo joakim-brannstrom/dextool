@@ -21,11 +21,11 @@ import dextool.clang_extensions : OpKind;
  *  tyi = type info about the expressions on the sides of the operator
  *
  * The resulting schema is intended to be:
- * normal + pointer - float - enum
+ * normal + pointer - float - enum - bool
  *
  * The schema when used is:
- * ror = normal - float - enum
- * rorp = pointer - float - enum
+ * ror = normal - float - enum - bool
+ * rorp = pointer - float - enum - bool
  *
  * See SPC-plugin_mutate_mutation_ror for the subsumed table.
  */
