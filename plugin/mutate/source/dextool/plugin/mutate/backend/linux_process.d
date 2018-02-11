@@ -88,6 +88,8 @@ PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted {
         argz[i] = toStringz(args[i]);
     argz[$ - 1] = null;
 
+    const pid_t parent = getpid();
+
     // NO GC after this point.
     auto pid = fork();
     if (pid < 0) {
@@ -112,17 +114,45 @@ PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted {
 
     auto sid = setsid();
     if (sid < 0) {
-        // unfortantly unable to inform the parent of the failure
+        // unfortunately unable to inform the parent of the failure
         exit(-1);
         return PidSession();
     }
 
     // note: if a pre execve function are to be called do it here.
 
-    execve(argz[0], argz.ptr, envz);
+    auto sec_fork = fork();
 
-    // dummy, this is never reached.
-    return PidSession();
+    if (sec_fork < 0) {
+        // failed to fork
+        // unfortunately unable to inform the parent of the failure
+        exit(-1);
+    } else if (sec_fork == 0) {
+        // child
+        execve(argz[0], argz.ptr, envz);
+    }
+
+    const child = PidSession(PidSession.Status.active, sec_fork);
+
+    // poll the parent process to detect if the group become orphaned.
+    // suicide if it does.
+    while (true) {
+        if (parent != getppid()) {
+            // parent changed so is orphaned
+            import core.sys.posix.signal : SIGKILL;
+
+            killImpl(child.pid, SIGKILL);
+            killImpl(pid, SIGKILL);
+            exit(-1); // should never happen
+        }
+
+        // check the child
+        auto child_w = child.performWait(false);
+        if (child_w.terminated)
+            exit(child_w.status);
+
+        usleep(100);
+    }
 }
 
 /**
