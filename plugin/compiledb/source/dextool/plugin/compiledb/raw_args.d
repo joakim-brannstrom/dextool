@@ -39,8 +39,8 @@ struct RawConfiguration {
         }
 
         if (args.length > 2) {
-            // the first two are the binaries name followed by the plugin
-            inCompileDb = args[2 .. $];
+            // the first is the binary itself
+            inCompileDb = args[1 .. $];
         }
     }
 
