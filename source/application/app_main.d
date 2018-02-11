@@ -56,7 +56,7 @@ auto parseMainCLI(const string[] args) {
         state = CLICategoryStatus.PluginList;
     }
 
-    string category = rem_args.length >= 2 ? rem_args[1] : "";
+    string category = rem_args.length >= 2 ? rem_args[1] : null;
 
     return CLIResult(state, category, loglevel);
 }
@@ -149,7 +149,7 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
         foreach (p; plugins
                  .filter!(p => p.name == cli.category)
                  .takeOne) {
-            auto pid = spawnProcess([cast(string) p.path] ~ args[1 .. $]);
+            auto pid = spawnProcess([cast(string) p.path] ~ (args.length > 2 ? args[2 .. $] : null));
             exit_status = wait(pid) == 0 ? ExitStatusType.Ok : ExitStatusType.Errors;
             match_found = true;
         }
