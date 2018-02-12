@@ -158,7 +158,7 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "db", "sqlite3 database to use", &db,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                "status", "reset mutants with this status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
+                "status", "reset mutants to unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
                 );
             // dfmt on
         }
@@ -175,7 +175,7 @@ struct ArgParser {
         }
 
         if (args.length < 2) {
-            logger.error("Missing command group");
+            logger.error("Missing command");
             help = true;
             return;
         }
@@ -199,7 +199,7 @@ struct ArgParser {
                 help = true;
             }
         } else {
-            logger.error("Unknown command group: ", cg);
+            logger.error("Unknown command: ", cg);
             help = true;
             return;
         }
@@ -217,11 +217,17 @@ struct ArgParser {
      * Assuming that getopt in phobos behave well.
      */
     void printHelp() @trusted {
-        string base_help = "Usage: dextool mutate COMMAND_GROUP [options] [-- CFLAGS...]";
+        import std.array : array;
+        import std.algorithm : joiner, sort, map;
+        import std.ascii : newline;
+        import std.stdio : writeln;
+
+        string base_help = "Usage: dextool mutate COMMAND [options] [-- CFLAGS...]";
 
         switch (toolMode) with (ToolMode) {
         case none:
-            logger.errorf("The command groups are: %(%s %)", groups.byKey);
+            writeln("commands: ", newline,
+                    groups.byKey.array.sort.map!(a => "  " ~ a).joiner(newline));
             break;
         case analyzer:
             base_help = "Usage: dextool mutate analyze [options] [-- CFLAGS...]";
@@ -231,17 +237,17 @@ struct ArgParser {
             break;
         case test_mutants:
             base_help = "Usage: dextool mutate test [options] [-- CFLAGS...]";
-            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
+            logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
             break;
         case report:
             base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
-            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
-            logger.errorf("--report possible values: %(%s %)", [EnumMembers!ReportKind]);
-            logger.errorf("--report-level possible values: %(%s %)", [EnumMembers!ReportLevel]);
+            logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
+            logger.errorf("--report possible values: %(%s|%)", [EnumMembers!ReportKind]);
+            logger.errorf("--report-level possible values: %(%s|%)", [EnumMembers!ReportLevel]);
             break;
         case admin:
-            logger.errorf("--mutant possible values: %(%s %)", [EnumMembers!MutationKind]);
-            logger.errorf("--status possible values: %(%s %)", [EnumMembers!(Mutation.Status)]);
+            logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
+            logger.errorf("--status possible values: %(%s|%)", [EnumMembers!(Mutation.Status)]);
             break;
         default:
             break;
