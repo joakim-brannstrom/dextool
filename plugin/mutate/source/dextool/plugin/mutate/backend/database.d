@@ -39,6 +39,7 @@ import core.time : Duration, dur;
 import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath, Path;
+import dextool.plugin.mutate.backend.type;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -338,7 +339,7 @@ struct Database {
         return rval;
     }
 
-    void iterateMutants(const Mutation.Kind[] kinds, void delegate(ref Row) dg) nothrow @trusted {
+    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) nothrow @trusted {
         import std.algorithm : map;
         import std.format : format;
 
@@ -361,8 +362,17 @@ struct Database {
 
         try {
             auto res = db.prepare(format(all_mutants, kinds.map!(a => cast(int) a))).execute;
-            foreach (ref row; res) {
-                dg(row);
+            foreach (ref r; res) {
+                IterateMutantRow d;
+                d.id = MutationId(r.peek!long(0));
+                d.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
+                        r.peek!int(1).to!(Mutation.Status));
+                auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
+                d.mutationPoint = MutationPoint(offset, null);
+                d.file = r.peek!string(8);
+                d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
+
+                dg(d);
             }
         }
         catch (Exception e) {
@@ -573,4 +583,12 @@ void initializeTables(ref sqlDatabase db) {
     db.run(format(mutation_point_tbl, "", "mutation_point"));
 
     db.run(format(mutation_tbl, "", "mutation"));
+}
+
+struct IterateMutantRow {
+    MutationId id;
+    Mutation mutation;
+    MutationPoint mutationPoint;
+    Path file;
+    SourceLoc sloc;
 }
