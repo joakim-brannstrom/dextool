@@ -140,7 +140,7 @@ partof: SPC-plugin_mutate_report_for_human
 
 Verify that the produced report contains the expected result when the input is a database with untested muta
 
-# SPC-plugin_mutate_report_for_tool_integration
+# SPC-plugin_mutate_report_for_tool_ide_integration
 partof: REQ-plugin_mutate-report
 ###
 
@@ -189,3 +189,34 @@ fix-it:"foo.cpp":{2:9-2:14}:"argc"
 The assumption made by this requirement is that IDE's that are used have good integration with compilers. They can parse the output from compilers. By outputting the mutants in the same way the only integration of the mutation plugin needed is to add a compilation target in the IDE.
 
 The fixit hint is intended to make it easy for a user to see how the mutant modified the source code. This is especially important for those cases where there are many mutations for the same line. Some IDE's such as Eclipse do not move the cursor to the column which makes it harder for the human to manually inspect the mutation.
+
+# SPC-plugin_mutate_report_for_tool_integration_format
+partof: REQ-plugin_mutate-report
+###
+
+The plugin shall report mutants as a *json model* when commanded via the *CLI*.
+
+## JSON Model
+
+The structure of the json file should be an array of files with their mutations:
+```json
+[
+{
+    "filename": "filename",
+    "checksum": "file checksum as hex",
+    "mutants": ["array of mutants"]
+}
+]
+```
+
+Each mutant is:
+```json
+{
+    "id": "unique ID for the mutant",
+    "file": "filename",
+    "line": "line number starting from 1 in the file",
+    "start": "offset in bytes from start",
+    "stop": "offset in bytes from start, one byte past the last",
+    "value": "the mutation as textual representation"
+}
+```
