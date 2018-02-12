@@ -43,4 +43,16 @@ struct Murmur3 {
     bool opEquals(const this o) nothrow @safe {
         return c0 == o.c0 && c1 == o.c1;
     }
+
+    import std.format : FormatSpec;
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.format : formatValue, formattedWrite;
+        import std.range.primitives : put;
+
+        if (fmt.spec == 'x')
+            formattedWrite(w, "%x%x", c0, c1);
+        else
+            formattedWrite(w, "%s%s", c0, c1);
+    }
 }
