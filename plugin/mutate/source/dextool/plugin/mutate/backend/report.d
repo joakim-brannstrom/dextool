@@ -17,17 +17,15 @@ import logger = std.experimental.logger;
 
 import dextool.type;
 
-import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
-
-    import d2sqlite3 : Row;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
@@ -70,16 +68,15 @@ immutable originalIsCorrupt = "deXtool: unable to open the file or it has change
  */
 struct ReportGenerator {
     import std.algorithm : each;
-    import d2sqlite3 : Row;
 
-    ReportEvens[] listeners;
+    ReportEvent[] listeners;
 
     static auto make(const MutationKind[] kind, ReportKind report_kind,
             ReportLevel report_level, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
-        ReportEvens[] listeners;
+        ReportEvent[] listeners;
         final switch (report_kind) {
         case ReportKind.markdown:
             listeners = [new ReportMarkdown(kinds, report_level, fio)];
@@ -100,7 +97,7 @@ struct ReportGenerator {
     }
 
     // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
-    void locationEvent(ref Row r) @trusted {
+    void locationEvent(const ref IterateMutantRow r) @trusted {
         listeners.each!(a => a.locationEvent(r));
     }
 
@@ -401,12 +398,10 @@ string toInternal(ubyte[] data) @safe nothrow {
 }
 
 /// Generic interface that a report event listeners shall implement.
-@safe interface ReportEvens {
-    import d2sqlite3 : Row;
-
+@safe interface ReportEvent {
     void mutationKindEvent(const MutationKind[]);
     void locationStartEvent();
-    void locationEvent(ref Row);
+    void locationEvent(const ref IterateMutantRow);
     void locationEndEvent();
     void locationStatEvent();
     void statEvent(ref Database db);
@@ -416,10 +411,9 @@ string toInternal(ubyte[] data) @safe nothrow {
  *
  * #SPC-plugin_mutate_report_for_human
  */
-@safe final class ReportMarkdown : ReportEvens {
+@safe final class ReportMarkdown : ReportEvent {
     import std.conv : to;
     import std.format : format;
-    import d2sqlite3 : Row;
     import dextool.plugin.mutate.backend.utility;
 
     static immutable col_w = 10;
@@ -468,52 +462,44 @@ string toInternal(ubyte[] data) @safe nothrow {
         markdown_loc.beginSyntaxBlock;
     }
 
-    override void locationEvent(ref Row r) @trusted {
-        try {
-            auto status = r.peek!int(1).to!(Mutation.Status);
-            auto kind = r.peek!int(2).to!(Mutation.Kind);
-            const id = r.peek!long(0);
-            const file = r.peek!string(8);
-            const line = r.peek!long(6);
-            const column = r.peek!long(7);
+    override void locationEvent(const ref IterateMutantRow r) @trusted {
+        void report() {
+            MakeMutationTextResult mut_txt;
+            try {
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getRestrictDir));
+                mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind);
 
-            long[2] offs = [r.peek!long(4), r.peek!long(5)];
-
-            void report() {
-                MakeMutationTextResult mut_txt;
-                try {
-                    auto abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
-                    mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
-
-                    if (status == Mutation.Status.alive) {
-                        if (auto v = mut_txt in mutationStat)
-                            ++(*v);
-                        else
-                            mutationStat[mut_txt] = 1;
-                    }
+                if (r.mutation.status == Mutation.Status.alive) {
+                    if (auto v = mut_txt in mutationStat)
+                        ++(*v);
+                    else
+                        mutationStat[mut_txt] = 1;
                 }
-                catch (Exception e) {
-                    logger.warning(e.msg);
-                }
-
-                // dfmt off
-                auto msg = format("%-*s %-*s %-*s %s %s:%s",
-                                  col_w, id,
-                                  col_w, status,
-                                  mutation_w, format("'%s' with '%s'",
-                                                     window(mut_txt.original, windowSize),
-                                                     window(mut_txt.mutation, windowSize)),
-                                  file, line, column);
-                // dfmt on
-
-                markdown.writeln(msg);
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
             }
 
+            // dfmt off
+            auto msg = format("%-*s %-*s %-*s %s %s:%s",
+                              col_w, r.id,
+                              col_w, r.mutation.status,
+                              mutation_w, format("'%s' with '%s'",
+                                                 window(mut_txt.original, windowSize),
+                                                 window(mut_txt.mutation, windowSize)),
+                              r.file, r.sloc.line, r.sloc.column);
+            // dfmt on
+
+            markdown.writeln(msg);
+        }
+
+        try {
             final switch (report_level) {
             case ReportLevel.summary:
                 break;
             case ReportLevel.alive:
-                if (status == Mutation.Status.alive) {
+                if (r.mutation.status == Mutation.Status.alive) {
                     report();
                 }
                 break;
@@ -565,11 +551,10 @@ string toInternal(ubyte[] data) @safe nothrow {
  *
  * #SPC-plugin_mutate_report_for_tool_integration
  */
-@safe final class ReportCompiler : ReportEvens {
+@safe final class ReportCompiler : ReportEvent {
     import std.algorithm : each;
     import std.conv : to;
     import std.format : format;
-    import d2sqlite3 : Row;
     import dextool.plugin.mutate.backend.utility;
 
     const Mutation.Kind[] kinds;
@@ -595,57 +580,49 @@ string toInternal(ubyte[] data) @safe nothrow {
     override void locationStartEvent() {
     }
 
-    override void locationEvent(ref Row r) @trusted {
+    override void locationEvent(const ref IterateMutantRow r) @trusted {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
-        try {
-            auto status = r.peek!int(1).to!(Mutation.Status);
-            auto kind = r.peek!int(2).to!(Mutation.Kind);
-            const id = r.peek!long(0);
-            const file = r.peek!string(8);
-            const line = r.peek!long(6);
-            const column = r.peek!long(7);
-
-            long[2] offs = [r.peek!long(4), r.peek!long(5)];
-
-            void report() {
-                AbsolutePath abs_path;
-                MakeMutationTextResult mut_txt;
-                try {
-                    abs_path = AbsolutePath(FileName(file), DirName(fio.getRestrictDir));
-                    mut_txt = makeMutationText(fio.makeInput(abs_path), offs, kind);
-                }
-                catch (Exception e) {
-                    logger.warning(e.msg);
-                }
-
-                // dfmt off
-                auto b = compiler.build
-                    .file(abs_path)
-                    .line(line)
-                    .column(column)
-                    .begin("%s: replace '%s' with '%s'", kind,
-                           window(mut_txt.original, windowSize),
-                           window(mut_txt.mutation, windowSize))
-                    .note("status:%s id:%s", status, id);
-
-                if (mut_txt.original.length > windowSize)
-                    b = b.note("replace '%s'", mut_txt.original);
-                if (mut_txt.mutation.length > windowSize)
-                    b = b.note("with '%s'", mut_txt.mutation);
-
-                b.fixit(offs[1] - offs[0], mut_txt.mutation)
-                    .end;
-                // dfmt on
+        void report() {
+            AbsolutePath abs_path;
+            MakeMutationTextResult mut_txt;
+            try {
+                abs_path = AbsolutePath(FileName(r.file), DirName(fio.getRestrictDir));
+                mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind);
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
             }
 
+            // dfmt off
+            auto b = compiler.build
+                .file(abs_path)
+                .line(r.sloc.line)
+                .column(r.sloc.column)
+                .begin("%s: replace '%s' with '%s'", r.mutation.kind,
+                       window(mut_txt.original, windowSize),
+                       window(mut_txt.mutation, windowSize))
+                .note("status:%s id:%s", r.mutation.status, r.id);
+
+            if (mut_txt.original.length > windowSize)
+                b = b.note("replace '%s'", mut_txt.original);
+            if (mut_txt.mutation.length > windowSize)
+                b = b.note("with '%s'", mut_txt.mutation);
+
+            b.fixit(r.mutationPoint.offset.end - r.mutationPoint.offset.begin, mut_txt.mutation)
+                .end;
+            // dfmt on
+        }
+
+        try {
             // summary is the default and according to the specification of the
             // default for tool integration alive mutations shall be printed.
             final switch (report_level) {
             case ReportLevel.summary:
                 break;
             case ReportLevel.alive:
-                if (status == Mutation.Status.alive) {
+                if (r.mutation.status == Mutation.Status.alive) {
                     report();
                 }
                 break;
@@ -699,14 +676,14 @@ struct MakeMutationTextResult {
     }
 }
 
-auto makeMutationText(SafeInput file_, const long[2] offs, Mutation.Kind kind) nothrow {
+auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind) nothrow {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
     MakeMutationTextResult rval;
 
     try {
-        if (offs[0] < file_.read.length) {
-            rval.original = file_.read[offs[0] .. offs[1]].toInternal;
+        if (offs.end < file_.read.length) {
+            rval.original = file_.read[offs.begin .. offs.end].toInternal;
         }
 
         auto mut = makeMutation(kind);
