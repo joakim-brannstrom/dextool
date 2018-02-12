@@ -88,3 +88,19 @@ unittest {
 unittest {
     // TODO
 }
+
+@("shall report mutants as a json model")
+unittest {
+    auto input_src = testData ~ "report_tool_integration.cpp";
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(input_src)
+        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--mutant", "dcc"])
+        .addArg(["--style", "json"])
+        .addArg(["--level", "all"])
+        .run;
+
+    writelnUt(r.stdout);
+}

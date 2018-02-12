@@ -46,7 +46,9 @@ enum ReportKind {
     /// As a markdown report that
     markdown,
     /// As compiler warnings and a fix-it hint for the mutation
-    compiler
+    compiler,
+    /// As a JSON model
+    json,
 }
 
 /// The level of reporting
