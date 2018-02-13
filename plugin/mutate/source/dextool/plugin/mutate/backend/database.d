@@ -342,6 +342,7 @@ struct Database {
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) nothrow @trusted {
         import std.algorithm : map;
         import std.format : format;
+        import dextool.plugin.mutate.backend.utility : checksum;
 
         immutable all_mutants = "SELECT
             mutation.id,
@@ -352,7 +353,9 @@ struct Database {
             mutation_point.offset_end,
             mutation_point.line,
             mutation_point.column,
-            files.path
+            files.path,
+            files.checksum0,
+            files.checksum1
             FROM mutation,mutation_point,files
             WHERE
             mutation.kind IN (%(%s,%)) AND
@@ -370,6 +373,7 @@ struct Database {
                 auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
                 d.mutationPoint = MutationPoint(offset, null);
                 d.file = r.peek!string(8);
+                d.fileChecksum = checksum(r.peek!long(9), r.peek!long(10));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
 
                 dg(d);
@@ -590,5 +594,6 @@ struct IterateMutantRow {
     Mutation mutation;
     MutationPoint mutationPoint;
     Path file;
+    Checksum fileChecksum;
     SourceLoc sloc;
 }

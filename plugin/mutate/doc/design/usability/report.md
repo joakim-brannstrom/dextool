@@ -200,23 +200,26 @@ The plugin shall report mutants as a *json model* when commanded via the *CLI*.
 
 The structure of the json file should be an array of files with their mutations:
 ```json
-[
 {
+"types": ["array of the mutation types in this report"],
+"files": [
     "filename": "filename",
     "checksum": "file checksum as hex",
     "mutants": ["array of mutants"]
-}
 ]
+}
 ```
 
 Each mutant is:
 ```json
 {
     "id": "unique ID for the mutant",
-    "file": "filename",
+    "status": "mutation status",
+    "kind": "subtype mutation kind",
     "line": "line number starting from 1 in the file",
-    "start": "offset in bytes from start",
-    "stop": "offset in bytes from start, one byte past the last",
+    "column": "column number starting from the line",
+    "begin": "offset in bytes from start",
+    "end": "offset in bytes from start, one byte past the last",
     "value": "the mutation as textual representation"
 }
 ```
