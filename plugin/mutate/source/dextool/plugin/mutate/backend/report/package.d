@@ -22,6 +22,11 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
+import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
+import dextool.plugin.mutate.backend.report.utility : reportStatistics,
+    reportMutationSubtypeStats, MakeMutationTextResult, window, windowSize,
+    makeMutationText;
+
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
@@ -51,11 +56,6 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
 @safe:
 private:
 
-// 5 because it covers all the operators and true/false
-immutable windowSize = 5;
-
-immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
-
 /**
  * Expects the event to come in the following order:
  *  - mutationKindEvent
@@ -68,6 +68,7 @@ immutable originalIsCorrupt = "deXtool: unable to open the file or it has change
  */
 struct ReportGenerator {
     import std.algorithm : each;
+    import dextool.plugin.mutate.backend.report.markdown;
 
     ReportEvent[] listeners;
 
@@ -114,191 +115,6 @@ struct ReportGenerator {
 
     void statEvent(ref Database db) {
         listeners.each!(a => a.statEvent(db));
-    }
-}
-
-void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
-    import core.time : dur;
-    import std.algorithm : map, filter, sum;
-    import std.range : only;
-    import std.datetime : Clock;
-    import dextool.plugin.mutate.backend.utility;
-
-    auto alive = db.aliveMutants(kinds);
-    auto killed = db.killedMutants(kinds);
-    auto timeout = db.timeoutMutants(kinds);
-    auto untested = db.unknownMutants(kinds);
-    auto killed_by_compiler = db.killedByCompilerMutants(kinds);
-
-    try {
-        immutable align_ = 8;
-
-        const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.time.total!"msecs").sum.dur!"msecs";
-        const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count).sum;
-        const auto killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count).sum;
-        const auto untested_cnt = untested.isNull ? 0 : untested.count;
-        const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
-            : 0.dur!"msecs";
-
-        // execution time
-        if (untested_cnt > 0 && predicted > 0.dur!"msecs")
-            item.writefln("Predicted time until mutation testing is done: %s (%s)",
-                    predicted, Clock.currTime + predicted);
-        item.writefln("%-*s %s", align_ * 4, "Mutation execution time:", total_time);
-        if (!killed_by_compiler.isNull)
-            item.tracef("%-*s %s", align_ * 4, "Mutants killed by compiler:",
-                    killed_by_compiler.time);
-
-        item.writeln("");
-
-        // mutation score and details
-        if (!untested.isNull && untested.count > 0)
-            item.writefln("Untested: %s", untested.count);
-        if (!alive.isNull)
-            item.writefln("%-*s %s", align_, "Alive:", alive.count);
-        if (!killed.isNull)
-            item.writefln("%-*s %s", align_, "Killed:", killed.count);
-        if (!timeout.isNull)
-            item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
-        item.writefln("%-*s %s", align_, "Total:", total_cnt);
-        if (total_cnt > 0)
-            item.writefln("%-*s %s", align_, "Score:",
-                    cast(double) killed_cnt / cast(double) total_cnt);
-        if (!killed_by_compiler.isNull)
-            item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
-    }
-    catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
-}
-
-void reportMutationSubtypeStats(ReportT)(
-        ref const long[MakeMutationTextResult] mut_stat, ref ReportT item, const int align_) @safe nothrow {
-    import std.algorithm : sum, map, sort, filter;
-
-    // trusted because it is @safe in dmd-2.078.1
-    // TODO remove the trusted wrapper
-    long total = () @trusted{ return mut_stat.byValue.sum; }();
-
-    import std.array : array;
-    import std.range : take;
-    import std.typecons : Tuple;
-
-    // trusted because it is marked as @safe in dmd-2.078.1
-    // TODO remove this trusted when upgrading the minimal compiler
-    // can be simplified to:
-    // foreach (v, alive.byKeyValue.array.sort!((a, b) => a.value > b.value))....
-    auto kv = () @trusted{
-        return mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value)
-            .take(20).map!(a => Tuple!(MakeMutationTextResult, "key", long,
-                    "value")(a.key, a.value)).array;
-    }();
-
-    foreach (v; kv) {
-        try {
-            auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
-
-            item.writefln("%-*s %-*s '%s' to '%s'", align_, percentage, align_,
-                    v.value, window(v.key.original, windowSize),
-                    window(v.key.mutation, windowSize));
-        }
-        catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
-    }
-}
-
-alias SimpleWriter = void delegate(const(char)[]) @safe;
-
-struct Markdown(Writer, TraceWriter) {
-    import std.ascii : newline;
-    import std.format : formattedWrite, format;
-    import std.range : put;
-
-    private int curr_head;
-    private Writer w;
-    private TraceWriter w_trace;
-
-    private this(int heading, Writer w, TraceWriter w_trace) {
-        this.curr_head = heading;
-        this.w = w;
-        this.w_trace = w_trace;
-    }
-
-    this(Writer w, TraceWriter w_trace) {
-        this.w = w;
-        this.w_trace = w_trace;
-    }
-
-    auto heading(ARGS...)(auto ref ARGS args) {
-        import std.algorithm : copy;
-        import std.range : repeat, take;
-
-        repeat('#').take(curr_head + 1).copy(w);
-        put(w, " ");
-        formattedWrite(w, args);
-
-        // two newlines because some markdown parsers do not correctly identify
-        // a heading if it isn't separated
-        put(w, newline);
-        put(w, newline);
-        return (typeof(this)(curr_head + 1, w, w_trace));
-    }
-
-    auto popHeading() {
-        if (curr_head != 0)
-            put(w, newline);
-        return typeof(this)(curr_head - 1, w, w_trace);
-    }
-
-    auto beginSyntaxBlock(ARGS...)(auto ref ARGS args) {
-        put(w, "```");
-        static if (ARGS.length != 0)
-            formattedWrite(w, args);
-        put(w, newline);
-        return this;
-    }
-
-    auto endSyntaxBlock() {
-        put(w, "```");
-        put(w, newline);
-        return this;
-    }
-
-    auto write(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w, "%s", args);
-        return this;
-    }
-
-    auto writef(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w, args);
-        return this;
-    }
-
-    auto writeln(ARGS...)(auto ref ARGS args) {
-        this.write(args);
-        put(w, newline);
-        return this;
-    }
-
-    auto writefln(ARGS...)(auto ref ARGS args) {
-        this.writef(args);
-        put(w, newline);
-        return this;
-    }
-
-    auto trace(ARGS...)(auto ref ARGS args) {
-        this.writeln(w_trace, args);
-        return this;
-    }
-
-    auto tracef(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w_trace, args);
-        put(w_trace, newline);
-        return this;
     }
 }
 
@@ -381,172 +197,6 @@ struct CompilerMsgBuilder(Writer) {
     }
 
     void end() {
-    }
-}
-
-immutable invalidFile = "Dextool: Invalid UTF-8 content";
-
-string toInternal(ubyte[] data) @safe nothrow {
-    import std.utf : validate;
-
-    try {
-        auto result = () @trusted{ return cast(string) data; }();
-        validate(result);
-        return result;
-    }
-    catch (Exception e) {
-    }
-
-    return invalidFile;
-}
-
-/// Generic interface that a report event listeners shall implement.
-@safe interface ReportEvent {
-    void mutationKindEvent(const MutationKind[]);
-    void locationStartEvent();
-    void locationEvent(const ref IterateMutantRow);
-    void locationEndEvent();
-    void locationStatEvent();
-    void statEvent(ref Database db);
-}
-
-/** Report mutations in a format easily readable by a human.
- *
- * #SPC-plugin_mutate_report_for_human
- */
-@safe final class ReportMarkdown : ReportEvent {
-    import std.conv : to;
-    import std.format : format;
-    import dextool.plugin.mutate.backend.utility;
-
-    static immutable col_w = 10;
-    static immutable mutation_w = 10 + 8 + 8;
-
-    const Mutation.Kind[] kinds;
-    const ReportLevel report_level;
-    FilesysIO fio;
-
-    Markdown!(SimpleWriter, SimpleWriter) markdown;
-    Markdown!(SimpleWriter, SimpleWriter) markdown_loc;
-    Markdown!(SimpleWriter, SimpleWriter) markdown_sum;
-
-    long[MakeMutationTextResult] mutationStat;
-
-    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
-        this.kinds = kinds;
-        this.report_level = report_level;
-        this.fio = fio;
-    }
-
-    override void mutationKindEvent(const MutationKind[] kind_) {
-        auto writer = delegate(const(char)[] s) {
-            import std.stdio : write;
-
-            write(s);
-        };
-
-        SimpleWriter tracer;
-        if (report_level == ReportLevel.all) {
-            tracer = writer;
-        } else {
-            tracer = delegate(const(char)[] s) {  };
-        }
-
-        markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
-        markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
-    }
-
-    override void locationStartEvent() {
-        if (report_level == ReportLevel.summary)
-            return;
-        markdown_loc = markdown.heading("Locations");
-        markdown_loc.writefln("%-*s %-*s %-*s %s", col_w, "ID", col_w,
-                "Status", mutation_w, "Mutation", "Location");
-        markdown_loc.beginSyntaxBlock;
-    }
-
-    override void locationEvent(const ref IterateMutantRow r) @trusted {
-        void report() {
-            MakeMutationTextResult mut_txt;
-            try {
-                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getRestrictDir));
-                mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
-
-                if (r.mutation.status == Mutation.Status.alive) {
-                    if (auto v = mut_txt in mutationStat)
-                        ++(*v);
-                    else
-                        mutationStat[mut_txt] = 1;
-                }
-            }
-            catch (Exception e) {
-                logger.warning(e.msg);
-            }
-
-            // dfmt off
-            auto msg = format("%-*s %-*s %-*s %s %s:%s",
-                              col_w, r.id,
-                              col_w, r.mutation.status,
-                              mutation_w, format("'%s' with '%s'",
-                                                 window(mut_txt.original, windowSize),
-                                                 window(mut_txt.mutation, windowSize)),
-                              r.file, r.sloc.line, r.sloc.column);
-            // dfmt on
-
-            markdown.writeln(msg);
-        }
-
-        try {
-            final switch (report_level) {
-            case ReportLevel.summary:
-                break;
-            case ReportLevel.alive:
-                if (r.mutation.status == Mutation.Status.alive) {
-                    report();
-                }
-                break;
-            case ReportLevel.all:
-                report();
-                break;
-            }
-        }
-        catch (Exception e) {
-            logger.trace(e.msg).collectException;
-        }
-    }
-
-    override void locationEndEvent() {
-        if (report_level == ReportLevel.summary)
-            return;
-
-        markdown_loc.endSyntaxBlock;
-        markdown_loc.popHeading;
-    }
-
-    override void locationStatEvent() {
-        if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
-            immutable col_w = 10;
-            auto item = markdown.heading("Alive Mutation Statistics");
-
-            item.writefln("%-*s %-*s %-*s", col_w, "Percentage", col_w,
-                    "Count", col_w, "Description");
-
-            item.beginSyntaxBlock;
-            reportMutationSubtypeStats(mutationStat, item, col_w);
-            item.endSyntaxBlock;
-            item.popHeading;
-        }
-    }
-
-    override void statEvent(ref Database db) {
-        markdown_sum = markdown.heading("Summary");
-
-        markdown_sum.beginSyntaxBlock;
-        reportStatistics(db, kinds, markdown_sum);
-        markdown_sum.endSyntaxBlock;
-
-        markdown_sum.popHeading;
     }
 }
 
@@ -746,54 +396,4 @@ string toInternal(ubyte[] data) @safe nothrow {
 
     override void statEvent(ref Database db) {
     }
-}
-
-/// Create a range from `a` that has at most maxlen+3 letters in it.
-auto window(T)(T a, size_t maxlen) {
-    import std.algorithm : filter, among, joiner;
-    import std.range : take, only, chain;
-
-    // dfmt off
-    return chain(a.take(maxlen).filter!(a => !a.among('\n')),
-                 only(a.length > maxlen ? "..." : null).joiner);
-    // dfmt on
-}
-
-struct MakeMutationTextResult {
-    string original = originalIsCorrupt;
-    string mutation;
-
-    nothrow @safe size_t toHash() {
-        import std.digest.murmurhash;
-
-        MurmurHash3!32 hash;
-        hash.put(cast(const(ubyte)[]) original);
-        hash.put(cast(const(ubyte)[]) mutation);
-        auto h = hash.finish;
-        return ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]);
-    }
-
-    bool opEquals(const this o) const nothrow @safe {
-        return original == o.original && mutation == o.mutation;
-    }
-}
-
-auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind) nothrow {
-    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-
-    MakeMutationTextResult rval;
-
-    try {
-        if (offs.end < file_.read.length) {
-            rval.original = file_.read[offs.begin .. offs.end].toInternal;
-        }
-
-        auto mut = makeMutation(kind);
-        rval.mutation = mut.mutate(rval.original);
-    }
-    catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
-
-    return rval;
 }
