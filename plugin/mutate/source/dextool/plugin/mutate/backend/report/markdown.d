@@ -19,10 +19,10 @@ import dextool.type;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, window, windowSize, reportStatistics,
-    reportMutationSubtypeStats;
+    makeMutationText, window, windowSize;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 
 @safe:
@@ -134,6 +134,9 @@ struct Markdown(Writer, TraceWriter) {
     Markdown!(SimpleWriter, SimpleWriter) markdown_loc;
     Markdown!(SimpleWriter, SimpleWriter) markdown_sum;
 
+    Table!5 mut_tbl;
+    alias Row = Table!(5).Row;
+
     long[MakeMutationTextResult] mutationStat;
 
     this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
@@ -164,9 +167,7 @@ struct Markdown(Writer, TraceWriter) {
         if (report_level == ReportLevel.summary)
             return;
         markdown_loc = markdown.heading("Locations");
-        markdown_loc.writefln("%-*s %-*s %-*s %s", col_w, "ID", col_w,
-                "Status", mutation_w, "Mutation", "Location");
-        markdown_loc.beginSyntaxBlock;
+        mut_tbl.heading = ["ID", "Status", "Mutation", "File", "Line:Column"];
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {
@@ -189,16 +190,14 @@ struct Markdown(Writer, TraceWriter) {
             }
 
             // dfmt off
-            auto msg = format("%-*s %-*s %-*s %s %s:%s",
-                              col_w, r.id,
-                              col_w, r.mutation.status,
-                              mutation_w, format("'%s' with '%s'",
-                                                 window(mut_txt.original, windowSize),
-                                                 window(mut_txt.mutation, windowSize)),
-                              r.file, r.sloc.line, r.sloc.column);
+            Row r_ = [r.id.to!string,
+                r.mutation.status.to!string,
+                format("'%s' to '%s'", window(mut_txt.original, windowSize), window(mut_txt.mutation, windowSize)),
+                r.file,
+                format("%s:%s", r.sloc.line, r.sloc.column)
+            ];
+            mut_tbl.put(r_);
             // dfmt on
-
-            markdown.writeln(msg);
         }
 
         try {
@@ -224,7 +223,17 @@ struct Markdown(Writer, TraceWriter) {
         if (report_level == ReportLevel.summary)
             return;
 
-        markdown_loc.endSyntaxBlock;
+        auto writer = delegate(const(char)[] s) {
+            import std.stdio : write;
+
+            write(s);
+        };
+
+        import std.format : FormatSpec;
+
+        auto fmt = FormatSpec!char("%s");
+        mut_tbl.toString(writer, fmt);
+
         markdown_loc.popHeading;
     }
 
@@ -251,5 +260,173 @@ struct Markdown(Writer, TraceWriter) {
         markdown_sum.endSyntaxBlock;
 
         markdown_sum.popHeading;
+    }
+}
+
+private:
+
+struct Table(int columnsNr) {
+    alias Row = string[columnsNr];
+
+    Row heading_;
+    Row[] rows;
+    ulong[columnsNr] columnWidth;
+
+    this(const Row heading) {
+        this.heading = heading;
+        updateColumns(heading);
+    }
+
+    void heading(const Row r) {
+        heading_ = r;
+        updateColumns(r);
+    }
+
+    void put(const Row r) {
+        rows ~= r;
+        updateColumns(r);
+    }
+
+    import std.format : FormatSpec;
+
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+        import std.ascii : newline;
+        import std.range : enumerate, repeat;
+        import std.format : formattedWrite;
+        import std.range.primitives : put;
+
+        immutable sep = "|";
+        immutable lhs_sep = "| ";
+        immutable mid_sep = " | ";
+        immutable rhs_sep = " |";
+
+        void printRow(const ref Row r) {
+            foreach (const r_; r[].enumerate) {
+                if (r_.index == 0)
+                    put(w, lhs_sep);
+                else
+                    put(w, mid_sep);
+                formattedWrite(w, "%-*s", columnWidth[r_.index], r_.value);
+            }
+            put(w, rhs_sep);
+            put(w, newline);
+        }
+
+        printRow(heading_);
+
+        immutable dash = "-";
+        foreach (len; columnWidth) {
+            put(w, sep);
+            put(w, repeat(dash, len + 2));
+        }
+        put(w, sep);
+        put(w, newline);
+
+        foreach (const ref r; rows) {
+            printRow(r);
+        }
+    }
+
+    private void updateColumns(const ref Row r) {
+        import std.range : enumerate;
+        import std.algorithm : filter, each;
+
+        foreach (a; r[].enumerate.filter!(a => a.value.length > columnWidth[a.index])) {
+            columnWidth[a.index] = a.value.length;
+        }
+    }
+}
+
+void reportMutationSubtypeStats(ReportT)(
+        ref const long[MakeMutationTextResult] mut_stat, ref ReportT item, const int align_) @safe nothrow {
+    import std.algorithm : sum, map, sort, filter;
+
+    // trusted because it is @safe in dmd-2.078.1
+    // TODO remove the trusted wrapper
+    long total = () @trusted{ return mut_stat.byValue.sum; }();
+
+    import std.array : array;
+    import std.range : take;
+    import std.typecons : Tuple;
+
+    // trusted because it is marked as @safe in dmd-2.078.1
+    // TODO remove this trusted when upgrading the minimal compiler
+    // can be simplified to:
+    // foreach (v, alive.byKeyValue.array.sort!((a, b) => a.value > b.value))....
+    auto kv = () @trusted{
+        return mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value)
+            .take(20).map!(a => Tuple!(MakeMutationTextResult, "key", long,
+                    "value")(a.key, a.value)).array;
+    }();
+
+    foreach (v; kv) {
+        try {
+            auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
+
+            item.writefln("%-*s %-*s '%s' to '%s'", align_, percentage, align_,
+                    v.value, window(v.key.original, windowSize),
+                    window(v.key.mutation, windowSize));
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+}
+
+void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
+    import core.time : dur;
+    import std.algorithm : map, filter, sum;
+    import std.range : only;
+    import std.datetime : Clock;
+    import dextool.plugin.mutate.backend.utility;
+
+    auto alive = db.aliveMutants(kinds);
+    auto killed = db.killedMutants(kinds);
+    auto timeout = db.timeoutMutants(kinds);
+    auto untested = db.unknownMutants(kinds);
+    auto killed_by_compiler = db.killedByCompilerMutants(kinds);
+
+    try {
+        immutable align_ = 8;
+
+        const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
+            .map!(a => a.time.total!"msecs").sum.dur!"msecs";
+        const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
+            .map!(a => a.count).sum;
+        const auto killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
+            .map!(a => a.count).sum;
+        const auto untested_cnt = untested.isNull ? 0 : untested.count;
+        const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
+            : 0.dur!"msecs";
+
+        // execution time
+        if (untested_cnt > 0 && predicted > 0.dur!"msecs")
+            item.writefln("Predicted time until mutation testing is done: %s (%s)",
+                    predicted, Clock.currTime + predicted);
+        item.writefln("%-*s %s", align_ * 4, "Mutation execution time:", total_time);
+        if (!killed_by_compiler.isNull)
+            item.tracef("%-*s %s", align_ * 4, "Mutants killed by compiler:",
+                    killed_by_compiler.time);
+
+        item.writeln("");
+
+        // mutation score and details
+        if (!untested.isNull && untested.count > 0)
+            item.writefln("Untested: %s", untested.count);
+        if (!alive.isNull)
+            item.writefln("%-*s %s", align_, "Alive:", alive.count);
+        if (!killed.isNull)
+            item.writefln("%-*s %s", align_, "Killed:", killed.count);
+        if (!timeout.isNull)
+            item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
+        item.writefln("%-*s %s", align_, "Total:", total_cnt);
+        if (total_cnt > 0)
+            item.writefln("%-*s %s", align_, "Score:",
+                    cast(double) killed_cnt / cast(double) total_cnt);
+        if (!killed_by_compiler.isNull)
+            item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
+    }
+    catch (Exception e) {
+        logger.warning(e.msg).collectException;
     }
 }

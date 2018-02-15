@@ -23,9 +23,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
-import dextool.plugin.mutate.backend.report.utility : reportStatistics,
-    reportMutationSubtypeStats, MakeMutationTextResult, window, windowSize,
-    makeMutationText;
+import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
+    window, windowSize, makeMutationText;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
