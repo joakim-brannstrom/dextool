@@ -120,7 +120,7 @@ struct Markdown(Writer, TraceWriter) {
  */
 @safe final class ReportMarkdown : ReportEvent {
     import std.conv : to;
-    import std.format : format;
+    import std.format : format, FormatSpec;
     import dextool.plugin.mutate.backend.utility;
 
     static immutable col_w = 10;
@@ -138,6 +138,10 @@ struct Markdown(Writer, TraceWriter) {
     alias Row = Table!(5).Row;
 
     long[MakeMutationTextResult] mutationStat;
+
+    alias Writer = function(const(char)[] s) { import std.stdio : write;
+
+    write(s); };
 
     this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
@@ -239,15 +243,16 @@ struct Markdown(Writer, TraceWriter) {
 
     override void locationStatEvent() {
         if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
-            immutable col_w = 10;
             auto item = markdown.heading("Alive Mutation Statistics");
 
-            item.writefln("%-*s %-*s %-*s", col_w, "Percentage", col_w,
-                    "Count", col_w, "Description");
+            Table!3 substat_tbl;
+            Table!3.Row SRow;
 
-            item.beginSyntaxBlock;
-            reportMutationSubtypeStats(mutationStat, item, col_w);
-            item.endSyntaxBlock;
+            substat_tbl.heading = ["Percentage", "Count", "Description"];
+            reportMutationSubtypeStats(mutationStat, substat_tbl);
+
+            auto fmt = FormatSpec!char("%s");
+            substat_tbl.toString(Writer, fmt);
             item.popHeading;
         }
     }
@@ -337,8 +342,9 @@ struct Table(int columnsNr) {
     }
 }
 
-void reportMutationSubtypeStats(ReportT)(
-        ref const long[MakeMutationTextResult] mut_stat, ref ReportT item, const int align_) @safe nothrow {
+void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!3 tbl) @safe nothrow {
+    import std.conv : to;
+    import std.format : format;
     import std.algorithm : sum, map, sort, filter;
 
     // trusted because it is @safe in dmd-2.078.1
@@ -363,9 +369,11 @@ void reportMutationSubtypeStats(ReportT)(
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
 
-            item.writefln("%-*s %-*s '%s' to '%s'", align_, percentage, align_,
-                    v.value, window(v.key.original, windowSize),
-                    window(v.key.mutation, windowSize));
+            typeof(tbl).Row r = [
+                percentage.to!string, v.value.to!string, format("'%s' to '%s'",
+                    window(v.key.original, windowSize), window(v.key.mutation, windowSize))
+            ];
+            tbl.put(r);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
