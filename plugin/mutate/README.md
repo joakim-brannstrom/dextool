@@ -57,6 +57,11 @@ dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --re
 It is possible to run multiple `test` against the same database.
 Just make sure they don't mutate the same source code.
 
+To see the result:
+```sh
+dextool mutate report --restrict .. --level alive --mutant lcr
+```
+
 ## Compiling Google Test with Coverage
 
 It may be helpful to see the coverage of the Gtest test suite.
