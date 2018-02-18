@@ -28,8 +28,7 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
 
-/**
- * TODO document this.
+/** Database wrapper with minimal dependencies.
  */
 struct Database {
     import std.conv : to;
@@ -41,7 +40,12 @@ struct Database {
     sqlDatabase* db;
     alias db this;
 
-    static auto make(AbsolutePath db) @safe {
+    /** Create a database by either opening an existing or initializing a new.
+     *
+     * Params:
+     *  db = path to the database
+     */
+    static auto make(string db) @safe {
         return Database(initializeDB(db));
     }
 
