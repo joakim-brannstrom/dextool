@@ -34,7 +34,8 @@ struct Database {
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
         Checksum;
 
-    private sqlDatabase* db;
+    sqlDatabase* db;
+    alias db this;
 
     static auto make(AbsolutePath db) @safe {
         return Database(initializeDB(db));
