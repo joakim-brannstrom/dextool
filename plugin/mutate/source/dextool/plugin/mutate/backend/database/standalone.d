@@ -10,7 +10,11 @@ one at http://mozilla.org/MPL/2.0/.
 This module contains the a basic database interface that have minimal dependencies on internal modules.
 It is intended to be reusable from the test suite.
 
-The only acceptable dependency is ..backend/type.d and database/schema.d
+The only acceptable dependency are:
+ * ../type.d
+ * ..backend/type.d
+ * ../database/type.d
+ * ../database/schema.d
 */
 module dextool.plugin.mutate.backend.database.standalone;
 
@@ -251,7 +255,7 @@ struct Database {
      * data via bind is *ok*.
      */
     void put(const(MutationPointEntry)[] mps, AbsolutePath rel_dir) @trusted {
-        import dextool.plugin.mutate.backend.utility : trustedRelativePath;
+        import std.path : relativePath;
 
         auto mp_stmt = db.prepare("INSERT INTO mutation_point (file_id, offset_begin, offset_end, line, column) VALUES (:fid, :begin, :end, :line, :column)");
         auto m_stmt = db.prepare(
@@ -273,7 +277,7 @@ struct Database {
                 debug logger.trace("this should not happen. The file is null file");
                 continue;
             }
-            auto rel_file = trustedRelativePath(a.file, rel_dir);
+            auto rel_file = relativePath(a.file, rel_dir).Path;
 
             FileId id;
             // assuming it is slow to lookup in the database so cache the lookups.
