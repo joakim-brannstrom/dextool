@@ -9,21 +9,64 @@ TODO the full test specification is not implemented.
 */
 module dextool_test.test_report;
 
+import core.time : dur;
+
+import dextool.plugin.mutate.backend.database.standalone;
+import dextool.plugin.mutate.backend.database.type;
+import dextool.plugin.mutate.backend.type;
+
 import dextool_test.utility;
 
 // dfmt off
 
-@("shall report the content in the database as human readable to stdout")
+@("shall report a summary of the untested mutants as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
+    // Arrange
     makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
+    // Act
     auto r = makeDextoolReport(testEnv, testData.dirName).run;
 
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Summary",
+        "Untested:",
+        "Alive:",
+        "Killed:",
+        "Timeout:",
+        "Total:"
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall report the alive in the database as human readable to stdout")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+    db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs");
+
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--level", "alive"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "# Mutation Type",
+        "## Mutants",
+        "| From | To   | File Line:Column                                       | ID | Status |",
+        "|------|------|--------------------------------------------------------|----|--------|",
+        "| `>`  | `>=` | plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
+        "## Alive Mutation Statistics",
+        "| Percentage | Count | From | To   |",
+        "|------------|-------|------|------|",
+        "| 100        | 1     | `>`  | `>=` |",
+        "## Summary",
+        "Mutation execution time:         5 ms",
         "Untested:",
         "Alive:",
         "Killed:",
