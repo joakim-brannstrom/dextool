@@ -170,8 +170,8 @@ struct Markdown(Writer, TraceWriter) {
     override void locationStartEvent() {
         if (report_level == ReportLevel.summary)
             return;
-        markdown_loc = markdown.heading("Locations");
-        mut_tbl.heading = ["ID", "Status", "Mutation", "File", "Line:Column"];
+        markdown_loc = markdown.heading("Mutants");
+        mut_tbl.heading = ["From", "To", "File Line:Column", "ID", "Status"];
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {
@@ -194,11 +194,12 @@ struct Markdown(Writer, TraceWriter) {
             }
 
             // dfmt off
-            Row r_ = [r.id.to!string,
+            Row r_ = [
+                format("`%s`", window(mut_txt.original, windowSize)),
+                format("`%s`", window(mut_txt.mutation, windowSize)),
+                format("%s %s:%s", r.file, r.sloc.line, r.sloc.column),
+                r.id.to!string,
                 r.mutation.status.to!string,
-                format("'%s' to '%s'", window(mut_txt.original, windowSize), window(mut_txt.mutation, windowSize)),
-                r.file,
-                format("%s:%s", r.sloc.line, r.sloc.column)
             ];
             mut_tbl.put(r_);
             // dfmt on
@@ -245,10 +246,10 @@ struct Markdown(Writer, TraceWriter) {
         if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
             auto item = markdown.heading("Alive Mutation Statistics");
 
-            Table!3 substat_tbl;
-            Table!3.Row SRow;
+            Table!4 substat_tbl;
+            Table!4.Row SRow;
 
-            substat_tbl.heading = ["Percentage", "Count", "Description"];
+            substat_tbl.heading = ["Percentage", "Count", "From", "To"];
             reportMutationSubtypeStats(mutationStat, substat_tbl);
 
             auto fmt = FormatSpec!char("%s");
@@ -342,7 +343,7 @@ struct Table(int columnsNr) {
     }
 }
 
-void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!3 tbl) @safe nothrow {
+void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!4 tbl) @safe nothrow {
     import std.conv : to;
     import std.format : format;
     import std.algorithm : sum, map, sort, filter;
@@ -369,10 +370,14 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
 
+            // dfmt off
             typeof(tbl).Row r = [
-                percentage.to!string, v.value.to!string, format("'%s' to '%s'",
-                    window(v.key.original, windowSize), window(v.key.mutation, windowSize))
+                percentage.to!string,
+                v.value.to!string,
+                format("`%s`", window(v.key.original, windowSize)),
+                format("`%s`", window(v.key.mutation, windowSize)),
             ];
+            // dfmt on
             tbl.put(r);
         }
         catch (Exception e) {

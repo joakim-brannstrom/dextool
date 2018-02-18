@@ -39,9 +39,9 @@ The intention is to generate a report such that it is easy to publish in other c
 
  * Develop a statistical model for how potentially how many bugs there are left in the program that has not been discovered by tests.
  * Should the checksum be used when reporting mutations?
-   It is probably a bad idea to "stop" reporting because the source code is not always accessable.
+   It is probably a bad idea to "stop" reporting because the source code is not always accessible.
    But the user should be informed that the content is different.
- * separate the mutation time in compiling SUT+tests and executing tests.
+ * Separate the mutation time in compiling SUT+tests and executing tests.
 
 # SPC-plugin_mutate_report_for_human
 partof: REQ-plugin_mutate-report
@@ -60,6 +60,10 @@ The user may want the output to be like `git diff`. But keep in mind that this i
 
 Decision: Not needed. The tool integration can be used for this.
 
+This decision has been partially reverted. It is a bit too limited to only show the mutation subtype that where performed at that mutation point. But after using the markdown report it was determined that the user do not understand the mutation subtypes. It is kind of unreasonable to expect them to memories them.
+
+But the original reason for not implementing it is still valid. Thus a window of ~7 characters are used. For most mutations this is is actually not any more leak of information than it was before. For those mutations that remove source code or replaces large chunks a window that display at most 7 characters is used.
+
 # SPC-plugin_mutate_report_for_human-cli
 partof: SPC-plugin_mutate_report_for_human
 ###
@@ -69,6 +73,24 @@ The command line argument *--level* shall control the *report level* of the huma
 The default *report level* shall be *summary*.
 
 The plugin shall support the *report levels* {summary, alive, full}.
+
+## Markdown Chapter Mutants
+
+The report shall use the column order *from*, *to*, *file line:column*, *status*, *id*.
+
+### Why?
+
+A human read a page from left to right. The intent is to keep the most interesting part to the left side.
+
+Without any scientific evidence I (Joakim B) think that the interesting part is what the mutation is (from -> to).
+It gives a human a quick way of determining how severe the problem is, if it is an equivalent mutant etc.
+When you inspect the report this is probably the part you are looking for.
+
+This is followed by the filename and line:column. When the report is used the reader must be able to find the file the mutation is performed in and where in the file.
+
+The *id* is slightly more interesting than the *status*. It is what uniquely identify a mutation which is used for other things such as marking a mutant as equivalent.
+
+The least interesting is the status. I think that the normal report mode is *alive* which then mean that the status will be filled with "alive". A column which all have the same value is totally uninteresting.
 
 ## Summary
 
