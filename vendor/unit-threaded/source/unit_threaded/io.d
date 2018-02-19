@@ -4,7 +4,7 @@
 
 module unit_threaded.io;
 
-import std.concurrency: Tid;
+import unit_threaded.from;
 
 /**
  * Write if debug output was enabled.
@@ -214,21 +214,15 @@ class WriterThread: Output {
 
     import std.concurrency: Tid;
 
+
     /**
      * Returns a reference to the only instance of this class.
      */
     static WriterThread get() @trusted {
-        if (!_instantiated) {
-            synchronized {
-                if (_instance is null) {
-                    _instance = new WriterThread;
-                }
-                _instantiated = true;
-            }
-        }
-        return _instance;
+        import std.concurrency: initOnce;
+        static __gshared WriterThread instance;
+        return initOnce!instance(new WriterThread);
     }
-
 
     override void send(in string output) @safe {
 
@@ -249,76 +243,24 @@ class WriterThread: Output {
         }
     }
 
-    /**
-     * Creates the singleton instance and waits until it's ready.
-     */
-    static void start() {
-        version(unitUnthreaded) {}
-        else {
-            import std.concurrency: send, receiveOnly;
-            WriterThread.get._tid.send(ThreadWait());
-            receiveOnly!ThreadStarted;
-        }
-    }
-
-
-    static void stop() {
-
-        void impl() {
-            WriterThread.get.flush;
-            WriterThread.get.join;
-        }
-
-        if (_instantiated) {
-            impl;
-            return;
-        }
-
-        synchronized {
-            if (_instance !is null) {
-                impl;
-            }
-        }
-    }
-
-    /**
-     * Waits for the writer thread to terminate.
-     */
-    void join() {
-        version(unitUnthreaded) {}
-        else {
-            import std.concurrency: send, receiveOnly;
-            _tid.send(ThreadFinish()); //tell it to join
-            receiveOnly!ThreadEnded;
-            _instance = null;
-            _instantiated = false;
-        }
-    }
 
 private:
 
     this() {
         version(unitUnthreaded) {}
         else {
-            import std.concurrency: spawn, thisTid;
+            import std.concurrency: spawn, thisTid, receiveOnly, send;
             import std.stdio: stdout, stderr;
             _tid = spawn(&threadWriter!(stdout, stderr), thisTid);
+            _tid.send(ThreadWait());
+            receiveOnly!ThreadStarted;
         }
     }
 
 
     Tid _tid;
-
-    static bool _instantiated; /// Thread local
-    __gshared WriterThread _instance;
 }
 
-unittest
-{
-    //make sure this can be brought up and down again
-    WriterThread.get.join;
-    WriterThread.get.join;
-}
 
 private struct ThreadWait{};
 private struct ThreadFinish{};
@@ -333,9 +275,9 @@ version (Posix) {
 }
 
 
-private void threadWriter(alias OUT, alias ERR)(Tid tid)
+private void threadWriter(alias OUT, alias ERR)(from!"std.concurrency".Tid tid)
 {
-    import std.concurrency: receive, send, OwnerTerminated;
+    import std.concurrency: receive, send, OwnerTerminated, Tid;
 
     auto done = false;
 
@@ -518,7 +460,7 @@ version(testing_unit_threaded) {
     }
 
     unittest {
-        import std.concurrency: spawn, thisTid, send, receiveOnly;
+        import std.concurrency: spawn, thisTid, send, receiveOnly, Tid;
         import unit_threaded.should;
 
         resetFakeFiles;
@@ -584,7 +526,7 @@ version(testing_unit_threaded) {
     }
 
     unittest {
-        import std.concurrency: spawn, thisTid, send, receiveOnly;
+        import std.concurrency: spawn, thisTid, send, receiveOnly, Tid;
         import unit_threaded.should;
 
         resetFakeFiles;
@@ -621,7 +563,7 @@ version(testing_unit_threaded) {
     }
 
     unittest {
-        import std.concurrency: spawn, thisTid, send, receiveOnly;
+        import std.concurrency: spawn, thisTid, send, receiveOnly, Tid;
         import unit_threaded.should;
 
         resetFakeFiles;
@@ -661,7 +603,7 @@ version(testing_unit_threaded) {
     }
 
     unittest {
-        import std.concurrency: spawn, thisTid, send, receiveOnly;
+        import std.concurrency: spawn, thisTid, send, receiveOnly, Tid;
         import unit_threaded.should;
 
         resetFakeFiles;

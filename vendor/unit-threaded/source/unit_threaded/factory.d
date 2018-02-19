@@ -1,7 +1,7 @@
 module unit_threaded.factory;
 
-import unit_threaded.testcase: TestCase, CompositeTestCase;
-import unit_threaded.reflection: TestData;
+import unit_threaded.from;
+import unit_threaded.testcase: CompositeTestCase;
 
 
 private CompositeTestCase[string] serialComposites;
@@ -10,7 +10,11 @@ private CompositeTestCase[string] serialComposites;
  * Creates tests cases from the given modules.
  * If testsToRun is empty, it means run all tests.
  */
-TestCase[] createTestCases(in TestData[] testData, in string[] testsToRun = []) {
+from!"unit_threaded.testcase".TestCase[] createTestCases(
+    in from!"unit_threaded.reflection".TestData[] testData,
+    in string[] testsToRun = [])
+{
+    import unit_threaded.testcase: TestCase;
     import std.algorithm: sort;
     import std.array: array;
 
@@ -26,20 +30,26 @@ TestCase[] createTestCases(in TestData[] testData, in string[] testsToRun = []) 
 }
 
 
-package TestCase createTestCase(in TestData testData) {
-
+package from!"unit_threaded.testcase".TestCase createTestCase(
+    in from!"unit_threaded.reflection".TestData testData)
+{
+    import unit_threaded.testcase: TestCase;
     import std.algorithm: splitter, reduce;
     import std.array: array;
 
     TestCase createImpl() {
-        import unit_threaded.testcase: BuiltinTestCase, FunctionTestCase, ShouldFailTestCase;
+        import unit_threaded.testcase:
+            BuiltinTestCase, FunctionTestCase, ShouldFailTestCase, FlakyTestCase;
         import std.conv: text;
 
         TestCase testCase;
+
         if(testData.isTestClass)
             testCase = cast(TestCase) Object.factory(testData.name);
          else
-            testCase = testData.builtin ? new BuiltinTestCase(testData) : new FunctionTestCase(testData);
+            testCase = testData.builtin
+                ? new BuiltinTestCase(testData)
+                : new FunctionTestCase(testData);
 
         version(unitThreadedLight) {}
         else
@@ -50,7 +60,8 @@ package TestCase createTestCase(in TestData testData) {
 
         if(testData.shouldFail) {
             testCase = new ShouldFailTestCase(testCase, testData.exceptionTypeInfo);
-        }
+        } else if(testData.flakyRetries > 0)
+            testCase = new FlakyTestCase(testCase, testData.flakyRetries);
 
         return testCase;
     }
@@ -85,7 +96,9 @@ package TestCase createTestCase(in TestData testData) {
 
 
 
-private bool isWantedTest(in TestData testData, in string[] testsToRun) {
+private bool isWantedTest(in from!"unit_threaded.reflection".TestData testData,
+                          in string[] testsToRun)
+{
 
     import std.algorithm: filter, all, startsWith, canFind;
     import std.array: array;
@@ -105,7 +118,9 @@ private bool isWantedTest(in TestData testData, in string[] testsToRun) {
         (tagsToRun.empty || tagsToRun.all!(t => matchesTags(t)));
 }
 
-private bool isWantedNonTagTest(in TestData testData, in string[] testsToRun) {
+private bool isWantedNonTagTest(in from!"unit_threaded.reflection".TestData testData,
+                                in string[] testsToRun)
+{
 
     import std.algorithm: any, startsWith, canFind;
 
@@ -125,6 +140,7 @@ private bool isWantedNonTagTest(in TestData testData, in string[] testsToRun) {
 
 
 unittest {
+    import unit_threaded.reflection: TestData;
     //existing, wanted
     assert(isWantedTest(TestData("tests.server.testSubscribe"), ["tests"]));
     assert(isWantedTest(TestData("tests.server.testSubscribe"), ["tests."]));
