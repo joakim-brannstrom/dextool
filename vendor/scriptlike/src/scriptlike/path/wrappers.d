@@ -24,7 +24,7 @@ import std.typetuple;
 
 static import std.path;
 public import std.path : dirSeparator, pathSeparator, isDirSeparator,
-	CaseSensitive, osDefaultCaseSensitivity, buildPath, buildNormalizedPath;
+	CaseSensitive, buildPath, buildNormalizedPath;
 
 import scriptlike.path.extras;
 

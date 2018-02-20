@@ -5,12 +5,12 @@
 
 module unit_threaded.testsuite;
 
-import unit_threaded.testcase: TestCase;
+import unit_threaded.from;
 
 /*
  * taskPool.amap only works with public functions, not closures.
  */
-auto runTest(TestCase test)
+auto runTest(from!"unit_threaded.testcase".TestCase test)
 {
     return test();
 }
@@ -23,13 +23,12 @@ struct TestSuite
     import unit_threaded.io: Output;
     import unit_threaded.options: Options;
     import unit_threaded.reflection: TestData;
+    import unit_threaded.testcase: TestCase;
     import std.datetime: Duration;
     static if(__VERSION__ >= 2077)
         import std.datetime.stopwatch: StopWatch;
     else
         import std.datetime: StopWatch;
-
-    package Output output;
 
     this(in Options options, in TestData[] testData) {
         import unit_threaded.io: WriterThread;
@@ -49,11 +48,6 @@ struct TestSuite
         _testData = testData;
         _output = output;
         _testCases = createTestCases(testData, options.testsToRun);
-    }
-
-    ~this() {
-        import unit_threaded.io: WriterThread;
-        WriterThread.stop;
     }
 
     /**
@@ -117,6 +111,9 @@ struct TestSuite
         printShouldFail();
 
         _output.writeln(".\n");
+
+        if(_options.random)
+            _output.writeln("Tests were run in random order. To repeat this run, use --seed ", _options.seed, "\n");
 
         if (_failures.length) {
             _output.writelnRed("Tests failed!\n");
@@ -214,8 +211,11 @@ void replaceModuleUnitTester() {
     Runtime.moduleUnitTester = &moduleUnitTester;
 }
 
-shared static this() {
-    replaceModuleUnitTester;
+version(unitThreadedLight) {}
+else {
+    shared static this() {
+        replaceModuleUnitTester;
+    }
 }
 
 /**

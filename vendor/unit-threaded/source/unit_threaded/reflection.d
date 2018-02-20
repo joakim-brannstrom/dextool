@@ -1,9 +1,7 @@
 module unit_threaded.reflection;
 
-import std.traits: isSomeString;
-import std.meta: allSatisfy, anySatisfy;
-import std.traits;
-import unit_threaded.uda;
+import unit_threaded.from;
+import std.traits; // can't find out why
 
 /**
  * Common data for test functions and test classes
@@ -19,6 +17,7 @@ struct TestData {
     string suffix; // append to end of getPath
     string[] tags;
     TypeInfo exceptionTypeInfo; // for ShouldFailWith
+    int flakyRetries = 0;
 
     string getPath() const pure nothrow {
         string path = name.dup;
@@ -37,7 +36,9 @@ struct TestData {
  * Finds all test cases (functions, classes, built-in unittest blocks)
  * Template parameters are module strings
  */
-const(TestData)[] allTestData(MOD_STRINGS...)() if(allSatisfy!(isSomeString, typeof(MOD_STRINGS))) {
+const(TestData)[] allTestData(MOD_STRINGS...)()
+    if(from!"std.meta".allSatisfy!(from!"std.traits".isSomeString, typeof(MOD_STRINGS)))
+{
     import std.array: join;
     import std.range : iota;
     import std.format : format;
@@ -51,7 +52,9 @@ const(TestData)[] allTestData(MOD_STRINGS...)() if(allSatisfy!(isSomeString, typ
 
     enum modulesString = getModulesString;
     mixin("import " ~ modulesString ~ ";");
-    mixin("return allTestData!(" ~ 0.iota(MOD_STRINGS.length).map!(i => "module%d".format(i)).join(", ") ~ ");");
+    mixin("return allTestData!(" ~
+          MOD_STRINGS.length.iota.map!(i => "module%d".format(i)).join(", ") ~
+          ");");
 }
 
 
@@ -59,7 +62,9 @@ const(TestData)[] allTestData(MOD_STRINGS...)() if(allSatisfy!(isSomeString, typ
  * Finds all test cases (functions, classes, built-in unittest blocks)
  * Template parameters are module symbols
  */
-const(TestData)[] allTestData(MOD_SYMBOLS...)() if(!anySatisfy!(isSomeString, typeof(MOD_SYMBOLS))) {
+const(TestData)[] allTestData(MOD_SYMBOLS...)()
+    if(!from!"std.meta".anySatisfy!(from!"std.traits".isSomeString, typeof(MOD_SYMBOLS)))
+{
     auto allTestsWithFunc(string expr)() pure {
         import std.traits: ReturnType;
         import std.meta: AliasSeq;
@@ -187,6 +192,7 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
                 enum isTags(alias T) = is(typeof(T)) && is(typeof(T) == Tags);
                 enum tags = tagsFromAttrs!(Filter!(isTags, __traits(getAttributes, eLtEstO)));
                 enum exceptionTypeInfo = getExceptionTypeInfo!eLtEstO;
+                enum flakyRetries = getFlakyRetries!(eLtEstO);
 
                 static if(valuesUDAs.length == 0) {
                     testData ~= TestData(name,
@@ -205,7 +211,8 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
                                          builtin,
                                          suffix,
                                          tags,
-                                         exceptionTypeInfo);
+                                         exceptionTypeInfo,
+                                         flakyRetries);
                 } else {
                     import std.range;
 
@@ -235,8 +242,14 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
                                                      ValueHolder!(typeof(comb[i])).values[i] = comb[i];
                                                  eLtEstO();
                                              },
-                                             hidden, shouldFail, singleThreaded, builtin, suffix, realTags, exceptionTypeInfo);
-
+                                             hidden,
+                                             shouldFail,
+                                             singleThreaded,
+                                             builtin,
+                                             suffix,
+                                             realTags,
+                                             exceptionTypeInfo,
+                                             flakyRetries);
                     }
                 }
             }
@@ -324,6 +337,7 @@ private string getValueAsString(T)(T value) nothrow pure @safe {
 
 
 private template isStringUDA(alias T) {
+    import std.traits: isSomeString;
     static if(__traits(compiles, isSomeString!(typeof(T))))
         enum isStringUDA = isSomeString!(typeof(T));
     else
@@ -336,6 +350,7 @@ unittest {
 }
 
 private template isPrivate(alias module_, string moduleMember) {
+    import unit_threaded.uda: HasTypes;
     import std.traits: fullyQualifiedName;
 
     // obfuscate the name (user code might just be defining their own isPrivate)
@@ -442,6 +457,7 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
         import unit_threaded.meta: importMember;
         import unit_threaded.uda: HasAttribute;
         import unit_threaded.attrs: UnitTest;
+        import std.traits: isAggregateType;
 
         mixin(importMember!module_(moduleMember));
 
@@ -463,7 +479,6 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
         }
     }
 
-
     return moduleTestData!(module_, isTestClass, memberTestData);
 }
 
@@ -474,7 +489,7 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
  */
 TestData[] moduleTestFunctions(alias module_)() pure {
 
-    enum isTypesAttr(alias T) = is(T) && is(T:Types!U, U...);
+    import unit_threaded.uda: isTypesAttr;
 
     template isTestFunction(alias module_, string moduleMember) {
         import unit_threaded.meta: importMember;
@@ -642,7 +657,9 @@ private TestData[] createFuncTestData(alias module_, string moduleMember)() {
 private TestData[] moduleTestData(alias module_, alias pred, alias createTestData)() pure {
     import std.traits: fullyQualifiedName;
     mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
+
     TestData[] testData;
+
     foreach(moduleMember; __traits(allMembers, module_)) {
 
         static if(PassesTestPred!(module_, pred, moduleMember))
@@ -667,16 +684,41 @@ private TestData memberTestData(alias module_, string moduleMember, string[] ext
     enum builtin = false;
     enum tags = tagsFromAttrs!(GetAttributes!(module_, moduleMember, Tags));
     enum exceptionTypeInfo = getExceptionTypeInfo!(mixin(moduleMember));
+    enum shouldFail =
+        HasAttribute!(module_, moduleMember, ShouldFail) ||
+        hasUtUDA!(mixin(moduleMember), ShouldFailWith);
+    enum flakyRetries = getFlakyRetries!(mixin(moduleMember));
 
     return TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
                     testFunction,
                     HasAttribute!(module_, moduleMember, HiddenTest),
-                    HasAttribute!(module_, moduleMember, ShouldFail) || hasUtUDA!(mixin(moduleMember), ShouldFailWith),
+                    shouldFail,
                     singleThreaded,
                     builtin,
                     suffix,
                     tags ~ extraTags,
-                    exceptionTypeInfo);
+                    exceptionTypeInfo,
+                    flakyRetries);
+}
+
+private int getFlakyRetries(alias test)() {
+    import unit_threaded.attrs: Flaky;
+    import std.traits: getUDAs;
+    import std.conv: text;
+
+    alias flakies = getUDAs!(test, Flaky);
+
+    static assert(flakies.length == 0 || flakies.length == 1,
+                  text("Only 1 @Flaky allowed, found ", flakies.length, " on ",
+                       __traits(identifier, test)));
+
+    static if(flakies.length == 1) {
+        static if(is(flakies[0]))
+            return Flaky.defaultRetries;
+        else
+            return flakies[0].retries;
+    } else
+        return 0;
 }
 
 string[] tagsFromAttrs(T...)() {
@@ -1049,4 +1091,27 @@ unittest {
     import unit_threaded.tests.structs_are_not_classes;
     const testData = allTestData!"unit_threaded.tests.structs_are_not_classes";
     testData.shouldBeEmpty;
+}
+
+@("@Flaky") unittest {
+    import unit_threaded.factory;
+    import unit_threaded.asserts;
+    import unit_threaded.tests.module_with_attrs;
+    import unit_threaded.should: shouldThrowExactly, UnitTestException;
+    import std.algorithm: find, canFind;
+    import std.array: array;
+
+    const testData = allTestData!"unit_threaded.tests.module_with_attrs";
+
+    auto flakyPasses = testData
+        .filter!(a => a.getPath.canFind("flaky that passes eventually"))
+        .array
+        .createTestCases[0];
+    assertPass(flakyPasses);
+
+    auto flakyFails = testData
+        .filter!(a => a.getPath.canFind("flaky that fails due to not enough retries"))
+        .array
+        .createTestCases[0];
+    assertFail(flakyFails);
 }

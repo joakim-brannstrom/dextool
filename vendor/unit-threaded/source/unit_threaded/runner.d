@@ -5,14 +5,13 @@
 
 module unit_threaded.runner;
 
-import unit_threaded.reflection: TestData;
-import unit_threaded.options: Options;
+import unit_threaded.from;
 
 /**
  * Runs all tests in passed-in modules. Modules can be symbols or
  * strings. Generates a main function and substitutes the default D
  * runtime unittest runner. This mixin should be used instead of
- * $(D runTests) if Phobos is linked as a shared library.
+ * $(D runTests) if a shared library is used instead of an executable.
  */
 mixin template runTestsMixin(Modules...) if(Modules.length > 0) {
 
@@ -50,11 +49,16 @@ int runTests(Modules...)(string[] args) if(Modules.length > 0) {
  *   testData = Data about the tests to run.
  * Returns: An integer suitable for the program's return code.
  */
-int runTests(string[] args, in TestData[] testData) {
+int runTests(string[] args, in from!"unit_threaded.reflection".TestData[] testData) {
     import unit_threaded.options: getOptions;
+    return runTests(getOptions(args), testData);
+}
+
+int runTests(in from!"unit_threaded.options".Options options,
+             in from!"unit_threaded.reflection".TestData[] testData)
+{
     import unit_threaded.testsuite: TestSuite;
 
-    const options = getOptions(args);
     handleCmdLineOptions(options, testData);
     if (options.exit)
         return 0;
@@ -63,7 +67,10 @@ int runTests(string[] args, in TestData[] testData) {
     return suite.run ? 0 : 1;
 }
 
-private void handleCmdLineOptions(in Options options, in TestData[] testData) {
+
+private void handleCmdLineOptions(in from!"unit_threaded.options".Options options,
+                                  in from!"unit_threaded.reflection".TestData[] testData)
+{
 
     import unit_threaded.io: enableDebugOutput, forceEscCodes;
     import unit_threaded.testcase: enableStackTrace;

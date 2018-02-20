@@ -1,7 +1,7 @@
 unit-threaded
 =============
 
-| [![Build Status](https://travis-ci.org/atilaneves/unit-threaded.png?branch=master)](https://travis-ci.org/atilaneves/unit-threaded) |  [![Build Status](https://ci.appveyor.com/api/projects/status/github/atilaneves/unit-threaded?branch=master&svg=true)](https://ci.appveyor.com/project/atilaneves/unit-threaded) |
+| [![Build Status](https://travis-ci.org/atilaneves/unit-threaded.png?branch=master)](https://travis-ci.org/atilaneves/unit-threaded) |  [![Build Status](https://ci.appveyor.com/api/projects/status/github/atilaneves/unit-threaded?branch=master&svg=true)](https://ci.appveyor.com/project/atilaneves/unit-threaded) | [![Coverage](https://codecov.io/gh/atilaneves/unit-threaded/branch/master/graph/badge.svg)](https://codecov.io/gh/atilaneves/unit-threaded) |
 
 [My DConf2016 Lightning talk demonstrating unit-threaded](https://www.youtube.com/watch?v=yIH_0ew-maI#t=6m50s).
 
@@ -66,6 +66,7 @@ configuration "unittest" {
     dependency "unit-threaded" version="~>0.7.11"
     mainSourceFile "bin/ut.d"
     excludedSourceFiles "src/main.d"
+    targetType "executable"
     preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
 }
 
@@ -146,6 +147,12 @@ Since code under test might not be thread-safe, the `@Serial`
 attribute can be used on a test. This causes all tests in the same
 module that have this attribute to be executed sequentially so they
 don't interleave with one another.
+
+Although not the best practice, it happens sometimes that a test is
+flaky. It is recommended to fix the test, but as a stopgap measure
+the `@Flaky` UDA can be used to rerun the test up to a default number
+of 10 times. This can be customized by passing it a number
+(e.g. `@Flaky(12)`);
 
 The `@UnitTest` and `@DontTest` attributes are explained below.
 
