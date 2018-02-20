@@ -161,6 +161,9 @@ else
  */
 string pathLocation(string action)
 {
+	import std.algorithm;
+	import std.utf : toUTF8;
+	import std.string : strip;
 	string ans;
 
 	do
@@ -170,7 +173,7 @@ string pathLocation(string action)
 		ans = userInput(action);
 		// Quotations will generally cause problems when
 		// using the path with std.file and Windows. This removes the quotes.
-		ans = ans.removechars("\";").strip();
+		ans = ans.filter!(a => !a.among('"', ';')).toUTF8.strip();
 		ans = ans[0] == '"' ? ans[1..$] : ans; // removechars skips first char
 	} while(!exists(ans));
 

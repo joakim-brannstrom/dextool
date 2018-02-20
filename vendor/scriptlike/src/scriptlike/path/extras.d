@@ -23,7 +23,7 @@ import std.typetuple;
 
 static import std.path;
 import std.path : dirSeparator, pathSeparator, isDirSeparator,
-	CaseSensitive, osDefaultCaseSensitivity, buildPath, buildNormalizedPath;
+	CaseSensitive, buildPath, buildNormalizedPath;
 
 import scriptlike.path.wrappers;
 
