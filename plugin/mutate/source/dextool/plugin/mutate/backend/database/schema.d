@@ -8,6 +8,32 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 This module contains the schema to initialize the database.
+
+# Sqlite3
+From the sqlite3 manual $(LINK https://www.sqlite.org/datatype3.html):
+Each value stored in an SQLite database (or manipulated by the database
+engine) has one of the following storage classes:
+
+NULL. The value is a NULL value.
+
+INTEGER. The value is a signed integer, stored in 1, 2, 3, 4, 6, or 8 bytes
+depending on the magnitude of the value.
+
+REAL. The value is a floating point value, stored as an 8-byte IEEE floating
+point number.
+
+TEXT. The value is a text string, stored using the database encoding (UTF-8,
+UTF-16BE or UTF-16LE).
+
+BLOB. The value is a blob of data, stored exactly as it was input.
+
+A storage class is more general than a datatype. The INTEGER storage class, for
+example, includes 6 different integer datatypes of different lengths.  This
+makes a difference on disk. But as soon as INTEGER values are read off of disk
+and into memory for processing, they are converted to the most general datatype
+(8-byte signed integer). And so for the most part, "storage class" is
+indistinguishable from "datatype" and the two terms can be used
+interchangeably.
 */
 module dextool.plugin.mutate.backend.database.schema;
 

@@ -307,6 +307,7 @@ struct MutationTestDriver(ImplT) {
         case State.allMutantsTested:
             break;
         case State.filesysError:
+            logger.warning("Filesystem error").collectException;
             break;
         case State.noResultRestoreCode:
             impl.cleanup;

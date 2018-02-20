@@ -7,31 +7,9 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-# Sqlite3
-From the sqlite3 manual $(LINK https://www.sqlite.org/datatype3.html):
-Each value stored in an SQLite database (or manipulated by the database
-engine) has one of the following storage classes:
+This file contains a sqlite3 wrapper that is responsible for providing *nice*, easy to use functions for accessing the data in the database.
 
-NULL. The value is a NULL value.
-
-INTEGER. The value is a signed integer, stored in 1, 2, 3, 4, 6, or 8 bytes
-depending on the magnitude of the value.
-
-REAL. The value is a floating point value, stored as an 8-byte IEEE floating
-point number.
-
-TEXT. The value is a text string, stored using the database encoding (UTF-8,
-UTF-16BE or UTF-16LE).
-
-BLOB. The value is a blob of data, stored exactly as it was input.
-
-A storage class is more general than a datatype. The INTEGER storage class, for
-example, includes 6 different integer datatypes of different lengths.  This
-makes a difference on disk. But as soon as INTEGER values are read off of disk
-and into memory for processing, they are converted to the most general datatype
-(8-byte signed integer). And so for the most part, "storage class" is
-indistinguishable from "datatype" and the two terms can be used
-interchangeably.
+This module may have dependencies on many internal mutation modules.
 */
 module dextool.plugin.mutate.backend.database;
 
@@ -42,7 +20,7 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
-import dextool.plugin.mutate.backend.database.type;
+public import dextool.plugin.mutate.backend.database.type;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
