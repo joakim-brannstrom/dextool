@@ -147,7 +147,7 @@ import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
  * #SPC-plugin_mutate_file_security-single_output
  */
 final class FrontendIO : FilesysIO {
-    import std.exception : collectException, Exception;
+    import std.exception : collectException;
     import std.stdio : File;
     import dextool.type : AbsolutePath;
     import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
