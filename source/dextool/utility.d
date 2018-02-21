@@ -7,17 +7,18 @@ module dextool.utility;
 
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb,
     fromFiles;
 
-    @safe:
+public import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 
-    enum PreferLang : string {
-        none = "",
-        c = "-xc",
-        cpp = "-xc++"
-    }
+@safe:
+
+enum PreferLang : string {
+    none = "",
+    c = "-xc",
+    cpp = "-xc++"
+}
 
 pure string[] prependDefaultFlags(const string[] in_cflags, const PreferLang lang) {
     import std.algorithm : canFind;
