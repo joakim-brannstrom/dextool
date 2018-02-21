@@ -11,7 +11,7 @@ module cpptooling.data.class_merge;
 
 import cpptooling.data.representation : CppClass;
 import cpptooling.data.symbol : Container;
-import cpptooling.data.type : FullyQualifiedNameType;
+import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
 import std.typecons : NullableRef;
 import std.range : only;
