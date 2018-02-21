@@ -17,7 +17,7 @@ enum LocationType {
     Leaf
 }
 
-private enum DummyPayload {
+enum DummyPayload {
     none
 }
 

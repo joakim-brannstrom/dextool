@@ -526,7 +526,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     bool doPreIncludes() {
-        import std.path : exists;
+        import std.file : exists;
 
         return pre_incl && !exists(cast(string) pre_incl_file);
     }
@@ -536,7 +536,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     bool doPostIncludes() {
-        import std.path : exists;
+        import std.file : exists;
 
         return post_incl && !exists(cast(string) post_incl_file);
     }
@@ -621,7 +621,8 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
         CompileCommandDB compile_db, InFiles in_files) {
     import std.typecons : Yes;
 
-    import dextool.clang : findFlags, ParseData = SearchResult;
+    import dextool.clang : findFlags;
+    import dextool.compilation_db : ParseData = SearchResult;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.io : writeFileData;
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
