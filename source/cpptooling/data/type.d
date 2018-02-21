@@ -9,13 +9,15 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.data.type;
 
-import std.traits; // : isSomeString;
-import std.typecons; // : Flag;
-import std.variant; // : Algebraic;
+import std.traits : isSomeString;
+import std.typecons : Flag;
+import std.variant : Algebraic;
 
-import cpptooling.data.kind_type; // : TypeKind, TypeKindAttr, TypeResult;
-import cpptooling.data.symbol.types; // : USRType;
 import taggedalgebraic;
+
+public import cpptooling.data.symbol.types : USRType;
+public import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr,
+    TypeResult, toStringDecl;
 
 static import cpptooling.data.class_classification;
 

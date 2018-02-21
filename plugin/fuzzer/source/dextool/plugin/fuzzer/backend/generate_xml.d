@@ -42,7 +42,7 @@ void generateConfigCompilerFilter(ref CompileCommandFilter compiler_flag_filter,
 /// TODO change to @safe when the base compiler is upgraded to 2.074+
 void generateConfigPerFunction(ref ImplData impl, ref TemplateConfig tmpl_conf) @trusted {
     import std.xml;
-    import cpptooling.data.type : FullyQualifiedNameType;
+    import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     // no duplications are allowed
     bool[FullyQualifiedNameType] generated_syms;

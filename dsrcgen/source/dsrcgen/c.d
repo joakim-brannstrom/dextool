@@ -6,7 +6,7 @@ module dsrcgen.c;
 
 import std.typecons : Flag, Yes, No;
 
-import dsrcgen.base;
+public import dsrcgen.base;
 
 @safe:
 

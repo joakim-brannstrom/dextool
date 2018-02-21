@@ -7,7 +7,7 @@ module dsrcgen.sh;
 
 import std.typecons : Yes, Flag;
 
-import dsrcgen.base;
+public import dsrcgen.base;
 
 version (Have_unit_threaded) {
     import unit_threaded : shouldEqual;

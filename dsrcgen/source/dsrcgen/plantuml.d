@@ -10,7 +10,7 @@ import std.meta : AliasSeq, staticIndexOf;
 import std.traits : ReturnType;
 import std.typecons : Flag, Yes, No, Typedef, Tuple;
 
-import dsrcgen.base;
+public import dsrcgen.base;
 
 version (Have_unit_threaded) {
     import unit_threaded : Name, shouldEqual;
