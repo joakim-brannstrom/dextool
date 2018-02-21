@@ -1160,10 +1160,20 @@ body {
             logType(result_type, indent);
         }
 
+        auto this_node = passType(result_decl, result_type, container, indent + 1).get;
+
         if (result_decl.kind == CXCursorKind.noDeclFound) {
-            rval = passType(result_decl, result_type, container, indent + 1).get;
+            rval = this_node;
         } else {
             rval = retrieveType(result_decl, container, indent + 1).get;
+
+            // use the attributes derived from this node because it is not
+            // preserved in the result_decl. This is a problem when the return
+            // type is a typedef.  The const attribute isn't preserved.
+            rval.primary.type.attr = this_node.primary.type.attr;
+
+            rval.extra ~= this_node.primary;
+            rval.extra ~= this_node.extra;
         }
 
         return rval.primary.type;

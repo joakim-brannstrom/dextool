@@ -232,6 +232,54 @@ final class TestUnionVisitor : Visitor {
     }
 }
 
+final class ClassVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    /// The USR to find.
+    USRType find;
+
+    CxxMethodResult[] methods;
+    FunctionDeclResult[] funcs;
+    bool found;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(ClassDecl) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        auto tmp = analyzeFunctionDecl(v, container, indent);
+        if (this.find.length == 0 || v.cursor.usr == this.find) {
+            funcs ~= tmp;
+            found = true;
+        }
+    }
+
+    override void visit(const(CxxMethod) v) @trusted {
+        mixin(mixinNodeLog!());
+
+        auto tmp = analyzeCxxMethod(v, container, indent);
+        if (this.find.length == 0 || v.cursor.usr == this.find) {
+            methods ~= tmp;
+            found = true;
+        }
+
+        v.accept(this);
+    }
+}
+
 version (linux) {
     @("Should be a type of kind 'func'")
     unittest {
@@ -673,4 +721,38 @@ void my_func(myString3 s);
     // can't test the USR more specific because it is different on different
     // systems.
     (USRType(type.info.canonicalRef.dup)).shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
+}
+
+@("shall derive the constness of the return type")
+@Values("int", "int*", "int&", "MyInt", "MyInt*", "MyInt&")
+unittest {
+    immutable code = "
+typedef int MyInt;
+
+class Class {
+    const %s fun();
+};
+";
+
+    // arrange
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp",
+            cast(Content) format(code, getValue!string));
+    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+    auto visitor = new ClassVisitor;
+
+    // act
+    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+    ast.accept(visitor);
+
+    // assert
+    checkForCompilerErrors(tu).shouldBeFalse;
+    visitor.found.shouldBeTrue;
+
+    {
+        auto type2 = visitor.container.find!TypeKind(USRType("c:@S@Class@F@fun#"));
+        type2.length.shouldEqual(1);
+        type2.front.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+        type2.front.info.returnAttr.isConst.shouldBeTrue;
+    }
 }
