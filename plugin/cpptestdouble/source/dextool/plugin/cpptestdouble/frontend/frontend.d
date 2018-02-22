@@ -372,7 +372,8 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
         string[] in_cflags, CompileCommandDB compile_db, InFiles in_files) {
     import std.typecons : Yes;
 
-    import dextool.clang : findFlags, ParseData = SearchResult;
+    import dextool.clang : findFlags;
+    import dextool.compilation_db : ParseData = SearchResult;
     import dextool.plugin.cpptestdouble.backend : Backend;
     import dextool.io : writeFileData;
     import dextool.type : AbsolutePath;

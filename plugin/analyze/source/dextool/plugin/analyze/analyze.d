@@ -58,8 +58,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
         string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) @safe {
     import std.conv : to;
     import std.range : enumerate;
-    import dextool.clang : SearchResult;
-    import dextool.compilation_db : defaultCompilerFilter;
+    import dextool.compilation_db : defaultCompilerFilter, SearchResult;
     import dextool.utility : prependDefaultFlags, PreferLang;
     import dextool.plugin.analyze.filerange : AnalyzeFileRange;
 

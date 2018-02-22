@@ -294,7 +294,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     }
 
     Flag!"genStyleInclFile" genStyleInclFile() {
-        import std.path : exists;
+        import std.file : exists;
 
         return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
     }
