@@ -1,25 +1,27 @@
-# Admin and other fun stuff
+# Mutation testing
 
-To get the files in the database:
-```sh
-sqlite3 dextool_mutate.sqlite3 "select * from files"
-```
+The following guide will explain how to use ``dextool mutate`` for mutation testing of C/C++ code. The [Google Test project](https://github.com/google/googletest) will be used as an example subject under test (SUT).
 
-The different states a mutant are found in Mutation.Kind.
+# Getting Started
 
-Reset all mutations of a kind to unknown which forces them to be tested again:
-```sh
-sqlite3 dextool_mutate.sqlite3 "update mutation SET status=0 WHERE mutation.kind=FOO"
-```
+If you are new to the dextool framework or the mutation testing concept, we suggest you to read the following:
 
-# Mutation Testing of Google Test
+* TODO: Something about compilation databases
+* TODO: Something about mutation testing
+
+## Using Dextool mutate
+
+### On a CMake project
 
 This is an example of how to mutation test google test itself.
-It assumes the current directory is _build_ which is then located the google test repo.
 
 Create a database of all mutation points:
 ```sh
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+git clone https://github.com/google/googletest.git   # Obtain the google test project
+cd googletest
+mkdir build                                          # Create a directory to hold the build output.
+cd build
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate native build scripts.
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
 
@@ -75,4 +77,18 @@ To generate a HTML coverage report:
 ```sh
 lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
 genhtml app.info -o html
+```
+
+# Admin and other fun stuff
+
+To get the files in the database:
+```sh
+sqlite3 dextool_mutate.sqlite3 "select * from files"
+```
+
+The different states a mutant are found in Mutation.Kind.
+
+Reset all mutations of a kind to unknown which forces them to be tested again:
+```sh
+sqlite3 dextool_mutate.sqlite3 "update mutation SET status=0 WHERE mutation.kind=FOO"
 ```
