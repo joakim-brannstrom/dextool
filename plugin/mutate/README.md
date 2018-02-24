@@ -35,17 +35,12 @@ cd build
 
 # Generate a JSON compilation database and build scripts:
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
+make
 ```
 
 Suppose you have the software under test in ... and the test code elsewhere. Use the ``--restrict`` option to distinguish this separation and tell dextool what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
-```
-
-Reconfigure and prebuild with the tests activated:
-```sh
-cmake -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
-make
 ```
 
 Create a file ``tester.sh`` with this content:
