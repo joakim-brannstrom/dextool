@@ -29,10 +29,11 @@ git clone https://github.com/google/googletest.git   # Obtain the google test pr
 cd googletest
 mkdir build                                          # Create a directory to hold the build output.
 cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate JSON compilation database and build scripts.
+# Generate JSON compilation database and build scripts:
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
 
-Suppose you have the software under test in ... and the test code elsewhere. The ``--restrict`` option separates subject code (to be mutated) from test code. Tell dextool what to analyze:
+Suppose you have the software under test in ... and the test code elsewhere. Use the ``--restrict`` option to distinguish this separation and tell dextool what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
