@@ -23,7 +23,7 @@ In this guide, the [Google Test project](https://github.com/google/googletest) w
 
 ### On a CMake project
 
-When using Dextool mutate on a CMake project, the typical workflow starts with:
+When using Dextool mutate on a CMake project, the typical workflow is to:
 ```sh
 # Obtain the project
 git clone https://github.com/google/googletest.git
