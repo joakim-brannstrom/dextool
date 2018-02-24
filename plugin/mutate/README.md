@@ -71,6 +71,10 @@ To see the result:
 dextool mutate report --restrict .. --level alive --mutant lcr
 ```
 
+### On a makefile project
+
+TODO: Add description
+
 ## Compiling Google Test with Coverage
 
 It may be helpful to see the coverage of the Gtest test suite.
