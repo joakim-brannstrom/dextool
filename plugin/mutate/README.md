@@ -25,11 +25,15 @@ In this guide, the [Google Test project](https://github.com/google/googletest) w
 
 When using Dextool mutate on a CMake project, the typical workflow starts with:
 ```sh
-git clone https://github.com/google/googletest.git   # Obtain the google test project
+# Obtain the project
+git clone https://github.com/google/googletest.git
 cd googletest
-mkdir build                                          # Create a directory to hold the build output.
+
+# Create a directory to hold the build output:
+mkdir build
 cd build
-# Generate JSON compilation database and build scripts:
+
+# Generate a JSON compilation database and build scripts:
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
 
