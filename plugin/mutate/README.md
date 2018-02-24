@@ -1,6 +1,6 @@
 # Mutation testing
 
-The following guide will explain how to use ``dextool mutate`` for mutation testing of C/C++ code. The [Google Test project](https://github.com/google/googletest) will be used as an example subject under test (SUT).
+The following guide explains how to use ``dextool mutate`` for mutation testing of C/C++ project. The [Google Test project](https://github.com/google/googletest) will be used as an example subject under test (SUT).
 
 # Getting Started
 
