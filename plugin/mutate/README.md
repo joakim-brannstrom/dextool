@@ -1,6 +1,6 @@
 # Dextool Mutate
 
-The Dextool mutatation testing plugin. 
+The Dextool mutation testing plugin. 
 
 ## Overview
 
