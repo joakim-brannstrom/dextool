@@ -1,6 +1,6 @@
 # Dextool Mutate
 
-The ``dextool mutate`` plugin for mutation testing of C/C++ projects. 
+The dextool mutate plugin for mutation testing of C/C++ projects. 
 
 ## Overview
 
