@@ -23,7 +23,7 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 
 Let's pick the [Google Test project](https://github.com/google/googletest) as an example.
 
-When using Dextool mutate to analyze a CMake project, the typical workflow is to:
+When setting up Dextool to analyze a CMake project, the typical workflow is to:
 ```sh
 # Obtain the project
 git clone https://github.com/google/googletest.git
@@ -38,7 +38,7 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_te
 make
 ```
 
-Suppose you have the software under test in ... and the test code is elsewhere. Use the ``--restrict`` option to distinguish these when telling dextool what to analyze:
+Suppose you have the software under test in ... and the test code is elsewhere. Use the ``--restrict`` option to distinguish this when telling dextool what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
