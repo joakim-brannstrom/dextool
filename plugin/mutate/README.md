@@ -1,4 +1,4 @@
-# Mutation testing
+# Dextool mutate
 
 The ``dextool mutate`` plugin for mutation testing of C/C++ projects. 
 
