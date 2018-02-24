@@ -38,14 +38,14 @@ cmake -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 make
 ```
 
-Create a file tester.sh with this content:
+Create a file ``tester.sh`` with this content:
 ```sh
 #!/bin/bash
 set -e
 make test ARGS="-j$(nproc)"
 ```
 
-Create a file compile.sh with this content:
+Create a file ``compile.sh`` with this content:
 ```sh
 #!/bin/bash
 set -e
