@@ -23,7 +23,7 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 
 Let's pick the [Google Test project](https://github.com/google/googletest) as an example.
 
-When using Dextool mutate on a CMake project, the typical workflow is to:
+When using Dextool mutate to analyze a CMake project, the typical workflow is to:
 ```sh
 # Obtain the project
 git clone https://github.com/google/googletest.git
