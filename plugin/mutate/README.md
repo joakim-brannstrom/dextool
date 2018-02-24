@@ -71,21 +71,17 @@ dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --re
 It is possible to run multiple `test` against the same database.
 Just make sure they don't mutate the same source code.
 
-To see the result:
+To see the mutation testing result:
 ```sh
 dextool mutate report --restrict .. --level alive --mutant lcr
 ```
 
-#### Compiling Google Test with Coverage
-
-It may be helpful to see the coverage of the Gtest test suite.
-
-To compile with coverage:
+It may be interesting to compare the mutation testing results with the code coverage of the Gtest test suite. To measure code coverage, compile the project with:
 ```sh
 cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-arcs -ftest-coverage" -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
 
-To generate a HTML coverage report:
+Generate a HTML coverage report with:
 ```sh
 lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
 genhtml app.info -o html
