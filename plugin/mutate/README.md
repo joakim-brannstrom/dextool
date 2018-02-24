@@ -21,7 +21,7 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 
 ### On a CMake project
 
-Let's use the [Google Test project](https://github.com/google/googletest) as an example.
+Let's pick the [Google Test project](https://github.com/google/googletest) as an example.
 
 When using Dextool mutate on a CMake project, the typical workflow is to:
 ```sh
