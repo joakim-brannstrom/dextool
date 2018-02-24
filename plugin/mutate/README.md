@@ -17,9 +17,9 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 * TODO: Something about compilation databases
 * TODO: Something about mutation testing
 
-## Using Dextool mutate
+## Mutation testing
 
-### On a CMake project
+### Using CMake
 
 Let's pick the [Google Test project](https://github.com/google/googletest) as an example.
 
