@@ -76,11 +76,7 @@ To see the result:
 dextool mutate report --restrict .. --level alive --mutant lcr
 ```
 
-### On a makefile project
-
-TODO: Add description
-
-## Compiling Google Test with Coverage
+#### Compiling Google Test with Coverage
 
 It may be helpful to see the coverage of the Gtest test suite.
 
@@ -94,6 +90,10 @@ To generate a HTML coverage report:
 lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
 genhtml app.info -o html
 ```
+
+### Using GNU make
+
+TODO: Add description
 
 # Admin and other fun stuff
 
