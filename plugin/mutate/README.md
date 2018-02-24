@@ -13,17 +13,20 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 
 ### On a CMake project
 
-This is an example of how to mutation test google test itself.
-
-Create a database of all mutation points:
+Create a JSON database of the subject code:
 ```sh
 git clone https://github.com/google/googletest.git   # Obtain the google test project
 cd googletest
 mkdir build                                          # Create a directory to hold the build output.
 cd build
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate native build scripts.
+```
+
+Tell dextool what to analyze:
+```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
+Note how the ``--restrict`` option separates subject code (to be mutated) from test code.
 
 Reconfigure and prebuild with the tests activated:
 ```sh
