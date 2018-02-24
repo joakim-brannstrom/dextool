@@ -23,20 +23,19 @@ In this guide, the [Google Test project](https://github.com/google/googletest) w
 
 ### On a CMake project
 
-Create a JSON compilation database of the subject code:
+When using Dextool mutate on a CMake project, the typical workflow starts with:
 ```sh
 git clone https://github.com/google/googletest.git   # Obtain the google test project
 cd googletest
 mkdir build                                          # Create a directory to hold the build output.
 cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate compilation database and build scripts.
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate JSON compilation database and build scripts.
 ```
 
-Tell dextool what to analyze:
+Suppose you have the software under test in ... and the test code elsewhere. The ``--restrict`` option separates subject code (to be mutated) from test code. Tell dextool what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
-Note how the ``--restrict`` option separates subject code (to be mutated) from test code.
 
 Reconfigure and prebuild with the tests activated:
 ```sh
