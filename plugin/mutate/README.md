@@ -23,7 +23,7 @@ git clone https://github.com/google/googletest.git   # Obtain the google test pr
 cd googletest
 mkdir build                                          # Create a directory to hold the build output.
 cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate native build scripts.
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..          # Generate compilation database and build scripts.
 ```
 
 Tell dextool what to analyze:
