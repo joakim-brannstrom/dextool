@@ -1,10 +1,14 @@
 # Dextool Mutate
 
-The dextool mutate plugin for mutation testing of C/C++ projects. 
+The Dextool mutatation testing plugin. 
 
 ## Overview
 
-In this guide, the [Google Test project](https://github.com/google/googletest) will be used as an example.
+Dextool's plugin for mutation testing of C/C++ projects. It can help you measure the test case quality, blabla.
+
+### Features
+
+TODO: List supported mutation operators etc.
 
 # Getting Started
 
@@ -14,6 +18,8 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 * TODO: Something about mutation testing
 
 ## Using Dextool mutate
+
+In this guide, the [Google Test project](https://github.com/google/googletest) will be used as an example.
 
 ### On a CMake project
 
