@@ -63,7 +63,7 @@ chmod 755 tester.sh
 chmod 755 compile.sh
 ```
 
-Start mutation testing!!!!:
+Start mutation testing:
 ```sh
 dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
 ```
