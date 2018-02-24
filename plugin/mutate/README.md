@@ -17,7 +17,7 @@ If you are new to the dextool framework or the mutation testing concept, we sugg
 
 ### On a CMake project
 
-Create a JSON database of the subject code:
+Create a JSON compilation database of the subject code:
 ```sh
 git clone https://github.com/google/googletest.git   # Obtain the google test project
 cd googletest
