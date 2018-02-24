@@ -76,7 +76,7 @@ To see the mutation testing result:
 dextool mutate report --restrict .. --level alive --mutant lcr
 ```
 
-It may be interesting to compare the mutation testing results with the code coverage of the Gtest test suite. To measure code coverage, compile the project with:
+It may be interesting to compare the mutation testing results with the code coverage. To measure code coverage, build the project with:
 ```sh
 cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-arcs -ftest-coverage" -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
