@@ -12,7 +12,7 @@ TODO: List supported mutation operators etc.
 
 # Getting Started
 
-If you are new to the dextool framework or the mutation testing concept, we suggest you to read the following:
+If you are new to dextool, we suggest you to read the following:
 
 * TODO: Something about compilation databases
 * TODO: Something about mutation testing
