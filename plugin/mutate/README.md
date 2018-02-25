@@ -9,6 +9,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 ### Features
 
 TODO: List supported mutation operators etc.
+TODO: What are the selling points etc?
 
 # Getting Started
 
