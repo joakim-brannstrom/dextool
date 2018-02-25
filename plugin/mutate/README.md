@@ -4,7 +4,7 @@ The Dextool mutation testing plugin.
 
 ## Overview
 
-Dextool's plugin for mutation testing of C/C++ projects. It can help you measure the test case quality.
+Dextool's plugin for mutation testing of C/C++ projects. It can help you design new tests and evaluate the quality of existing  tests.
 
 ### Features
 
