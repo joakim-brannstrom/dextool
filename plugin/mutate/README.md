@@ -38,7 +38,7 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_te
 make
 ```
 
-Suppose the source code is in ... and the test code is elsewhere. Use the ``--restrict`` option to specify what shall be analyzed:
+Suppose the source code is in ... and the test code is elsewhere. Use the ``--restrict`` option to specify what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
