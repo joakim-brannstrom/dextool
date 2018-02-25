@@ -43,14 +43,14 @@ Suppose the source code is in ... and the test code is elsewhere. Use the ``--re
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
 
-Create a file ``tester.sh`` with this content:
+Create a file ``tester.sh`` that runs the entire test suite when invoked:
 ```sh
 #!/bin/bash
 set -e
 make test ARGS="-j$(nproc)"
 ```
 
-Create a file ``compile.sh`` with this content:
+Create a file ``compile.sh`` that builds the project when invoked:
 ```sh
 #!/bin/bash
 set -e
@@ -63,7 +63,7 @@ chmod 755 tester.sh
 chmod 755 compile.sh
 ```
 
-Start mutation testing:
+Start the mutation testing:
 ```sh
 dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
 ```
@@ -71,7 +71,7 @@ dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --re
 It is possible to run multiple `test` against the same database.
 Just make sure they don't mutate the same source code.
 
-To see the mutation testing result:
+Generate the mutation testing result:
 ```sh
 dextool mutate report --restrict .. --level alive --mutant lcr
 ```
@@ -87,11 +87,7 @@ lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
 genhtml app.info -o html
 ```
 
-### Using GNU make
-
-TODO: Add description
-
-# Admin and other fun stuff
+# Administration
 
 To get the files in the database:
 ```sh
