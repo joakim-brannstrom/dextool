@@ -43,21 +43,21 @@ Suppose the source code is in ... and the test code is elsewhere. Use the ``--re
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
 
-Create a file ``tester.sh`` that runs the entire test suite when invoked:
+Create a script ``tester.sh`` that runs the entire test suite when invoked:
 ```sh
 #!/bin/bash
 set -e
 make test ARGS="-j$(nproc)"
 ```
 
-Create a file ``compile.sh`` that builds the project when invoked:
+Create a script ``compile.sh`` that builds the project when invoked:
 ```sh
 #!/bin/bash
 set -e
 make -j$(nproc)
 ```
 
-Make them executable so they can be used by dextool:
+Make the scripts executable so they can be run by dextool:
 ```sh
 chmod 755 tester.sh
 chmod 755 compile.sh
