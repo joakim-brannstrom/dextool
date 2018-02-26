@@ -8,7 +8,21 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 ### Features
 
-TODO: List supported mutation operators etc.
+* Supported for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
+* Continue mutation testing from where it was interrupted.
+* Run multiple mutation testing instances in parallel.
+* Type aware ROR to reduce the number of equivalent mutants.
+* Reuse a previous mutation run when a subset of the SUT changes by only testing those changes (files for now).
+* Multiple report formats.
+* SQLite database used as an intermediary storage which enables others to modify it if needed.
+* Rerun e.g. the mutations that previously survived when new tests are added to the test suite.
+* Automatic handling of infinite loops (timeout)
+* Handles unstable infrastructure which reduces the wrongly classified timeout OR unstable test suites which have a variable execution time
+* Works with all C++ versions
+* Works with C++ templates
+* Simple workflow
+* Integrates without modifications to the project build system.
+
 TODO: What are the selling points etc?
 
 # Getting Started
@@ -39,19 +53,19 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_te
 make
 ```
 
-Suppose the source code is in ... and the test code is elsewhere. Use the ``--restrict`` option to specify what to analyze:
+Suppose the source code is in ... and the test code is elsewhere. Use the `--restrict` option to specify what to analyze:
 ```sh
 dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
 ```
 
-Create a script ``tester.sh`` that runs the entire test suite when invoked:
+Create a script `tester.sh` that runs the entire test suite when invoked:
 ```sh
 #!/bin/bash
 set -e
 make test ARGS="-j$(nproc)"
 ```
 
-Create a script ``compile.sh`` that builds the project when invoked:
+Create a script `compile.sh` that builds the project when invoked:
 ```sh
 #!/bin/bash
 set -e
