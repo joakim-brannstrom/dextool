@@ -23,8 +23,6 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 * Simple workflow.
 * Integrates without modifications to the project build system.
 
-TODO: What are the selling points etc?
-
 # Getting Started
 
 If you are new to dextool, we suggest you to read the following:
