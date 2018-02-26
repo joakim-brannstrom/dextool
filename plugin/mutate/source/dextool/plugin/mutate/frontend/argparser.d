@@ -90,7 +90,7 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "db", "sqlite3 database to use", &db,
-                   "in", "Input file to parse (at least one)", &inFiles,
+                   "in", "Input file to parse (default: all files in the compilation database)", &inFiles,
                    "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
                    "restrict", "restrict analysis to files in this directory tree (default: .)", &restrictDir,
                    );
