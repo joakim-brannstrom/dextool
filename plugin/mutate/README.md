@@ -69,9 +69,6 @@ Execute the mutation testing:
 dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
 ```
 
-It is possible to run multiple `test` against the same database.
-Just make sure they don't mutate the same source code.
-
 Generate the mutation testing result:
 ```sh
 dextool mutate report --restrict .. --level alive --mutant lcr
@@ -89,6 +86,11 @@ genhtml app.info -o html
 ```
 
 # Administration
+
+Todo: exlain database concept.
+
+It is possible to run multiple `test` against the same database.
+Just make sure they don't mutate the same source code.
 
 To get the files in the database:
 ```sh
