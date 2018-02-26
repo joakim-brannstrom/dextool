@@ -16,11 +16,11 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 * Multiple report formats.
 * SQLite database used as an intermediary storage which enables others to modify it if needed.
 * Rerun e.g. the mutations that previously survived when new tests are added to the test suite.
-* Automatic handling of infinite loops (timeout)
-* Handles unstable infrastructure which reduces the wrongly classified timeout OR unstable test suites which have a variable execution time
-* Works with all C++ versions
-* Works with C++ templates
-* Simple workflow
+* Automatic handling of infinite loops (timeout).
+* Handles unstable infrastructure which reduces the wrongly classified timeout OR unstable test suites which have a variable execution time.
+* Works with all C++ versions.
+* Works with C++ templates.
+* Simple workflow.
 * Integrates without modifications to the project build system.
 
 TODO: What are the selling points etc?
