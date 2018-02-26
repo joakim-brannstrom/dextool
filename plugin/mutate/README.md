@@ -8,18 +8,18 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 ### Features
 
-* Support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
-* Continue from where a testing session was interrupted.
-* Run multiple instances in parallel.
-* Type aware ROR to reduce the number of equivalent mutants.
-* Reuse of previous results when a subset of the SUT changes by only testing those changes (files for now).
-* Multiple report formats.
-* SQLite database as an intermediary storage, enabling users to modify it if needed.
-* Rerun e.g. the mutations that previously survived when new tests are added to the test suite.
-* Automatic handling of infinite loops (timeout).
+* Provides support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
+* Can continue from where a testing session was interrupted.
+* Allows multiple instances to be run in parallel.
+* Makes type aware ROR to reduce the number of equivalent mutants.
+* Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
+* Provides multiple report formats.
+* Lets a user modify it by using a SQLite database as intermediary storage.
+* Can rerun e.g. the mutations that previously survived when new tests are added to the test suite.
+* Does automatic handling of infinite loops (timeout).
 * Works with all C++ versions.
 * Works with C++ templates.
-* Simple workflow.
+* Has a simple workflow.
 * Integrates without modifications to the project build system.
 
 # Getting Started
