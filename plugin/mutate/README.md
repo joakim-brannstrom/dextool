@@ -8,7 +8,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 ### Features
 
-* Supported for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
+* Support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
 * Continue mutation testing from where it was interrupted.
 * Run multiple mutation testing instances in parallel.
 * Type aware ROR to reduce the number of equivalent mutants.
