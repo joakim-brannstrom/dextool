@@ -12,7 +12,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 * Continue from where a testing session was interrupted.
 * Run multiple instances in parallel.
 * Type aware ROR to reduce the number of equivalent mutants.
-* Reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
+* Reuse of previous results when a subset of the SUT changes by only testing those changes (files for now).
 * Multiple report formats.
 * SQLite database as an intermediary storage, enabling users to modify it if needed.
 * Rerun e.g. the mutations that previously survived when new tests are added to the test suite.
