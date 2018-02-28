@@ -18,6 +18,7 @@ immutable defaultDb = "database.sqlite3";
 auto makeDextoolAnalyze(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
+        .setWorkdir(".")
         .args(["mutate", "analyze"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString]);
     // dfmt on
@@ -26,6 +27,7 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
 auto makeDextool(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
+        .setWorkdir(".")
         .args(["mutate"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .addPostArg("--dry-run")
@@ -42,7 +44,7 @@ auto makeDextoolReport(const ref TestEnv env, Path test_data) {
         .args(["mutate", "report"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .setWorkdir(test_data.toString)
-        .addPostArg(["--restrict", test_data.toString]);
+        .addPostArg(["--out", test_data.toString]);
     // dfmt on
 }
 

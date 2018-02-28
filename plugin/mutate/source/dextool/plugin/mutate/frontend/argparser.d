@@ -44,8 +44,8 @@ struct ArgParser {
     string[] cflags;
     string[] compileDb;
 
-    string outputDirectory;
-    string restrictDir = ".";
+    string outputDirectory = ".";
+    string[] restrictDir = ["."];
 
     string db = "dextool_mutate.sqlite3";
     string mutationTester;
@@ -86,7 +86,7 @@ struct ArgParser {
 
         const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
         const restrict_help = "restrict analysis to files in this directory tree (default: .)";
-        const out_help = "directory for generated files (default: .)";
+        const out_help = "path used as the root for mutation/reporting of files (default: .)";
 
         void analyzerG(string[] args) {
             toolMode = ToolMode.analyzer;

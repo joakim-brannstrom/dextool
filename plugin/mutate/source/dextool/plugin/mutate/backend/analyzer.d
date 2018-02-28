@@ -64,11 +64,10 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
         analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
         foreach (a; root.mutationPointFiles.map!(a => FileName(a))) {
-            auto relp = trustedRelativePath(a, val_loc.getRestrictDir);
+            auto relp = trustedRelativePath(a, val_loc.getOutputDir);
 
             try {
-                auto f_status = isFileChanged(db, AbsolutePath(a,
-                        DirName(fio.getRestrictDir)), fio);
+                auto f_status = isFileChanged(db, AbsolutePath(a, DirName(fio.getOutputDir)), fio);
                 if (f_status == FileStatus.changed) {
                     logger.infof("Updating analyze of '%s'", a);
                     db.removeFile(relp);
@@ -82,7 +81,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
             }
         }
 
-        db.put(root.mutationPoints, val_loc.getRestrictDir);
+        db.put(root.mutationPoints, val_loc.getOutputDir);
     }
 
     return ExitStatusType.Ok;
@@ -97,7 +96,7 @@ enum FileStatus {
 }
 
 FileStatus isFileChanged(ref Database db, AbsolutePath p, FilesysIO fio) @safe {
-    auto relp = trustedRelativePath(p, fio.getRestrictDir);
+    auto relp = trustedRelativePath(p, fio.getOutputDir);
 
     if (!db.isAnalyzed(relp))
         return FileStatus.notInDatabase;
