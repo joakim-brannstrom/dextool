@@ -239,7 +239,7 @@ struct CompilerMsgBuilder(Writer) {
             AbsolutePath abs_path;
             MakeMutationTextResult mut_txt;
             try {
-                abs_path = AbsolutePath(FileName(r.file), DirName(fio.getRestrictDir));
+                abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind);
             }
@@ -353,7 +353,7 @@ struct CompilerMsgBuilder(Writer) {
 
             try {
                 MakeMutationTextResult mut_txt;
-                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getRestrictDir));
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind);
                 m.object["value"] = mut_txt.mutation;

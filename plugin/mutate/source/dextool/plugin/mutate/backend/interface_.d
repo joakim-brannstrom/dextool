@@ -20,6 +20,9 @@ import dextool.type : AbsolutePath;
 /** Validate source code locations for analyze and mutation.
  */
 interface ValidateLoc {
+    /// Returns: the root directory that files to be mutated must reside inside
+    AbsolutePath getOutputDir() nothrow;
+
     /// Returns: if a path should be analyzed for mutation points.
     bool shouldAnalyze(AbsolutePath p);
 
@@ -28,8 +31,6 @@ interface ValidateLoc {
 
     /// Returns: if a mutant are allowed to be written to this path.
     bool shouldMutate(AbsolutePath p);
-
-    AbsolutePath getRestrictDir() nothrow;
 }
 
 /** Filesystem I/O from the backend.
@@ -53,9 +54,6 @@ interface FilesysIO {
 
     /// File output is restricted to this directory
     AbsolutePath getOutputDir() nothrow;
-
-    /// File input is restricted to this directory
-    AbsolutePath getRestrictDir() nothrow;
 
     ///
     SafeOutput makeOutput(AbsolutePath p);

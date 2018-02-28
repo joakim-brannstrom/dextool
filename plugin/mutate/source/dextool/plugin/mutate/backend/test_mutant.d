@@ -439,7 +439,7 @@ nothrow:
         }
 
         try {
-            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getRestrictDir));
+            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getOutputDir));
 
             // must duplicate because the buffer is memory mapped thus it can change
             original_content = fio.makeInput(mut_file).read.dup;

@@ -31,7 +31,7 @@ private:
     string[] inputFiles;
     AbsolutePath db;
     AbsolutePath outputDirectory;
-    AbsolutePath restrictDir;
+    AbsolutePath[] restrictDir;
     AbsolutePath mutationCompile;
     AbsolutePath mutationTester;
     Nullable!Duration mutationTesterRuntime;
@@ -49,6 +49,8 @@ private:
 @safe:
 
 auto buildFrontend(ref ArgParser p) {
+    import std.algorithm : map;
+    import std.array : array;
     import core.time : dur;
     import dextool.compilation_db;
 
@@ -68,13 +70,8 @@ auto buildFrontend(ref ArgParser p) {
     r.reportLevel = p.reportLevel;
     r.mutantStatus = p.mutantStatus;
 
-    r.restrictDir = AbsolutePath(FileName(p.restrictDir));
-
-    if (p.outputDirectory.length == 0) {
-        r.outputDirectory = r.restrictDir;
-    } else {
-        r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
-    }
+    r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
+    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
 
     if (p.mutationTesterRuntime != 0)
         r.mutationTesterRuntime = p.mutationTesterRuntime.dur!"msecs";
@@ -155,11 +152,11 @@ final class FrontendIO : FilesysIO {
 
     VirtualFileSystem vfs;
 
-    private AbsolutePath restrict_dir;
+    private AbsolutePath[] restrict_dir;
     private AbsolutePath output_dir;
     private bool dry_run;
 
-    this(AbsolutePath restrict_dir, AbsolutePath output_dir, bool dry_run) {
+    this(AbsolutePath[] restrict_dir, AbsolutePath output_dir, bool dry_run) {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
         this.dry_run = dry_run;
@@ -183,19 +180,15 @@ final class FrontendIO : FilesysIO {
         return output_dir;
     }
 
-    override AbsolutePath getRestrictDir() @safe pure nothrow @nogc {
-        return restrict_dir;
-    }
-
     override SafeOutput makeOutput(AbsolutePath p) @safe {
-        validate(output_dir, p, dry_run);
+        verifyPathInsideRoot(output_dir, p, dry_run);
         return SafeOutput(p, this);
     }
 
     override SafeInput makeInput(AbsolutePath p) @safe {
         import std.file;
 
-        validate(restrict_dir, p, dry_run);
+        verifyPathInsideRoot(output_dir, p, dry_run);
 
         auto f = vfs.open(cast(FileName) p);
         return SafeInput(f[]);
@@ -207,13 +200,13 @@ final class FrontendIO : FilesysIO {
         // because a SafeInput/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
-        validate(output_dir, fname, dry_run);
+        verifyPathInsideRoot(output_dir, fname, dry_run);
         if (!dry_run)
             File(fname, "w").rawWrite(data);
     }
 
 private:
-    static void validate(AbsolutePath root, AbsolutePath p, bool dry_run) {
+    static void verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
         import std.format : format;
         import std.string : startsWith;
 
@@ -224,16 +217,16 @@ private:
 }
 
 final class FrontendValidateLoc : ValidateLoc {
-    private AbsolutePath restrict_dir;
+    private AbsolutePath[] restrict_dir;
     private AbsolutePath output_dir;
 
-    this(AbsolutePath restrict_dir, AbsolutePath output_dir) {
+    this(AbsolutePath[] restrict_dir, AbsolutePath output_dir) {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
     }
 
-    override AbsolutePath getRestrictDir() nothrow {
-        return this.restrict_dir;
+    override AbsolutePath getOutputDir() nothrow {
+        return this.output_dir;
     }
 
     override bool shouldAnalyze(AbsolutePath p) {
@@ -241,9 +234,10 @@ final class FrontendValidateLoc : ValidateLoc {
     }
 
     override bool shouldAnalyze(string p) {
+        import std.algorithm : any;
         import std.string : startsWith;
 
-        return p.startsWith(restrict_dir);
+        return any!(a => p.startsWith(a))(restrict_dir);
     }
 
     override bool shouldMutate(AbsolutePath p) {
