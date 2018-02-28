@@ -20,7 +20,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 * Works with all C++ versions.
 * Works with C++ templates.
 * Has a simple workflow.
-* Integrates without modifications to the project build system.
+* Integrates without modifications to the projects build system.
 
 # Getting Started
 
@@ -48,11 +48,8 @@ cd build
 # Generate a JSON compilation database and build scripts:
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 make
-```
-
-Suppose the source code is in ... and the test code is elsewhere. Use the `--restrict` option to specify what to analyze:
-```sh
-dextool mutate analyze --compile-db compile_commands.json --restrict .. -- -D_POSIX_PATH_MAX=1024
+# Suppose the source code is in ... and the test code is elsewhere. Use the `--restrict` option to specify what to analyze:
+dextool mutate analyze --compile-db compile_commands.json --out .. --restrict ../googlemock/include --restrict ../googlemock/src --restrict ../googletest/include --restrict ../googletest/src -- -D_POSIX_PATH_MAX=1024
 ```
 
 Create a script `tester.sh` that runs the entire test suite when invoked:
@@ -77,13 +74,15 @@ chmod 755 compile.sh
 
 Execute the mutation testing:
 ```sh
-dextool mutate test --mutant-test ./tester.sh --mutant-compile ./compile.sh --restrict ..
+dextool mutate test --test ./tester.sh --compile ./compile.sh --out ..
 ```
 
 Generate the mutation testing result:
 ```sh
-dextool mutate report --restrict .. --level alive --mutant lcr
+dextool mutate report --out .. --level alive --mutant lcr
 ```
+
+## Compiling Google Test with Coverage
 
 It may be interesting to compare mutation testing results with code coverage. To measure code coverage, build the Google test project with:
 ```sh
@@ -102,15 +101,3 @@ Todo: exlain database concept.
 
 It is possible to run multiple `test` against the same database.
 Just make sure they don't mutate the same source code.
-
-To get the files in the database:
-```sh
-sqlite3 dextool_mutate.sqlite3 "select * from files"
-```
-
-The different states a mutant are found in Mutation.Kind.
-
-Reset all mutations of a kind to unknown which forces them to be tested again:
-```sh
-sqlite3 dextool_mutate.sqlite3 "update mutation SET status=0 WHERE mutation.kind=FOO"
-```

@@ -332,8 +332,10 @@ The intention is to require the test suite to check the output.
 ## Case Deletion
 
 This is only needed for switch statements.
-It deletes case branch in a switch statement.
-It is equivalent to the DCC mutation for predicates (decision) that is set to *false*.
+It *deactivates* the functionality in the case branch in a switch statement.
+
+It is **more** equivalent to the DCC mutation for predicates (decision) that is set to *false* than using a bomb for the branch because deleting the functionality requires the test suite to *test* the side effect to be able to kill the mutant.
+It isn't enough to *visit* the branch which is the case for a bomb.
 
 Motivation why it is equivalent.
 

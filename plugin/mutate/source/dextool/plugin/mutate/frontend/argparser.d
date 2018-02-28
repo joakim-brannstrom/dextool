@@ -44,8 +44,8 @@ struct ArgParser {
     string[] cflags;
     string[] compileDb;
 
-    string outputDirectory;
-    string restrictDir = ".";
+    string outputDirectory = ".";
+    string[] restrictDir = ["."];
 
     string db = "dextool_mutate.sqlite3";
     string mutationTester;
@@ -84,15 +84,19 @@ struct ArgParser {
 
         static import std.getopt;
 
+        const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
+        const restrict_help = "restrict analysis to files in this directory tree (default: .)";
+        const out_help = "path used as the root for mutation/reporting of files (default: .)";
+
         void analyzerG(string[] args) {
             toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
-                   "db", "sqlite3 database to use", &db,
-                   "in", "Input file to parse (at least one)", &inFiles,
-                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
-                   "restrict", "restrict analysis to files in this directory tree (default: .)", &restrictDir,
+                   "db", db_help, &db,
+                   "in", "Input file to parse (default: all files in the compilation database)", &inFiles,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    );
             // dfmt on
         }
@@ -102,9 +106,9 @@ struct ArgParser {
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", "sqlite3 database to use", &db,
-                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
-                   "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
+                   "db", db_help, &db,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "id", "mutate the source code as mutant ID", &cli_mutation_id,
                    );
             // dfmt on
@@ -125,10 +129,10 @@ struct ArgParser {
             toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", "sqlite3 database to use", &db,
+                   "db", db_help, &db,
                    "dry-run", "do not write data to the filesystem", &dryRun,
-                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
-                   "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "compile", "program to use to compile the mutant", &mutationCompile,
                    "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
@@ -142,9 +146,9 @@ struct ArgParser {
             toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", "sqlite3 database to use", &db,
-                   "out", "directory for generated files (default: same as --restrict)", &outputDirectory,
-                   "restrict", "restrict mutation to files in this directory tree (default: .)", &restrictDir,
+                   "db", db_help, &db,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
@@ -156,7 +160,7 @@ struct ArgParser {
             toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                "db", "sqlite3 database to use", &db,
+                "db", db_help, &db,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                 "status", "reset mutants to unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
                 );
