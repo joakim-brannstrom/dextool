@@ -48,7 +48,7 @@ cd build
 # Generate a JSON compilation database and build scripts:
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 make
-# Suppose the source code is in ... and the test code is elsewhere. Use the `--restrict` option to specify what to analyze:
+# Suppose the source code is in .. and the test code is elsewhere. Use the `--restrict` option to specify what to analyze.
 dextool mutate analyze --compile-db compile_commands.json --out .. --restrict ../googlemock/include --restrict ../googlemock/src --restrict ../googletest/include --restrict ../googletest/src -- -D_POSIX_PATH_MAX=1024
 ```
 
@@ -95,9 +95,20 @@ lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
 genhtml app.info -o html
 ```
 
-# Administration
+# Re-test alive Mutants
 
-Todo: exlain database concept.
+Suppose the test suite is update.
+In such a case it is very interesting to rerun the test suite to see if it kills any additional mutants.
 
-It is possible to run multiple `test` against the same database.
-Just make sure they don't mutate the same source code.
+To reset the alive LCR mutants and thus force them to be tested again (assumes that the database is the default name and in this directory):
+```sh
+dextool mutate admin --mutant lcr --status alive
+```
+
+Then the test subcommand can be used again.
+
+# Multiple Instances
+
+It is possible to run multiple `test` commands against the same database.
+The trick to make it work is to have multiple build + source codes to mutate but point all `dextool mutate test` runs against the same database via the `--db` flag.
+For a low number of instances where the compile + test time is *noticeable* the database lock contention wont be a problem.
