@@ -45,7 +45,7 @@ struct ArgParser {
     string[] compileDb;
 
     string outputDirectory = ".";
-    string[] restrictDir = ["."];
+    string[] restrictDir;
 
     string db = "dextool_mutate.sqlite3";
     string mutationTester;
@@ -207,6 +207,9 @@ struct ArgParser {
             help = true;
             return;
         }
+
+        if (restrictDir.length == 0)
+            restrictDir = ["."];
 
         import std.algorithm : find;
         import std.array : array;
