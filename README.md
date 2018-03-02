@@ -30,17 +30,18 @@ The API of the generated code and how it behaves is stable.
 
 deXtool depends on the following software packages:
 
- * [libclang](http://releases.llvm.org/download.html) (3.9+)
- * [cmake](https://cmake.org/download) (2.8+)
+ * libclang and llvm with the dev packages, [llvm](http://releases.llvm.org/download.html) (4.0+)
+ * [llvm](http://releases.llvm.org/download.html) (4.0+)
+ * [cmake](https://cmake.org/download) (3.5+)
  * [D compiler](https://dlang.org/download.html) (dmd 2.076.1+, ldc 1.6.0-beta1+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
 
-deXtool has been tested with libclang [3.9, 4.0, 5.0].
+deXtool has been tested with libclang [4.0, 5.0].
 
 For people running Ubuntu two of the dependencies can be installed via apt-get.
-The libclang version depend on your ubuntu version.
+The version of clang and llvm depend on your ubuntu version.
 ```sh
-sudo apt install cmake libclang-3.9-dev libsqlite3-dev
+sudo apt install cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev
 ```
 
 Download the D compiler of your choice, extract it and add to your PATH shell
