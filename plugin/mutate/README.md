@@ -85,7 +85,7 @@ dextool mutate report --out .. --level alive --mutant lcr
 
 ## Code Coverage
 
-It may be interesting to compare mutation testing results with code coverage. To measure code coverage for the Google Test project; build it with:
+It may be interesting to compare mutation testing results with code coverage. To measure code coverage for the Google Test project, build it with:
 ```sh
 cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-arcs -ftest-coverage" -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
