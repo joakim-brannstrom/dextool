@@ -23,12 +23,8 @@ RUN apt-get update && \
         llvm-3.9 llvm-3.9-dev clang-3.9 libclang-3.9-dev
 
 RUN apt-get -y --no-install-recommends install \
-        gcc g++
-
-RUN apt-get -y --no-install-recommends install \
-        curl
-
-RUN apt-get -y --no-install-recommends install \
+        gcc g++ \
+        curl \
         xz-utils
 
 RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-1.7.0
@@ -39,7 +35,6 @@ RUN cd /opt && \
 RUN ln -s /usr/bin/llvm-config-3.9 /usr/bin/llvm-config
 
 WORKDIR /opt/dextool
-RUN git checkout update-readme
 RUN ["/bin/bash", "-c", "source ~/dlang/ldc-1.7.0/activate && mkdir -p build && cd build && cmake .."]
 
 WORKDIR /opt/dextool/build
