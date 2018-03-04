@@ -11,90 +11,77 @@
 #   LIBLLVM_CXX_FLAGS   - the required flags to build C++ code using LLVM
 #   LIBLLVM_FLAGS       - the required flags by llvm-d such as version
 #   LIBLLVM_LIBS        - the required libraries for linking LLVM
-#   LIBLLVM_OSLIBS      - libs needed to link to the OS
 
-execute_process(COMMAND llvm-config --ldflags
+set(LLVM_CMD_SRC ${CMAKE_SOURCE_DIR}/cmake/introspect_llvm.d)
+set(LLVM_CMD ${CMAKE_BINARY_DIR}/cmake_introspect_llvm)
+
+if(UNIX)
+    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS}")
+else()
+    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS}")
+endif()
+
+execute_process(COMMAND ${D_COMPILER} ${cmdflags} ${LLVM_CMD_SRC} -of${LLVM_CMD}
+    OUTPUT_VARIABLE llvm_config_CMD
+    RESULT_VARIABLE llvm_config_CMD_status)
+if (llvm_config_CMD_status)
+    message(WARNING "Compiler output: ${llvm_config_CMD}")
+    message(FATAL_ERROR "Unable to compile the LLVM introspector: ${D_COMPILER} ${cmdflags} ${LLVM_CMD_SRC} -of${LLVM_CMD}")
+endif()
+
+execute_process(COMMAND ${LLVM_CMD} ldflags
     OUTPUT_VARIABLE llvm_config_LDFLAGS
-    RESULT_VARIABLE llvm_config_LDFLAGS_status)
+    RESULT_VARIABLE llvm_config_LDFLAGS_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND llvm-config --libs --system-libs
-    OUTPUT_VARIABLE llvm_config_LIBS
-    RESULT_VARIABLE llvm_config_LIBS_status)
-
-execute_process(COMMAND llvm-config --version
+execute_process(COMMAND ${LLVM_CMD} version
     OUTPUT_VARIABLE llvm_config_VERSION
-    RESULT_VARIABLE llvm_config_VERSION_status)
+    RESULT_VARIABLE llvm_config_VERSION_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND llvm-config --cppflags
+execute_process(COMMAND ${LLVM_CMD} cpp-flags
     OUTPUT_VARIABLE llvm_config_CPPFLAGS
-    RESULT_VARIABLE llvm_config_INCLUDE_status)
+    RESULT_VARIABLE llvm_config_INCLUDE_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND llvm-config --libdir
+execute_process(COMMAND ${LLVM_CMD} libdir
     OUTPUT_VARIABLE llvm_config_LIBDIR
-    RESULT_VARIABLE llvm_config_LIBDIR_status)
+    RESULT_VARIABLE llvm_config_LIBDIR_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-string(STRIP "${llvm_config_LDFLAGS}" llvm_config_LDFLAGS)
-string(STRIP "${llvm_config_LIBS}" llvm_config_LIBS)
-string(STRIP "${llvm_config_VERSION}" llvm_config_VERSION)
-string(STRIP "${llvm_config_CPPFLAGS}" llvm_config_CPPFLAGS)
-string(STRIP "${llvm_config_LIBDIR}" llvm_config_LIBDIR)
+execute_process(COMMAND ${LLVM_CMD} libs
+    OUTPUT_VARIABLE llvm_config_LIBS
+    RESULT_VARIABLE llvm_config_LIBS_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+execute_process(COMMAND ${LLVM_CMD} libclang-flags
+    OUTPUT_VARIABLE clang_config_LDFLAGS
+    RESULT_VARIABLE clang_config_LDFLAGS_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 message(STATUS "llvm-config VERSION: ${llvm_config_VERSION}")
 message(STATUS "llvm-config LIBDIR: ${llvm_config_LIBDIR}")
 message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
 message(STATUS "llvm-config INCLUDE: ${llvm_config_CPPFLAGS}")
 message(STATUS "llvm-config LIBS: ${llvm_config_LIBS}")
-
-
-set(llvm_possible_search_paths
-    "${llvm_config_LIBDIR}"
-    # Ubuntu
-    "/usr/lib/llvm-4.0/lib"
-    "/usr/lib/llvm-3.9/lib"
-    "/usr/lib/llvm-3.8/lib"
-    "/usr/lib/llvm-3.7/lib"
-    # MacOSX
-    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
-    "/Applications/Xcode.app/Contents/Frameworks"
-    # fallback
-    "/usr/lib64/llvm"
-    )
+message(STATUS "clang-config LDFLAGS: ${clang_config_LDFLAGS}")
 
 # libCLANG ===================================================================
 
 function(try_clang_from_user_config)
-    if (LIBCLANG_LIB AND LIBCLANG_LDFLAGS)
+    if (LIBCLANG_LDFLAGS)
         set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
         message("Detected user configuration of CLANG")
     endif()
 endfunction()
 
 function(try_find_libclang)
-    if (llvm_config_LDFLAGS_status OR llvm_config_LIBS_status OR llvm_config_VERSION_status OR llvm_config_INCLUDE_status OR llvm_config_LIBDIR_status)
+    if (clang_config_LDFLAGS_status)
         return()
     endif()
 
-    # will only try to find if the user has NOT set it
-    find_library(LIBCLANG_LIB_PATH
-        NAMES clang
-        PATHS ${llvm_possible_search_paths}
-        )
+    set(LIBCLANG_LDFLAGS "${clang_config_LDFLAGS}" CACHE string "Linker flags for libclang")
 
-    if(LIBCLANG_LIB_PATH STREQUAL "LIBCLANG_LIB_PATH-NOTFOUND")
-        message(FATAL_ERROR " libclang.so not found")
-    endif()
-
-    get_filename_component(LIBCLANG_LIB ${LIBCLANG_LIB_PATH} NAME)
-
-    # -rpath is relative path for all linked libraries.
-    # The second "." is argument to rpath.
-    if(APPLE)
-        set(LIBCLANG_LDFLAGS_OS "-Wl,-rpath ${llvm_config_LIBDIR} -lclang")
-    elseif(UNIX)
-        set(LIBCLANG_LDFLAGS_OS "-Wl,--enable-new-dtags -Wl,-rpath=${llvm_config_LIBDIR} -Wl,--no-as-needed -l:${LIBCLANG_LIB}")
-    else()
-    endif()
-
-    set(LIBCLANG_LDFLAGS "-L${llvm_config_LIBDIR} ${LIBCLANG_LDFLAGS_OS}" CACHE string "Linker flags for libclang")
     set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
 endfunction()
 
@@ -113,38 +100,14 @@ function(try_llvm_config_find)
         return()
     endif()
 
-    string(TOUPPER "${llvm_config_VERSION}" step2_LLVM_CONF_as_upper)
-    string(REGEX REPLACE "[.]" "_" step3_LLVM_VERION "${step2_LLVM_CONF_as_upper}")
-    string(REGEX REPLACE "GIT-.*" "" step4_LLVM_VERSION "${step3_LLVM_VERION}")
-    set(LIBLLVM_VERSION "LLVM_${step4_LLVM_VERION}" CACHE "libLLVM version" string)
+    set(LIBLLVM_VERSION "${llvm_config_VERSION}" CACHE "libLLVM version" string)
 
-    # -rpath is relative path for all linked libraries.
-    # The second "." is argument to rpath.
-    if(APPLE)
-        set(llvm_LDFLAGS_OS "-Wl,-rpath ${llvm_config_LIBDIR}")
-    elseif(UNIX)
-        set(llvm_LDFLAGS_OS "-Wl,--enable-new-dtags -Wl,-rpath=${llvm_config_LIBDIR} -Wl,--no-as-needed")
-    endif()
-    # sometimes llvm-config forget the dependency on c and c++ stdlib
-    set(LLVM_LIBS_OS "-lstdc++ -lc -lm" CACHE string "libs needed to link to the OS such as stdc++, c, m")
+    set(LIBLLVM_LIBS "${llvm_config_LIBS}" CACHE string "Linker libraries for libLLVM")
 
-    string(REPLACE "\n" " " llvm_config_LIBS_nonewline "${llvm_config_LIBS}")
-    string(REPLACE " " ";" llvm_config_LIBS_aslist "${llvm_config_LIBS_nonewline}")
-    set(llvm_config_LIBS "")
-    foreach (var ${llvm_config_LIBS_aslist})
-        string(STRIP "${var}" var)
-        if (var)
-            set(llvm_config_LIBS "${llvm_config_LIBS} ${var}")
-        endif()
-    endforeach()
+    set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS}" CACHE string "Linker flags for libLLVM")
 
-    string(STRIP "${llvm_config_LIBS} ${LLVM_LIBS_OS}" llvm_libs_intermediate)
-    set(LIBLLVM_LIBS "${llvm_libs_intermediate}" CACHE string "Linker libraries for libLLVM")
+    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS}" CACHE string "Compiler flags for C++ using LLVM")
 
-    set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS} ${llvm_LDFLAGS_OS}" CACHE string "Linker flags for libLLVM")
-
-    # -std=c++0x is required to run on travis.
-    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} -std=c++0x -fno-exceptions -fno-rtti " CACHE string "Compiler flags for C++ using LLVM")
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
 endfunction()
 
