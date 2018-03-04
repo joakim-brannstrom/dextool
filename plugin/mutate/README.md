@@ -48,7 +48,8 @@ cd build
 # Generate a JSON compilation database and build scripts:
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 make
-# Suppose the source code is in .. and the test code is elsewhere. Use the `--restrict` option to specify what to analyze.
+
+# Specify what to analyze:
 dextool mutate analyze --compile-db compile_commands.json --out .. --restrict ../googlemock/include --restrict ../googlemock/src --restrict ../googletest/include --restrict ../googletest/src -- -D_POSIX_PATH_MAX=1024
 ```
 
