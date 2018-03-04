@@ -39,7 +39,12 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
     import dextool.type : FileName, Exists, makeExists;
     import dextool.utility : analyzeFile;
 
-    bool[string] analyzed_files;
+    // they are not by necessity the same.
+    // Input could be a file that is excluded via --restrict but pull in a
+    // header-only library that is allowed to be mutated.
+    bool[AbsolutePath] analyzed_files;
+    bool[AbsolutePath] files_with_mutations;
+
     foreach (in_file; frange) {
         // find the file and flags to analyze
 
@@ -58,13 +63,16 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
 
         analyzed_files[checked_in_file] = true;
 
-        // analye the file
+        // analyze the file
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         auto root = makeRootVisitor(val_loc);
         analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
         foreach (a; root.mutationPointFiles.map!(a => FileName(a))) {
-            auto relp = trustedRelativePath(a, val_loc.getOutputDir);
+            analyzed_files[AbsolutePath(a)] = true;
+            files_with_mutations[AbsolutePath(a)] = true;
+
+            auto relp = trustedRelativePath(a, fio.getOutputDir);
 
             try {
                 auto f_status = isFileChanged(db, AbsolutePath(a, DirName(fio.getOutputDir)), fio);
@@ -81,8 +89,10 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
             }
         }
 
-        db.put(root.mutationPoints, val_loc.getOutputDir);
+        db.put(root.mutationPoints, fio.getOutputDir);
     }
+
+    prune(db, files_with_mutations, fio.getOutputDir);
 
     return ExitStatusType.Ok;
 }
@@ -93,6 +103,21 @@ enum FileStatus {
     noChange,
     notInDatabase,
     changed
+}
+
+/// Prune the database of files that has been removed since last analysis.
+void prune(ref Database db, const bool[AbsolutePath] analyzed_files, const AbsolutePath root_dir) @safe {
+    import dextool.type : FileName;
+
+    foreach (const f; db.getFiles) {
+        auto abs_f = AbsolutePath(FileName(f), DirName(cast(string) root_dir));
+
+        if (abs_f in analyzed_files)
+            continue;
+
+        logger.infof("Removed from files to mutate: '%s'", abs_f);
+        db.removeFile(f);
+    }
 }
 
 FileStatus isFileChanged(ref Database db, AbsolutePath p, FilesysIO fio) @safe {

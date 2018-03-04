@@ -96,6 +96,21 @@ struct Database {
         stmt.execute;
     }
 
+    /// Returns: All files in the database as relative paths.
+    Path[] getFiles() @trusted {
+        import std.array : appender;
+
+        auto stmt = db.prepare("SELECT path from files");
+        auto res = stmt.execute;
+
+        auto app = appender!(Path[]);
+        foreach (ref r; res) {
+            app.put(Path(r.peek!string(0)));
+        }
+
+        return app.data;
+    }
+
     /** Update the status of a mutant.
      * Params:
      *  id = ?
