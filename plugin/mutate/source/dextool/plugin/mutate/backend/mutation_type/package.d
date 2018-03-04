@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.mutation_type;
 
 import dextool.plugin.mutate.backend.type;
+import dextool.plugin.mutate.type : MutationKind;
 
 public import dextool.plugin.mutate.backend.mutation_type.abs;
 public import dextool.plugin.mutate.backend.mutation_type.aor;
@@ -55,4 +56,39 @@ Mutation.Kind[] broadcast(const Mutation.Kind k) {
     default:
         return [k];
     }
+}
+
+Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
+    import std.algorithm : map, joiner;
+    import std.array : array;
+    import std.traits : EnumMembers;
+
+    auto kinds(const MutationKind k) {
+        final switch (k) with (MutationKind) {
+        case any:
+            return [EnumMembers!(Mutation.Kind)];
+        case ror:
+            return rorMutationsAll.dup;
+        case rorp:
+            return rorpMutationsAll.dup;
+        case lcr:
+            return lcrMutationsAll.dup;
+        case aor:
+            return aorMutationsAll.dup ~ aorAssignMutationsAll;
+        case uoi:
+            return uoiLvalueMutations;
+        case abs:
+            return absMutations;
+        case sdl:
+            return stmtDelMutations;
+        case cor:
+            return corMutationsRaw.dup;
+        case dcc:
+            return dccBranchMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
+        case dcr:
+            return dccBranchMutationsRaw.dup ~ dcrCaseMutationsRaw.dup;
+        }
+    }
+
+    return (k is null ? [MutationKind.any] : k).map!(a => kinds(a)).joiner.array;
 }
