@@ -65,6 +65,7 @@ struct ArgParser {
     ReportLevel reportLevel;
 
     Mutation.Status mutantStatus;
+    Mutation.Status mutantToStatus = Mutation.Status.unknown;
 
     ToolMode toolMode;
 
@@ -162,7 +163,8 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "db", db_help, &db,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                "status", "reset mutants to unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
+                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
+                "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantToStatus,
                 );
             // dfmt on
         }

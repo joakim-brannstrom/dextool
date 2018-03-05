@@ -20,13 +20,14 @@ import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-ExitStatusType runAdmin(ref Database db, MutationKind[] mutations, Mutation.Status status) @safe nothrow {
+ExitStatusType runAdmin(ref Database db, MutationKind[] mutations,
+        Mutation.Status status, Mutation.Status to_status) @safe nothrow {
     import dextool.plugin.mutate.backend.utility;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(mutations);
 
     try {
-        db.resetMutant(kinds, status);
+        db.resetMutant(kinds, status, to_status);
     }
     catch (Exception e) {
         logger.error(e.msg).collectException;

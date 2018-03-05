@@ -44,6 +44,7 @@ private:
     ReportKind reportKind;
     ReportLevel reportLevel;
     Mutation.Status mutantStatus;
+    Mutation.Status mutantToStatus;
 }
 
 @safe:
@@ -69,6 +70,7 @@ auto buildFrontend(ref ArgParser p) {
     r.reportKind = p.reportKind;
     r.reportLevel = p.reportLevel;
     r.mutantStatus = p.mutantStatus;
+    r.mutantToStatus = p.mutantToStatus;
 
     r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
     r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
@@ -127,7 +129,7 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.admin:
         import dextool.plugin.mutate.backend : runAdmin;
 
-        return runAdmin(db, fe.mutation, fe.mutantStatus);
+        return runAdmin(db, fe.mutation, fe.mutantStatus, fe.mutantToStatus);
     }
 }
 
