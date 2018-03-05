@@ -211,12 +211,12 @@ struct Database {
 
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
-    void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st) @trusted {
+    void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
         import std.algorithm : map;
         import std.format : format;
 
-        auto s = format("UPDATE mutation SET status=0 WHERE status == %s AND kind IN (%(%s,%))",
-                st.to!long, kinds.map!(a => cast(int) a));
+        auto s = format("UPDATE mutation SET status=%s WHERE status == %s AND kind IN (%(%s,%))",
+                to_st.to!long, st.to!long, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
     }
