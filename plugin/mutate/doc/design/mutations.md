@@ -274,8 +274,9 @@ See [@conf:1, p. 2].
 | Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Mutant 4 |
 | ------------------- | -------- | -------- | -------- | -------- |
 | `a && b`            | `false`  | `a`      | `b`      | `a == b` |
-| `a || b`            | `true`   | `a`      | `b`      | `a != b` |
+| `a OR b`            | `true`   | `a`      | `b`      | `a != b` |
 
+TODO: OR should be `||` but it doesn't render corrently on github.
 
 # SPC-plugin_mutate_mutation_dcc
 partof: REQ-plugin_mutate-mutations
