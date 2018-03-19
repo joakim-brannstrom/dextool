@@ -10,7 +10,6 @@ It has through use of the tool been a constant problem that files belonging to t
 
 The intent of this requirement is to make it easy to do the *corret* action as a user namely NOT run the mutation testing tool when the files on the filesystem and the database are out of sync. Because if they do run the result is unusable. The results pollute the data.
 
-
 # SPC-plugin_mutate_sanity_check_db_vs_filesys
 partof: REQ-plugin_mutate_sanity_check
 ###

@@ -557,12 +557,14 @@ enum TestDriverSignal {
     compilationError,
     mutationError,
     timeoutUnchanged,
+    sanityCheckFailed,
 }
 
 struct TestDriver(ImplT) {
     private enum State {
         none,
         initialize,
+        sanityCheck,
         checkMutantsLeft,
         preCompileSut,
         measureTestSuite,
@@ -612,6 +614,9 @@ struct TestDriver(ImplT) {
         case initialize:
             impl.initialize;
             break;
+        case sanityCheck:
+            impl.sanityCheck;
+            break;
         case checkMutantsLeft:
             impl.checkMutantsLeft;
             break;
@@ -652,7 +657,13 @@ struct TestDriver(ImplT) {
             break;
         case initialize:
             if (signal == TestDriverSignal.next)
+                next_ = State.sanityCheck;
+            break;
+        case sanityCheck:
+            if (signal == TestDriverSignal.next)
                 next_ = State.checkMutantsLeft;
+            else if (signal == TestDriverSignal.sanityCheckFailed)
+                next_ = State.error;
             break;
         case checkMutantsLeft:
             if (signal == TestDriverSignal.next)
@@ -724,6 +735,39 @@ nothrow:
 
     void initialize() {
         driver_sig = TestDriverSignal.next;
+    }
+
+    void sanityCheck() {
+        // #SPC-plugin_mutate_sanity_check_db_vs_filesys
+        import dextool.plugin.mutate.backend.utility : checksum,
+            trustedRelativePath;
+
+        driver_sig = TestDriverSignal.next;
+        try {
+            bool changed_files;
+            foreach (const f; data.db.getFiles) {
+                auto abs_f = AbsolutePath(FileName(f),
+                        DirName(cast(string) data.filesysIO.getOutputDir));
+                auto db_checksum = data.db.getFileChecksum(f);
+                auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
+
+                if (db_checksum != f_checksum) {
+                    logger.errorf("Reanalyze of '%s' needed", abs_f);
+                    changed_files = true;
+                }
+            }
+
+            if (changed_files) {
+                driver_sig = TestDriverSignal.sanityCheckFailed;
+                logger.error(
+                        "Detected that one or more file has changed since the analyze where done");
+                logger.error("Fix by rerunning the analyze phase");
+            }
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+            driver_sig = TestDriverSignal.sanityCheckFailed;
+        }
     }
 
     void checkMutantsLeft() {
