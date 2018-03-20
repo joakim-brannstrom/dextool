@@ -739,34 +739,43 @@ nothrow:
 
     void sanityCheck() {
         // #SPC-plugin_mutate_sanity_check_db_vs_filesys
+        import dextool.type : Path;
         import dextool.plugin.mutate.backend.utility : checksum,
             trustedRelativePath;
 
         driver_sig = TestDriverSignal.next;
+        const(Path)[] files;
         try {
-            bool changed_files;
-            foreach (const f; data.db.getFiles) {
+            files = data.db.getFiles;
+        }
+        catch (Exception e) {
+            logger.trace(e.msg).collectException;
+            return;
+        }
+
+        bool changed_files;
+        foreach (const f; files) {
+            try {
                 auto abs_f = AbsolutePath(FileName(f),
                         DirName(cast(string) data.filesysIO.getOutputDir));
                 auto db_checksum = data.db.getFileChecksum(f);
                 auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
-
                 if (db_checksum != f_checksum) {
                     logger.errorf("Reanalyze of '%s' needed", abs_f);
                     changed_files = true;
                 }
             }
-
-            if (changed_files) {
-                driver_sig = TestDriverSignal.sanityCheckFailed;
-                logger.error(
-                        "Detected that one or more file has changed since the analyze where done");
-                logger.error("Fix by rerunning the analyze phase");
+            catch (Exception e) {
+                logger.trace(e.msg).collectException;
             }
         }
-        catch (Exception e) {
-            logger.error(e.msg).collectException;
+
+        if (changed_files) {
             driver_sig = TestDriverSignal.sanityCheckFailed;
+            logger.error("Detected that one or more file has changed since last analyze where done")
+                .collectException;
+            logger.error("Either restore the files to the previous state or rerun the analyzer")
+                .collectException;
         }
     }
 
