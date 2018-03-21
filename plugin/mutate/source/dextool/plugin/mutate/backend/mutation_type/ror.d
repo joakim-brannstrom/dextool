@@ -29,7 +29,7 @@ import dextool.clang_extensions : OpKind;
  *
  * See SPC-plugin_mutate_mutation_ror for the subsumed table.
  */
-auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
+auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
     import std.typecons : Tuple, Nullable;
     import std.algorithm : among;
 
