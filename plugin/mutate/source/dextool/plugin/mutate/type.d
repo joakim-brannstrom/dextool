@@ -60,3 +60,9 @@ enum ReportLevel {
     /// Report all mutants
     all
 }
+
+/// Administrative operation to perform
+enum AdminOperation {
+    reset,
+    remove
+}

@@ -64,6 +64,7 @@ struct ArgParser {
     ReportKind reportKind;
     ReportLevel reportLevel;
 
+    AdminOperation adminOp;
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus = Mutation.Status.unknown;
 
@@ -163,6 +164,7 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "db", db_help, &db,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &adminOp,
                 "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantToStatus,
                 );
@@ -256,6 +258,7 @@ struct ArgParser {
             break;
         case admin:
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
+            logger.errorf("--operation possible values: %(%s|%)", [EnumMembers!AdminOperation]);
             logger.errorf("--status possible values: %(%s|%)", [EnumMembers!(Mutation.Status)]);
             break;
         default:
