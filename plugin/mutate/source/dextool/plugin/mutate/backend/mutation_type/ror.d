@@ -29,27 +29,27 @@ import dextool.clang_extensions : OpKind;
  *
  * See SPC-plugin_mutate_mutation_ror for the subsumed table.
  */
-auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
+auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
     import std.typecons : Tuple, Nullable;
     import std.algorithm : among;
 
-    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind, "expr");
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr");
 
     Nullable!Rval rval;
 
     with (Mutation.Kind) {
         if (op.among(OpKind.LT, OpKind.OO_Less)) {
-            rval = Rval([rorLE, rorpLE, rorNE, rorpNE], rorFalse);
+            rval = Rval([rorLE, rorpLE, rorNE, rorpNE], [rorFalse]);
         } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
-            rval = Rval([rorGE, rorpGE, rorNE, rorpNE], rorFalse);
+            rval = Rval([rorGE, rorpGE, rorNE, rorpNE], [rorFalse]);
         } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
-            rval = Rval([rorLT, rorpLT, rorEQ, rorpEQ], rorTrue);
+            rval = Rval([rorLT, rorpLT, rorEQ, rorpEQ], [rorTrue]);
         } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
-            rval = Rval([rorGT, rorpGT, rorEQ, rorpEQ], rorTrue);
+            rval = Rval([rorGT, rorpGT, rorEQ, rorpEQ], [rorTrue]);
         } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
-            rval = Rval([rorLE, rorpLE, rorGE, rorpGE], rorFalse);
+            rval = Rval([rorLE, rorpLE, rorGE, rorpGE], [rorFalse]);
         } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
-            rval = Rval([rorLT, rorpLT, rorGT, rorpGT], rorTrue);
+            rval = Rval([rorLT, rorpLT, rorGT, rorpGT], [rorTrue]);
         }
     }
 
@@ -73,12 +73,20 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
         with (Mutation.Kind) {
             if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
                 if (tyi == OpTypeInfo.enumLhsIsMin) {
+                    rval.op = [rorLE, rorpLE];
+                } else if (tyi == OpTypeInfo.enumLhsIsMax) {
+                    rval.op = [rorGE, rorpGE];
+                } else if (tyi == OpTypeInfo.enumRhsIsMin) {
                     rval.op = [rorGE, rorpGE];
                 } else if (tyi == OpTypeInfo.enumRhsIsMax) {
                     rval.op = [rorLE, rorpLE];
                 }
             } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
                 if (tyi == OpTypeInfo.enumLhsIsMin) {
+                    rval.op = [rorLT, rorpLT];
+                } else if (tyi == OpTypeInfo.enumLhsIsMax) {
+                    rval.op = [rorGT, rorpGT];
+                } else if (tyi == OpTypeInfo.enumRhsIsMin) {
                     rval.op = [rorGT, rorpGT];
                 } else if (tyi == OpTypeInfo.enumRhsIsMax) {
                     rval.op = [rorLT, rorpLT];
@@ -111,7 +119,8 @@ auto rorMutations(OpKind op, OpTypeInfo tyi) @safe pure nothrow {
 
     if (tyi == OpTypeInfo.floatingPoint)
         floatingPointSchema();
-    else if (tyi.among(OpTypeInfo.enumLhsIsMin, OpTypeInfo.enumRhsIsMax))
+    else if (tyi.among(OpTypeInfo.enumLhsIsMin, OpTypeInfo.enumLhsIsMax,
+            OpTypeInfo.enumRhsIsMin, OpTypeInfo.enumRhsIsMax))
         enumSchema();
     else if (tyi == OpTypeInfo.pointer)
         pointerSchema();

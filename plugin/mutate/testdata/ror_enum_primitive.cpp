@@ -13,22 +13,12 @@ void relation_operators() {
     bool c0 = a < MyE::C;
     bool c1 = MyE::C < b;
 
-    bool e0 = MyE::C > b;
-    bool e1 = a > MyE::C;
+    bool e0 = a > MyE::C;
+    bool e1 = MyE::C > b;
 
     bool d0 = a <= MyE::C;
     bool d1 = MyE::C <= b;
 
     bool f0 = a >= MyE::C;
     bool f1 = MyE::C >= b;
-
-    bool g0 = a == b;
-    bool g1 = MyE::A == b;
-    bool g2 = MyE::B == b;
-    bool g3 = a == MyE::C;
-
-    bool h0 = a != b;
-    bool h1 = MyE::A != b;
-    bool h2 = MyE::B != b;
-    bool h3 = a != MyE::C;
 }
