@@ -11,6 +11,7 @@ module dextool_test.builders;
 
 import scriptlike;
 
+import std.datetime.stopwatch : StopWatch;
 import std.range : isInputRange;
 import std.typecons : Yes, No, Flag;
 import std.traits : ReturnType;
@@ -176,8 +177,6 @@ struct BuildDextoolRun {
             cmd ~= flags_.dup;
         }
 
-        import std.datetime;
-
         StopWatch sw;
         ReturnType!(std.process.tryWait) exit_;
         exit_.status = -1;
@@ -209,7 +208,7 @@ struct BuildDextoolRun {
         }
 
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
-                stdout_.data, stderr_.data, sw.peek.msecs, cmd);
+                stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
         if (yap_output) {
             auto f = File(nextFreeLogfile(test_outputdir), "w");
             f.writef("%s", rval);
@@ -320,8 +319,6 @@ struct BuildCommandRun {
             cmd ~= command;
         cmd ~= args_.dup;
 
-        import std.datetime;
-
         StopWatch sw;
         ReturnType!(std.process.tryWait) exit_;
         exit_.status = -1;
@@ -354,7 +351,7 @@ struct BuildCommandRun {
         }
 
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
-                stdout_.data, stderr_.data, sw.peek.msecs, cmd);
+                stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
         if (yap_output) {
             auto f = File(nextFreeLogfile(workdir_), "w");
             f.writef("%s", rval);
