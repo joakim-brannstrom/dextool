@@ -147,6 +147,7 @@ struct TestSeq(SeqT, alias PredFun) {
         this.line = line;
     }
 
+    /// The whole sequence is found.
     void shouldBeIn(T)(T in_seq) if (isInputSequence!T) {
         auto res = this.isIn(in_seq);
         if (res.isElementsLeft) {
@@ -154,9 +155,10 @@ struct TestSeq(SeqT, alias PredFun) {
         }
     }
 
+    /// The whole sequence is NOT found.
     void shouldNotBeIn(T)(T in_seq) if (isInputSequence!T) {
         auto res = this.isIn(in_seq);
-        if (res.isElementsLeft != elems.length) {
+        if (res.isElementsLeft == 0) {
             throw new UnitTestException(res.msg, file, line);
         }
     }
