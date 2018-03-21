@@ -118,7 +118,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     };
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         if (k in isRor)
-            return [rorMutations(k, OpTypeInfo.none).expr];
+            return rorMutations(k, OpTypeInfo.none).expr;
         else
             return null;
     };
