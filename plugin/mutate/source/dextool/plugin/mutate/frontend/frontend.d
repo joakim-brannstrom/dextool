@@ -16,7 +16,7 @@ import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
 import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode, Mutation;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
-    ReportLevel;
+    ReportLevel, AdminOperation;
 
 @safe class Frontend {
     import core.time : Duration;
@@ -43,6 +43,7 @@ private:
     MutationOrder mutationOrder;
     ReportKind reportKind;
     ReportLevel reportLevel;
+    AdminOperation adminOp;
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
 }
@@ -69,6 +70,7 @@ auto buildFrontend(ref ArgParser p) {
     r.mutationOrder = p.mutationOrder;
     r.reportKind = p.reportKind;
     r.reportLevel = p.reportLevel;
+    r.adminOp = p.adminOp;
     r.mutantStatus = p.mutantStatus;
     r.mutantToStatus = p.mutantToStatus;
 
@@ -129,7 +131,7 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.admin:
         import dextool.plugin.mutate.backend : runAdmin;
 
-        return runAdmin(db, fe.mutation, fe.mutantStatus, fe.mutantToStatus);
+        return runAdmin(db, fe.adminOp, fe.mutation, fe.mutantStatus, fe.mutantToStatus);
     }
 }
 

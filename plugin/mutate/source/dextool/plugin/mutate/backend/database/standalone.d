@@ -209,6 +209,18 @@ struct Database {
         return rval;
     }
 
+    /** Remove all mutations of kinds.
+     */
+    void removeMutant(const Mutation.Kind[] kinds) @trusted {
+        import std.algorithm : map;
+        import std.format : format;
+
+        auto s = format("DELETE FROM mutation_point WHERE id IN (SELECT mp_id FROM mutation WHERE kind IN (%(%s,%)))",
+                kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(s);
+        stmt.execute;
+    }
+
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
