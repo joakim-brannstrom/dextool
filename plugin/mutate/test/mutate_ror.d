@@ -115,6 +115,73 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
+        "from '<' to '<='",
+        "from '<' to '!='",
+        "from 'a < MyE::C' to 'false'",
+
+        "from '<' to '<='",
+        "from '<' to '!='",
+        "from 'MyE::C < b' to 'false'",
+
+        "from '>' to '>='",
+        "from '>' to '!='",
+        "from 'a > MyE::C' to 'false'",
+
+        "from '>' to '>='",
+        "from '>' to '!='",
+        "from 'MyE::C > b' to 'false'",
+
+        "from '<=' to '<'",
+        "from '<=' to '=='",
+        // this will always be true. Generating it for now because code like this should not exist
+        "from 'a <= MyE::C' to 'true'",
+
+        // No test case can catch this. Generating it for now because code like this should not exist
+        "from '<=' to '<'",
+        "from '<=' to '=='",
+        "from 'MyE::C <= b' to 'true'",
+
+        "from '>=' to '>'",
+        "from '>=' to '=='",
+        "from 'a >= MyE::C' to 'true'",
+
+        "from '>=' to '>'",
+        "from '>=' to '=='",
+        "from 'MyE::C >= b' to 'true'",
+
+        // h0 tests
+        "from '!=' to '<'",
+        "from '!=' to '>'",
+        "from 'a != b' to 'true'",
+
+        "from '!=' to '>'",
+        "from 'MyE::A != b' to 'true'",
+
+        "from '!=' to '<'",
+        "from '!=' to '>'",
+        "from 'MyE::B != b' to 'true'",
+
+        "from '!=' to '<'",
+        "from 'a != MyE::C' to 'true'",
+
+        "from '!=' to '>'",
+        "from 'a != MyE::A' to 'true'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce all ROR mutations according to the enum schema for equal when both types are enum type and one is an enum const declaration")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "ror_enum_primitive_equal.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "ror"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
         "from '==' to '<='",
         "from '==' to '>='",
         "from 'a == b'",
@@ -129,20 +196,17 @@ unittest {
         "from '==' to '<='",
         "from 'a == MyE::C' to 'false'",
 
-        "from '!=' to '<'",
-        "from '!=' to '>'",
-        "from 'a != b' to 'true'",
-
-        "from '!=' to '>'",
-        "from 'MyE::A != b' to 'true'",
-
-        "from '!=' to '<'",
-        "from '!=' to '>'",
-        "from 'MyE::B != b' to 'true'",
-
-        "from '!=' to '<'",
-        "from 'a != MyE::C' to 'true'",
+        "from '==' to '>='",
+        "from 'a == MyE::A' to 'false'",
     ]).shouldBeIn(r.stdout);
+
+    testConsecutiveSparseOrder!SubStr([
+        "from 'a == MyE::C' to 'false'",
+        // test that g4 do NOT generate a <= because the left side is already min
+        //"from '==' to '<='",
+        "from '==' to '>='",
+        "from 'a == MyE::A' to 'false'",
+    ]).shouldNotBeIn(r.stdout);
 }
 
 @("shall produce all ROR mutations according to floating point schema when either type are pointers")
