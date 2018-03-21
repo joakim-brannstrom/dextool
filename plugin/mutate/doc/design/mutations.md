@@ -123,23 +123,44 @@ partof: SPC-plugin_mutate_mutation_ror
 
 This schema is only applicable when type of the expressions on both sides of an operator are enums and the same enum type.
 
-| Original Expression | Mutant 1 | Mutant 2 | Mutant 3               |
-| ------------------- | -------- | -------- | ---------------------- |
-| `x < y`             | `x <= y` | `x != y` | `false`                |
-| `x > y`             | `x >= y` | `x != y` | `false`                |
-| `x <= y`            | `x < y`  | `x == y` | `true`                 |
-| `x >= y`            | `x > y`  | `x == y` | `true`                 |
-| `x == y`            | `x <= y` if x isn't the min enum literal     |
-| `x == y`            | `x >= y` if y isn't the max enum literal     |
-| `x == y`            | `false`                                      |
-| `x != y`            | `x < y` if x isn't the min enum literal      |
-| `x != y`            | `x > y` if y isn't the max enum literal      |
-| `x != y`            | `true`                                       |
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
+| ------------------- | -------- | -------- | -------- |
+| `x < y`             | `x <= y` | `x != y` | `false`  |
+| `x > y`             | `x >= y` | `x != y` | `false`  |
+| `x <= y`            | `x < y`  | `x == y` | `true`   |
+| `x >= y`            | `x > y`  | `x == y` | `true`   |
+| `x == y`            | `false`  |          |          |
+| `x != y`            | `true`   |          |          |
+
+
+Specific additional schema for equal:
+TODO this need further investigation.
+It seems like the generated mutant can be simplified to true/false but for now I am not doing that because I may be wrong.
+
+| Original Expression | Mutant 1 | Condition                    | Always |
+| ------------------- | -------- | ---------------------------- | ------ |
+| `x == y`            | `x <= y` | if x is the min enum literal | `true` |
+| `x == y`            | `x >= y` | if x is the max enum literal | `true` |
+| `x == y`            | `x >= y` | if y is the min enum literal | `true` |
+| `x == y`            | `x <= y` | if y is the max enum literal | `true` |
+
+TODO further investigate this.
+
+Specific additional schema for not equal:
+
+| Original Expression | Mutant 1 | Condition                    | Always |
+| ------------------- | -------- | ---------------------------- | ------ |
+| `x != y`            | `x < y`  | if x is the min enum literal | `true` |
+| `x != y`            | `x > y`  | if x is the max enum literal | `true` |
+| `x != y`            | `x > y`  | if y is the min enum literal | `true` |
+| `x != y`            | `x < y`  | if y is the max enum literal | `true` |
+
+If the `x != y` is true then a change to a relational operator is equivalent to always `true`.
 
 ## Why?
 
 The goal is to reduce the number of equivalent mutants.
-Normally an enum can't be *less than* the lowest enum literal of that type thus the test suite can't possibly kill such a mutant.
+Normally an enum can't be *outside* the boundaries of an enum thus the test suite can't possibly kill such a mutants that would require an enum outside the boundaries.
 
 # SPC-plugin_mutate_mutation_ror_ptr
 partof: SPC-plugin_mutate_mutation_ror
