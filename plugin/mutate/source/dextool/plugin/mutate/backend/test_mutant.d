@@ -751,7 +751,7 @@ nothrow:
             return;
         }
 
-        bool changed_files;
+        bool has_sanity_check_failed;
         foreach (const f; files) {
             try {
                 auto abs_f = AbsolutePath(FileName(f),
@@ -761,15 +761,17 @@ nothrow:
                 if (db_checksum != f_checksum) {
                     logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
                             abs_f);
-                    changed_files = true;
+                    has_sanity_check_failed = true;
                 }
             }
             catch (Exception e) {
+                // assume it is a problem reading the file or something like that.
+                has_sanity_check_failed = true;
                 logger.trace(e.msg).collectException;
             }
         }
 
-        if (changed_files) {
+        if (has_sanity_check_failed) {
             driver_sig = TestDriverSignal.sanityCheckFailed;
             logger.error("Detected that one or more file has changed since last analyze where done")
                 .collectException;
