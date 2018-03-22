@@ -95,7 +95,6 @@ struct DriverData {
 Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
         AbsolutePath tester_p, WatchdogT watchdog, FilesysIO fio) nothrow {
     import core.thread : Thread;
-    import core.time : dur;
     import std.algorithm : among;
     import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
@@ -146,8 +145,10 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
                 break;
             }
 
+            import core.time : dur;
+
             // trusted: a hard coded value is used, no user input.
-            () @trusted{ Thread.sleep(1.dur!"msecs"); }();
+            () @trusted{ Thread.sleep(10.dur!"msecs"); }();
         }
     }
     catch (Exception e) {
@@ -261,7 +262,7 @@ struct MutationTestDriver(ImplT) {
     bool isRunning() {
         import std.algorithm : among;
 
-        return st.among(State.done, State.allMutantsTested, State.filesysError, State.noResult) == 0;
+        return st.among(State.done, State.noResult, State.filesysError, State.allMutantsTested) == 0;
     }
 
     bool stopBecauseError() {
@@ -270,9 +271,7 @@ struct MutationTestDriver(ImplT) {
 
     /// Returns: true when the mutation testing should be stopped
     bool stopMutationTesting() {
-        import std.algorithm : among;
-
-        return st.among(State.allMutantsTested, State.filesysError) != 0;
+        return st == State.allMutantsTested;
     }
 
     void execute() {
@@ -343,6 +342,8 @@ struct MutationTestDriver(ImplT) {
                 next_ = State.restoreCode;
             else if (signal == MutationDriverSignal.mutationError)
                 next_ = State.noResultRestoreCode;
+            else if (signal == MutationDriverSignal.allMutantsTested)
+                next_ = State.allMutantsTested;
             break;
         case State.restoreCode:
             if (signal == MutationDriverSignal.next)
@@ -361,6 +362,7 @@ struct MutationTestDriver(ImplT) {
         case State.filesysError:
             break;
         case State.noResultRestoreCode:
+            next_ = State.noResult;
             break;
         case State.noResult:
             break;
@@ -375,12 +377,9 @@ struct MutationTestDriver(ImplT) {
  * The intention is that this driver do NOT control the flow.
  */
 struct ImplMutationDriver {
-    import core.time : dur;
     import std.datetime.stopwatch : StopWatch;
 
 nothrow:
-
-    immutable wait_for_lock = 100.dur!"msecs";
 
     FilesysIO fio;
     NullableRef!Database db;
@@ -430,9 +429,7 @@ nothrow:
             driver_sig = MutationDriverSignal.allMutantsTested;
             return;
         } else if (next_m.st == NextMutationEntry.Status.queryError) {
-            () @trusted nothrow{
-                Thread.sleep(wait_for_lock + uniform(0, 200).dur!"msecs").collectException;
-            }();
+            // the database is locked. It will automatically sleep and continue.
             return;
         } else {
             mutp = next_m.entry;
@@ -461,8 +458,6 @@ nothrow:
             auto fout = fio.makeOutput(mut_file);
             auto mut_res = generateMutant(db.get, mutp, original_content, fout);
 
-            driver_sig = MutationDriverSignal.next;
-
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
                 driver_sig = MutationDriverSignal.mutationError;
@@ -481,8 +476,9 @@ nothrow:
                 driver_sig = MutationDriverSignal.mutationError;
                 break;
             case ok:
-                logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
-                        mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
+                driver_sig = MutationDriverSignal.next;
+                logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.id, mut_res.from,
+                        mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
                 break;
             }
         }
@@ -520,8 +516,8 @@ nothrow:
             auto bcast = broadcast(mutp.mp.mutations[0].kind);
 
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, bcast);
+            logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
             driver_sig = MutationDriverSignal.next;
-            logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -742,47 +738,74 @@ nothrow:
         import dextool.type : Path;
         import dextool.plugin.mutate.backend.utility : checksum,
             trustedRelativePath;
+        import dextool.plugin.mutate.backend.type : Checksum;
 
-        driver_sig = TestDriverSignal.next;
         const(Path)[] files;
         try {
             files = data.db.getFiles;
         }
         catch (Exception e) {
+            // assume the database is locked thus need to retry
+            driver_sig = TestDriverSignal.stop;
             logger.trace(e.msg).collectException;
             return;
         }
 
-        bool changed_files;
-        foreach (const f; files) {
+        bool has_sanity_check_failed;
+        for (size_t i; i < files.length;) {
+            Checksum db_checksum;
             try {
-                auto abs_f = AbsolutePath(FileName(f),
+                db_checksum = data.db.getFileChecksum(files[i]);
+            }
+            catch (Exception e) {
+                // the database is locked
+                logger.trace(e.msg).collectException;
+                // retry
+                continue;
+            }
+
+            try {
+                auto abs_f = AbsolutePath(FileName(files[i]),
                         DirName(cast(string) data.filesysIO.getOutputDir));
-                auto db_checksum = data.db.getFileChecksum(f);
                 auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
                 if (db_checksum != f_checksum) {
-                    logger.errorf("Reanalyze of '%s' needed", abs_f);
-                    changed_files = true;
+                    logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
+                            abs_f);
+                    has_sanity_check_failed = true;
                 }
             }
             catch (Exception e) {
+                // assume it is a problem reading the file or something like that.
+                has_sanity_check_failed = true;
                 logger.trace(e.msg).collectException;
             }
+
+            // all done. continue with the next file
+            ++i;
         }
 
-        if (changed_files) {
+        if (has_sanity_check_failed) {
             driver_sig = TestDriverSignal.sanityCheckFailed;
             logger.error("Detected that one or more file has changed since last analyze where done")
                 .collectException;
             logger.error("Either restore the files to the previous state or rerun the analyzer")
                 .collectException;
+        } else {
+            logger.info("Sanity check passed. Files on the filesystem are consistent")
+                .collectException;
+            driver_sig = TestDriverSignal.next;
         }
     }
 
     void checkMutantsLeft() {
         driver_sig = TestDriverSignal.next;
 
-        if (data.db.nextMutation(data.mutKind).st == NextMutationEntry.Status.done) {
+        const auto mutant = data.db.nextMutation(data.mutKind);
+
+        if (mutant.st == NextMutationEntry.Status.queryError) {
+            // the database is locked
+            driver_sig = TestDriverSignal.stop;
+        } else if (mutant.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
             driver_sig = TestDriverSignal.allMutantsTested;
         }
@@ -791,14 +814,19 @@ nothrow:
     void compileProgram() {
         driver_sig = TestDriverSignal.compilationError;
 
+        logger.info("Preparing for mutation testing by checking that the program and tests compile without any errors (no mutants injected)")
+            .collectException;
+
         try {
             import std.process : execute;
 
-            auto comp_res = execute([cast(string) data.compilerProgram]);
+            const comp_res = execute([cast(string) data.compilerProgram]);
+
             if (comp_res.status == 0) {
                 driver_sig = TestDriverSignal.next;
             } else {
-                logger.error("Compiler command failed: ", comp_res.output);
+                logger.info(comp_res.output);
+                logger.error("Compiler command failed: ", comp_res.status);
             }
         }
         catch (Exception e) {
@@ -829,12 +857,11 @@ nothrow:
     }
 
     void preMutationTest() {
+        driver_sig = TestDriverSignal.next;
         mut_driver = mutationDriverFactory(data, prog_wd.timeout);
     }
 
     void testMutant() {
-        driver_sig = TestDriverSignal.next;
-
         if (mut_driver.isRunning) {
             mut_driver.execute();
             driver_sig = TestDriverSignal.stop;
@@ -842,16 +869,21 @@ nothrow:
             driver_sig = TestDriverSignal.mutationError;
         } else if (mut_driver.stopMutationTesting) {
             driver_sig = TestDriverSignal.allMutantsTested;
+        } else {
+            driver_sig = TestDriverSignal.next;
         }
     }
 
     void checkTimeout() {
-        // the database is locked
         driver_sig = TestDriverSignal.stop;
 
-        try {
-            auto entry = data.db.timeoutMutants(data.mutKind);
+        auto entry = data.db.timeoutMutants(data.mutKind);
+        if (entry.isNull) {
+            // the database is locked
+            return;
+        }
 
+        try {
             if (!data.testProgramTimeout.isNull) {
                 // the user have supplied a timeout thus ignore this algorithm
                 // for increasing the timeout
