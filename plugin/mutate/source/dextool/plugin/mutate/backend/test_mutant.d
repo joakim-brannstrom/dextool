@@ -757,7 +757,8 @@ nothrow:
                 auto db_checksum = data.db.getFileChecksum(f);
                 auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
                 if (db_checksum != f_checksum) {
-                    logger.errorf("Reanalyze of '%s' needed", abs_f);
+                    logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
+                            abs_f);
                     changed_files = true;
                 }
             }
