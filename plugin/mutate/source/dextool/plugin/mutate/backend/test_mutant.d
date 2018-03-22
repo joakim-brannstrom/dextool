@@ -457,8 +457,6 @@ nothrow:
             auto fout = fio.makeOutput(mut_file);
             auto mut_res = generateMutant(db.get, mutp, original_content, fout);
 
-            driver_sig = MutationDriverSignal.next;
-
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
                 driver_sig = MutationDriverSignal.mutationError;
@@ -477,8 +475,9 @@ nothrow:
                 driver_sig = MutationDriverSignal.mutationError;
                 break;
             case ok:
-                logger.infof("%s Mutate from '%s' to '%s' in %s:%s:%s", mutp.id,
-                        mut_res.from, mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
+                driver_sig = MutationDriverSignal.next;
+                logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.id, mut_res.from,
+                        mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
                 break;
             }
         }
