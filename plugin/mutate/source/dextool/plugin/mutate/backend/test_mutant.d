@@ -738,6 +738,7 @@ nothrow:
         import dextool.type : Path;
         import dextool.plugin.mutate.backend.utility : checksum,
             trustedRelativePath;
+        import dextool.plugin.mutate.backend.type : Checksum;
 
         driver_sig = TestDriverSignal.next;
         const(Path)[] files;
@@ -752,11 +753,21 @@ nothrow:
         }
 
         bool has_sanity_check_failed;
-        foreach (const f; files) {
+        for (size_t i; i < files.length;) {
+            Checksum db_checksum;
             try {
-                auto abs_f = AbsolutePath(FileName(f),
+                db_checksum = data.db.getFileChecksum(files[i]);
+            }
+            catch (Exception e) {
+                // the database is locked
+                logger.trace(e.msg).collectException;
+                // retry
+                continue;
+            }
+
+            try {
+                auto abs_f = AbsolutePath(FileName(files[i]),
                         DirName(cast(string) data.filesysIO.getOutputDir));
-                auto db_checksum = data.db.getFileChecksum(f);
                 auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
                 if (db_checksum != f_checksum) {
                     logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
@@ -769,6 +780,9 @@ nothrow:
                 has_sanity_check_failed = true;
                 logger.trace(e.msg).collectException;
             }
+
+            // all done. continue with the next file
+            ++i;
         }
 
         if (has_sanity_check_failed) {
