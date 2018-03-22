@@ -798,7 +798,12 @@ nothrow:
     void checkMutantsLeft() {
         driver_sig = TestDriverSignal.next;
 
-        if (data.db.nextMutation(data.mutKind).st == NextMutationEntry.Status.done) {
+        const auto mutant = data.db.nextMutation(data.mutKind);
+
+        if (mutant.st == NextMutationEntry.Status.queryError) {
+            // the database is locked
+            driver_sig = TestDriverSignal.stop;
+        } else if (mutant.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
             driver_sig = TestDriverSignal.allMutantsTested;
         }
