@@ -740,7 +740,6 @@ nothrow:
             trustedRelativePath;
         import dextool.plugin.mutate.backend.type : Checksum;
 
-        driver_sig = TestDriverSignal.next;
         const(Path)[] files;
         try {
             files = data.db.getFiles;
@@ -791,6 +790,8 @@ nothrow:
                 .collectException;
             logger.error("Either restore the files to the previous state or rerun the analyzer")
                 .collectException;
+        } else {
+            driver_sig = TestDriverSignal.next;
         }
     }
 
