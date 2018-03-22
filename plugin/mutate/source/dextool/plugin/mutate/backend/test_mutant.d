@@ -95,7 +95,6 @@ struct DriverData {
 Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
         AbsolutePath tester_p, WatchdogT watchdog, FilesysIO fio) nothrow {
     import core.thread : Thread;
-    import core.time : dur;
     import std.algorithm : among;
     import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
@@ -146,8 +145,10 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p,
                 break;
             }
 
+            import core.time : dur;
+
             // trusted: a hard coded value is used, no user input.
-            () @trusted{ Thread.sleep(1.dur!"msecs"); }();
+            () @trusted{ Thread.sleep(10.dur!"msecs"); }();
         }
     }
     catch (Exception e) {
@@ -375,12 +376,9 @@ struct MutationTestDriver(ImplT) {
  * The intention is that this driver do NOT control the flow.
  */
 struct ImplMutationDriver {
-    import core.time : dur;
     import std.datetime.stopwatch : StopWatch;
 
 nothrow:
-
-    immutable wait_for_lock = 100.dur!"msecs";
 
     FilesysIO fio;
     NullableRef!Database db;
@@ -430,9 +428,7 @@ nothrow:
             driver_sig = MutationDriverSignal.allMutantsTested;
             return;
         } else if (next_m.st == NextMutationEntry.Status.queryError) {
-            () @trusted nothrow{
-                Thread.sleep(wait_for_lock + uniform(0, 200).dur!"msecs").collectException;
-            }();
+            // the database is locked. It will automatically sleep and continue.
             return;
         } else {
             mutp = next_m.entry;
