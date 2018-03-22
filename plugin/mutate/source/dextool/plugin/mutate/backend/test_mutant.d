@@ -515,8 +515,8 @@ nothrow:
             auto bcast = broadcast(mutp.mp.mutations[0].kind);
 
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, bcast);
+            logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
             driver_sig = MutationDriverSignal.next;
-            logger.infof("%s Mutant is %s (%s)", mutp.id, mut_status, sw.peek);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
