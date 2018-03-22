@@ -873,12 +873,15 @@ nothrow:
     }
 
     void checkTimeout() {
-        // the database is locked
         driver_sig = TestDriverSignal.stop;
 
-        try {
-            auto entry = data.db.timeoutMutants(data.mutKind);
+        auto entry = data.db.timeoutMutants(data.mutKind);
+        if (entry.isNull) {
+            // the database is locked
+            return;
+        }
 
+        try {
             if (!data.testProgramTimeout.isNull) {
                 // the user have supplied a timeout thus ignore this algorithm
                 // for increasing the timeout
