@@ -262,7 +262,7 @@ struct MutationTestDriver(ImplT) {
     bool isRunning() {
         import std.algorithm : among;
 
-        return st.among(State.done, State.allMutantsTested, State.filesysError, State.noResult) == 0;
+        return st.among(State.done, State.noResult, State.filesysError, State.allMutantsTested) == 0;
     }
 
     bool stopBecauseError() {
@@ -271,9 +271,7 @@ struct MutationTestDriver(ImplT) {
 
     /// Returns: true when the mutation testing should be stopped
     bool stopMutationTesting() {
-        import std.algorithm : among;
-
-        return st.among(State.allMutantsTested, State.filesysError) != 0;
+        return st == State.allMutantsTested;
     }
 
     void execute() {
@@ -344,6 +342,8 @@ struct MutationTestDriver(ImplT) {
                 next_ = State.restoreCode;
             else if (signal == MutationDriverSignal.mutationError)
                 next_ = State.noResultRestoreCode;
+            else if (signal == MutationDriverSignal.allMutantsTested)
+                next_ = State.allMutantsTested;
             break;
         case State.restoreCode:
             if (signal == MutationDriverSignal.next)
@@ -362,6 +362,7 @@ struct MutationTestDriver(ImplT) {
         case State.filesysError:
             break;
         case State.noResultRestoreCode:
+            next_ = State.noResult;
             break;
         case State.noResult:
             break;
@@ -861,8 +862,6 @@ nothrow:
     }
 
     void testMutant() {
-        driver_sig = TestDriverSignal.next;
-
         if (mut_driver.isRunning) {
             mut_driver.execute();
             driver_sig = TestDriverSignal.stop;
@@ -870,6 +869,8 @@ nothrow:
             driver_sig = TestDriverSignal.mutationError;
         } else if (mut_driver.stopMutationTesting) {
             driver_sig = TestDriverSignal.allMutantsTested;
+        } else {
+            driver_sig = TestDriverSignal.next;
         }
     }
 
