@@ -856,6 +856,7 @@ nothrow:
     }
 
     void preMutationTest() {
+        driver_sig = TestDriverSignal.next;
         mut_driver = mutationDriverFactory(data, prog_wd.timeout);
     }
 
