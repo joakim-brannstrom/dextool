@@ -55,10 +55,22 @@ in {
 do {
     import d2sqlite3;
 
+    void setPragmas(sqlDatabase* db) {
+        // dfmt off
+        auto pragmas = [
+            // required for foreign keys with cascade to work
+            "PRAGMA foreign_keys=ON;"
+        ];
+        // dfmt on
+
+        foreach (p; pragmas) {
+            db.run(p);
+        }
+    }
+
     try {
         auto db = new sqlDatabase(p, SQLITE_OPEN_READWRITE);
-        // required for foreign keys with cascade to work
-        db.run("PRAGMA foreign_keys=ON;");
+        setPragmas(db);
         return db;
     }
     catch (Exception e) {
@@ -67,8 +79,7 @@ do {
     }
 
     auto db = new sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-    // required for foreign keys with cascade to work
-    db.run("PRAGMA foreign_keys=ON;");
+    setPragmas(db);
 
     initializeTables( * db);
     return db;
