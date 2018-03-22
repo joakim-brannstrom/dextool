@@ -745,8 +745,9 @@ nothrow:
             files = data.db.getFiles;
         }
         catch (Exception e) {
+            // assume the database is locked thus need to retry
+            driver_sig = TestDriverSignal.stop;
             logger.trace(e.msg).collectException;
-            driver_sig = TestDriverSignal.sanityCheckFailed;
             return;
         }
 
