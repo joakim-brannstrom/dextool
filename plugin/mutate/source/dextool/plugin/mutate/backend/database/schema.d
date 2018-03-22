@@ -59,7 +59,10 @@ do {
         // dfmt off
         auto pragmas = [
             // required for foreign keys with cascade to work
-            "PRAGMA foreign_keys=ON;"
+            "PRAGMA foreign_keys=ON;",
+            // use two worker threads. Should improve performance a bit without having an adverse effect.
+            // this should probably be user configurable.
+            "PRAGMA threads = 2;",
         ];
         // dfmt on
 
