@@ -746,6 +746,7 @@ nothrow:
         }
         catch (Exception e) {
             logger.trace(e.msg).collectException;
+            driver_sig = TestDriverSignal.sanityCheckFailed;
             return;
         }
 
