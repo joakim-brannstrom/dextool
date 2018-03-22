@@ -814,14 +814,19 @@ nothrow:
     void compileProgram() {
         driver_sig = TestDriverSignal.compilationError;
 
+        logger.info("Preparing for mutation testing by checking that the program and tests compile without any errors (no mutants injected)")
+            .collectException;
+
         try {
             import std.process : execute;
 
-            auto comp_res = execute([cast(string) data.compilerProgram]);
+            const comp_res = execute([cast(string) data.compilerProgram]);
+
             if (comp_res.status == 0) {
                 driver_sig = TestDriverSignal.next;
             } else {
-                logger.error("Compiler command failed: ", comp_res.output);
+                logger.info(comp_res.output);
+                logger.error("Compiler command failed: ", comp_res.status);
             }
         }
         catch (Exception e) {
