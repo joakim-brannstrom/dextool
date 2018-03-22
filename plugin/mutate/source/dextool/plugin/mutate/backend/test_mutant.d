@@ -791,6 +791,8 @@ nothrow:
             logger.error("Either restore the files to the previous state or rerun the analyzer")
                 .collectException;
         } else {
+            logger.info("Sanity check passed. Files on the filesystem are consistent")
+                .collectException;
             driver_sig = TestDriverSignal.next;
         }
     }
