@@ -43,6 +43,8 @@ enum MutationOrder {
 
 /// The kind of report to generate to the user
 enum ReportKind {
+    /// As a plain text output
+    plain,
     /// As a markdown report that
     markdown,
     /// As compiler warnings and a fix-it hint for the mutation

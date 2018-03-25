@@ -246,3 +246,20 @@ Each mutant is:
     "value": "the mutation as textual representation"
 }
 ```
+
+# SPC-plugin_mutate_report_for_human_plain
+partof: REQ-plugin_mutate-report
+###
+
+The plugin shall report mutants as *plain text* when commande via the *CLI*.
+
+## Plain Text
+
+This format is defined as:
+```
+info: $ID $STATUS from '$FROM' to '$TO' in $ABSOLUTE_PATH:$LINE:$COLUMN
+```
+
+The intention is that by providing the absolute path it becomes easier for the user to locate the file.
+By printing the full code both from and to it becomes easier to find it on the line.
+It becomes easier to understand.

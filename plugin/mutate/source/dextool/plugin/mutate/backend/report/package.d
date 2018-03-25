@@ -68,6 +68,7 @@ private:
 struct ReportGenerator {
     import std.algorithm : each;
     import dextool.plugin.mutate.backend.report.markdown;
+    import dextool.plugin.mutate.backend.report.plain;
 
     ReportEvent[] listeners;
 
@@ -77,7 +78,11 @@ struct ReportGenerator {
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
         ReportEvent[] listeners;
+
         final switch (report_kind) {
+        case ReportKind.plain:
+            listeners = [new ReportPlain(kinds, report_level, fio)];
+            break;
         case ReportKind.markdown:
             listeners = [new ReportMarkdown(kinds, report_level, fio)];
             break;
@@ -88,6 +93,7 @@ struct ReportGenerator {
             listeners = [new ReportJson(report_level, fio)];
             break;
         }
+
         return ReportGenerator(listeners);
     }
 
