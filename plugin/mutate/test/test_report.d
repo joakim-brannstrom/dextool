@@ -27,7 +27,9 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName).run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--style", "markdown"])
+        .run;
 
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
@@ -53,6 +55,7 @@ unittest {
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--level", "alive"])
+        .addArg(["--style", "markdown"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
