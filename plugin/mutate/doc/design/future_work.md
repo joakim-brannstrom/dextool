@@ -116,6 +116,9 @@ partof: REQ-plugin_mutate_future_work
 This is a simple TODO.
 New items are added at the top
 
+ * implement merge of databases. It is to make it possible for a team to work "distributed".
+   For example make a copy of the database, make changes to the SUT and rerun the mutation testning.
+   The take the result and "merge it back" into the teams shared database.
  * change the database schema to mutation -> mutation_subtype.
         the subtype in turn have the kind and status.
     the intention is to reduce the number of overlapping mutation testing and thus in the end reduce the execution time needed for testing all mutants.
