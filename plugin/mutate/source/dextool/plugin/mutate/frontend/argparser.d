@@ -254,7 +254,7 @@ struct ArgParser {
             base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
             logger.errorf("--report possible values: %(%s|%)", [EnumMembers!ReportKind]);
-            logger.errorf("--report-level possible values: %(%s|%)", [EnumMembers!ReportLevel]);
+            logger.errorf("--level possible values: %(%s|%)", [EnumMembers!ReportLevel]);
             break;
         case admin:
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
