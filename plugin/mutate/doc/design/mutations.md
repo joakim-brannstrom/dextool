@@ -414,6 +414,21 @@ Note: How it is removed depend on where it is in the AST.
 A function call that is terminated with a `;` should remove the trailing `;`.
 In contrast with the initialization list where it should remove the trailing `,`.
 
+#SPC-plugin_mutate_lcrb
+partof: REQ-plugin_mutate-mutations
+###
+
+The plugin shall mutate the bitwise operators `|` and `&`.
+
+## Logical Connector Replacement Bit-wise (LCRB)
+
+These two bitwise operators correlate well with the LCR operator. Coverage tools have a general problem with bitwise operators. This mutation operator can replace the manual coverage inspection activity when bitwise operators are used.
+
+| Original Expression | Mutant 1 |
+| ------------------- | -------- |
+| `x | y`             | `x & y`  |
+| `x & y`             | `x | y`  |
+
 # TST-plugin_mutate_statement_del_call_expression
 partof: SPC-plugin_mutate_mutations_statement_del-call_expression
 ###
