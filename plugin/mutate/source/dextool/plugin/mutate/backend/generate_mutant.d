@@ -345,6 +345,18 @@ auto makeMutation(Mutation.Kind kind) {
         // delete by commenting out
         m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
         break;
+    case lcrbAnd:
+        m.mutate = (const(char)[] expr) { return "&"; };
+        break;
+    case lcrbOr:
+        m.mutate = (const(char)[] expr) { return "|"; };
+        break;
+    case lcrbAndAssign:
+        m.mutate = (const(char)[] expr) { return "&="; };
+        break;
+    case lcrbOrAssign:
+        m.mutate = (const(char)[] expr) { return "|="; };
+        break;
     }
 
     return m;

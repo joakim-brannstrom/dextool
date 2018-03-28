@@ -33,6 +33,8 @@ enum MutationKind {
     dcc,
     /// Decision/Condition Requirement
     dcr,
+    /// Logical Connector Replacement Bit-wise
+    lcrb,
 }
 
 /// The order the mutations are done when running in test_mutants mode
