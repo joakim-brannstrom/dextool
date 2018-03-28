@@ -87,12 +87,33 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     import dextool.plugin.mutate.backend.type : Mutation;
     import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations, isAor,
         aorMutations, isAorAssign, aorAssignMutations, isRor, rorMutations,
-        isCor, corOpMutations, corExprMutations;
+        isCor, corOpMutations, corExprMutations, isLcrb, isLcrbAssign,
+        lcrbMutations, lcrbAssignMutations;
 
     // TODO refactor so array() can be removed. It is an unnecessary allocation
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isLcr)
             return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+
+    rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
+        if (auto v = k in isLcrb) {
+            return lcrbMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        } else
+            return null;
+    };
+    rval.transf.assignOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isLcrbAssign)
+            return lcrbAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
+        else
+            return null;
+    };
+
+    rval.transf.assignOpOpCallback ~= (OpKind k) {
+        if (auto v = k in isAorAssign)
+            return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
         else
             return null;
     };

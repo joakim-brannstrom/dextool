@@ -107,6 +107,11 @@ struct Mutation {
         rorpGE,
         rorpEQ,
         rorpNE,
+        /// Logical Operator Replacement Bit-wise (lcrb)
+        lcrbAnd,
+        lcrbOr,
+        lcrbAndAssign,
+        lcrbOrAssign,
     }
 
     enum Status {

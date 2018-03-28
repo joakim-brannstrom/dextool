@@ -14,6 +14,7 @@ CPH         | Competent Programmer Hypothesis
 DCC         | Decision/Condition Coverage
 DCR         | Decision/Condition Requirement
 LCR         | Logical Connector Replacement
+LCRB        | Logical Connector Replacement Bit-wise
 MCEH        | Coupling Effect Hypothesis
 ROR         | Relational Operator Replacement
 SDD         | Software Design Specification

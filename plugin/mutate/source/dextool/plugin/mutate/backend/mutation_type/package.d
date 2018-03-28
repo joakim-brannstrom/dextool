@@ -18,6 +18,7 @@ public import dextool.plugin.mutate.backend.mutation_type.cor;
 public import dextool.plugin.mutate.backend.mutation_type.dcc;
 public import dextool.plugin.mutate.backend.mutation_type.dcr;
 public import dextool.plugin.mutate.backend.mutation_type.lcr;
+public import dextool.plugin.mutate.backend.mutation_type.lcrb;
 public import dextool.plugin.mutate.backend.mutation_type.ror;
 public import dextool.plugin.mutate.backend.mutation_type.sdl;
 public import dextool.plugin.mutate.backend.mutation_type.uoi;
@@ -87,6 +88,8 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
             return dccBranchMutationsRaw.dup ~ dccCaseMutationsRaw.dup;
         case dcr:
             return dccBranchMutationsRaw.dup ~ dcrCaseMutationsRaw.dup;
+        case lcrb:
+            return lcrbMutationsAll.dup ~ lcrbAssignMutationsAll.dup;
         }
     }
 
