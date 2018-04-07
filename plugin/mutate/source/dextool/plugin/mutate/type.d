@@ -53,6 +53,8 @@ enum ReportKind {
     compiler,
     /// As a JSON model
     json,
+    /// In the CSV format
+    csv,
 }
 
 /// The level of reporting

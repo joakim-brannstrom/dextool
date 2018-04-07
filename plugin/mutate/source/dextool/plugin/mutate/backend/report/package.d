@@ -69,6 +69,7 @@ struct ReportGenerator {
     import std.algorithm : each;
     import dextool.plugin.mutate.backend.report.markdown;
     import dextool.plugin.mutate.backend.report.plain;
+    import dextool.plugin.mutate.backend.report.csv;
 
     ReportEvent[] listeners;
 
@@ -91,6 +92,9 @@ struct ReportGenerator {
             break;
         case ReportKind.json:
             listeners = [new ReportJson(report_level, fio)];
+            break;
+        case ReportKind.csv:
+            listeners = [new ReportCSV(kinds, report_level, fio)];
             break;
         }
 
