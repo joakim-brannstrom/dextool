@@ -12,6 +12,16 @@ The implementation testing mutants should separate the drivers in three parts:
 
 ## Drivers
 
+# SPC-plugin_mutate_test_mutant_timeout
+partof: SPC-plugin_mutate_test_mutant
+###
+
+The program shall terminate a test suite when it reached the *timeout*.
+
+The program shall *adjust* the timeout when there are no mutants in the state *unknown* and there are at least one mutant in the state *timeout*.
+
+TODO: further refine the requirements. The intent is what is described in the below algorithm.
+
 ### Mutation Timeout Reduction Algorithm
 
 The purpose is to progressively increase the timeout until the pool of mutants tagged as *timeout* stop being reduced.
