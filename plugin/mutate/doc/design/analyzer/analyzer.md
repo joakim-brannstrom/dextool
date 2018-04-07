@@ -42,3 +42,17 @@ How?
 
 Why?
 This will then trigger the mutation testers to retest all mutation points that exist in this specific file.
+
+# SPC-plugin_mutate_analyzer-semantic_impact
+partof: SPC-plugin_mutate_analyzer
+###
+
+TODO: add req.
+
+## Design
+
+Calculate how much have change in the LLVM IR for a mutant. The bigger the change is the semantic impact the mutant had and thus the more important it is that it is killed.
+
+This probably need to be "weighted" against other mutants so it is *dynamic* for the specific program.
+
+This should make it possible to statically find *semantically high impact mutants* cheaply. No need to even have a test suite.
