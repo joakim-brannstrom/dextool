@@ -135,7 +135,7 @@ unittest {
     // TODO
 }
 
-@("shall report mutants as a json model")
+@("shall report mutants as a json")
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -149,4 +149,27 @@ unittest {
         .run;
 
     writelnUt(r.stdout);
+}
+
+@("shall report mutants in csv format")
+unittest {
+    //#TST-plugin_mutate_report_as_csv
+
+    auto input_src = testData ~ "report_tool_integration.cpp";
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(input_src)
+        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--mutant", "dcc"])
+        .addArg(["--style", "csv"])
+        .addArg(["--level", "all"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+                                      `"ID","Kind","Description","Location","Comment"`,
+                                      `"8","dcr","'var1_...' to 'true'","plugin_testdata/report_tool_integration.cpp:7:9",""`,
+                                      `"9","dcr","'var1_...' to 'false'","plugin_testdata/report_tool_integration.cpp:7:9",""`,
+                                      `"28","dcc","'retur...' to '*((ch...'","plugin_testdata/report_tool_integration.cpp:11:5",""`,
+    ]).shouldBeIn(r.stdout);
 }

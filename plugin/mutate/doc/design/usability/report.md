@@ -263,3 +263,46 @@ info: $ID $STATUS from '$FROM' to '$TO' in $ABSOLUTE_PATH:$LINE:$COLUMN
 The intention is that by providing the absolute path it becomes easier for the user to locate the file.
 By printing the full code both from and to it becomes easier to find it on the line.
 It becomes easier to understand.
+
+# SPC-plugin_mutate_report_as_csv
+partof: REQ-plugin_mutate-report
+###
+
+The plugin shall report mutants as *CSV* when commanded via the *CLI*.
+
+## CSV
+
+The intent is to make it easy to import the mutant report in e.g. Excel for inspection.
+
+A user will want to write comments to convey to other users his/her thoughts about the mutant.
+
+The columns should be
+1. ID
+2. Mutation kind as human readable.
+3. Textual description of the mutant which make it easy to inspect at a quick glanse.
+    From user input it should be something like: 'x' to 'y'.
+4. Filename line:column
+5. Comment
+
+## Format Specification
+
+This is copied from the phobos module `std.csv`.
+
+ * A record is separated by a new line (CRLF,LF,CR)
+ * A final record may end with a new line
+ * A header may be provided as the first record in input
+ * A record has fields separated by a comma (customizable)
+ * A field containing new lines, commas, or double quotes should be enclosed in double quotes (customizable)
+ * Double quotes in a field are escaped with a double quote
+ * Each record should contain the same number of fields
+
+# TST-plugin_mutate_report_as_csv
+partof: SPC-plugin_mutate_report_as_csv
+###
+
+As input to the program use a file that contains DCC/DCR mutations.
+
+Verify that the report:
+ * has a CSV header
+ * contains a report of mutations for each column
+ * the last column, comment, shall be empty
