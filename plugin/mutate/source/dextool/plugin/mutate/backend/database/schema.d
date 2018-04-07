@@ -46,7 +46,7 @@ import logger = std.experimental.logger;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-enum latestSchemaVersion = 1;
+enum latestSchemaVersion = 2;
 
 /** Initialize or open an existing database.
  *
@@ -105,6 +105,8 @@ immutable version_tbl = "CREATE TABLE %s (
     version     INTEGER NOT NULL
     )";
 
+// checksum is 128bit. Using a integer to better represent and search for them
+// in queries.
 immutable files_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     path        TEXT NOT NULL,
@@ -135,19 +137,24 @@ immutable mutation_tbl = "CREATE TABLE %s (
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 
+// raw_id is whatever identifier the user chose
+immutable test_case_track_tbl = "CREATE TABLE %s (
+    id      INTEGER PRIMARY KEY,
+    mut_id  INTEGER NOT NULL,
+    raw_id  TEXT NOT NULL,
+    FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
+    )";
+
 void initializeTables(ref sqlDatabase db) {
     import std.format : format;
 
     db.run(format(version_tbl, "schema_version"));
     updateSchemaVersion(db, latestSchemaVersion);
 
-    // checksum is 128bit. Using a integer to better represent and search for
-    // them in queries.
     db.run(format(files_tbl, "files"));
-
     db.run(format(mutation_point_tbl, "mutation_point"));
-
     db.run(format(mutation_tbl, "mutation"));
+    db.run(format(test_case_track_tbl, "test_case"));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
@@ -170,6 +177,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     upgradeFunc[long] tbl;
 
     tbl[0] = &upgradeV0;
+    tbl[1] = &upgradeV1;
 
     while (true) {
         long version_ = 0;
@@ -218,6 +226,13 @@ void upgradeV0(ref sqlDatabase db) {
     import std.format : format;
 
     db.run(format(version_tbl, "schema_version"));
-
     updateSchemaVersion(db, 1);
+}
+
+/// 2018-04-08
+void upgradeV1(ref sqlDatabase db) {
+    import std.format : format;
+
+    db.run(format(test_case_track_tbl, "test_case"));
+    updateSchemaVersion(db, 2);
 }
