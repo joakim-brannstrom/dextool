@@ -46,6 +46,7 @@ void main(string[] args) {
     design_chapters ~= "architecture.md";
     design_chapters ~= "mutations.md";
     design_chapters ~= "analyzer/analyzer.md";
+    design_chapters ~= "test_mutant/basis.md";
     design_chapters ~= "usability/sanity_check.md";
     design_chapters ~= "usability/report.md";
     design_chapters ~= "future_work.md";
