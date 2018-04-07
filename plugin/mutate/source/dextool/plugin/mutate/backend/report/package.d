@@ -258,7 +258,7 @@ struct CompilerMsgBuilder(Writer) {
                 .file(abs_path)
                 .line(r.sloc.line)
                 .column(r.sloc.column)
-                .begin("%s: replace '%s' with '%s'", r.mutation.kind,
+                .begin("%s: replace '%s' with '%s'", r.mutation.kind.toUser,
                        window(mut_txt.original, windowSize),
                        window(mut_txt.mutation, windowSize))
                 .note("status:%s id:%s", r.mutation.status, r.id);
