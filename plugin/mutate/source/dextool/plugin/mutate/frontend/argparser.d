@@ -131,13 +131,13 @@ struct ArgParser {
             toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "compile", "program to use to compile the mutant", &mutationCompile,
                    "db", db_help, &db,
                    "dry-run", "do not write data to the filesystem", &dryRun,
+                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationOrder,
                    "out", out_help, &outputDirectory,
                    "restrict", restrict_help, &restrictDir,
-                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "compile", "program to use to compile the mutant", &mutationCompile,
-                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutationOrder,
                    "test", "program to use to execute the mutant tester", &mutationTester,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
                    );
@@ -249,6 +249,7 @@ struct ArgParser {
         case test_mutants:
             base_help = "Usage: dextool mutate test [options] [-- CFLAGS...]";
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
+            logger.errorf("--order possible values: %(%s|%)", [EnumMembers!MutationOrder]);
             break;
         case report:
             base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
