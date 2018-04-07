@@ -84,11 +84,13 @@ do {
     auto db = new sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
     setPragmas(db);
 
-    initializeTables( * db);
+    initializeTables(*db);
     return db;
 }
 
-immutable files_tbl = "CREATE %s TABLE %s (
+private:
+
+immutable files_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     path        TEXT NOT NULL,
     checksum0   INTEGER NOT NULL,
@@ -97,7 +99,7 @@ immutable files_tbl = "CREATE %s TABLE %s (
 
 // line start from zero
 // there shall never exist two mutations points for the same file+offset.
-immutable mutation_point_tbl = "CREATE %s TABLE %s (
+immutable mutation_point_tbl = "CREATE TABLE %s (
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
@@ -109,7 +111,7 @@ immutable mutation_point_tbl = "CREATE %s TABLE %s (
     )";
 
 // time in ms spent on verifying the mutant
-immutable mutation_tbl = "CREATE %s TABLE %s (
+immutable mutation_tbl = "CREATE TABLE %s (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
@@ -123,9 +125,9 @@ void initializeTables(ref sqlDatabase db) {
 
     // checksum is 128bit. Using a integer to better represent and search for
     // them in queries.
-    db.run(format(files_tbl, "", "files"));
+    db.run(format(files_tbl, "files"));
 
-    db.run(format(mutation_point_tbl, "", "mutation_point"));
+    db.run(format(mutation_point_tbl, "mutation_point"));
 
-    db.run(format(mutation_tbl, "", "mutation"));
+    db.run(format(mutation_tbl, "mutation"));
 }
