@@ -95,3 +95,22 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
 
     return (k is null ? [MutationKind.any] : k).map!(a => kinds(a)).joiner.array;
 }
+
+/// Convert the internal mutation kind to those that are presented to the user via the CLI.
+MutationKind toUser(Mutation.Kind k) @safe nothrow {
+    return fromInteralKindToUserKind[k];
+}
+
+private:
+
+immutable MutationKind[Mutation.Kind] fromInteralKindToUserKind;
+
+shared static this() {
+    import std.traits : EnumMembers;
+
+    static foreach (const user_kind; EnumMembers!MutationKind) {
+        foreach (const internal_kind; toInternal([user_kind])) {
+            fromInteralKindToUserKind[internal_kind] = user_kind;
+        }
+    }
+}
