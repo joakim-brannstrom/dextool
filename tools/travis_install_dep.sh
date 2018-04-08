@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -e -x -pipefail
+set -exo pipefail
 
-if [[ "$ROOT" ]]; then
+if [[ -z "$ROOT" ]]; then
     echo "\$ROOT not set"
     exit 1
 fi
