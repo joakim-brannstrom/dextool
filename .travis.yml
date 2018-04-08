@@ -21,7 +21,7 @@ branches:
     only:
         - master
 
-script: ./travis.sh
+script: ./tools/travis.sh
 after_success:
   # restrict what compiler coverage so it is possible to know what compiler
   # reported the coverage statistics on github PR
