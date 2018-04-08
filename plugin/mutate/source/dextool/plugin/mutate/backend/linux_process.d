@@ -54,8 +54,11 @@ struct PidSession {
  *
  * Params:
  *  args = arguments to run.
+ *  stdout_p = write stdout to this file (if null then /dev/null is used)
+ *  stderr_p = write stderr to this file (if null then /dev/null is used)
  */
-PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted {
+PidSession spawnSession(const char[][] args, string stdout_p = null,
+        string stderr_p = null, bool debug_ = false) @trusted {
     import core.stdc.stdlib : exit;
     import core.sys.posix.unistd;
     import core.sys.posix.signal;
@@ -70,8 +73,18 @@ PidSession spawnSession(const char[][] args, bool debug_ = false) @trusted {
 
     // running a compiler/make etc requires stdin/out/err
     auto stdin_ = File("/dev/null", "r");
-    auto stdout_ = File("/dev/null", "w");
-    auto stderr_ = File("/dev/null", "w");
+    auto stdout_ = () {
+        if (stdout_p.length == 0)
+            return File("/dev/null", "w");
+        else
+            return File(stdout_p, "w");
+    }();
+    auto stderr_ = () {
+        if (stderr_p.length == 0)
+            return File("/dev/null", "w");
+        else
+            return File(stderr_p, "w");
+    }();
 
     const(char*)* envz;
 
