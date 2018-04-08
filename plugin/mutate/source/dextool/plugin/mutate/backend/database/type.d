@@ -22,12 +22,17 @@ struct Pkey(Pkeys T) {
 enum Pkeys {
     mutationId,
     fileId,
+    testCaseId,
 }
 
 /// Primary key in the mutation table
 alias MutationId = Pkey!(Pkeys.mutationId);
+
 /// Primary key in the files table
 alias FileId = Pkey!(Pkeys.fileId);
+
+/// Primary key in the test_case table
+alias TestCaseId = Pkey!(Pkeys.testCaseId);
 
 struct MutationEntry {
     import dextool.plugin.mutate.backend.type;

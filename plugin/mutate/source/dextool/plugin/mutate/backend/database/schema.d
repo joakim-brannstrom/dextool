@@ -46,7 +46,12 @@ import logger = std.experimental.logger;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-enum latestSchemaVersion = 2;
+immutable latestSchemaVersion = 2;
+immutable schemaVersionTable = "schema_version";
+immutable filesTable = "files";
+immutable mutationPointTable = "mutation_point";
+immutable mutationTable = "mutation";
+immutable testCaseTable = "test_case";
 
 /** Initialize or open an existing database.
  *
@@ -137,37 +142,52 @@ immutable mutation_tbl = "CREATE TABLE %s (
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 
-// raw_id is whatever identifier the user chose
-immutable test_case_track_tbl = "CREATE TABLE %s (
-    id      INTEGER PRIMARY KEY,
-    mut_id  INTEGER NOT NULL,
-    raw_id  TEXT NOT NULL,
+// test_case is whatever identifier the user choose.
+// this could use an intermediate adapter table to normalise the test_case data
+// but I chose not to do that because it makes it harder to add test cases and
+// do a cleanup.
+immutable test_case_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    mut_id      INTEGER NOT NULL,
+    test_case   TEXT NOT NULL,
     FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
     )";
 
 void initializeTables(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(version_tbl, "schema_version"));
+    db.run(format(version_tbl, schemaVersionTable));
     updateSchemaVersion(db, latestSchemaVersion);
 
-    db.run(format(files_tbl, "files"));
-    db.run(format(mutation_point_tbl, "mutation_point"));
-    db.run(format(mutation_tbl, "mutation"));
-    db.run(format(test_case_track_tbl, "test_case"));
+    db.run(format(files_tbl, filesTable));
+    db.run(format(mutation_point_tbl, mutationPointTable));
+    db.run(format(mutation_tbl, mutationTable));
+    db.run(format(test_case_tbl, testCaseTable));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
+    import std.format : format;
+
     try {
-        auto stmt = db.prepare("INSERT INTO schema_version (version) VALUES(:ver)");
+        auto stmt = db.prepare(format("DELETE FROM %s", schemaVersionTable));
+        stmt.execute;
+
+        stmt = db.prepare(format("INSERT INTO %s (version) VALUES(:ver)", schemaVersionTable));
         stmt.bind(":ver", ver);
         stmt.execute;
     }
     catch (Exception e) {
-        auto stmt = db.prepare("UPDATE schema_version SET version=:ver");
-        stmt.bind(":ver", ver);
-        stmt.execute;
+        logger.error(e.msg).collectException;
     }
+}
+
+long getSchemaVersion(ref sqlDatabase db) {
+    enum version_q = "SELECT version FROM " ~ schemaVersionTable;
+    auto stmt = db.prepare(version_q);
+    auto res = stmt.execute;
+    if (!res.empty)
+        return res.oneValue!long;
+    return 0;
 }
 
 void upgrade(ref sqlDatabase db) nothrow {
@@ -183,11 +203,7 @@ void upgrade(ref sqlDatabase db) nothrow {
         long version_ = 0;
 
         try {
-            enum version_q = "SELECT version FROM schema_version";
-            auto stmt = db.prepare(version_q);
-            auto res = stmt.execute;
-            if (!res.empty)
-                version_ = res.oneValue!long;
+            version_ = getSchemaVersion(db);
         }
         catch (Exception e) {
             logger.trace(e.msg).collectException;
@@ -226,7 +242,7 @@ void upgrade(ref sqlDatabase db) nothrow {
 void upgradeV0(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(version_tbl, "schema_version"));
+    db.run(format(version_tbl, schemaVersionTable));
     updateSchemaVersion(db, 1);
 }
 
@@ -234,6 +250,6 @@ void upgradeV0(ref sqlDatabase db) {
 void upgradeV1(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(test_case_track_tbl, "test_case"));
+    db.run(format(test_case_tbl, testCaseTable));
     updateSchemaVersion(db, 2);
 }

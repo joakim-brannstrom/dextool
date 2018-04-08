@@ -164,6 +164,8 @@ struct Database {
                 d.fileChecksum = checksum(r.peek!long(9), r.peek!long(10));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
 
+                d.testCases = db.getTestCases(d.id);
+
                 dg(d);
             }
         }
@@ -180,4 +182,5 @@ struct IterateMutantRow {
     Path file;
     Checksum fileChecksum;
     SourceLoc sloc;
+    TestCase[] testCases;
 }

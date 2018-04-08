@@ -21,6 +21,7 @@ int main(string[] args) {
                           "dextool_test.mutate_stmt_deletion",
                           "dextool_test.mutate_uoi",
                           "dextool_test.test_analyzer",
+                          "dextool_test.test_mutant_tester",
                           "dextool_test.test_report",
                           );
     // dfmt on

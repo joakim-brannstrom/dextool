@@ -50,6 +50,7 @@ struct ArgParser {
     string db = "dextool_mutate.sqlite3";
     string mutationTester;
     string mutationCompile;
+    string mutationTestCaseAnalyze;
 
     long mutationTesterRuntime;
     Nullable!long mutationId;
@@ -138,7 +139,8 @@ struct ArgParser {
                    "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationOrder,
                    "out", out_help, &outputDirectory,
                    "restrict", restrict_help, &restrictDir,
-                   "test", "program to use to execute the mutant tester", &mutationTester,
+                   "test", "program used to run the test suite", &mutationTester,
+                   "test-case-analyze", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
                    );
             // dfmt on

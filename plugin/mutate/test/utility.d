@@ -56,6 +56,14 @@ auto readOutput(const ref TestEnv testEnv, string fname) {
     return std.file.readText((testEnv.outdir ~ fname).toString).splitLines.array();
 }
 
+void makeExecutable(string fname) {
+    import core.sys.posix.sys.stat;
+    import std.file : getAttributes, setAttributes;
+
+    const attrs = getAttributes(fname) | S_IRWXU;
+    setAttributes(fname, attrs);
+}
+
 /// Check that the string is a substring of the one it is compared with.
 struct SubStr {
     string key;

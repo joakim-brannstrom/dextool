@@ -50,7 +50,7 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs");
+    db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs", null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)

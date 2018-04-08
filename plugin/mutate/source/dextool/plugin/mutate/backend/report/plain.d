@@ -22,7 +22,8 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, Table, reportMutationSubtypeStats, reportStatistics;
+    makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
+    reportTestCaseStats;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -37,6 +38,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
+    long[TestCase] testCaseStat;
 
     this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
@@ -74,6 +76,25 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                     mut_txt.original, mut_txt.mutation, abs_path, r.sloc.line, r.sloc.column);
         }
 
+        void updateTestCaseStat() {
+            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+                return;
+
+            foreach (const a; r.testCases) {
+                if (auto v = a in testCaseStat) {
+                    ++(*v);
+                } else {
+                    testCaseStat[a] = 1;
+                }
+            }
+        }
+
+        void reportTestCase() {
+            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+                return;
+            logger.infof("%s killed by [%(%s, %)]", r.id, r.testCases);
+        }
+
         try {
             final switch (report_level) {
             case ReportLevel.summary:
@@ -82,9 +103,12 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 if (r.mutation.status == Mutation.Status.alive) {
                     report();
                 }
+                updateTestCaseStat();
                 break;
             case ReportLevel.all:
+                updateTestCaseStat();
                 report();
+                reportTestCase();
                 break;
             }
         }
@@ -103,12 +127,24 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             logger.info("Alive Mutation Statistics");
 
             Table!4 substat_tbl;
-            Table!4.Row SRow;
 
             substat_tbl.heading = ["Percentage", "Count", "From", "To"];
             reportMutationSubtypeStats(mutationStat, substat_tbl);
 
             writeln(substat_tbl);
+        }
+
+        if (testCaseStat.length != 0 && report_level != ReportLevel.summary) {
+            logger.info("Test Case Kill Statistics");
+
+            long take_ = report_level == ReportLevel.all ? 1024 : 20;
+
+            Table!3 tc_tbl;
+
+            tc_tbl.heading = ["Percentage", "Count", "TestCase"];
+            reportTestCaseStats(testCaseStat, tc_tbl, take_);
+
+            writeln(tc_tbl);
         }
     }
 
