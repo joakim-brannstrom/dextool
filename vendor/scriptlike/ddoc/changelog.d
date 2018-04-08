@@ -6,6 +6,14 @@ $(LINK http://semitwist.com/scriptlike/changelog.html)
 
 (Dates below are YYYY/MM/DD)
 
+$(H2 v0.10.3 - TBD)
+
+$(UL
+	$(CHANGE
+		Fixed deprecations for DMD 2.075+ and 2.079+. Dropped support for LDC 0.15.1.
+	)
+)
+
 $(H2 v0.10.2 - 2017/03/03)
 
 $(UL
