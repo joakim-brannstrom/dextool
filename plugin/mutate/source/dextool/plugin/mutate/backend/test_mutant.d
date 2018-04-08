@@ -391,8 +391,7 @@ nothrow:
     AbsolutePath mut_file;
     const(ubyte)[] original_content;
 
-    // change to const
-    Mutation.Kind[] mut_kind;
+    const(Mutation.Kind)[] mut_kind;
 
     AbsolutePath compile_cmd;
     AbsolutePath test_cmd;

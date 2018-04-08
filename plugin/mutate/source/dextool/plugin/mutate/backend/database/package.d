@@ -72,7 +72,7 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(Mutation.Kind[] kinds) nothrow @trusted {
+    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) nothrow @trusted {
         import std.algorithm : map;
         import std.exception : collectException;
         import std.format : format;
