@@ -17,3 +17,4 @@ tests/.testExample*
 tests/bin/
 
 *.exe
+/tests/.o
