@@ -5,11 +5,9 @@ authors "Joakim Brännström"
 license "Boost"
 
 dependency "autobuild:scriptlike" version="*"
-subPackage "../vendor/scriptlike/"
+subPackage "../../vendor/scriptlike/"
 
 dflags "-dip25"
 
-targetName "../.autobuild.bin"
+targetName "../../.autobuild.bin"
 targetType "executable"
-
-sourceFiles "../autobuild.d"
