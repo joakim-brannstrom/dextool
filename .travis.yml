@@ -1,11 +1,18 @@
 language: d
-d:
-    - dmd-2.076.1
-    - dmd
-    - ldc-1.8.0
 
 os:
     - linux
+
+matrix:
+    include:
+        - d: dmd
+          env: DEXTOOL_BUILD="DebugCov"
+        - d: dmd
+          env: DEXTOOL_BUILD="Release"
+        - d: dmd-2.079.0
+          env: DEXTOOL_BUILD="Debug"
+        - d: ldc-1.8.0
+          env: DEXTOOL_BUILD="Release"
 
 sudo: required
 group: edge
@@ -22,7 +29,3 @@ branches:
         - master
 
 script: ./tools/travis.sh
-after_success:
-  # restrict what compiler coverage so it is possible to know what compiler
-  # reported the coverage statistics on github PR
-  - ((test $DC == "dmd") && ($DC --version|grep 2.071.2) && bash <(curl -s https://codecov.io/bash))

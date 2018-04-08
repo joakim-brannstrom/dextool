@@ -208,7 +208,7 @@ class InterceptFrontend : Controller, Parameters, Products {
 
     /// Defaults to the global if a specific prefix isn't provided.
     StubPrefix symbolPrefix(string symbol) {
-        import dextool.plugin.intercept.frontend.raw_args : SymbolName;
+        import dextool.plugin.intercept.type : SymbolName;
 
         if (auto pref = SymbolName(symbol) in symbols.syms) {
             return StubPrefix((*pref).prefix);

@@ -368,7 +368,7 @@ struct BuildCommandRun {
 
 private auto nextFreeLogfile(string workdir) {
     import std.file : exists;
-    import std.path : baseName;
+    import std.path : baseName, buildPath;
     import std.string : format;
 
     int idx;
