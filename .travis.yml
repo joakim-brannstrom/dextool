@@ -7,6 +7,8 @@ matrix:
     include:
         - d: dmd
           env: DEXTOOL_BUILD="DebugCov"
+        - d: dmd
+          env: DEXTOOL_BUILD="Release"
         - d: dmd-2.079.0
           env: DEXTOOL_BUILD="Debug"
         - d: ldc-1.8.0
