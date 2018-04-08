@@ -23,11 +23,11 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_te
 dextool mutate analyze --compile-db compile_commands.json --out .. --restrict ../googlemock/include --restrict ../googlemock/src --restrict ../googletest/include --restrict ../googletest/src -- -D_POSIX_PATH_MAX=1024
 ```
 
-Create a file tester.sh with this content:
+Create a file test.sh with this content:
 ```sh
 #!/bin/bash
 set -e
-make test ARGS="-j$(nproc)"
+ctest --output-on-failure -j4
 ```
 
 Create a file compile.sh with this content:
@@ -37,15 +37,23 @@ set -e
 make -j$(nproc)
 ```
 
+Create the file test_analyze.sh with this content:
+```sh
+#!/bin/bash
+# The binaries that failed
+grep -h "(Failed)" $1 $2
+```
+
 Make them executable so they can be used by dextool:
 ```sh
-chmod 755 tester.sh
+chmod 755 test.sh
 chmod 755 compile.sh
+chmod 755 test_analyze.sh
 ```
 
 Start mutation testing!!!!:
 ```sh
-dextool mutate test --test ./tester.sh --compile ./compile.sh --out ..
+dextool mutate test --test ./test.sh --compile ./compile.sh --test-case-analyze ./test_analyze.sh --out .. --mutant lcr
 ```
 
 It is possible to run multiple `test` against the same database.

@@ -72,7 +72,7 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(Mutation.Kind[] kinds) nothrow @trusted {
+    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) nothrow @trusted {
         import std.algorithm : map;
         import std.exception : collectException;
         import std.format : format;
@@ -164,6 +164,8 @@ struct Database {
                 d.fileChecksum = checksum(r.peek!long(9), r.peek!long(10));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
 
+                d.testCases = db.getTestCases(d.id);
+
                 dg(d);
             }
         }
@@ -180,4 +182,5 @@ struct IterateMutantRow {
     Path file;
     Checksum fileChecksum;
     SourceLoc sloc;
+    TestCase[] testCases;
 }

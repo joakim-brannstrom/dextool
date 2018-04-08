@@ -14,7 +14,7 @@ import logger = std.experimental.logger;
 
 import dextool.type;
 
-import dextool.plugin.mutate.backend.type : Mutation, Offset;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 
@@ -96,9 +96,7 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
     import std.format : format;
     import std.algorithm : sum, map, sort, filter;
 
-    // trusted because it is @safe in dmd-2.078.1
-    // TODO remove the trusted wrapper
-    long total = () @trusted{ return mut_stat.byValue.sum; }();
+    long total = mut_stat.byValue.sum;
 
     import std.array : array;
     import std.range : take;
@@ -126,6 +124,26 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
                 format("`%s`", window(v.key.mutation, windowSize)),
             ];
             // dfmt on
+            tbl.put(r);
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+}
+
+void reportTestCaseStats(ref const long[TestCase] mut_stat, ref Table!3 tbl, long take_) @safe nothrow {
+    import std.algorithm : sum, sort;
+    import std.array : array;
+    import std.conv : to;
+    import std.range : take;
+
+    long total = mut_stat.byValue.sum;
+
+    foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(take_)) {
+        try {
+            auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
+            typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key];
             tbl.put(r);
         }
         catch (Exception e) {

@@ -151,3 +151,9 @@ enum OpTypeInfo {
     /// rhs is the maximum representation in the enum type
     enumRhsIsMax,
 }
+
+/// A test case that failed and thus killed a mutant.
+struct TestCase {
+    string value;
+    alias value this;
+}

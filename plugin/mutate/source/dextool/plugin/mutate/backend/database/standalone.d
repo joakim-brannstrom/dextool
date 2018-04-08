@@ -117,13 +117,16 @@ struct Database {
      *  st = ?
      *  d = time spent on veryfing the mutant
      */
-    void updateMutation(MutationId id, Mutation.Status st, Duration d) @trusted {
+    void updateMutation(const MutationId id, const Mutation.Status st,
+            const Duration d, const(TestCase)[] tcs) @trusted {
         auto stmt = db.prepare(
                 "UPDATE mutation SET status=:st,time=:time WHERE mutation.id == :id");
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.bind(":time", d.total!"msecs");
         stmt.execute;
+
+        updateMutationTestCases(id, tcs);
     }
 
     /** Update the status of a mutant and broadcast the status to other mutants at that point.
@@ -131,13 +134,14 @@ struct Database {
      * Params:
      *  bcast = mutants to broadcast the status to in addition to the id
      */
-    void updateMutationBroadcast(MutationId id, Mutation.Status st, Duration d,
-            Mutation.Kind[] bcast) @trusted {
+    void updateMutationBroadcast(const MutationId id, const Mutation.Status st,
+            const Duration d, const(TestCase)[] tcs, const(Mutation.Kind)[] bcast) @trusted {
         import std.algorithm : map;
+        import std.array : array;
         import std.format : format;
 
         if (bcast.length == 1) {
-            updateMutation(id, st, d);
+            updateMutation(id, st, d, tcs);
             return;
         }
 
@@ -157,14 +161,20 @@ struct Database {
         if (res.empty)
             return;
 
+        auto mut_ids = res.map!(a => a.peek!long(0).MutationId).array;
+
         stmt = db.prepare(format("UPDATE mutation SET status=:st,time=:time WHERE id IN (%(%s,%))",
-                res.map!(a => a.peek!long(0))));
+                mut_ids.map!(a => cast(long) a)));
         stmt.bind(":st", st.to!long);
         stmt.bind(":time", d.total!"msecs");
         stmt.execute;
+
+        foreach (const mut_id; mut_ids) {
+            updateMutationTestCases(mut_id, tcs);
+        }
     }
 
-    Nullable!MutationEntry getMutation(MutationId id) nothrow @trusted {
+    Nullable!MutationEntry getMutation(const MutationId id) nothrow @trusted {
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;
 
@@ -353,5 +363,103 @@ struct Database {
             catch (Exception e) {
             }
         }
+    }
+
+    /** Add a link between the mutation and what test case killed it.
+        Params:
+            id = ?
+            tcs = test cases to add
+      */
+    void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
+        import std.format : format;
+
+        if (tcs.length == 0)
+            return;
+
+        immutable mut_id = id.to!string;
+
+        try {
+            immutable remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id", testCaseTable);
+            auto stmt = db.prepare(remove_old_sql);
+            stmt.bind(":id", mut_id);
+            stmt.execute;
+        }
+        catch (Exception e) {
+        }
+
+        immutable add_new_sql = format("INSERT INTO %s (mut_id, test_case) VALUES(:mut_id, :tc)",
+                testCaseTable);
+        foreach (const tc; tcs) {
+            try {
+                auto stmt = db.prepare(add_new_sql);
+                stmt.bind(":mut_id", mut_id);
+                stmt.bind(":tc", cast(string) tc);
+                stmt.execute;
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
+            }
+        }
+    }
+
+    /** Returns: test cases that killed the mutant.
+      */
+    TestCase[] getTestCases(const MutationId id) @trusted {
+        import std.array : Appender;
+        import std.format : format;
+
+        Appender!(TestCase[]) rval;
+
+        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id=:id",
+                testCaseTable);
+        auto stmt = db.prepare(get_test_cases_sql);
+        stmt.bind(":id", cast(long) id);
+        foreach (a; stmt.execute) {
+            rval.put(TestCase(a.peek!string(0)));
+        }
+
+        return rval.data;
+    }
+
+    /** Returns: test cases that killed other mutants at the same mutation point as `id`.
+      */
+    TestCase[] getOtherTestCases(const MutationId id) @trusted {
+        import std.algorithm : map;
+        import std.array : Appender, array;
+        import std.format : format;
+
+        Appender!(TestCase[]) rval;
+
+        // TODO: optimize this. should be able to merge the two first queries to one.
+
+        long mp_id;
+        {
+            auto stmt = db.prepare(format("SELECT mp_id FROM %s WHERE id=:id", mutationTable));
+            stmt.bind(":id", cast(long) id);
+            auto res = stmt.execute;
+            if (res.empty)
+                return null;
+            mp_id = res.oneValue!long;
+        }
+
+        long[] mut_ids;
+        {
+            auto stmt = db.prepare(format("SELECT id FROM %s WHERE mp_id=:id", mutationTable));
+            stmt.bind(":id", mp_id);
+            auto res = stmt.execute;
+            if (res.empty)
+                return null;
+            mut_ids = res.map!(a => a.peek!long(0)).array;
+        }
+
+        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id IN (%(%s,%))",
+                testCaseTable, mut_ids);
+        auto stmt = db.prepare(get_test_cases_sql);
+        stmt.bind(":id", cast(long) id);
+        foreach (a; stmt.execute) {
+            rval.put(TestCase(a.peek!string(0)));
+        }
+
+        return rval.data;
     }
 }

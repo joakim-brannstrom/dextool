@@ -34,6 +34,7 @@ private:
     AbsolutePath[] restrictDir;
     AbsolutePath mutationCompile;
     AbsolutePath mutationTester;
+    AbsolutePath mutationTestCaseAnalyze;
     Nullable!Duration mutationTesterRuntime;
     MutationKind[] mutation;
     Nullable!long mutationId;
@@ -66,6 +67,8 @@ auto buildFrontend(ref ArgParser p) {
     r.db = AbsolutePath(FileName(p.db));
     r.mutationTester = AbsolutePath(FileName(p.mutationTester));
     r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
+    if (p.mutationTestCaseAnalyze.length != 0)
+        r.mutationTestCaseAnalyze = AbsolutePath(FileName(p.mutationTestCaseAnalyze));
     r.dryRun = p.dryRun;
     r.mutationOrder = p.mutationOrder;
     r.reportKind = p.reportKind;
@@ -122,8 +125,8 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.test_mutants:
         import dextool.plugin.mutate.backend : runTestMutant;
 
-        return runTestMutant(db, fe.mutation, fe.mutationTester,
-                fe.mutationCompile, fe.mutationTesterRuntime, fe_io);
+        return runTestMutant(db, fe.mutation, fe.mutationTester, fe.mutationCompile,
+                fe.mutationTestCaseAnalyze, fe.mutationTesterRuntime, fe_io);
     case ToolMode.report:
         import dextool.plugin.mutate.backend : runReport;
 
