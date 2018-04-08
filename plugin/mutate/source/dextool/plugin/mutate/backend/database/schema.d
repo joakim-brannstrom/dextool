@@ -213,6 +213,7 @@ void upgrade(ref sqlDatabase db) nothrow {
                         version_).collectException;
                 logger.warning("This might impact the functionality. It is unwise to continue")
                     .collectException;
+                return;
             }
         } else {
             logger.info("Upgrade successful").collectException;
