@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e -x -pipefail
+
 export ROOT=$PWD
 
 if [[ "$DC" == "dmd" ]]; then
@@ -11,10 +13,7 @@ else
     exit 1
 fi
 
-set -e
-
-# sqlite3
-git clone --depth 1 -b sqlite_src --single-branch https://github.com/joakim-brannstrom/dextool.git sqlite_src
+./tools/travis_install_dep.sh
 SQLITE3="-L$ROOT/sqlite_src -lsqlite3"
 
 # debug build
