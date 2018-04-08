@@ -16,7 +16,6 @@ resources/version.txt
 
 binary_size.txt
 dub.selections.json
-autobuild
 .autobuild.bin
 dscanner_report.txt
 docs.json

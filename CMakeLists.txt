@@ -78,7 +78,7 @@ set(DEXTOOL_EMBEDDED_VERSION_PATH ${PROJECT_BINARY_DIR}/resources/version.txt)
 
 # Generate the version description
 execute_process(
-    COMMAND ${PROJECT_SOURCE_DIR}/gen_version_from_git.sh
+    COMMAND ${PROJECT_SOURCE_DIR}/tools/gen_version_from_git.sh
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
 )
 
