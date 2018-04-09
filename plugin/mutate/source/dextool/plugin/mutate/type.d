@@ -69,6 +69,8 @@ enum ReportLevel {
 
 /// Administrative operation to perform
 enum AdminOperation {
-    reset,
-    remove
+    none,
+    resetMutant,
+    removeMutant,
+    removeTestCase,
 }

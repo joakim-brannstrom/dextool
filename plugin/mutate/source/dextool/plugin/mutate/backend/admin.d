@@ -20,21 +20,83 @@ import dextool.plugin.mutate.type : MutationKind, AdminOperation;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-ExitStatusType runAdmin(ref Database db, AdminOperation admin_op,
-        MutationKind[] mutations, Mutation.Status status, Mutation.Status to_status) @safe nothrow {
-    import dextool.plugin.mutate.backend.utility;
-
-    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(mutations);
-
-    final switch (admin_op) {
-    case AdminOperation.reset:
-        return resetMutant(db, kinds, status, to_status);
-    case AdminOperation.remove:
-        return removeMutant(db, kinds);
-    }
+auto makeAdmin() {
+    return BuildAdmin();
 }
 
 private:
+
+import std.regex : regex, Regex;
+
+struct BuildAdmin {
+@safe:
+nothrow:
+    private struct InternalData {
+        bool errorInData;
+
+        AdminOperation admin_op;
+        Mutation.Kind[] kinds;
+        Mutation.Status status;
+        Mutation.Status to_status;
+        Regex!char test_case_regex;
+    }
+
+    private InternalData data;
+
+    auto operation(AdminOperation v) {
+        data.admin_op = v;
+        return this;
+    }
+
+    auto mutations(MutationKind[] v) {
+        import dextool.plugin.mutate.backend.utility;
+
+        data.kinds = toInternal(v);
+        return this;
+    }
+
+    auto fromStatus(Mutation.Status v) {
+        data.status = v;
+        return this;
+    }
+
+    auto toStatus(Mutation.Status v) {
+        data.to_status = v;
+        return this;
+    }
+
+    auto testCaseRegex(string v) {
+        try {
+            data.test_case_regex = regex(v);
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+            data.errorInData = true;
+        }
+        return this;
+    }
+
+    ExitStatusType run(ref Database db) {
+        if (data.errorInData) {
+            logger.error("Invalid parameters").collectException;
+            return ExitStatusType.Errors;
+        }
+
+        final switch (data.admin_op) {
+        case AdminOperation.none:
+            logger.error("No admin operation specified").collectException;
+            return ExitStatusType.Errors;
+        case AdminOperation.resetMutant:
+            return resetMutant(db, data.kinds,
+                    data.status, data.to_status);
+        case AdminOperation.removeMutant:
+            return removeMutant(db, data.kinds);
+        case AdminOperation.removeTestCase:
+            return removeTestCase(db,
+                    data.kinds, data.test_case_regex);
+        }
+    }
+}
 
 ExitStatusType resetMutant(ref Database db, const Mutation.Kind[] kinds,
         Mutation.Status status, Mutation.Status to_status) @safe nothrow {
@@ -58,5 +120,16 @@ ExitStatusType removeMutant(ref Database db, const Mutation.Kind[] kinds) @safe 
         return ExitStatusType.Errors;
     }
 
+    return ExitStatusType.Ok;
+}
+
+ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, const Regex!char regex) @safe nothrow {
+    try {
+        db.removeTestCase(regex, kinds);
+    }
+    catch (Exception e) {
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
     return ExitStatusType.Ok;
 }

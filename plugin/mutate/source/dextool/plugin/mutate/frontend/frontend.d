@@ -47,6 +47,7 @@ private:
     AdminOperation adminOp;
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
+    string testCaseRegex;
 }
 
 @safe:
@@ -76,6 +77,7 @@ auto buildFrontend(ref ArgParser p) {
     r.adminOp = p.adminOp;
     r.mutantStatus = p.mutantStatus;
     r.mutantToStatus = p.mutantToStatus;
+    r.testCaseRegex = p.testCaseRegex;
 
     r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
     r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
@@ -112,7 +114,7 @@ ExitStatusType runMutate(Frontend fe) {
 
     final switch (fe.toolMode) {
     case ToolMode.none:
-        logger.error("No --mode specified");
+        logger.error("No mode specified");
         return ExitStatusType.Errors;
     case ToolMode.analyzer:
         import dextool.plugin.mutate.backend : runAnalyzer;
@@ -132,9 +134,11 @@ ExitStatusType runMutate(Frontend fe) {
 
         return runReport(db, fe.mutation, fe.reportKind, fe.reportLevel, fe_io);
     case ToolMode.admin:
-        import dextool.plugin.mutate.backend : runAdmin;
+        import dextool.plugin.mutate.backend : makeAdmin;
 
-        return runAdmin(db, fe.adminOp, fe.mutation, fe.mutantStatus, fe.mutantToStatus);
+        return makeAdmin().operation(fe.adminOp).mutations(fe.mutation)
+            .fromStatus(fe.mutantStatus).toStatus(fe.mutantToStatus)
+            .testCaseRegex(fe.testCaseRegex).run(db);
     }
 }
 
