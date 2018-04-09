@@ -67,7 +67,7 @@ struct ArgParser {
 
     AdminOperation adminOp;
     Mutation.Status mutantStatus;
-    Mutation.Status mutantToStatus = Mutation.Status.unknown;
+    Mutation.Status mutantToStatus;
 
     ToolMode toolMode;
 
