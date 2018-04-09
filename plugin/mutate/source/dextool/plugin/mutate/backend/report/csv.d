@@ -72,8 +72,9 @@ final class ReportCSV : ReportEvent {
                 logger.warning(e.msg);
             }
 
-            auto desc = format("'%s' to '%s'", window(mut_txt.original,
-                    windowSize), window(mut_txt.mutation, windowSize));
+            immutable textualDescriptionLen = 512;
+            auto desc = format(`'%s' to '%s'`, toField(mut_txt.original,
+                    textualDescriptionLen), toField(mut_txt.mutation, textualDescriptionLen));
             auto loc = format("%s:%s:%s", r.file, r.sloc.line, r.sloc.column);
             writer.writeCSV(r.id, r.mutation.kind.toUser, desc, loc, "");
         }
@@ -132,4 +133,12 @@ void writeCSV(Writer, T...)(scope Writer w, auto ref T args) {
     }
 
     put(w, newline);
+}
+
+/// Returns: conversion to a valid CSV field.
+auto toField(T)(T r, size_t maxlen) {
+    import std.algorithm : filter;
+    import std.range : take;
+
+    return r.take(maxlen).filter!(a => a != '"');
 }
