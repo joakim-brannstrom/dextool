@@ -155,21 +155,23 @@ unittest {
 unittest {
     //#TST-plugin_mutate_report_as_csv
 
-    auto input_src = testData ~ "report_tool_integration.cpp";
+    auto input_src = testData ~ "report_as_csv.cpp";
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
         .addInputArg(input_src)
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .addArg(["--style", "csv"])
         .addArg(["--level", "all"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-                                      `"ID","Kind","Description","Location","Comment"`,
-                                      `"8","dcr","'var1_...' to 'true'","plugin_testdata/report_tool_integration.cpp:7:9",""`,
-                                      `"9","dcr","'var1_...' to 'false'","plugin_testdata/report_tool_integration.cpp:7:9",""`,
-                                      `"28","dcc","'retur...' to '*((ch...'","plugin_testdata/report_tool_integration.cpp:11:5",""`,
+        `"ID","Kind","Description","Location","Comment"`,
+        `"8","dcr","'var1_long_text >5' to 'true'","plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"9","dcr","'var1_long_text >5' to 'false'","plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"27","dcr","'case 2:`,
+        `        return true;' to '/*case 2:`,
+        `        return true;*/'","plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
