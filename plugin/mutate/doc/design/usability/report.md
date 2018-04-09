@@ -268,7 +268,25 @@ It becomes easier to understand.
 partof: REQ-plugin_mutate-report
 ###
 
-The plugin shall report mutants as *CSV* when commanded via the *CLI*.
+The plugin shall report mutants in the *CSV format* when commanded via the *CLI*.
+
+**Note**: The standard for *CSV format* is somewhat unclear. This plugin try to adher to what wikipedia states about the format.
+
+## Requirements for Rapid User Understanding
+
+**Rationale**: The intention with the *textual description* field is to make it possible for the user to identify the mutant in the source code. This has been reported from the user as a problem when trying to understand the RORp and DCR mutants. As a side effect this may even make it possible for the user to classify a mutant by just looking at this field.
+
+The plugin shall wrap each field in double quotes when printing a CSV line.
+
+**Rationale**: This makes it somewhat easier to implement. It also makes it possible to embedded newlines which is useful for the *textual description* field.
+
+The plugin shall limit the *textual description* field to 255 characters when printing a CSV line.
+
+**Rationale**: 512 characters is assumed to be *enough* for the user to clearly identify and *somewhat* understand the mutant.
+
+The plugin shall remove double quotes from the *original* and *mutated* part of the *textual description* field when printing a CSV line.
+
+**Rationale**: The problem with quotes are that they are somewhat more cumbersome to implement so by removing them the implementation is simpler. This shouldn't inhibit the readability.
 
 ## CSV
 
@@ -279,7 +297,7 @@ A user will want to write comments to convey to other users his/her thoughts abo
 The columns should be
 1. ID
 2. Mutation kind as human readable.
-3. Textual description of the mutant which make it easy to inspect at a quick glanse.
+3. Textual description of the mutant which make it easy to inspect at a quick glance.
     From user input it should be something like: 'x' to 'y'.
 4. Filename line:column
 5. Comment
@@ -295,6 +313,10 @@ This is copied from the phobos module `std.csv`.
  * A field containing new lines, commas, or double quotes should be enclosed in double quotes (customizable)
  * Double quotes in a field are escaped with a double quote
  * Each record should contain the same number of fields
+
+From wikipedia regarding the double quotes:
+ * Each of the embedded double-quote characters must be represented by a pair of double-quote characters.
+    * 1997,Ford,E350,"Super, ""luxurious"" truck"
 
 # TST-plugin_mutate_report_as_csv
 partof: SPC-plugin_mutate_report_as_csv
