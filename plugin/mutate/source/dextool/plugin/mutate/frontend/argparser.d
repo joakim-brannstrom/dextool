@@ -68,6 +68,7 @@ struct ArgParser {
     AdminOperation adminOp;
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
+    string testCaseRegex;
 
     ToolMode toolMode;
 
@@ -167,6 +168,7 @@ struct ArgParser {
                 "db", db_help, &db,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &adminOp,
+                "test-case-regex", "regex to use when removing test cases", &testCaseRegex,
                 "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantToStatus,
                 );

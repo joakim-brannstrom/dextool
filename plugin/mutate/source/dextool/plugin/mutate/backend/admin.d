@@ -26,15 +26,19 @@ auto makeAdmin() {
 
 private:
 
+import std.regex : regex, Regex;
+
 struct BuildAdmin {
 @safe:
 nothrow:
     private struct InternalData {
+        bool errorInData;
+
         AdminOperation admin_op;
         Mutation.Kind[] kinds;
         Mutation.Status status;
         Mutation.Status to_status;
-        string test_case_regex;
+        Regex!char test_case_regex;
     }
 
     private InternalData data;
@@ -62,11 +66,22 @@ nothrow:
     }
 
     auto testCaseRegex(string v) {
-        data.test_case_regex = v;
+        try {
+            data.test_case_regex = regex(v);
+        }
+        catch (Exception e) {
+            logger.error(e.msg).collectException;
+            data.errorInData = true;
+        }
         return this;
     }
 
     ExitStatusType run(ref Database db) {
+        if (data.errorInData) {
+            logger.error("Invalid parameters").collectException;
+            return ExitStatusType.Errors;
+        }
+
         final switch (data.admin_op) {
         case AdminOperation.none:
             logger.error("No admin operation specified").collectException;
@@ -77,7 +92,8 @@ nothrow:
         case AdminOperation.removeMutant:
             return removeMutant(db, data.kinds);
         case AdminOperation.removeTestCase:
-            return removeTestCase(db, data.test_case_regex);
+            return removeTestCase(db,
+                    data.kinds, data.test_case_regex);
         }
     }
 }
@@ -107,6 +123,13 @@ ExitStatusType removeMutant(ref Database db, const Mutation.Kind[] kinds) @safe 
     return ExitStatusType.Ok;
 }
 
-ExitStatusType removeTestCase(ref Database db, const string regex) @safe nothrow {
+ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, const Regex!char regex) @safe nothrow {
+    try {
+        db.removeTestCase(regex, kinds);
+    }
+    catch (Exception e) {
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
     return ExitStatusType.Ok;
 }

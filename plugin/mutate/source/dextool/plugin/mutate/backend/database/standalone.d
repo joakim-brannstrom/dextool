@@ -462,4 +462,29 @@ struct Database {
 
         return rval.data;
     }
+
+    import std.regex : Regex;
+
+    void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
+        import std.algorithm : map;
+        import std.format : format;
+        import std.regex : matchFirst;
+
+        immutable sql = format(
+                "SELECT test_case.id,test_case.test_case FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
+                testCaseTable, mutationTable,
+                testCaseTable, mutationTable, mutationTable, kinds.map!(a => cast(long) a));
+        auto stmt = db.prepare(sql);
+
+        foreach (row; stmt.execute) {
+            string tc = row.peek!string(1);
+            if (tc.matchFirst(rex).empty)
+                continue;
+
+            long id = row.peek!long(0);
+            auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", testCaseTable));
+            del_stmt.bind(":id", id);
+            del_stmt.execute;
+        }
+    }
 }

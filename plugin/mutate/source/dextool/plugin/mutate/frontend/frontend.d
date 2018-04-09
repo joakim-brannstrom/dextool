@@ -47,6 +47,7 @@ private:
     AdminOperation adminOp;
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
+    string testCaseRegex;
 }
 
 @safe:
@@ -76,6 +77,7 @@ auto buildFrontend(ref ArgParser p) {
     r.adminOp = p.adminOp;
     r.mutantStatus = p.mutantStatus;
     r.mutantToStatus = p.mutantToStatus;
+    r.testCaseRegex = p.testCaseRegex;
 
     r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
     r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
@@ -135,7 +137,8 @@ ExitStatusType runMutate(Frontend fe) {
         import dextool.plugin.mutate.backend : makeAdmin;
 
         return makeAdmin().operation(fe.adminOp).mutations(fe.mutation)
-            .fromStatus(fe.mutantStatus).toStatus(fe.mutantToStatus).run(db);
+            .fromStatus(fe.mutantStatus).toStatus(fe.mutantToStatus)
+            .testCaseRegex(fe.testCaseRegex).run(db);
     }
 }
 
