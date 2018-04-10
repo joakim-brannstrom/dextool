@@ -72,7 +72,7 @@ final class ReportCSV : ReportEvent {
                 logger.warning(e.msg);
             }
 
-            immutable textualDescriptionLen = 512;
+            immutable textualDescriptionLen = 255;
             auto desc = format(`'%s' to '%s'`, toField(mut_txt.original,
                     textualDescriptionLen), toField(mut_txt.mutation, textualDescriptionLen));
             auto loc = format("%s:%s:%s", r.file, r.sloc.line, r.sloc.column);
