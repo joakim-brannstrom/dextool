@@ -282,7 +282,7 @@ The plugin shall wrap each field in double quotes when printing a CSV line.
 
 The plugin shall limit the *textual description* field to 255 characters when printing a CSV line.
 
-**Rationale**: 512 characters is assumed to be *enough* for the user to clearly identify and *somewhat* understand the mutant.
+**Rationale**: 255 characters is assumed to be *enough* for the user to clearly identify and *somewhat* understand the mutant. Users have reported that LibreOffice Calc do not handle long lines well because the scrolling becomes horizontally unresponsive. Thus the limiting is further motivated. It has been tried to use a limit of 512 characters but that was too much.
 
 The plugin shall remove double quotes from the *original* and *mutated* part of the *textual description* field when printing a CSV line.
 
