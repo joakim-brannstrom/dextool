@@ -273,11 +273,14 @@ struct Table(int columnsNr) {
     }
 
     private void updateColumns(const ref Row r) {
+        import std.algorithm : filter, count, map;
         import std.range : enumerate;
-        import std.algorithm : filter, each;
+        import std.utf : byCodeUnit;
+        import std.typecons : tuple;
 
-        foreach (a; r[].enumerate.filter!(a => a.value.length > columnWidth[a.index])) {
-            columnWidth[a.index] = a.value.length;
+        foreach (a; r[].enumerate.map!(a => tuple(a.index,
+                a.value.byCodeUnit.count)).filter!(a => a[1] > columnWidth[a[0]])) {
+            columnWidth[a[0]] = a[1];
         }
     }
 }
