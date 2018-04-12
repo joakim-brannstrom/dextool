@@ -348,7 +348,11 @@ void fromFile(T)(CompileDbFile filename, ref T app) {
 }
 
 void fromFiles(T)(CompileDbFile[] fnames, ref T app) {
+    import std.file : exists;
+
     foreach (f; fnames) {
+        if (!exists(f))
+            throw new Exception("File do not exist: " ~ f);
         f.fromFile(app);
     }
 }
