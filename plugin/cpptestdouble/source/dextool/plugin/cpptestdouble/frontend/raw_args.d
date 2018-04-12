@@ -153,6 +153,13 @@ Information about --file-exclude.
 Information about --file-restrict.
   The regex must fully match the filename the AST node is located in.
   Only symbols from files matching the restrict affect the generated test double.
+
+Information about --in.
+  When it is used in conjuction with a compile commands database it is used to also find the flags.
+  For each entry in the database the argument to --in is matched against the file or output JSON attribute.
+  If either of them match the compiler flags for that file are used.
+  The argument can be either the absolute path, the exact file or output attribute or a file glob pattern.
+  A glob pattern is such as `ls *.cpp`.
 ");
     }
 }
