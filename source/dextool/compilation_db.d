@@ -348,7 +348,11 @@ void fromFile(T)(CompileDbFile filename, ref T app) {
 }
 
 void fromFiles(T)(CompileDbFile[] fnames, ref T app) {
+    import std.file : exists;
+
     foreach (f; fnames) {
+        if (!exists(f))
+            throw new Exception("File do not exist: " ~ f);
         f.fromFile(app);
     }
 }
@@ -373,49 +377,38 @@ CompileDbFile[] orDefaultDb(string[] cli_path) @safe pure nothrow {
  * options in different parts of the project.
  *
  * Params:
- *  filename = either relative or absolute filename to use as key when searching in the db.
+ *  glob = glob pattern to find a matching file in the DB against
  */
-CompileCommandSearch find(CompileCommandDB db, string filename) @safe pure
+CompileCommandSearch find(CompileCommandDB db, string glob) @safe
 in {
-    import std.path : isAbsolute;
-    import dextool.logger;
-
-    debug trace("Looking for " ~ (filename.isAbsolute ? "absolute" : "relative") ~ " " ~ filename);
+    debug logger.trace("Looking for " ~ glob);
 }
 out (result) {
     import std.conv : to;
-    import dextool.logger;
 
-    debug trace("Found " ~ to!string(result));
+    debug logger.trace("Found " ~ to!string(result));
 }
 body {
-    import std.algorithm : find;
-    import std.path : isAbsolute;
-    import std.range : takeOne;
+    import std.path : globMatch;
 
-    @safe pure bool function(CompileCommand a, string b) comparer;
-
-    if (filename.isAbsolute) {
-        comparer = (a, b) @safe pure{
-            if (a.absoluteFile.length == b.length && a.absoluteFile == b)
-                return true;
-            else if (a.absoluteOutput.length == b.length && a.absoluteOutput == b)
-                return true;
-            return false;
-        };
-    } else {
-        comparer = (a, b) @safe pure{
-            if (a.file.length == b.length && a.file == b)
-                return true;
-            else if (a.output.length == b.length && a.output == b)
-                return true;
-            return false;
-        };
+    foreach (a; db) {
+        if (a.absoluteFile == glob)
+            return CompileCommandSearch([a]);
+        else if (a.file == glob)
+            return CompileCommandSearch([a]);
+        else if (globMatch(a.absoluteFile, glob))
+            return CompileCommandSearch([a]);
+        else if (a.absoluteOutput == glob)
+            return CompileCommandSearch([a]);
+        else if (a.output == glob)
+            return CompileCommandSearch([a]);
+        else if (globMatch(a.absoluteOutput, glob))
+            return CompileCommandSearch([a]);
     }
 
-    auto found = find!(comparer)(cast(CompileCommand[]) db, filename).takeOne;
+    logger.errorf("\n%s\nNo match found in the compile command database", db.toString);
 
-    return CompileCommandSearch(found);
+    return CompileCommandSearch();
 }
 
 struct SearchResult {
@@ -1025,4 +1018,18 @@ unittest {
     assert(found.length == 1);
 
     found[0].absoluteFile.shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
+}
+
+@("shall parse the compilation database and find a match via the glob pattern")
+unittest {
+    import std.path : baseName;
+
+    auto app = appender!(CompileCommand[])();
+    raw_dummy5.parseCommands(CompileDbFile("path/compile_db.json"), app);
+    auto cmds = CompileCommandDB(app.data);
+
+    auto found = cmds.find("*/dir2/file3.cpp");
+    assert(found.length == 1);
+
+    found[0].absoluteFile.baseName.shouldEqual("file3.cpp");
 }

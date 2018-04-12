@@ -50,7 +50,14 @@ auto runPlugin(string[] args) {
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
-        compile_db = pargs.compileDb.fromArgCompileDb;
+        try {
+            compile_db = pargs.compileDb.fromArgCompileDb;
+        }
+        catch (Exception e) {
+            logger.error(e.msg);
+            logger.error("Unable to open compile commands database(s)");
+            return ExitStatusType.Errors;
+        }
     }
 
     return genCstub(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
