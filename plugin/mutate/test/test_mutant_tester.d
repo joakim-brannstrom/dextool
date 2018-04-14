@@ -56,7 +56,7 @@ test -e $1 && echo 'Failed 42'
         .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
         .addPostArg(["--compile", compile_script])
         .addPostArg(["--test", test_script])
-        .addPostArg(["--test-case-analyze", analyze_script])
+        .addPostArg(["--test-case-analyze-cmd", analyze_script])
         .addPostArg(["--test-timeout", "10000"])
         .run;
 
