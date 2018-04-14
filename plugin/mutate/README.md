@@ -53,11 +53,18 @@ chmod 755 test_analyze.sh
 
 Start mutation testing!!!!:
 ```sh
-dextool mutate test --test ./test.sh --compile ./compile.sh --test-case-analyze ./test_analyze.sh --out .. --mutant lcr
+dextool mutate test --test ./test.sh --compile ./compile.sh --test-case-analyze-cmd ./test_analyze.sh --out .. --mutant lcr
 ```
 
-It is possible to run multiple `test` against the same database.
+Dextool have builtin support for GoogleTest which improves the tracking to the test case and file level.
+Change the `--test-case-analyze-cmd ./test_analyze.sh` to `--test-case-analyze-builtin gtest`
+
+## Parallel Run
+
+It is possible to run multiple instances of dextool the same database.
 Just make sure they don't mutate the same source code.
+
+## Results
 
 To see the result:
 ```sh
