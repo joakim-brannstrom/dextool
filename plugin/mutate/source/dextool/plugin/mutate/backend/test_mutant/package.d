@@ -662,7 +662,11 @@ nothrow:
             }
 
             test_cases = app.data;
-            driver_sig = MutationDriverSignal.next;
+
+            // There may be parsers errors of a gtest result.
+            // This ensures no polluted data are recorded.
+            if (test_cases.length != 0)
+                driver_sig = MutationDriverSignal.next;
         }
 
         try {
