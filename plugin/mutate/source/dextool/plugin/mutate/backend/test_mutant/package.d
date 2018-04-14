@@ -75,54 +75,46 @@ nothrow:
         return this;
     }
 
-    ExitStatusType run(ref Database db, FilesysIO io) nothrow {
-        return runTestMutant(db, data.user_kind, data.test_suite_execute_program,
-                data.compile_program, data.test_case_analyze_program,
-                data.test_suite_execute_timeout, io);
-    }
-}
+    ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
+        auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
+            static class Rval {
+                ImplMutationDriver impl;
+                MutationTestDriver!(ImplMutationDriver*) driver;
 
-ExitStatusType runTestMutant(ref Database db, const Mutation.Kind[] user_kind, AbsolutePath testerp, AbsolutePath compilep,
-        AbsolutePath test_case_analyze_p, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
-    import dextool.plugin.mutate.backend.utility : toInternal;
+                this(DriverData d, Duration test_base_timeout) {
+                    this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind, d.compilerProgram,
+                            d.testProgram, d.testCaseAnalyzeProgram, test_base_timeout);
 
-    auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
-        static class Rval {
-            ImplMutationDriver impl;
-            MutationTestDriver!(ImplMutationDriver*) driver;
+                    this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
+                        return &impl;
+                    }());
+                }
 
-            this(DriverData d, Duration test_base_timeout) {
-                this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind, d.compilerProgram,
-                        d.testProgram, d.testCaseAnalyzeProgram, test_base_timeout);
-
-                this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
-                    return &impl;
-                }());
+                alias driver this;
             }
 
-            alias driver this;
+            return new Rval(data, test_base_timeout);
         }
 
-        return new Rval(data, test_base_timeout);
+        // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
+        auto db_ref = () @trusted{ return nullableRef(&db); }();
+
+        auto driver_data = DriverData(db_ref, fio, data.user_kind, data.compile_program,
+                data.test_suite_execute_program, data.test_case_analyze_program,
+                data.test_suite_execute_timeout);
+
+        auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
+        auto test_driver_impl_ref = () @trusted{
+            return nullableRef(&test_driver_impl);
+        }();
+        auto test_driver = TestDriver!(typeof(test_driver_impl_ref))(test_driver_impl_ref);
+
+        while (test_driver.isRunning) {
+            test_driver.execute;
+        }
+
+        return test_driver.status;
     }
-
-    // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
-    auto db_ref = () @trusted{ return nullableRef(&db); }();
-
-    auto driver_data = DriverData(db_ref, fio, user_kind.dup, compilep,
-            testerp, test_case_analyze_p, testerp_runtime);
-
-    auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
-    auto test_driver_impl_ref = () @trusted{
-        return nullableRef(&test_driver_impl);
-    }();
-    auto test_driver = TestDriver!(typeof(test_driver_impl_ref))(test_driver_impl_ref);
-
-    while (test_driver.isRunning) {
-        test_driver.execute;
-    }
-
-    return test_driver.status;
 }
 
 immutable stdoutLog = "stdout.log";
