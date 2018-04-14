@@ -3,6 +3,7 @@
 set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/dextool/clang.d
     ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/from.d
     ${CMAKE_SOURCE_DIR}/source/dextool/hash.d
     ${CMAKE_SOURCE_DIR}/source/dextool/io.d
     ${CMAKE_SOURCE_DIR}/source/dextool/logger_conf.d
