@@ -24,14 +24,65 @@ import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
 
-/** Test mutations.
- *
- * Params:
- *  tester = a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
- *  compilep = program to use to compile the SUT + tests after a mutation has been performed.
- *  testerp_runtime = the time it takes to run the tests.
- */
-ExitStatusType runTestMutant(ref Database db, const MutationKind[] user_kind, AbsolutePath testerp, AbsolutePath compilep,
+auto makeTestMutant() {
+    return BuildTestMutant();
+}
+
+private:
+
+struct BuildTestMutant {
+@safe:
+nothrow:
+
+    private struct InternalData {
+        Mutation.Kind[] user_kind;
+        AbsolutePath test_suite_execute_program;
+        AbsolutePath compile_program;
+        AbsolutePath test_case_analyze_program;
+        Nullable!Duration test_suite_execute_timeout;
+        FilesysIO filesys_io;
+    }
+
+    private InternalData data;
+
+    auto mutations(MutationKind[] v) {
+        import dextool.plugin.mutate.backend.utility;
+
+        data.user_kind = toInternal(v);
+        return this;
+    }
+
+    /// a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
+    auto testSuiteProgram(AbsolutePath v) {
+        data.test_suite_execute_program = v;
+        return this;
+    }
+
+    /// program to use to compile the SUT + tests after a mutation has been performed.
+    auto compileProgram(AbsolutePath v) {
+        data.compile_program = v;
+        return this;
+    }
+
+    /// The time it takes to run the tests.
+    auto testSuiteTimeout(Nullable!Duration v) {
+        data.test_suite_execute_timeout = v;
+        return this;
+    }
+
+    auto testCaseAnalyzeProgram(AbsolutePath v) {
+        data.test_case_analyze_program = v;
+        return this;
+    }
+
+    ExitStatusType run(ref Database db, FilesysIO io) nothrow {
+        return runTestMutant(db, data.user_kind, data.test_suite_execute_program,
+                data.compile_program, data.test_case_analyze_program,
+                data.test_suite_execute_timeout, io);
+    }
+}
+
+ExitStatusType runTestMutant(ref Database db, const Mutation.Kind[] user_kind, AbsolutePath testerp, AbsolutePath compilep,
         AbsolutePath test_case_analyze_p, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
@@ -58,7 +109,7 @@ ExitStatusType runTestMutant(ref Database db, const MutationKind[] user_kind, Ab
     // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
     auto db_ref = () @trusted{ return nullableRef(&db); }();
 
-    auto driver_data = DriverData(db_ref, fio, user_kind.toInternal, compilep,
+    auto driver_data = DriverData(db_ref, fio, user_kind.dup, compilep,
             testerp, test_case_analyze_p, testerp_runtime);
 
     auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
@@ -73,8 +124,6 @@ ExitStatusType runTestMutant(ref Database db, const MutationKind[] user_kind, Ab
 
     return test_driver.status;
 }
-
-private:
 
 immutable stdoutLog = "stdout.log";
 immutable stderrLog = "stderr.log";

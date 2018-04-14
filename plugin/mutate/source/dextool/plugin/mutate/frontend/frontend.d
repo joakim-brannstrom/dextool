@@ -105,10 +105,17 @@ ExitStatusType runMutate(Frontend fe) {
         return runGenerateMutant(db, fe.rawUserData.mutation,
                 fe.rawUserData.mutationId, fe_io, fe_validate);
     case ToolMode.test_mutants:
-        import dextool.plugin.mutate.backend : runTestMutant;
+        import dextool.plugin.mutate.backend : makeTestMutant;
 
-        return runTestMutant(db, fe.rawUserData.mutation, fe.mutationTester,
-                fe.mutationCompile, fe.mutationTestCaseAnalyze, fe.mutationTesterRuntime, fe_io);
+        // dfmt off
+        return makeTestMutant
+            .mutations(fe.rawUserData.mutation)
+            .testSuiteProgram(fe.mutationTester)
+            .compileProgram(fe.mutationCompile)
+            .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze)
+            .testSuiteTimeout(fe.mutationTesterRuntime)
+            .run(db, fe_io);
+        // dfmt on
     case ToolMode.report:
         import dextool.plugin.mutate.backend : runReport;
 
