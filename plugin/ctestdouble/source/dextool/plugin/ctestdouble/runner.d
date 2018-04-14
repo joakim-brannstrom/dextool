@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.runner;
 
+import logger = std.experimental.logger;
+
 auto runPlugin(string[] args) {
     import std.array : appender;
     import std.stdio : writeln;
