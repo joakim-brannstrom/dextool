@@ -74,3 +74,9 @@ enum AdminOperation {
     removeMutant,
     removeTestCase,
 }
+
+/// Builtin analyzers for testing frameworks that find failing test cases
+enum TestCaseAnalyzeBuiltin {
+    none,
+    gtest
+}

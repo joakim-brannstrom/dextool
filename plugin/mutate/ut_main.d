@@ -11,6 +11,7 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "dextool.plugin.mutate.backend.watchdog",
+                          "dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze",
                           );
     //dfmt on
 }

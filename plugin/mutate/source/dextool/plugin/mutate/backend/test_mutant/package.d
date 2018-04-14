@@ -20,61 +20,112 @@ import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.type : MutationKind;
+import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
 
 @safe:
 
-/** Test mutations.
- *
- * Params:
- *  tester = a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
- *  compilep = program to use to compile the SUT + tests after a mutation has been performed.
- *  testerp_runtime = the time it takes to run the tests.
- */
-ExitStatusType runTestMutant(ref Database db, const MutationKind[] user_kind, AbsolutePath testerp, AbsolutePath compilep,
-        AbsolutePath test_case_analyze_p, Nullable!Duration testerp_runtime, FilesysIO fio) nothrow {
-    import dextool.plugin.mutate.backend.utility : toInternal;
-
-    auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
-        static class Rval {
-            ImplMutationDriver impl;
-            MutationTestDriver!(ImplMutationDriver*) driver;
-
-            this(DriverData d, Duration test_base_timeout) {
-                this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind, d.compilerProgram,
-                        d.testProgram, d.testCaseAnalyzeProgram, test_base_timeout);
-
-                this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
-                    return &impl;
-                }());
-            }
-
-            alias driver this;
-        }
-
-        return new Rval(data, test_base_timeout);
-    }
-
-    // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
-    auto db_ref = () @trusted{ return nullableRef(&db); }();
-
-    auto driver_data = DriverData(db_ref, fio, user_kind.toInternal, compilep,
-            testerp, test_case_analyze_p, testerp_runtime);
-
-    auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
-    auto test_driver_impl_ref = () @trusted{
-        return nullableRef(&test_driver_impl);
-    }();
-    auto test_driver = TestDriver!(typeof(test_driver_impl_ref))(test_driver_impl_ref);
-
-    while (test_driver.isRunning) {
-        test_driver.execute;
-    }
-
-    return test_driver.status;
+auto makeTestMutant() {
+    return BuildTestMutant();
 }
 
 private:
+
+struct BuildTestMutant {
+@safe:
+nothrow:
+
+    import dextool.plugin.mutate.type : MutationKind;
+
+    private struct InternalData {
+        Mutation.Kind[] mut_kinds;
+        AbsolutePath test_suite_execute_program;
+        AbsolutePath compile_program;
+        AbsolutePath test_case_analyze_program;
+        Nullable!Duration test_suite_execute_timeout;
+        FilesysIO filesys_io;
+        TestCaseAnalyzeBuiltin tc_analyze_builtin;
+    }
+
+    private InternalData data;
+
+    auto mutations(MutationKind[] v) {
+        import dextool.plugin.mutate.backend.utility;
+
+        data.mut_kinds = toInternal(v);
+        return this;
+    }
+
+    /// a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
+    auto testSuiteProgram(AbsolutePath v) {
+        data.test_suite_execute_program = v;
+        return this;
+    }
+
+    /// program to use to compile the SUT + tests after a mutation has been performed.
+    auto compileProgram(AbsolutePath v) {
+        data.compile_program = v;
+        return this;
+    }
+
+    /// The time it takes to run the tests.
+    auto testSuiteTimeout(Nullable!Duration v) {
+        data.test_suite_execute_timeout = v;
+        return this;
+    }
+
+    auto testCaseAnalyzeProgram(AbsolutePath v) {
+        data.test_case_analyze_program = v;
+        return this;
+    }
+
+    auto testCaseAnalyzeBuiltin(TestCaseAnalyzeBuiltin v) {
+        data.tc_analyze_builtin = v;
+        return this;
+    }
+
+    ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
+        auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
+            static class Rval {
+                ImplMutationDriver impl;
+                MutationTestDriver!(ImplMutationDriver*) driver;
+
+                this(DriverData d, Duration test_base_timeout) {
+                    this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind, d.compilerProgram,
+                            d.testProgram, d.testCaseAnalyzeProgram,
+                            d.testCaseAnalyzeBuiltin, test_base_timeout);
+
+                    this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
+                        return &impl;
+                    }());
+                }
+
+                alias driver this;
+            }
+
+            return new Rval(data, test_base_timeout);
+        }
+
+        // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
+        auto db_ref = () @trusted{ return nullableRef(&db); }();
+
+        auto driver_data = DriverData(db_ref, fio, data.mut_kinds,
+                data.compile_program, data.test_suite_execute_program,
+                data.test_case_analyze_program, data.tc_analyze_builtin,
+                data.test_suite_execute_timeout);
+
+        auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
+        auto test_driver_impl_ref = () @trusted{
+            return nullableRef(&test_driver_impl);
+        }();
+        auto test_driver = TestDriver!(typeof(test_driver_impl_ref))(test_driver_impl_ref);
+
+        while (test_driver.isRunning) {
+            test_driver.execute;
+        }
+
+        return test_driver.status;
+    }
+}
 
 immutable stdoutLog = "stdout.log";
 immutable stderrLog = "stderr.log";
@@ -86,6 +137,7 @@ struct DriverData {
     AbsolutePath compilerProgram;
     AbsolutePath testProgram;
     AbsolutePath testCaseAnalyzeProgram;
+    TestCaseAnalyzeBuiltin testCaseAnalyzeBuiltin;
     Nullable!Duration testProgramTimeout;
 }
 
@@ -333,7 +385,7 @@ struct MutationTestDriver(ImplT) {
         }
     }
 
-    private static State nextState(const State current, const MutationDriverSignal signal) {
+    private static State nextState(immutable State current, immutable MutationDriverSignal signal) @safe pure nothrow @nogc {
         State next_ = current;
 
         final switch (current) {
@@ -416,6 +468,7 @@ nothrow:
     const(ubyte)[] original_content;
 
     const(Mutation.Kind)[] mut_kind;
+    const TestCaseAnalyzeBuiltin tc_analyze_builtin;
 
     AbsolutePath compile_cmd;
     AbsolutePath test_cmd;
@@ -429,14 +482,16 @@ nothrow:
 
     TestCase[] test_cases;
 
-    this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd,
-            AbsolutePath test_cmd, AbsolutePath test_case_cmd, Duration tester_runtime) {
+    this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd, AbsolutePath test_cmd,
+            AbsolutePath test_case_cmd,
+            TestCaseAnalyzeBuiltin tc_analyze_builtin, Duration tester_runtime) {
         this.fio = fio;
         this.db = db;
         this.mut_kind = mut_kind;
         this.compile_cmd = compile_cmd;
         this.test_cmd = test_cmd;
         this.test_case_cmd = test_case_cmd;
+        this.tc_analyze_builtin = tc_analyze_builtin;
         this.tester_runtime = tester_runtime;
     }
 
@@ -526,7 +581,7 @@ nothrow:
         assert(!mutp.isNull);
         driver_sig = MutationDriverSignal.mutationError;
 
-        if (test_case_cmd.length != 0) {
+        if (test_case_cmd.length != 0 || tc_analyze_builtin != TestCaseAnalyzeBuiltin.none) {
             // try 5 times or bailout
             foreach (const _; 0 .. 5) {
                 try {
@@ -558,8 +613,6 @@ nothrow:
         catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
-
-        sw.stop;
     }
 
     void testCaseAnalyze() {
@@ -573,10 +626,43 @@ nothrow:
 
         driver_sig = MutationDriverSignal.mutationError;
 
-        if (test_case_cmd.length == 0 || test_tmp_output.length == 0
-                || mut_status != Mutation.Status.killed) {
+        // Check preconditions
+        if (mut_status != Mutation.Status.killed)
             driver_sig = MutationDriverSignal.next;
+        else if (test_tmp_output.length == 0)
+            driver_sig = MutationDriverSignal.next;
+        else if (test_case_cmd.length == 0 && tc_analyze_builtin == TestCaseAnalyzeBuiltin.none)
+            driver_sig = MutationDriverSignal.next;
+
+        if (driver_sig == MutationDriverSignal.next)
             return;
+
+        void externalProgram(string stdout_, string stderr_) {
+            auto p = execute([test_case_cmd, stdout_, stderr_]);
+            if (p.status == 0) {
+                test_cases = p.output.splitter(newline).map!(a => a.strip)
+                    .filter!(a => a.length != 0).map!(a => TestCase(a)).array;
+                driver_sig = MutationDriverSignal.next;
+            } else {
+                logger.warning(p.output);
+                logger.warning("Failed to analyze the test case output");
+            }
+        }
+
+        // Trusted: because the input is generated by this program (the paths). The data in test_cases are stored in the GC.
+        void builtin(string stdout_, string stderr_) @trusted {
+            import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze : process;
+            import std.array : appender;
+            import std.stdio : File;
+
+            auto app = appender!(TestCase[])();
+            auto reldir = fio.getOutputDir;
+            foreach (f; [stdout_, stderr_]) {
+                File(f).byLine.process(app, reldir);
+            }
+
+            test_cases = app.data;
+            driver_sig = MutationDriverSignal.next;
         }
 
         try {
@@ -588,15 +674,10 @@ nothrow:
                 return;
             }
 
-            auto p = execute([test_case_cmd, stdout_, stderr_]);
-            if (p.status == 0) {
-                test_cases = p.output.splitter(newline).map!(a => a.strip)
-                    .filter!(a => a.length != 0).map!(a => TestCase(a)).array;
-                driver_sig = MutationDriverSignal.next;
-            } else {
-                logger.warning(p.output);
-                logger.warning("Failed to analyze the test case output");
-            }
+            if (test_case_cmd.length != 0)
+                externalProgram(stdout_, stderr_);
+            else
+                builtin(stdout_, stderr_);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -608,12 +689,14 @@ nothrow:
 
         driver_sig = MutationDriverSignal.stop;
 
+        sw.stop;
+
         try {
             auto bcast = broadcast(mutp.mp.mutations[0].kind);
 
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, test_cases, bcast);
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.length != 0, "%s Killed by [%(%s,%)]", mutp.id, test_cases);
+            logger.infof(test_cases.length != 0, "%s killed by [%(%s,%)]", mutp.id, test_cases);
             driver_sig = MutationDriverSignal.next;
         }
         catch (Exception e) {

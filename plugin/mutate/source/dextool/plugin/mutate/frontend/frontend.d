@@ -27,8 +27,8 @@ import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     }
 
 private:
-    string[] cflags;
-    string[] inputFiles;
+    ArgParser.Data rawUserData;
+
     AbsolutePath db;
     AbsolutePath outputDirectory;
     AbsolutePath[] restrictDir;
@@ -36,18 +36,7 @@ private:
     AbsolutePath mutationTester;
     AbsolutePath mutationTestCaseAnalyze;
     Nullable!Duration mutationTesterRuntime;
-    MutationKind[] mutation;
-    Nullable!long mutationId;
     CompileCommandDB compileDb;
-    ToolMode toolMode;
-    bool dryRun;
-    MutationOrder mutationOrder;
-    ReportKind reportKind;
-    ReportLevel reportLevel;
-    AdminOperation adminOp;
-    Mutation.Status mutantStatus;
-    Mutation.Status mutantToStatus;
-    string testCaseRegex;
 }
 
 @safe:
@@ -60,24 +49,13 @@ auto buildFrontend(ref ArgParser p) {
 
     auto r = new Frontend;
 
-    r.cflags = p.cflags;
-    r.inputFiles = p.inFiles;
-    r.mutation = p.mutation;
-    r.mutationId = p.mutationId;
-    r.toolMode = p.toolMode;
+    r.rawUserData = p.data;
+
     r.db = AbsolutePath(FileName(p.db));
     r.mutationTester = AbsolutePath(FileName(p.mutationTester));
     r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
     if (p.mutationTestCaseAnalyze.length != 0)
         r.mutationTestCaseAnalyze = AbsolutePath(FileName(p.mutationTestCaseAnalyze));
-    r.dryRun = p.dryRun;
-    r.mutationOrder = p.mutationOrder;
-    r.reportKind = p.reportKind;
-    r.reportLevel = p.reportLevel;
-    r.adminOp = p.adminOp;
-    r.mutantStatus = p.mutantStatus;
-    r.mutantToStatus = p.mutantToStatus;
-    r.testCaseRegex = p.testCaseRegex;
 
     r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
     r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
@@ -100,19 +78,20 @@ ExitStatusType runMutate(Frontend fe) {
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.dryRun);
+    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.rawUserData.dryRun);
     scope (success)
         fe_io.release;
     auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
-    auto db = Database.make(fe.db, fe.mutationOrder);
+    auto db = Database.make(fe.db, fe.rawUserData.mutationOrder);
 
     auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
-    auto frange = UserFileRange(fe.compileDb, fe.inputFiles, fe.cflags, default_filter);
+    auto frange = UserFileRange(fe.compileDb, fe.rawUserData.inFiles,
+            fe.rawUserData.cflags, default_filter);
 
-    logger.trace("ToolMode: ", fe.toolMode);
+    logger.trace("ToolMode: ", fe.rawUserData.toolMode);
 
-    final switch (fe.toolMode) {
+    final switch (fe.rawUserData.toolMode) {
     case ToolMode.none:
         logger.error("No mode specified");
         return ExitStatusType.Errors;
@@ -123,22 +102,38 @@ ExitStatusType runMutate(Frontend fe) {
     case ToolMode.generate_mutant:
         import dextool.plugin.mutate.backend : runGenerateMutant;
 
-        return runGenerateMutant(db, fe.mutation, fe.mutationId, fe_io, fe_validate);
+        return runGenerateMutant(db, fe.rawUserData.mutation,
+                fe.rawUserData.mutationId, fe_io, fe_validate);
     case ToolMode.test_mutants:
-        import dextool.plugin.mutate.backend : runTestMutant;
+        import dextool.plugin.mutate.backend : makeTestMutant;
 
-        return runTestMutant(db, fe.mutation, fe.mutationTester, fe.mutationCompile,
-                fe.mutationTestCaseAnalyze, fe.mutationTesterRuntime, fe_io);
+        // dfmt off
+        return makeTestMutant
+            .mutations(fe.rawUserData.mutation)
+            .testSuiteProgram(fe.mutationTester)
+            .compileProgram(fe.mutationCompile)
+            .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze)
+            .testSuiteTimeout(fe.mutationTesterRuntime)
+            .testCaseAnalyzeBuiltin(fe.rawUserData.mutationTestCaseBuiltin)
+            .run(db, fe_io);
+        // dfmt on
     case ToolMode.report:
         import dextool.plugin.mutate.backend : runReport;
 
-        return runReport(db, fe.mutation, fe.reportKind, fe.reportLevel, fe_io);
+        return runReport(db, fe.rawUserData.mutation,
+                fe.rawUserData.reportKind, fe.rawUserData.reportLevel, fe_io);
     case ToolMode.admin:
         import dextool.plugin.mutate.backend : makeAdmin;
 
-        return makeAdmin().operation(fe.adminOp).mutations(fe.mutation)
-            .fromStatus(fe.mutantStatus).toStatus(fe.mutantToStatus)
-            .testCaseRegex(fe.testCaseRegex).run(db);
+        // dfmt off
+        return makeAdmin()
+            .operation(fe.rawUserData.adminOp)
+            .mutations(fe.rawUserData.mutation)
+            .fromStatus(fe.rawUserData.mutantStatus)
+            .toStatus(fe.rawUserData.mutantToStatus)
+            .testCaseRegex(fe.rawUserData.testCaseRegex)
+            .run(db);
+        // dfmt on
     }
 }
 
