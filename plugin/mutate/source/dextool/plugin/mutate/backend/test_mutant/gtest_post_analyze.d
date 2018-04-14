@@ -34,23 +34,30 @@ Params:
     sink = an output that accepts values of type TestCase via `put`.
     reldir = file paths are adjusted to be relative to this parameter.
   */
-void process(T, T1)(T r, ref T1 sink, AbsolutePath reldir) if (isInputRange!T) {
-    import std.algorithm : until;
-    import std.format : format;
-    import std.range : put;
+struct GtestParser {
     import std.regex : regex, ctRegex, matchFirst;
-    import std.string : strip;
-    import std.path : isValidPath, relativePath;
 
-    enum re_run_block = ctRegex!(`^\[\s*RUN\s*\]`);
-    enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
-    enum re_failed_block = ctRegex!(`^\[\s*FAILED\s*\]\s*(?P<tc>.*)`);
+    private {
+        enum re_run_block = ctRegex!(`^\[\s*RUN\s*\]`);
+        enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
+        enum re_failed_block = ctRegex!(`^\[\s*FAILED\s*\]\s*(?P<tc>.*)`);
 
-    FsmData data;
+        AbsolutePath reldir;
+        FsmData data;
+        string fail_msg_file;
+    }
 
-    string fail_msg_file;
+    this(AbsolutePath reldir) {
+        this.reldir = reldir;
+    }
 
-    foreach (line; r) {
+    void process(T, T1)(T line, ref T1 sink) {
+        import std.algorithm : until;
+        import std.format : format;
+        import std.range : put;
+        import std.string : strip;
+        import std.path : isValidPath, relativePath;
+
         auto fail_msg_match = matchFirst(line, re_fail_msg);
         auto failed_block_match = matchFirst(line, re_failed_block);
         data.hasRunBlock = !matchFirst(line, re_run_block).empty;
@@ -78,11 +85,11 @@ void process(T, T1)(T r, ref T1 sink, AbsolutePath reldir) if (isInputRange!T) {
             break;
         case putTestCase:
             // dfmt off
-            put(sink, TestCase(format("%s:%s", fail_msg_file,
-                    // remove the time that googletest print.
-                    // it isn't part of the test case name but additional metadata.
-                    failed_block_match["tc"].until(' '))));
-            // dfmt on
+                put(sink, TestCase(format("%s:%s", fail_msg_file,
+                                          // remove the time that googletest print.
+                                          // it isn't part of the test case name but additional metadata.
+                                          failed_block_match["tc"].until(' '))));
+                // dfmt on
             break;
         case countLinesAfterRun:
             data.linesAfterRun += 1;
@@ -178,11 +185,13 @@ unittest {
     import std.file : getcwd;
     import dextool.type : FileName;
     import unit_threaded : shouldEqual;
+    import std.algorithm : each;
 
     auto app = appender!(TestCase[])();
     auto reldir = AbsolutePath(FileName(getcwd));
 
-    process(testData1, app, reldir);
+    auto parser = GtestParser(reldir);
+    testData1.each!(a => parser.process(a, app));
 
     shouldEqual(app.data,
             ["./googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor"]);
