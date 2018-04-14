@@ -40,37 +40,43 @@ struct ArgParser {
     import std.traits : EnumMembers;
     import dextool.type : FileName;
 
-    string[] inFiles;
-    string[] cflags;
-    string[] compileDb;
+    struct Data {
+        string[] inFiles;
+        string[] cflags;
+        string[] compileDb;
 
-    string outputDirectory = ".";
-    string[] restrictDir;
+        string outputDirectory = ".";
+        string[] restrictDir;
 
-    string db = "dextool_mutate.sqlite3";
-    string mutationTester;
-    string mutationCompile;
-    string mutationTestCaseAnalyze;
+        string db = "dextool_mutate.sqlite3";
+        string mutationTester;
+        string mutationCompile;
+        string mutationTestCaseAnalyze;
+        TestCaseAnalyzeBuiltin mutationTestCaseBuiltin;
 
-    long mutationTesterRuntime;
-    Nullable!long mutationId;
+        long mutationTesterRuntime;
+        Nullable!long mutationId;
 
-    bool help;
-    bool shortPluginHelp;
-    bool dryRun;
+        bool help;
+        bool shortPluginHelp;
+        bool dryRun;
 
-    MutationKind[] mutation;
-    MutationOrder mutationOrder;
+        MutationKind[] mutation;
+        MutationOrder mutationOrder;
 
-    ReportKind reportKind;
-    ReportLevel reportLevel;
+        ReportKind reportKind;
+        ReportLevel reportLevel;
 
-    AdminOperation adminOp;
-    Mutation.Status mutantStatus;
-    Mutation.Status mutantToStatus;
-    string testCaseRegex;
+        AdminOperation adminOp;
+        Mutation.Status mutantStatus;
+        Mutation.Status mutantToStatus;
+        string testCaseRegex;
 
-    ToolMode toolMode;
+        ToolMode toolMode;
+    }
+
+    Data data;
+    alias data this;
 
     private GetoptResult help_info;
 
@@ -93,26 +99,26 @@ struct ArgParser {
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
 
         void analyzerG(string[] args) {
-            toolMode = ToolMode.analyzer;
+            data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compileDb,
-                   "db", db_help, &db,
-                   "in", "Input file to parse (default: all files in the compilation database)", &inFiles,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "compile-db", "Retrieve compilation parameters from the file", &data.compileDb,
+                   "db", db_help, &data.db,
+                   "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
+                   "out", out_help, &data.outputDirectory,
+                   "restrict", restrict_help, &data.restrictDir,
                    );
             // dfmt on
         }
 
         void generateMutantG(string[] args) {
-            toolMode = ToolMode.generate_mutant;
+            data.toolMode = ToolMode.generate_mutant;
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", db_help, &db,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "db", db_help, &data.db,
+                   "out", out_help, &data.outputDirectory,
+                   "restrict", restrict_help, &data.restrictDir,
                    "id", "mutate the source code as mutant ID", &cli_mutation_id,
                    );
             // dfmt on
@@ -121,7 +127,7 @@ struct ArgParser {
                 import std.conv : to;
 
                 if (cli_mutation_id.length != 0)
-                    mutationId = cli_mutation_id.to!long;
+                    data.mutationId = cli_mutation_id.to!long;
             }
             catch (ConvException e) {
                 logger.infof("Invalid mutation point '%s'. It must be in the range [0, %s]",
@@ -130,47 +136,55 @@ struct ArgParser {
         }
 
         void testMutantsG(string[] args) {
-            toolMode = ToolMode.test_mutants;
+            data.toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile", "program to use to compile the mutant", &mutationCompile,
-                   "db", db_help, &db,
-                   "dry-run", "do not write data to the filesystem", &dryRun,
-                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationOrder,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
-                   "test", "program used to run the test suite", &mutationTester,
-                   "test-case-analyze", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
-                   "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "compile", "program to use to compile the mutant", &data.mutationCompile,
+                   "db", db_help, &data.db,
+                   "dry-run", "do not write data to the filesystem", &data.dryRun,
+                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &data.mutationOrder,
+                   "out", out_help, &data.outputDirectory,
+                   "restrict", restrict_help, &data.restrictDir,
+                   "test", "program used to run the test suite", &data.mutationTester,
+                   "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &data.mutationTestCaseAnalyze,
+                   "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &data.mutationTestCaseAnalyze,
+                   "test-timeout", "timeout to use for the test suite (msecs)", &data.mutationTesterRuntime,
                    );
             // dfmt on
+
+            if (data.mutationTestCaseAnalyze.length != 0
+                    && data.mutationTestCaseBuiltin != TestCaseAnalyzeBuiltin.none) {
+                logger.error(
+                        "Unable to combine --test-case-analyze and --test-case-analyze-builtin");
+                help_info.helpWanted = true;
+            }
         }
 
         void reportG(string[] args) {
-            toolMode = ToolMode.report;
+            data.toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", db_help, &db,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
-                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &reportKind,
-                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &reportLevel,
+                   "db", db_help, &data.db,
+                   "out", out_help, &data.outputDirectory,
+                   "restrict", restrict_help, &data.restrictDir,
+                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.reportKind,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.reportLevel,
                    );
             // dfmt on
         }
 
         void adminG(string[] args) {
-            toolMode = ToolMode.admin;
+            data.toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                "db", db_help, &db,
-                "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
-                "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &adminOp,
-                "test-case-regex", "regex to use when removing test cases", &testCaseRegex,
-                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantStatus,
-                "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &mutantToStatus,
+                "db", db_help, &data.db,
+                "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &data.adminOp,
+                "test-case-regex", "regex to use when removing test cases", &data.testCaseRegex,
+                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &data.mutantStatus,
+                "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &data.mutantToStatus,
                 );
             // dfmt on
         }
@@ -254,6 +268,8 @@ struct ArgParser {
             base_help = "Usage: dextool mutate test [options] [-- CFLAGS...]";
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
             logger.errorf("--order possible values: %(%s|%)", [EnumMembers!MutationOrder]);
+            logger.errorf("--test-case-analyze-builtin possible values: %(%s|%)",
+                    [EnumMembers!TestCaseAnalyzeBuiltin]);
             break;
         case report:
             base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
