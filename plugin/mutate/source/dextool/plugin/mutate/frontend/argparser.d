@@ -147,7 +147,7 @@ struct ArgParser {
                    "out", out_help, &data.outputDirectory,
                    "restrict", restrict_help, &data.restrictDir,
                    "test", "program used to run the test suite", &data.mutationTester,
-                   "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &data.mutationTestCaseAnalyze,
+                   "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &data.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &data.mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &data.mutationTesterRuntime,
                    );

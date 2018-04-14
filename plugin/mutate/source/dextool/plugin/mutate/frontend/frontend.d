@@ -114,6 +114,7 @@ ExitStatusType runMutate(Frontend fe) {
             .compileProgram(fe.mutationCompile)
             .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze)
             .testSuiteTimeout(fe.mutationTesterRuntime)
+            .testCaseAnalyzeBuiltin(fe.rawUserData.mutationTestCaseBuiltin)
             .run(db, fe_io);
         // dfmt on
     case ToolMode.report:
