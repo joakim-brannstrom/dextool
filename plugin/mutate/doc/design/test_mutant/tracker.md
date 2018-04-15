@@ -4,13 +4,24 @@ partof: SPC-plugin_mutant_test_mutant
 
 The plugin shall activate the *test case tracker* functionality when the *CLI* is *test case analyzer command*.
 
-Requirements are active when *test case tracker.
+Requirements for the *user supplied test case tracker*:
  * The plugin shall associate the output from executing the *user supplied test case tracker* to the killed mutant when a mutant is killed.
  * The plugin shall as arguments to *user supplied test case tracker* use *stdout.log* and *stderr.log* when executing the *user supplied test case tracker*.
 
 **Note**: *stdout.log* and *stderr.log* are in the current implementation files but it could be changed in the future.
 
 The plugin shall cleanup the temporary directory containing *stdout.log* and *stderr.log* when a mutant test is finalized.
+
+## Draft Requirements and design
+
+The user should be able to activate multiple test case trackers to be used at the same time. Both builtin and external.
+
+This is because there may be a test suite that uses google test, CTest and python unittest framework.
+To find the test cases it needs to go through multiple parsers in this case to ensure it is found.
+
+Another common scenario is a *gtest* + *segfault*. When a mutation result in a segmentation fault there may be nothing besides a segmentation fault message printed.
+If only a gtest tracker is used then there wont be any association between the test binary that segfaulted and the mutation.
+This is solved by allowing multiple test case trackers.
 
 ## Design
 
@@ -100,3 +111,8 @@ Expected equality of these values:
 
  1 FAILED TEST
 ```
+
+# SPC-plugin_mutate_track_ctest
+partof: SPC-plugin_mutate_track_test_case
+###
+
