@@ -52,7 +52,7 @@ struct ArgParser {
         string mutationTester;
         string mutationCompile;
         string mutationTestCaseAnalyze;
-        TestCaseAnalyzeBuiltin mutationTestCaseBuiltin;
+        TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
 
         long mutationTesterRuntime;
         Nullable!long mutationId;
@@ -152,13 +152,6 @@ struct ArgParser {
                    "test-timeout", "timeout to use for the test suite (msecs)", &data.mutationTesterRuntime,
                    );
             // dfmt on
-
-            if (data.mutationTestCaseAnalyze.length != 0
-                    && data.mutationTestCaseBuiltin != TestCaseAnalyzeBuiltin.none) {
-                logger.error(
-                        "Unable to combine --test-case-analyze and --test-case-analyze-builtin");
-                help_info.helpWanted = true;
-            }
         }
 
         void reportG(string[] args) {

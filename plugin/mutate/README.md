@@ -57,7 +57,7 @@ dextool mutate test --test ./test.sh --compile ./compile.sh --test-case-analyze-
 ```
 
 Dextool have builtin support for GoogleTest which improves the tracking to the test case and file level.
-Change the `--test-case-analyze-cmd ./test_analyze.sh` to `--test-case-analyze-builtin gtest`
+Change the `--test-case-analyze-cmd ./test_analyze.sh` to `--test-case-analyze-builtin gtest --test-case-analyze-builtin ctest`
 
 ## Parallel Run
 
