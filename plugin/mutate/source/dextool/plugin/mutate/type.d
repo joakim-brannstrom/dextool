@@ -67,16 +67,41 @@ enum ReportLevel {
     all
 }
 
+/// Sections to include in the report
+enum ReportSection {
+    /// alive mutants
+    alive,
+    /// killed mutants
+    killed,
+    /// all mutants
+    all_mut,
+    /// summary section of the mutation testing
+    summary,
+    /// mutation statistics
+    mut_stat,
+    /// test cases that killed the mutant
+    tc_killed,
+    /// test case statistics
+    tc_stat,
+    /// test case mapping to killed mutants
+    tc_map,
+}
+
 /// Administrative operation to perform
 enum AdminOperation {
     none,
+    /// Reset mutants to unknown
     resetMutant,
+    ///
     removeMutant,
+    ///
     removeTestCase,
 }
 
 /// Builtin analyzers for testing frameworks that find failing test cases
 enum TestCaseAnalyzeBuiltin {
+    /// Tracker for the GoogleTest framework
     gtest,
+    /// Tracker for the CTest binary test runner
     ctest
 }

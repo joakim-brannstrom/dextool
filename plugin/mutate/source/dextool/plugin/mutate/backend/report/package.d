@@ -19,22 +19,23 @@ import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
+    ReportSection;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     window, windowSize, makeMutationText;
 
-ExitStatusType runReport(ref Database db, const MutationKind[] kind,
-        const ReportKind report_kind, const ReportLevel report_level, FilesysIO fio) @safe nothrow {
+ExitStatusType runReport(ref Database db, const MutationKind[] kind, const ReportKind report_kind,
+        const ReportLevel report_level, const ReportSection[] sections, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
     try {
-        auto genrep = ReportGenerator.make(kind, report_kind, report_level, fio);
+        auto genrep = ReportGenerator.make(kind, report_kind, report_level, sections, fio);
         genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
 
         genrep.locationStartEvent;
@@ -73,8 +74,8 @@ struct ReportGenerator {
 
     ReportEvent[] listeners;
 
-    static auto make(const MutationKind[] kind, ReportKind report_kind,
-            ReportLevel report_level, FilesysIO fio) {
+    static auto make(const MutationKind[] kind, const ReportKind report_kind,
+            const ReportLevel report_level, const ReportSection[] sections, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
@@ -82,7 +83,7 @@ struct ReportGenerator {
 
         final switch (report_kind) {
         case ReportKind.plain:
-            listeners = [new ReportPlain(kinds, report_level, fio)];
+            listeners = [new ReportPlain(kinds, report_level, sections, fio)];
             break;
         case ReportKind.markdown:
             listeners = [new ReportMarkdown(kinds, report_level, fio)];
