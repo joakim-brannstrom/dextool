@@ -79,6 +79,8 @@ enum ReportSection {
     summary,
     /// mutation statistics
     mut_stat,
+    /// test cases that killed the mutant
+    tc_killed,
     /// test case statistics
     tc_stat,
     /// test case mapping to killed mutants

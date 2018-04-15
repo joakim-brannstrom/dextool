@@ -16,7 +16,8 @@ import logger = std.experimental.logger;
 
 import dextool.type;
 
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
+    ReportSection;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -35,7 +36,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     import dextool.plugin.mutate.backend.utility;
 
     const Mutation.Kind[] kinds;
-    const ReportLevel report_level;
+    bool[ReportSection] sections;
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
@@ -44,10 +45,31 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
 
-    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, const ReportLevel report_level,
+            const ReportSection[] sections, FilesysIO fio) {
         this.kinds = kinds;
-        this.report_level = report_level;
         this.fio = fio;
+
+        ReportSection[] tmp_sec;
+        if (sections.length == 0) {
+            final switch (report_level) with (ReportSection) {
+            case ReportLevel.summary:
+                tmp_sec = [summary, mut_stat];
+                break;
+            case ReportLevel.alive:
+                tmp_sec = [summary, mut_stat, alive];
+                break;
+            case ReportLevel.all:
+                tmp_sec = [summary, mut_stat, all_mut, tc_killed];
+                break;
+            }
+        } else {
+            tmp_sec = sections.dup;
+        }
+
+        import std.algorithm : each;
+
+        tmp_sec.each!(a => this.sections[a] = true);
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
@@ -64,13 +86,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind);
-
-                if (r.mutation.status == Mutation.Status.alive) {
-                    if (auto v = mut_txt in mutationStat)
-                        ++(*v);
-                    else
-                        mutationStat[mut_txt] = 1;
-                }
             }
             catch (Exception e) {
                 logger.warning(e.msg);
@@ -78,6 +93,25 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
             logger.infof("%s %s from '%s' to '%s' in %s:%s:%s", r.id, r.mutation.status,
                     mut_txt.original, mut_txt.mutation, abs_path, r.sloc.line, r.sloc.column);
+        }
+
+        void updateMutationStat() {
+            if (r.mutation.status != Mutation.Status.alive)
+                return;
+
+            try {
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                auto mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind);
+
+                if (auto v = mut_txt in mutationStat)
+                    ++(*v);
+                else
+                    mutationStat[mut_txt] = 1;
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
+            }
         }
 
         void updateTestCaseStat() {
@@ -88,7 +122,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind);
-                mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
 
                 foreach (const a; r.testCases) {
                     if (auto v = a in testCaseStat) {
@@ -96,7 +129,24 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                     } else {
                         testCaseStat[a] = 1;
                     }
+                }
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
+            }
+        }
 
+        void updateTestCaseMap() {
+            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+                return;
+
+            try {
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                auto mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind);
+                mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
+
+                foreach (const a; r.testCases) {
                     testCaseMutationKilled[a][r.id] = true;
                 }
             }
@@ -112,21 +162,32 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         }
 
         try {
-            final switch (report_level) {
-            case ReportLevel.summary:
-                break;
-            case ReportLevel.alive:
+            if (ReportSection.alive in sections) {
                 if (r.mutation.status == Mutation.Status.alive) {
                     report();
                 }
-                updateTestCaseStat();
-                break;
-            case ReportLevel.all:
-                updateTestCaseStat();
-                report();
-                reportTestCase();
-                break;
             }
+
+            if (ReportSection.killed in sections) {
+                if (r.mutation.status == Mutation.Status.killed) {
+                    report();
+                }
+            }
+
+            if (ReportSection.all_mut in sections)
+                report;
+
+            if (ReportSection.mut_stat in sections)
+                updateMutationStat;
+
+            if (ReportSection.tc_killed in sections)
+                reportTestCase;
+
+            if (ReportSection.tc_stat in sections)
+                updateTestCaseStat();
+
+            if (ReportSection.tc_map in sections)
+                updateTestCaseMap;
         }
         catch (Exception e) {
             logger.trace(e.msg).collectException;
@@ -139,10 +200,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void locationStatEvent() {
         import std.stdio : writeln;
 
-        if (report_level == ReportLevel.summary)
-            return;
-
-        if (testCaseMutationKilled.length) {
+        if (ReportSection.tc_map in sections && testCaseMutationKilled.length) {
             logger.info("Test Case Kill Map");
 
             static void txtWriter(string s) {
@@ -156,10 +214,12 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             reportTestCaseKillMap(testCaseMutationKilled, mutationReprMap, &txtWriter, &writer);
         }
 
-        if (testCaseStat.length != 0) {
+        if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
 
-            long take_ = report_level == ReportLevel.all ? 1024 : 20;
+            long take_ = 20;
+            if (ReportSection.all_mut in sections)
+                take_ = 1024;
 
             Table!3 tc_tbl;
 
@@ -169,7 +229,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             writeln(tc_tbl);
         }
 
-        if (mutationStat.length != 0) {
+        if (ReportSection.mut_stat in sections && mutationStat.length != 0) {
             logger.info("Alive Mutation Statistics");
 
             Table!4 substat_tbl;
@@ -184,19 +244,22 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln;
 
-        logger.info("Summary");
-        auto stdout_ = () @trusted{ return stdout; }();
-        struct Log {
-            File stdout;
-            alias stdout this;
+        if (ReportSection.summary in sections) {
+            logger.info("Summary");
+            auto stdout_ = () @trusted{ return stdout; }();
+            struct Log {
+                File stdout;
+                alias stdout this;
 
-            void tracef(ARGS...)(auto ref ARGS args) {
-                stdout.writef(args);
+                void tracef(ARGS...)(auto ref ARGS args) {
+                    stdout.writef(args);
+                }
             }
+
+            auto log = Log(stdout_);
+            reportStatistics(db, kinds, log);
         }
 
-        auto log = Log(stdout_);
-        reportStatistics(db, kinds, log);
         writeln;
     }
 }
