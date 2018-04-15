@@ -18,14 +18,15 @@ import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
     ReportSection;
-import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
+import dextool.plugin.mutate.backend.database : Database, IterateMutantRow,
+    MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
     reportTestCaseStats, MutationsMap, reportTestCaseKillMap, MutationReprMap,
-    MutationRepr;
+    MutationRepr, reportMutationTestCaseSuggestion;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -33,6 +34,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 /** Report mutations in a format easily readable by a human.
  */
 @safe final class ReportPlain : ReportEvent {
+    import std.array : Appender;
     import dextool.plugin.mutate.backend.utility;
 
     const Mutation.Kind[] kinds;
@@ -44,6 +46,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
+    Appender!(MutationId[]) testCaseSuggestions;
 
     this(const Mutation.Kind[] kinds, const ReportLevel report_level,
             const ReportSection[] sections, FilesysIO fio) {
@@ -155,6 +158,11 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             }
         }
 
+        void updateTestCaseSuggestion() {
+            if (r.mutation.status == Mutation.Status.alive)
+                testCaseSuggestions.put(r.id);
+        }
+
         void reportTestCase() {
             if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
                 return;
@@ -188,6 +196,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
             if (ReportSection.tc_map in sections)
                 updateTestCaseMap;
+
+            if (ReportSection.tc_suggestion in sections)
+                updateTestCaseSuggestion;
         }
         catch (Exception e) {
             logger.trace(e.msg).collectException;
@@ -200,7 +211,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void locationStatEvent() {
         import std.stdio : writeln;
 
-        if (ReportSection.tc_map in sections && testCaseMutationKilled.length) {
+        if (ReportSection.tc_map in sections && testCaseMutationKilled.length != 0) {
             logger.info("Test Case Kill Map");
 
             static void txtWriter(string s) {
@@ -243,6 +254,14 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln;
+
+        if (ReportSection.tc_suggestion in sections && testCaseSuggestions.data.length != 0) {
+            static void writer(ref Table!1 tbl) {
+                writeln(tbl);
+            }
+
+            reportMutationTestCaseSuggestion(db, testCaseSuggestions.data, &writer);
+        }
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");

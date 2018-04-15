@@ -423,7 +423,7 @@ struct Database {
 
     /** Returns: test cases that killed other mutants at the same mutation point as `id`.
       */
-    TestCase[] getOtherTestCases(const MutationId id) @trusted {
+    TestCase[] getSurroundingTestCases(const MutationId id) @trusted {
         import std.algorithm : map;
         import std.array : Appender, array;
         import std.format : format;
@@ -432,6 +432,7 @@ struct Database {
 
         // TODO: optimize this. should be able to merge the two first queries to one.
 
+        // get the mutation point ID that id reside at
         long mp_id;
         {
             auto stmt = db.prepare(format("SELECT mp_id FROM %s WHERE id=:id", mutationTable));
@@ -442,6 +443,7 @@ struct Database {
             mp_id = res.oneValue!long;
         }
 
+        // get all the mutation ids at the mutation point
         long[] mut_ids;
         {
             auto stmt = db.prepare(format("SELECT id FROM %s WHERE mp_id=:id", mutationTable));
@@ -452,10 +454,10 @@ struct Database {
             mut_ids = res.map!(a => a.peek!long(0)).array;
         }
 
+        // get all the test cases that are killed at the mutation point
         immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id IN (%(%s,%))",
                 testCaseTable, mut_ids);
         auto stmt = db.prepare(get_test_cases_sql);
-        stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute) {
             rval.put(TestCase(a.peek!string(0)));
         }

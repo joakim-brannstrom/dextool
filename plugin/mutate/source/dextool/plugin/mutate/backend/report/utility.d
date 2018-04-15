@@ -178,16 +178,13 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
     alias Row = MutTable.Row;
 
     foreach (tc_muts; mut_stat.byKeyValue) {
-        MutTable tbl;
+        put(writer_txt, tc_muts.key);
 
-        bool first_row = true;
+        MutTable tbl;
+        tbl.heading = ["ID", "File Line:Column", "From", "To"];
+
         foreach (mut; tc_muts.value.byKey) {
             Row row;
-            if (first_row) {
-                tbl.heading = ["ID", "File Line:Column", "From", "To"];
-                first_row = false;
-                put(writer_txt, tc_muts.key);
-            }
 
             if (auto v = mut in mutrepr) {
                 row[1] = format("%s %s:%s", v.file, v.sloc.line, v.sloc.column);
@@ -200,6 +197,37 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
         }
 
         put(writer, tbl);
+    }
+}
+
+void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
+        const MutationId[] tc_sugg, WriterT writer) @safe {
+    import std.conv : to;
+    import std.range : put;
+    import std.format : format;
+
+    alias MutTable = Table!1;
+    alias Row = MutTable.Row;
+
+    foreach (mut_id; tc_sugg) {
+        MutTable tbl;
+        tbl.heading = [mut_id.to!string];
+
+        try {
+            auto suggestions = db.getSurroundingTestCases(mut_id);
+            if (suggestions.length == 0)
+                continue;
+
+            foreach (tc; suggestions) {
+                Row row;
+                row[0] = format("`%s`", tc);
+                tbl.put(row);
+            }
+            put(writer, tbl);
+        }
+        catch (Exception e) {
+            logger.warning(e.msg);
+        }
     }
 }
 
