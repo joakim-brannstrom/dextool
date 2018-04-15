@@ -152,6 +152,57 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, ref Table!3 tbl, lon
     }
 }
 
+import dextool.plugin.mutate.backend.database : MutationId;
+
+/// Information needed to present the mutant to an user.
+struct MutationRepr {
+    import dextool.type : Path;
+    import dextool.plugin.mutate.backend.type : SourceLoc;
+
+    SourceLoc sloc;
+    Path file;
+    MakeMutationTextResult mutation;
+}
+
+alias Mutations = bool[MutationId];
+alias MutationsMap = Mutations[TestCase];
+alias MutationReprMap = MutationRepr[MutationId];
+
+void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat,
+        ref const MutationReprMap mutrepr, WriterTextT writer_txt, WriterT writer) @safe {
+    import std.conv : to;
+    import std.range : put;
+    import std.format : format;
+
+    alias MutTable = Table!4;
+    alias Row = MutTable.Row;
+
+    foreach (tc_muts; mut_stat.byKeyValue) {
+        MutTable tbl;
+
+        bool first_row = true;
+        foreach (mut; tc_muts.value.byKey) {
+            Row row;
+            if (first_row) {
+                tbl.heading = ["ID", "File Line:Column", "From", "To"];
+                first_row = false;
+                put(writer_txt, tc_muts.key);
+            }
+
+            if (auto v = mut in mutrepr) {
+                row[1] = format("%s %s:%s", v.file, v.sloc.line, v.sloc.column);
+                row[2] = format("`%s`", window(v.mutation.original, windowSize));
+                row[3] = format("`%s`", window(v.mutation.mutation, windowSize));
+            }
+
+            row[0] = mut.to!string;
+            tbl.put(row);
+        }
+
+        put(writer, tbl);
+    }
+}
+
 void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
     import core.time : dur;
     import std.algorithm : map, filter, sum;

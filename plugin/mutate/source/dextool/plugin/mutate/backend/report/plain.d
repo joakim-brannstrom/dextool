@@ -23,7 +23,8 @@ import dextool.plugin.mutate.backend.type : Mutation;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
-    reportTestCaseStats;
+    reportTestCaseStats, MutationsMap, reportTestCaseKillMap, MutationReprMap,
+    MutationRepr;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -39,6 +40,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     long[MakeMutationTextResult] mutationStat;
     long[TestCase] testCaseStat;
+
+    MutationsMap testCaseMutationKilled;
+    MutationReprMap mutationReprMap;
 
     this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
@@ -80,12 +84,24 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
                 return;
 
-            foreach (const a; r.testCases) {
-                if (auto v = a in testCaseStat) {
-                    ++(*v);
-                } else {
-                    testCaseStat[a] = 1;
+            try {
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                auto mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind);
+                mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
+
+                foreach (const a; r.testCases) {
+                    if (auto v = a in testCaseStat) {
+                        ++(*v);
+                    } else {
+                        testCaseStat[a] = 1;
+                    }
+
+                    testCaseMutationKilled[a][r.id] = true;
                 }
+            }
+            catch (Exception e) {
+                logger.warning(e.msg);
             }
         }
 
@@ -123,18 +139,24 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void locationStatEvent() {
         import std.stdio : writeln;
 
-        if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
-            logger.info("Alive Mutation Statistics");
+        if (report_level == ReportLevel.summary)
+            return;
 
-            Table!4 substat_tbl;
+        if (testCaseMutationKilled.length) {
+            logger.info("Test Case Kill Map");
 
-            substat_tbl.heading = ["Percentage", "Count", "From", "To"];
-            reportMutationSubtypeStats(mutationStat, substat_tbl);
+            static void txtWriter(string s) {
+                writeln(s);
+            }
 
-            writeln(substat_tbl);
+            static void writer(ref Table!4 tbl) {
+                writeln(tbl);
+            }
+
+            reportTestCaseKillMap(testCaseMutationKilled, mutationReprMap, &txtWriter, &writer);
         }
 
-        if (testCaseStat.length != 0 && report_level != ReportLevel.summary) {
+        if (testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
 
             long take_ = report_level == ReportLevel.all ? 1024 : 20;
@@ -145,6 +167,17 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             reportTestCaseStats(testCaseStat, tc_tbl, take_);
 
             writeln(tc_tbl);
+        }
+
+        if (mutationStat.length != 0) {
+            logger.info("Alive Mutation Statistics");
+
+            Table!4 substat_tbl;
+
+            substat_tbl.heading = ["Percentage", "Count", "From", "To"];
+            reportMutationSubtypeStats(mutationStat, substat_tbl);
+
+            writeln(substat_tbl);
         }
     }
 
