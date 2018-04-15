@@ -137,7 +137,7 @@ struct FsmData {
     uint linesAfterRun;
 }
 
-auto nextState(immutable FsmData d) @safe pure nothrow {
+auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
     import std.typecons : tuple;
 
     State next = d.st;
