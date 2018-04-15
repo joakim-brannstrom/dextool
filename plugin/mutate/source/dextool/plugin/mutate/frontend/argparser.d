@@ -66,6 +66,7 @@ struct ArgParser {
 
         ReportKind reportKind;
         ReportLevel reportLevel;
+        ReportSection[] reportSection;
 
         AdminOperation adminOp;
         Mutation.Status mutantStatus;
@@ -159,13 +160,19 @@ struct ArgParser {
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "db", db_help, &data.db,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.reportLevel,
                    "out", out_help, &data.outputDirectory,
                    "restrict", restrict_help, &data.restrictDir,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &data.reportSection,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.reportKind,
-                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.reportLevel,
                    );
             // dfmt on
+
+            if (data.reportSection.length != 0 && data.reportLevel != ReportLevel.summary) {
+                logger.error("Combining --section and --level is not supported");
+                help_info.helpWanted = true;
+            }
         }
 
         void adminG(string[] args) {
@@ -244,7 +251,7 @@ struct ArgParser {
         import std.ascii : newline;
         import std.stdio : writeln;
 
-        string base_help = "Usage: dextool mutate COMMAND [options] [-- CFLAGS...]";
+        string base_help = "Usage: dextool mutate COMMAND [options]";
 
         switch (toolMode) with (ToolMode) {
         case none:
@@ -255,20 +262,18 @@ struct ArgParser {
             base_help = "Usage: dextool mutate analyze [options] [-- CFLAGS...]";
             break;
         case generate_mutant:
-            base_help = "Usage: dextool mutate generate [options] [-- CFLAGS...]";
             break;
         case test_mutants:
-            base_help = "Usage: dextool mutate test [options] [-- CFLAGS...]";
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
             logger.errorf("--order possible values: %(%s|%)", [EnumMembers!MutationOrder]);
             logger.errorf("--test-case-analyze-builtin possible values: %(%s|%)",
                     [EnumMembers!TestCaseAnalyzeBuiltin]);
             break;
         case report:
-            base_help = "Usage: dextool mutate report [options] [-- CFLAGS...]";
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
             logger.errorf("--report possible values: %(%s|%)", [EnumMembers!ReportKind]);
             logger.errorf("--level possible values: %(%s|%)", [EnumMembers!ReportLevel]);
+            logger.errorf("--section possible values: %(%s|%)", [EnumMembers!ReportSection]);
             break;
         case admin:
             logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
