@@ -85,6 +85,8 @@ enum ReportSection {
     tc_stat,
     /// test case mapping to killed mutants
     tc_map,
+    /// test case suggestions for killing mutants
+    tc_suggestion,
 }
 
 /// Administrative operation to perform
