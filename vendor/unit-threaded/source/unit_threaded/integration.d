@@ -11,27 +11,36 @@ module unit_threaded.integration;
 version(Windows) {
     extern(C) int mkdir(char*);
     extern(C) char* mktemp(char* template_);
+
     char* mkdtemp(char* t) {
+        version(unitUnthreaded)
+            return mkdtempImpl(t);
+        else {
+            synchronized {
+                return mkdtempImpl(t);
+            }
+        }
+    }
+
+    char* mkdtempImpl(char* t) {
         char* result = mktemp(t);
-        if (result is null) return null;
+
+        if(result is null) return null;
         if (mkdir(result)) return null;
+
         return result;
     }
+
 } else {
     extern(C) char* mkdtemp(char* template_);
 }
 
 
 shared static this() {
-    import std.file: exists, dirEntries, SpanMode, isDir, rmdirRecurse;
+    import std.file: exists, rmdirRecurse;
 
-    if(!Sandbox.sanboxesPath.exists) return;
-
-    foreach(entry; dirEntries(Sandbox.sanboxesPath, SpanMode.shallow)) {
-        if(isDir(entry.name)) {
-            rmdirRecurse(entry);
-        }
-    }
+    if(Sandbox.sandboxesPath.exists)
+        rmdirRecurse(Sandbox.sandboxesPath);
 }
 
 
@@ -45,7 +54,7 @@ struct Sandbox {
     import std.path;
 
     enum defaultSandboxesPath = buildPath("tmp", "unit-threaded");
-    static string sanboxesPath = defaultSandboxesPath;
+    static string sandboxesPath = defaultSandboxesPath;
     string testPath;
 
     /// Instantiate a Sandbox object
@@ -55,44 +64,16 @@ struct Sandbox {
         return ret;
     }
 
-    ///
-    @safe unittest {
-        auto sb = Sandbox();
-        assert(sb.testPath != "");
-    }
 
     static void setPath(string path) {
         import std.file: exists, mkdirRecurse;
-        sanboxesPath = path;
-        if(!sanboxesPath.exists) () @trusted { mkdirRecurse(sanboxesPath); }();
+        sandboxesPath = path;
+        if(!sandboxesPath.exists) () @trusted { mkdirRecurse(sandboxesPath); }();
     }
 
-    ///
-    @safe unittest {
-        import std.file: exists, rmdirRecurse;
-        import std.path: buildPath;
-        import unit_threaded.should;
-
-        Sandbox.sanboxesPath.shouldEqual(defaultSandboxesPath);
-
-        immutable newPath = buildPath("foo", "bar", "baz");
-        assert(!newPath.exists);
-        Sandbox.setPath(newPath);
-        assert(newPath.exists);
-        scope(exit) () @trusted { rmdirRecurse("foo"); }();
-        Sandbox.sanboxesPath.shouldEqual(newPath);
-
-        with(immutable Sandbox()) {
-            writeFile("newPath.txt");
-            assert(buildPath(newPath, testPath, "newPath.txt").exists);
-        }
-
-        Sandbox.resetPath;
-        Sandbox.sanboxesPath.shouldEqual(defaultSandboxesPath);
-    }
 
     static void resetPath() {
-        sanboxesPath = defaultSandboxesPath;
+        sandboxesPath = defaultSandboxesPath;
     }
 
     /// Write a file to the sandbox
@@ -111,32 +92,11 @@ struct Sandbox {
         writeFile(fileName, lines.join("\n"));
     }
 
-    ///
-    @safe unittest {
-        import std.file: exists;
-        import std.path: buildPath;
-
-        with(immutable Sandbox()) {
-            assert(!buildPath(testPath, "foo.txt").exists);
-            writeFile("foo.txt");
-            assert(buildPath(testPath, "foo.txt").exists);
-        }
-    }
-
-    @safe unittest {
-        import std.file: exists;
-        import std.path: buildPath;
-
-        with(immutable Sandbox()) {
-            writeFile("foo/bar.txt");
-            assert(buildPath(testPath, "foo", "bar.txt").exists);
-        }
-    }
 
     /// Assert that a file exists in the sandbox
     void shouldExist(string fileName, in string file = __FILE__, in size_t line = __LINE__) const {
-        import std.file;
-        import std.path;
+        import std.file: exists;
+        import std.path: buildPath;
         import unit_threaded.should: fail;
 
         fileName = buildPath(testPath, fileName);
@@ -144,59 +104,51 @@ struct Sandbox {
             fail("Expected " ~ fileName ~ " to exist but it didn't", file, line);
     }
 
-    ///
-    @safe unittest {
-        with(immutable Sandbox()) {
-            import unit_threaded.should;
-
-            shouldExist("bar.txt").shouldThrow;
-            writeFile("bar.txt");
-            shouldExist("bar.txt");
-        }
-    }
-
     /// Assert that a file does not exist in the sandbox
     void shouldNotExist(string fileName, in string file = __FILE__, in size_t line = __LINE__) const {
         import std.file: exists;
         import std.path: buildPath;
-        import unit_threaded.should;
+        import unit_threaded.should: fail;
 
         fileName = buildPath(testPath, fileName);
         if(fileName.exists)
             fail("Expected " ~ fileName ~ " to not exist but it did", file, line);
     }
 
-    ///
-    @safe unittest {
-        with(immutable Sandbox()) {
-            import unit_threaded.should;
+    /// read a file in the test sandbox and verify its contents
+    void shouldEqualContent(in string fileName, in string content,
+                            in string file = __FILE__, in size_t line = __LINE__)
+        const
+    {
+        import std.file: readText;
+        import std.string: chomp, splitLines;
+        import unit_threaded.should: shouldEqual;
 
-            shouldNotExist("baz.txt");
-            writeFile("baz.txt");
-            shouldNotExist("baz.txt").shouldThrow;
-        }
+        readText(buildPath(testPath, fileName)).shouldEqual(content, file, line);
     }
 
     /// read a file in the test sandbox and verify its contents
     void shouldEqualLines(in string fileName, in string[] lines,
-                          string file = __FILE__, size_t line = __LINE__) const @trusted {
+                          string file = __FILE__, size_t line = __LINE__)
+        const
+    {
         import std.file: readText;
         import std.string: chomp, splitLines;
-        import unit_threaded.should;
+        import unit_threaded.should: shouldEqual;
 
         readText(buildPath(testPath, fileName)).chomp.splitLines
             .shouldEqual(lines, file, line);
     }
 
-    ///
-    @safe unittest {
-        with(immutable Sandbox()) {
-            import unit_threaded.should;
-
-            writeFile("lines.txt", ["foo", "toto"]);
-            shouldEqualLines("lines.txt", ["foo", "bar"]).shouldThrow;
-            shouldEqualLines("lines.txt", ["foo", "toto"]);
-        }
+    // `fileName` should contain `needle`
+    void fileShouldContain(in string fileName,
+                           in string needle,
+                           in string file = __FILE__,
+                           in size_t line = __LINE__)
+    {
+        import std.file: readText;
+        import unit_threaded.should: shouldBeIn;
+        needle.shouldBeIn(readText(inSandboxPath(fileName)), file, line);
     }
 
     string sandboxPath() @safe @nogc pure nothrow const {
@@ -208,13 +160,69 @@ struct Sandbox {
         return buildPath(sandboxPath, fileName);
     }
 
+    /**
+       Executing `args` should succeed
+     */
+    void shouldSucceed(string file = __FILE__, size_t line = __LINE__)
+                      (in string[] args...)
+        @safe const
+    {
+        import unit_threaded.should: UnitTestException;
+        import std.conv: text;
+        import std.array: join;
+
+        const res = executeInSandbox(args);
+        if(res.status != 0)
+           throw new UnitTestException(text("Could not execute `", args.join(" "), "`:\n", res.output),
+                                       file, line);
+    }
+
+    alias shouldExecuteOk = shouldSucceed;
+
+    /**
+       Executing `args` should fail
+     */
+    void shouldFail(string file = __FILE__, size_t line = __LINE__)
+                   (in string[] args...)
+        @safe const
+    {
+        import unit_threaded.should: UnitTestException;
+        import std.conv: text;
+        import std.array: join;
+
+        const res = executeInSandbox(args);
+        if(res.status == 0)
+            throw new UnitTestException(
+                text("`", args.join(" "), "` should have failed but didn't:\n", res.output),
+                file,
+                line);
+    }
+
+
 private:
+
+    auto executeInSandbox(in string[] args) @safe const {
+        import std.process: execute, Config;
+        import std.algorithm: startsWith;
+        import std.array: replace;
+
+        const string[string] env = null;
+        const config = Config.none;
+        const maxOutput = size_t.max;
+        const workDir = testPath;
+
+        const executable = args[0].startsWith("./")
+            ? inSandboxPath(args[0].replace("./", ""))
+            : args[0];
+
+        return execute(executable ~ args[1..$], env, config, maxOutput, workDir);
+    }
 
     static string newTestDir() {
         import std.file: exists, mkdirRecurse;
 
-        if(!sanboxesPath.exists) {
-            () @trusted { mkdirRecurse(sanboxesPath); }();
+        if(!sandboxesPath.exists) {
+            () @trusted { mkdirRecurse(sandboxesPath); }();
         }
 
         return makeTempDir();
@@ -224,17 +232,21 @@ private:
         import std.algorithm: copy;
         import std.exception: enforce;
         import std.conv: to;
+        import std.string: fromStringz;
         import core.stdc.string: strerror;
         import core.stdc.errno: errno;
 
-        char[100] template_;
-        copy(buildPath(sanboxesPath, "XXXXXX") ~ '\0', template_[]);
+        char[2048] template_;
+        copy(buildPath(sandboxesPath, "XXXXXX") ~ '\0', template_[]);
 
-        auto ret = () @trusted { return mkdtemp(&template_[0]).to!string; }();
+        auto path = () @trusted { return mkdtemp(&template_[0]).to!string; }();
 
-        enforce(ret != "", "Failed to create temporary directory name: " ~
+        enforce(path != "",
+                "\n" ~
+                "Failed to create temporary directory name using template '" ~
+                () @trusted { return fromStringz(&template_[0]); }() ~ "': " ~
                 () @trusted { return strerror(errno).to!string; }());
 
-        return ret.absolutePath;
+        return path.absolutePath;
     }
 }

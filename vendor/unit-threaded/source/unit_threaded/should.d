@@ -7,7 +7,7 @@
 module unit_threaded.should;
 
 import std.traits; // too many to list
-import std.range;
+import std.range; // also
 
 
 /**
@@ -61,14 +61,6 @@ void shouldBeTrue(E)(lazy E condition, in string file = __FILE__, in size_t line
     shouldBeTrue(true);
 }
 
-@safe pure unittest {
-    static struct Foo {
-        bool opCast(T: bool)() {
-            return true;
-        }
-    }
-    shouldBeTrue(Foo());
-}
 
 /**
  * Verify that the condition is `false`.
@@ -85,14 +77,6 @@ void shouldBeFalse(E)(lazy E condition, in string file = __FILE__, in size_t lin
     shouldBeFalse(false);
 }
 
-@safe pure unittest {
-    static struct Foo {
-        bool opCast(T: bool)() {
-            return false;
-        }
-    }
-    shouldBeFalse(Foo());
-}
 
 /**
  * Verify that two values are the same.
@@ -103,8 +87,8 @@ void shouldEqual(V, E)(auto ref V value, auto ref E expected, in string file = _
 {
     if (!isEqual(value, expected))
     {
-        const msg = formatValue("Expected: ", expected) ~
-                    formatValue("     Got: ", value);
+        const msg = formatValueInItsOwnLine("Expected: ", expected) ~
+                    formatValueInItsOwnLine("     Got: ", value);
         throw new UnitTestException(msg, file, line);
     }
 }
@@ -124,11 +108,6 @@ void shouldEqual(V, E)(auto ref V value, auto ref E expected, in string file = _
 
 }
 
-///
-@safe unittest {
-    //impure comparisons
-    shouldEqual(1.0, 1.0) ;
-}
 
 /**
  * Verify that two values are not the same.
@@ -139,9 +118,9 @@ void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in siz
     if (isEqual(value, expected))
     {
         const msg = ["Value:",
-                     formatValue("", value).join(""),
+                     formatValueInItsOwnLine("", value).join(""),
                      "is not expected to be equal to:",
-                     formatValue("", expected).join("")
+                     formatValueInItsOwnLine("", expected).join("")
             ];
         throw new UnitTestException(msg, file, line);
     }
@@ -162,74 +141,6 @@ void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in siz
 }
 
 
-@safe pure unittest {
-    import unit_threaded.asserts;
-
-    assertExceptionMsg(3.shouldEqual(5),
-                       "    source/unit_threaded/should.d:123 - Expected: 5\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: 3");
-
-    assertExceptionMsg("foo".shouldEqual("bar"),
-                       "    source/unit_threaded/should.d:123 - Expected: \"bar\"\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: \"foo\"");
-
-    assertExceptionMsg([1, 2, 4].shouldEqual([1, 2, 3]),
-                       "    source/unit_threaded/should.d:123 - Expected: [1, 2, 3]\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: [1, 2, 4]");
-
-    assertExceptionMsg([[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]].shouldEqual([[0], [1], [2]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4], [1], [2], [3], [4], [5]]");
-
-    assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3]].shouldEqual([[0], [1], [2]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0], [1], [2]]\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: [[0, 1, 2, 3, 4, 5], [1], [2], [3]]");
-
-
-    assertExceptionMsg([[0, 1, 2, 3, 4, 5], [1], [2], [3], [4], [5]].shouldEqual([[0]]),
-                       "    source/unit_threaded/should.d:123 - Expected: [[0]]\n" ~
-                       "    source/unit_threaded/should.d:123 -      Got: [\n" ~
-                       "    source/unit_threaded/should.d:123 -               [0, 1, 2, 3, 4, 5],\n" ~
-                       "    source/unit_threaded/should.d:123 -               [1],\n" ~
-                       "    source/unit_threaded/should.d:123 -               [2],\n" ~
-                       "    source/unit_threaded/should.d:123 -               [3],\n" ~
-                       "    source/unit_threaded/should.d:123 -               [4],\n" ~
-                       "    source/unit_threaded/should.d:123 -               [5],\n" ~
-                       "    source/unit_threaded/should.d:123 -           ]");
-
-    assertExceptionMsg(1.shouldNotEqual(1),
-                       "    source/unit_threaded/should.d:123 - Value:\n" ~
-                       "    source/unit_threaded/should.d:123 - 1\n" ~
-                       "    source/unit_threaded/should.d:123 - is not expected to be equal to:\n" ~
-                       "    source/unit_threaded/should.d:123 - 1");
-}
-
-@safe pure unittest
-{
-    ubyte[] arr;
-    arr.shouldEqual([]);
-}
-
-
-@safe pure unittest
-{
-    int[] ints = [1, 2, 3];
-    byte[] bytes = [1, 2, 3];
-    byte[] bytes2 = [1, 2, 4];
-    shouldEqual(ints, bytes);
-    shouldEqual(bytes, ints) ;
-    shouldNotEqual(ints, bytes2) ;
-
-    const constIntToInts = [1 : 2, 3 : 7, 9 : 345];
-    auto intToInts = [1 : 2, 3 : 7, 9 : 345];
-    shouldEqual(intToInts, constIntToInts) ;
-    shouldEqual(constIntToInts, intToInts) ;
-}
-
-@safe unittest {
-    shouldEqual([1 : 2.0, 2 : 4.0], [1 : 2.0, 2 : 4.0]) ;
-    shouldNotEqual([1 : 2.0, 2 : 4.0], [1 : 2.2, 2 : 4.0]) ;
-}
 
 /**
  * Verify that the value is null.
@@ -245,7 +156,6 @@ void shouldBeNull(T)(in auto ref T value, in string file = __FILE__, in size_t l
 @safe pure unittest
 {
     shouldBeNull(null);
-    assertFail(shouldBeNull(new int));
 }
 
 
@@ -274,11 +184,6 @@ void shouldNotBeNull(T)(in auto ref T value, in string file = __FILE__, in size_
     }
 
     shouldNotBeNull(new Foo(4));
-    assertFail(shouldNotBeNull(null));
-    shouldEqual(new Foo(5), new Foo(5));
-    assertFail(shouldEqual(new Foo(5), new Foo(4)));
-    shouldNotEqual(new Foo(5), new Foo(4)) ;
-    assertFail(shouldNotEqual(new Foo(5), new Foo(5)));
 }
 
 enum isLikeAssociativeArray(T, K) = is(typeof({
@@ -301,8 +206,8 @@ void shouldBeIn(T, U)(in auto ref T value, in auto ref U container, in string fi
 
     if (value !in container)
     {
-        fail("Value " ~ to!string(value) ~ " not in " ~ to!string(container), file,
-            line);
+        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("not in ", container),
+             file, line);
     }
 }
 
@@ -318,7 +223,6 @@ void shouldBeIn(T, U)(in auto ref T value, in auto ref U container, in string fi
     }
 
     5.shouldBeIn(AA(5));
-    assertFail(5.shouldBeIn(AA(4)));
 }
 
 /**
@@ -333,8 +237,8 @@ void shouldBeIn(T, U)(in auto ref T value, U container, in string file = __FILE_
 
     if (find(container, value).empty)
     {
-        fail("Value " ~ to!string(value) ~ " not in " ~ to!string(container), file,
-            line);
+        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("not in ", container),
+             file, line);
     }
 }
 
@@ -343,7 +247,6 @@ void shouldBeIn(T, U)(in auto ref T value, U container, in string file = __FILE_
 {
     shouldBeIn(4, [1, 2, 4]);
     shouldBeIn("foo", ["foo" : 1]);
-    assertFail("foo".shouldBeIn(["bar"]));
 }
 
 
@@ -359,8 +262,8 @@ void shouldNotBeIn(T, U)(in auto ref T value, in auto ref U container,
 
     if (value in container)
     {
-        fail("Value " ~ to!string(value) ~ " is in " ~ to!string(container), file,
-            line);
+        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("is in ", container),
+             file, line);
     }
 }
 
@@ -376,7 +279,6 @@ void shouldNotBeIn(T, U)(in auto ref T value, in auto ref U container,
     }
 
     5.shouldNotBeIn(AA(4));
-    assertFail(5.shouldNotBeIn(AA(5)));
 }
 
 
@@ -393,8 +295,8 @@ void shouldNotBeIn(T, U)(in auto ref T value, U container,
 
     if (!find(container, value).empty)
     {
-        fail("Value " ~ to!string(value) ~ " is in " ~ to!string(container), file,
-            line);
+        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("is in ", container),
+             file, line);
     }
 }
 
@@ -425,11 +327,10 @@ void shouldNotBeIn(T, U)(in auto ref T value, U container,
         }
         return ArrayRangeWithoutLength!T(array);
     }
+
     shouldNotBeIn(3.5, [1.1, 2.2, 4.4]);
     shouldNotBeIn(1.0, [2.0 : 1, 3.0 : 2]);
     shouldNotBeIn(1, arrayRangeWithoutLength([2, 3, 4]));
-    assertFail(1.shouldNotBeIn(arrayRangeWithoutLength([1, 2, 3])));
-    assertFail("foo".shouldNotBeIn(["foo"]));
 }
 
 /**
@@ -450,7 +351,7 @@ auto shouldThrow(T : Throwable = Exception, E)
            const result = threw!T(expr);
            if (result) return result.throwable;
         } catch(Throwable t)
-            fail(text("Expression threw ", typeid(t), " instead of the expected ", T.stringof), file, line);
+            fail(text("Expression threw ", typeid(t), " instead of the expected ", T.stringof, ":\n", t.msg), file, line);
 
         fail("Expression did not throw", file, line);
         assert(0);
@@ -459,11 +360,10 @@ auto shouldThrow(T : Throwable = Exception, E)
 
 ///
 @safe pure unittest {
-    import unit_threaded.asserts;
     void funcThrows(string msg) { throw new Exception(msg); }
     try {
         auto exception = funcThrows("foo bar").shouldThrow;
-        assertEqual(exception.msg, "foo bar");
+        assert(exception.msg == "foo bar");
     } catch(Exception e) {
         assert(false, "should not have thrown anything and threw: " ~ e.msg);
     }
@@ -471,24 +371,23 @@ auto shouldThrow(T : Throwable = Exception, E)
 
 ///
 @safe pure unittest {
-    import unit_threaded.asserts;
     void func() {}
     try {
         func.shouldThrow;
         assert(false, "Should never get here");
     } catch(Exception e)
-        assertEqual(e.msg, "Expression did not throw");
+        assert(e.msg == "Expression did not throw");
 }
 
 ///
 @safe pure unittest {
-    import unit_threaded.asserts;
-    void funcAsserts() { assert(false); }
+    void funcAsserts() { assert(false, "Oh noes"); }
     try {
         funcAsserts.shouldThrow;
         assert(false, "Should never get here");
     } catch(Exception e)
-        assertEqual(e.msg, "Expression threw core.exception.AssertError instead of the expected Exception");
+        assert(e.msg ==
+               "Expression threw core.exception.AssertError instead of the expected Exception:\nOh noes");
 }
 
 
@@ -529,12 +428,6 @@ void shouldNotThrow(T: Throwable = Exception, E)(lazy E expr,
         fail("Expression threw", file, line);
 }
 
-unittest {
-    void func() {}
-    func.shouldNotThrow;
-    void funcThrows() { throw new Exception("oops"); }
-    assertFail(shouldNotThrow(funcThrows));
-}
 
 /**
  * Verify that an exception is thrown with the right message
@@ -555,9 +448,6 @@ void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
     void funcThrows(string msg) { throw new Exception(msg); }
     funcThrows("foo bar").shouldThrowWithMessage!Exception("foo bar");
     funcThrows("foo bar").shouldThrowWithMessage("foo bar");
-    assertFail(funcThrows("boo boo").shouldThrowWithMessage("foo bar"));
-    void func() {}
-    assertFail(func.shouldThrowWithMessage("oops"));
 }
 
 
@@ -591,83 +481,6 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     return ThrowResult(false);
 }
 
-// can't be made pure because of throwExactly, which in turn
-// can't be pure because of Object.opEquals
-@safe unittest
-{
-    class CustomException : Exception
-    {
-        this(string msg = "")
-        {
-            super(msg);
-        }
-    }
-
-    class ChildException : CustomException
-    {
-        this(string msg = "")
-        {
-            super(msg);
-        }
-    }
-
-    void throwCustom()
-    {
-        throw new CustomException();
-    }
-
-    throwCustom.shouldThrow;
-    throwCustom.shouldThrow!CustomException;
-
-    void throwChild()
-    {
-        throw new ChildException();
-    }
-
-    throwChild.shouldThrow;
-    throwChild.shouldThrow!CustomException;
-    throwChild.shouldThrow!ChildException;
-    throwChild.shouldThrowExactly!ChildException;
-    try
-    {
-        throwChild.shouldThrowExactly!CustomException; //should not succeed
-        assert(0, "shouldThrowExactly failed");
-    }
-    catch (Exception ex)
-    {
-    }
-
-    void doesntThrow() {}
-    assertFail(doesntThrow.shouldThrowExactly!Exception);
-}
-
-@safe pure unittest
-{
-    void throwRangeError()
-    {
-        ubyte[] bytes;
-        bytes = bytes[1 .. $];
-    }
-
-    import core.exception : RangeError;
-
-    throwRangeError.shouldThrow!RangeError;
-}
-
-@safe pure unittest {
-    import std.stdio;
-
-    import core.exception: OutOfMemoryError;
-
-    class CustomException : Exception {
-        this(string msg = "", in string file = __FILE__, in size_t line = __LINE__) { super(msg, file, line); }
-    }
-
-    void func() { throw new CustomException("oh noes"); }
-
-    func.shouldThrow!CustomException;
-    assertFail(func.shouldThrow!OutOfMemoryError);
-}
 
 
 void fail(in string output, in string file, in size_t line) @safe pure
@@ -675,8 +488,14 @@ void fail(in string output, in string file, in size_t line) @safe pure
     throw new UnitTestException([output], file, line);
 }
 
+void fail(in string[] lines, in string file, in size_t line) @safe pure
+{
+    throw new UnitTestException(lines, file, line);
+}
 
-private string[] formatValue(T)(in string prefix, auto ref T value) {
+
+// Formats output in different lines
+private string[] formatValueInItsOwnLine(T)(in string prefix, auto ref T value) {
 
     import std.conv: to;
 
@@ -692,7 +511,7 @@ private string[] formatValue(T)(in string prefix, auto ref T value) {
 }
 
 // helper function for non-copyable types
-private string convertToString(T)(in auto ref T value) { // std.conv.to sometimes is @system
+string convertToString(T)(in auto ref T value) { // std.conv.to sometimes is @system
     import std.conv: to;
     import std.traits: Unqual;
 
@@ -707,17 +526,6 @@ private string convertToString(T)(in auto ref T value) { // std.conv.to sometime
         return T.stringof ~ "<cannot print>";
 }
 
-unittest {
-    import unit_threaded.asserts;
-    class Foo {
-        override string toString() @safe pure nothrow const {
-            return "Foo";
-        }
-    }
-
-    auto foo = new const Foo;
-    assertEqual(foo.convertToString, "Foo");
-}
 
 private string[] formatRange(T)(in string prefix, T value) {
     import std.conv: to;
@@ -737,14 +545,14 @@ private string[] formatRange(T)(in string prefix, T value) {
         if (!tooBigForOneLine)
             return defaultLines;
         return [prefix ~ "["] ~
-            value.map!(a => formatValue("              ", a).join("") ~ ",").array ~
+            value.map!(a => formatValueInItsOwnLine("              ", a).join("") ~ ",").array ~
             "          ]";
     }
 }
 
 private enum isObject(T) = is(T == class) || is(T == interface);
 
-private bool isEqual(V, E)(in auto ref V value, in auto ref E expected)
+bool isEqual(V, E)(in auto ref V value, in auto ref E expected)
  if (!isObject!V &&
      (!isInputRange!V || !isInputRange!E) &&
      !isFloatingPoint!V && !isFloatingPoint!E &&
@@ -753,28 +561,20 @@ private bool isEqual(V, E)(in auto ref V value, in auto ref E expected)
     return value == expected;
 }
 
-private bool isEqual(V, E)(in V value, in E expected)
+bool isEqual(V, E)(in V value, in E expected)
  if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
 {
     return value == expected;
 }
 
-@safe pure unittest {
-    assert(isEqual(1.0, 1.0));
-    assert(!isEqual(1.0, 1.0001));
-}
 
-private bool isApproxEqual(V, E)(in V value, in E expected)
+bool isApproxEqual(V, E)(in V value, in E expected)
  if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
 {
     import std.math;
     return approxEqual(value, expected);
 }
 
-@safe unittest {
-    assert(isApproxEqual(1.0, 1.0));
-    assert(isApproxEqual(1.0, 1.0001));
-}
 
 void shouldApproxEqual(V, E)(in V value, in E expected, string file = __FILE__, size_t line = __LINE__)
  if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
@@ -782,8 +582,8 @@ void shouldApproxEqual(V, E)(in V value, in E expected, string file = __FILE__, 
     if (!isApproxEqual(value, expected))
     {
         const msg =
-            formatValue("Expected approx: ", expected) ~
-            formatValue("     Got       : ", value);
+            formatValueInItsOwnLine("Expected approx: ", expected) ~
+            formatValueInItsOwnLine("     Got       : ", value);
         throw new UnitTestException(msg, file, line);
     }
 }
@@ -791,11 +591,10 @@ void shouldApproxEqual(V, E)(in V value, in E expected, string file = __FILE__, 
 ///
 @safe unittest {
     1.0.shouldApproxEqual(1.0001);
-    assertFail(2.0.shouldApproxEqual(1.0));
 }
 
 
-private bool isEqual(V, E)(V value, E expected)
+bool isEqual(V, E)(V value, E expected)
     if (!isObject!V && isInputRange!V && isInputRange!E && !isSomeString!V &&
         is(typeof(isEqual(value.front, expected.front))))
 {
@@ -809,7 +608,7 @@ private bool isEqual(V, E)(V value, E expected)
     return value.empty && expected.empty;
 }
 
-private bool isEqual(V, E)(V value, E expected)
+bool isEqual(V, E)(V value, E expected)
     if (!isObject!V && isInputRange!V && isInputRange!E && isSomeString!V && isSomeString!E &&
         is(typeof(isEqual(value.front, expected.front))))
 {
@@ -822,7 +621,7 @@ private bool isEqual(V, E)(V value, E expected)
 }
 
 
-private bool isEqual(V, E)(V value, E expected)
+bool isEqual(V, E)(V value, E expected)
 if (isObject!V && isObject!E)
 {
     static assert(is(typeof(() { string s1 = value.toString; string s2 = expected.toString;})),
@@ -833,58 +632,6 @@ if (isObject!V && isObject!E)
         (value !is null && expected !is null && value.tupleof == expected.tupleof);
 }
 
-
-@safe pure unittest {
-    import std.conv: to;
-
-    assert(isEqual(2, 2));
-    assert(!isEqual(2, 3));
-
-    assert(isEqual(2.1, 2.1));
-    assert(!isEqual(2.1, 2.2));
-
-    assert(isEqual("foo", "foo"));
-    assert(!isEqual("foo", "fooo"));
-
-    assert(isEqual([1, 2], [1, 2]));
-    assert(!isEqual([1, 2], [1, 2, 3]));
-
-    assert(isEqual(iota(2), [0, 1]));
-    assert(!isEqual(iota(2), [1, 2, 3]));
-
-    assert(isEqual([[0, 1], [0, 1, 2]], [iota(2), iota(3)]));
-    assert(isEqual([[0, 1], [0, 1, 2]], [[0, 1], [0, 1, 2]]));
-    assert(!isEqual([[0, 1], [0, 1, 4]], [iota(2), iota(3)]));
-    assert(!isEqual([[0, 1], [0]], [iota(2), iota(3)]));
-
-    assert(isEqual([0: 1], [0: 1]));
-
-    const constIntToInts = [1 : 2, 3 : 7, 9 : 345];
-    auto intToInts = [1 : 2, 3 : 7, 9 : 345];
-
-    assert(isEqual(intToInts, constIntToInts));
-    assert(isEqual(constIntToInts, intToInts));
-
-    class Foo
-    {
-        this(int i) { this.i = i; }
-        override string toString() const { return i.to!string; }
-        int i;
-    }
-
-    assert(isEqual(new Foo(5), new Foo(5)));
-    assert(!isEqual(new Foo(5), new Foo(4)));
-
-    ubyte[] arr;
-    assert(isEqual(arr, []));
-}
-
-
-private void assertFail(E)(lazy E expression, in string file = __FILE__, in size_t line = __LINE__)
-{
-    import std.exception: assertThrown;
-    assertThrown!UnitTestException(expression, null, file, line);
-}
 
 /**
  * Verify that rng is empty.
@@ -936,10 +683,6 @@ if (isAssociativeArray!T)
     ints ~= 1;
     strings ~= "foo";
     aa["foo"] = "bar";
-
-    assertFail(shouldBeEmpty(ints));
-    assertFail(shouldBeEmpty(strings));
-    assertFail(shouldBeEmpty(aa));
 }
 
 
@@ -973,10 +716,6 @@ if (isAssociativeArray!T)
     string[] strings;
     string[string] aa;
 
-    assertFail(shouldNotBeEmpty(ints));
-    assertFail(shouldNotBeEmpty(strings));
-    assertFail(shouldNotBeEmpty(aa));
-
     ints ~= 1;
     strings ~= "foo";
     aa["foo"] = "bar";
@@ -1002,8 +741,6 @@ void shouldBeGreaterThan(T, U)(in auto ref T t, in auto ref U u,
 @safe pure unittest
 {
     shouldBeGreaterThan(7, 5);
-    assertFail(shouldBeGreaterThan(5, 7));
-    assertFail(shouldBeGreaterThan(7, 7));
 }
 
 
@@ -1023,8 +760,6 @@ void shouldBeSmallerThan(T, U)(in auto ref T t, in auto ref U u,
 @safe pure unittest
 {
     shouldBeSmallerThan(5, 7);
-    assertFail(shouldBeSmallerThan(7, 5));
-    assertFail(shouldBeSmallerThan(7, 7));
 }
 
 
@@ -1038,8 +773,8 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
 {
     if (!isSameSet(value, expected))
     {
-        const msg = formatValue("Expected: ", expected) ~
-                    formatValue("     Got: ", value);
+        const msg = formatValueInItsOwnLine("Expected: ", expected) ~
+                    formatValueInItsOwnLine("     Got: ", value);
         throw new UnitTestException(msg, file, line);
     }
 }
@@ -1047,6 +782,8 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
 ///
 @safe pure unittest
 {
+    import std.range: iota;
+
     auto inOrder = iota(4);
     auto noOrder = [2, 3, 0, 1];
     auto oops = [2, 3, 4, 5];
@@ -1088,9 +825,9 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
     if (isSameSet(value, expected))
     {
         const msg = ["Value:",
-                     formatValue("", value).join(""),
+                     formatValueInItsOwnLine("", value).join(""),
                      "is not expected to be equal to:",
-                     formatValue("", expected).join("")
+                     formatValueInItsOwnLine("", expected).join("")
             ];
         throw new UnitTestException(msg, file, line);
     }
@@ -1109,9 +846,6 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
 }
 
 
-@safe pure unittest {
-    "foo"w.shouldEqual("foo");
-}
 
 
 /**
@@ -1137,67 +871,11 @@ void shouldBeSameJsonAs(in string actual,
 
 ///
 @safe unittest { // not pure because parseJSON isn't pure
-    import unit_threaded.asserts;
     `{"foo": "bar"}`.shouldBeSameJsonAs(`{"foo": "bar"}`);
     `{"foo":    "bar"}`.shouldBeSameJsonAs(`{"foo":"bar"}`);
     `{"foo":"bar"}`.shouldBeSameJsonAs(`{"foo": "baz"}`).shouldThrow!UnitTestException;
     try
         `oops`.shouldBeSameJsonAs(`oops`);
     catch(Exception e)
-        assertEqual(e.msg, "Error parsing JSON: Unexpected character 'o'. (Line 1:1)");
-}
-
-@("Non-copyable types can be asserted on")
-@safe pure unittest {
-
-    struct Move {
-        int i;
-        @disable this(this);
-    }
-
-    Move(5).shouldEqual(Move(5));
-}
-
-@("issue 88")
-@safe pure unittest {
-
-    class C {
-        int foo;
-        override string toString() @safe pure nothrow const { return null; }
-    }
-
-    C c = null;
-    c.shouldEqual(c);
-    C null_;
-    assertFail((new C).shouldEqual(null_));
-}
-
-@("issue 89")
-unittest {
-    class C {
-        override string toString() @safe pure nothrow const { return null; }
-    }
-
-    auto actual = new C;
-    auto expected = new C;
-
-    // these should both pass
-    actual.shouldEqual(expected);      // passes: actual.tupleof == expected.tupleof
-    [actual].shouldEqual([expected]);  // fails: actual != expected
-}
-
-@("non-const toString should compile")
-@safe pure unittest {
-    class C {
-        override string toString() @safe pure nothrow { return null; }
-    }
-    (new C).shouldEqual(new C);
-}
-
-@safe pure unittest {
-    ['\xff'].shouldEqual(['\xff']);
-}
-
-@safe unittest {
-    shouldEqual(new Object, new Object);
+        assert(e.msg == "Error parsing JSON: Unexpected character 'o'. (Line 1:1)");
 }

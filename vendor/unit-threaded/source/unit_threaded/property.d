@@ -1,23 +1,15 @@
+/**
+   Property-based testing.
+ */
 module unit_threaded.property;
 
-
-import std.random: Random;
-version(unittest) import unit_threaded.asserts;
 
 template from(string moduleName) {
     mixin("import from = " ~ moduleName ~ ";");
 }
 
 
-Random gRandom;
-
-
-static this() {
-    import std.random: unpredictableSeed;
-    gRandom = Random(unpredictableSeed);
-}
-
-
+///
 class PropertyException : Exception
 {
     this(in string msg, string file = __FILE__,
@@ -27,19 +19,44 @@ class PropertyException : Exception
     }
 }
 
-void check(alias F)(int numFuncCalls = 100,
-                    in string file = __FILE__, in size_t line = __LINE__) @trusted {
+/**
+   Check that bool-returning F is true with randomly generated values.
+ */
+void check(alias F, int numFuncCalls = 100)
+          (in uint seed = from!"std.random".unpredictableSeed,
+           in string file = __FILE__,
+           in size_t line = __LINE__)
+    @trusted
+{
 
     import unit_threaded.randomized.random: RndValueGen;
     import unit_threaded.should: UnitTestException;
-    import std.conv: text, to;
+    import std.conv: text;
     import std.traits: ReturnType, Parameters, isSomeString;
     import std.array: join;
+    import std.typecons: Flag, Yes, No;
+    import std.random: Random;
 
     static assert(is(ReturnType!F == bool),
                   text("check only accepts functions that return bool, not ", ReturnType!F.stringof));
 
-    auto gen = RndValueGen!(Parameters!F)(&gRandom);
+    auto random = Random(seed);
+    auto gen = RndValueGen!(Parameters!F)(&random);
+
+    auto input(Flag!"shrink" shrink = Yes.shrink) {
+        string[] ret;
+        static if(Parameters!F.length == 1 && canShrink!(Parameters!F[0])) {
+            auto val = gen.values[0].value;
+            auto shrunk = shrink ? val.shrink!F : val;
+            ret ~= shrunk.text;
+            static if(isSomeString!(Parameters!F[0]))
+                ret[$-1] = `"` ~ ret[$-1] ~ `"`;
+        } else
+            foreach(ref valueGen; gen.values) {
+                ret ~= valueGen.text;
+            }
+        return ret.join(", ");
+    }
 
     foreach(i; 0 .. numFuncCalls) {
         bool pass;
@@ -53,31 +70,30 @@ void check(alias F)(int numFuncCalls = 100,
         try {
             pass = F(gen.values);
         } catch(Throwable t) {
-            throw new PropertyException("Error calling property function\n" ~ t.toString, file, line, t);
+            // trying to shrink when an exeption is thrown is too much of a bother code-wise
+            throw new UnitTestException(
+                text("Property threw. Seed: ", seed, ". Input: ", input(No.shrink), ". Message: ", t.msg),
+                file,
+                line,
+                t,
+            );
         }
 
         if(!pass) {
-            string[] input;
-
-            static if(Parameters!F.length == 1 && canShrink!(Parameters!F[0])) {
-                input ~= gen.values[0].value.shrink!F.to!string;
-                static if(isSomeString!(Parameters!F[0]))
-                    input[$-1] = `"` ~ input[$-1] ~ `"`;
-            } else
-                foreach(j, ref valueGen; gen.values) {
-                    input ~= valueGen.to!string;
-                }
-
-            throw new UnitTestException(["Property failed with input:", input.join(", ")], file, line);
+            throw new UnitTestException(text("Property failed. Seed: ", seed, ". Input: ", input), file, line);
         }
     }
 }
 
+/**
+   For values that unit-threaded doesn't know how to generate, test that the Predicate
+   holds, using Generator to come up with new values.
+ */
 void checkCustom(alias Generator, alias Predicate)
                 (int numFuncCalls = 100, in string file = __FILE__, in size_t line = __LINE__) @trusted {
 
     import unit_threaded.should: UnitTestException;
-    import std.conv: to, text;
+    import std.conv: text;
     import std.traits: ReturnType;
 
     static assert(is(ReturnType!Predicate == bool),
@@ -100,11 +116,16 @@ void checkCustom(alias Generator, alias Predicate)
         try {
             pass = Predicate(object);
         } catch(Throwable t) {
-            throw new PropertyException("Error calling property function\n" ~ t.toString, file, line, t);
+            throw new UnitTestException(
+                text("Property threw. Input: ", object, ". Message: ", t.msg),
+                file,
+                line,
+                t,
+            );
         }
 
         if(!pass) {
-            throw new UnitTestException(["Property failed with input:", object.to!string], file, line);
+            throw new UnitTestException("Property failed with input:" ~ object.text, file, line);
         }
     }
 }
@@ -121,9 +142,10 @@ private auto shrinkOne(alias F, int index, T)(T values) {
 
 }
 
+///
 @("Verify identity property for int[] succeeds")
 @safe unittest {
-    import unit_threaded.should;
+
     int numCalls;
     bool identity(int[] a) pure {
         ++numCalls;
@@ -131,52 +153,31 @@ private auto shrinkOne(alias F, int index, T)(T values) {
     }
 
     check!identity;
-    numCalls.shouldEqual(100);
+    assert(numCalls == 100);
 
     numCalls = 0;
-    check!identity(10);
-    numCalls.shouldEqual(10);
+    check!(identity, 10);
+    assert(numCalls == 10);
 }
 
-@("Verify anti-identity property for int[] fails")
-@safe unittest {
-    import unit_threaded.should;
-    int numCalls;
-    bool antiIdentity(int[] a) {
-        ++numCalls;
-        return a != a;
-    }
-
-    check!antiIdentity.shouldThrow!UnitTestException;
-    // gets called twice due to shrinking
-    numCalls.shouldEqual(2);
-}
-
-@("Verify property that sometimes succeeds")
-@safe unittest {
-    // 2^100 is ~1.26E30, so the chances that no even length array is generated
-    // is small enough to disconsider even if it were truly random
-    // since Gen!int[] is front-loaded, it'll fail deterministically
-    assertExceptionMsg(check!((int[] a) => a.length % 2 == 1),
-                       "    source/unit_threaded/property.d:123 - Property failed with input:\n" ~
-                       "    source/unit_threaded/property.d:123 - []");
-}
-
-
+///
 @("Explicit Gen")
 @safe unittest {
     import unit_threaded.randomized.gen;
-    import unit_threaded.should;
+    import unit_threaded.should: UnitTestException;
+    import std.exception: assertThrown;
 
     check!((Gen!(int, 1, 1) a) => a == 1);
-    check!((Gen!(int, 1, 1) a) => a == 2).shouldThrow!UnitTestException;
+    assertThrown!UnitTestException(check!((Gen!(int, 1, 1) a) => a == 2));
 }
 
 private enum canShrink(T) = __traits(compiles, shrink!((T _) => true)(T.init));
 
 T shrink(alias F, T)(T value) {
     import std.conv: text;
+
     assert(!F(value), text("Property did not fail for value ", value));
+
     T[][] oldParams;
     return shrinkImpl!F(value, [value], oldParams);
 }
@@ -228,37 +229,6 @@ private T shrinkImpl(alias F, T)(in T value, T[] candidates, T[][] oldParams = [
 
 static assert(canShrink!int);
 
-@("shrink int when already shrunk")
-@safe pure unittest {
-    assertEqual(0.shrink!(a => a != 0), 0);
-}
-
-
-@("shrink int when not already shrunk going up")
-@safe pure unittest {
-    assertEqual(0.shrink!(a => a > 3), 3);
-}
-
-@("shrink int when not already shrunk going down")
-@safe pure unittest {
-    assertEqual(10.shrink!(a => a < -3), -3);
-}
-
-@("shrink int.max")
-@safe pure unittest {
-    assertEqual(int.max.shrink!(a => a == 0), 1);
-    assertEqual(int.min.shrink!(a => a == 0), -1);
-    assertEqual(int.max.shrink!(a => a < 3), 3);
-}
-
-@("shrink unsigneds")
-@safe pure unittest {
-    import std.meta;
-    foreach(T; AliasSeq!(ubyte, ushort, uint, ulong)) {
-        T value = 3;
-        assertEqual(value.shrink!(a => a == 0), 1);
-    }
-}
 
 private T shrinkImpl(alias F, T)(T value, T[] candidates, T[][] oldParams = [])
     if(from!"std.traits".isArray!T)
@@ -281,66 +251,4 @@ private T shrinkImpl(alias F, T)(T value, T[] candidates, T[][] oldParams = [])
     if(!F(value[0 .. $ - 1])) return shrinkImpl!F(value[0 .. $ - 1], candidates);
     if(!F(value[1 .. $])) return shrinkImpl!F(value[1 .. $], candidates);
     return candidates[0];
-}
-
-@("shrink empty int array")
-@safe pure unittest {
-    int[] value;
-    assertEqual(value.shrink!(a => a != []), value);
-}
-
-@("shrink int array")
-@safe pure unittest {
-    assertEqual([1, 2, 3].shrink!(a => a == []), [1]);
-}
-
-@("shrink string")
-@safe pure unittest {
-    import std.algorithm: canFind;
-    assertEqual("abcdef".shrink!(a => !a.canFind("e")), "e");
-}
-
-@("shrink one item with check")
-unittest {
-    assertEqual("ǭĶƶØľĶĄÔ0".shrink!((s) => s.length < 3 || s[2] == 'e'), "ǭ");
-}
-
-@("shrink one item with check")
-unittest {
-    assertExceptionMsg(check!((int i) => i < 3),
-                       "    source/unit_threaded/property.d:123 - Property failed with input:\n" ~
-                       "    source/unit_threaded/property.d:123 - 3");
-}
-
-@("string[]")
-unittest {
-    bool identity(string[] a) pure {
-        return a == a;
-    }
-    check!identity;
-}
-
-unittest {
-    struct Foo {
-        int i;
-        short s;
-    }
-
-    bool identity(Foo f) pure {
-        return f == f;
-    }
-
-    check!identity;
-}
-
-@("issue 93 uint")
-unittest {
-    import unit_threaded.should;
-    check!((uint i) => i != i).shouldThrowWithMessage("Property failed with input:\n0");
-}
-
-@("issue 93 array")
-unittest {
-    import unit_threaded.should;
-    check!((int[] i) => i != i).shouldThrowWithMessage("Property failed with input:\n[]");
 }
