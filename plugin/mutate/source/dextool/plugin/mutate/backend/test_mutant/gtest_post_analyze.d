@@ -51,7 +51,7 @@ struct GtestParser {
         string fail_msg_file;
     }
 
-    this(AbsolutePath reldir) {
+    this(AbsolutePath reldir) @safe pure nothrow @nogc {
         this.reldir = reldir;
     }
 
