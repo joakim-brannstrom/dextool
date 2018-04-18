@@ -526,7 +526,7 @@ public:
     /++
     Returns a struct with field members populated from the row's data.
 
-    Neither the names of the fields nor the names of the columns are used on checked. The fields
+    Neither the names of the fields nor the names of the columns are checked. The fields
     are filled with the columns' data in order. Thus, the order of the struct members must be the
     same as the order of the columns in the prepared statement.
 

@@ -77,14 +77,16 @@ private:
         void* traceCallback;
         void* profileCallback;
         version (_UnlockNotify) IUnlockNotifyHandler unlockNotifyHandler;
+        debug string filename;
 
-        this(sqlite3* handle) nothrow
+        this(sqlite3* handle)
         {
             this.handle = handle;
         }
 
         ~this()
         {
+            debug ensureNotInGC!Database(filename);
             close();
         }
 
@@ -95,20 +97,7 @@ private:
 
             sqlite3_progress_handler(handle, 0, null, null);
             auto result = sqlite3_close(handle);
-            // Check that destructor was not call by the GC
-            // See https://p0nce.github.io/d-idioms/#GC-proof-resource-class
-            import core.exception : InvalidMemoryOperationError;
-            try
-            {
-                enforce(result == SQLITE_OK, new SqliteException(errmsg(handle), result));
-            }
-            catch (InvalidMemoryOperationError e)
-            {
-                import core.stdc.stdio : fprintf, stderr;
-                fprintf(stderr, "Error: release of Database resource incorrectly"
-                                ~ " depends on destructors called by the GC.\n");
-                assert(false); // crash
-            }
+            //enforce(result == SQLITE_OK, new SqliteException(errmsg(handle), result));
             handle = null;
             ptrFree(updateHook);
             ptrFree(commitHook);
@@ -145,6 +134,7 @@ public:
         auto result = sqlite3_open_v2(path.toStringz, &hdl, flags, null);
         enforce(result == SQLITE_OK, new SqliteException(hdl ? errmsg(hdl) : "Error opening the database", result));
         p = Payload(hdl);
+        debug p.filename = path;
     }
 
     /++
@@ -364,33 +354,29 @@ public:
         enforce(result == SQLITE_OK, new SqliteException("Database configuration: error %s".format(result)));
     }
 
-    version (SQLITE_OMIT_LOAD_EXTENSION) {}
-    else
+    /++
+    Enables or disables loading extensions.
+    +/
+    void enableLoadExtensions(bool enable = true)
     {
-        /++
-        Enables or disables loading extensions.
-        +/
-        void enableLoadExtensions(bool enable = true)
-        {
-            enforce(sqlite3_enable_load_extension(p.handle, enable) == SQLITE_OK,
-                new SqliteException("Could not enable loading extensions."));
-        }
+        enforce(sqlite3_enable_load_extension(p.handle, enable) == SQLITE_OK,
+            new SqliteException("Could not enable loading extensions."));
+    }
 
-        /++
-        Loads an extension.
+    /++
+    Loads an extension.
 
-        Params:
-            path = The path of the extension file.
+    Params:
+        path = The path of the extension file.
 
-            entryPoint = The name of the entry point function. If null is passed, SQLite
-            uses the name of the extension file as the entry point.
-        +/
-        void loadExtension(string path, string entryPoint = null)
-        {
-            immutable ret = sqlite3_load_extension(p.handle, path.toStringz, entryPoint.toStringz, null);
-            enforce(ret == SQLITE_OK, new SqliteException(
-                    "Could not load extension: %s:%s".format(entryPoint, path)));
-        }
+        entryPoint = The name of the entry point function. If null is passed, SQLite
+        uses the name of the extension file as the entry point.
+    +/
+    void loadExtension(string path, string entryPoint = null)
+    {
+        immutable ret = sqlite3_load_extension(p.handle, path.toStringz, entryPoint.toStringz, null);
+        enforce(ret == SQLITE_OK, new SqliteException(
+                "Could not load extension: %s:%s".format(entryPoint, path)));
     }
 
     /++
@@ -1342,6 +1328,7 @@ class SqliteException : Exception
         super(msg, file, line, next);
     }
 
+package(d2sqlite3):
     this(string msg, int code, string sql = null,
          string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {

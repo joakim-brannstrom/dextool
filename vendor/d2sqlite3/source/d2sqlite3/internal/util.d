@@ -65,13 +65,14 @@ auto byStatement(string sql)
         {
             import std.algorithm : countUntil;
             import std.string : toStringz;
+            import std.utf : byCodeUnit;
 
             size_t pos;
             bool complete;
             do
             {
                 auto tail = sql[pos .. $];
-                immutable offset = tail.countUntil(';') + 1;
+                immutable offset = tail.byCodeUnit.countUntil(';') + 1;
                 pos += offset;
                 if (offset == 0)
                     pos = sql.length;
