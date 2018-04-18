@@ -45,7 +45,7 @@ WrappedDelegate!T* delegateUnwrap(T)(void* ptr)
     return cast(WrappedDelegate!T*) ptr;
 }
 
-extern(C) void ptrFree(void* ptr)
+extern(C) void ptrFree(void* ptr) nothrow
 {
     free(ptr);
 }
@@ -64,4 +64,26 @@ extern(C) void releaseMem(void* ptr)
 {
     GC.setAttr(ptr, GC.BlkAttr.NO_MOVE);
     GC.removeRoot(ptr);
+}
+
+// Adapted from https://p0nce.github.io/d-idioms/#GC-proof-resource-class
+void ensureNotInGC(T)(string info = null) nothrow
+{
+    import core.exception : InvalidMemoryOperationError;
+    try
+    {
+        import core.memory : GC;
+        cast(void) GC.malloc(1);
+        return;
+    }
+    catch(InvalidMemoryOperationError e)
+    {
+        import core.stdc.stdio : fprintf, stderr;
+        import core.stdc.stdlib : exit;
+        fprintf(stderr,
+                "Error: clean-up of %s incorrectly depends on destructors called by the GC.\n",
+                T.stringof.ptr);
+        if (info)
+            fprintf(stderr, "Info: %s\n", info.ptr);
+    }
 }

@@ -53,9 +53,11 @@ private:
         Database db;
         sqlite3_stmt* handle; // null if error or empty statement
         int paramCount;
+        debug string sql;
 
         ~this()
         {
+            debug ensureNotInGC!Statement(sql);
             finalize();
         }
 
@@ -104,6 +106,7 @@ package(d2sqlite3):
         enforce(result == SQLITE_OK, new SqliteException(errmsg(db.handle()), result, sql));
         p = Payload(db, handle);
         p.paramCount = sqlite3_bind_parameter_count(p.handle);
+        debug p.sql = sql;
     }
 
     version (_UnlockNotify)

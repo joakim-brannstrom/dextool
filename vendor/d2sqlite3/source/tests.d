@@ -813,3 +813,14 @@ unittest // CachedResults copies
     assert(data[0][0].as!string == "ABC");
 }
 
+unittest // UTF-8
+{
+    auto db = Database(":memory:");
+    bool ran = false;
+    db.run("SELECT '\u2019\u2019';", (ResultRange r) {
+        assert(r.oneValue!string == "\u2019\u2019");
+        ran = true;
+        return true;
+    });
+    assert(ran);
+}
