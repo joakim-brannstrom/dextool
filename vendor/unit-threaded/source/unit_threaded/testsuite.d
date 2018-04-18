@@ -211,8 +211,40 @@ void replaceModuleUnitTester() {
     Runtime.moduleUnitTester = &moduleUnitTester;
 }
 
-version(unitThreadedLight) {}
-else {
+version(unitThreadedLight) {
+
+    shared static this() {
+        import std.algorithm: canFind;
+        import std.parallelism: parallel;
+        import core.runtime: Runtime;
+
+        Runtime.moduleUnitTester = () {
+
+            // ModuleInfo has opApply, can't use parallel on that so we collect
+            // all the modules with unit tests first
+            ModuleInfo*[] modules;
+            foreach(module_; ModuleInfo) {
+                if(module_ && module_.unitTest)
+                    modules ~= module_;
+            }
+
+            version(unitUnthreaded)
+                enum singleThreaded = true;
+            else
+                const singleThreaded = Runtime.args.canFind("-s") || Runtime.args.canFind("--single");
+
+            if(singleThreaded)
+                foreach(module_; modules)
+                    module_.unitTest()();
+             else
+                foreach(module_; modules.parallel)
+                    module_.unitTest()();
+
+            return true;
+        };
+    }
+
+} else {
     shared static this() {
         replaceModuleUnitTester;
     }
@@ -229,7 +261,7 @@ private bool moduleUnitTester() {
         if(module_ && module_.unitTest &&
            module_.name.startsWith("unit_threaded") && // we want to run the "normal" unit tests
            //!module_.name.startsWith("unit_threaded.property") && // left here for fast iteration when developing
-           !module_.name.startsWith("unit_threaded.tests")) { //but not the ones from the test modules
+           !module_.name.startsWith("unit_threaded.ut.modules")) { //but not the ones from the test modules
             version(testing_unit_threaded) {
                 import std.stdio: writeln;
                 writeln("Running unit-threaded UT for module " ~ module_.name);
