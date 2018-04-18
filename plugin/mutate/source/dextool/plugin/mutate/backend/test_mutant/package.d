@@ -629,24 +629,31 @@ nothrow:
             return;
         }
 
-        bool externalProgram(T)(string stdout_, string stderr_, ref T app) {
+        bool externalProgram(T)(string stdout_, string stderr_, ref T app) nothrow {
             import std.algorithm : copy;
 
-            auto p = execute([test_case_cmd, stdout_, stderr_]);
-            if (p.status == 0) {
-                p.output.splitter(newline).map!(a => a.strip)
-                    .filter!(a => a.length != 0).map!(a => TestCase(a)).copy(app);
-                return true;
-            } else {
-                logger.warning(p.output);
-                logger.warning("Failed to analyze the test case output");
-                return false;
+            try {
+                auto p = execute([test_case_cmd, stdout_, stderr_]);
+                if (p.status == 0) {
+                    p.output.splitter(newline).map!(a => a.strip)
+                        .filter!(a => a.length != 0).map!(a => TestCase(a)).copy(app);
+                    return true;
+                } else {
+                    logger.warning(p.output);
+                    logger.warning("Failed to analyze the test case output");
+                    return false;
+                }
             }
+            catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
+
+            return false;
         }
 
         // trusted: because the paths to the File object are created by this
         // program and can thus not lead to memory related problems.
-        bool builtin(T)(string stdout_, string stderr_, ref T app) @trusted {
+        bool builtin(T)(string stdout_, string stderr_, ref T app) @trusted nothrow {
             import std.stdio : File;
             import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
             import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
@@ -657,17 +664,38 @@ nothrow:
                 auto gtest = GtestParser(reldir);
                 CtestParser ctest;
 
-                foreach (l; File(f).byLine) {
-                    foreach (const p; tc_analyze_builtin) {
-                        final switch (p) {
-                        case TestCaseAnalyzeBuiltin.gtest:
-                            gtest.process(l, app);
-                            break;
-                        case TestCaseAnalyzeBuiltin.ctest:
-                            ctest.process(l, app);
-                            break;
+                File* fin;
+                try {
+                    fin = new File(f);
+                }
+                catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                    return false;
+                }
+
+                // an invalid UTF-8 char shall only result in the rest of the file being skipped
+                try
+                    foreach (l; fin.byLine) {
+                        foreach (const p; tc_analyze_builtin) {
+                            final switch (p) {
+                            case TestCaseAnalyzeBuiltin.gtest:
+                                gtest.process(l, app);
+                                break;
+                            case TestCaseAnalyzeBuiltin.ctest:
+                                ctest.process(l, app);
+                                break;
+                            }
                         }
                     }
+                catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+
+                try {
+                    fin.close;
+                    destroy(fin);
+                }
+                catch (Exception e) {
                 }
             }
 
