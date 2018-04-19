@@ -72,69 +72,59 @@ auto buildFrontend(ref ArgParser p) {
 
 private:
 
-ExitStatusType runMutate(Frontend fe) {
+ExitStatusType runMutate(Frontend fe) @trusted {
     import dextool.compilation_db : CompileCommandFilter,
         defaultCompilerFlagFilter;
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.rawUserData.dryRun);
-    scope (success)
-        fe_io.release;
-    auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
-
     auto db = Database.make(fe.db, fe.rawUserData.mutationOrder);
 
-    auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
-    auto frange = UserFileRange(fe.compileDb, fe.rawUserData.inFiles,
-            fe.rawUserData.cflags, default_filter);
+    return () @safe{
+        auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.rawUserData.dryRun);
+        scope (success)
+            fe_io.release;
+        auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
-    logger.trace("ToolMode: ", fe.rawUserData.toolMode);
+        auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+        auto frange = UserFileRange(fe.compileDb, fe.rawUserData.inFiles,
+                fe.rawUserData.cflags, default_filter);
 
-    final switch (fe.rawUserData.toolMode) {
-    case ToolMode.none:
-        logger.error("No mode specified");
-        return ExitStatusType.Errors;
-    case ToolMode.analyzer:
-        import dextool.plugin.mutate.backend : runAnalyzer;
+        logger.trace("ToolMode: ", fe.rawUserData.toolMode);
 
-        return runAnalyzer(db, frange, fe_validate, fe_io);
-    case ToolMode.generate_mutant:
-        import dextool.plugin.mutate.backend : runGenerateMutant;
+        final switch (fe.rawUserData.toolMode) {
+        case ToolMode.none:
+            logger.error("No mode specified");
+            return ExitStatusType.Errors;
+        case ToolMode.analyzer:
+            import dextool.plugin.mutate.backend : runAnalyzer;
 
-        return runGenerateMutant(db, fe.rawUserData.mutation,
-                fe.rawUserData.mutationId, fe_io, fe_validate);
-    case ToolMode.test_mutants:
-        import dextool.plugin.mutate.backend : makeTestMutant;
+            return runAnalyzer(db, frange, fe_validate, fe_io);
+        case ToolMode.generate_mutant:
+            import dextool.plugin.mutate.backend : runGenerateMutant;
 
-        // dfmt off
-        return makeTestMutant
-            .mutations(fe.rawUserData.mutation)
-            .testSuiteProgram(fe.mutationTester)
-            .compileProgram(fe.mutationCompile)
-            .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze)
-            .testSuiteTimeout(fe.mutationTesterRuntime)
-            .testCaseAnalyzeBuiltin(fe.rawUserData.mutationTestCaseBuiltin)
-            .run(db, fe_io);
-        // dfmt on
-    case ToolMode.report:
-        import dextool.plugin.mutate.backend : runReport;
+            return runGenerateMutant(db, fe.rawUserData.mutation,
+                    fe.rawUserData.mutationId, fe_io, fe_validate);
+        case ToolMode.test_mutants:
+            import dextool.plugin.mutate.backend : makeTestMutant;
 
-        return runReport(db, fe.rawUserData.mutation, fe.rawUserData.reportKind,
-                fe.rawUserData.reportLevel, fe.rawUserData.reportSection, fe_io);
-    case ToolMode.admin:
-        import dextool.plugin.mutate.backend : makeAdmin;
+            return makeTestMutant.mutations(fe.rawUserData.mutation)
+                .testSuiteProgram(fe.mutationTester).compileProgram(fe.mutationCompile)
+                .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze).testSuiteTimeout(fe.mutationTesterRuntime)
+                .testCaseAnalyzeBuiltin(fe.rawUserData.mutationTestCaseBuiltin).run(db, fe_io);
+        case ToolMode.report:
+            import dextool.plugin.mutate.backend : runReport;
 
-        // dfmt off
-        return makeAdmin()
-            .operation(fe.rawUserData.adminOp)
-            .mutations(fe.rawUserData.mutation)
-            .fromStatus(fe.rawUserData.mutantStatus)
-            .toStatus(fe.rawUserData.mutantToStatus)
-            .testCaseRegex(fe.rawUserData.testCaseRegex)
-            .run(db);
-        // dfmt on
-    }
+            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.reportKind,
+                    fe.rawUserData.reportLevel, fe.rawUserData.reportSection, fe_io);
+        case ToolMode.admin:
+            import dextool.plugin.mutate.backend : makeAdmin;
+
+            return makeAdmin().operation(fe.rawUserData.adminOp).mutations(fe.rawUserData.mutation)
+                .fromStatus(fe.rawUserData.mutantStatus).toStatus(fe.rawUserData.mutantToStatus)
+                .testCaseRegex(fe.rawUserData.testCaseRegex).run(db);
+        }
+    }();
 }
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;

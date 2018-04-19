@@ -37,7 +37,7 @@ struct Database {
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
         Checksum;
 
-    sqlDatabase* db;
+    sqlDatabase db;
     alias db this;
 
     /** Create a database by either opening an existing or initializing a new.
@@ -52,10 +52,6 @@ struct Database {
     // Not movable. The database should only be passed around as a reference,
     // if at all.
     @disable this(this);
-
-    ~this() @trusted {
-        destroy(db);
-    }
 
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p) @trusted {

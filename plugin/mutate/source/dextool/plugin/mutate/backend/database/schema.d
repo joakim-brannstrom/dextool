@@ -60,16 +60,17 @@ immutable testCaseTable = "test_case";
  *
  * Returns: an open sqlite3 database object.
  */
-sqlDatabase* initializeDB(const string p) @trusted
+sqlDatabase initializeDB(const string p) @trusted
 in {
     assert(p.length != 0);
 }
 do {
     import d2sqlite3;
 
-    sqlDatabase* db;
+    sqlDatabase db;
+    bool is_initialized;
 
-    void setPragmas(sqlDatabase* db) {
+    void setPragmas(ref sqlDatabase db) {
         // dfmt off
         auto pragmas = [
             // required for foreign keys with cascade to work
@@ -86,17 +87,18 @@ do {
     }
 
     try {
-        db = new sqlDatabase(p, SQLITE_OPEN_READWRITE);
-        upgrade(*db);
+        db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
+        upgrade(db);
+        is_initialized = true;
     }
     catch (Exception e) {
         logger.trace(e.msg);
         logger.trace("Initializing a new sqlite3 database");
     }
 
-    if (db is null) {
-        db = new sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-        initializeTables(*db);
+    if (!is_initialized) {
+        db = sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+        initializeTables(db);
     }
 
     setPragmas(db);
