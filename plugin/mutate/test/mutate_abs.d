@@ -33,3 +33,27 @@ unittest {
         "fail_on_zero_dextool(b)",
     ]).shouldBeIn(r.stdout);
 }
+
+@("shall produce an ABS mutation")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    immutable dst = testEnv.outdir ~ "abs.cpp";
+
+    copy(testData ~ "abs.cpp", dst);
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(dst)
+        .run;
+    auto r = dextool_test.makeDextool(testEnv)
+        .setWorkdir(".")
+        .args(["mutate"])
+        .addArg(["generate"])
+        .addArg(["--id", "5"])
+        .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+        .run;
+
+    testAnyOrder!SubStr([
+        "abs_dextool(a + b)",
+    ]).shouldBeIn(readOutput(testEnv, "abs.cpp"));
+}

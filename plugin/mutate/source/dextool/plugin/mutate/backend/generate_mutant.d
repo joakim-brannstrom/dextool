@@ -137,9 +137,9 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
         return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 
-    const auto from_ = () {
-        return cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end];
-    }();
+    // must copy the memory because content is backed by a memory mapped file and can thus change
+    const string from_ = (cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end])
+        .idup;
 
     auto mut = makeMutation(mutp.mp.mutations[0].kind);
 
@@ -148,6 +148,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
         auto s = content.drop(mutp.mp.offset);
         fout.write(s.front);
         s.popFront;
+
         const string to_ = mut.mutate(from_);
         fout.write(to_);
         fout.write(s.front);
