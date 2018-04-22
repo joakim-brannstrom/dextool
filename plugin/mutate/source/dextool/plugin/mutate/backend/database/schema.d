@@ -9,6 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 
 This module contains the schema to initialize the database.
 
+To ensure that the upgrade path for a database always work a database is
+created at the "lowest supported" and upgraded to the latest.
+
 # Style
 A database schema upgrade path shall have a comment stating what date it was added.
 Each change to the database schema must have an equal upgrade added.
@@ -88,7 +91,6 @@ do {
 
     try {
         db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
-        upgrade(db);
         is_initialized = true;
     }
     catch (Exception e) {
@@ -101,6 +103,7 @@ do {
         initializeTables(db);
     }
 
+    upgrade(db);
     setPragmas(db);
 
     return db;
@@ -158,13 +161,9 @@ immutable test_case_tbl = "CREATE TABLE %s (
 void initializeTables(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(version_tbl, schemaVersionTable));
-    updateSchemaVersion(db, latestSchemaVersion);
-
     db.run(format(files_tbl, filesTable));
     db.run(format(mutation_point_tbl, mutationPointTable));
     db.run(format(mutation_tbl, mutationTable));
-    db.run(format(test_case_tbl, testCaseTable));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
