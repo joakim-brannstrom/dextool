@@ -9,6 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 
 This module contains the schema to initialize the database.
 
+To ensure that the upgrade path for a database always work a database is
+created at the "lowest supported" and upgraded to the latest.
+
 # Style
 A database schema upgrade path shall have a comment stating what date it was added.
 Each change to the database schema must have an equal upgrade added.
@@ -46,7 +49,7 @@ import logger = std.experimental.logger;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 2;
+immutable latestSchemaVersion = 3;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -88,7 +91,6 @@ do {
 
     try {
         db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
-        upgrade(db);
         is_initialized = true;
     }
     catch (Exception e) {
@@ -101,6 +103,7 @@ do {
         initializeTables(db);
     }
 
+    upgrade(db);
     setPragmas(db);
 
     return db;
@@ -119,6 +122,15 @@ immutable files_tbl = "CREATE TABLE %s (
     path        TEXT NOT NULL,
     checksum0   INTEGER NOT NULL,
     checksum1   INTEGER NOT NULL
+    )";
+
+/// upgraded table with support for the language
+immutable files3_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    path        TEXT NOT NULL,
+    checksum0   INTEGER NOT NULL,
+    checksum1   INTEGER NOT NULL,
+    lang        INTEGER
     )";
 
 // line start from zero
@@ -158,13 +170,9 @@ immutable test_case_tbl = "CREATE TABLE %s (
 void initializeTables(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(version_tbl, schemaVersionTable));
-    updateSchemaVersion(db, latestSchemaVersion);
-
     db.run(format(files_tbl, filesTable));
     db.run(format(mutation_point_tbl, mutationPointTable));
     db.run(format(mutation_tbl, mutationTable));
-    db.run(format(test_case_tbl, testCaseTable));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
@@ -200,6 +208,7 @@ void upgrade(ref sqlDatabase db) nothrow {
 
     tbl[0] = &upgradeV0;
     tbl[1] = &upgradeV1;
+    tbl[2] = &upgradeV2;
 
     while (true) {
         long version_ = 0;
@@ -254,4 +263,18 @@ void upgradeV1(ref sqlDatabase db) {
 
     db.run(format(test_case_tbl, testCaseTable));
     updateSchemaVersion(db, 2);
+}
+
+/// 2018-04-22
+void upgradeV2(ref sqlDatabase db) {
+    import std.format : format;
+
+    immutable new_tbl = "new_" ~ filesTable;
+    db.run(format(files3_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
+            new_tbl, filesTable));
+    db.run(format("DROP TABLE %s", filesTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, filesTable));
+
+    updateSchemaVersion(db, 3);
 }

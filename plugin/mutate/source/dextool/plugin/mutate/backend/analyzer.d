@@ -38,6 +38,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
     import dextool.clang : findFlags;
     import dextool.type : FileName, Exists, makeExists;
     import dextool.utility : analyzeFile;
+    import dextool.plugin.mutate.backend.type : Language;
 
     // they are not by necessity the same.
     // Input could be a file that is excluded via --restrict but pull in a
@@ -68,21 +69,23 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
         auto root = makeRootVisitor(val_loc);
         analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
-        foreach (a; root.mutationPointFiles.map!(a => FileName(a))) {
-            analyzed_files[AbsolutePath(a)] = true;
-            files_with_mutations[AbsolutePath(a)] = true;
+        foreach (a; root.mutationPointFiles) {
+            auto abs_path = AbsolutePath(a.path.FileName);
+            analyzed_files[abs_path] = true;
+            files_with_mutations[abs_path] = true;
 
-            auto relp = trustedRelativePath(a, fio.getOutputDir);
+            auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
 
             try {
-                auto f_status = isFileChanged(db, AbsolutePath(a, DirName(fio.getOutputDir)), fio);
+                auto f_status = isFileChanged(db, AbsolutePath(a.path.FileName,
+                        DirName(fio.getOutputDir)), fio);
                 if (f_status == FileStatus.changed) {
                     logger.infof("Updating analyze of '%s'", a);
                     db.removeFile(relp);
                 }
 
-                auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a));
-                db.put(Path(relp), cs);
+                auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a.path.FileName));
+                db.put(Path(relp), cs, a.lang);
             }
             catch (Exception e) {
                 logger.warning(e.msg);

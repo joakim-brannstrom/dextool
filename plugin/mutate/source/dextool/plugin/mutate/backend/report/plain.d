@@ -88,7 +88,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             try {
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
             }
             catch (Exception e) {
                 logger.warning(e.msg);
@@ -105,7 +105,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             try {
                 auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
 
                 if (auto v = mut_txt in mutationStat)
                     ++(*v);
@@ -124,7 +124,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             try {
                 auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
 
                 foreach (const a; r.testCases) {
                     if (auto v = a in testCaseStat) {
@@ -146,7 +146,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             try {
                 auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
                 mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
 
                 foreach (const a; r.testCases) {

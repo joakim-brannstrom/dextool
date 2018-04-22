@@ -63,3 +63,13 @@ The PoC will focus on realizing the following features:
  - small scale architecture for continues and incremental mutation testing of an application.
  - ease of use.
  - the only language supported are C and c++.
+
+# REQ-plugin_mutate_language
+partof: REQ-purpose
+###
+
+The plugin shall support mutation testing the languages C and C++.
+
+## Why?
+
+By covering these two language the amount of software that the plugin can be evaluated on is considerable.

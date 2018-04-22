@@ -92,7 +92,8 @@ struct Database {
                                    mutation_point.offset_end,
                                    mutation_point.line,
                                    mutation_point.column,
-                                   files.path
+                                   files.path,
+                                   files.lang
                                    FROM mutation,mutation_point,files
                                    WHERE
                                    mutation.status == 0 AND
@@ -116,8 +117,9 @@ struct Database {
             auto pkey = MutationId(v.peek!long(0));
             auto file = Path(FileName(v.peek!string(7)));
             auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
+            auto lang = v.peek!long(8).to!Language;
 
-            rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
+            rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
         }
         catch (Exception e) {
             rval.st = NextMutationEntry.Status.queryError;
@@ -143,7 +145,8 @@ struct Database {
             mutation_point.column,
             files.path,
             files.checksum0,
-            files.checksum1
+            files.checksum1,
+            files.lang
             FROM mutation,mutation_point,files
             WHERE
             mutation.kind IN (%(%s,%)) AND
@@ -163,6 +166,7 @@ struct Database {
                 d.file = r.peek!string(8);
                 d.fileChecksum = checksum(r.peek!long(9), r.peek!long(10));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
+                d.lang = r.peek!long(11).to!Language;
 
                 d.testCases = db.getTestCases(d.id);
 
@@ -183,4 +187,5 @@ struct IterateMutantRow {
     Checksum fileChecksum;
     SourceLoc sloc;
     TestCase[] testCases;
+    Language lang;
 }

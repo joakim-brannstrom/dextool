@@ -143,3 +143,19 @@ unittest {
         "from 'case 4:' to '/*case 4:*/'",
     ]).shouldBeIn(r.stdout);
 }
+
+@("shall produce 1 DCC mutant in C when the input is a C file")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "dcc_as_c_file.c")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "dcr"])
+        .run;
+    testConsecutiveSparseOrder!SubStr([
+        "from 'x == 0' to '1'",
+        "from 'x == 0' to '0'",
+    ]).shouldBeIn(r.stdout);
+}

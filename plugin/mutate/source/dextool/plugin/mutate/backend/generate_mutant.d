@@ -20,6 +20,7 @@ import std.path : buildPath;
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     MutationId;
+import dextool.plugin.mutate.backend.type : Language;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput,
     ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
@@ -141,7 +142,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     const string from_ = (cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end])
         .idup;
 
-    auto mut = makeMutation(mutp.mp.mutations[0].kind);
+    auto mut = makeMutation(mutp.mp.mutations[0].kind, mutp.lang);
 
     try {
         fout.write(mut.top());
@@ -163,10 +164,26 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     }
 }
 
-auto makeMutation(Mutation.Kind kind) {
+auto makeMutation(Mutation.Kind kind, Language lang) {
     import std.format : format;
 
     MutateImpl m;
+    m.top = () { return null; };
+    m.mutate = (const(char)[] from) { return null; };
+
+    auto clangTrue(const(char)[]) {
+        if (lang == Language.c)
+            return "1";
+        else
+            return "true";
+    }
+
+    auto clangFalse(const(char)[]) {
+        if (lang == Language.c)
+            return "0";
+        else
+            return "false";
+    }
 
     final switch (kind) with (Mutation.Kind) {
         /// the kind is not initialized thus can only ignore the point
@@ -204,10 +221,10 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "!="; };
         break;
     case rorTrue:
-        m.mutate = (const(char)[] expr) { return "true"; };
+        m.mutate = &clangTrue;
         break;
     case rorFalse:
-        m.mutate = (const(char)[] expr) { return "false"; };
+        m.mutate = &clangFalse;
         break;
         /// Logical connector replacement
         /// #SPC-plugin_mutate_mutation_lcr
@@ -313,7 +330,7 @@ auto makeMutation(Mutation.Kind kind) {
     case corOr:
         assert(0);
     case corFalse:
-        m.mutate = (const(char)[] expr) { return "false"; };
+        m.mutate = &clangFalse;
         break;
     case corLhs:
         // delete by commenting out
@@ -330,13 +347,13 @@ auto makeMutation(Mutation.Kind kind) {
         m.mutate = (const(char)[] expr) { return "!="; };
         break;
     case corTrue:
-        m.mutate = (const(char)[] expr) { return "true"; };
+        m.mutate = &clangTrue;
         break;
     case dccTrue:
-        m.mutate = (const(char)[] expr) { return "true"; };
+        m.mutate = &clangTrue;
         break;
     case dccFalse:
-        m.mutate = (const(char)[] expr) { return "false"; };
+        m.mutate = &clangFalse;
         break;
     case dccBomb:
         // assigning null should crash the program, thus a 'bomb'
@@ -369,14 +386,14 @@ private:
 import dextool.plugin.mutate.backend.type : Offset, Mutation;
 
 struct MutateImpl {
-    alias CallbackTop = string function() @safe;
-    alias CallbackMut = string function(const(char)[] from) @safe;
+    alias CallbackTop = string delegate() @safe;
+    alias CallbackMut = string delegate(const(char)[] from) @safe;
 
     /// Called before any other data has been written to the file.
-    CallbackTop top = () { return null; };
+    CallbackTop top;
 
     /// Called at the mutation point.
-    CallbackMut mutate = (const(char)[] from) { return null; };
+    CallbackMut mutate;
 }
 
 immutable string preambleAbs;
