@@ -126,7 +126,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     }
 
     if (db_checksum.isNull) {
-        logger.errorf("Database contains erronious data. A mutation point for %s exist but the file has no checksum",
+        logger.errorf("Database contains erroneous data. A mutation point for %s exist but the file has no checksum",
                 mutp.file).collectException;
         return GenerateMutantResult(GenerateMutantStatus.databaseError);
     } else if (db_checksum != f_checksum) {
