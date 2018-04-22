@@ -27,6 +27,7 @@ import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
+import dextool.plugin.mutate.backend.type : Language;
 
 /** Database wrapper with minimal dependencies.
  */
@@ -185,7 +186,8 @@ struct Database {
                                    mutation_point.offset_end,
                                    mutation_point.line,
                                    mutation_point.column,
-                                   files.path
+                                   files.path,
+                                   files.lang
                                    FROM mutation,mutation_point,files
                                    WHERE
                                    mutation.id == :id AND
@@ -203,10 +205,11 @@ struct Database {
             auto pkey = MutationId(v.peek!long(0));
             auto file = Path(FileName(v.peek!string(7)));
             auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
+            auto lang = v.peek!long(8).to!Language;
 
             import core.time : dur;
 
-            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs");
+            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
         }
         catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -271,15 +274,16 @@ struct Database {
         return rval;
     }
 
-    void put(const Path p, Checksum cs) @trusted {
+    void put(const Path p, Checksum cs, const Language lang) @trusted {
         if (isAnalyzed(p))
             return;
 
         auto stmt = db.prepare(
-                "INSERT INTO files (path, checksum0, checksum1) VALUES (:path, :checksum0, :checksum1)");
+                "INSERT INTO files (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)");
         stmt.bind(":path", cast(string) p);
         stmt.bind(":checksum0", cast(long) cs.c0);
         stmt.bind(":checksum1", cast(long) cs.c1);
+        stmt.bind(":lang", cast(long) lang);
         stmt.execute;
     }
 

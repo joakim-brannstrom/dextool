@@ -26,6 +26,7 @@ import dextool.plugin.mutate.backend.database : MutationPointEntry;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
 import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc,
     OpTypeInfo;
+import dextool.plugin.mutate.backend.type : Language;
 
 /// Contain a visitor and the data.
 struct VisitorResult {
@@ -33,7 +34,7 @@ struct VisitorResult {
         return result.mutationPoints;
     }
 
-    Path[] mutationPointFiles() @trusted {
+    auto mutationPointFiles() @trusted {
         return result.mutationPointFiles;
     }
 
@@ -288,6 +289,14 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(Preprocessor) v) {
         mixin(mixinNodeLog!());
+
+        const bool is_cpp = v.spelling == "__cplusplus";
+
+        if (is_cpp)
+            transf.lang = Language.cpp;
+        else if (!is_cpp && transf.lang != Language.cpp)
+            transf.lang = Language.c;
+
         v.accept(this);
     }
 
@@ -426,6 +435,9 @@ class Transform {
 
     private AnalyzeResult result;
     private ValidateLoc val_loc;
+
+    // it is assumed that the language is kept constant for one translation unit
+    private Language lang;
 
     this(AnalyzeResult res, ValidateLoc vloc) {
         this.result = res;
@@ -708,7 +720,7 @@ class Transform {
         auto path = loc.path.Path;
         if (path is null)
             return rval;
-        result.put(path);
+        result.put(path, lang);
 
         rval.isValid = op_.isValid;
 
@@ -765,7 +777,7 @@ class Transform {
             auto path = loc.path.Path;
             if (path is null)
                 return;
-            result.put(path);
+            result.put(path, lang);
         };
     }
 }
@@ -851,25 +863,32 @@ import dextool.plugin.mutate.backend.type : Offset;
 class AnalyzeResult {
     import std.array : Appender;
 
+    static struct FileResult {
+        Path path;
+        Language lang;
+    }
+
     Appender!(MutationPointEntry[]) exprs;
-    bool[Path] files;
+    Appender!(FileResult[]) files;
+    bool[Path] file_index;
 
     void put(MutationPointEntry a) {
         exprs.put(a);
     }
 
-    void put(Path a) {
-        files[a] = true;
+    void put(Path a, Language lang) {
+        if (a !in file_index) {
+            file_index[a] = true;
+            files.put(FileResult(a, lang));
+        }
     }
 
     const(MutationPointEntry[]) mutationPoints() {
         return exprs.data;
     }
 
-    Path[] mutationPointFiles() @trusted {
-        import std.array : array;
-
-        return files.byKey.array();
+    FileResult[] mutationPointFiles() {
+        return files.data;
     }
 }
 

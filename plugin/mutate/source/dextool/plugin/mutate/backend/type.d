@@ -157,3 +157,13 @@ struct TestCase {
     string value;
     alias value this;
 }
+
+/// The language a file or mutant is.
+enum Language {
+    /// the default is assumed to be c++
+    assumeCpp,
+    ///
+    cpp,
+    ///
+    c
+}

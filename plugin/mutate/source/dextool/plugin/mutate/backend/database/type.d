@@ -42,6 +42,7 @@ struct MutationEntry {
     SourceLoc sloc;
     MutationPoint mp;
     Duration timeSpentMutating;
+    Language lang;
 }
 
 struct NextMutationEntry {

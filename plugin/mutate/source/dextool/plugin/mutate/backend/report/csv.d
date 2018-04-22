@@ -66,7 +66,7 @@ final class ReportCSV : ReportEvent {
             try {
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind);
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
             }
             catch (Exception e) {
                 logger.warning(e.msg);

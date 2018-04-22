@@ -14,7 +14,8 @@ import logger = std.experimental.logger;
 
 import dextool.type;
 
-import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
+    Language;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 
@@ -57,7 +58,7 @@ struct MakeMutationTextResult {
     }
 }
 
-auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind) nothrow {
+auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) nothrow {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
     MakeMutationTextResult rval;
@@ -67,7 +68,7 @@ auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind) no
             rval.original = file_.read[offs.begin .. offs.end].toInternal;
         }
 
-        auto mut = makeMutation(kind);
+        auto mut = makeMutation(kind, lang);
         rval.mutation = mut.mutate(rval.original);
     }
     catch (Exception e) {
