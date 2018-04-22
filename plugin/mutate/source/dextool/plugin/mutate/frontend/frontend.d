@@ -64,7 +64,13 @@ auto buildFrontend(ref ArgParser p) {
         r.mutationTesterRuntime = p.mutationTesterRuntime.dur!"msecs";
 
     if (p.compileDb.length != 0) {
-        r.compileDb = p.compileDb.fromArgCompileDb;
+        try {
+            r.compileDb = p.compileDb.fromArgCompileDb;
+        }
+        catch (Exception e) {
+            logger.error(e.msg);
+            throw new Exception("Unable to open compile commands database(s)");
+        }
     }
 
     return r;

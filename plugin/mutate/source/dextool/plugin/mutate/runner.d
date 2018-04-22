@@ -15,6 +15,7 @@ module dextool.plugin.runner;
  */
 auto runPlugin(string[] args) @safe {
     import std.stdio : writeln;
+    import std.traits : ReturnType;
     import logger = std.experimental.logger;
     import dextool.type;
     import dextool.utility;
@@ -36,6 +37,14 @@ auto runPlugin(string[] args) @safe {
         return ExitStatusType.Ok;
     }
 
-    auto frontend = buildFrontend(argp);
+    ReturnType!buildFrontend frontend;
+    try {
+        frontend = buildFrontend(argp);
+    }
+    catch (Exception e) {
+        logger.error(e.msg);
+        return ExitStatusType.Errors;
+    }
+
     return frontend.run;
 }
