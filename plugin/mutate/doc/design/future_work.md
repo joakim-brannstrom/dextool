@@ -59,6 +59,10 @@ of the MP-ID.
 A command center is expected to use the MP-ID to tell e.g. the mutation tester
 to run the tests for the MP-ID.
 
+## Idea
+
+Maybe a simple way of doing this would be to generate a binary with *one* mutant for each mutation point. This would considerably reduce the number of compile cycles and should be relatively easy to implement.
+
 # SPC-plugin_mutate_distributed_mutation
 partof: REQ-plugin_mutate_future_work
 ###
@@ -109,6 +113,12 @@ unknown
     It could be an early filter.
 3. This can be very time consuming.
     But even though it takes 10min per mutation it is still better than a human having to analyze by hand.
+
+# SPC-plugin_mutate_notes_for_gui
+partof: REQ-plugin_mutate_future_work
+###
+
+Consider using `vibe.d + CEF + vue.js` as the basis for a GUI.
 
 # SPC-plugin_mutate_todo
 partof: REQ-plugin_mutate_future_work
