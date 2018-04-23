@@ -1,3 +1,7 @@
+# Plugin mutate
+
+This is the *mutate* plugin that can perform mutation testing on a program.
+
 # Mutation Testing of Google Test
 
 This is an example of how to mutation test google test itself.

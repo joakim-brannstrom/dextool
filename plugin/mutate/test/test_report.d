@@ -61,9 +61,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Mutants",
-        "| From | To   | File Line:Column                                       | ID | Status |",
-        "|------|------|--------------------------------------------------------|----|--------|",
-        "| `>`  | `>=` | plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
+        "| From | To   | File Line:Column                                                           | ID | Status |",
+        "|------|------|----------------------------------------------------------------------------|----|--------|",
+        "| `>`  | `>=` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
         "## Alive Mutation Statistics",
         "| Percentage | Count | From | To   |",
         "|------------|-------|------|------|",
@@ -168,10 +168,10 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
         `"ID","Kind","Description","Location","Comment"`,
-        `"8","dcr","'var1_long_text >5' to 'true'","plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"9","dcr","'var1_long_text >5' to 'false'","plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"8","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
         `"27","dcr","'case 2:`,
         `        return true;' to '/*case 2:`,
-        `        return true;*/'","plugin_testdata/report_as_csv.cpp:11:5",""`,
+        `        return true;*/'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
