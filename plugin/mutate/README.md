@@ -1,17 +1,3 @@
-# Admin and other fun stuff
-
-To get the files in the database:
-```sh
-sqlite3 dextool_mutate.sqlite3 "select * from files"
-```
-
-The different states a mutant are found in Mutation.Kind.
-
-Reset all mutations of a kind to unknown which forces them to be tested again:
-```sh
-sqlite3 dextool_mutate.sqlite3 "update mutation SET status=0 WHERE mutation.kind=FOO"
-```
-
 # Mutation Testing of Google Test
 
 This is an example of how to mutation test google test itself.
@@ -65,11 +51,36 @@ It is possible to run multiple instances of dextool the same database.
 Just make sure they don't mutate the same source code.
 
 ## Results
+To see the result of the mutation testing and thus specifically those that survived it is recommended to user the preconfigured `--level alive` parameter.
+It prints a summary and the mutants that survived.
 
-To see the result:
 ```sh
 dextool mutate report --out .. --level alive --mutant lcr
 ```
+
+But it is possible to in more detail control what sections are printed for the `--plain` printer.
+Lets say we want to print the test case statistics, the summary and the killed mutants.
+```sh
+dextool mutate --report --out .. --section tc_stat --section summary --section killed --mutant lcr
+```
+
+See `--section` for a specification of the supported sections.
+
+## Re-test Alive Mutants
+
+Lets say that we want to re-test the mutants that survived because new tests have been added to the test suite. To speed up the mutation testing run we don't want to test all mutants but just those that are currently marked as alive.
+
+This can be achieved by resetting the status of the alive mutants to unknown followed by running the mutation testing again.
+
+Example of resetting:
+```sh
+dextool mutate admin --mutant lcr --operation resetMutant --status alive
+```
+
+## Incremental Mutation Testing
+
+The tool have support for testing only the changes to a program by reusing a previous database containing mutation testning result.
+All we have to do to use this feature is to re-analyze the software. The tool will then remove all the mutants for files that have changed.
 
 ## Compiling Google Test with Coverage
 
