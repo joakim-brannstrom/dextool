@@ -1,8 +1,4 @@
-# Usage
-This file describes use cases and other useful information of how to use the
-plugins.
-
-# Plugin C TestDouble
+# Plugin ctestdouble
 
 ## Generate a simple C test double.
 ```
@@ -24,15 +20,3 @@ The code analyzer (Clang) will be passed the compiler flags -DBAR and -I/some/pa
 During generation declarations found in foo.h or functions.h will be excluded.
 
 The file holding the test double is written to directory outdata.
-
-# Plugin C++ Test Double
-
-TBD
-
-# Plugin UML
-
-TBD
-
-# Plugin GraphML
-
-TBD
