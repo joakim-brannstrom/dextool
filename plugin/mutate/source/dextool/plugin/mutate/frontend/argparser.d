@@ -230,9 +230,6 @@ struct ArgParser {
             return;
         }
 
-        if (restrictDir.length == 0)
-            restrictDir = ["."];
-
         import std.algorithm : find;
         import std.array : array;
         import std.range : drop;

@@ -57,8 +57,11 @@ auto buildFrontend(ref ArgParser p) {
     if (p.mutationTestCaseAnalyze.length != 0)
         r.mutationTestCaseAnalyze = AbsolutePath(FileName(p.mutationTestCaseAnalyze));
 
-    r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a))).array;
-    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory));
+    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory.toRealPath));
+    if (p.restrictDir.length == 0)
+        r.restrictDir = [r.outputDirectory];
+    else
+        r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a.toRealPath))).array;
 
     if (p.mutationTesterRuntime != 0)
         r.mutationTesterRuntime = p.mutationTesterRuntime.dur!"msecs";
@@ -208,12 +211,17 @@ final class FrontendIO : FilesysIO {
     }
 
 private:
+    // assuming that root is already a realpath
     static void verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
         import std.format : format;
         import std.string : startsWith;
 
-        if (!dry_run && !(cast(string) p).startsWith((cast(string) root))) {
-            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
+        auto realp = p.toRealPath;
+
+        if (!dry_run && !realp.startsWith((cast(string) root))) {
+            logger.tracef("Path '%s' escaping output directory (--out) '%s'", realp, root);
+            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'",
+                    realp, root));
         }
     }
 }
@@ -235,16 +243,53 @@ final class FrontendValidateLoc : ValidateLoc {
         return this.shouldAnalyze(cast(string) p);
     }
 
-    override bool shouldAnalyze(string p) {
+    override bool shouldAnalyze(const string p) {
         import std.algorithm : any;
         import std.string : startsWith;
 
-        return any!(a => p.startsWith(a))(restrict_dir);
+        auto realp = p.toRealPath;
+
+        bool res = any!(a => realp.startsWith(a))(restrict_dir);
+        logger.tracef(!res, "Path '%s' do not match any of [%(%s, %)]", realp, restrict_dir);
+        return res;
     }
 
     override bool shouldMutate(AbsolutePath p) {
         import std.string : startsWith;
 
-        return (cast(string) p).startsWith(output_dir);
+        auto realp = p.toRealPath;
+
+        bool res = realp.toRealPath.startsWith(output_dir);
+        logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", realp, output_dir);
+        return res;
     }
+}
+
+/** Convert a string to the "real path" by resolving all symlinks resulting in an absolute path.
+
+TODO: optimize
+This function is very inefficient. It creates a lot of GC garbage.
+It should also be moved to source/dextool in the future to be able to be re-used by other components.
+Maybe even integrated in AbsolutePath.
+
+trusted: orig_p is a string. A string is assured by the language to be memory
+safe. Thus this function that operates on strings as input are memory safe for
+all possible input.
+  */
+string toRealPath(const string orig_p) @trusted {
+    import core.sys.posix.stdlib : realpath;
+    import core.stdc.stdlib : free;
+    import std.string : toStringz, fromStringz;
+
+    auto p = orig_p.toStringz;
+    auto absp = realpath(p, null);
+    scope (exit) {
+        if (absp)
+            free(absp);
+    }
+
+    if (absp is null)
+        return orig_p;
+    else
+        return absp.fromStringz.idup;
 }

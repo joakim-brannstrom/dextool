@@ -46,7 +46,7 @@ unittest {
         .addInputArg(dst)
         .run;
     auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(".")
+        .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["generate"])
         .addArg(["--id", "5"])

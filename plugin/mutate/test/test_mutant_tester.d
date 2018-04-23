@@ -49,7 +49,7 @@ test -e $1 && echo 'Failed 42'
     makeExecutable(analyze_script);
 
     auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(".")
+        .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["test"])
         .addPostArg(["--mutant", "dcr"])
@@ -152,7 +152,7 @@ exit 1
     makeExecutable(test_script);
 
     auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(".")
+        .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["test"])
         .addPostArg(["--mutant", "dcr"])
@@ -162,9 +162,8 @@ exit 1
         .addPostArg(["--test-case-analyze-builtin", "gtest"])
         .addPostArg(["--test-timeout", "10000"])
         .run;
-
     testConsecutiveSparseOrder!SubStr([
-        `killed by ["../../../../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor","../../../../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.StreamsNullPointer"]`
+        `killed by ["../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor","../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.StreamsNullPointer"]`
     ]).shouldBeIn(r.stdout);
 }
 
@@ -533,7 +532,7 @@ exit 1
     makeExecutable(test_script);
 
     auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(".")
+        .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["test"])
         .addPostArg(["--mutant", "dcr"])
