@@ -35,6 +35,13 @@ struct File {
         return clang_getFileTime(cast(CType) cx);
     }
 
+    string absolutePath() {
+        import std.conv;
+        import std.path;
+
+        return name.asAbsolutePath().asNormalizedPath().to!string();
+    }
+
     string toString() @safe const {
         return name;
     }
