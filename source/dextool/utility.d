@@ -62,7 +62,7 @@ pure string[] prependLangFlagIfMissing(in string[] in_cflags, const PreferLang l
  * Returns: if the analyze was performed ok or errors occured
  */
 ExitStatusType analyzeFile(VisitorT, ClangContextT)(const AbsolutePath input_file,
-        const string[] cflags, VisitorT visitor, ref ClangContextT ctx) {
+        const string[] cflags, VisitorT visitor, ref ClangContextT ctx) @trusted {
     import std.file : exists;
 
     import cpptooling.analyzer.clang.ast : ClangAST;

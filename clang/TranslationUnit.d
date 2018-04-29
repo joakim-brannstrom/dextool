@@ -27,10 +27,8 @@ struct TranslationUnit {
 
     static private struct ContainTU {
         mixin CX!("TranslationUnit");
-
-        ~this() @safe {
-            dispose();
-        }
+        // no need to call dispose because disposing of the Index also cleans
+        // up all TranslationUnits.
     }
 
     ContainTU cx;
@@ -61,7 +59,9 @@ struct TranslationUnit {
                                       );
         // dfmt on
 
-        return TranslationUnit(p);
+        auto tu = TranslationUnit(p);
+        index.cx.put(p);
+        return tu;
     }
 
     /** Convenient function to create a TranslationUnit from source code via a
@@ -74,7 +74,7 @@ struct TranslationUnit {
      */
     static TranslationUnit parseString(ref Index index, string source, string[] commandLineArgs,
             CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @trusted {
+            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @safe {
         import std.string : toStringz;
 
         string path = randomSourceFileName;
@@ -87,10 +87,7 @@ struct TranslationUnit {
 
         auto in_memory_files = unsavedFiles ~ [file];
 
-        auto translationUnit = TranslationUnit.parse(index, path,
-                commandLineArgs, in_memory_files, options);
-
-        return translationUnit;
+        return TranslationUnit.parse(index, path, commandLineArgs, in_memory_files, options);
     }
 
     private static string randomSourceFileName() @safe {

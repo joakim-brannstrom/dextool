@@ -52,8 +52,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
         Exists!AbsolutePath checked_in_file;
         try {
             checked_in_file = makeExists(in_file.absoluteFile);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg);
             continue;
         }
@@ -65,34 +64,35 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
         analyzed_files[checked_in_file] = true;
 
         // analyze the file
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        auto root = makeRootVisitor(val_loc);
-        analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
+        () @trusted{
+            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto root = makeRootVisitor(val_loc);
+            analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
-        foreach (a; root.mutationPointFiles) {
-            auto abs_path = AbsolutePath(a.path.FileName);
-            analyzed_files[abs_path] = true;
-            files_with_mutations[abs_path] = true;
+            foreach (a; root.mutationPointFiles) {
+                auto abs_path = AbsolutePath(a.path.FileName);
+                analyzed_files[abs_path] = true;
+                files_with_mutations[abs_path] = true;
 
-            auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
+                auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
 
-            try {
-                auto f_status = isFileChanged(db, AbsolutePath(a.path.FileName,
-                        DirName(fio.getOutputDir)), fio);
-                if (f_status == FileStatus.changed) {
-                    logger.infof("Updating analyze of '%s'", a);
-                    db.removeFile(relp);
+                try {
+                    auto f_status = isFileChanged(db, AbsolutePath(a.path.FileName,
+                            DirName(fio.getOutputDir)), fio);
+                    if (f_status == FileStatus.changed) {
+                        logger.infof("Updating analyze of '%s'", a);
+                        db.removeFile(relp);
+                    }
+
+                    auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a.path.FileName));
+                    db.put(Path(relp), cs, a.lang);
+                } catch (Exception e) {
+                    logger.warning(e.msg);
                 }
-
-                auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a.path.FileName));
-                db.put(Path(relp), cs, a.lang);
             }
-            catch (Exception e) {
-                logger.warning(e.msg);
-            }
-        }
 
-        db.put(root.mutationPoints, fio.getOutputDir);
+            db.put(root.mutationPoints, fio.getOutputDir);
+        }();
     }
 
     prune(db, files_with_mutations, fio.getOutputDir);

@@ -39,7 +39,7 @@ private struct IncludeResult {
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
 Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb,
-        FileName fname, ref const CompileCommandFilter flag_filter, const string[] extra_flags) {
+        FileName fname, ref const CompileCommandFilter flag_filter, const string[] extra_flags) @trusted {
     import std.algorithm : filter;
     import std.file : exists;
     import std.path : baseName;

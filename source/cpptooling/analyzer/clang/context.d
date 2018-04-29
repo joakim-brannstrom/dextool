@@ -68,7 +68,7 @@ struct ClangContext {
      *   prependParamSyntaxOnly = prepend the flag -fsyntax-only to instantiated translation units.
      */
     this(Flag!"useInternalHeaders" useInternalHeaders,
-            Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) {
+            Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
         index = Index(false, false);
         virtualFileSystem = VirtualFileSystem();
 
@@ -77,7 +77,7 @@ struct ClangContext {
             import clang.Compiler : Compiler;
 
             Compiler compiler;
-            internal_header_arg = ["-I" ~ compiler.extraIncludePath];
+            internal_header_arg = compiler.extraIncludeFlags;
             foreach (hdr; compiler.extraHeaders) {
                 virtualFileSystem.openInMemory(cast(FileName) hdr.filename);
                 virtualFileSystem.write(cast(FileName) hdr.filename, cast(Content) hdr.content);
@@ -127,7 +127,7 @@ struct ClangContext {
 }
 
 @("shall be an instance")
-unittest {
+@system unittest {
     import std.typecons : Yes;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
