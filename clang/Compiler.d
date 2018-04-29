@@ -57,6 +57,7 @@ private:
     // dfmt off
     enum internalHeaders = [
         staticMap!(toInternalHeader,
+                   "__stddef_max_align_t.h",
                    "float.h",
                    "limits.h",
                    "stdalign.h",
@@ -64,7 +65,6 @@ private:
                    "stdbool.h",
                    "stddef.h",
                    "stdint.h",
-                   "__stddef_max_align_t.h"
                    )
     ];
     // dfmt on
