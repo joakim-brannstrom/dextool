@@ -428,8 +428,7 @@ import clang.Visitor;
         //TODO i'm not sure this is a good solution... investigate.
         try {
             return clang_hashCursor(cast(CXCursor) cx);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             return 0;
         }
     }
@@ -637,7 +636,7 @@ import clang.Visitor;
         return clang_getCursorVisibility(cx);
     }
 
-    private static CXCursorKind[string] queryPredefined() {
+    private static CXCursorKind[string] queryPredefined() @trusted {
         import clang.Index;
         import clang.TranslationUnit;
 

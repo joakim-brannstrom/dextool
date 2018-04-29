@@ -38,14 +38,6 @@ string toD(CXString cxString) @trusted {
     return str;
 }
 
-template isCX(T) {
-    enum bool isCX = __traits(hasMember, T, "cx");
-}
-
-template cxName(T) {
-    enum cxName = "CX" ~ T.stringof;
-}
-
 U* toCArray(U, T)(T[] arr) @safe {
     if (!arr)
         return null;
@@ -55,6 +47,14 @@ U* toCArray(U, T)(T[] arr) @safe {
 
     else
         return &arr[0];
+}
+
+template isCX(T) {
+    enum bool isCX = __traits(hasMember, T, "cx");
+}
+
+template cxName(T) {
+    enum cxName = "CX" ~ T.stringof;
 }
 
 mixin template CX(string name = "") {
@@ -72,10 +72,16 @@ mixin template CX(string name = "") {
      * community is good _enough_. Any bugs should by now have been found.
      */
     void dispose() @trusted {
-        enum methodCall = "clang_dispose" ~ typeof(this).stringof ~ "(cx);";
+        static if (name.length == 0)
+            enum methodName = "clang_dispose" ~ typeof(this).stringof;
+        else
+            enum methodName = "clang_dispose" ~ name;
+        enum methodCall = methodName ~ "(cx);";
 
-        static if (false && __traits(compiles, methodCall))
+        static if (__traits(hasMember, clang.c.Index, methodName))
             mixin(methodCall);
+        else
+            pragma(msg, "warning: clang dispose not found: " ~ methodName);
     }
 
     @property bool isValid() @safe pure nothrow const @nogc {

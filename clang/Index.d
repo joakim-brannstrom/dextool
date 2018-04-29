@@ -58,17 +58,26 @@ import clang.c.Index;
  * (which gives the indexer the same performance benefit as the compiler).
  */
 struct Index {
+    import std.array : Appender;
+    import std.typecons : RefCounted;
     import clang.Util;
 
     static private struct ContainIndex {
         mixin CX!("Index");
+        Appender!(CXTranslationUnit[]) tus;
 
-        ~this() @safe {
+        void put(CXTranslationUnit tu) @safe {
+            tus.put(tu);
+        }
+
+        ~this() @trusted {
+            foreach (tu; tus.data)
+                clang_disposeTranslationUnit(tu);
             dispose();
         }
     }
 
-    ContainIndex cx;
+    RefCounted!ContainIndex cx;
     alias cx this;
 
     @disable this(this);
