@@ -493,6 +493,14 @@ import clang.Visitor;
         return clang_isAttribute(cx.kind) != 0;
     }
 
+    int bitFieldWidth() const @trusted {
+        return clang_getFieldDeclBitWidth(cast(CXCursor) cx);
+    }
+
+    bool isBitField() const @trusted {
+        return clang_Cursor_isBitField(cast(CXCursor) cx) != 0;
+    }
+
     /// Determine whether the given cursor kind represents an invalid cursor.
     @property bool isValid() const @trusted {
         // note that it checks for invalidity of the cursor, thus the inverse
@@ -776,8 +784,7 @@ struct IncludeCursor {
      * cursor.
      */
     @property auto file() @trusted {
-        auto r = clang_getIncludedFile(cx);
-        return File(r);
+        return File(clang_getIncludedFile(cx));
     }
 }
 

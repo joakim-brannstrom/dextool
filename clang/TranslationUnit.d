@@ -118,6 +118,16 @@ struct TranslationUnit {
         this.cx = ContainTU(cx);
     }
 
+    /// Returns: true if the TU compiled successfully.
+    bool isCompiled() {
+        import std.algorithm;
+
+        alias predicate = x => x.severity != CXDiagnosticSeverity.error
+            && x.severity != CXDiagnosticSeverity.fatal;
+
+        return diagnosticSet.all!predicate();
+    }
+
     bool isValid() @trusted {
         return cx.isValid;
     }

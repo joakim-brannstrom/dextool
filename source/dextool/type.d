@@ -136,8 +136,7 @@ pure @nogc nothrow:
  * This divides the domain in two, one unchecked and one checked.
  */
 struct AbsolutePath {
-    import std.path : expandTilde, buildNormalizedPath, absolutePath,
-        asNormalizedPath, asAbsolutePath;
+    import std.path : expandTilde, buildNormalizedPath;
 
     Path payload;
     alias payload this;
@@ -156,7 +155,7 @@ struct AbsolutePath {
         auto p_expand = () @trusted{ return p.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
-        payload = buildNormalizedPath(p_expand).absolutePath.buildNormalizedPath.Path;
+        payload = buildNormalizedPath(p_expand).asAbsNormPath.Path;
     }
 
     /// Build the normalised path from workdir.
@@ -165,8 +164,7 @@ struct AbsolutePath {
         auto workdir_expand = () @trusted{ return workdir.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
-        payload = buildNormalizedPath(workdir_expand, p_expand).absolutePath
-            .buildNormalizedPath.Path;
+        payload = buildNormalizedPath(workdir_expand, p_expand).asAbsNormPath.Path;
     }
 
     void opAssign(FileName p) {
@@ -263,4 +261,13 @@ nothrow unittest {
     }
     catch (Exception e) {
     }
+}
+
+private:
+
+string asAbsNormPath(string path) @trusted {
+    import std.path;
+    import std.conv : to;
+
+    return to!string(path.asAbsolutePath.asNormalizedPath);
 }
