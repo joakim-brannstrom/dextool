@@ -47,6 +47,13 @@ struct Compiler {
         return virtual_path;
     }
 
+    string[] extraIncludeFlags() {
+        import std.algorithm;
+        import std.array;
+
+        return [extraIncludePath].map!(x => "-I" ~ x).array;
+    }
+
 private:
     string virtual_path;
 
