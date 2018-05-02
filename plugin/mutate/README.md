@@ -65,7 +65,7 @@ dextool mutate report --out .. --level alive --mutant lcr
 But it is possible to in more detail control what sections are printed for the `--plain` printer.
 Lets say we want to print the test case statistics, the summary and the killed mutants.
 ```sh
-dextool mutate --report --out .. --section tc_stat --section summary --section killed --mutant lcr
+dextool mutate report --out .. --section tc_stat --section summary --section killed --mutant lcr
 ```
 
 See `--section` for a specification of the supported sections.
