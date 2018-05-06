@@ -159,3 +159,35 @@ unittest {
         "from 'x == 0' to '0'",
     ]).shouldBeIn(r.stdout);
 }
+
+@("shall produce 6 predicate and 8 clause mutations for an expression of multiple clauses of C code")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "dcc_dc_stmt4.c")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "dcc"])
+        .run;
+    testAnyOrder!SubStr([
+        // isPredicateFunc
+        "from 'x == 0 || y == 0' to '1'",
+        "from 'x == 0 || y == 0' to '0'",
+        "from 'x == 0' to '1'",
+        "from 'x == 0' to '0'",
+        "from 'y == 0' to '1'",
+        "from 'y == 0' to '0'",
+        // isPredicateFunc2
+        "from 'x == 0 || y == 0' to '1'",
+        "from 'x == 0 || y == 0' to '0'",
+        "from 'x == 0' to '1'",
+        "from 'x == 0' to '0'",
+        "from 'y == 0' to '1'",
+        "from 'y == 0' to '0'",
+        // isPredicateFunc3
+        "from 'x == TRUE' to '1'",
+        "from 'x == TRUE' to '0'",
+    ]).shouldBeIn(r.stdout);
+}
