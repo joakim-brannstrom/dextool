@@ -79,6 +79,7 @@ private @safe nothrow struct AST_BreathFirstResult {
  *      ...
  *      }
  * }
+ * ---
  */
 auto visitBreathFirst(Cursor c) @trusted {
     return AST_BreathFirstResult(c);
