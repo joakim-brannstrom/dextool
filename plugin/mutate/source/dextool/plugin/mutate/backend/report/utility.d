@@ -241,24 +241,22 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     import std.datetime : Clock;
     import dextool.plugin.mutate.backend.utility;
 
-    auto alive = db.aliveMutants(kinds);
-    auto killed = db.killedMutants(kinds);
-    auto timeout = db.timeoutMutants(kinds);
-    auto untested = db.unknownMutants(kinds);
-    auto killed_by_compiler = db.killedByCompilerMutants(kinds);
+    const alive = db.aliveMutants(kinds);
+    const killed = db.killedMutants(kinds);
+    const timeout = db.timeoutMutants(kinds);
+    const untested = db.unknownMutants(kinds);
+    const killed_by_compiler = db.killedByCompilerMutants(kinds);
+    const total = db.totalMutants(kinds);
 
     try {
         immutable align_ = 8;
 
-        const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.time.total!"msecs").sum.dur!"msecs";
-        const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count).sum;
-        const auto killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count).sum;
-        const auto untested_cnt = untested.isNull ? 0 : untested.count;
-        const auto predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt))
-            : 0.dur!"msecs";
+        const total_time = total.isNull ? 0.dur!"msecs" : total.time;
+        const total_cnt = total.isNull ? 0 : total.count;
+        const killed_cnt = only(killed, timeout).filter!(a => !a.isNull).map!(a => a.count).sum;
+        const untested_cnt = untested.isNull ? 0 : untested.count;
+        const predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt)) : 0
+            .dur!"msecs";
 
         // execution time
         if (untested_cnt > 0 && predicted > 0.dur!"msecs")
