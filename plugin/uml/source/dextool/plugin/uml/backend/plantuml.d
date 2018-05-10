@@ -1579,7 +1579,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
      *  target = cache to put the values into
      *  lookup = type supporting lookups via USR for the TypeKind
      */
-    static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @safe 
+    static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @safe
             if (is(ElementType!Range == TypeKindAttr)
                 || is(ElementType!Range == const(TypeKindAttr))) {
         import std.algorithm : filter;

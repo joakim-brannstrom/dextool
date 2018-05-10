@@ -26,56 +26,63 @@ abstract class Extra : Node {
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
-
 final class ModuleImportDecl : Extra {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class TypeAliasTemplateDecl : Extra {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class StaticAssert : Extra {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class FriendDecl : Extra {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
-

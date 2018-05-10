@@ -27,8 +27,7 @@ auto internalLog(alias level)(const(char)[] txt, const uint indent = 0,
         string indent_ = indent_prep[0 .. min(indent_prep.length, indent)];
         std.experimental.logger.logf!(-1, "", "", "", "")(level,
                 "%d%s %s [%s:%d]", indent, indent_, txt, func, line);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 }
 

@@ -19,14 +19,12 @@ auto tryOpenFile(string filename, string mode) @trusted {
 
     try {
         rval = Unique!File(new File(filename, mode));
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
     if (rval.isEmpty) {
         try {
             logger.errorf("Unable to read/write file '%s'", filename);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 
@@ -64,8 +62,7 @@ auto tryWriting(T)(string fname, T data, WriteStrategy strategy = WriteStrategy.
 
     try {
         status = action(fname, data, strategy);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     try {
@@ -76,8 +73,7 @@ auto tryWriting(T)(string fname, T data, WriteStrategy strategy = WriteStrategy.
             logger.error("Failed to write file: ", fname);
             break;
         }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     return status;
@@ -97,15 +93,13 @@ ExitStatusType writeFileData(T)(ref T data) {
             if (path.isDir) {
                 return ExitStatusType.Ok;
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
 
         try {
             mkdirRecurse(path);
             return ExitStatusType.Ok;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
 
         return ExitStatusType.Errors;

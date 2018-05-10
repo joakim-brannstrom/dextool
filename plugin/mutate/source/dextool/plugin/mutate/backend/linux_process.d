@@ -90,8 +90,7 @@ PidSession spawnSession(const char[][] args, string stdout_p = null,
 
     try {
         envz = createEnv(null, true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         return PidSession();
     }
 

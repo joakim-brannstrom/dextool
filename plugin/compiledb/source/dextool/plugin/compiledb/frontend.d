@@ -23,8 +23,7 @@ ExitStatusType doCompileDb(T)(ref T args) /*nothrow*/ {
     CompileCommandDB compile_db;
     try {
         compile_db = args.inCompileDb.fromArgCompileDb;
-    }
-    catch (ErrnoException ex) {
+    } catch (ErrnoException ex) {
         logger.error(ex.msg);
         return ExitStatusType.Errors;
     }
@@ -45,8 +44,7 @@ AbsolutePath makeOutputFilename(string out_) {
         if (out_.isDir) {
             return AbsolutePath(FileName(buildPath(out_, "compile_commands.json")));
         }
-    }
-    catch (FileException ex) {
+    } catch (FileException ex) {
     }
 
     return AbsolutePath(FileName(out_));

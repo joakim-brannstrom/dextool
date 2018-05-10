@@ -175,8 +175,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
 
     try {
         logger.infof("File %d/%d ", file_idx + 1, total_files);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
     }
 
     auto visitor = new TUVisitor(restrictDir);
@@ -189,8 +188,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
             logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
             return;
         }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         collectException(logger.error(e.msg));
     }
 
@@ -198,8 +196,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
         try {
             // assuming send is correctly implemented.
             () @trusted{ owner.send(f); }();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             collectException(logger.error("Unable to send to owner thread '%s': %s", owner, e.msg));
         }
     }
@@ -250,8 +247,7 @@ class Pool {
                     break;
                 }
             }
-        }
-        catch (LinkTerminated e) {
+        } catch (LinkTerminated e) {
             removeWorker(e.tid);
         }
 

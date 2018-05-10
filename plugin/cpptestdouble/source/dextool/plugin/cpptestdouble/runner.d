@@ -56,8 +56,7 @@ auto runPlugin(string[] args) {
     if (pargs.compileDb.length != 0) {
         try {
             compile_db = pargs.compileDb.fromArgCompileDb;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg);
             logger.error("Unable to open compile commands database(s)");
             return ExitStatusType.Errors;

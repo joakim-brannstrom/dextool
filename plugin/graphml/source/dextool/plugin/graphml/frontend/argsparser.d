@@ -59,12 +59,10 @@ struct RawConfiguration {
             // dfmt on
 
             help = help_info.helpWanted;
-        }
-        catch (std.getopt.GetOptException ex) {
+        } catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             logger.error(ex.msg);
             help = true;
         }

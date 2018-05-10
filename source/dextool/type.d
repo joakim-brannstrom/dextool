@@ -258,8 +258,7 @@ nothrow unittest {
 
     try {
         auto p = makeExists(AbsolutePath(FileName("foo")));
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
     }
 }
 

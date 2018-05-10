@@ -27,10 +27,8 @@ bool matchAny(const string value, Regex!char[] re) @safe nothrow {
                 passed = true;
                 break;
             }
-        }
-        catch (RegexException ex) {
-        }
-        catch (Exception ex) {
+        } catch (RegexException ex) {
+        } catch (Exception ex) {
         }
     }
 

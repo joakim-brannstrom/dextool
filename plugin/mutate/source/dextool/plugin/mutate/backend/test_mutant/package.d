@@ -168,8 +168,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester
             logger.warning("unknown error when executing the compiler").collectException;
             return Mutation.Status.unknown;
         }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
 
@@ -215,8 +214,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester
             // trusted: a hard coded value is used, no user input.
             () @trusted{ Thread.sleep(10.dur!"msecs"); }();
         }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         // unable to for example execute the test suite
         logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
@@ -267,8 +265,7 @@ auto measureTesterDuration(AbsolutePath p) nothrow {
 
         auto a = (cast(long)((bench[0].total!"msecs") / 3.0)).dur!"msecs";
         return MeasureTestDurationResult(ExitStatusType.Ok, a);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         collectException(logger.error(e.msg));
         return MeasureTestDurationResult(ExitStatusType.Errors);
     }
@@ -525,8 +522,7 @@ nothrow:
 
             // must duplicate because the buffer is memory mapped thus it can change
             original_content = fio.makeInput(mut_file).read.dup;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg).collectException;
             driver_sig = MutationDriverSignal.filesysError;
             return;
@@ -566,8 +562,7 @@ nothrow:
                         mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
                 break;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
             driver_sig = MutationDriverSignal.mutationError;
         }
@@ -589,8 +584,7 @@ nothrow:
                     mkdir(tmp);
                     test_tmp_output = AbsolutePath(FileName(tmp));
                     break;
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     logger.warning(e.msg).collectException;
                 }
             }
@@ -609,8 +603,7 @@ nothrow:
 
             mut_status = runTester(compile_cmd, test_cmd, test_tmp_output, watchdog, fio);
             driver_sig = MutationDriverSignal.next;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -643,8 +636,7 @@ nothrow:
                     logger.warning("Failed to analyze the test case output");
                     return false;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }
 
@@ -667,8 +659,7 @@ nothrow:
                 File* fin;
                 try {
                     fin = new File(f);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     logger.warning(e.msg).collectException;
                     return false;
                 }
@@ -686,16 +677,14 @@ nothrow:
                                 break;
                             }
                         }
-                    }
-                catch (Exception e) {
+                    } catch (Exception e) {
                     logger.warning(e.msg).collectException;
                 }
 
                 try {
                     fin.close;
                     destroy(fin);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                 }
             }
 
@@ -727,8 +716,7 @@ nothrow:
                 test_cases = app.data;
                 driver_sig = MutationDriverSignal.next;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -747,8 +735,7 @@ nothrow:
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
             logger.infof(test_cases.length != 0, "%s killed by [%(%s,%)]", mutp.id, test_cases);
             driver_sig = MutationDriverSignal.next;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -759,8 +746,7 @@ nothrow:
         // restore the original file.
         try {
             fio.makeOutput(mut_file).write(original_content);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg).collectException;
             // fatal error because being unable to restore a file prohibit
             // future mutations.
@@ -777,8 +763,7 @@ nothrow:
             () @trusted{
                 try {
                     rmdirRecurse(test_tmp_output);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     logger.info(e.msg).collectException;
                 }
             }();
@@ -989,8 +974,7 @@ nothrow:
         const(Path)[] files;
         try {
             files = data.db.getFiles;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // assume the database is locked thus need to retry
             driver_sig = TestDriverSignal.stop;
             logger.trace(e.msg).collectException;
@@ -1002,8 +986,7 @@ nothrow:
             Checksum db_checksum;
             try {
                 db_checksum = data.db.getFileChecksum(files[i]);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 // the database is locked
                 logger.trace(e.msg).collectException;
                 // retry
@@ -1019,8 +1002,7 @@ nothrow:
                             abs_f);
                     has_sanity_check_failed = true;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 // assume it is a problem reading the file or something like that.
                 has_sanity_check_failed = true;
                 logger.trace(e.msg).collectException;
@@ -1074,8 +1056,7 @@ nothrow:
                 logger.info(comp_res.output);
                 logger.error("Compiler command failed: ", comp_res.status);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // unable to for example execute the compiler
             logger.error(e.msg).collectException;
         }
@@ -1145,8 +1126,7 @@ nothrow:
             }
 
             last_timeout_mutant_count = entry.count;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -1164,8 +1144,7 @@ nothrow:
         try {
             data.db.resetMutant(data.mutKind, Mutation.Status.timeout, Mutation.Status.unknown);
             driver_sig = TestDriverSignal.next;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }

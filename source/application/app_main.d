@@ -180,8 +180,7 @@ int rmain(string[] args) nothrow {
         logger.trace(parsed);
 
         exit_status = runPlugin(parsed, args);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         collectException(logger.trace(text(ex)));
         exit_status = ExitStatusType.Errors;
     }

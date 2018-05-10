@@ -1472,8 +1472,7 @@ enum MergeMode {
                     return this.stack.joiner.byChar.crc32Of();
                 }();
                 this.id_ = ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 this.setUniqueId(makeUniqueUSR);
             }
         } else {
@@ -1588,8 +1587,7 @@ enum MergeMode {
 
         try {
             () @trusted pure{ funcs.insert(tmp); }();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 
@@ -1618,8 +1616,7 @@ enum MergeMode {
 
         try {
             () @trusted pure{ globals.insert(tmp); }();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 
@@ -1822,8 +1819,7 @@ struct CppRoot {
 
         try {
             () @trusted pure{ funcs.insert(tmp); }();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 
@@ -1852,8 +1848,7 @@ struct CppRoot {
 
         try {
             () @trusted pure{ globals.insert(tmp); }();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 

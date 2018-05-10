@@ -68,8 +68,7 @@ nothrow:
     auto testCaseRegex(string v) {
         try {
             data.test_case_regex = regex(v);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg).collectException;
             data.errorInData = true;
         }
@@ -102,8 +101,7 @@ ExitStatusType resetMutant(ref Database db, const Mutation.Kind[] kinds,
         Mutation.Status status, Mutation.Status to_status) @safe nothrow {
     try {
         db.resetMutant(kinds, status, to_status);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
@@ -114,8 +112,7 @@ ExitStatusType resetMutant(ref Database db, const Mutation.Kind[] kinds,
 ExitStatusType removeMutant(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
     try {
         db.removeMutant(kinds);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
@@ -126,8 +123,7 @@ ExitStatusType removeMutant(ref Database db, const Mutation.Kind[] kinds) @safe 
 ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, const Regex!char regex) @safe nothrow {
     try {
         db.removeTestCase(regex, kinds);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }

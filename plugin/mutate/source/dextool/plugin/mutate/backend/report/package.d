@@ -45,8 +45,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind, const Repor
         genrep.locationStatEvent;
 
         genrep.statEvent(db);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
 
@@ -253,8 +252,7 @@ struct CompilerMsgBuilder(Writer) {
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
 
@@ -293,8 +291,7 @@ struct CompilerMsgBuilder(Writer) {
                 report();
                 break;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }
@@ -368,8 +365,7 @@ struct CompilerMsgBuilder(Writer) {
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
                 m.object["value"] = mut_txt.mutation;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
             if (new_file) {
