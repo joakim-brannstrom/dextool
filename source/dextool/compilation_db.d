@@ -192,8 +192,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
     string command;
     try {
         command = v["command"].str;
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     string arguments;
@@ -209,8 +208,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
             arguments = v[j_arg].arrayNoRef.filter!(a => a.type == JSON_TYPE.STRING)
                 .map!(a => a.str).joiner(" ").byUTF!char.array().assumeUnique;
         }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     if (command.length == 0 && arguments.length == 0) {
@@ -222,8 +220,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
     string output;
     try {
         output = v["output"].str;
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     try {
@@ -238,8 +235,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         }
 
         return toCompileCommand(directory.str, file.str, command, db_dir, arguments, output);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         error("Unable to parse json: " ~ ex.msg);
     }
 
@@ -273,8 +269,7 @@ private Nullable!CompileCommand toCompileCommand(string directory, string file,
             CompileCommand.Output(output),
             abs_output);
         // dfmt on
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         import dextool.logger : error;
 
         error("Unable to parse json: " ~ ex.msg);
@@ -309,8 +304,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
                 out_range.put(e);
             }
             // dfmt on
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             logger.error("Unable to parse json:" ~ ex.msg);
         }
     }
@@ -325,8 +319,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
         // the only problem would be in the out_range. It is assumed that the
         // out_range takes care of the validation and other security aspects.
         () @trusted{ put(json, as_dir, out_range); }();
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         import dextool.logger : error;
 
         error("Error while parsing compilation database: " ~ ex.msg);

@@ -63,8 +63,7 @@ struct RawConfiguration {
                    );
             // dfmt on
             help = help_info.helpWanted;
-        }
-        catch (std.getopt.GetOptException ex) {
+        } catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
         }

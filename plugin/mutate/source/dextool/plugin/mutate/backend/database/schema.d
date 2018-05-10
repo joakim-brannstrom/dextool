@@ -92,8 +92,7 @@ do {
     try {
         db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
         is_initialized = true;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.trace(e.msg);
         logger.trace("Initializing a new sqlite3 database");
     }
@@ -185,8 +184,7 @@ void updateSchemaVersion(ref sqlDatabase db, long ver) {
         stmt = db.prepare(format("INSERT INTO %s (version) VALUES(:ver)", schemaVersionTable));
         stmt.bind(":ver", ver);
         stmt.execute;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
 }
@@ -215,8 +213,7 @@ void upgrade(ref sqlDatabase db) nothrow {
 
         try {
             version_ = getSchemaVersion(db);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
 
@@ -233,8 +230,7 @@ void upgrade(ref sqlDatabase db) nothrow {
                 scope (failure)
                     db.rollback;
                 (*f)(db);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.error(e.msg).collectException;
                 logger.warningf("Unable to upgrade a database of version %s",
                         version_).collectException;

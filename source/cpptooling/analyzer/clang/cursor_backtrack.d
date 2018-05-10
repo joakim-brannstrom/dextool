@@ -32,8 +32,7 @@ private struct BacktrackResult {
     bool empty() @safe nothrow const {
         try {
             return !cursor.isValid;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
 
         return true;

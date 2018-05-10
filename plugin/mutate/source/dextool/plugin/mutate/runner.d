@@ -40,8 +40,7 @@ auto runPlugin(string[] args) @safe {
     ReturnType!buildFrontend frontend;
     try {
         frontend = buildFrontend(argp);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg);
         return ExitStatusType.Errors;
     }

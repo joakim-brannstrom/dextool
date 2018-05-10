@@ -189,8 +189,7 @@ struct Markdown(Writer, TraceWriter) {
                     else
                         mutationStat[mut_txt] = 1;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
 
@@ -219,8 +218,7 @@ struct Markdown(Writer, TraceWriter) {
                 report();
                 break;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }

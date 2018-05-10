@@ -82,8 +82,7 @@ struct GtestParser {
             try {
                 if (fail_msg_file.isValidPath)
                     fail_msg_file = relativePath(fail_msg_file, reldir);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 debug logger.trace(e.msg).collectException;
             }
             break;

@@ -120,8 +120,7 @@ struct Database {
             auto lang = v.peek!long(8).to!Language;
 
             rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             rval.st = NextMutationEntry.Status.queryError;
             collectException(logger.warning(e.msg));
         }
@@ -172,8 +171,7 @@ struct Database {
 
                 dg(d);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg).collectException;
         }
     }

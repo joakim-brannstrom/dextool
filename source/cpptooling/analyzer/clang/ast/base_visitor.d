@@ -27,7 +27,8 @@ abstract class Visitor {
     void visit(const TranslationUnit) {
     }
 
-    void visit(const(Attribute)) {}
+    void visit(const(Attribute)) {
+    }
 
     void visit(const(UnexposedAttr) value) {
         visit(cast(const(Attribute)) value);
@@ -109,7 +110,8 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(const(Declaration)) {}
+    void visit(const(Declaration)) {
+    }
 
     void visit(const(UnexposedDecl) value) {
         visit(cast(const(Declaration)) value);
@@ -263,7 +265,8 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(const(Directive)) {}
+    void visit(const(Directive)) {
+    }
 
     void visit(const(OmpParallelDirective) value) {
         visit(cast(const(Directive)) value);
@@ -453,7 +456,8 @@ abstract class Visitor {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(const(Expression)) {}
+    void visit(const(Expression)) {
+    }
 
     void visit(const(UnexposedExpr) value) {
         visit(cast(const(Expression)) value);
@@ -651,7 +655,8 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(Extra)) {}
+    void visit(const(Extra)) {
+    }
 
     void visit(const(ModuleImportDecl) value) {
         visit(cast(const(Extra)) value);
@@ -669,7 +674,8 @@ abstract class Visitor {
         visit(cast(const(Extra)) value);
     }
 
-    void visit(const(Preprocessor)) {}
+    void visit(const(Preprocessor)) {
+    }
 
     void visit(const(PreprocessingDirective) value) {
         visit(cast(const(Preprocessor)) value);
@@ -687,7 +693,8 @@ abstract class Visitor {
         visit(cast(const(Preprocessor)) value);
     }
 
-    void visit(const(Reference)) {}
+    void visit(const(Reference)) {
+    }
 
     void visit(const(ObjCSuperClassRef) value) {
         visit(cast(const(Reference)) value);
@@ -733,7 +740,8 @@ abstract class Visitor {
         visit(cast(const(Reference)) value);
     }
 
-    void visit(const(Statement)) {}
+    void visit(const(Statement)) {
+    }
 
     void visit(const(UnexposedStmt) value) {
         visit(cast(const(Statement)) value);

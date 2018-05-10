@@ -88,8 +88,7 @@ struct RawConfiguration {
                    "config", &config);
             // dfmt on
             generateZeroGlobals = !no_zero_globals;
-        }
-        catch (std.getopt.GetOptException ex) {
+        } catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
         }

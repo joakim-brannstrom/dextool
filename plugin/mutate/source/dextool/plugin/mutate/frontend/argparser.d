@@ -129,8 +129,7 @@ struct ArgParser {
 
                 if (cli_mutation_id.length != 0)
                     data.mutationId = cli_mutation_id.to!long;
-            }
-            catch (ConvException e) {
+            } catch (ConvException e) {
                 logger.infof("Invalid mutation point '%s'. It must be in the range [0, %s]",
                         cli_mutation_id, long.max);
             }
@@ -215,12 +214,10 @@ struct ArgParser {
             try {
                 (*f)(subargs);
                 help = help_info.helpWanted;
-            }
-            catch (std.getopt.GetOptException ex) {
+            } catch (std.getopt.GetOptException ex) {
                 logger.error(ex.msg);
                 help = true;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 logger.error(ex.msg);
                 help = true;
             }

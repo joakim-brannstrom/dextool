@@ -52,8 +52,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
     AbsolutePath mut_file;
     try {
         mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getOutputDir));
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
@@ -63,8 +62,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
         content = fio.makeInput(mut_file).read;
         if (content.length == 0)
             return ExitStatusType.Errors;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         collectException(logger.error(e.msg));
         return ExitStatusType.Errors;
     }
@@ -78,8 +76,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
             logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id, res.from, res.to, ofile);
             exit_st = ExitStatusType.Ok;
         }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         collectException(logger.error(e.msg));
     }
 
@@ -111,8 +108,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     Nullable!Checksum db_checksum;
     try {
         db_checksum = db.getFileChecksum(mutp.file);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.warning(e.msg).collectException;
         return GenerateMutantResult(GenerateMutantStatus.databaseError);
     }
@@ -120,8 +116,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     Checksum f_checksum;
     try {
         f_checksum = checksum(cast(const(ubyte)[]) content);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.warning(e.msg).collectException;
         return GenerateMutantResult(GenerateMutantStatus.filesysError);
     }
@@ -158,8 +153,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
         fout.write("\n/* DEXTOOL: THIS FILE IS MUTATED */");
 
         return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         return GenerateMutantResult(GenerateMutantStatus.filesysError);
     }
 }

@@ -41,8 +41,7 @@ void shouldEqualPretty(V, E)(lazy V value, lazy E expected, string file = __FILE
             idx = index;
             shouldEqual(val, exp, file, line);
         }
-    }
-    catch (UnitTestException ex) {
+    } catch (UnitTestException ex) {
         string[] lines = ["Chunk:" ~ idx.text, ex.toString()];
         throw new UnitTestException(lines, file, line);
     }
@@ -61,8 +60,7 @@ unittest {
         shouldEqualPretty!(typeof(value), typeof(expected))(value, expected, "file.d", 123);
 
         assert(false, "Didn't throw exception");
-    }
-    catch (UnitTestException ex) {
+    } catch (UnitTestException ex) {
         msg = ex.toString;
     }
 
@@ -82,7 +80,7 @@ unittest {
  *  line = line check is on.
  */
 void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
-        lazy Separator sep, string file = __FILE__, size_t line = __LINE__) @safe 
+        lazy Separator sep, string file = __FILE__, size_t line = __LINE__) @safe
         if (!isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 

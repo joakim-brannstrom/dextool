@@ -32,8 +32,7 @@ struct RawConfiguration {
                     &shortPluginHelp, "out",
                     "directory/file do write output to [default: ./]", &out_,);
             help = help_info.helpWanted;
-        }
-        catch (std.getopt.GetOptException ex) {
+        } catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
         }

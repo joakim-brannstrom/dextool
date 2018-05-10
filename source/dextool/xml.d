@@ -41,24 +41,20 @@ Nullable!T readRawConfig(T, alias parseFunc)(FileName fname) @trusted nothrow {
 
         rval = parseFunc(xml);
         return rval;
-    }
-    catch (CheckException ex) {
+    } catch (CheckException ex) {
         try {
             msg = ex.toString;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             msg = ex.msg;
         }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         msg = ex.msg;
     }
 
     try {
         logger.errorf("Invalid xml file '%s'", cast(string) fname);
         logger.error(msg);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     return rval;

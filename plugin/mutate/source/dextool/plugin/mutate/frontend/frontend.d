@@ -69,8 +69,7 @@ auto buildFrontend(ref ArgParser p) {
     if (p.compileDb.length != 0) {
         try {
             r.compileDb = p.compileDb.fromArgCompileDb;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.msg);
             throw new Exception("Unable to open compile commands database(s)");
         }

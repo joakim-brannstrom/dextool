@@ -44,8 +44,7 @@ private void nothrowTrace(T...)(auto ref T args) @safe nothrow {
     if (DebugLogging) {
         try {
             logger.trace(args);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 }
@@ -54,8 +53,7 @@ private void nothrowTracef(T...)(auto ref T args) @safe nothrow {
     if (DebugLogging) {
         try {
             logger.tracef(args);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
         }
     }
 }
@@ -95,8 +93,7 @@ Validated[] scanForExecutables() {
                 res.put(e);
             }
             // dfmt on
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             err_msg = ex.msg;
         }
 
@@ -198,8 +195,7 @@ ExecuteResult executePluginForShortHelp(Validated plugin) @safe nothrow {
 
     try {
         res = ExecuteResult(execute([plugin.path, "--short-plugin-help"]).output, true, plugin);
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         nothrowTrace("No --short-plugin-help for: ", plugin);
     }
 
@@ -236,8 +232,7 @@ Plugin[] toPlugins(alias execFunc, T)(T plugins) @safe nothrow {
     try {
         res.each!(a => nothrowTracef("Found plugin '%s' (%s) (%s): %s", a.name,
                 a.path, a.kind, a.help));
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
     }
 
     return res;

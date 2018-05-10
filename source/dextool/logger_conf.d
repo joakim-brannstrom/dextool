@@ -108,8 +108,7 @@ void confLogLevel(ConfigureLog conf) {
             logger.sharedLog(logger_);
             break;
         }
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         collectException(logger.error("Failed to configure logging level"));
         throw ex;
     }

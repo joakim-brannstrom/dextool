@@ -90,18 +90,15 @@ struct RawConfiguration {
                    );
             // dfmt on
             help = help_info.helpWanted;
-        }
-        catch (ConvException e) {
+        } catch (ConvException e) {
             logger.error(e.msg);
             logger.errorf("%s possible values: %(%s|%)", Config_YesNo.stringof,
                     [EnumMembers!Config_YesNo]);
             help = true;
-        }
-        catch (std.getopt.GetOptException ex) {
+        } catch (std.getopt.GetOptException ex) {
             logger.error(ex.msg);
             help = true;
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             logger.error(ex.msg);
             help = true;
         }

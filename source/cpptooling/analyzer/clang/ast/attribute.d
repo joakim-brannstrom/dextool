@@ -26,248 +26,287 @@ abstract class Attribute : Node {
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
-
 final class UnexposedAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class IbActionAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class IbOutletAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class IbOutletCollectionAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CxxFinalAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CxxOverrideAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class AnnotateAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class AsmLabelAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class PackedAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class PureAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class ConstAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class NoDuplicateAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CudaConstantAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CudaDeviceAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CudaGlobalAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CudaHostAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class CudaSharedAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class VisibilityAttr : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class DllExport : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
 
 final class DllImport : Attribute {
     import clang.Cursor : Cursor;
+
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     override void accept(Visitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
+
         cpptooling.analyzer.clang.ast.accept(cursor, v);
     }
 }
-
