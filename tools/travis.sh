@@ -52,7 +52,7 @@ elif [[ "${DEXTOOL_BUILD}" == "Debug" ]]; then
 elif [[ "${DEXTOOL_BUILD}" == "Release" ]]; then
     # Assuming that the tests for release do NOT need to be reran.
     pushd build
-    cmake -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Release -DSQLITE3_LIB="${SQLITE3}" ..
+    cmake -DBUILD_DOC=${BUILD_DOC} -DCMAKE_INSTALL_PREFIX=$ROOT/test_install_of_dextool -DCMAKE_BUILD_TYPE=Release -DSQLITE3_LIB="${SQLITE3}" ..
     make all -j$PARALLEL
 
     # Testing the install target because it has had problems before

@@ -33,7 +33,13 @@ endfunction()
 #   name        - Target name for the executable
 #   input_d     - List of a source file or many quoted and separated by ;
 function(compile_d_module input_d d_flags output_o)
-    separate_arguments(d_flags UNIX_COMMAND "${d_flags}")
+    set(docs_args "")
+    if (BUILD_DOC)
+        set(doc_file "${CMAKE_CURRENT_BINARY_DIR}/${name}_docs.json")
+        set(docs_args "-D -Dd${CMAKE_CURRENT_BINARY_DIR}/docs_dmd -X -Xf${doc_file}")
+    endif()
+
+    separate_arguments(d_flags UNIX_COMMAND "${d_flags} ${docs_args}")
 
     add_custom_command(
         OUTPUT ${output_o}
@@ -53,6 +59,7 @@ endfunction()
 function(compile_d_static_lib name input_d compiler_args linker_args libs)
     set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${compiler_args}")
     set(lflags "${linker_args}")
+
     conv_to_proper_args(dflags "${dflags}")
     conv_to_proper_args(lflags "${lflags}")
 
