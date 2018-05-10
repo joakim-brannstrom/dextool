@@ -89,8 +89,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
 
@@ -111,8 +110,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                     ++(*v);
                 else
                     mutationStat[mut_txt] = 1;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -133,8 +131,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                         testCaseStat[a] = 1;
                     }
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -152,8 +149,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 foreach (const a; r.testCases) {
                     testCaseMutationKilled[a][r.id] = true;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -199,8 +195,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
             if (ReportSection.tc_suggestion in sections)
                 updateTestCaseSuggestion;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }
@@ -225,21 +220,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             reportTestCaseKillMap(testCaseMutationKilled, mutationReprMap, &txtWriter, &writer);
         }
 
-        if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
-            logger.info("Test Case Kill Statistics");
-
-            long take_ = 20;
-            if (ReportSection.all_mut in sections)
-                take_ = 1024;
-
-            Table!3 tc_tbl;
-
-            tc_tbl.heading = ["Percentage", "Count", "TestCase"];
-            reportTestCaseStats(testCaseStat, tc_tbl, take_);
-
-            writeln(tc_tbl);
-        }
-
         if (ReportSection.mut_stat in sections && mutationStat.length != 0) {
             logger.info("Alive Mutation Statistics");
 
@@ -254,6 +234,22 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln;
+
+        if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
+            logger.info("Test Case Kill Statistics");
+
+            long take_ = 20;
+            if (ReportSection.all_mut in sections)
+                take_ = 1024;
+
+            Table!3 tc_tbl;
+
+            tc_tbl.heading = ["Percentage", "Count", "TestCase"];
+            const total = db.totalMutants(kinds);
+            reportTestCaseStats(testCaseStat, total.isNull ? 1 : total.count, take_, tc_tbl);
+
+            writeln(tc_tbl);
+        }
 
         if (ReportSection.tc_suggestion in sections && testCaseSuggestions.data.length != 0) {
             static void writer(ref Table!1 tbl) {

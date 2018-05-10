@@ -175,3 +175,33 @@ unittest {
         `        return true;*/'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
+
+@("shall report test cases with how many mutants killed correctly counting the sum of mutants to as two")
+unittest {
+    // regression that the count of mutations are the total are correct (killed+timeout+alive)
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", null);
+
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section", "tc_stat"])
+        .addArg(["--style", "plain"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "| Percentage | Count | TestCase |",
+        "|------------|-------|----------|",
+        "| 66.6667    | 2     | tc_2     |",
+        "| 33.3333    | 1     | tc_1     |",
+        "| 33.3333    | 1     | tc_3     |",
+    ]).shouldBeIn(r.stdout);
+}

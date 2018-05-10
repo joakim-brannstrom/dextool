@@ -210,8 +210,7 @@ struct Database {
             import core.time : dur;
 
             rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
@@ -244,18 +243,24 @@ struct Database {
 
     import dextool.plugin.mutate.backend.type;
 
-    alias aliveMutants = countMutants!(Mutation.Status.alive);
-    alias killedMutants = countMutants!(Mutation.Status.killed);
-    alias timeoutMutants = countMutants!(Mutation.Status.timeout);
-    alias unknownMutants = countMutants!(Mutation.Status.unknown);
-    alias killedByCompilerMutants = countMutants!(Mutation.Status.killedByCompiler);
+    alias aliveMutants = countMutants!([Mutation.Status.alive]);
+    alias killedMutants = countMutants!([Mutation.Status.killed]);
+    alias timeoutMutants = countMutants!([Mutation.Status.timeout]);
 
-    private Nullable!MutationReportEntry countMutants(int status)(const Mutation.Kind[] kinds) nothrow @trusted {
+    /// Returns: Total that should be counted when calculating the mutation score.
+    alias totalMutants = countMutants!([Mutation.Status.alive,
+            Mutation.Status.killed, Mutation.Status.timeout]);
+
+    alias unknownMutants = countMutants!([Mutation.Status.unknown]);
+    alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler]);
+
+    private Nullable!MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) nothrow @trusted {
         import core.time : dur;
         import std.algorithm : map;
         import std.format : format;
 
-        enum query = format("SELECT count(*),sum(mutation.time) FROM mutation WHERE status==%s AND kind IN (%s)",
+        enum query = format(
+                    "SELECT count(*),sum(mutation.time) FROM mutation WHERE status IN (%(%s,%)) AND kind IN (%s)",
                     status, "%(%s,%)");
 
         typeof(return) rval;
@@ -266,8 +271,7 @@ struct Database {
                 return rval;
             rval = MutationReportEntry(res.front.peek!long(0),
                     res.front.peek!long(1).dur!"msecs");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
@@ -359,8 +363,7 @@ struct Database {
                     m_stmt.execute;
                     m_stmt.reset;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
             }
         }
     }
@@ -383,8 +386,7 @@ struct Database {
             auto stmt = db.prepare(remove_old_sql);
             stmt.bind(":id", mut_id);
             stmt.execute;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
         }
 
         immutable add_new_sql = format("INSERT INTO %s (mut_id, test_case) VALUES(:mut_id, :tc)",
@@ -395,8 +397,7 @@ struct Database {
                 stmt.bind(":mut_id", mut_id);
                 stmt.bind(":tc", cast(string) tc);
                 stmt.execute;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
