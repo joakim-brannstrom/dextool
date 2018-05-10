@@ -246,14 +246,13 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     auto timeout = db.timeoutMutants(kinds);
     auto untested = db.unknownMutants(kinds);
     auto killed_by_compiler = db.killedByCompilerMutants(kinds);
+    const total = db.totalMutants(kinds);
 
     try {
         immutable align_ = 8;
 
-        const auto total_time = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.time.total!"msecs").sum.dur!"msecs";
-        const auto total_cnt = only(alive, killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count).sum;
+        const total_time = total.isNull ? 0.dur!"msecs" : total.time;
+        const total_cnt = total.isNull ? 0 : total.count;
         const auto killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
             .map!(a => a.count).sum;
         const auto untested_cnt = untested.isNull ? 0 : untested.count;
