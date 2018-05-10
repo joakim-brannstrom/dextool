@@ -26,6 +26,29 @@ make check
 make check_integration
 ```
 
+# API Documentation
+
+This describe how to build the API documentation for deXtool (all plugins and the support libraries).
+
+Re-configure cmake with the documentation directive on:
+```sh
+cd build
+cmake -DBUILD_DOC=ON ..
+```
+
+For the documentation tool to run it requires that dmd has created the `.json` files with type information. This is done by rebuilding all modules:
+```sh
+make clean
+make all
+```
+
+Now lets generate the documentation with the tool.
+```sh
+./tools/build_doc.d --ddox
+```
+
+If you do not have access to internet remove the `--ddox` parameter.
+
 # Plugin Test Strategy
 
 ## C/C++ Test Double Generator
