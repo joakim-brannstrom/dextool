@@ -89,8 +89,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
 
@@ -111,8 +110,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                     ++(*v);
                 else
                     mutationStat[mut_txt] = 1;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -133,8 +131,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                         testCaseStat[a] = 1;
                     }
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -152,8 +149,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 foreach (const a; r.testCases) {
                     testCaseMutationKilled[a][r.id] = true;
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
@@ -199,8 +195,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
             if (ReportSection.tc_suggestion in sections)
                 updateTestCaseSuggestion;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }

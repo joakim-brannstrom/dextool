@@ -70,8 +70,7 @@ auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, La
 
         auto mut = makeMutation(kind, lang);
         rval.mutation = mut.mutate(rval.original);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
 
@@ -85,8 +84,7 @@ string toInternal(ubyte[] data) @safe nothrow {
         auto result = () @trusted{ return cast(string) data; }();
         validate(result);
         return result;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
     }
 
     return invalidFile;
@@ -126,8 +124,7 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
             ];
             // dfmt on
             tbl.put(r);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -141,7 +138,8 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
  *  take_ = how many from the top should be moved to the table
  *  tbl = table to write the data to
  */
-void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total, const long take_, ref Table!3 tbl) @safe nothrow {
+void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
+        const long take_, ref Table!3 tbl) @safe nothrow {
     import std.algorithm : sort;
     import std.array : array;
     import std.conv : to;
@@ -152,8 +150,7 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total, co
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
             typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key];
             tbl.put(r);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
@@ -231,8 +228,7 @@ void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
                 tbl.put(row);
             }
             put(writer, tbl);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.warning(e.msg);
         }
     }
@@ -290,8 +286,7 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
                     cast(double) killed_cnt / cast(double) total_cnt);
         if (!killed_by_compiler.isNull)
             item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
 }
