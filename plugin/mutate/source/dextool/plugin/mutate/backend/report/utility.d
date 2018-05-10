@@ -133,13 +133,19 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
     }
 }
 
-void reportTestCaseStats(ref const long[TestCase] mut_stat, ref Table!3 tbl, long take_) @safe nothrow {
-    import std.algorithm : sum, sort;
+/** Update the table with the score of test cases and how many mutants they killed.
+ *
+ * Params:
+ *  mut_stat = holder of the raw statistics data to derive the mapping from
+ *  total = total number of mutants
+ *  take_ = how many from the top should be moved to the table
+ *  tbl = table to write the data to
+ */
+void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total, const long take_, ref Table!3 tbl) @safe nothrow {
+    import std.algorithm : sort;
     import std.array : array;
     import std.conv : to;
     import std.range : take;
-
-    long total = mut_stat.byValue.sum;
 
     foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(take_)) {
         try {

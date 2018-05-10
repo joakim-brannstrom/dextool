@@ -244,18 +244,22 @@ struct Database {
 
     import dextool.plugin.mutate.backend.type;
 
-    alias aliveMutants = countMutants!(Mutation.Status.alive);
-    alias killedMutants = countMutants!(Mutation.Status.killed);
-    alias timeoutMutants = countMutants!(Mutation.Status.timeout);
-    alias unknownMutants = countMutants!(Mutation.Status.unknown);
-    alias killedByCompilerMutants = countMutants!(Mutation.Status.killedByCompiler);
+    alias aliveMutants = countMutants!([Mutation.Status.alive]);
+    alias killedMutants = countMutants!([Mutation.Status.killed]);
+    alias timeoutMutants = countMutants!([Mutation.Status.timeout]);
 
-    private Nullable!MutationReportEntry countMutants(int status)(const Mutation.Kind[] kinds) nothrow @trusted {
+    /// Returns: Total that should be counted when calculating the mutation score.
+    alias totalMutants = countMutants!([Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout]);
+
+    alias unknownMutants = countMutants!([Mutation.Status.unknown]);
+    alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler]);
+
+    private Nullable!MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) nothrow @trusted {
         import core.time : dur;
         import std.algorithm : map;
         import std.format : format;
 
-        enum query = format("SELECT count(*),sum(mutation.time) FROM mutation WHERE status==%s AND kind IN (%s)",
+        enum query = format("SELECT count(*),sum(mutation.time) FROM mutation WHERE status IN (%(%s,%)) AND kind IN (%s)",
                     status, "%(%s,%)");
 
         typeof(return) rval;
