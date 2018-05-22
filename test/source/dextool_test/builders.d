@@ -46,7 +46,7 @@ struct BuildDextoolRun {
 
     /**
      * Params:
-     *  command = the executable to run
+     *  dextool = the executable to run
      *  workdir = directory to run the executable from
      */
     this(string dextool, string workdir) {
@@ -201,8 +201,7 @@ struct BuildDextoolRun {
                 core.thread.Thread.sleep(20.msecs);
             }
             sw.stop;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             stderr_ ~= [e.msg];
             sw.stop;
         }
@@ -344,8 +343,7 @@ struct BuildCommandRun {
             }
 
             sw.stop;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             stderr_ ~= [e.msg];
             sw.stop;
         }
