@@ -35,6 +35,8 @@ void test_expect_eq() {
     pod_one b = a;
 
     EXPECT_EQ(a, b);
+    if (a == b)
+        std::cout << "Equal check passed" << std::endl;
 
     b = a;
     b.int_ = 2;
@@ -76,6 +78,8 @@ void test_c_aggregate_eq() {
     primitive_aggregate_types agg_b = agg_a;
 
     EXPECT_EQ(agg_a, agg_b);
+    if (agg_a == agg_b)
+        std::cout << "Equal check passed" << std::endl;
 
     // test field by field to ensure that one doesn't hide another
     agg_b = agg_a;
