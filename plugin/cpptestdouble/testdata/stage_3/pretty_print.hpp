@@ -4,6 +4,8 @@
 #ifndef PRETTY_PRINT_HPP
 #define PRETTY_PRINT_HPP
 
+#include <vector>
+
 typedef int myInt;
 
 struct pod_two {
@@ -22,6 +24,18 @@ struct pod_one {
 
     myInt myInt_;
     myPod myPod_;
+};
+
+struct primitive_aggregate_types {
+    bool bool_arr[2];
+    int int_arr[2];
+    double double_arr[2];
+    char char_arr[2];
+};
+
+struct cpp_data_structure_types {
+    std::vector<int> int_vec;
+    std::vector<double> double_vec;
 };
 
 #endif // PRETTY_PRINT_HPP

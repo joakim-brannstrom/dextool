@@ -56,10 +56,28 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
     import logger = std.experimental.logger;
 
     import cpptooling.data.kind : resolveTypeRef;
-    import cpptooling.data : TypeKind, USRType, TypeAttr;
+    import cpptooling.data : TypeKind, USRType, TypeAttr, isIncompleteArray;
 
     auto findType(USRType a) {
         return container.find!TypeKind(a);
+    }
+
+    static void fieldCompare(string field, TypeKind canonical_t, CppModule code) {
+        if (canonical_t.info.kind == TypeKind.Info.Kind.primitive) {
+            auto info = cast(TypeKind.PrimitiveInfo) canonical_t.info;
+            // reuse google tests internal helper for floating points because it does an ULP*4
+            if (info.fmt.typeId.among("float", "double", "long double")) {
+                // long double do not work with the template thus reducing to a double
+                code.stmt(format(
+                        `acc = acc && ::testing::internal::CmpHelperFloatingPointEQ<%s>("", "", lhs.%s, rhs.%s)`,
+                        info.fmt.typeId == "long double" ? "double" : info.fmt.typeId, field, field));
+            } else {
+                code.stmt(E("acc") = E("acc && " ~ format("lhs.%s == rhs.%s", field, field)));
+            }
+        } else {
+            code.stmt(format(`acc = acc && ::testing::internal::CmpHelperEQ("", "", lhs.%s, rhs.%s)`,
+                    field, field));
+        }
     }
 
     auto ifndef = m.IFNDEF(format("%s_NO_CMP_%s", guard_prefix.toUpper,
@@ -74,18 +92,19 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
         TypeKind kind = mem.type.kind;
         auto canonical_t = resolveTypeRef(kind, &findType);
 
-        if (canonical_t.info.kind == TypeKind.Info.Kind.primitive) {
-            auto info = cast(TypeKind.PrimitiveInfo) canonical_t.info;
-            if (info.fmt.typeId.among("float", "double", "long double")) {
-                // reuse google tests internal helper for floating points because it does an ULP*4
-                func.stmt(format(`acc = acc && ::testing::internal::CmpHelperEQ("", "", lhs.%s, rhs.%s)`,
-                        mem.name, mem.name));
-            } else {
-                func.stmt(E("acc") = E("acc && " ~ format("lhs.%s == rhs.%s", mem.name, mem.name)));
-            }
+        // a constant array compares element vise. For now can only handle one dimensional arrays
+        if (canonical_t.info.kind == TypeKind.Info.Kind.array
+                && !isIncompleteArray(canonical_t.info.indexes)
+                && canonical_t.info.indexes.length == 1) {
+            auto elem_t = findType(canonical_t.info.element).front;
+            auto canonical_elem_t = resolveTypeRef(elem_t, &findType);
+            auto loop = func.for_("unsigned int dextool_i = 0",
+                    "dextool_i < " ~ canonical_t.info.indexes[0].to!string, "++dextool_i");
+            fieldCompare(mem.name ~ "[dextool_i]", canonical_elem_t, loop);
+            with (loop.if_("!acc"))
+                return_("false");
         } else {
-            func.stmt(format(`acc = acc && ::testing::internal::CmpHelperEQ("", "", lhs.%s, rhs.%s)`,
-                    mem.name, mem.name));
+            fieldCompare(mem.name, canonical_t, func);
         }
     }
 

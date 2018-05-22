@@ -98,6 +98,7 @@ void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
  * Params:
  *  value = actual value.
  *  expected = expected value.
+ *  sep = separator to split the value and expected on
  *  file = file check is in.
  *  line = line check is on.
  */
