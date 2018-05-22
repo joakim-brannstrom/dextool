@@ -129,6 +129,10 @@ struct Database {
     /** Update the status of a mutant and broadcast the status to other mutants at that point.
      *
      * Params:
+     *  id = mutation point is derived from this mutation ID
+     *  st = status to broadcast
+     *  d = mutation test time to broadcast
+     *  tcs = killed test cases to broadcast
      *  bcast = mutants to broadcast the status to in addition to the id
      */
     void updateMutationBroadcast(const MutationId id, const Mutation.Status st,
