@@ -23,7 +23,7 @@ struct MutationPoint {
     Mutation[] mutations;
 }
 
-/// Offset range. It is a [) (closed->open).
+/// Offset range. It is a `[)` (closed->open).
 struct Offset {
     uint begin;
     uint end;

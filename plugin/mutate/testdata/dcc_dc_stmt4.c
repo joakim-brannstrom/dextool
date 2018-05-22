@@ -22,3 +22,5 @@ int isPredicateFunc3(int x) {
     int r = x == TRUE;
     return r;
 }
+
+int testParameterMutation() { return isPredicateFunc3(TRUE); }
