@@ -76,10 +76,13 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
 
         if (canonical_t.info.kind == TypeKind.Info.Kind.primitive) {
             auto info = cast(TypeKind.PrimitiveInfo) canonical_t.info;
+            // reuse google tests internal helper for floating points because it does an ULP*4
             if (info.fmt.typeId.among("float", "double", "long double")) {
-                // reuse google tests internal helper for floating points because it does an ULP*4
-                func.stmt(format(`acc = acc && ::testing::internal::CmpHelperEQ("", "", lhs.%s, rhs.%s)`,
-                        mem.name, mem.name));
+                // long double do not work with the template thus reducing to a double
+                func.stmt(format(
+                        `acc = acc && ::testing::internal::CmpHelperFloatingPointEQ<%s>("", "", lhs.%s, rhs.%s)`,
+                        info.fmt.typeId == "long double"
+                        ? "double" : info.fmt.typeId, mem.name, mem.name));
             } else {
                 func.stmt(E("acc") = E("acc && " ~ format("lhs.%s == rhs.%s", mem.name, mem.name)));
             }

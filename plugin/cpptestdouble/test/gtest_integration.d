@@ -14,6 +14,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextool(testEnv)
         .addInputArg(pluginTestData ~ "stage_3/pretty_print.hpp")
+        .addArg(["--file-restrict", (pluginTestData ~ "stage_3").toString ~ ".*"])
         .run;
     dextool_test.makeCompile(testEnv, "g++")
         .addInclude(pluginTestData ~ "stage_3")
@@ -22,8 +23,47 @@ unittest {
         .addGtestArgs
         .outputToDefaultBinary
         .run;
-    makeCommand(testEnv, defaultBinary)
-        .run;
+    auto r = makeCommand(testEnv, defaultBinary).run;
+
+    r.stdout.sliceContains([
+        "begin: test_expect_eq",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:2 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:1 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:2 float_:2 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:2 float_:3 double_:2 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:2 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'b' (98, 0x62) myInt_:2 myPod_:x:2",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:2",
+        "To be equal to: b",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:1 myPod_:x:2",
+        "end: test_expect_eq",
+        "begin: test_expect_eq",
+        "Expected: a",
+        "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:0 myPod_:x:0",
+        "To be equal to: b",
+        "Which is: int_:1 long_:-2 float_:3 double_:4 long_double_:5 char_:'b' (98, 0x62) myInt_:0 myPod_:x:0",
+        "end: test_expect_eq",
+        "Passed",
+    ]);
 }
 
 @("shall generate pretty printers for structs in a namespace")
