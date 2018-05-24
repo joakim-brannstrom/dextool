@@ -1622,18 +1622,17 @@ body {
 
     const uint indent = this_indent + 1;
 
-    auto handleTyperef(ref Nullable!TypeResults rval) {
+    void handleTyperef(ref Nullable!TypeResults rval) {
+        import std.algorithm : filter;
+
         if (isFuncProtoTypedef(c)) {
             // this case is handled by handleTyperefFuncProto
             return;
         }
 
         // any TypeRef children and thus need to traverse the tree?
-        foreach (child; c.children.filterByTypeRef) {
-            if (!child.kind.among(CXCursorKind.typeRef)) {
-                break;
-            }
-
+        foreach (child; c.children.filterByTypeRef.filter!(a => a.kind == CXCursorKind.typeRef)
+                .takeOne) {
             auto tref = pass4(child, container, indent);
 
             auto type = c.type;
