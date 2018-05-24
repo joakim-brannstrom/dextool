@@ -187,7 +187,7 @@ struct Generator {
 
         auto implementation = makeImplementation(filtered, ctrl, params, container);
         logger.trace("Post processed:\n", implementation.toString());
-        logger.trace("kind: %s\nglobals: %s\nadapterKind: %s\n",
+        logger.tracef("kind: %s\nglobals: %s\nadapterKind: %s\n",
                 implementation.kind, implementation.globals, implementation.adapterKind);
 
         auto m = Modules.make();
