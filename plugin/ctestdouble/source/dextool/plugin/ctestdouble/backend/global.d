@@ -166,7 +166,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
 
         switch (global.underlying.info.kind) with (TypeKind.Info) {
         case Kind.array:
-            if (isIncompleteArray(global.type.kind.info.indexes)) {
+            if (isIncompleteArray(global.underlying.info.indexes)) {
                 body_.stmt(E("void** ptr") = E("(void**) &" ~ fqn));
                 body_.stmt("*ptr = 0");
             } else {
