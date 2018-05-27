@@ -26,11 +26,19 @@ struct pod_one {
     myPod myPod_;
 };
 
+typedef int MyIntArray[2];
+typedef double MyDoubleArray[2];
+typedef double MyDouble;
+typedef MyDouble MyMyDoubleArray[2];
+
 struct primitive_aggregate_types {
     bool bool_arr[2];
     int int_arr[2];
     double double_arr[2];
     char char_arr[2];
+    MyIntArray my_int_arr;
+    MyDoubleArray my_double_arr;
+    MyMyDoubleArray my_my_double_arr;
 };
 
 struct cpp_data_structure_types {

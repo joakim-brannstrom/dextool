@@ -1622,18 +1622,17 @@ body {
 
     const uint indent = this_indent + 1;
 
-    auto handleTyperef(ref Nullable!TypeResults rval) {
+    void handleTyperef(ref Nullable!TypeResults rval) {
+        import std.algorithm : filter;
+
         if (isFuncProtoTypedef(c)) {
             // this case is handled by handleTyperefFuncProto
             return;
         }
 
         // any TypeRef children and thus need to traverse the tree?
-        foreach (child; c.children.filterByTypeRef) {
-            if (!child.kind.among(CXCursorKind.typeRef)) {
-                break;
-            }
-
+        foreach (child; c.children.filterByTypeRef.filter!(a => a.kind == CXCursorKind.typeRef)
+                .takeOne) {
             auto tref = pass4(child, container, indent);
 
             auto type = c.type;
@@ -1648,7 +1647,7 @@ body {
         }
     }
 
-    auto handleDecl(ref Nullable!TypeResults rval) {
+    void handleDecl(ref Nullable!TypeResults rval) {
         auto child_ = c.children.takeOne;
         if (child_.length == 0 || !child_[0].kind.canConvertNodeDeclToType) {
             return;
@@ -1753,6 +1752,18 @@ body {
         rval.extra = [tref.primary] ~ tref.extra;
     }
 
+    void handleArray(ref Nullable!TypeResults rval) {
+        // a constant array typedef has an integerLiteral as child.
+        // handleDecl is built on the assumption that the first child of a
+        // declaration that is a typedef is the "reference". As can be seen it
+        // is wrong in the case for a constant array.
+        auto underlying_t = c.typedefUnderlyingType;
+
+        if (underlying_t.isArray) {
+            underlying(rval);
+        }
+    }
+
     // TODO investigate if this can be removed, aka always covered by underlying.
     auto fallback(ref Nullable!TypeResults rval) {
         // fallback, unable to represent as a typedef ref'ing a type
@@ -1761,8 +1772,8 @@ body {
     }
 
     typeof(return) rval;
-    foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleTyperef,
-            &handleFuncProto, &handleDecl, &underlying, &fallback]) {
+    foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleArray,
+            &handleTyperef, &handleFuncProto, &handleDecl, &underlying, &fallback]) {
         debug {
             import std.conv : to;
             import dextool.logger : trace;

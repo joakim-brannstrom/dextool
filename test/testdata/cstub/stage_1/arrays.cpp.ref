@@ -43,7 +43,7 @@ void Test_ZeroGlobals::extern_a() {
 }
 
 void Test_ZeroGlobals::extern_array() {
-    Test_memzero(&::extern_array, sizeof(::extern_array));
+    Test_memzero((void*)(::extern_array), sizeof(::extern_array));
 }
 
 void Test_ZeroGlobals::extern_b() {

@@ -155,7 +155,9 @@ struct Type {
     }
 
     @property bool isArray() const @safe {
-        return kind == CXTypeKind.constantArray || kind == CXTypeKind.incompleteArray;
+        import std.algorithm : among;
+
+        return kind.among(CXTypeKind.constantArray, CXTypeKind.incompleteArray) != 0;
     }
 
     @property bool isAnonymous() @safe {
