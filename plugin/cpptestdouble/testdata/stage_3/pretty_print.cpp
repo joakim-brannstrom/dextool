@@ -99,6 +99,14 @@ void test_c_aggregate_eq() {
     EXPECT_EQ(agg_a, agg_b);
 }
 
+class PrettyPrint : public ::testing::TestWithParam<primitive_aggregate_types> {
+};
+
+TEST_P(PrettyPrint, TestPrettyPrintOfFailedTest) { EXPECT_TRUE(false); };
+
+INSTANTIATE_TEST_CASE_P(PrettyPrint_Instance, PrettyPrint,
+                        ::testing::Values(primitive_aggregate_types()));
+
 int main(int argc, char** argv) {
     bool exit_status = true;
 
@@ -108,6 +116,10 @@ int main(int argc, char** argv) {
     test_c_aggregate_eq();
 
     std::cout << (exit_status ? "Passed" : "Failed") << std::endl;
+
+    testing::InitGoogleTest(&argc, argv);
+    // expecting one to fail thus all is fine
+    exit_status = exit_status && (RUN_ALL_TESTS() != 0);
 
     return !exit_status;
 }
