@@ -99,6 +99,21 @@ void test_c_aggregate_eq() {
     EXPECT_EQ(agg_a, agg_b);
 }
 
+void test_pp_of_nested_struct() {
+    begin();
+    nested a, b;
+    a.x.inner_member_a = 1;
+
+    b.x.inner_member_a = 2;
+    b.x.inner_member_b = 3;
+    b.y = 4;
+
+    // ensure at least one member is different
+    EXPECT_FALSE(a.x.inner_member_a == b.x.inner_member_a);
+
+    EXPECT_EQ(a, b);
+}
+
 class PrettyPrint : public ::testing::TestWithParam<primitive_aggregate_types> {
 };
 
@@ -114,6 +129,7 @@ int main(int argc, char** argv) {
     test_pretty_print_with_values();
     test_expect_eq();
     test_c_aggregate_eq();
+    test_pp_of_nested_struct();
 
     std::cout << (exit_status ? "Passed" : "Failed") << std::endl;
 
