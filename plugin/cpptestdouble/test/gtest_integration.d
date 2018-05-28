@@ -94,6 +94,15 @@ unittest {
         "To be equal to: agg_b",
         `Which is: bool_arr:{ true, false } int_arr:{ 1, 2 } double_arr:{ 0, 0 } char_arr:"b"`,
         "end: test_c_aggregate_eq",
+    ]).shouldBeTrue;
+    r.stdout.sliceContains([
+        "begin: test_pp_of_nested_struct",
+        "",
+        "Expected: a",
+        "Which is: x:inner_member_a:1 inner_member_b:0 y:0",
+        "To be equal to: b",
+        "Which is: x:inner_member_a:2 inner_member_b:3 y:4",
+        "end: test_pp_of_nested_struct",
         "Passed",
     ]).shouldBeTrue;
 }

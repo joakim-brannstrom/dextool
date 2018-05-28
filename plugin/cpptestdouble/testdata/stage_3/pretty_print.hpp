@@ -41,6 +41,16 @@ struct primitive_aggregate_types {
     MyMyDoubleArray my_my_double_arr;
 };
 
+struct inner {
+    int inner_member_a;
+    int inner_member_b;
+};
+
+struct nested {
+    inner x;
+    int y;
+};
+
 struct cpp_data_structure_types {
     std::vector<int> int_vec;
     std::vector<double> double_vec;
