@@ -29,6 +29,12 @@ if (llvm_config_CMD_status)
     message(FATAL_ERROR "Unable to compile the LLVM introspector: ${D_COMPILER} ${cmdflags} ${LLVM_CMD_SRC} -of${LLVM_CMD}")
 endif()
 
+execute_process(COMMAND ${LLVM_CMD} print-llvm-config-candidates
+    OUTPUT_VARIABLE llvm_config_CANDIDATES
+    RESULT_VARIABLE llvm_config_CANDIDATES_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(STATUS "${llvm_config_CANDIDATES_status} ${llvm_config_CANDIDATES}")
+
 execute_process(COMMAND ${LLVM_CMD} ldflags
     OUTPUT_VARIABLE llvm_config_LDFLAGS
     RESULT_VARIABLE llvm_config_LDFLAGS_status

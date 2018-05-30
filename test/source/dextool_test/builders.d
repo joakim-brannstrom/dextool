@@ -12,6 +12,7 @@ module dextool_test.builders;
 import scriptlike;
 
 import std.datetime.stopwatch : StopWatch;
+import std.path : buildPath;
 import std.range : isInputRange;
 import std.typecons : Yes, No, Flag;
 import std.traits : ReturnType;
