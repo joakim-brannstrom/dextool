@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool_test.golden;
 
+import std.path : buildPath;
+
 import scriptlike;
 
 struct BuildCompare {
@@ -107,8 +109,7 @@ private CompareResult compare(const Path gold, const Path result,
     try {
         goldf = File(gold.escapePath);
         resultf = File(result.escapePath);
-    }
-    catch (ErrnoException ex) {
+    } catch (ErrnoException ex) {
         res.errorMsg = ex.msg;
         res.status = false;
         return res;
