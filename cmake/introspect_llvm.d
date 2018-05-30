@@ -5,9 +5,6 @@ License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 This file extract information about the LLVM installation.
-
-TODO try to derive the "latest" llvm-config. Some installations have the binary
-as e.g. llvm-config-3.9.
 */
 import std.algorithm;
 import std.file;
@@ -19,8 +16,6 @@ import std.string;
 import std.variant;
 import std.typecons;
 import std.utf;
-
-immutable llvmCmd = "llvm-config";
 
 int main(string[] args) {
     if (args.length != 2) {
@@ -37,6 +32,7 @@ int main(string[] args) {
     cmds["libdir"] = &llvmLibdir;
     cmds["libclang"] = &llvmLibClang;
     cmds["libclang-flags"] = &llvmClangFlags;
+    cmds["print-llvm-config-candidates"] = &llvmPrintCandidates;
 
     if (auto f = args[1] in cmds)
         write((*f)().strip);
@@ -45,6 +41,10 @@ int main(string[] args) {
     }
 
     return 0;
+}
+
+string llvmPrintCandidates() {
+    return llvmCmd(true);
 }
 
 string llvmLdflags() {
@@ -148,7 +148,6 @@ Library findLib(string lib, PartialLibrary backup) {
 
 /** The order the paths are listed affects the priority. The higher up the
  * higher priority because only the first match is used.
- *
  */
 string[] llvmSearchPaths() {
     // dfmt off
@@ -165,4 +164,45 @@ string[] llvmSearchPaths() {
         "/usr/lib64/llvm",
     ];
     // dfmt on
+}
+
+/** Find a suitable llvm-config to use.
+
+  The primary is llvm-config. But not all systems have one installed but rather specific llvm-config for matching the lib version.
+  As fallback try to use the "latest" llvm-config.
+  */
+string llvmCmd(bool print_candidates = false) {
+    immutable llvm_cmd = "llvm-config";
+
+    // try to see if it works as-is.
+    try {
+        if (execute([llvm_cmd, "-h"]).status == 0)
+            return llvm_cmd;
+    } catch (Exception e) {
+    }
+
+    // dfmt off
+    string[] candidates = environment.get("PATH", null)
+        .splitter(":")
+        .filter!(a => !a.empty)
+        .filter!(a => exists(a))
+        .map!(a => dirEntries(a, SpanMode.shallow))
+        .map!(a => a.map!(a => a.name))
+        .joiner
+        .filter!(a => exists(a))
+        .filter!(a => a.baseName.startsWith(llvm_cmd))
+        .array
+        .sort
+        .retro
+        .array;
+    // dfmt on
+
+    if (print_candidates) {
+        writefln("llvm-config candidates: \n%(%s\n%)", candidates);
+        writeln("Using:");
+    }
+
+    foreach (a; candidates.takeOne)
+        return a;
+    return llvm_cmd;
 }
