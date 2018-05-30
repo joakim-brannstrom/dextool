@@ -6,3 +6,7 @@ typedef void* void_ptr;
 typedef void_ptr(typedef_func)();
 
 extern typedef_func func;
+
+typedef int(fn1_type)(int, int*);
+fn1_type fn;
+int fn1(int a, int* b);
