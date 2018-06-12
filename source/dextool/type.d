@@ -128,8 +128,6 @@ pure @nogc nothrow:
 
 /** The path is guaranteed to be the absolute path.
  *
- * TODO: change to using Path instead of FileName.
- *
  * The user of the type has to make an explicit judgment when using the
  * assignment operator. Either a `FileName` and then pay the cost of the path
  * expansion or an absolute which is already assured to be _ok_.
@@ -151,7 +149,7 @@ struct AbsolutePath {
         this.payload = p.payload;
     }
 
-    this(FileName p) {
+    this(Path p) {
         auto p_expand = () @trusted{ return p.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
@@ -159,7 +157,7 @@ struct AbsolutePath {
     }
 
     /// Build the normalised path from workdir.
-    this(FileName p, DirName workdir) {
+    this(Path p, DirName workdir) {
         auto p_expand = () @trusted{ return p.expandTilde; }();
         auto workdir_expand = () @trusted{ return workdir.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
