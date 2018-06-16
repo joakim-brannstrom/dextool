@@ -68,7 +68,6 @@ struct Pandoc {
     string metadata;
     string latexTemplate;
     string biblio;
-    string[] files;
 }
 
 void pandoc(Pandoc dat, string[] files, const string output) {
@@ -97,8 +96,7 @@ void pandoc(Pandoc dat, string[] files, const string output) {
     // generate first pass of the resolution of references
     try {
         run(["bibtex", output ~ ".aux"]);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
     }
     // resolve pass 1
     run(["pdflatex", output ~ ".latex"]);
