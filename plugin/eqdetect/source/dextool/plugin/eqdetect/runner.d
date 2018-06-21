@@ -38,6 +38,22 @@ ExitStatusType runPlugin(string[] args) {
         return ExitStatusType.Errors;
     }
 
+    import std.file;
+    import std.conv : to;
+    import std.algorithm : canFind;
+
+    File file = File(to!string(pargs.file), "r");
+    int i = 1;
+    while (!file.eof()) {
+        string s = file.readln();
+        if(canFind(s, "for") && !canFind(s, "//")){
+        writeln(to!string(i) ~ s);
+        }
+        i++;
+    }
+
+    file.close();
+
     return ExitStatusType.Ok;
 }
 
