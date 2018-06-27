@@ -38,7 +38,13 @@ ExitStatusType runPlugin(string[] args) {
         return ExitStatusType.Errors;
     }
 
-    import std.file;
+    import dextool.plugin.eqdetect.subfolder : ForFinder;
+    import std.conv : to;
+
+    ForFinder ff;
+    ff.search(to!string(pargs.file));
+
+    /*import std.file;
     import std.conv : to;
     import std.algorithm : canFind;
 
@@ -52,7 +58,7 @@ ExitStatusType runPlugin(string[] args) {
         i++;
     }
 
-    file.close();
+    file.close();*/
 
     return ExitStatusType.Ok;
 }
