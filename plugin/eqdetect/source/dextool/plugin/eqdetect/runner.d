@@ -1,18 +1,13 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2018, Nils Petersson & Niklas Pettersson. All rights reserved.
 License: MPL-2
-Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+Author: Nils Petersson (nilpe995@student.liu.se) & Niklas Pettersson (nikpe353@student.liu.se)
 
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-This file contains an example plugin that demonstrate how to:
- - interact with the clang AST
- - print the AST nodes when debugging is activated by the user via the command line
- - find all free functions and generate a dummy implementation.
-
-It is purely intended as an example to get started developing **your** plugin.
+TODO:Description of file
 */
 
 module dextool.plugin.runner;
@@ -38,29 +33,32 @@ ExitStatusType runPlugin(string[] args) {
         return ExitStatusType.Errors;
     }
 
-    import dextool.plugin.eqdetect.subfolder : ForFinder;
-    import std.conv : to;
+    //import dextool.plugin.eqdetect.subfolder : ForFinder;
+    //import std.conv : to;
 
-    ForFinder ff;
-    ff.search(to!string(pargs.file));
+    //ForFinder ff;
+    //ForFinder.search(to!string(pargs.file));
 
-    /*import std.file;
-    import std.conv : to;
-    import std.algorithm : canFind;
+    import dextool.utility : prependDefaultFlags, PreferLang;
 
-    File file = File(to!string(pargs.file), "r");
-    int i = 1;
-    while (!file.eof()) {
-        string s = file.readln();
-        if(canFind(s, "for") && !canFind(s, "//")){
-        writeln(to!string(i) ~ s);
-        }
-        i++;
+    const auto cflags = prependDefaultFlags(pargs.cflags, PreferLang.cpp);
+
+    import std.typecons : Yes;
+    import cpptooling.analyzer.clang.context : ClangContext;
+    import dextool.plugin.eqdetect.subfolder : TUVisitor;
+
+    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto visitor = new TUVisitor;
+
+    import dextool.utility : analyzeFile;
+
+    auto exit_status = analyzeFile(AbsolutePath(FileName(pargs.file)), cflags, visitor, ctx);
+
+    if (exit_status == ExitStatusType.Ok) {
+        writeln(visitor.generatedCode.render);
     }
 
-    file.close();*/
-
-    return ExitStatusType.Ok;
+    return exit_status;
 }
 
 /** Handle parsing of user arguments.
