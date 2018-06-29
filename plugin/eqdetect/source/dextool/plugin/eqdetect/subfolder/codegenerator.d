@@ -14,11 +14,20 @@ module dextool.plugin.eqdetect.subfolder.codegenerator;
 import dsrcgen.c;
 import clang.Cursor;
 
-class CodeGenerator{
-    import std.stdio;
-    @safe static void generate(Cursor[] children, CModule generatedCode){
-        foreach(Cursor c ; children){
-            writeln(c);
-        }
+class SnippetFinder{
+    @trusted static string generate(Cursor cursor, CModule generatedCode){
+        import std.stdio;
+        auto file = File(cursor.extent.path, "r");
+
+        import std.file: getSize;
+        auto buffer = file.rawRead(new char[getSize(cursor.extent.path)]);
+
+        import std.utf: validate, toUTF8;
+        buffer = buffer[cursor.extent.start.offset .. cursor.extent.end.offset];
+
+        file.close();
+
+        validate(buffer);
+        return toUTF8(buffer);
     }
 }

@@ -62,10 +62,6 @@ ExitStatusType runPlugin(string[] args) {
 }
 
 /** Handle parsing of user arguments.
-
-For a simple plugin this is overly complex. But a plugin very seldom stays
-simple. By keeping the user input parsing and validation separate from the rest
-of the program it become more robust to future changes.
 */
 struct RawConfiguration {
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;

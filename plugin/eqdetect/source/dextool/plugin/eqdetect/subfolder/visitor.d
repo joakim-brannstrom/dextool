@@ -17,10 +17,12 @@ import std.stdio;
 
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.cursor_logger : mixinNodeLog;
+    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.c;
 
     alias visit = Visitor.visit;
+
+    mixin generateIndentIncrDecr;
 
     CModule generatedCode;
 
@@ -75,9 +77,17 @@ final class TUVisitor : Visitor {
 
     override void visit(const(ForStmt) v){
         mixin(mixinNodeLog!());
-        
-        import dextool.plugin.eqdetect.subfolder : CodeGenerator;
-        CodeGenerator.generate(v.cursor.children, this.generatedCode);
+
+        import dextool.plugin.eqdetect.subfolder : SnippetFinder;
+        import std.conv: to;
+
+        generatedCode.text("Line: " ~ to!string(v.cursor.extent.start.line));
+        generatedCode.sep;
+
+        auto s = SnippetFinder.generate(v.cursor, this.generatedCode);
+
+        generatedCode.text(s);
+        generatedCode.sep;
 
         v.accept(this);
     }
