@@ -11,3 +11,4 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.eqdetect.subfolder;
 public import dextool.plugin.eqdetect.subfolder.codegenerator;
 public import dextool.plugin.eqdetect.subfolder.visitor;
+public import dextool.plugin.eqdetect.subfolder.dbhandler;

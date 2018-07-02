@@ -48,12 +48,18 @@ ExitStatusType runPlugin(string[] args) {
     import dextool.plugin.eqdetect.subfolder : TUVisitor;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+
+    import std.conv : to;
+    import dextool.plugin.eqdetect.subfolder : DbHandler;
+    auto s = new DbHandler(to!string(pargs.file));
+    writeln(s.getMutations());
+
     auto visitor = new TUVisitor;
 
     import dextool.utility : analyzeFile;
 
-    auto exit_status = analyzeFile(AbsolutePath(FileName(pargs.file)), cflags, visitor, ctx);
-
+    //auto exit_status = analyzeFile(AbsolutePath(FileName(pargs.file)), cflags, visitor, ctx);
+    auto exit_status = ExitStatusType.Ok;
     if (exit_status == ExitStatusType.Ok) {
         writeln(visitor.generatedCode.render);
     }
