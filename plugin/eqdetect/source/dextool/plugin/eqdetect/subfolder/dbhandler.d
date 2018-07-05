@@ -13,13 +13,16 @@ module dextool.plugin.eqdetect.subfolder.dbhandler;
 
 import d2sqlite3 : sqlDatabase = Database;
 import std.format : format;
+import std.typecons : Nullable, NullableRef, nullableRef;
+import dextool.plugin.mutate.backend.type;
+
 
 struct Mutation{
     string path;
     int offset_begin;
     int offset_end;
     int kind;
-
+    Language lang;
 }
 
 class DbHandler{
@@ -27,13 +30,15 @@ class DbHandler{
     sqlDatabase db;
 
     this(string filepath){
+        import std.stdio;
         this.path = filepath;
-        db = sqlDatabase(this.path);
+        db = sqlDatabase(path);
     }
 
     Mutation[] getMutations(){
         import std.conv : to;
         import std.stdio;
+        import std.path;
         auto stmt = db.prepare(format("SELECT mp_id, kind FROM mutation WHERE status='3';"));
         auto mutations = stmt.execute;
         Mutation[] mutation_list;
@@ -41,7 +46,9 @@ class DbHandler{
             Mutation mutation;
             mutation.kind = m.peek!int(1);
             mutation = getMutationPoint(mutation, m.peek!string(0));
-            mutation_list = mutation_list ~ mutation;
+            if(extension(mutation.path) != ".h"){
+                mutation_list = mutation_list ~ mutation;
+            }
         }
 
         return mutation_list;
@@ -49,21 +56,26 @@ class DbHandler{
 
     Mutation getMutationPoint(Mutation mutation, string mp_id){
         import std.stdio;
-        import std.conv;
+        import std.conv : to;
         auto stmt = db.prepare(format("SELECT file_id, offset_begin, offset_end FROM mutation_point WHERE id='%s';", mp_id));
         auto res = stmt.execute;
-        mutation.path = getFilePath(res.front.peek!string(0));
+        mutation = getFilePath(mutation, res.front.peek!string(0));
         mutation.offset_begin = res.front.peek!int(1);
         mutation.offset_end = res.front.peek!int(2);
 
         return mutation;
     }
 
-    string getFilePath(string file_id){
-        auto stmt = db.prepare(format("SELECT path FROM files WHERE id='%s';", file_id));
+    Mutation getFilePath(Mutation mutation, string file_id){
+        auto stmt = db.prepare(format("SELECT path, lang FROM files WHERE id='%s';", file_id));
         auto res = stmt.execute;
 
-        return res.front.peek!string(0);
+        auto path = res.front.peek!string(0);
+        path = "../" ~ path; //Ugly solution for now
+
+        mutation.path = path;
+        mutation.lang = res.front.peek!Language(1);
+        return mutation;
     }
 
 }

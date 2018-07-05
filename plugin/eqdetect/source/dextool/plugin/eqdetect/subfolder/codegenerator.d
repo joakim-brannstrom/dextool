@@ -13,9 +13,10 @@ module dextool.plugin.eqdetect.subfolder.codegenerator;
 
 import dsrcgen.c;
 import clang.Cursor;
+import dextool.plugin.eqdetect.subfolder.dbhandler : Mutation;
 
 class SnippetFinder{
-    @trusted static string generate(Cursor cursor, CModule generatedCode){
+    @trusted static string generate(Cursor cursor, CModule generatedCode, Mutation mutation){
         import std.stdio;
         auto file = File(cursor.extent.path, "r");
 
@@ -26,8 +27,28 @@ class SnippetFinder{
         buffer = buffer[cursor.extent.start.offset .. cursor.extent.end.offset];
 
         file.close();
-
+        mutation.offset_begin = mutation.offset_begin - cursor.extent.start.offset;
+        mutation.offset_end = mutation.offset_end - cursor.extent.start.offset;
+        buffer = buffer ~ "\n\n//Mutated code: \n" ~ generateMut(buffer, mutation);
         validate(buffer);
         return toUTF8(buffer);
+    }
+
+    @trusted static auto generateMut(char[] content, Mutation mutation){
+
+        import dextool.plugin.mutate.backend.generate_mutant: makeMutation;
+        import dextool.plugin.mutate.backend.type : Offset;
+        import dextool.plugin.mutate.backend.type : kindlol = Mutation;
+        import std.stdio;
+
+        // must copy the memory because content is backed by a memory mapped file and can thus change
+        //const string from_ = (cast(const(char)[]) content[mutation.offset_begin .. mutation.offset_end])
+        //    .idup;
+
+        auto mut = makeMutation(cast(kindlol.Kind)mutation.kind, mutation.lang);
+        auto temp = content[0 .. mutation.offset_begin];
+        temp = temp ~ mut.mutate(content[mutation.offset_begin .. mutation.offset_end]);
+        temp = temp ~ content[mutation.offset_end .. content.length];
+        return temp;
     }
 }

@@ -14,6 +14,8 @@ module dextool.plugin.eqdetect.subfolder.visitor;
 
 import cpptooling.analyzer.clang.ast : Visitor;
 import std.stdio;
+import clang.Cursor;
+
 
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
@@ -21,13 +23,20 @@ final class TUVisitor : Visitor {
     import dsrcgen.c;
 
     alias visit = Visitor.visit;
-
     mixin generateIndentIncrDecr;
-
     CModule generatedCode;
+    int offset;
+    int offset_end;
+    bool generated = false;
 
-    this() {
+    import dextool.plugin.eqdetect.subfolder : Mutation;
+    Mutation mutation;
+
+    this(Mutation m) {
         this.generatedCode = new CModule();
+        this.mutation = m;
+        this.offset = m.offset_begin;
+        this.offset_end = m.offset_end;
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -42,11 +51,13 @@ final class TUVisitor : Visitor {
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
+        generateCode(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
+        generateCode(v.cursor);
         v.accept(this);
     }
 
@@ -75,20 +86,33 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
+    override void visit(const(Namespace) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
     override void visit(const(ForStmt) v){
         mixin(mixinNodeLog!());
-
-        import dextool.plugin.eqdetect.subfolder : SnippetFinder;
-        import std.conv: to;
-
-        generatedCode.text("Line: " ~ to!string(v.cursor.extent.start.line));
-        generatedCode.sep;
-
-        auto s = SnippetFinder.generate(v.cursor, this.generatedCode);
-
-        generatedCode.text(s);
-        generatedCode.sep;
-
         v.accept(this);
+    }
+    @trusted bool inInterval(Cursor c){
+        return ((c.extent.end.offset>=offset) && (c.extent.start.offset<=offset));
+    }
+
+    @trusted void generateCode(Cursor c){
+        import std.path;
+        if(!generated && inInterval(c) && c.extent.path.length != 0
+        && baseName(mutation.path) == baseName(c.extent.path)){
+            import dextool.plugin.eqdetect.subfolder : SnippetFinder;
+            this.generatedCode.sep;
+
+            auto s = SnippetFinder.generate(c, this.generatedCode, this.mutation);
+
+            this.generatedCode.text(s);
+            this.generatedCode.sep;
+
+            generated = true;
+
+        }
     }
 }
