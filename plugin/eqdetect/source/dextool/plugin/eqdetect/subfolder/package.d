@@ -12,3 +12,4 @@ module dextool.plugin.eqdetect.subfolder;
 public import dextool.plugin.eqdetect.subfolder.codegenerator;
 public import dextool.plugin.eqdetect.subfolder.visitor;
 public import dextool.plugin.eqdetect.subfolder.dbhandler;
+public import dextool.plugin.eqdetect.subfolder.filewriter;

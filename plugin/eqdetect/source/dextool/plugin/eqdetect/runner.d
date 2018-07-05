@@ -56,7 +56,9 @@ ExitStatusType runPlugin(string[] args) {
         visitor = new TUVisitor(m);
 
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
-        writeln(visitor.generatedCode.render);
+        import std.path : baseName;
+        import dextool.plugin.eqdetect.subfolder : writeToFile;
+        writeToFile(visitor.generatedCode.render, baseName(m.path), m.kind);
         writeln("---------------------------------------");
     }
 
