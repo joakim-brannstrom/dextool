@@ -7,7 +7,17 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-TODO:Description of file
+This module contains the database connection for eqdetect. It uses the d2sqlite3 package
+to create and establish connection to the physical database by providing the path to it.
+
+Mutation-struct:
+A simplified version of the MutationEntry in mutate that handles the information needed
+by dbhandler and SnippetFinder in codegenerator.d.
+
+TODO:
+- Use standalone db from mutate
+- Possibly utilize MutationEntry instead of creating new struct
+- Refactor and move Mutation struct to separate file
 */
 module dextool.plugin.eqdetect.subfolder.dbhandler;
 
@@ -30,22 +40,24 @@ class DbHandler{
     sqlDatabase db;
 
     this(string filepath){
-        import std.stdio;
-        this.path = filepath;
+        path = filepath;
         db = sqlDatabase(path);
     }
 
     Mutation[] getMutations(){
-        import std.conv : to;
-        import std.stdio;
         import std.path;
+
+        // status could be user-input instead of hardcoded
         auto stmt = db.prepare(format("SELECT mp_id, kind FROM mutation WHERE status='3';"));
         auto mutations = stmt.execute;
+
         Mutation[] mutation_list;
+
         foreach(m; mutations){
             Mutation mutation;
             mutation.kind = m.peek!int(1);
             mutation = getMutationPoint(mutation, m.peek!string(0));
+
             if(extension(mutation.path) != ".h"){
                 mutation_list = mutation_list ~ mutation;
             }
@@ -55,10 +67,9 @@ class DbHandler{
     }
 
     Mutation getMutationPoint(Mutation mutation, string mp_id){
-        import std.stdio;
-        import std.conv : to;
         auto stmt = db.prepare(format("SELECT file_id, offset_begin, offset_end FROM mutation_point WHERE id='%s';", mp_id));
         auto res = stmt.execute;
+
         mutation = getFilePath(mutation, res.front.peek!string(0));
         mutation.offset_begin = res.front.peek!int(1);
         mutation.offset_end = res.front.peek!int(2);
@@ -72,9 +83,9 @@ class DbHandler{
 
         auto path = res.front.peek!string(0);
         path = "../" ~ path; //Ugly solution for now
-
         mutation.path = path;
         mutation.lang = res.front.peek!Language(1);
+
         return mutation;
     }
 

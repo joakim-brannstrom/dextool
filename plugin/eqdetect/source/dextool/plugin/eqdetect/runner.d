@@ -7,7 +7,8 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-TODO:Description of file
+TODO:
+- Fix exit_status in runPlugin
 */
 
 module dextool.plugin.runner;
@@ -48,8 +49,6 @@ ExitStatusType runPlugin(string[] args) {
 
     TUVisitor visitor;
     auto exit_status = ExitStatusType.Ok;
-
-    //TODO: Fix exit_status
 
     import dextool.utility : analyzeFile;
 

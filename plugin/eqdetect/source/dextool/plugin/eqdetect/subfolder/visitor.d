@@ -7,7 +7,14 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-TODO:Description of file
+This module contains the functionality of traversing the given file using Visitors
+and the AST imported from clang. It searches the current visiting node for the mutant
+and if found (in the interval of the current cursor) it extracts the code using SnippetFinder
+and generates code in the form of text by using the dsrcgen library.
+
+TODO:
+- Utilize more of the visited statements and declaration for finding all mutants.
+- Track dependencies and use SnippetFinder for extracting them.
 */
 
 module dextool.plugin.eqdetect.subfolder.visitor;
@@ -103,16 +110,15 @@ final class TUVisitor : Visitor {
         import std.path;
         if(!generated && inInterval(c) && c.extent.path.length != 0
         && baseName(mutation.path) == baseName(c.extent.path)){
-            import dextool.plugin.eqdetect.subfolder : SnippetFinder;
             this.generatedCode.sep;
 
+            import dextool.plugin.eqdetect.subfolder : SnippetFinder;
             auto s = SnippetFinder.generate(c, this.generatedCode, this.mutation);
 
             this.generatedCode.text(s);
             this.generatedCode.sep;
 
             generated = true;
-
         }
     }
 }
