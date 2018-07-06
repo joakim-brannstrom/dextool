@@ -24,7 +24,7 @@ Example on usage with the include-flag:
 dextool eqdetect --in=dextool_mutation.sqlite3 -- -I/path/to/include/library1/ -I/path/to/include/library2/
 ```
 
-## Output
+# Output
 
 The plugin creates separate files for the mutant and the original source code in order to later include them in the generated file prepared for KLEE execution.
 
@@ -33,4 +33,8 @@ The files generated follow the following pattern:
 - Source-files: *filename_source_mutantID_mutantKind.cpp*
 - Mutant-files: *filename_mutant_mutantID_mutantKind.cpp*
 
-These files will be created in a directory where the plugin is run and will have the name *eqdetect_generated_files*. The plugin takes care of creation of this directory, an
+These files will be created in a directory where the plugin is run and will have the name *eqdetect_generated_files*.
+
+# ! Disclaimer !
+
+This plugin is under development and only works for specific functions that have been mutated in a specific way. The aim is to be able to conduct symbolic execution and constraint solving on every mutation generated in order to detect equivalence mutants.
