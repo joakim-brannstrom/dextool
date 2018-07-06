@@ -33,6 +33,7 @@ struct Mutation{
     int offset_end;
     int kind;
     Language lang;
+    int id;
 }
 
 class DbHandler{
@@ -48,7 +49,7 @@ class DbHandler{
         import std.path;
 
         // status could be user-input instead of hardcoded
-        auto stmt = db.prepare(format("SELECT mp_id, kind FROM mutation WHERE status='3';"));
+        auto stmt = db.prepare(format("SELECT mp_id, kind, id FROM mutation WHERE status='3';"));
         auto mutations = stmt.execute;
 
         Mutation[] mutation_list;
@@ -56,6 +57,7 @@ class DbHandler{
         foreach(m; mutations){
             Mutation mutation;
             mutation.kind = m.peek!int(1);
+            mutation.id = m.peek!int(2);
             mutation = getMutationPoint(mutation, m.peek!string(0));
 
             if(extension(mutation.path) != ".h"){

@@ -31,7 +31,8 @@ final class TUVisitor : Visitor {
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
-    CModule generatedCode;
+    CModule generatedSource;
+    CModule generatedMutation;
     int offset;
     int offset_end;
     bool generated = false;
@@ -40,7 +41,8 @@ final class TUVisitor : Visitor {
     Mutation mutation;
 
     this(Mutation m) {
-        this.generatedCode = new CModule();
+        this.generatedSource = new CModule();
+        this.generatedMutation = new CModule();
         this.mutation = m;
         this.offset = m.offset_begin;
         this.offset_end = m.offset_end;
@@ -110,13 +112,12 @@ final class TUVisitor : Visitor {
         import std.path;
         if(!generated && inInterval(c) && c.extent.path.length != 0
         && baseName(mutation.path) == baseName(c.extent.path)){
-            this.generatedCode.sep;
 
             import dextool.plugin.eqdetect.subfolder : SnippetFinder;
-            auto s = SnippetFinder.generate(c, this.generatedCode, this.mutation);
+            auto s = SnippetFinder.generate(c, this.mutation);
 
-            this.generatedCode.text(s);
-            this.generatedCode.sep;
+            this.generatedSource.text(s[0]);
+            this.generatedMutation.text(s[1]);
 
             generated = true;
         }

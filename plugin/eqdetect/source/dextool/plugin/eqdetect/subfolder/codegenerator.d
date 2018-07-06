@@ -22,22 +22,22 @@ import clang.Cursor;
 import dextool.plugin.eqdetect.subfolder.dbhandler : Mutation;
 
 class SnippetFinder{
-    @trusted static string generate(Cursor cursor, CModule generatedCode, Mutation mutation){
+    @trusted static string[] generate(Cursor cursor, Mutation mutation){
         import std.stdio;
         auto file = File(cursor.extent.path, "r");
 
         import std.file: getSize;
         auto buffer = file.rawRead(new char[getSize(cursor.extent.path)]);
-        file.close();
 
         buffer = buffer[cursor.extent.start.offset .. cursor.extent.end.offset];
         mutation.offset_begin = mutation.offset_begin - cursor.extent.start.offset;
         mutation.offset_end = mutation.offset_end - cursor.extent.start.offset;
-        buffer = buffer ~ "\n\n//Mutated code: \n" ~ generateMut(buffer, mutation);
+        auto mutation_buffer = generateMut(buffer, mutation);
 
         import std.utf: validate, toUTF8;
         validate(buffer);
-        return toUTF8(buffer);
+        validate(mutation_buffer);
+        return [toUTF8(buffer), toUTF8(mutation_buffer)];
     }
 
     @trusted static auto generateMut(char[] content, Mutation mutation){

@@ -58,7 +58,8 @@ ExitStatusType runPlugin(string[] args) {
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
         import std.path : baseName;
         import dextool.plugin.eqdetect.subfolder : writeToFile;
-        writeToFile(visitor.generatedCode.render, baseName(m.path), m.kind);
+        writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, false);
+        writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, true);
         writeln("---------------------------------------");
     }
 
