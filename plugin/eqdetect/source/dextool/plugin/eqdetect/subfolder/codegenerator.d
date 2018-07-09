@@ -37,7 +37,7 @@ class SnippetFinder{
         import std.utf: validate, toUTF8;
         validate(buffer);
         validate(mutation_buffer);
-        return [toUTF8(buffer), toUTF8(mutation_buffer)];
+        return [generateNamespace(toUTF8(buffer), "source"), generateNamespace(toUTF8(mutation_buffer), "mutant")];
     }
 
     @trusted static auto generateMut(char[] content, Mutation mutation){
@@ -53,46 +53,62 @@ class SnippetFinder{
     }
 
     @trusted static auto generateKlee(string[] params, string source_name, string mutant_name, string function_name){
-        import std.stdio;
         import std.format;
+
         //string code;
         import dsrcgen.c;
         auto code = new CModule();
+
         //add klee imports
-        code.include("<klee/klee.h>");
-        code.include("<assert.h>");
+        code.include(`<klee/klee.h>`);
+        code.include(`<assert.h>`);
 
         //add import for files under test
-        code.include(format("\"%s\"", source_name));
-        code.include(format("\"%s\"", mutant_name));
+        code.include(format(`%s`, source_name));
+        code.include(format(`%s`, mutant_name));
 
         string func_params;
         //add klee-main
-        with(code.func_body("int", "main")){
+
+        with(code.func_body(`int`, `main`)){
+
             //variable declaration
             for(int i = 0; i < params.length; i++){
-                stmt(format("%s var%s;", params[i], i));
-                func_params = func_params ~ format("var%s,", i);
+                stmt(format(`%s var%s;`, params[i], i));
+                func_params = func_params ~ format(`var%s,`, i);
             }
+
+            //remove last comma that was inserted into the parameters
             func_params = func_params[0..$-1];
+
             //symbolic variable for each parameter
             for(int i = 0; i < params.length; i++){
-                stmt(format("klee_make_symbolic(&var%s, sizeof(%s), \"var%s\")", i, params[i], i));
+                stmt(format(`klee_make_symbolic(&var%s, sizeof(%s), "var%s")`, i, params[i], i));
             }
-            //equivalence detection
-            import std .path;
-            with(if_(format("%s.%s == %s.%s",
-                stripExtension(source_name), format("%s(%s)",function_name, func_params),
-                stripExtension(mutant_name), format("%s(%s)",function_name, func_params)))){
 
-                return_("1");
+            //equivalence detection
+            with(if_(format(`source::%s(%s) == mutant::%s(%s)`,
+                function_name, func_params, function_name, func_params))){
+                return_(`1`);
             }
+
             with(else_){
-                stmt("klee_assert(0);");
-                return_("2");
+                stmt(`klee_assert(0)`);
+                return_(`0`);
             }
 
         }
         return code.render;
+    }
+
+    @trusted static string generateNamespace(string namespace_code, string namespace_name){
+        namespace_code = `namespace ` ~ namespace_name ~ ` {
+
+` ~ namespace_code ~ `
+
+}
+`;
+
+        return namespace_code;
     }
 }

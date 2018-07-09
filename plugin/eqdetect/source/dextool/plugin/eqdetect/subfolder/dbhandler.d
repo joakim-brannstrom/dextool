@@ -49,7 +49,7 @@ class DbHandler{
         import std.path;
 
         // status could be user-input instead of hardcoded
-        auto stmt = db.prepare(format("SELECT mp_id, kind, id FROM mutation WHERE status='3';"));
+        auto stmt = db.prepare(format("SELECT mp_id, kind, id FROM mutation WHERE status='2';"));
         auto mutations = stmt.execute;
 
         Mutation[] mutation_list;
