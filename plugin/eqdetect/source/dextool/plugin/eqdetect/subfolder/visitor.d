@@ -36,6 +36,8 @@ final class TUVisitor : Visitor {
     int offset;
     int offset_end;
     bool generated = false;
+    string function_name;
+    string[] function_params;
 
     import dextool.plugin.eqdetect.subfolder : Mutation;
     Mutation mutation;
@@ -64,9 +66,19 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    @trusted override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
         generateCode(v.cursor);
+        import dextool.plugin.eqdetect.subfolder : SnippetFinder;
+        if(inInterval(v.cursor)){
+            import clang.c.Index;
+            function_name = v.cursor.tokens[1].spelling;
+            foreach(c;v.cursor.children){
+                if(c.kind == CXCursorKind.parmDecl){
+                    function_params = function_params ~ c.tokens[0].spelling;
+                }
+            }
+        }
         v.accept(this);
     }
 

@@ -51,4 +51,48 @@ class SnippetFinder{
         temp = temp ~ content[mutation.offset_end .. content.length];
         return temp;
     }
+
+    @trusted static auto generateKlee(string[] params, string source_name, string mutant_name, string function_name){
+        import std.stdio;
+        import std.format;
+        //string code;
+        import dsrcgen.c;
+        auto code = new CModule();
+        //add klee imports
+        code.include("<klee/klee.h>");
+        code.include("<assert.h>");
+
+        //add import for files under test
+        code.include(format("\"%s\"", source_name));
+        code.include(format("\"%s\"", mutant_name));
+
+        string func_params;
+        //add klee-main
+        with(code.func_body("int", "main")){
+            //variable declaration
+            for(int i = 0; i < params.length; i++){
+                stmt(format("%s var%s;", params[i], i));
+                func_params = func_params ~ format("var%s,", i);
+            }
+            func_params = func_params[0..$-1];
+            //symbolic variable for each parameter
+            for(int i = 0; i < params.length; i++){
+                stmt(format("klee_make_symbolic(&var%s, sizeof(%s), \"var%s\")", i, params[i], i));
+            }
+            //equivalence detection
+            import std .path;
+            with(if_(format("%s.%s == %s.%s",
+                stripExtension(source_name), format("%s(%s)",function_name, func_params),
+                stripExtension(mutant_name), format("%s(%s)",function_name, func_params)))){
+
+                return_("1");
+            }
+            with(else_){
+                stmt("klee_assert(0);");
+                return_("2");
+            }
+
+        }
+        return code.render;
+    }
 }

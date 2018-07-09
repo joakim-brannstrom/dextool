@@ -11,10 +11,10 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.eqdetect.subfolder.filewriter;
 
-static void writeToFile(string text_to_write, string base, int kind, int id, bool isMutation){
+static string writeToFile(string text_to_write, string base, int kind, int id, string filetype){
     import std.stdio : File;
     import std.conv : to;
-    import std.path : stripExtension, extension;
+    import std.path : stripExtension, extension, baseName;
     import std.file : mkdirRecurse;
     import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
 
@@ -23,14 +23,11 @@ static void writeToFile(string text_to_write, string base, int kind, int id, boo
 
     string filename;
 
-    if (!isMutation){
-        filename = dir ~ "/" ~ stripExtension(base) ~ "_source_" ~ to!string(id) ~ "_"
-        ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
-    } else {
-        filename = dir ~ "/" ~ stripExtension(base) ~ "_mutation_" ~ to!string(id) ~ "_"
-        ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
-    }
+    filename = dir ~ "/" ~ stripExtension(base) ~ filetype ~ to!string(id) ~ "_"
+    ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
 
     auto file = File(filename, "w");
     file.write(text_to_write);
+
+    return baseName(filename);
 }

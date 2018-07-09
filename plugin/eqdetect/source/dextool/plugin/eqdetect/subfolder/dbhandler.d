@@ -83,8 +83,9 @@ class DbHandler{
         auto stmt = db.prepare(format("SELECT path, lang FROM files WHERE id='%s';", file_id));
         auto res = stmt.execute;
 
+        import std.path;
         auto path = res.front.peek!string(0);
-        path = "../" ~ path; //Ugly solution for now
+        path = buildPath("../" ~ path); //Ugly solution for now
         mutation.path = path;
         mutation.lang = res.front.peek!Language(1);
 
