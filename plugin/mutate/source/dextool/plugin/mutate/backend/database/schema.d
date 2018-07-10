@@ -49,7 +49,7 @@ import logger = std.experimental.logger;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 3;
+immutable latestSchemaVersion = 4;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -155,6 +155,16 @@ immutable mutation_tbl = "CREATE TABLE %s (
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 
+immutable mutation4_tbl = "CREATE TABLE %s (
+    id      INTEGER PRIMARY KEY,
+    mp_id   INTEGER NOT NULL,
+    kind    INTEGER NOT NULL,
+    status  INTEGER NOT NULL,
+    time    INTEGER,
+    eq      INTEGER,
+    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
+    )";
+
 // test_case is whatever identifier the user choose.
 // this could use an intermediate adapter table to normalise the test_case data
 // but I chose not to do that because it makes it harder to add test cases and
@@ -207,6 +217,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[0] = &upgradeV0;
     tbl[1] = &upgradeV1;
     tbl[2] = &upgradeV2;
+    tbl[3] = &upgradeV3;
 
     while (true) {
         long version_ = 0;
@@ -273,4 +284,18 @@ void upgradeV2(ref sqlDatabase db) {
     db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, filesTable));
 
     updateSchemaVersion(db, 3);
+}
+
+/// 2018-07-10
+void upgradeV3(ref sqlDatabase db) {
+    import std.format : format;
+
+    immutable new_tbl = "new_" ~ mutationTable;
+    db.run(format(mutation4_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,mp_id,kind,status,time) SELECT * FROM %s",
+            new_tbl, mutationTable));
+    db.run(format("DROP TABLE %s", mutationTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, mutationTable));
+
+    updateSchemaVersion(db, 4);
 }
