@@ -63,8 +63,22 @@ ExitStatusType runPlugin(string[] args) {
         auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
         mutant_path, visitor.function_name);
         writeToFile(s, baseName(m.path), m.kind, m.id, "_klee_");
+
+        import std.process;
+        import std.file: getcwd;
+        import std.format : format;
+
+        auto cwd = getcwd();
+
+        writeln(executeShell(format("docker run -it --name=klee_container -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
+        executeShell("docker rm klee_container");
+        executeShell("rm -rf eqdetect_generated_files/*");
+
         writeln("---------------------------------------");
     }
+
+    import std.process;
+    writeln(executeShell("cat errors.txt").output);
 
     return exit_status;
 }
