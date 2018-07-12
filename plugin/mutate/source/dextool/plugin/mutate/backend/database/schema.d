@@ -155,13 +155,14 @@ immutable mutation_tbl = "CREATE TABLE %s (
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 
+// added column for equivalence status
 immutable mutation4_tbl = "CREATE TABLE %s (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
     time    INTEGER,
-    eq      INTEGER,
+    eq      INTEGER NOT NULL,
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
     )";
 

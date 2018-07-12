@@ -308,7 +308,7 @@ struct Database {
 
         auto mp_stmt = db.prepare("INSERT INTO mutation_point (file_id, offset_begin, offset_end, line, column) VALUES (:fid, :begin, :end, :line, :column)");
         auto m_stmt = db.prepare(
-                "INSERT INTO mutation (mp_id, kind, status) VALUES (:mp_id, :kind, :status)");
+                "INSERT INTO mutation (mp_id, kind, status, eq) VALUES (:mp_id, :kind, :status, :eq)");
 
         db.begin;
         scope (success)
@@ -364,6 +364,7 @@ struct Database {
                 foreach (k; a.mp.mutations) {
                     m_stmt.bind(":kind", k.kind);
                     m_stmt.bind(":status", k.status);
+                    m_stmt.bind(":eq", 0); //always zero at this point
                     m_stmt.execute;
                     m_stmt.reset;
                 }
