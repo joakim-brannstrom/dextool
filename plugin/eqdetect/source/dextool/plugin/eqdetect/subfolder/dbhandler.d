@@ -47,7 +47,6 @@ class DbHandler{
 
     Mutation[] getMutations(){
         import std.path;
-
         // status could be user-input instead of hardcoded
         auto stmt = db.prepare(format("SELECT mp_id, kind, id FROM mutation WHERE status='2';"));
         auto mutations = stmt.execute;
@@ -90,6 +89,12 @@ class DbHandler{
         mutation.lang = res.front.peek!Language(1);
 
         return mutation;
+    }
+
+    void setEquivalence(int mutation_id, int status){
+        import std.conv;
+        auto stmt = db.prepare(format("UPDATE mutation SET eq='%s' WHERE id='%s';", status, mutation_id));
+        auto res = stmt.execute;
     }
 
 }

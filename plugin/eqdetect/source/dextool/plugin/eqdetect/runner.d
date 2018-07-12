@@ -47,10 +47,13 @@ ExitStatusType runPlugin(string[] args) {
     auto dbHandler = new DbHandler(to!string(pargs.file));
     Mutation[] mutations = dbHandler.getMutations();
 
+
     TUVisitor visitor;
     auto exit_status = ExitStatusType.Ok;
 
     import dextool.utility : analyzeFile;
+    import dextool.plugin.eqdetect.subfolder.parser : errorTextParser, ErrorResult;
+    ErrorResult errorResult;
 
     foreach(m ; mutations){
         visitor = new TUVisitor(m);
@@ -74,11 +77,23 @@ ExitStatusType runPlugin(string[] args) {
         executeShell("docker rm klee_container");
         executeShell("rm -rf eqdetect_generated_files/*");
 
+        errorResult = errorTextParser("result.txt");
+        executeShell("rm result.txt");
+
+        auto dbHandler2 = new DbHandler(to!string(pargs.file));
+
+        if(errorResult.status == "Assert" || errorResult.status == "Abort"){
+            dbHandler2.setEquivalence(m.id, 1);
+        }
+        else if(errorResult.status == "Halt"){
+            dbHandler2.setEquivalence(m.id, 3);
+        }
+        else{
+            dbHandler2.setEquivalence(m.id, 2);
+        }
+
         writeln("---------------------------------------");
     }
-
-    import std.process;
-    writeln(executeShell("cat errors.txt").output);
 
     return exit_status;
 }
