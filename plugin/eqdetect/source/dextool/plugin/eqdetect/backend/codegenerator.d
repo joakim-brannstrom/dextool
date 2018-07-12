@@ -19,7 +19,7 @@ module dextool.plugin.eqdetect.backend.codegenerator;
 
 import dsrcgen.c;
 import clang.Cursor;
-import dextool.plugin.eqdetect.backend.dbhandler : Mutation;
+import dextool.plugin.eqdetect.backend.type : Mutation;
 
 class SnippetFinder{
     @trusted static string[] generate(Cursor cursor, Mutation mutation){

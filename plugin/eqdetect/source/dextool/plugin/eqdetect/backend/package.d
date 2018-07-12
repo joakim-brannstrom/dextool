@@ -14,3 +14,4 @@ public import dextool.plugin.eqdetect.backend.visitor;
 public import dextool.plugin.eqdetect.backend.dbhandler;
 public import dextool.plugin.eqdetect.backend.filewriter;
 public import dextool.plugin.eqdetect.backend.parser;
+public import dextool.plugin.eqdetect.backend.type;

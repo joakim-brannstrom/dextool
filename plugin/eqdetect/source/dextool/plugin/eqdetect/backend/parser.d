@@ -10,10 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 module dextool.plugin.eqdetect.backend.parser;
 
-struct ErrorResult{
-    char[][] inputdata;
-    char[] status;
-}
+import dextool.plugin.eqdetect.backend.type: ErrorResult;
 
 static ErrorResult errorTextParser(string filepath){
     import std.stdio;

@@ -17,7 +17,6 @@ by dbhandler and SnippetFinder in codegenerator.d.
 TODO:
 - Use standalone db from mutate
 - Possibly utilize MutationEntry instead of creating new struct
-- Refactor and move Mutation struct to separate file
 */
 module dextool.plugin.eqdetect.backend.dbhandler;
 
@@ -25,16 +24,7 @@ import d2sqlite3 : sqlDatabase = Database;
 import std.format : format;
 import std.typecons : Nullable, NullableRef, nullableRef;
 import dextool.plugin.mutate.backend.type;
-
-
-struct Mutation{
-    string path;
-    int offset_begin;
-    int offset_end;
-    int kind;
-    Language lang;
-    int id;
-}
+import dextool.plugin.eqdetect.backend.type: Mutation;
 
 class DbHandler{
     string path;

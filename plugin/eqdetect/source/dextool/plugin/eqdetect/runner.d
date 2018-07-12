@@ -43,7 +43,8 @@ ExitStatusType runPlugin(string[] args) {
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
     import std.conv : to;
-    import dextool.plugin.eqdetect.backend : DbHandler, Mutation;
+    import dextool.plugin.eqdetect.backend : DbHandler;
+    import dextool.plugin.eqdetect.backend.type : Mutation;
     auto dbHandler = new DbHandler(to!string(pargs.file));
     Mutation[] mutations = dbHandler.getMutations();
 
@@ -52,7 +53,8 @@ ExitStatusType runPlugin(string[] args) {
     auto exit_status = ExitStatusType.Ok;
 
     import dextool.utility : analyzeFile;
-    import dextool.plugin.eqdetect.backend.parser : errorTextParser, ErrorResult;
+    import dextool.plugin.eqdetect.backend.type: ErrorResult;
+    import dextool.plugin.eqdetect.backend.parser : errorTextParser;
     ErrorResult errorResult;
 
     foreach(m ; mutations){
