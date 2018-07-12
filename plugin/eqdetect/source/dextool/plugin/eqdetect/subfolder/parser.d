@@ -26,8 +26,8 @@ static ErrorResult errorTextParser(string filepath){
             errorResult.status = s.split(":")[0];
 
             if(errorResult.status == "Assert" || errorResult.status == "Abort"){
-                s = s.split("data: ");
-                foreach(data;s[1..$]){ //first element does not contain data
+                auto ss = s.split("data: ");
+                foreach(data;ss[1..$]){ //first element does not contain data
                     errorResult.inputdata = errorResult.inputdata ~ data.split(" ")[0];
                 }
             }
