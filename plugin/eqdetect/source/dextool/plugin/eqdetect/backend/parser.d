@@ -24,7 +24,6 @@ static ErrorResult errorTextParser(string filepath){
     try{
         foreach(s; File(filepath, "r").byLine){
             errorResult.status = s.split(":")[0];
-            writeln(s);
             if(errorResult.status == "Assert" || errorResult.status == "Abort"){
                 auto ss = s.split("data: ");
                 import std.algorithm.iteration : splitter;
