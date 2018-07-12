@@ -8,9 +8,9 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
 
-module dextool.plugin.eqdetect.subfolder;
-public import dextool.plugin.eqdetect.subfolder.codegenerator;
-public import dextool.plugin.eqdetect.subfolder.visitor;
-public import dextool.plugin.eqdetect.subfolder.dbhandler;
-public import dextool.plugin.eqdetect.subfolder.filewriter;
-public import dextool.plugin.eqdetect.subfolder.parser;
+module dextool.plugin.eqdetect.backend;
+public import dextool.plugin.eqdetect.backend.codegenerator;
+public import dextool.plugin.eqdetect.backend.visitor;
+public import dextool.plugin.eqdetect.backend.dbhandler;
+public import dextool.plugin.eqdetect.backend.filewriter;
+public import dextool.plugin.eqdetect.backend.parser;

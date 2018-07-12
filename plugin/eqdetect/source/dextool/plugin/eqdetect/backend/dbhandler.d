@@ -19,7 +19,7 @@ TODO:
 - Possibly utilize MutationEntry instead of creating new struct
 - Refactor and move Mutation struct to separate file
 */
-module dextool.plugin.eqdetect.subfolder.dbhandler;
+module dextool.plugin.eqdetect.backend.dbhandler;
 
 import d2sqlite3 : sqlDatabase = Database;
 import std.format : format;

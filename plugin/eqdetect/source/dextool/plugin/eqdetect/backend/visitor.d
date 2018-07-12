@@ -17,7 +17,7 @@ TODO:
 - Track dependencies and use SnippetFinder for extracting them.
 */
 
-module dextool.plugin.eqdetect.subfolder.visitor;
+module dextool.plugin.eqdetect.backend.visitor;
 
 import cpptooling.analyzer.clang.ast : Visitor;
 import std.stdio;
@@ -39,7 +39,7 @@ final class TUVisitor : Visitor {
     string function_name;
     string[] function_params;
 
-    import dextool.plugin.eqdetect.subfolder : Mutation;
+    import dextool.plugin.eqdetect.backend : Mutation;
     Mutation mutation;
 
     this(Mutation m) {
@@ -69,7 +69,7 @@ final class TUVisitor : Visitor {
     @trusted override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
         generateCode(v.cursor);
-        import dextool.plugin.eqdetect.subfolder : SnippetFinder;
+        import dextool.plugin.eqdetect.backend : SnippetFinder;
         if(inInterval(v.cursor)){
             import clang.c.Index;
             function_name = v.cursor.tokens[1].spelling;
@@ -125,7 +125,7 @@ final class TUVisitor : Visitor {
         if(!generated && inInterval(c) && c.extent.path.length != 0
         && baseName(mutation.path) == baseName(c.extent.path)){
 
-            import dextool.plugin.eqdetect.subfolder : SnippetFinder;
+            import dextool.plugin.eqdetect.backend : SnippetFinder;
             auto s = SnippetFinder.generate(c, this.mutation);
 
             this.generatedSource.text(s[0]);

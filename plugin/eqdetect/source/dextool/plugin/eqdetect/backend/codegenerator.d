@@ -15,11 +15,11 @@ TODO:
 - Do we need try/catch for handling file?
 - Make it possible to extract code without generating mutation (userinput?)
 */
-module dextool.plugin.eqdetect.subfolder.codegenerator;
+module dextool.plugin.eqdetect.backend.codegenerator;
 
 import dsrcgen.c;
 import clang.Cursor;
-import dextool.plugin.eqdetect.subfolder.dbhandler : Mutation;
+import dextool.plugin.eqdetect.backend.dbhandler : Mutation;
 
 class SnippetFinder{
     @trusted static string[] generate(Cursor cursor, Mutation mutation){

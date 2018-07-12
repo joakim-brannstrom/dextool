@@ -39,11 +39,11 @@ ExitStatusType runPlugin(string[] args) {
 
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
-    import dextool.plugin.eqdetect.subfolder : TUVisitor;
+    import dextool.plugin.eqdetect.backend : TUVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
     import std.conv : to;
-    import dextool.plugin.eqdetect.subfolder : DbHandler, Mutation;
+    import dextool.plugin.eqdetect.backend : DbHandler, Mutation;
     auto dbHandler = new DbHandler(to!string(pargs.file));
     Mutation[] mutations = dbHandler.getMutations();
 
@@ -52,7 +52,7 @@ ExitStatusType runPlugin(string[] args) {
     auto exit_status = ExitStatusType.Ok;
 
     import dextool.utility : analyzeFile;
-    import dextool.plugin.eqdetect.subfolder.parser : errorTextParser, ErrorResult;
+    import dextool.plugin.eqdetect.backend.parser : errorTextParser, ErrorResult;
     ErrorResult errorResult;
 
     foreach(m ; mutations){
@@ -60,7 +60,7 @@ ExitStatusType runPlugin(string[] args) {
 
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
         import std.path : baseName;
-        import dextool.plugin.eqdetect.subfolder : writeToFile, SnippetFinder;
+        import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
         string source_path = writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, "_source_");
         string mutant_path = writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, "_mutant_");
         auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
