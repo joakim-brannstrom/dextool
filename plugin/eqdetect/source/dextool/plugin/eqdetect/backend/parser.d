@@ -15,23 +15,24 @@ import dextool.plugin.eqdetect.backend.type: ErrorResult;
 static ErrorResult errorTextParser(string filepath){
     import std.stdio;
     import std.string : split;
-    import std.conv : to;
+    import std.file : FileException;
 
     ErrorResult errorResult;
     try{
         foreach(s; File(filepath, "r").byLine){
             errorResult.status = s.split(":")[0];
-
             if(errorResult.status == "Assert" || errorResult.status == "Abort"){
                 auto ss = s.split("data: ");
-                foreach(data;ss[1..$]){ //first element does not contain data
+                import std.algorithm.iteration : splitter;
+                import std.range : dropOne;
+                foreach(data; ss.splitter("data: ").dropOne){ //first element does not contain data
                     errorResult.inputdata = errorResult.inputdata ~ data.split(" ")[0];
                 }
             }
         }
         return errorResult;
     }
-    catch(Throwable){
+    catch(FileException){
         return errorResult;
     }
 }
