@@ -73,25 +73,26 @@ ExitStatusType runPlugin(string[] args) {
 
         auto cwd = getcwd();
 
-        writeln(executeShell(format("docker run -it --name=klee_container -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
-        executeShell("docker rm klee_container");
+        writeln(executeShell(format("docker run -it --name=klee_container3 -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
+        executeShell("docker rm klee_container3");
         executeShell("rm -rf eqdetect_generated_files/*");
 
         errorResult = errorTextParser("result.txt");
         executeShell("rm result.txt");
 
         auto dbHandler2 = new DbHandler(to!string(pargs.file));
-
-        if(errorResult.status == "Assert" || errorResult.status == "Abort"){
-            dbHandler2.setEquivalence(m.id, 1);
+        scope (exit) destroy(dbHandler2);
+        {
+            if(errorResult.status == "Assert" || errorResult.status == "Abort"){
+                dbHandler2.setEquivalence(m.id, 1);
+            }
+            else if(errorResult.status == "Halt"){
+                dbHandler2.setEquivalence(m.id, 3);
+            }
+            else{
+                dbHandler2.setEquivalence(m.id, 2);
+            }
         }
-        else if(errorResult.status == "Halt"){
-            dbHandler2.setEquivalence(m.id, 3);
-        }
-        else{
-            dbHandler2.setEquivalence(m.id, 2);
-        }
-
         writeln("---------------------------------------");
     }
 
