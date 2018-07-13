@@ -75,24 +75,25 @@ ExitStatusType runPlugin(string[] args) {
 
         auto cwd = getcwd();
 
-        writeln(executeShell(format("docker run -it --name=klee_container3 -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
-        executeShell("docker rm klee_container3");
+        writeln(executeShell(format("docker run -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
+        executeShell("docker rm klee_container4");
         executeShell("rm -rf eqdetect_generated_files/*");
 
         errorResult = errorTextParser("result.txt");
         executeShell("rm result.txt");
 
+        import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
         auto dbHandler2 = new DbHandler(to!string(pargs.file));
         scope (exit) destroy(dbHandler2);
         {
             if(errorResult.status == "Assert" || errorResult.status == "Abort"){
-                dbHandler2.setEquivalence(m.id, 1);
+                dbHandler2.setEquivalence(m.id, mutationStruct.eq.not_equivalent);
             }
             else if(errorResult.status == "Halt"){
-                dbHandler2.setEquivalence(m.id, 3);
+                dbHandler2.setEquivalence(m.id, mutationStruct.eq.timeout);
             }
             else{
-                dbHandler2.setEquivalence(m.id, 2);
+                dbHandler2.setEquivalence(m.id, mutationStruct.eq.equivalent);
             }
         }
         writeln("---------------------------------------");

@@ -127,8 +127,21 @@ struct Mutation {
         timeout,
     }
 
+    enum Equivalence {
+        /// not yet tested
+        unknown,
+        /// testcase found that kill the mutant
+        not_equivalent,
+        /// alive after full path exploration
+        equivalent,
+        /// timed out
+        timeout,
+    }
+
+
     Kind kind;
     Status status;
+    Equivalence eq;
 }
 
 /// Deducted type information for expressions on the sides of a relational operator
