@@ -12,6 +12,8 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.eqdetect.backend.filewriter;
 import dextool.type : FileName;
 
+@safe:
+
 static FileName writeToFile(string text_to_write, string base, int kind, int id, string filetype) {
     import std.stdio : File, writeln;
     import std.conv : to;

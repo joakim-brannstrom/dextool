@@ -15,26 +15,30 @@ module dextool.plugin.eqdetect.backend.parser;
 
 import dextool.plugin.eqdetect.backend.type : ErrorResult;
 
-static ErrorResult errorTextParser(string filepath) {
-    import std.stdio;
-    import std.string : split;
-    import std.file : FileException;
+@safe:
 
+static ErrorResult errorTextParser(string filepath) {
     ErrorResult errorResult;
     try {
-        foreach (s; File(filepath, "r").byLine) {
-            errorResult.status = s.split(":")[0];
-            if (errorResult.status == "Assert" || errorResult.status == "Abort") {
-                import std.algorithm.iteration : splitter;
-                import std.range : dropOne;
+        import std.stdio : File;
+        import std.file : getSize;
 
-                foreach (data; s.splitter("data: ").dropOne) { //first element does not contain data
-                    errorResult.inputdata = errorResult.inputdata ~ data.split(" ")[0];
-                }
+        auto file = File(filepath, "r");
+        auto s = file.rawRead(new char[getSize(filepath)]);
+
+        import std.string : split;
+
+        errorResult.status = s.split(":")[0];
+        if (errorResult.status == "Assert" || errorResult.status == "Abort") {
+            import std.algorithm.iteration : splitter;
+            import std.range : dropOne;
+
+            foreach (data; s.splitter("data: ").dropOne) { //first element does not contain data
+                errorResult.inputdata = errorResult.inputdata ~ data.split(" ")[0];
             }
         }
         return errorResult;
-    } catch (FileException e) {
+    } catch (Exception e) {
         import std.experimental.logger;
 
         warning(e.msg);

@@ -22,6 +22,8 @@ import clang.Cursor;
 import dextool.plugin.eqdetect.backend.type : Mutation;
 import dextool.type : FileName;
 
+@safe:
+
 class SnippetFinder {
     @trusted static string[] generate(Cursor cursor, Mutation mutation) {
         import std.stdio;
