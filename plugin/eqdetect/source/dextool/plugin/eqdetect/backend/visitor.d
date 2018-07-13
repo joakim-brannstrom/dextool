@@ -69,18 +69,6 @@ final class TUVisitor : Visitor {
     @trusted override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
         generateCode(v.cursor);
-        import dextool.plugin.eqdetect.backend : SnippetFinder;
-
-        if (inInterval(v.cursor)) {
-            import clang.c.Index;
-
-            function_name = v.cursor.tokens[1].spelling;
-            foreach (c; v.cursor.children) {
-                if (c.kind == CXCursorKind.parmDecl) {
-                    function_params = function_params ~ c.tokens[0].spelling;
-                }
-            }
-        }
         v.accept(this);
     }
 
@@ -130,11 +118,19 @@ final class TUVisitor : Visitor {
                 && baseName(mutation.path) == baseName(c.extent.path)) {
 
             import dextool.plugin.eqdetect.backend : SnippetFinder;
-
             auto s = SnippetFinder.generate(c, this.mutation);
 
             this.generatedSource.text(s[0]);
             this.generatedMutation.text(s[1]);
+
+            import clang.c.Index;
+            function_name = c.tokens[1].spelling;
+            
+            foreach (child; c.children) {
+                if (child.kind == CXCursorKind.parmDecl) {
+                    function_params = function_params ~ child.tokens[0].spelling;
+                }
+            }
 
             generated = true;
         }
