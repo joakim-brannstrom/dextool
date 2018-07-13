@@ -364,7 +364,7 @@ struct Database {
                 foreach (k; a.mp.mutations) {
                     m_stmt.bind(":kind", k.kind);
                     m_stmt.bind(":status", k.status);
-                    m_stmt.bind(":eq", 0); //always zero at this point
+                    m_stmt.bind(":eq", Mutation.eq.unknown); //always zero at this point
                     m_stmt.execute;
                     m_stmt.reset;
                 }
