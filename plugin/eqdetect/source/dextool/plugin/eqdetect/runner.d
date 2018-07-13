@@ -8,7 +8,7 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 TODO:
-- Fix exit_status in runPlugin
+- Move entire else-statement in foreach-loop into separate file
 */
 
 module dextool.plugin.runner;
@@ -50,7 +50,7 @@ ExitStatusType runPlugin(string[] args) {
 
 
     TUVisitor visitor;
-    auto exit_status = ExitStatusType.Ok;
+    ExitStatusType exit_status;
 
     import dextool.utility : analyzeFile;
     import dextool.plugin.eqdetect.backend.type: ErrorResult;
@@ -59,45 +59,63 @@ ExitStatusType runPlugin(string[] args) {
 
     foreach(m ; mutations){
         visitor = new TUVisitor(m);
-
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
-        import std.path : baseName;
-        import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
-        FileName source_path = writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, "_source_");
-        FileName mutant_path = writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, "_mutant_");
-        auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
-        mutant_path, visitor.function_name);
-        writeToFile(s, baseName(m.path), m.kind, m.id, "_klee_");
 
-        import std.process;
-        import std.file: getcwd;
-        import std.format : format;
+        if (exit_status != ExitStatusType.Ok){
+            logger.info("Could not analyze file: " ~ m.path);
+        } else {
+            import std.path : baseName;
+            import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
+            FileName source_path = writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, "_source_");
+            FileName mutant_path = writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, "_mutant_");
+            auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
+                                                mutant_path, visitor.function_name);
+            writeToFile(s, baseName(m.path), m.kind, m.id, "_klee_");
 
-        auto cwd = getcwd();
+            import std.process: executeShell;
+            import std.file: getcwd;
+            import std.format : format;
 
-        writeln(executeShell(format("docker run -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh", cwd)).output);
-        executeShell("docker rm klee_container4");
-        executeShell("rm -rf eqdetect_generated_files/*");
+            // Spawn a shell and create the klee-container with a mounted volume (current build directory)
+            // The created container will execute the klee.sh script and after execution get removed
+            logger.info("KLEE execution started");
+            auto klee_exec_out = executeShell(format("docker run -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh", getcwd())).output;
+            logger.info(klee_exec_out);
 
-        errorResult = errorTextParser("result.txt");
-        executeShell("rm result.txt");
+            // Remove the container and cleanup the temporary directory created
+            executeShell("docker rm klee_container4");
+            executeShell("rm -rf eqdetect_generated_files/*");
 
-        import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
-        auto dbHandler2 = new DbHandler(to!string(pargs.file));
-        scope (exit) destroy(dbHandler2);
-        {
-            if(errorResult.status == "Assert" || errorResult.status == "Abort"){
-                dbHandler2.setEquivalence(m.id, mutationStruct.eq.not_equivalent);
+            // parse the result from KLEE
+            errorResult = errorTextParser("result.txt");
+
+            // remove the result-file
+            import std.file: remove;
+            remove("result.txt");
+
+
+            import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
+            auto dbHandler2 = new DbHandler(to!string(pargs.file));
+            scope (exit) destroy(dbHandler2);
+            {
+                switch (errorResult.status){
+                    case "Eq":
+                        dbHandler2.setEquivalence(m.id, mutationStruct.eq.equivalent);
+                        break;
+                    case "Halt":
+                        dbHandler2.setEquivalence(m.id, mutationStruct.eq.timeout);
+                        break;
+                    default:
+                        dbHandler2.setEquivalence(m.id, mutationStruct.eq.not_equivalent);
+                        break;
+                }
             }
-            else if(errorResult.status == "Halt"){
-                dbHandler2.setEquivalence(m.id, mutationStruct.eq.timeout);
-            }
-            else{
-                dbHandler2.setEquivalence(m.id, mutationStruct.eq.equivalent);
-            }
+            writeln("---------------------------------------");
         }
-        writeln("---------------------------------------");
     }
+
+    import std.process;
+    executeShell("rm -rf eqdetect_generated_files");
 
     return exit_status;
 }
