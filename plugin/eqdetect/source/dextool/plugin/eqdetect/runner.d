@@ -121,10 +121,6 @@ ExitStatusType runPlugin(string[] args) {
         }
     }
 
-    import std.process;
-
-    executeShell("rm -rf eqdetect_generated_files");
-
     return exit_status;
 }
 

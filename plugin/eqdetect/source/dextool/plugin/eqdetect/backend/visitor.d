@@ -23,6 +23,8 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import std.stdio;
 import clang.Cursor;
 
+@safe:
+
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
@@ -66,7 +68,7 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    @trusted override void visit(const(FunctionDecl) v) {
+    override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
         generateCode(v.cursor);
         v.accept(this);
@@ -107,11 +109,11 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    @trusted bool inInterval(Cursor c) {
+    bool inInterval(Cursor c) {
         return ((c.extent.end.offset >= offset) && (c.extent.start.offset <= offset));
     }
 
-    @trusted void generateCode(Cursor c) {
+    void generateCode(Cursor c) {
         import std.path;
 
         if (!generated && inInterval(c) && c.extent.path.length != 0
@@ -123,16 +125,20 @@ final class TUVisitor : Visitor {
             this.generatedSource.text(s[0]);
             this.generatedMutation.text(s[1]);
 
-            import clang.c.Index;
-            function_name = c.tokens[1].spelling;
-            
-            foreach (child; c.children) {
-                if (child.kind == CXCursorKind.parmDecl) {
-                    function_params = function_params ~ child.tokens[0].spelling;
-                }
-            }
+            getFunctionDecl(c);
 
             generated = true;
+        }
+    }
+    
+    @trusted void getFunctionDecl(Cursor c){
+        import clang.c.Index;
+        function_name = c.tokens[1].spelling;
+
+        foreach (child; c.children) {
+            if (child.kind == CXCursorKind.parmDecl) {
+                function_params = function_params ~ child.tokens[0].spelling;
+            }
         }
     }
 }

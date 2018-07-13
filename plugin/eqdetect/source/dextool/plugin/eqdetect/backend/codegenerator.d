@@ -25,7 +25,7 @@ import dextool.type : FileName;
 @safe:
 
 class SnippetFinder {
-    @trusted static string[] generate(Cursor cursor, Mutation mutation) {
+    static string[] generate(Cursor cursor, Mutation mutation) {
         import std.stdio;
 
         auto file = File(cursor.extent.path, "r");
@@ -47,7 +47,7 @@ class SnippetFinder {
             generateNamespace(toUTF8(mutation_buffer), "mutant")];
     }
 
-    @trusted static auto generateMut(char[] content, Mutation mutation) {
+    static auto generateMut(char[] content, Mutation mutation) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
         import dextool.plugin.mutate.backend.type : Offset;
         import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
@@ -60,7 +60,7 @@ class SnippetFinder {
     }
 
     // Generating code that will be used by klee to evaluate the source and mutant code.
-    @trusted static auto generateKlee(string[] params, FileName source_name,
+    static auto generateKlee(string[] params, FileName source_name,
             FileName mutant_name, string function_name) {
         import std.format;
 
@@ -111,7 +111,7 @@ class SnippetFinder {
         return code.render;
     }
 
-    @trusted static string generateNamespace(string namespace_code, string namespace_name) {
+    static string generateNamespace(string namespace_code, string namespace_name) {
         namespace_code = `namespace ` ~ namespace_name ~ ` {
 
 ` ~ namespace_code ~ `
