@@ -8,7 +8,6 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 TODO:
-- Move entire else-statement in foreach-loop into separate file
 */
 
 module dextool.plugin.runner;
@@ -55,10 +54,6 @@ ExitStatusType runPlugin(string[] args) {
     ExitStatusType exit_status;
 
     import dextool.utility : analyzeFile;
-    import dextool.plugin.eqdetect.backend.type : ErrorResult;
-    import dextool.plugin.eqdetect.backend.parser : errorTextParser;
-
-    ErrorResult errorResult;
 
     foreach (m; mutations) {
         visitor = new TUVisitor(m);
@@ -66,57 +61,12 @@ ExitStatusType runPlugin(string[] args) {
 
         if (exit_status != ExitStatusType.Ok) {
             logger.info("Could not analyze file: " ~ m.path);
+
         } else {
-            import std.path : baseName;
-            import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
+            import dextool.plugin.eqdetect.backend: handleMutation;
+            handleMutation(visitor, m, to!string(pargs.file));
 
-            FileName source_path = writeToFile(visitor.generatedSource.render,
-                    baseName(m.path), m.kind, m.id, "_source_");
-            FileName mutant_path = writeToFile(visitor.generatedMutation.render,
-                    baseName(m.path), m.kind, m.id, "_mutant_");
-            auto s = SnippetFinder.generateKlee(visitor.function_params,
-                    source_path, mutant_path, visitor.function_name);
-            writeToFile(s, baseName(m.path), m.kind, m.id, "_klee_");
-
-            import std.process : executeShell;
-            import std.file : getcwd;
-            import std.format : format;
-
-            // Spawn a shell and create the klee-container with a mounted volume (current build directory)
-            // The created container will execute the klee.sh script and after execution get removed
-            logger.info("KLEE execution started");
-            auto klee_exec_out = executeShell(format(
-                    "docker run --rm -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh",
-                    getcwd())).output;
-            logger.info(klee_exec_out);
-
-            // cleanup the temporary directory created
-            executeShell("rm -rf eqdetect_generated_files/*");
-
-            // parse the result from KLEE
-            errorResult = errorTextParser("result.txt");
-
-            // remove the result-file
-            import std.file : remove;
-            remove("result.txt");
-
-            import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
-            auto dbHandler2 = new DbHandler(to!string(pargs.file));
-            scope (exit)
-                destroy(dbHandler2);
-            {
-                switch (errorResult.status) {
-                case "Eq":
-                    dbHandler2.setEquivalence(m.id, mutationStruct.eq.equivalent);
-                    break;
-                case "Halt":
-                    dbHandler2.setEquivalence(m.id, mutationStruct.eq.timeout);
-                    break;
-                default:
-                    dbHandler2.setEquivalence(m.id, mutationStruct.eq.not_equivalent);
-                    break;
-                }
-            }
+            // separate the output
             writeln("---------------------------------------");
         }
     }
