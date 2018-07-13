@@ -23,7 +23,6 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import std.stdio;
 import clang.Cursor;
 
-
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;

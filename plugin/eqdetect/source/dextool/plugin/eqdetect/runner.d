@@ -63,8 +63,8 @@ ExitStatusType runPlugin(string[] args) {
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
         import std.path : baseName;
         import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
-        string source_path = writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, "_source_");
-        string mutant_path = writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, "_mutant_");
+        FileName source_path = writeToFile(visitor.generatedSource.render, baseName(m.path), m.kind, m.id, "_source_");
+        FileName mutant_path = writeToFile(visitor.generatedMutation.render, baseName(m.path), m.kind, m.id, "_mutant_");
         auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
         mutant_path, visitor.function_name);
         writeToFile(s, baseName(m.path), m.kind, m.id, "_klee_");

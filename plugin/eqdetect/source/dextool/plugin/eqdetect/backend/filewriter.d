@@ -10,9 +10,10 @@ one at http://mozilla.org/MPL/2.0/.
 
 */
 module dextool.plugin.eqdetect.backend.filewriter;
+import dextool.type : FileName;
 
-static string writeToFile(string text_to_write, string base, int kind, int id, string filetype){
-    import std.stdio : File;
+static FileName writeToFile(string text_to_write, string base, int kind, int id, string filetype){
+    import std.stdio : File, writeln;
     import std.conv : to;
     import std.path : stripExtension, extension, baseName;
     import std.file : mkdirRecurse;
@@ -21,13 +22,13 @@ static string writeToFile(string text_to_write, string base, int kind, int id, s
     auto dir = "eqdetect_generated_files";
     dir.mkdirRecurse;
 
-    string filename;
+    FileName filename;
 
-    filename = dir ~ "/" ~ stripExtension(base) ~ filetype ~ to!string(id) ~ "_"
+    filename = stripExtension(base) ~ filetype ~ to!string(id) ~ "_"
     ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
 
-    auto file = File(filename, "w");
+    string path = dir ~ "/" ~ filename;
+    auto file = File(path, "w");
     file.write(text_to_write);
-
-    return baseName(filename);
+    return filename;
 }

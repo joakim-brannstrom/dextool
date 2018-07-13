@@ -20,6 +20,9 @@ module dextool.plugin.eqdetect.backend.codegenerator;
 import dsrcgen.c;
 import clang.Cursor;
 import dextool.plugin.eqdetect.backend.type : Mutation;
+import dextool.type : FileName;
+
+
 
 class SnippetFinder{
     @trusted static string[] generate(Cursor cursor, Mutation mutation){
@@ -52,7 +55,7 @@ class SnippetFinder{
         return temp;
     }
 
-    @trusted static auto generateKlee(string[] params, string source_name, string mutant_name, string function_name){
+    @trusted static auto generateKlee(string[] params, FileName source_name, FileName mutant_name, string function_name){
         import std.format;
 
         //string code;
