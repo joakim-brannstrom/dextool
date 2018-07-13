@@ -9,6 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 TODO:
 - Move entire else-statement in foreach-loop into separate file
+- Kolla om "docker rm" funkar
 */
 
 module dextool.plugin.runner;
@@ -86,12 +87,11 @@ ExitStatusType runPlugin(string[] args) {
             // The created container will execute the klee.sh script and after execution get removed
             logger.info("KLEE execution started");
             auto klee_exec_out = executeShell(format(
-                    "docker run -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh",
+                    "docker run --rm -it --name=klee_container4 -v %s:/home/klee/mounted klee/klee mounted/klee.sh",
                     getcwd())).output;
             logger.info(klee_exec_out);
 
-            // Remove the container and cleanup the temporary directory created
-            executeShell("docker rm klee_container4");
+            // cleanup the temporary directory created
             executeShell("rm -rf eqdetect_generated_files/*");
 
             // parse the result from KLEE
