@@ -74,7 +74,7 @@ class DbHandler{
 
         import std.path;
         auto path = res.front.peek!string(0);
-        path = buildPath("../" ~ path); //Ugly solution for now
+        path = buildPath("..", path);
         mutation.path = path;
         mutation.lang = res.front.peek!Language(1);
 

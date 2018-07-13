@@ -27,7 +27,8 @@ static FileName writeToFile(string text_to_write, string base, int kind, int id,
     filename = stripExtension(base) ~ filetype ~ to!string(id) ~ "_"
     ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
 
-    string path = dir ~ "/" ~ filename;
+    import std.path : buildPath;
+    string path = buildPath(dir, filename);
     auto file = File(path, "w");
     file.write(text_to_write);
     return filename;
