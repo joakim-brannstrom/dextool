@@ -55,6 +55,7 @@ class SnippetFinder{
         return temp;
     }
 
+    // Generating code that will be used by klee to evaluate the source and mutant code.
     @trusted static auto generateKlee(string[] params, FileName source_name, FileName mutant_name, string function_name){
         import std.format;
 
