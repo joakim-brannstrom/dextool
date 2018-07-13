@@ -9,7 +9,6 @@ one at http://mozilla.org/MPL/2.0/.
 
 TODO:
 - Move entire else-statement in foreach-loop into separate file
-- Kolla om "docker rm" funkar
 */
 
 module dextool.plugin.runner;
@@ -99,11 +98,9 @@ ExitStatusType runPlugin(string[] args) {
 
             // remove the result-file
             import std.file : remove;
-
             remove("result.txt");
 
             import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
-
             auto dbHandler2 = new DbHandler(to!string(pargs.file));
             scope (exit)
                 destroy(dbHandler2);
