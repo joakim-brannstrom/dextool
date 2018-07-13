@@ -12,7 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.eqdetect.backend.filewriter;
 import dextool.type : FileName;
 
-static FileName writeToFile(string text_to_write, string base, int kind, int id, string filetype){
+static FileName writeToFile(string text_to_write, string base, int kind, int id, string filetype) {
     import std.stdio : File, writeln;
     import std.conv : to;
     import std.path : stripExtension, extension, baseName;
@@ -24,10 +24,11 @@ static FileName writeToFile(string text_to_write, string base, int kind, int id,
 
     FileName filename;
 
-    filename = stripExtension(base) ~ filetype ~ to!string(id) ~ "_"
-    ~ to!string(cast(mutationStruct.Kind)kind) ~ extension(base);
+    filename = stripExtension(base) ~ filetype ~ to!string(id) ~ "_" ~ to!string(
+            cast(mutationStruct.Kind) kind) ~ extension(base);
 
     import std.path : buildPath;
+
     string path = buildPath(dir, filename);
     auto file = File(path, "w");
     file.write(text_to_write);

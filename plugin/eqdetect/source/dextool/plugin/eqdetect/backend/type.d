@@ -12,14 +12,14 @@ TODO:
 
 module dextool.plugin.eqdetect.backend.type;
 
-struct ErrorResult{
+struct ErrorResult {
     char[][] inputdata;
     char[] status;
 }
 
-import dextool.plugin.mutate.backend.type: Language;
+import dextool.plugin.mutate.backend.type : Language;
 
-struct Mutation{
+struct Mutation {
     string path;
     int offset_begin;
     int offset_end;

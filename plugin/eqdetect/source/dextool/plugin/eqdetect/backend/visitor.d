@@ -39,6 +39,7 @@ final class TUVisitor : Visitor {
     string[] function_params;
 
     import dextool.plugin.eqdetect.backend : Mutation;
+
     Mutation mutation;
 
     this(Mutation m) {
@@ -69,11 +70,13 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         generateCode(v.cursor);
         import dextool.plugin.eqdetect.backend : SnippetFinder;
-        if(inInterval(v.cursor)){
+
+        if (inInterval(v.cursor)) {
             import clang.c.Index;
+
             function_name = v.cursor.tokens[1].spelling;
-            foreach(c;v.cursor.children){
-                if(c.kind == CXCursorKind.parmDecl){
+            foreach (c; v.cursor.children) {
+                if (c.kind == CXCursorKind.parmDecl) {
                     function_params = function_params ~ c.tokens[0].spelling;
                 }
             }
@@ -111,20 +114,23 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(ForStmt) v){
+    override void visit(const(ForStmt) v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
-    @trusted bool inInterval(Cursor c){
-        return ((c.extent.end.offset>=offset) && (c.extent.start.offset<=offset));
+
+    @trusted bool inInterval(Cursor c) {
+        return ((c.extent.end.offset >= offset) && (c.extent.start.offset <= offset));
     }
 
-    @trusted void generateCode(Cursor c){
+    @trusted void generateCode(Cursor c) {
         import std.path;
-        if(!generated && inInterval(c) && c.extent.path.length != 0
-        && baseName(mutation.path) == baseName(c.extent.path)){
+
+        if (!generated && inInterval(c) && c.extent.path.length != 0
+                && baseName(mutation.path) == baseName(c.extent.path)) {
 
             import dextool.plugin.eqdetect.backend : SnippetFinder;
+
             auto s = SnippetFinder.generate(c, this.mutation);
 
             this.generatedSource.text(s[0]);
