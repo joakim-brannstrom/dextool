@@ -36,7 +36,7 @@ void initDB(string filepath) {
 }
 
 Mutation[] getMutations() {
-    import std.path;
+    import std.path : extension;
 
     // status could be user-input instead of hardcoded
     auto stmt = sdb.db.prepare(format("SELECT mp_id, kind, id FROM mutation WHERE status='2';"));
@@ -73,7 +73,7 @@ private Mutation getFilePath(Mutation mutation, string file_id) {
     auto stmt = sdb.db.prepare(format("SELECT path, lang FROM files WHERE id='%s';", file_id));
     auto res = stmt.execute;
 
-    import std.path;
+    import std.path : buildPath;
 
     auto path = res.front.peek!string(0);
     path = buildPath("..", path);
@@ -84,8 +84,6 @@ private Mutation getFilePath(Mutation mutation, string file_id) {
 }
 
 void setEquivalence(int mutation_id, int status) {
-    import std.conv;
-
     auto stmt = sdb.db.prepare(format("UPDATE mutation SET eq='%s' WHERE id='%s';",
             status, mutation_id));
     auto res = stmt.execute;

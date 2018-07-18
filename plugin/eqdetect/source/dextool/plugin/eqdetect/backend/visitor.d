@@ -20,7 +20,6 @@ TODO:
 module dextool.plugin.eqdetect.backend.visitor;
 
 import cpptooling.analyzer.clang.ast : Visitor;
-import std.stdio;
 import clang.Cursor;
 
 @safe:
@@ -28,7 +27,7 @@ import clang.Cursor;
 final class TUVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-    import dsrcgen.c;
+    import dsrcgen.c : CModule;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -114,7 +113,7 @@ final class TUVisitor : Visitor {
     }
 
     void generateCode(Cursor c) {
-        import std.path;
+        import std.path : baseName;
 
         if (!generated && inInterval(c) && c.extent.path.length != 0
                 && baseName(mutation.path) == baseName(c.extent.path)) {
@@ -130,7 +129,7 @@ final class TUVisitor : Visitor {
             generated = true;
         }
     }
-    
+
     @trusted void getFunctionDecl(Cursor c){
         import clang.c.Index;
         function_name = c.tokens[1].spelling;

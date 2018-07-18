@@ -26,7 +26,7 @@ import dextool.type : FileName;
 
 class SnippetFinder {
     static string[] generate(Cursor cursor, Mutation mutation) {
-        import std.stdio;
+        import std.stdio : File;
 
         auto file = File(cursor.extent.path, "r");
 
@@ -61,7 +61,7 @@ class SnippetFinder {
     // Generating code that will be used by klee to evaluate the source and mutant code.
     static auto generateKlee(string[] params, FileName source_name,
             FileName mutant_name, string function_name) {
-        import std.format;
+        import std.format : format;
 
         //string code;
         import dsrcgen.c;

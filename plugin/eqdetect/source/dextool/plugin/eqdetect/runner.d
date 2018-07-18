@@ -12,7 +12,7 @@ TODO:
 
 module dextool.plugin.runner;
 
-import std.stdio;
+import std.stdio : writeln;
 import logger = std.experimental.logger;
 
 import dextool.type : ExitStatusType, FileName, AbsolutePath;
@@ -110,8 +110,6 @@ struct RawConfiguration {
     }
 
     void printHelp() {
-        import std.stdio : writeln;
-
         defaultGetoptPrinter("Usage: dextool eqdetect [options] [--in=] [-- CFLAGS...]",
                 help_info.options);
     }
