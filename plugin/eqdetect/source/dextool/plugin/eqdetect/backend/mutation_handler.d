@@ -18,7 +18,7 @@ import dextool.plugin.eqdetect.backend.type : Mutation;
 import logger = std.experimental.logger;
 import dextool.plugin.eqdetect.backend.type : ErrorResult;
 
-void handleMutation(TUVisitor visitor, Mutation mutation, string dbFile){
+void handleMutation(TUVisitor visitor, Mutation mutation){
     // create file for sourcecode, the mutant and code prepared for KLEE
     createSourceFiles(visitor, mutation);
     // start the symbolic execution in KLEE
@@ -26,7 +26,7 @@ void handleMutation(TUVisitor visitor, Mutation mutation, string dbFile){
     // parse the result
     ErrorResult errorResult = parseKLEE();
     // mark the mutation in the database according to KLEE output
-    markMutation(errorResult, mutation, dbFile);
+    markMutation(errorResult, mutation);
 }
 
 void createSourceFiles(TUVisitor visitor, Mutation mutation){
@@ -72,24 +72,19 @@ ErrorResult parseKLEE(){
     return errorResult;
 }
 
-void markMutation(ErrorResult errorResult, Mutation mutation, string dbFile){
+void markMutation(ErrorResult errorResult, Mutation mutation){
     import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
-    import dextool.plugin.eqdetect.backend.dbhandler : DbHandler;
-    auto dbHandler2 = new DbHandler(dbFile);
+    import dextool.plugin.eqdetect.backend.dbhandler : setEquivalence;
 
-    scope (exit)
-        destroy(dbHandler2);
-    {
-        switch (errorResult.status) {
-        case "Eq":
-            dbHandler2.setEquivalence(mutation.id, mutationStruct.eq.equivalent);
-            break;
-        case "Halt":
-            dbHandler2.setEquivalence(mutation.id, mutationStruct.eq.timeout);
-            break;
-        default:
-            dbHandler2.setEquivalence(mutation.id, mutationStruct.eq.not_equivalent);
-            break;
-        }
+    switch (errorResult.status) {
+    case "Eq":
+        setEquivalence(mutation.id, mutationStruct.eq.equivalent);
+        break;
+    case "Halt":
+        setEquivalence(mutation.id, mutationStruct.eq.timeout);
+        break;
+    default:
+        setEquivalence(mutation.id, mutationStruct.eq.not_equivalent);
+        break;
     }
 }
