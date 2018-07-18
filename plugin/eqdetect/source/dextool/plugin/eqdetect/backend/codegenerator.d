@@ -49,8 +49,7 @@ class SnippetFinder {
 
     static auto generateMut(char[] content, Mutation mutation) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-        import dextool.plugin.mutate.backend.type : Offset;
-        import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
+        import dextool.plugin.mutate.backend.type : Offset, mutationStruct = Mutation;
 
         auto mut = makeMutation(cast(mutationStruct.Kind) mutation.kind, mutation.lang);
         auto temp = mut.top() ~ content[0 .. mutation.offset_begin];

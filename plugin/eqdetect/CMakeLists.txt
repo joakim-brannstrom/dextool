@@ -1,13 +1,15 @@
 # vim: filetype=cmake
 
 file(GLOB_RECURSE SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.d)
-file(GLOB_RECURSE SRC_MUTATE_FILES ${CMAKE_CURRENT_LIST_DIR}/../mutate/source/dextool/plugin/mutate/backend/*.d)
-
-list(REMOVE_ITEM SRC_MUTATE_FILES ${CMAKE_CURRENT_LIST_DIR}/../mutate/source/dextool/plugin/mutate/runner.d)
 
 list(APPEND SRC_FILES
     ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d
-    ${SRC_MUTATE_FILES}
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/database/*.d
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/generate_mutant.d
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/type.d
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/utility.d
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/interface_.d
+    ${CMAKE_SOURCE_DIR}/plugin/mutate/source/dextool/plugin/mutate/backend/mutation_type/*.d
     )
 
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-eqdetect)
