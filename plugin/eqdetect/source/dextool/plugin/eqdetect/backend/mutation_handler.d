@@ -7,8 +7,9 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-TODO:
-- Description of file
+This file handles the mutation in terms of creating the files which KLEE needs to
+perform symbolic execution. It also starts KLEE (in a docker image for now) and parses
+the result before marking the mutation in the database.
 */
 
 module dextool.plugin.eqdetect.backend.mutation_handler;

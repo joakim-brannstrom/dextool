@@ -7,7 +7,11 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
+This file is the main entrypoint to the plugin.
+
 TODO:
+- Break out the remaining for-loop to mutation_handler (run-function or similar)
+- Break out RawConfiguration into frontend
 */
 
 module dextool.plugin.runner;

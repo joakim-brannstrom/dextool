@@ -7,8 +7,14 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
+This file writes the generated code into a file with a name according to the plugin
+standard. The user will provide what code to write to the file and what filetype it is
+(_source_, _mutant_ or _klee_).
 
+TODO:
+- Change type of input parameters (ex. Mutation.Kind instead of int)
 */
+
 module dextool.plugin.eqdetect.backend.filewriter;
 import dextool.type : FileName;
 

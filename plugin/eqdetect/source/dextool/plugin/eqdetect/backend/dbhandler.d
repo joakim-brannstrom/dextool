@@ -7,29 +7,24 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-This module contains the database connection for eqdetect. It uses the d2sqlite3 package
-to create and establish connection to the physical database by providing the path to it.
-
-Mutation-struct:
-A simplified version of the MutationEntry in mutate that handles the information needed
-by dbhandler and SnippetFinder in codegenerator.d.
+This module contains the database connection for eqdetect. It uses standalone.d file
+in dextool mutate to create and establish connection to the physical database.
 
 TODO:
-- Use standalone db from mutate
-- Possibly utilize MutationEntry instead of creating new struct
+- Separate database in dextool mutate into a more library structed package
 */
 module dextool.plugin.eqdetect.backend.dbhandler;
 
 import std.format : format;
-import std.typecons : Nullable, NullableRef, nullableRef;
-import dextool.plugin.mutate.backend.type;
 import dextool.plugin.eqdetect.backend.type : Mutation;
 import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
-import dextool.type : AbsolutePath;
+
 
 private SDatabase sdb;
 
 void initDB(string filepath) {
+    import dextool.type : AbsolutePath;
+
     AbsolutePath abspath;
     abspath.payload = filepath;
     sdb.db = SDatabase.make(abspath);
@@ -74,6 +69,7 @@ private Mutation getFilePath(Mutation mutation, string file_id) {
     auto res = stmt.execute;
 
     import std.path : buildPath;
+    import dextool.plugin.mutate.backend.type : Language;
 
     auto path = res.front.peek!string(0);
     path = buildPath("..", path);

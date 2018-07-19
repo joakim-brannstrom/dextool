@@ -10,28 +10,23 @@ one at http://mozilla.org/MPL/2.0/.
 This module contains the functionality for extracting snippets of code from a given cursor
 and returns a validated UTF8 string of the extracted code. It also returns the mutated
 version of the code extracted.
-
-TODO:
-- Do we need try/catch for handling file?
-- Make it possible to extract code without generating mutation (userinput?)
 */
+
 module dextool.plugin.eqdetect.backend.codegenerator;
 
-import dsrcgen.c;
-import clang.Cursor;
 import dextool.plugin.eqdetect.backend.type : Mutation;
 import dextool.type : FileName;
 
 @safe:
 
 class SnippetFinder {
-    static string[] generate(Cursor cursor, Mutation mutation) {
+    import clang.Cursor;
+
+    static string[] generate(Cursor cursor, Mutation mutation) {    
         import std.stdio : File;
-
-        auto file = File(cursor.extent.path, "r");
-
         import std.file : getSize;
 
+        auto file = File(cursor.extent.path, "r");
         auto buffer = file.rawRead(new char[getSize(cursor.extent.path)]);
 
         buffer = buffer[cursor.extent.start.offset .. cursor.extent.end.offset];
@@ -62,40 +57,38 @@ class SnippetFinder {
     static auto generateKlee(string[] params, FileName source_name,
             FileName mutant_name, string function_name) {
         import std.format : format;
-
-        //string code;
-        import dsrcgen.c;
+        import dsrcgen.c : CModule;
 
         auto code = new CModule();
 
-        //add klee imports
+        // add klee imports
         code.include(`<klee/klee.h>`);
         code.include(`<assert.h>`);
 
-        //add import for files under test
+        // add import for the files that are being tested
         code.include(format(`%s`, source_name));
         code.include(format(`%s`, mutant_name));
 
         string func_params;
-        //add klee-main
 
+        // add klee-main
         with (code.func_body(`int`, `main`)) {
 
-            //variable declaration
+            // variable declaration
             for (int i = 0; i < params.length; i++) {
                 stmt(format(`%s var%s;`, params[i], i));
                 func_params = func_params ~ format(`var%s,`, i);
             }
 
-            //remove last comma that was inserted into the parameters
+            // remove last comma that was inserted into the parameters
             func_params = func_params[0 .. $ - 1];
 
-            //symbolic variable for each parameter
+            // symbolic variable for each parameter
             for (int i = 0; i < params.length; i++) {
                 stmt(format(`klee_make_symbolic(&var%s, sizeof(%s), "var%s")`, i, params[i], i));
             }
 
-            //equivalence detection
+            // equivalence detection
             with (if_(format(`source::%s(%s) == mutant::%s(%s)`, function_name,
                     func_params, function_name, func_params))) {
                 return_(`1`);

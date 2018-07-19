@@ -19,8 +19,8 @@ TODO:
 
 module dextool.plugin.eqdetect.backend.visitor;
 
-import cpptooling.analyzer.clang.ast : Visitor;
 import clang.Cursor;
+import cpptooling.analyzer.clang.ast : Visitor;
 
 @safe:
 

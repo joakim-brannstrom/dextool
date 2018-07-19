@@ -7,6 +7,11 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
+This file parses the result which KLEE has produced in the earlier steps. As it is implemted now,
+KLEE generates a result.txt file which contains the information needed by mutation_handler.
+ErrorTextParser interprets these result by splitting the read string into pieces and returns
+a ErrorResult-struct defined in type.d.
+
 TODO:
 - Change name to resultTextParser, since that is what the parser does
 */
