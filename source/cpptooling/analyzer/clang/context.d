@@ -63,13 +63,16 @@ struct ClangContext {
      * them accessable a "-I" parameter with their in-memory location is
      * supplied to all instantiated translation units.
      *
+     * TODO from llvm-6.0 -fsyntax-only is default and ignored. The
+     * functionality to prepend with -fsyntax-only should thus be removed.
+     *
      * Params:
      *   useInternalHeaders = load the VFS with in-memory system headers.
      *   prependParamSyntaxOnly = prepend the flag -fsyntax-only to instantiated translation units.
      */
     this(Flag!"useInternalHeaders" useInternalHeaders,
             Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
-        index = Index(false, false);
+        this.index = Index(false, false);
         virtualFileSystem = VirtualFileSystem();
 
         if (useInternalHeaders) {
@@ -77,7 +80,7 @@ struct ClangContext {
             import clang.Compiler : Compiler;
 
             Compiler compiler;
-            internal_header_arg = compiler.extraIncludeFlags;
+            this.internal_header_arg = compiler.extraIncludeFlags;
             foreach (hdr; compiler.extraHeaders) {
                 virtualFileSystem.openInMemory(cast(FileName) hdr.filename);
                 virtualFileSystem.write(cast(FileName) hdr.filename, cast(Content) hdr.content);
@@ -85,7 +88,7 @@ struct ClangContext {
         }
 
         if (prependParamSyntaxOnly) {
-            syntax_only_arg = ["-fsyntax-only"];
+            this.syntax_only_arg = ["-fsyntax-only"];
         }
     }
 
