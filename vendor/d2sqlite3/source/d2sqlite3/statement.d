@@ -474,6 +474,7 @@ unittest
     assert(4.1.literal == "4.1");
     assert("foo".literal == "'foo'");
     assert("a'b'".literal == "'a''b'''");
-    auto a = cast(Blob) x"DEADBEEF";
+    import std.conv : hexString;
+    auto a = cast(Blob) hexString!"DEADBEEF";
     assert(a.literal == "'XDEADBEEF'");
 }
