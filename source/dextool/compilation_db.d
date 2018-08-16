@@ -21,7 +21,6 @@ import dextool.type : AbsolutePath;
 version (unittest) {
     import std.path : buildPath;
     import unit_threaded : Name, shouldEqual;
-    import test.extra_should : shouldEqualPretty;
 }
 
 @safe:
@@ -88,7 +87,7 @@ version (unittest) {
 
     /// The raw command from the tuples "command" value.
     static struct Command {
-        string payload;
+        string[] payload;
         alias payload this;
         bool hasValue() @safe pure nothrow const @nogc {
             return payload.length != 0;
@@ -97,7 +96,7 @@ version (unittest) {
 
     /// The raw arguments from the tuples "arguments" value.
     static struct Arguments {
-        string payload;
+        string[] payload;
         alias payload this;
         bool hasValue() @safe pure nothrow const @nogc {
             return payload.length != 0;
@@ -182,31 +181,34 @@ struct CompileCommandSearch {
  * remove the trusted attribute when the minimal requirement is upgraded.
  */
 private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow @trusted {
-    import std.algorithm : map, filter, joiner;
+    import std.algorithm : map, filter, joiner, splitter;
+    import std.array : array;
     import std.exception : assumeUnique;
     import std.json : JSON_TYPE;
     import std.range : only;
-    import dextool.logger : error;
     import std.utf : byUTF;
 
-    string command;
+    string[] command;
     try {
-        command = v["command"].str;
+        command = v["command"].str.splitter.filter!(a => a.length != 0).array;
     } catch (Exception ex) {
     }
 
-    string arguments;
+    string[] arguments;
     try {
         enum j_arg = "arguments";
         const auto j_type = v[j_arg].type;
         if (j_type == JSON_TYPE.STRING)
-            arguments = v[j_arg].str;
+            arguments = v[j_arg].str.splitter.filter!(a => a.length != 0).array;
         else if (j_type == JSON_TYPE.ARRAY) {
             import std.range;
 
             // TODO unnecessary to join it
-            arguments = v[j_arg].arrayNoRef.filter!(a => a.type == JSON_TYPE.STRING)
-                .map!(a => a.str).joiner(" ").byUTF!char.array().assumeUnique;
+            arguments = v[j_arg].arrayNoRef
+                .filter!(a => a.type == JSON_TYPE.STRING)
+                .map!(a => a.str)
+                .filter!(a => a.length != 0)
+                .array;
         }
     } catch (Exception ex) {
     }
@@ -227,8 +229,8 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         const directory = v["directory"];
         const file = v["file"];
 
-        foreach (a; only(directory, file).map!(a => !a.isNull
-                && a.type == JSON_TYPE.STRING).filter!(a => !a)) {
+        foreach (a; only(directory, file).map!(a => !a.isNull && a.type == JSON_TYPE.STRING)
+                .filter!(a => !a)) {
             // sanity check.
             // if any element is false then break early.
             return typeof(return)();
@@ -236,7 +238,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
 
         return toCompileCommand(directory.str, file.str, command, db_dir, arguments, output);
     } catch (Exception ex) {
-        error("Unable to parse json: " ~ ex.msg);
+        logger.error("Unable to parse json: " ~ ex.msg).collectException;
     }
 
     return typeof(return)();
@@ -249,7 +251,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
  * order of the strings for their meaning.
  */
 private Nullable!CompileCommand toCompileCommand(string directory, string file,
-        string command, AbsoluteCompileDbDirectory db_dir, string arguments, string output) nothrow {
+        string[] command, AbsoluteCompileDbDirectory db_dir, string[] arguments, string output) nothrow {
     // expects that v is a tuple of 3 json values with the keys directory,
     // command, file
 
@@ -270,9 +272,7 @@ private Nullable!CompileCommand toCompileCommand(string directory, string file,
             abs_output);
         // dfmt on
     } catch (Exception ex) {
-        import dextool.logger : error;
-
-        error("Unable to parse json: " ~ ex.msg);
+        logger.error("Unable to parse json: " ~ ex.msg).collectException;
     }
 
     return rval;
@@ -291,7 +291,6 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
     static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
         import std.algorithm : map, filter;
         import std.array : array;
-        import logger = dextool.logger;
 
         try {
             // dfmt off
@@ -305,7 +304,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
             }
             // dfmt on
         } catch (Exception ex) {
-            logger.error("Unable to parse json:" ~ ex.msg);
+            logger.error("Unable to parse json:" ~ ex.msg).collectException;
         }
     }
 
@@ -320,9 +319,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
         // out_range takes care of the validation and other security aspects.
         () @trusted{ put(json, as_dir, out_range); }();
     } catch (Exception ex) {
-        import dextool.logger : error;
-
-        error("Error while parsing compilation database: " ~ ex.msg);
+        logger.error("Error while parsing compilation database: " ~ ex.msg).collectException;
     }
 }
 
@@ -462,10 +459,10 @@ string toString(CompileCommand[] db) @safe pure {
         }
 
         if (a.command.hasValue)
-            formattedWrite(app, "  %s\n", a.command);
+            formattedWrite(app, "  %-(%s %)\n", a.command);
 
         if (a.arguments.hasValue)
-            formattedWrite(app, "  %s\n", a.arguments);
+            formattedWrite(app, "  %-(%s %)\n", a.arguments);
     }
 
     return app.data;
@@ -483,8 +480,8 @@ const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilte
 
 /// Returns: array of default flags to exclude.
 auto defaultCompilerFlagFilter() @safe {
-    import dextool.type : FilterClangFlag;
     import std.array : appender;
+    import dextool.type : FilterClangFlag;
 
     auto app = appender!(FilterClangFlag[])();
 
@@ -545,23 +542,35 @@ struct ParseFlags {
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+ParseFlags parseFlag(const CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
     import std.algorithm : among;
     import dextool.type : FilterClangFlag;
 
-    static bool excludeStartWith(string flag, const FilterClangFlag[] flag_filter) @safe {
+    static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
         import std.algorithm : startsWith, filter, count;
+        import std.array : split, empty;
 
         // the purpuse is to find if any of the flags in flag_filter matches
         // the start of flag.
+
+        bool delegate(const FilterClangFlag) @safe cmp;
+
+        const parts = raw_flag.split('=');
+        if (parts.length == 2) {
+            // is a -foo=bar flag thus exact match is the only sensible
+            cmp = (const FilterClangFlag a) => parts[0] == a.payload;
+        } else {
+            // the flag has the argument merged thus have to check if the start match
+            cmp = (const FilterClangFlag a) => raw_flag.startsWith(a.payload);
+        }
 
         // dfmt off
         return 0 != flag_filter
             .filter!(a => a.kind == FilterClangFlag.Kind.exclude)
             // keep flags that are at least the length of values
-            .filter!(a => flag.length >= a.length)
-            // if the flag starst with the exclude-flag it is a match
-            .filter!(a => flag.startsWith(a.payload))
+            .filter!(a => raw_flag.length >= a.length)
+            // if the flag is any of those in filter
+            .filter!cmp
             .count();
         // dfmt on
     }
@@ -663,25 +672,17 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         return ParseFlags(ParseFlags.Includes(includes.data), rval.data);
     }
 
-    import std.algorithm : filter, splitter;
+    import std.algorithm : filter, splitter, min;
 
-    auto raw = cast(string)(cmd.arguments.hasValue ? cmd.arguments : cmd.command);
-
-    // dfmt off
-    auto pass1 = raw.splitter(' ')
-        // remove empty strings
-        .filter!(a => a.length != 0);
-    // dfmt on
-
-    // skip parameters matching the filter IF `command` where used.
-    // If `arguments` is used then it is already _perfect_.
-    if (!cmd.arguments.hasValue && flag_filter.skipCompilerArgs != 0) {
-        foreach (_; 0 .. flag_filter.skipCompilerArgs) {
-            if (!pass1.empty) {
-                pass1.popFront;
-            }
-        }
-    }
+    string[] pass1 = () @safe{
+        // If `arguments` is used then it is already _perfect_.
+        if (cmd.arguments.hasValue)
+            return cmd.arguments.payload;
+        if (flag_filter.skipCompilerArgs != 0)
+            return cmd.command.payload;
+        // skip parameters matching the filter IF `command` where used.
+        return cmd.command[min(flag_filter.skipCompilerArgs, cmd.command.length) .. $];
+    }().dup;
 
     // `arguments` in a compilation database do not have the compiler binary in
     // the string thus skipCompilerArgs isn't needed.
@@ -705,52 +706,60 @@ CompileCommandDB fromArgCompileDb(string[] paths) @safe {
 
 @("Should be cflags with all unnecessary flags removed")
 unittest {
-    auto cmd = toCompileCommand("/home", "file1.cpp", `g++ -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
-            AbsoluteCompileDbDirectory("/home"), null, null);
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I",
+            "bar", "-Igun", "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null, null);
     auto s = cmd.parseFlag(defaultCompilerFilter);
-    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
-    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
+    s.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with some excess spacing")
 unittest {
-    auto cmd = toCompileCommand("/home", "file1.cpp",
-            `g++           -MD     -lfoo.a -l bar.a       -I    bar     -Igun`,
-            AbsoluteCompileDbDirectory("/home"), null, null);
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-MD", "-lfoo.a", "-l",
+            "bar.a", "-I", "bar", "-Igun"], AbsoluteCompileDbDirectory("/home"), null, null);
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
-    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
-    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
+    s.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with machine dependent removed")
 unittest {
-    auto cmd = toCompileCommand("/home", "file1.cpp",
-            `g++ -mfoo -m bar -MD -lfoo.a -l bar.a -I bar -Igun -c a_filename.c`,
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-mfoo", "-m", "bar",
+            "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c", "a_filename.c"],
             AbsoluteCompileDbDirectory("/home"), null, null);
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
-    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
-    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
+    s.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
 
 @("Should be cflags with all -f removed")
 unittest {
-    auto cmd = toCompileCommand("/home", "file1.cpp", `g++ -fmany-fooo -I bar -fno-fooo -Igun -flolol -c a_filename.c`,
-            AbsoluteCompileDbDirectory("/home"), null, null);
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-fmany-fooo", "-I", "bar", "-fno-fooo", "-Igun",
+            "-flolol", "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null, null);
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
-    s.shouldEqualPretty(["-I", "/home/bar", "-I", "/home/gun"]);
-    s.includes.shouldEqualPretty(["/home/bar", "/home/gun"]);
+    s.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
+    s.includes.shouldEqual(["/home/bar", "/home/gun"]);
+}
+
+@("shall NOT remove -std=xyz flags")
+unittest {
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-std=c++11",
+            "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null, null);
+
+    auto s = cmd.parseFlag(defaultCompilerFilter);
+    s.shouldEqual(["-std=c++11"]);
 }
 
 @("Shall keep all compiler flags as they are")
 unittest {
-    auto cmd = toCompileCommand("/home", "file1.cpp", `g++ -Da -D b`,
-            AbsoluteCompileDbDirectory("/home"), null, null);
+    auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
+            "b"], AbsoluteCompileDbDirectory("/home"), null, null);
 
     auto s = cmd.parseFlag(defaultCompilerFilter);
-    s.shouldEqualPretty(["-Da", "-D", "b"]);
+    s.shouldEqual(["-Da", "-D", "b"]);
 }
 
 version (unittest) {
@@ -840,7 +849,7 @@ unittest {
 
     assert(cmds.length == 1);
     cmds[0].directory.shouldEqual(dummy_dir ~ "/dir1/dir2");
-    cmds[0].command.shouldEqual("g++ -Idir1 -c -o binary file1.cpp");
+    cmds[0].command.shouldEqual(["g++", "-Idir1", "-c", "-o", "binary", "file1.cpp"]);
     cmds[0].file.shouldEqual("file1.cpp");
     cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
 }
@@ -887,7 +896,7 @@ unittest {
     auto found = cmds.find(dummy_dir ~ "/dir2/file3.cpp");
     assert(found.length == 1);
 
-    found.toString.shouldEqualPretty(format("%s/dir2
+    found.toString.shouldEqual(format("%s/dir2
   file3.cpp
   %s/dir2/file3.cpp
   g++ -Idir1 -c -o binary file3.cpp
@@ -901,7 +910,7 @@ unittest {
     auto cmds = CompileCommandDB(app.data);
     auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
 
-    found.toString.shouldEqualPretty(format("%s/dir
+    found.toString.shouldEqual(format("%s/dir
   file2.cpp
   %s/dir/file2.cpp
   g++ -Idir1 -c -o binary file2.cpp
@@ -939,7 +948,7 @@ unittest {
     auto found = cmds.find(abs_path ~ "/dir2/file3.cpp");
     assert(found.length == 1);
 
-    found.toString.shouldEqualPretty(format("%s/dir2
+    found.toString.shouldEqual(format("%s/dir2
   file3.cpp
   %s/dir2/file3.cpp
   g++ -Idir1 -c -o binary file3.cpp
@@ -958,7 +967,7 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
 
-    found.toString.shouldEqualPretty(format("%s/dir2
+    found.toString.shouldEqual(format("%s/dir2
   file3.cpp
   %s/dir2/file3.cpp
   file3.o
@@ -979,7 +988,7 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
 
-    found[0].parseFlag(defaultCompilerFilter).flags.shouldEqualPretty(["-I",
+    found[0].parseFlag(defaultCompilerFilter).flags.shouldEqual(["-I",
             buildPath(abs_path, "dir2", "dir1")]);
 }
 
