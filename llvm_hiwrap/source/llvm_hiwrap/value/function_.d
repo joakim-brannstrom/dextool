@@ -76,8 +76,8 @@ struct FunctionValue {
      *
      * @see llvm::Function::getIntrinsicID()
      */
-    FuncInstrinsicId instrinsicId() {
-        return LLVMGetIntrinsicID(value).FuncInstrinsicId;
+    FuncIntrinsicId intrinsicId() {
+        return LLVMGetIntrinsicID(value).FuncIntrinsicId;
     }
 
     /**
@@ -190,7 +190,7 @@ struct FunctionValue {
     //                                       const char *Name);
 }
 
-struct FuncInstrinsicId {
+struct FuncIntrinsicId {
     uint value;
     alias value this;
 
@@ -201,6 +201,7 @@ struct FuncInstrinsicId {
 }
 
 // Range over all of the basic blocks in a function.
+// TODO end is also a valid basic block. Instead check if LLVMGetNextBasicBlock returns null.
 struct BasicBlockRange {
     import llvm;
     import llvm_hiwrap.value.basic_block;
