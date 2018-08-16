@@ -678,7 +678,7 @@ ParseFlags parseFlag(const CompileCommand cmd, const CompileCommandFilter flag_f
         // If `arguments` is used then it is already _perfect_.
         if (cmd.arguments.hasValue)
             return cmd.arguments.payload;
-        if (flag_filter.skipCompilerArgs != 0)
+        if (flag_filter.skipCompilerArgs == 0)
             return cmd.command.payload;
         // skip parameters matching the filter IF `command` where used.
         return cmd.command[min(flag_filter.skipCompilerArgs, cmd.command.length) .. $];
