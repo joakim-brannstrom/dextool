@@ -41,7 +41,7 @@ struct Function {
         return line ^ column ^ (h[0] << 24 | h[1] << 16 | h[2] << 8 | h[3]);
     }
 
-    bool opEquals(const this o) @safe pure nothrow const @nogc {
+    bool opEquals(const typeof(this) o) @safe pure nothrow const @nogc {
         return name == o.name && file == o.file && line == o.line && column == o.column;
     }
 
@@ -156,8 +156,11 @@ void resultToStdout(McCabeResult analyze, int threshold) @trusted {
 
     writeln("McCabe Cyclomatic Complexity");
     writeln("|======File");
-    foreach (f; analyze.files.byPair.map!(a => a[1])
-            .tee!(a => total += a.complexity).filter!(a => a.complexity >= threshold)) {
+    foreach (f; analyze.files
+            .byPair
+            .map!(a => a[1])
+            .tee!(a => total += a.complexity)
+            .filter!(a => a.complexity >= threshold)) {
         writefln("%-6s %s", f.complexity, f.file);
     }
     writeln("|======Total McCabe ", total);
@@ -183,6 +186,7 @@ void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) @trus
 
     auto fout = std.stdio.File(cast(string) fname, "w");
 
+    fout.writeln("[");
     fout.writeln(`{"kind": "files",`);
     fout.write(` "values":[`);
     long total;
@@ -222,4 +226,5 @@ void resultToJson(AbsolutePath fname, McCabeResult analyze, int threshold) @trus
 
     fout.writeln(newline, " ]");
     fout.writeln("}");
+    fout.writeln("]");
 }

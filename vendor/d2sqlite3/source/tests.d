@@ -6,6 +6,7 @@ import d2sqlite3;
 import std.exception : assertThrown, assertNotThrown;
 import std.string : format;
 import std.typecons : Nullable;
+import std.conv : hexString;
 
 unittest // Test version of SQLite library
 {
@@ -212,7 +213,7 @@ unittest // Different arguments and result types with createFunction
     assert(db.execute("SELECT display_integer(42)").oneValue!int == 42);
     assert(db.execute("SELECT display_float(3.14)").oneValue!double == 3.14);
     assert(db.execute("SELECT display_text('ABC')").oneValue!string == "ABC");
-    assert(db.execute("SELECT display_blob(x'ABCD')").oneValue!Blob == cast(Blob) x"ABCD");
+    assert(db.execute("SELECT display_blob(x'ABCD')").oneValue!Blob == cast(Blob) hexString!"ABCD");
 
     assert(db.execute("SELECT display_integer(NULL)").oneValue!int == 0);
     assert(db.execute("SELECT display_float(NULL)").oneValue!double == 0.0);
@@ -239,7 +240,7 @@ unittest // Different Nullable argument types with createFunction
     assert(db.execute("SELECT display_integer(42)").oneValue!(Nullable!int) == 42);
     assert(db.execute("SELECT display_float(3.14)").oneValue!(Nullable!double) == 3.14);
     assert(db.execute("SELECT display_text('ABC')").oneValue!(Nullable!string) == "ABC");
-    assert(db.execute("SELECT display_blob(x'ABCD')").oneValue!(Nullable!Blob) == cast(Blob) x"ABCD");
+    assert(db.execute("SELECT display_blob(x'ABCD')").oneValue!(Nullable!Blob) == cast(Blob) hexString!"ABCD");
 
     assert(db.execute("SELECT display_integer(NULL)").oneValue!(Nullable!int).isNull);
     assert(db.execute("SELECT display_float(NULL)").oneValue!(Nullable!double).isNull);
@@ -676,8 +677,8 @@ unittest // Peek
     row = results.front;
     assert(row.peek!long(0) == 0);
     assert(row.peek!double(0) == 0.0);
-    assert(row.peek!string(0) == x"DEADBEEF");
-    assert(row.peek!Blob(0) == cast(Blob) x"DEADBEEF");
+    assert(row.peek!string(0) == hexString!"DEADBEEF");
+    assert(row.peek!Blob(0) == cast(Blob) hexString!"DEADBEEF");
 }
 
 unittest // Peeking NULL values
@@ -717,11 +718,11 @@ unittest // PeekMode
     row = results.front;
     auto b3 = row.peek!(Blob, PeekMode.slice)(0);
     auto b4 = row.peek!(Nullable!Blob, PeekMode.copy)(0);
-    assert(b1 == cast(Blob) x"01020304");
+    assert(b1 == cast(Blob) hexString!"01020304");
     // assert(b2 != cast(Blob) x"01020304"); // PASS if SQLite reuses internal buffer
     // assert(b2 == cast(Blob) x"0A0B0C0D"); // PASS (idem)
-    assert(b3 == cast(Blob) x"0A0B0C0D");
-    assert(!b4.isNull && b4 == cast(Blob) x"0A0B0C0D");
+    assert(b3 == cast(Blob) hexString!"0A0B0C0D");
+    assert(!b4.isNull && b4 == cast(Blob) hexString!"0A0B0C0D");
 }
 
 unittest // Row random-access range interface

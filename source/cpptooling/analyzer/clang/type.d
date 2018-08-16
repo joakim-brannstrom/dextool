@@ -486,6 +486,7 @@ body {
         rval = retrieveTypeDef(c, container, indent);
         break;
 
+    case typeAliasTemplateDecl:
     case typeAliasDecl:
         rval = retrieveTypeAlias(c, container, indent);
         break;
@@ -540,6 +541,7 @@ body {
         rval = retrieveClassBaseSpecifier(c, container, indent);
         break;
 
+    case declRefExpr:
     case typeRef:
     case templateRef:
     case namespaceRef:
@@ -551,6 +553,11 @@ body {
 
     case noDeclFound:
         // nothing to do
+        break;
+
+    case nonTypeTemplateParameter:
+        auto type = c.type;
+        rval = typeToSimple(c, type, indent);
         break;
 
     case unexposedDecl:
@@ -623,7 +630,7 @@ private Nullable!TypeResults retrieveUnexposed(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.unexposedDecl);
+    assert(c.kind.among(CXCursorKind.unexposedDecl, CXCursorKind.nonTypeTemplateParameter));
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -859,7 +866,7 @@ private TypeResults typeToTypedef(ref const(Cursor) c, ref Type type, USRType ty
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
-    assert(type.kind == CXTypeKind.typedef_);
+    assert(type.kind.among(CXTypeKind.typedef_) || c.kind == CXCursorKind.typeAliasTemplateDecl);
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -888,11 +895,11 @@ body {
 
             // dfmt off
             spell = cast(string) chain(only(spell), backtrackScopeRange(c).map!(a => a.spelling))
-                .array()
+                .array
                 .retro
                 .joiner("::")
                 .byChar
-                .array();
+                .array;
             // dfmt on
         }
 
@@ -1572,7 +1579,7 @@ private Nullable!TypeResults retrieveTypeAlias(ref const(Cursor) c,
         ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
-    assert(c.kind == CXCursorKind.typeAliasDecl);
+    assert(c.kind.among(CXCursorKind.typeAliasDecl, CXCursorKind.typeAliasTemplateDecl));
 }
 out (result) {
     logTypeResult(result, this_indent);
@@ -1583,7 +1590,7 @@ body {
     Nullable!TypeResults rval;
 
     foreach (child; c.children) {
-        if (child.kind != CXCursorKind.typeRef) {
+        if (!child.kind.among(CXCursorKind.typeRef, CXCursorKind.typeAliasDecl)) {
             continue;
         }
 
@@ -1603,6 +1610,11 @@ body {
                     tref.primary.type.kind.usr, container, indent);
         }
         rval.extra = [tref.primary] ~ tref.extra;
+    }
+
+    if (rval.isNull && c.kind == CXCursorKind.typeAliasDecl) {
+        auto type = c.type;
+        rval = typeToSimple(c, type, indent);
     }
 
     return rval;
@@ -2093,7 +2105,9 @@ private string joinParamId(ExtractParamsResult[] r) {
     }
 
     // using cache to avoid calling getName twice.
-    return r.enumerate.map!(a => getTypeId(a.value, a.index)).filter!(a => a.length > 0)
+    return r.enumerate
+        .map!(a => getTypeId(a.value, a.index))
+        .filter!(a => a.length > 0)
         .joiner(", ").text();
 
 }

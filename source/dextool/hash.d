@@ -40,7 +40,7 @@ struct Murmur3 {
     ulong c0;
     ulong c1;
 
-    bool opEquals(const this o) nothrow @safe {
+    bool opEquals(const typeof(this) o) nothrow @safe {
         return c0 == o.c0 && c1 == o.c1;
     }
 

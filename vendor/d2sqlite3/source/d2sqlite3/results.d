@@ -536,8 +536,7 @@ public:
     T as(T)()
         if (is(T == struct))
     {
-        import std.meta : staticMap;
-        import std.traits : NameOf, isNested, FieldTypeTuple, FieldNameTuple;
+        import std.traits : FieldTypeTuple, FieldNameTuple;
 
         alias FieldTypes = FieldTypeTuple!T;
         T obj;
