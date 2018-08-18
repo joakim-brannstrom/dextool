@@ -15,7 +15,7 @@ fi
 
 PARALLEL=$(nproc)
 
-./tools/travis_install_dep.sh
+./tools/travis_install_dep.d
 SQLITE3="-L$ROOT/sqlite_src -lsqlite3"
 
 mkdir build
