@@ -390,11 +390,10 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
 /// ditto
 auto splitTypeId(ref const TypeKind t, const uint indent = 0) @safe pure
 out (result) {
-    import dextool.logger : trace;
     import std.conv : to;
 
     debug {
-        trace(result.to!string(), indent);
+        logger.trace(result.to!string(), indent);
     }
 }
 body {

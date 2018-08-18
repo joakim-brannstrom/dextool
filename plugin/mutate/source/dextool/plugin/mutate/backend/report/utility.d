@@ -253,7 +253,9 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
 
         const total_time = total.isNull ? 0.dur!"msecs" : total.time;
         const total_cnt = total.isNull ? 0 : total.count;
-        const killed_cnt = only(killed, timeout).filter!(a => !a.isNull).map!(a => a.count).sum;
+        const killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
+            .map!(a => a.count)
+            .sum;
         const untested_cnt = untested.isNull ? 0 : untested.count;
         const predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt)) : 0
             .dur!"msecs";
@@ -357,8 +359,9 @@ struct Table(int columnsNr) {
         import std.utf : byCodeUnit;
         import std.typecons : tuple;
 
-        foreach (a; r[].enumerate.map!(a => tuple(a.index,
-                a.value.byCodeUnit.count)).filter!(a => a[1] > columnWidth[a[0]])) {
+        foreach (a; r[].enumerate
+                .map!(a => tuple(a.index, a.value.byCodeUnit.count))
+                .filter!(a => a[1] > columnWidth[a[0]])) {
             columnWidth[a[0]] = a[1];
         }
     }

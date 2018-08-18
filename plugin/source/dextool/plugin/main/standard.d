@@ -18,25 +18,25 @@ This optional main function requires that:
 */
 module dextool.plugin.main.standard;
 
+import colorlog : VerboseMode, confLogger;
+
 import dextool.type : FileName, ExitStatusType;
 
 /** Parse the raw command line.
  */
-auto parseLogLevel(string[] args) {
+VerboseMode parseLogLevel(string[] args) {
     import std.algorithm : findAmong;
     import std.array : empty;
-    import dextool.logger_conf : ConfigureLog;
 
-    return findAmong(args, ["-d", "--debug"]).empty ? ConfigureLog.info : ConfigureLog.debug_;
+    return findAmong(args, ["-d", "--debug"]).empty ? VerboseMode.info : VerboseMode.trace;
 }
 
 int main(string[] args) {
     import std.algorithm : filter, among;
     import std.array : array;
     import std.stdio : writeln;
-    import dextool.logger_conf : confLogLevel;
 
-    confLogLevel(parseLogLevel(args));
+    confLogger(parseLogLevel(args));
 
     // holds the remining arguments after -d/--debug has bee removed
     auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
