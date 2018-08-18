@@ -1,0 +1,22 @@
+language: d
+
+d:
+    - dmd-2.071.2
+    - dmd
+    - ldc
+
+os:
+    - linux
+
+notifications:
+    email: false
+
+git:
+    depth: 1
+
+branches:
+    only:
+        - master
+
+script:
+    - dub test
