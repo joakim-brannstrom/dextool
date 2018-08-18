@@ -53,7 +53,7 @@ struct MakeMutationTextResult {
         return ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]);
     }
 
-    bool opEquals(const this o) const nothrow @safe {
+    bool opEquals(const typeof(this) o) const nothrow @safe {
         return original == o.original && mutation == o.mutation;
     }
 }
