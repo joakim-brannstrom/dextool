@@ -7,7 +7,7 @@ module application.app_main;
 
 import logger = std.experimental.logger;
 
-import dextool.logger_conf : ConfigureLog;
+import colorlog : VerboseMode;
 import dextool.type : FileName, ExitStatusType;
 
 import application.cli_help;
@@ -28,7 +28,7 @@ private enum CLICategoryStatus {
 private struct CLIResult {
     CLICategoryStatus status;
     string category;
-    ConfigureLog confLog;
+    VerboseMode confLog;
     string[] args;
 }
 
@@ -38,8 +38,7 @@ auto parseMainCLI(const string[] args) {
     import std.algorithm : among, filter, findAmong;
     import std.array : array, empty;
 
-    ConfigureLog loglevel = findAmong(args, ["-d", "--debug"]).empty
-        ? ConfigureLog.info : ConfigureLog.debug_;
+    auto loglevel = findAmong(args, ["-d", "--debug"]).empty ? VerboseMode.info : VerboseMode.trace;
     // -d/--debug interferes with -h/--help/help and cli category therefore
     // remove
     string[] rem_args = args.dup.filter!(a => !a.among("-d", "--debug")).array();
@@ -79,7 +78,7 @@ version (unittest) {
     @Values("-d", "--debug")
     unittest {
         auto result = parseMainCLI(["dextool", getValue!string]);
-        result.confLog.shouldEqual(ConfigureLog.debug_);
+        result.confLog.shouldEqual(VerboseMode.trace);
     }
 
     @("Should be the version category")
@@ -170,13 +169,13 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 int rmain(string[] args) nothrow {
     import std.conv : text;
     import std.exception : collectException;
-    import dextool.logger_conf : confLogLevel;
+    import colorlog : confLogger;
 
     ExitStatusType exit_status = ExitStatusType.Errors;
 
     try {
         auto parsed = parseMainCLI(args);
-        confLogLevel(parsed.confLog);
+        confLogger(parsed.confLog);
         logger.trace(parsed);
 
         exit_status = runPlugin(parsed, args);

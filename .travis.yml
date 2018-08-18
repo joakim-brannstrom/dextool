@@ -28,7 +28,7 @@ branches:
     only:
         - master
 
-script: ./tools/travis.sh
+script: ./tools/travis.d
 after_success: |-
     # [[ $TRAVIS_JOB_NUMBER = *.1 ]] && # only generate docs once per commit
     [[ $DC = "dmd" ]] && # only generate docs once per commit

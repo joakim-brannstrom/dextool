@@ -1,0 +1,7 @@
+name "colorlog"
+description "std.experimental.logger with color support"
+authors "Joakim Braennstroem"
+copyright "Copyright © 2018, Joakim Braennstroem"
+license "BSL-1.0"
+
+targetType "library"

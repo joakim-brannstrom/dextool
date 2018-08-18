@@ -8,9 +8,9 @@ set(EXE_NAME ${DEXTOOL_MAIN_EXE}-compiledb)
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
-    "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source"
+    "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source"
     ""
-    "dextool_dextool;dextool_plugin_utility"
+    "dextool_dextool;dextool_plugin_utility;dextool_colorlog"
 )
 
 collect_binary_in_root(${EXE_NAME})

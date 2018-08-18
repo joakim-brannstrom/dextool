@@ -45,7 +45,7 @@ struct Function {
         return name == o.name && file == o.file && line == o.line && column == o.column;
     }
 
-    int opCmp(const this rhs) @safe pure nothrow const {
+    int opCmp(const typeof(this) rhs) @safe pure nothrow const {
         // dfmt off
         if (name < rhs.name)
             return -1;

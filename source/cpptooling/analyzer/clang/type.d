@@ -98,9 +98,7 @@ private void makeFallbackUSR(Writer)(scope Writer w, ref const(Cursor) c, in uin
 /// Returns: fallback USR from the cursor.
 private USRType makeFallbackUSR(ref const(Cursor) c, in uint this_indent) @safe
 out (result) {
-    import dextool.logger;
-
-    trace(result, this_indent);
+    logger.trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
@@ -115,9 +113,7 @@ body {
 /// Make a USR, never failing.
 USRType makeEnsuredUSR(const(Cursor) c, in uint this_indent) @safe
 out (result) {
-    import dextool.logger;
-
-    trace(result, this_indent);
+    logger.trace(result, this_indent);
     assert(result.length > 0);
 }
 body {
@@ -1559,9 +1555,8 @@ body {
             &handleTypeWithDecl, &fallback]) {
         debug {
             import std.conv : to;
-            import dextool.logger : trace;
 
-            trace(idx.to!string(), this_indent);
+            logger.trace(idx.to!string(), this_indent);
         }
 
         f(rval);
@@ -1788,9 +1783,8 @@ body {
             &handleTyperef, &handleFuncProto, &handleDecl, &underlying, &fallback]) {
         debug {
             import std.conv : to;
-            import dextool.logger : trace;
 
-            trace(idx.to!string(), this_indent);
+            logger.trace(idx.to!string(), this_indent);
         }
         f(rval);
         if (!rval.isNull) {
@@ -1927,13 +1921,11 @@ in {
     assert(c.kind == CXCursorKind.cxxBaseSpecifier);
 }
 body {
-    import dextool.logger : trace;
-
     auto indent = this_indent + 1;
 
     // when the cursor references a definition. easy
     bool tryReferenced(ref Nullable!TypeResults rval) {
-        trace("", this_indent);
+        logger.trace("", this_indent);
         auto c_ref = c.referenced;
 
         if (c_ref.kind == CXCursorKind.noDeclFound) {
@@ -1947,7 +1939,7 @@ body {
 
     // no definition exist. e.g in the cases of a template instantiation.
     bool reconstructFromCursor(ref Nullable!TypeResults rval) {
-        trace("", this_indent);
+        logger.trace("", this_indent);
 
         rval = TypeResults();
 
@@ -2032,10 +2024,8 @@ in {
     assert(type.isFunctionType || type.isTypedef || type.kind == CXTypeKind.functionNoProto);
 }
 out (result) {
-    import dextool.logger : trace;
-
     foreach (p; result.params) {
-        trace(p.result.type.toStringDecl(p.id), this_indent);
+        logger.trace(p.result.type.toStringDecl(p.id), this_indent);
     }
 
     foreach (e; result.extra) {

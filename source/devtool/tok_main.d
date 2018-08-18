@@ -274,9 +274,9 @@ int dumpBody(string fname, string[] flags) {
 }
 
 int main(string[] args) {
-    import dextool.logger_conf : confLogLevel, ConfigureLog;
+    import colorlog : VerboseMode, confLogger;
 
-    confLogLevel(ConfigureLog.debug_);
+    confLogger(VerboseMode.trace);
 
     if (args.length < 3) {
         writeln("devtool <category> filename");
