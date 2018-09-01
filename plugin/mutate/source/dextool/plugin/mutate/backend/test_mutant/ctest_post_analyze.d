@@ -25,8 +25,9 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
 import dextool.plugin.mutate.backend.type : TestCase;
+import dextool.type : AbsolutePath;
 
 /** Parse input for ctest test cases.
 Params:
@@ -47,7 +48,7 @@ struct CtestParser {
         FsmData data;
     }
 
-    void process(T, T1)(T line, ref T1 sink) {
+    void process(T)(T line, TestCaseReport report) {
         import std.range : put;
         import std.string : strip;
 
@@ -66,7 +67,7 @@ struct CtestParser {
         case none:
             break;
         case putTestCase:
-            put(sink, TestCase(fail_msg_match["tc"].strip.idup));
+            report.reportFailed(fail_msg_match["tc"].strip.idup);
             break;
         }
     }

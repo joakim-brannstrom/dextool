@@ -451,6 +451,7 @@ struct MutationTestDriver(ImplT) {
 struct ImplMutationDriver {
     import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.type : TestCase;
+    import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
 nothrow:
 
@@ -477,7 +478,7 @@ nothrow:
 
     Mutation.Status mut_status;
 
-    TestCase[] test_cases;
+    GatherTestCase test_cases;
 
     this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd, AbsolutePath test_cmd,
             AbsolutePath test_case_cmd,
@@ -490,6 +491,7 @@ nothrow:
         this.test_case_cmd = test_case_cmd;
         this.tc_analyze_builtin = tc_analyze_builtin;
         this.tester_runtime = tester_runtime;
+        this.test_cases = new GatherTestCase;
     }
 
     void initialize() {
@@ -616,20 +618,24 @@ nothrow:
         import std.path : buildPath;
         import std.process : execute;
         import std.string : strip;
+        import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
 
         if (mut_status != Mutation.Status.killed || test_tmp_output.length == 0) {
             driver_sig = MutationDriverSignal.next;
             return;
         }
 
-        bool externalProgram(T)(string stdout_, string stderr_, ref T app) nothrow {
+        bool externalProgram(string stdout_, string stderr_, TestCaseReport report) nothrow {
             import std.algorithm : copy;
 
             try {
                 auto p = execute([test_case_cmd, stdout_, stderr_]);
                 if (p.status == 0) {
-                    p.output.splitter(newline).map!(a => a.strip)
-                        .filter!(a => a.length != 0).map!(a => TestCase(a)).copy(app);
+                    foreach (tc; p.output.splitter(newline).map!(a => a.strip)
+                            .filter!(a => a.length != 0)
+                            .map!(a => TestCase(a))) {
+                        report.reportFailed(tc);
+                    }
                     return true;
                 } else {
                     logger.warning(p.output);
@@ -702,18 +708,20 @@ nothrow:
                 return;
             }
 
-            import std.array : appender;
+            auto gather_tc = new GatherTestCase;
 
-            auto app = appender!(TestCase[])();
-
+            // the post processer must succeeed for the data to be stored. if
+            // is considered a major error that may corrupt existing data if it
+            // fails.
             bool success = true;
+
             if (test_case_cmd.length != 0)
-                success = success && externalProgram(stdout_, stderr_, app);
+                success = success && externalProgram(stdout_, stderr_, gather_tc);
             if (tc_analyze_builtin.length != 0)
-                success = success && builtin(stdout_, stderr_, app);
+                success = success && builtin(stdout_, stderr_, gather_tc);
 
             if (success) {
-                test_cases = app.data;
+                test_cases = gather_tc;
                 driver_sig = MutationDriverSignal.next;
             }
         } catch (Exception e) {
@@ -722,6 +730,7 @@ nothrow:
     }
 
     void storeResult() {
+        import std.algorithm : sort;
         import dextool.plugin.mutate.backend.mutation_type : broadcast;
 
         driver_sig = MutationDriverSignal.stop;
@@ -731,9 +740,11 @@ nothrow:
         try {
             auto bcast = broadcast(mutp.mp.mutations[0].kind);
 
-            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, test_cases, bcast);
+            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
+                    test_cases.failedAsArray, bcast);
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.length != 0, "%s killed by [%(%s,%)]", mutp.id, test_cases);
+            logger.infof(test_cases.failed.length != 0, "%s killed by [%(%s,%)]",
+                    mutp.id, test_cases.failedAsArray.sort);
             driver_sig = MutationDriverSignal.next;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
