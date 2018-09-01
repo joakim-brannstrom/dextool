@@ -373,10 +373,11 @@ struct Database {
     }
 
     /** Add a link between the mutation and what test case killed it.
-        Params:
-            id = ?
-            tcs = test cases to add
-      */
+     *
+     * Params:
+     *  id = ?
+     *  tcs = test cases to add
+     */
     void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
         import std.format : format;
 
@@ -393,7 +394,7 @@ struct Database {
         } catch (Exception e) {
         }
 
-        immutable add_new_sql = format("INSERT INTO %s (mut_id, test_case) VALUES(:mut_id, :tc)",
+        immutable add_new_sql = format("INSERT INTO %s (mut_id, name) VALUES(:mut_id, :tc)",
                 testCaseTable);
         foreach (const tc; tcs) {
             try {
@@ -415,8 +416,7 @@ struct Database {
 
         Appender!(TestCase[]) rval;
 
-        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id=:id",
-                testCaseTable);
+        immutable get_test_cases_sql = format("SELECT name FROM %s WHERE mut_id=:id", testCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute) {
@@ -460,7 +460,7 @@ struct Database {
         }
 
         // get all the test cases that are killed at the mutation point
-        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id IN (%(%s,%))",
+        immutable get_test_cases_sql = format("SELECT name FROM %s WHERE mut_id IN (%(%s,%))",
                 testCaseTable, mut_ids);
         auto stmt = db.prepare(get_test_cases_sql);
         foreach (a; stmt.execute) {
@@ -478,7 +478,7 @@ struct Database {
         import std.regex : matchFirst;
 
         immutable sql = format(
-                "SELECT test_case.id,test_case.test_case FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
+                "SELECT test_case.id,test_case.name FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
                 testCaseTable, mutationTable,
                 testCaseTable, mutationTable, mutationTable, kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
