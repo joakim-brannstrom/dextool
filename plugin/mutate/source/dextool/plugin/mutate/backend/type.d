@@ -154,8 +154,60 @@ enum OpTypeInfo {
 
 /// A test case that failed and thus killed a mutant.
 struct TestCase {
-    string value;
-    alias value this;
+    string name;
+
+    /// A location identifier intended to be presented to the user.
+    string location;
+
+    this(string name) @safe pure nothrow @nogc scope {
+        this(name, null);
+    }
+
+    this(string name, string loc) @safe pure nothrow @nogc scope {
+        this.name = name;
+        this.location = loc;
+    }
+
+    int opCmp(ref const typeof(this) s) @safe pure nothrow const @nogc scope {
+        if (name < s.name)
+            return -1;
+        else if (name > s.name)
+            return 1;
+        else if (location < s.location)
+            return -1;
+        else if (location > s.location)
+            return 1;
+
+        return 0;
+    }
+
+    bool opEquals(ref const typeof(this) s) @safe pure nothrow const @nogc scope {
+        return name == s.name && location == s.location;
+    }
+
+    size_t toHash() @safe nothrow const scope {
+        return typeid(string).getHash(&name) + typeid(string).getHash(&location);
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    import std.range : isOutputRange;
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.range : put;
+
+        if (location.length != 0) {
+            put(w, location);
+            put(w, ":");
+        }
+        put(w, name);
+    }
 }
 
 /// The language a file or mutant is.

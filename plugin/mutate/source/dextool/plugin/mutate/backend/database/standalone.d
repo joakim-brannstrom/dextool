@@ -373,10 +373,11 @@ struct Database {
     }
 
     /** Add a link between the mutation and what test case killed it.
-        Params:
-            id = ?
-            tcs = test cases to add
-      */
+     *
+     * Params:
+     *  id = ?
+     *  tcs = test cases to add
+     */
     void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
         import std.format : format;
 
@@ -386,25 +387,70 @@ struct Database {
         immutable mut_id = id.to!string;
 
         try {
-            immutable remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id", testCaseTable);
+            immutable remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id",
+                    killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
             stmt.bind(":id", mut_id);
             stmt.execute;
         } catch (Exception e) {
         }
 
-        immutable add_new_sql = format("INSERT INTO %s (mut_id, test_case) VALUES(:mut_id, :tc)",
-                testCaseTable);
+        immutable add_new_sql = format("INSERT INTO %s (mut_id, name,location) VALUES(:mut_id, :tc, :loc)",
+                killedTestCaseTable);
+        auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
-                auto stmt = db.prepare(add_new_sql);
-                stmt.bind(":mut_id", mut_id);
-                stmt.bind(":tc", cast(string) tc);
-                stmt.execute;
+                stmt_insert.reset;
+                stmt_insert.bind(":mut_id", mut_id);
+                stmt_insert.bind(":tc", tc.name);
+                stmt_insert.bind(":loc", tc.location);
+                stmt_insert.execute;
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
+    }
+
+    /** Set detected test cases.
+     *
+     * This will replace those that where previously stored.
+     */
+    void setDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        import std.format : format;
+
+        if (tcs.length == 0)
+            return;
+
+        immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
+        db.run(remove_old_sql);
+
+        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
+        auto stmt = db.prepare(add_tc_sql);
+        foreach (tc; tcs) {
+            try {
+                stmt.reset;
+                stmt.bind(":name", tc.name);
+                stmt.execute;
+            } catch (Exception e) {
+                logger.trace(e.msg);
+            }
+        }
+    }
+
+    /// Returns: detected test cases.
+    TestCase[] getDetectedTestCases() @trusted {
+        import std.array : appender;
+        import std.format : format;
+
+        immutable sql = format("SELECT name FROM %s", allTestCaseTable);
+
+        auto rval = appender!(TestCase[])();
+        auto stmt = db.prepare(sql);
+        foreach (a; stmt.execute) {
+            rval.put(TestCase(a.peek!string(0)));
+        }
+
+        return rval.data;
     }
 
     /** Returns: test cases that killed the mutant.
@@ -415,12 +461,12 @@ struct Database {
 
         Appender!(TestCase[]) rval;
 
-        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id=:id",
-                testCaseTable);
+        immutable get_test_cases_sql = format(
+                "SELECT name,location FROM %s WHERE mut_id=:id", killedTestCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute) {
-            rval.put(TestCase(a.peek!string(0)));
+            rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
         }
 
         return rval.data;
@@ -460,11 +506,11 @@ struct Database {
         }
 
         // get all the test cases that are killed at the mutation point
-        immutable get_test_cases_sql = format("SELECT test_case FROM %s WHERE mut_id IN (%(%s,%))",
-                testCaseTable, mut_ids);
+        immutable get_test_cases_sql = format("SELECT name,location FROM %s WHERE mut_id IN (%(%s,%))",
+                killedTestCaseTable, mut_ids);
         auto stmt = db.prepare(get_test_cases_sql);
         foreach (a; stmt.execute) {
-            rval.put(TestCase(a.peek!string(0)));
+            rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
         }
 
         return rval.data;
@@ -478,9 +524,9 @@ struct Database {
         import std.regex : matchFirst;
 
         immutable sql = format(
-                "SELECT test_case.id,test_case.test_case FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
-                testCaseTable, mutationTable,
-                testCaseTable, mutationTable, mutationTable, kinds.map!(a => cast(long) a));
+                "SELECT test_case.id,test_case.name FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
+                killedTestCaseTable, mutationTable,
+                killedTestCaseTable, mutationTable, mutationTable, kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
 
         foreach (row; stmt.execute) {
@@ -489,7 +535,7 @@ struct Database {
                 continue;
 
             long id = row.peek!long(0);
-            auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", testCaseTable));
+            auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", killedTestCaseTable));
             del_stmt.bind(":id", id);
             del_stmt.execute;
         }

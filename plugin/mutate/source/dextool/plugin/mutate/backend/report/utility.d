@@ -148,7 +148,7 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
     foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(take_)) {
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
-            typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key];
+            typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key.toString];
             tbl.put(r);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -182,7 +182,7 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
     alias Row = MutTable.Row;
 
     foreach (tc_muts; mut_stat.byKeyValue) {
-        put(writer_txt, tc_muts.key);
+        put(writer_txt, tc_muts.key.toString);
 
         MutTable tbl;
         tbl.heading = ["ID", "File Line:Column", "From", "To"];

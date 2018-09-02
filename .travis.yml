@@ -13,6 +13,8 @@ matrix:
           env: DEXTOOL_BUILD="Debug"
         - d: ldc-1.8.0
           env: DEXTOOL_BUILD="Release"
+        - d: ldc
+          env: DEXTOOL_BUILD="Release"
 
 sudo: required
 group: edge

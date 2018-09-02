@@ -451,6 +451,7 @@ struct MutationTestDriver(ImplT) {
 struct ImplMutationDriver {
     import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.type : TestCase;
+    import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
 nothrow:
 
@@ -477,7 +478,7 @@ nothrow:
 
     Mutation.Status mut_status;
 
-    TestCase[] test_cases;
+    GatherTestCase test_cases;
 
     this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd, AbsolutePath test_cmd,
             AbsolutePath test_case_cmd,
@@ -490,6 +491,7 @@ nothrow:
         this.test_case_cmd = test_case_cmd;
         this.tc_analyze_builtin = tc_analyze_builtin;
         this.tester_runtime = tester_runtime;
+        this.test_cases = new GatherTestCase;
     }
 
     void initialize() {
@@ -569,29 +571,19 @@ nothrow:
     }
 
     void testMutant() {
-        import std.random : uniform;
-        import std.format : format;
-        import std.file : mkdir, exists;
+        import dextool.type : Path;
 
         assert(!mutp.isNull);
         driver_sig = MutationDriverSignal.mutationError;
 
         if (test_case_cmd.length != 0 || tc_analyze_builtin.length != 0) {
-            // try 5 times or bailout
-            foreach (const _; 0 .. 5) {
-                try {
-                    auto tmp = format("dextool_tmp_%s", uniform!ulong);
-                    mkdir(tmp);
-                    test_tmp_output = AbsolutePath(FileName(tmp));
-                    break;
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
-            }
-
-            if (test_tmp_output.length == 0) {
-                logger.warning("Unable to create a temporary directory to store stdout/stderr in")
-                    .collectException;
+            try {
+                auto tmpdir = createTmpDir;
+                if (tmpdir.length == 0)
+                    return;
+                test_tmp_output = Path(tmpdir).AbsolutePath;
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
                 return;
             }
         }
@@ -622,75 +614,6 @@ nothrow:
             return;
         }
 
-        bool externalProgram(T)(string stdout_, string stderr_, ref T app) nothrow {
-            import std.algorithm : copy;
-
-            try {
-                auto p = execute([test_case_cmd, stdout_, stderr_]);
-                if (p.status == 0) {
-                    p.output.splitter(newline).map!(a => a.strip)
-                        .filter!(a => a.length != 0).map!(a => TestCase(a)).copy(app);
-                    return true;
-                } else {
-                    logger.warning(p.output);
-                    logger.warning("Failed to analyze the test case output");
-                    return false;
-                }
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-
-            return false;
-        }
-
-        // trusted: because the paths to the File object are created by this
-        // program and can thus not lead to memory related problems.
-        bool builtin(T)(string stdout_, string stderr_, ref T app) @trusted nothrow {
-            import std.stdio : File;
-            import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
-            import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
-
-            auto reldir = fio.getOutputDir;
-
-            foreach (f; [stdout_, stderr_]) {
-                auto gtest = GtestParser(reldir);
-                CtestParser ctest;
-
-                File* fin;
-                try {
-                    fin = new File(f);
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                    return false;
-                }
-
-                // an invalid UTF-8 char shall only result in the rest of the file being skipped
-                try
-                    foreach (l; fin.byLine) {
-                        foreach (const p; tc_analyze_builtin) {
-                            final switch (p) {
-                            case TestCaseAnalyzeBuiltin.gtest:
-                                gtest.process(l, app);
-                                break;
-                            case TestCaseAnalyzeBuiltin.ctest:
-                                ctest.process(l, app);
-                                break;
-                            }
-                        }
-                    } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
-
-                try {
-                    fin.close;
-                    destroy(fin);
-                } catch (Exception e) {
-                }
-            }
-
-            return true;
-        }
-
         driver_sig = MutationDriverSignal.mutationError;
 
         try {
@@ -702,18 +625,21 @@ nothrow:
                 return;
             }
 
-            import std.array : appender;
+            auto gather_tc = new GatherTestCase;
 
-            auto app = appender!(TestCase[])();
-
+            // the post processer must succeeed for the data to be stored. if
+            // is considered a major error that may corrupt existing data if it
+            // fails.
             bool success = true;
+
             if (test_case_cmd.length != 0)
-                success = success && externalProgram(stdout_, stderr_, app);
+                success = success && externalProgram([test_case_cmd, stdout_, stderr_], gather_tc);
             if (tc_analyze_builtin.length != 0)
-                success = success && builtin(stdout_, stderr_, app);
+                success = success && builtin(fio.getOutputDir, [stdout_,
+                        stderr_], tc_analyze_builtin, gather_tc);
 
             if (success) {
-                test_cases = app.data;
+                test_cases = gather_tc;
                 driver_sig = MutationDriverSignal.next;
             }
         } catch (Exception e) {
@@ -722,6 +648,7 @@ nothrow:
     }
 
     void storeResult() {
+        import std.algorithm : sort;
         import dextool.plugin.mutate.backend.mutation_type : broadcast;
 
         driver_sig = MutationDriverSignal.stop;
@@ -731,9 +658,11 @@ nothrow:
         try {
             auto bcast = broadcast(mutp.mp.mutations[0].kind);
 
-            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek, test_cases, bcast);
+            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
+                    test_cases.failedAsArray, bcast);
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.length != 0, "%s killed by [%(%s,%)]", mutp.id, test_cases);
+            logger.infof(test_cases.failed.length != 0, `%s killed by [%(%s, %)]`,
+                    mutp.id, test_cases.failedAsArray.sort);
             driver_sig = MutationDriverSignal.next;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -757,9 +686,6 @@ nothrow:
             import std.file : rmdirRecurse;
 
             // trusted: test_tmp_output is tested to be valid data.
-            // it is further created via mkdtemp which I assume can be
-            // considered safe because its input is created wholly in this
-            // driver.
             () @trusted{
                 try {
                     rmdirRecurse(test_tmp_output);
@@ -792,6 +718,7 @@ struct TestDriver(ImplT) {
         none,
         initialize,
         sanityCheck,
+        updateAndResetAliveMutants,
         checkMutantsLeft,
         preCompileSut,
         measureTestSuite,
@@ -868,6 +795,9 @@ struct TestDriver(ImplT) {
         case resetTimeout:
             impl.resetTimeout;
             break;
+        case updateAndResetAliveMutants:
+            impl.updateAndResetAliveMutants;
+            break;
         case done:
             break;
         case error:
@@ -888,19 +818,22 @@ struct TestDriver(ImplT) {
             break;
         case sanityCheck:
             if (signal == TestDriverSignal.next)
-                next_ = State.checkMutantsLeft;
+                next_ = State.preCompileSut;
             else if (signal == TestDriverSignal.sanityCheckFailed)
                 next_ = State.error;
             break;
+        case updateAndResetAliveMutants:
+            next_ = checkMutantsLeft;
+            break;
         case checkMutantsLeft:
             if (signal == TestDriverSignal.next)
-                next_ = State.preCompileSut;
+                next_ = State.measureTestSuite;
             else if (signal == TestDriverSignal.allMutantsTested)
                 next_ = State.done;
             break;
         case preCompileSut:
             if (signal == TestDriverSignal.next)
-                next_ = State.measureTestSuite;
+                next_ = State.updateAndResetAliveMutants;
             else if (signal == TestDriverSignal.compilationError)
                 next_ = State.error;
             break;
@@ -1022,6 +955,105 @@ nothrow:
             logger.info("Sanity check passed. Files on the filesystem are consistent")
                 .collectException;
             driver_sig = TestDriverSignal.next;
+        }
+    }
+
+    // TODO: refactor. This method is too long.
+    void updateAndResetAliveMutants() {
+        import core.time : dur;
+        import std.datetime.stopwatch : StopWatch;
+        import std.path : buildPath;
+        import dextool.type : Path;
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        driver_sig = TestDriverSignal.next;
+
+        if (data.testCaseAnalyzeProgram.length == 0 && data.testCaseAnalyzeBuiltin.length == 0)
+            return;
+
+        AbsolutePath test_tmp_output;
+        try {
+            auto tmpdir = createTmpDir;
+            if (tmpdir.length == 0)
+                return;
+            test_tmp_output = Path(tmpdir).AbsolutePath;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            return;
+        }
+
+        // trusted: test_tmp_output is tested to be valid data.
+        scope (exit)
+            () @trusted{
+            try {
+                import std.file : rmdirRecurse;
+
+                rmdirRecurse(test_tmp_output);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }();
+
+        import dextool.set;
+
+        Set!string old_tcs;
+        try {
+            foreach (tc; data.db.getDetectedTestCases)
+                old_tcs.add(tc.name);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        TestCase[] found_tc;
+
+        try {
+            import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
+            import dextool.plugin.mutate.backend.watchdog : StaticTime;
+
+            auto stdout_ = buildPath(test_tmp_output, stdoutLog);
+            auto stderr_ = buildPath(test_tmp_output, stderrLog);
+
+            // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
+            auto watchdog = StaticTime!StopWatch(999.dur!"hours");
+            runTester(data.compilerProgram, data.testProgram, test_tmp_output,
+                    watchdog, data.filesysIO);
+
+            auto gather_tc = new GatherTestCase;
+
+            bool success = true;
+            if (data.testCaseAnalyzeProgram.length != 0)
+                success = success && externalProgram([data.testCaseAnalyzeProgram,
+                        stdout_, stderr_], gather_tc);
+            if (data.testCaseAnalyzeBuiltin.length != 0)
+                success = success && builtin(data.filesysIO.getOutputDir,
+                        [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
+
+            found_tc = gather_tc.foundAsArray;
+            data.db.setDetectedTestCases(found_tc);
+
+            import std.algorithm : sort;
+
+            logger.tracef("Found test cases:\n%(%s\n%)", gather_tc.foundAsArray.sort);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        if (old_tcs.length == 0)
+            return;
+
+        // reset alive mutants if the test cases change
+        foreach (tc; found_tc) {
+            if (!old_tcs.contains(tc.name)) {
+                try {
+                    logger.infof("Found a new test case (%s). Resetting alive mutants",
+                            tc).collectException;
+                    data.db.resetMutant(data.mutKind, Mutation.Status.alive,
+                            Mutation.Status.unknown);
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+                break;
+            }
         }
     }
 
@@ -1152,4 +1184,119 @@ nothrow:
     auto signal() {
         return driver_sig;
     }
+}
+
+private:
+
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+
+/// Run an external program that analyze the output from the test suite for test cases that failed.
+bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
+    import std.algorithm : copy, splitter, filter, map;
+    import std.ascii : newline;
+    import std.process : execute;
+    import std.string : strip;
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    try {
+        // [test_case_cmd, stdout_, stderr_]
+        auto p = execute(cmd);
+        if (p.status == 0) {
+            foreach (tc; p.output.splitter(newline).map!(a => a.strip)
+                    .filter!(a => a.length != 0)
+                    .map!(a => TestCase(a))) {
+                report.reportFailed(tc);
+            }
+            return true;
+        } else {
+            logger.warning(p.output);
+            logger.warning("Failed to analyze the test case output");
+            return false;
+        }
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+
+    return false;
+}
+
+/** Analyze the output from the test suite with one of the builtin analyzers.
+ *
+ * trusted: because the paths to the File object are created by this program
+ * and can thus not lead to memory related problems.
+ */
+bool builtin(AbsolutePath reldir, string[] analyze_files,
+        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, TestCaseReport app) @trusted nothrow {
+    import std.stdio : File;
+    import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
+    import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
+
+    foreach (f; analyze_files) {
+        auto gtest = GtestParser(reldir);
+        CtestParser ctest;
+
+        File* fin;
+        try {
+            fin = new File(f);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            return false;
+        }
+
+        scope (exit)
+            () {
+            try {
+                fin.close;
+                destroy(fin);
+            } catch (Exception e) {
+            }
+        }();
+
+        // an invalid UTF-8 char shall only result in the rest of the file being skipped
+        try
+            foreach (l; fin.byLine) {
+                foreach (const p; tc_analyze_builtin) {
+                    final switch (p) {
+                    case TestCaseAnalyzeBuiltin.gtest:
+                        gtest.process(l, app);
+                        break;
+                    case TestCaseAnalyzeBuiltin.ctest:
+                        ctest.process(l, app);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    return true;
+}
+
+/// Returns: path to a tmp directory or null on failure.
+string createTmpDir() nothrow {
+    import std.random : uniform;
+    import std.format : format;
+    import std.file : mkdir, exists;
+
+    string test_tmp_output;
+
+    // try 5 times or bailout
+    foreach (const _; 0 .. 5) {
+        try {
+            auto tmp = format("dextool_tmp_%s", uniform!ulong);
+            mkdir(tmp);
+            test_tmp_output = AbsolutePath(FileName(tmp));
+            break;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    if (test_tmp_output.length == 0) {
+        logger.warning("Unable to create a temporary directory to store stdout/stderr in")
+            .collectException;
+    }
+
+    return test_tmp_output;
 }

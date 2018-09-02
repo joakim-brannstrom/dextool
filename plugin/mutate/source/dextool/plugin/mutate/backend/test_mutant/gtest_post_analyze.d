@@ -25,8 +25,10 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport,
+    GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
+import dextool.type : AbsolutePath;
 
 /** Parse input for google test cases.
 Params:
@@ -40,7 +42,7 @@ struct GtestParser {
     private {
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
-        enum re_run_block = ctRegex!(`\[\s*RUN\s*\]\s`);
+        enum re_run_block = ctRegex!(`\[\s*RUN\s*\]\s(?P<tc>.*)`);
         // example: gtest_output_test_.cc:#: Failure
         enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
@@ -55,16 +57,18 @@ struct GtestParser {
         this.reldir = reldir;
     }
 
-    void process(T, T1)(T line, ref T1 sink) {
+    void process(T)(T line, TestCaseReport report) {
         import std.algorithm : until;
+        import std.utf : toUTF8;
         import std.format : format;
+        import std.path : isValidPath, relativePath;
         import std.range : put;
         import std.string : strip;
-        import std.path : isValidPath, relativePath;
 
+        auto run_block_match = matchFirst(line, re_run_block);
         auto fail_msg_match = matchFirst(line, re_fail_msg);
         auto failed_block_match = matchFirst(line, re_failed_block);
-        data.hasRunBlock = !matchFirst(line, re_run_block).empty;
+        data.hasRunBlock = !run_block_match.empty;
         data.hasFailedMessage = !fail_msg_match.empty;
         data.hasFailedBlock = !failed_block_match.empty;
 
@@ -86,13 +90,15 @@ struct GtestParser {
                 debug logger.trace(e.msg).collectException;
             }
             break;
-        case putTestCase:
-            // dfmt off
-                put(sink, TestCase(format("%s:%s", fail_msg_file,
-                                          // remove the time that googletest print.
-                                          // it isn't part of the test case name but additional metadata.
-                                          failed_block_match["tc"].until(' '))));
-                // dfmt on
+        case putFoundTestCase:
+            data.linesAfterRun = 0;
+            report.reportFound(TestCase(run_block_match["tc"].idup));
+            break;
+        case putFailedTestCase:
+            // remove the time that googletest print.
+            // it isn't part of the test case name but additional metadata.
+            report.reportFailed(TestCase(failed_block_match["tc"].until(' ')
+                    .toUTF8, fail_msg_file));
             break;
         case countLinesAfterRun:
             data.linesAfterRun += 1;
@@ -118,7 +124,8 @@ enum State {
 enum Action {
     none,
     saveFileName,
-    putTestCase,
+    putFoundTestCase,
+    putFailedTestCase,
     resetCounter,
     countLinesAfterRun,
 }
@@ -151,6 +158,7 @@ auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
         act = Action.resetCounter;
         if (d.hasRunBlock) {
             next = findFailureMsg;
+            act = Action.putFoundTestCase;
         }
         break;
     case findFailureMsg:
@@ -162,6 +170,8 @@ auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
         } else if (d.linesAfterRun > 10) {
             // 10 is chosen to be somewhat resilient against junk in the output but still be conservative.
             next = findRun;
+        } else if (d.hasRunBlock) {
+            act = Action.putFoundTestCase;
         } else if (d.hasOkBlock)
             next = findRun;
         else if (d.hasFailedBlock)
@@ -173,7 +183,7 @@ auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
         if (d.hasRunBlock)
             next = findFailureMsg;
         else if (d.hasFailedBlock) {
-            act = Action.putTestCase;
+            act = Action.putFailedTestCase;
             next = findRun;
         }
         break;
@@ -182,87 +192,102 @@ auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
     return tuple(next, act);
 }
 
-@("shall report the failed test case")
-unittest {
-    import std.array : appender;
+version (unittest) {
+    import std.algorithm : each, sort;
+    import std.array : array;
     import std.file : getcwd;
     import dextool.type : FileName;
-    import unit_threaded : shouldEqual;
-    import std.algorithm : each;
+    import unit_threaded : shouldEqual, shouldBeIn;
+}
 
-    auto app = appender!(TestCase[])();
+@("shall report the failed test case")
+unittest {
+    auto app = new GatherTestCase;
     auto reldir = AbsolutePath(FileName(getcwd));
 
     auto parser = GtestParser(reldir);
     testData1.each!(a => parser.process(a, app));
 
-    shouldEqual(app.data,
-            ["./googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor"]);
+    shouldEqual(app.failed.byKey.array, [TestCase("MessageTest.DefaultConstructor",
+            "./googletest/test/gtest-message_test.cc")]);
+}
+
+@("shall report the found test cases")
+unittest {
+    auto app = new GatherTestCase;
+    auto reldir = AbsolutePath(FileName(getcwd));
+
+    auto parser = GtestParser(reldir);
+    testData3.each!(a => parser.process(a, app));
+
+    shouldEqual(app.foundAsArray, [TestCase("MessageTest.CopyConstructor", ""),
+            TestCase("MessageTest.ConstructsFromCString",
+                ""), TestCase("MessageTest.StreamsFloat", ""),
+            TestCase("MessageTest.StreamsDouble", ""),]);
 }
 
 @("shall report the failed test cases even though there are junk in the output")
 unittest {
-    import std.array : appender;
-    import std.file : getcwd;
-    import dextool.type : FileName;
-    import unit_threaded : shouldEqual;
-    import std.algorithm : each;
-
-    auto app = appender!(TestCase[])();
+    auto app = new GatherTestCase;
     auto reldir = AbsolutePath(FileName(getcwd));
 
     auto parser = GtestParser(reldir);
     testData2.each!(a => parser.process(a, app));
 
     // dfmt off
-    shouldEqual(app.data,
-            [
-`gtest_output_test_.cc:NonfatalFailureTest.EscapesStringOperands`,
-`gtest_output_test_.cc:NonfatalFailureTest.DiffForLongStrings`,
-`gtest_output_test_.cc:FatalFailureTest.FatalFailureInSubroutine`,
-`gtest_output_test_.cc:FatalFailureTest.FatalFailureInNestedSubroutine`,
-`gtest_output_test_.cc:FatalFailureTest.NonfatalFailureInSubroutine`,
-`gtest_output_test_.cc:LoggingTest.InterleavingLoggingAndAssertions`,
-`gtest_output_test_.cc:SCOPED_TRACETest.ObeysScopes`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksInLoop`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksInSubroutine`,
-`gtest_output_test_.cc:SCOPED_TRACETest.CanBeNested`,
-`gtest_output_test_.cc:SCOPED_TRACETest.CanBeRepeated`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksConcurrently`,
-`gtest_output_test_.cc:NonFatalFailureInFixtureConstructorTest.FailureInConstructor`,
-`gtest_output_test_.cc:FatalFailureInFixtureConstructorTest.FailureInConstructor`,
-`gtest_output_test_.cc:NonFatalFailureInSetUpTest.FailureInSetUp`,
-`gtest_output_test_.cc:FatalFailureInSetUpTest.FailureInSetUp`,
-`foo.cc:AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`,
-`gtest.cc:MixedUpTestCaseTest.ThisShouldFail`,
-`gtest.cc:MixedUpTestCaseTest.ThisShouldFailToo`,
-`gtest.cc:MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`,
-`gtest.cc:TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`,
-`gtest.cc:TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenStatementReturns`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenStatementThrows`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenStatementReturns`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenStatementThrows`,
-`gtest_output_test_.cc:TypedTest/0.Failure,`,
-`gtest_output_test_.cc:Unsigned/TypedTestP/0.Failure,`,
-`gtest_output_test_.cc:Unsigned/TypedTestP/1.Failure,`,
-`gtest.cc:ExpectFailureTest.ExpectFatalFailure`,
-`gtest.cc:ExpectFailureTest.ExpectNonFatalFailure`,
-`gtest.cc:ExpectFailureTest.ExpectFatalFailureOnAllThreads`,
-`gtest.cc:ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`,
-`gtest_output_test_.cc:ExpectFailureWithThreadsTest.ExpectFatalFailure`,
-`gtest_output_test_.cc:ExpectFailureWithThreadsTest.ExpectNonFatalFailure`,
-`gtest_output_test_.cc:ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`,
-`gtest_output_test_.cc:PrintingFailingParams/FailingParamTest.Fails/0,`,
-`gtest_output_test_.cc:PrintingStrings/ParamTest.Failure/a,`,
-            ]);
+    auto expected = [
+TestCase(`AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`, "foo.cc"),
+TestCase(`ExpectFailureTest.ExpectFatalFailureOnAllThreads`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`, "gtest.cc"),
+TestCase(`MixedUpTestCaseTest.ThisShouldFailToo`, "gtest.cc"),
+TestCase(`MixedUpTestCaseTest.ThisShouldFail`, "gtest.cc"),
+TestCase(`MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`, "gtest.cc"),
+TestCase(`TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`, "gtest.cc"),
+TestCase(`TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`, "gtest.cc"),
+TestCase(`ExpectFailureWithThreadsTest.ExpectFatalFailure`, "gtest_output_test_.cc"),
+TestCase(`ExpectFailureWithThreadsTest.ExpectNonFatalFailure`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.FatalFailureInNestedSubroutine`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.FatalFailureInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.NonfatalFailureInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`LoggingTest.InterleavingLoggingAndAssertions`, "gtest_output_test_.cc"),
+TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
+TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
+TestCase(`NonfatalFailureTest.DiffForLongStrings`, "gtest_output_test_.cc"),
+TestCase(`NonfatalFailureTest.EscapesStringOperands`, "gtest_output_test_.cc"),
+TestCase(`PrintingFailingParams/FailingParamTest.Fails/0,`, "gtest_output_test_.cc"),
+TestCase(`PrintingStrings/ParamTest.Failure/a,`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.CanBeNested`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.CanBeRepeated`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.ObeysScopes`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksConcurrently`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksInLoop`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`, "gtest_output_test_.cc"),
+TestCase(`TypedTest/0.Failure,`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/0.Failure,`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/1.Failure,`, "gtest_output_test_.cc"),
+            ];
     // dfmt on
+
+    foreach (v; expected) {
+        v.shouldBeIn(app.failed);
+    }
+
+    shouldEqual(expected.length, app.failed.length);
 }
 
 version (unittest) {
@@ -881,6 +906,28 @@ version (unittest) {
 ` [  FAILED  ] 44 tests, listed below:`,
 ` [  FAILED  ] NonfatalFailureTest.EscapesStringOperands`,
 ` [  FAILED  ] NonfatalFailureTest.DiffForLongStrings`,
+        ];
+    }
+
+    string[] testData3() {
+        return [
+`Running main() from gtest_main.cc`,
+`[==========] Running 4 tests from 1 test case.`,
+`[----------] Global test environment set-up.`,
+`[----------] 4 tests from MessageTest`,
+`[ RUN      ] MessageTest.CopyConstructor`,
+`[       OK ] MessageTest.CopyConstructor (0 ms)`,
+`[ RUN      ] MessageTest.ConstructsFromCString`,
+`[       OK ] MessageTest.ConstructsFromCString (0 ms)`,
+`[ RUN      ] MessageTest.StreamsFloat`,
+`[       OK ] MessageTest.StreamsFloat (0 ms)`,
+`[ RUN      ] MessageTest.StreamsDouble`,
+`[       OK ] MessageTest.StreamsDouble (0 ms)`,
+`[----------] 4 tests from MessageTest (0 ms total)`,
+``,
+`[----------] Global test environment tear-down`,
+`[==========] 4 tests from 1 test case ran. (0 ms total)`,
+`[  PASSED  ] 4 tests.`,
         ];
     }
     // dfmt on
