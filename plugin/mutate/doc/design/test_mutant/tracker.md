@@ -116,3 +116,16 @@ Expected equality of these values:
 partof: SPC-plugin_mutate_track_test_case
 ###
 
+TODO: add req
+
+# SPC-plugin_mutant_reset_alive
+partof: REQ/SPC/TST-short text
+###
+
+The plugin shall reset alive mutants to unknown when new test cases are detected.
+
+## Why?
+
+This automates the process from the users perspective. Before this functionality where added a user had to manually reset the mutants.
+
+It thus makes it easier to integrate in a continuous integration workflow.
