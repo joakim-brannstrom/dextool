@@ -411,6 +411,32 @@ struct Database {
         }
     }
 
+    /** Set detected test cases.
+     *
+     * This will replace those that where previously stored.
+     */
+    void setDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        import std.format : format;
+
+        if (tcs.length == 0)
+            return;
+
+        immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
+        db.run(remove_old_sql);
+
+        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
+        auto stmt = db.prepare(add_tc_sql);
+        foreach (tc; tcs) {
+            try {
+                stmt.reset;
+                stmt.bind(":name", tc.name);
+                stmt.execute;
+            } catch (Exception e) {
+                logger.trace(e.msg);
+            }
+        }
+    }
+
     /** Returns: test cases that killed the mutant.
       */
     TestCase[] getTestCases(const MutationId id) @trusted {
