@@ -578,13 +578,12 @@ nothrow:
 
         if (test_case_cmd.length != 0 || tc_analyze_builtin.length != 0) {
             try {
-                test_tmp_output = createTmpDir.Path.AbsolutePath;
+                auto tmpdir = createTmpDir;
+                if (tmpdir.length == 0)
+                    return;
+                test_tmp_output = Path(tmpdir).AbsolutePath;
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
-                return;
-            }
-
-            if (test_tmp_output.length == 0) {
                 return;
             }
         }
@@ -687,9 +686,6 @@ nothrow:
             import std.file : rmdirRecurse;
 
             // trusted: test_tmp_output is tested to be valid data.
-            // it is further created via mkdtemp which I assume can be
-            // considered safe because its input is created wholly in this
-            // driver.
             () @trusted{
                 try {
                     rmdirRecurse(test_tmp_output);
@@ -722,6 +718,7 @@ struct TestDriver(ImplT) {
         none,
         initialize,
         sanityCheck,
+        updateAndResetAliveMutants,
         checkMutantsLeft,
         preCompileSut,
         measureTestSuite,
@@ -798,6 +795,9 @@ struct TestDriver(ImplT) {
         case resetTimeout:
             impl.resetTimeout;
             break;
+        case updateAndResetAliveMutants:
+            impl.updateAndResetAliveMutants;
+            break;
         case done:
             break;
         case error:
@@ -818,19 +818,22 @@ struct TestDriver(ImplT) {
             break;
         case sanityCheck:
             if (signal == TestDriverSignal.next)
-                next_ = State.checkMutantsLeft;
+                next_ = State.preCompileSut;
             else if (signal == TestDriverSignal.sanityCheckFailed)
                 next_ = State.error;
             break;
+        case updateAndResetAliveMutants:
+            next_ = checkMutantsLeft;
+            break;
         case checkMutantsLeft:
             if (signal == TestDriverSignal.next)
-                next_ = State.preCompileSut;
+                next_ = State.measureTestSuite;
             else if (signal == TestDriverSignal.allMutantsTested)
                 next_ = State.done;
             break;
         case preCompileSut:
             if (signal == TestDriverSignal.next)
-                next_ = State.measureTestSuite;
+                next_ = State.updateAndResetAliveMutants;
             else if (signal == TestDriverSignal.compilationError)
                 next_ = State.error;
             break;
@@ -952,6 +955,70 @@ nothrow:
             logger.info("Sanity check passed. Files on the filesystem are consistent")
                 .collectException;
             driver_sig = TestDriverSignal.next;
+        }
+    }
+
+    void updateAndResetAliveMutants() {
+        import core.time : dur;
+        import std.datetime.stopwatch : StopWatch;
+        import std.path : buildPath;
+        import dextool.type : Path;
+
+        driver_sig = TestDriverSignal.next;
+
+        if (data.testCaseAnalyzeProgram.length == 0 && data.testCaseAnalyzeBuiltin.length == 0)
+            return;
+
+        AbsolutePath test_tmp_output;
+        try {
+            auto tmpdir = createTmpDir;
+            if (tmpdir.length == 0)
+                return;
+            test_tmp_output = Path(tmpdir).AbsolutePath;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            return;
+        }
+
+        // trusted: test_tmp_output is tested to be valid data.
+        scope (exit)
+            () @trusted{
+            try {
+                import std.file : rmdirRecurse;
+
+                rmdirRecurse(test_tmp_output);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }();
+
+        try {
+            import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
+            import dextool.plugin.mutate.backend.watchdog : StaticTime;
+
+            auto stdout_ = buildPath(test_tmp_output, stdoutLog);
+            auto stderr_ = buildPath(test_tmp_output, stderrLog);
+
+            // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
+            auto watchdog = StaticTime!StopWatch(999.dur!"hours");
+            runTester(data.compilerProgram, data.testProgram, test_tmp_output,
+                    watchdog, data.filesysIO);
+            auto gather_tc = new GatherTestCase;
+
+            bool success = true;
+            if (data.testCaseAnalyzeProgram.length != 0)
+                success = success && externalProgram([data.testCaseAnalyzeProgram,
+                        stdout_, stderr_], gather_tc);
+            if (data.testCaseAnalyzeBuiltin.length != 0)
+                success = success && builtin(data.filesysIO.getOutputDir,
+                        [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
+            data.db.setDetectedTestCases(gather_tc.foundAsArray);
+
+            import std.algorithm : sort;
+
+            logger.trace("Found test cases:\n%(%s\n%)", gather_tc.foundAsArray.sort);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
     }
 
