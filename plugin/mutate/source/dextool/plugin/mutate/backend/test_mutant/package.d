@@ -618,83 +618,10 @@ nothrow:
         import std.path : buildPath;
         import std.process : execute;
         import std.string : strip;
-        import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
 
         if (mut_status != Mutation.Status.killed || test_tmp_output.length == 0) {
             driver_sig = MutationDriverSignal.next;
             return;
-        }
-
-        bool externalProgram(string stdout_, string stderr_, TestCaseReport report) nothrow {
-            import std.algorithm : copy;
-
-            try {
-                auto p = execute([test_case_cmd, stdout_, stderr_]);
-                if (p.status == 0) {
-                    foreach (tc; p.output.splitter(newline).map!(a => a.strip)
-                            .filter!(a => a.length != 0)
-                            .map!(a => TestCase(a))) {
-                        report.reportFailed(tc);
-                    }
-                    return true;
-                } else {
-                    logger.warning(p.output);
-                    logger.warning("Failed to analyze the test case output");
-                    return false;
-                }
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-
-            return false;
-        }
-
-        // trusted: because the paths to the File object are created by this
-        // program and can thus not lead to memory related problems.
-        bool builtin(T)(string stdout_, string stderr_, ref T app) @trusted nothrow {
-            import std.stdio : File;
-            import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
-            import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
-
-            auto reldir = fio.getOutputDir;
-
-            foreach (f; [stdout_, stderr_]) {
-                auto gtest = GtestParser(reldir);
-                CtestParser ctest;
-
-                File* fin;
-                try {
-                    fin = new File(f);
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                    return false;
-                }
-
-                // an invalid UTF-8 char shall only result in the rest of the file being skipped
-                try
-                    foreach (l; fin.byLine) {
-                        foreach (const p; tc_analyze_builtin) {
-                            final switch (p) {
-                            case TestCaseAnalyzeBuiltin.gtest:
-                                gtest.process(l, app);
-                                break;
-                            case TestCaseAnalyzeBuiltin.ctest:
-                                ctest.process(l, app);
-                                break;
-                            }
-                        }
-                    } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
-
-                try {
-                    fin.close;
-                    destroy(fin);
-                } catch (Exception e) {
-                }
-            }
-
-            return true;
         }
 
         driver_sig = MutationDriverSignal.mutationError;
@@ -716,9 +643,10 @@ nothrow:
             bool success = true;
 
             if (test_case_cmd.length != 0)
-                success = success && externalProgram(stdout_, stderr_, gather_tc);
+                success = success && externalProgram([test_case_cmd, stdout_, stderr_], gather_tc);
             if (tc_analyze_builtin.length != 0)
-                success = success && builtin(stdout_, stderr_, gather_tc);
+                success = success && builtin(fio.getOutputDir, [stdout_,
+                        stderr_], tc_analyze_builtin, gather_tc);
 
             if (success) {
                 test_cases = gather_tc;
@@ -1163,4 +1091,91 @@ nothrow:
     auto signal() {
         return driver_sig;
     }
+}
+
+private:
+
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+
+/// Run an external program that analyze the output from the test suite for test cases that failed.
+bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
+    import std.algorithm : copy, splitter, filter, map;
+    import std.ascii : newline;
+    import std.process : execute;
+    import std.string : strip;
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    try {
+        // [test_case_cmd, stdout_, stderr_]
+        auto p = execute(cmd);
+        if (p.status == 0) {
+            foreach (tc; p.output.splitter(newline).map!(a => a.strip)
+                    .filter!(a => a.length != 0)
+                    .map!(a => TestCase(a))) {
+                report.reportFailed(tc);
+            }
+            return true;
+        } else {
+            logger.warning(p.output);
+            logger.warning("Failed to analyze the test case output");
+            return false;
+        }
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+
+    return false;
+}
+
+/** Analyze the output from the test suite with one of the builtin analyzers.
+ *
+ * trusted: because the paths to the File object are created by this program
+ * and can thus not lead to memory related problems.
+ */
+bool builtin(AbsolutePath reldir, string[] analyze_files,
+        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, TestCaseReport app) @trusted nothrow {
+    import std.stdio : File;
+    import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
+    import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
+
+    foreach (f; analyze_files) {
+        auto gtest = GtestParser(reldir);
+        CtestParser ctest;
+
+        File* fin;
+        try {
+            fin = new File(f);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            return false;
+        }
+
+        scope (exit)
+            () {
+            try {
+                fin.close;
+                destroy(fin);
+            } catch (Exception e) {
+            }
+        }();
+
+        // an invalid UTF-8 char shall only result in the rest of the file being skipped
+        try
+            foreach (l; fin.byLine) {
+                foreach (const p; tc_analyze_builtin) {
+                    final switch (p) {
+                    case TestCaseAnalyzeBuiltin.gtest:
+                        gtest.process(l, app);
+                        break;
+                    case TestCaseAnalyzeBuiltin.ctest:
+                        ctest.process(l, app);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    return true;
 }
