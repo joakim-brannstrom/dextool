@@ -958,11 +958,13 @@ nothrow:
         }
     }
 
+    // TODO: refactor. This method is too long.
     void updateAndResetAliveMutants() {
         import core.time : dur;
         import std.datetime.stopwatch : StopWatch;
         import std.path : buildPath;
         import dextool.type : Path;
+        import dextool.plugin.mutate.backend.type : TestCase;
 
         driver_sig = TestDriverSignal.next;
 
@@ -992,6 +994,18 @@ nothrow:
             }
         }();
 
+        import dextool.set;
+
+        Set!string old_tcs;
+        try {
+            foreach (tc; data.db.getDetectedTestCases)
+                old_tcs.add(tc.name);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        TestCase[] found_tc;
+
         try {
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
             import dextool.plugin.mutate.backend.watchdog : StaticTime;
@@ -1003,6 +1017,7 @@ nothrow:
             auto watchdog = StaticTime!StopWatch(999.dur!"hours");
             runTester(data.compilerProgram, data.testProgram, test_tmp_output,
                     watchdog, data.filesysIO);
+
             auto gather_tc = new GatherTestCase;
 
             bool success = true;
@@ -1012,13 +1027,33 @@ nothrow:
             if (data.testCaseAnalyzeBuiltin.length != 0)
                 success = success && builtin(data.filesysIO.getOutputDir,
                         [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
-            data.db.setDetectedTestCases(gather_tc.foundAsArray);
+
+            found_tc = gather_tc.foundAsArray;
+            data.db.setDetectedTestCases(found_tc);
 
             import std.algorithm : sort;
 
-            logger.trace("Found test cases:\n%(%s\n%)", gather_tc.foundAsArray.sort);
+            logger.tracef("Found test cases:\n%(%s\n%)", gather_tc.foundAsArray.sort);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
+        }
+
+        if (old_tcs.length == 0)
+            return;
+
+        // reset alive mutants if the test cases change
+        foreach (tc; found_tc) {
+            if (!old_tcs.contains(tc.name)) {
+                try {
+                    logger.infof("Found a new test case (%s). Resetting alive mutants",
+                            tc).collectException;
+                    data.db.resetMutant(data.mutKind, Mutation.Status.alive,
+                            Mutation.Status.unknown);
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+                break;
+            }
         }
     }
 

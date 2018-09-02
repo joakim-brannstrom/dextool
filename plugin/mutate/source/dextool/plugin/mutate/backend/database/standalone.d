@@ -437,6 +437,22 @@ struct Database {
         }
     }
 
+    /// Returns: detected test cases.
+    TestCase[] getDetectedTestCases() @trusted {
+        import std.array : appender;
+        import std.format : format;
+
+        immutable sql = format("SELECT name FROM %s", allTestCaseTable);
+
+        auto rval = appender!(TestCase[])();
+        auto stmt = db.prepare(sql);
+        foreach (a; stmt.execute) {
+            rval.put(TestCase(a.peek!string(0)));
+        }
+
+        return rval.data;
+    }
+
     /** Returns: test cases that killed the mutant.
       */
     TestCase[] getTestCases(const MutationId id) @trusted {
