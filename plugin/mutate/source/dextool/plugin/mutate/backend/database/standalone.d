@@ -397,13 +397,14 @@ struct Database {
 
         immutable add_new_sql = format("INSERT INTO %s (mut_id, name,location) VALUES(:mut_id, :tc, :loc)",
                 killedTestCaseTable);
+        auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
-                auto stmt = db.prepare(add_new_sql);
-                stmt.bind(":mut_id", mut_id);
-                stmt.bind(":tc", tc.name);
-                stmt.bind(":loc", tc.location);
-                stmt.execute;
+                stmt_insert.reset;
+                stmt_insert.bind(":mut_id", mut_id);
+                stmt_insert.bind(":tc", tc.name);
+                stmt_insert.bind(":loc", tc.location);
+                stmt_insert.execute;
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
