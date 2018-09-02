@@ -92,12 +92,13 @@ struct GtestParser {
             break;
         case putFoundTestCase:
             data.linesAfterRun = 0;
-            report.reportFound(run_block_match["tc"].idup);
+            report.reportFound(TestCase(run_block_match["tc"].idup));
             break;
         case putFailedTestCase:
             // remove the time that googletest print.
             // it isn't part of the test case name but additional metadata.
-            report.reportFailed(failed_block_match["tc"].until(' ').toUTF8, fail_msg_file);
+            report.reportFailed(TestCase(failed_block_match["tc"].until(' ')
+                    .toUTF8, fail_msg_file));
             break;
         case countLinesAfterRun:
             data.linesAfterRun += 1;
@@ -207,8 +208,8 @@ unittest {
     auto parser = GtestParser(reldir);
     testData1.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failed.byKey.array.sort,
-            ["./googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor"]);
+    shouldEqual(app.failed.byKey.array, [TestCase("MessageTest.DefaultConstructor",
+            "./googletest/test/gtest-message_test.cc")]);
 }
 
 @("shall report the found test cases")
@@ -235,50 +236,50 @@ unittest {
 
     // dfmt off
     auto expected = [
-`foo.cc:AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`,
-`gtest.cc:ExpectFailureTest.ExpectFatalFailureOnAllThreads`,
-`gtest.cc:ExpectFailureTest.ExpectFatalFailure`,
-`gtest.cc:ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`,
-`gtest.cc:ExpectFailureTest.ExpectNonFatalFailure`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenStatementReturns`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenStatementThrows`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`,
-`gtest.cc:ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenStatementReturns`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenStatementThrows`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`,
-`gtest.cc:ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`,
-`gtest.cc:MixedUpTestCaseTest.ThisShouldFailToo`,
-`gtest.cc:MixedUpTestCaseTest.ThisShouldFail`,
-`gtest.cc:MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`,
-`gtest.cc:TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`,
-`gtest.cc:TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`,
-`gtest_output_test_.cc:ExpectFailureWithThreadsTest.ExpectFatalFailure`,
-`gtest_output_test_.cc:ExpectFailureWithThreadsTest.ExpectNonFatalFailure`,
-`gtest_output_test_.cc:FatalFailureInFixtureConstructorTest.FailureInConstructor`,
-`gtest_output_test_.cc:FatalFailureInSetUpTest.FailureInSetUp`,
-`gtest_output_test_.cc:FatalFailureTest.FatalFailureInNestedSubroutine`,
-`gtest_output_test_.cc:FatalFailureTest.FatalFailureInSubroutine`,
-`gtest_output_test_.cc:FatalFailureTest.NonfatalFailureInSubroutine`,
-`gtest_output_test_.cc:LoggingTest.InterleavingLoggingAndAssertions`,
-`gtest_output_test_.cc:NonFatalFailureInFixtureConstructorTest.FailureInConstructor`,
-`gtest_output_test_.cc:NonFatalFailureInSetUpTest.FailureInSetUp`,
-`gtest_output_test_.cc:NonfatalFailureTest.DiffForLongStrings`,
-`gtest_output_test_.cc:NonfatalFailureTest.EscapesStringOperands`,
-`gtest_output_test_.cc:PrintingFailingParams/FailingParamTest.Fails/0,`,
-`gtest_output_test_.cc:PrintingStrings/ParamTest.Failure/a,`,
-`gtest_output_test_.cc:SCOPED_TRACETest.CanBeNested`,
-`gtest_output_test_.cc:SCOPED_TRACETest.CanBeRepeated`,
-`gtest_output_test_.cc:SCOPED_TRACETest.ObeysScopes`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksConcurrently`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksInLoop`,
-`gtest_output_test_.cc:SCOPED_TRACETest.WorksInSubroutine`,
-`gtest_output_test_.cc:ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`,
-`gtest_output_test_.cc:TypedTest/0.Failure,`,
-`gtest_output_test_.cc:Unsigned/TypedTestP/0.Failure,`,
-`gtest_output_test_.cc:Unsigned/TypedTestP/1.Failure,`,
+TestCase(`AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`, "foo.cc"),
+TestCase(`ExpectFailureTest.ExpectFatalFailureOnAllThreads`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`, "gtest.cc"),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`, "gtest.cc"),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`, "gtest.cc"),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`, "gtest.cc"),
+TestCase(`MixedUpTestCaseTest.ThisShouldFailToo`, "gtest.cc"),
+TestCase(`MixedUpTestCaseTest.ThisShouldFail`, "gtest.cc"),
+TestCase(`MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`, "gtest.cc"),
+TestCase(`TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`, "gtest.cc"),
+TestCase(`TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`, "gtest.cc"),
+TestCase(`ExpectFailureWithThreadsTest.ExpectFatalFailure`, "gtest_output_test_.cc"),
+TestCase(`ExpectFailureWithThreadsTest.ExpectNonFatalFailure`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.FatalFailureInNestedSubroutine`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.FatalFailureInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`FatalFailureTest.NonfatalFailureInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`LoggingTest.InterleavingLoggingAndAssertions`, "gtest_output_test_.cc"),
+TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
+TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
+TestCase(`NonfatalFailureTest.DiffForLongStrings`, "gtest_output_test_.cc"),
+TestCase(`NonfatalFailureTest.EscapesStringOperands`, "gtest_output_test_.cc"),
+TestCase(`PrintingFailingParams/FailingParamTest.Fails/0,`, "gtest_output_test_.cc"),
+TestCase(`PrintingStrings/ParamTest.Failure/a,`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.CanBeNested`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.CanBeRepeated`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.ObeysScopes`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksConcurrently`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksInLoop`, "gtest_output_test_.cc"),
+TestCase(`SCOPED_TRACETest.WorksInSubroutine`, "gtest_output_test_.cc"),
+TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`, "gtest_output_test_.cc"),
+TestCase(`TypedTest/0.Failure,`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/0.Failure,`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/1.Failure,`, "gtest_output_test_.cc"),
             ];
     // dfmt on
 

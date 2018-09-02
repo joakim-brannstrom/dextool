@@ -60,7 +60,10 @@ immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
 immutable mutationTable = "mutation";
-immutable testCaseTable = "test_case";
+immutable killedTestCaseTable = "killed_test_case";
+immutable allTestCaseTable = "all_test_case";
+
+private immutable testCaseTableV1 = "test_case";
 
 /** Initialize or open an existing database.
  *
@@ -165,19 +168,28 @@ immutable mutation_tbl = "CREATE TABLE %s (
 // this could use an intermediate adapter table to normalise the test_case data
 // but I chose not to do that because it makes it harder to add test cases and
 // do a cleanup.
-immutable test_case_v1_tbl = "CREATE TABLE %s (
+immutable test_case_killed_v1_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     mut_id      INTEGER NOT NULL,
     test_case   TEXT NOT NULL,
     FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
     )";
 // location is a filesystem location or other suitable helper for a user to locate the test.
-immutable test_case_v2_tbl = "CREATE TABLE %s (
+immutable test_case_killed_v2_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     mut_id      INTEGER NOT NULL,
     name        TEXT NOT NULL,
     location    TEXT,
     FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
+    )";
+
+// Track all test cases that has been found by the test suite output analyzer.
+// Useful to find test cases that has never killed any mutant.
+// name should match test_case_killed_v2_tbl
+// TODO: name should be the primary key. on a conflict a counter should be updated.
+immutable all_test_case_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL
     )";
 
 void initializeTables(ref sqlDatabase db) {
@@ -272,7 +284,7 @@ void upgradeV0(ref sqlDatabase db) {
 void upgradeV1(ref sqlDatabase db) {
     import std.format : format;
 
-    db.run(format(test_case_v1_tbl, testCaseTable));
+    db.run(format(test_case_killed_v1_tbl, testCaseTableV1));
     updateSchemaVersion(db, 2);
 }
 
@@ -294,11 +306,13 @@ void upgradeV2(ref sqlDatabase db) {
 void upgradeV3(ref sqlDatabase db) {
     import std.format : format;
 
-    immutable new_tbl = "new_" ~ testCaseTable;
-    db.run(format(test_case_v2_tbl, new_tbl));
-    db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s", new_tbl, testCaseTable));
-    db.run(format("DROP TABLE %s", testCaseTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, testCaseTable));
+    immutable new_tbl = "new_" ~ testCaseTableV1;
+    db.run(format(test_case_killed_v2_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s", new_tbl, testCaseTableV1));
+    db.run(format("DROP TABLE %s", testCaseTableV1));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
+
+    db.run(format(all_test_case_tbl, allTestCaseTable));
 
     updateSchemaVersion(db, 4);
 }

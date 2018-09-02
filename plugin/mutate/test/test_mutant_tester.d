@@ -60,7 +60,7 @@ test -e $1 && echo 'Failed 42'
         .addPostArg(["--test-timeout", "10000"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([`killed by ["Failed 42"]`]).shouldBeIn(r.stdout);
+    testConsecutiveSparseOrder!SubStr([`killed by [Failed 42]`]).shouldBeIn(r.stdout);
 }
 
 @(testId ~ "shall parse a gtest report for the test cases that killed the mutant")
@@ -163,7 +163,7 @@ exit 1
         .addPostArg(["--test-timeout", "10000"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        `killed by ["../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor","../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.StreamsNullPointer"]`
+        `killed by [../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor, ../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.StreamsNullPointer]`
     ]).shouldBeIn(r.stdout);
 }
 
@@ -544,6 +544,6 @@ exit 1
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        `killed by ["gtest-typed-test_test","gtest_list_tests_unittest","gtest_no_rtti_unittest","gtest_output_test","gtest_unittest","gtest_xml_output_unittest"]`
+        `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
     ]).shouldBeIn(r.stdout);
 }

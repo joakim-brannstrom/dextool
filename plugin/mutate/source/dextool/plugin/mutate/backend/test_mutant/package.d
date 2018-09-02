@@ -743,7 +743,7 @@ nothrow:
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
                     test_cases.failedAsArray, bcast);
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.failed.length != 0, "%s killed by [%(%s,%)]",
+            logger.infof(test_cases.failed.length != 0, `%s killed by [%(%s, %)]`,
                     mutp.id, test_cases.failedAsArray.sort);
             driver_sig = MutationDriverSignal.next;
         } catch (Exception e) {

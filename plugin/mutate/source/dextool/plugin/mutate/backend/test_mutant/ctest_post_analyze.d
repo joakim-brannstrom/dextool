@@ -67,7 +67,7 @@ struct CtestParser {
         case none:
             break;
         case putTestCase:
-            report.reportFailed(fail_msg_match["tc"].strip.idup);
+            report.reportFailed(TestCase(fail_msg_match["tc"].strip.idup));
             break;
         }
     }
