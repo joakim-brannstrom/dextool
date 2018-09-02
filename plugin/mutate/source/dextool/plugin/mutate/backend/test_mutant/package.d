@@ -571,29 +571,20 @@ nothrow:
     }
 
     void testMutant() {
-        import std.random : uniform;
-        import std.format : format;
-        import std.file : mkdir, exists;
+        import dextool.type : Path;
 
         assert(!mutp.isNull);
         driver_sig = MutationDriverSignal.mutationError;
 
         if (test_case_cmd.length != 0 || tc_analyze_builtin.length != 0) {
-            // try 5 times or bailout
-            foreach (const _; 0 .. 5) {
-                try {
-                    auto tmp = format("dextool_tmp_%s", uniform!ulong);
-                    mkdir(tmp);
-                    test_tmp_output = AbsolutePath(FileName(tmp));
-                    break;
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
+            try {
+                test_tmp_output = createTmpDir.Path.AbsolutePath;
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+                return;
             }
 
             if (test_tmp_output.length == 0) {
-                logger.warning("Unable to create a temporary directory to store stdout/stderr in")
-                    .collectException;
                 return;
             }
         }
@@ -1178,4 +1169,32 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
     }
 
     return true;
+}
+
+/// Returns: path to a tmp directory or null on failure.
+string createTmpDir() nothrow {
+    import std.random : uniform;
+    import std.format : format;
+    import std.file : mkdir, exists;
+
+    string test_tmp_output;
+
+    // try 5 times or bailout
+    foreach (const _; 0 .. 5) {
+        try {
+            auto tmp = format("dextool_tmp_%s", uniform!ulong);
+            mkdir(tmp);
+            test_tmp_output = AbsolutePath(FileName(tmp));
+            break;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    if (test_tmp_output.length == 0) {
+        logger.warning("Unable to create a temporary directory to store stdout/stderr in")
+            .collectException;
+    }
+
+    return test_tmp_output;
 }
