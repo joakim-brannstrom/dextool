@@ -1034,6 +1034,8 @@ nothrow:
         if (hasNewTestCases(old_tcs, found_tc)) {
             resetAliveMutants(data.db);
         }
+
+        warnIfConflictingTestCaseIdentifiers(found_tc);
     }
 
     void checkMutantsLeft() {
@@ -1313,4 +1315,23 @@ bool hasNewTestCases(Set!string old_tcs, TestCase[] found_tcs) @safe nothrow {
     logger.info(rval, "Resetting alive mutants").collectException;
 
     return rval;
+}
+
+/// Returns: true if all tests cases have unique identifiers
+void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
+    Set!TestCase checked;
+    bool conflict;
+
+    foreach (tc; found_tcs) {
+        if (checked.contains(tc)) {
+            logger.info(!conflict,
+                    "Found test cases that do not have global, unique identifiers")
+                .collectException;
+            logger.info(!conflict,
+                    "This make the report of test cases that has killed zero mutants unreliable")
+                .collectException;
+            logger.info("%s", tc).collectException;
+            conflict = true;
+        }
+    }
 }

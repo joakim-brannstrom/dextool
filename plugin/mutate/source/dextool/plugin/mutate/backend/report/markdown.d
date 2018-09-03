@@ -258,6 +258,22 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void statEvent(ref Database db) {
+        import dextool.plugin.mutate.backend.report.utility : reportDeadTestCases;
+
+        auto zero_kills = db.getTestCasesWithZeroKills;
+        if (report_level != ReportLevel.summary && zero_kills.length != 0) {
+            auto item = markdown.heading("Test Cases with Zero Kills");
+
+            Table!1 tbl;
+            tbl.heading = ["TestCase"];
+
+            reportDeadTestCases(zero_kills, tbl);
+            auto fmt = FormatSpec!char("%s");
+            tbl.toString(Writer, fmt);
+
+            item.popHeading;
+        }
+
         markdown_sum = markdown.heading("Summary");
 
         markdown_sum.beginSyntaxBlock;
