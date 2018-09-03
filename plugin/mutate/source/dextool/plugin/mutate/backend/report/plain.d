@@ -26,7 +26,7 @@ import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
     reportTestCaseStats, MutationsMap, reportTestCaseKillMap, MutationReprMap,
-    MutationRepr, reportMutationTestCaseSuggestion;
+    MutationRepr, reportMutationTestCaseSuggestion, reportDeadTestCases;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -249,6 +249,16 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             reportTestCaseStats(testCaseStat, total.isNull ? 1 : total.count, take_, tc_tbl);
 
             writeln(tc_tbl);
+        }
+
+        if (ReportSection.tc_killed_no_mutants in sections) {
+            logger.info("Test Case(s) that has killed no mutants");
+
+            Table!1 tbl;
+            tbl.heading = ["TestCase"];
+
+            reportDeadTestCases(db.getTestCasesWithZeroKills, tbl);
+            writeln(tbl);
         }
 
         if (ReportSection.tc_suggestion in sections && testCaseSuggestions.data.length != 0) {

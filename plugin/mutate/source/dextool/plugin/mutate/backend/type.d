@@ -189,7 +189,7 @@ struct TestCase {
         return typeid(string).getHash(&name) + typeid(string).getHash(&location);
     }
 
-    string toString() @safe pure const {
+    string toString() @safe pure const nothrow {
         import std.array : appender;
 
         auto buf = appender!string;

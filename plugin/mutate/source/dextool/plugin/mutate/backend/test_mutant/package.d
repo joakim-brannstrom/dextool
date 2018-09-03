@@ -450,7 +450,6 @@ struct MutationTestDriver(ImplT) {
  */
 struct ImplMutationDriver {
     import std.datetime.stopwatch : StopWatch;
-    import dextool.plugin.mutate.backend.type : TestCase;
     import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
 nothrow:
@@ -994,8 +993,6 @@ nothrow:
             }
         }();
 
-        import dextool.set;
-
         Set!string old_tcs;
         try {
             foreach (tc; data.db.getDetectedTestCases)
@@ -1030,31 +1027,15 @@ nothrow:
 
             found_tc = gather_tc.foundAsArray;
             data.db.setDetectedTestCases(found_tc);
-
-            import std.algorithm : sort;
-
-            logger.tracef("Found test cases:\n%(%s\n%)", gather_tc.foundAsArray.sort);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
-        if (old_tcs.length == 0)
-            return;
-
-        // reset alive mutants if the test cases change
-        foreach (tc; found_tc) {
-            if (!old_tcs.contains(tc.name)) {
-                try {
-                    logger.infof("Found a new test case (%s). Resetting alive mutants",
-                            tc).collectException;
-                    data.db.resetMutant(data.mutKind, Mutation.Status.alive,
-                            Mutation.Status.unknown);
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
-                break;
-            }
+        if (hasNewTestCases(old_tcs, found_tc)) {
+            resetAliveMutants(data.db);
         }
+
+        warnIfConflictingTestCaseIdentifiers(found_tc);
     }
 
     void checkMutantsLeft() {
@@ -1189,6 +1170,8 @@ nothrow:
 private:
 
 import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+import dextool.plugin.mutate.backend.type : TestCase;
+import dextool.set;
 
 /// Run an external program that analyze the output from the test suite for test cases that failed.
 bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
@@ -1299,4 +1282,56 @@ string createTmpDir() nothrow {
     }
 
     return test_tmp_output;
+}
+
+/// Reset all alive mutants.
+void resetAliveMutants(ref Database db) @safe nothrow {
+    import std.traits : EnumMembers;
+
+    // there is no use in trying to limit the mutants to reset to those that
+    // are part of "this" execution because new test cases can only mean one
+    // thing: re-test all alive mutants.
+
+    try {
+        db.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.alive,
+                Mutation.Status.unknown);
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+}
+
+/// Compare the old test cases with those that have been found this run.
+bool hasNewTestCases(Set!string old_tcs, TestCase[] found_tcs) @safe nothrow {
+    bool rval;
+
+    foreach (tc; found_tcs) {
+        if (!old_tcs.contains(tc.name)) {
+            logger.info(!rval, "Found new test case(s):", tc).collectException;
+            logger.infof("%s", tc).collectException;
+            rval = true;
+        }
+    }
+
+    logger.info(rval, "Resetting alive mutants").collectException;
+
+    return rval;
+}
+
+/// Returns: true if all tests cases have unique identifiers
+void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
+    Set!TestCase checked;
+    bool conflict;
+
+    foreach (tc; found_tcs) {
+        if (checked.contains(tc)) {
+            logger.info(!conflict,
+                    "Found test cases that do not have global, unique identifiers")
+                .collectException;
+            logger.info(!conflict,
+                    "This make the report of test cases that has killed zero mutants unreliable")
+                .collectException;
+            logger.info("%s", tc).collectException;
+            conflict = true;
+        }
+    }
 }

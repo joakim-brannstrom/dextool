@@ -56,3 +56,9 @@ Calculate how much have change in the LLVM IR for a mutant. The bigger the chang
 This probably need to be "weighted" against other mutants so it is *dynamic* for the specific program.
 
 This should make it possible to statically find *semantically high impact mutants* cheaply. No need to even have a test suite.
+
+# SPC-mutate_analyzer-junk_tests
+partof: SPC-plugin_mutate_analyzer
+###
+
+The plugin shall report test cases that has killed zero mutants when the user requests such a report via the *CLI*.

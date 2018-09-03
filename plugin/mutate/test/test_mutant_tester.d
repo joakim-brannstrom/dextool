@@ -190,11 +190,12 @@ g++ %s -o %s
         .addPostArg(["--test-timeout", "10000"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        "Found test cases:",
-        "MessageTest.ConstructsFromCString",
+        "Found new test case",
         "MessageTest.CopyConstructor",
-        "MessageTest.StreamsDouble",
+        "MessageTest.ConstructsFromCString",
         "MessageTest.StreamsFloat",
+        "MessageTest.StreamsDouble",
+        "Resetting alive mutants",
     ]).shouldBeIn(r.stdout);
 }
 

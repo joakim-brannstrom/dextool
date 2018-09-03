@@ -205,3 +205,31 @@ unittest {
         "| 33.3333    | 1     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
+
+@(testId ~ "shall report test cases that has killed zero mutants")
+unittest {
+    // regression that the count of mutations are the total are correct (killed+timeout+alive)
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+    db.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section", "tc_killed_no_mutants"])
+        .addArg(["--style", "plain"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "| TestCase |",
+        "|----------|",
+        "| tc_4     |",
+    ]).shouldBeIn(r.stdout);
+}
