@@ -107,5 +107,7 @@ enum TestCaseAnalyzeBuiltin {
     /// Tracker for the GoogleTest framework
     gtest,
     /// Tracker for the CTest binary test runner
-    ctest
+    ctest,
+    /// Tracker for failing makefile targets
+    makefile,
 }
