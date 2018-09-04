@@ -42,11 +42,11 @@ struct GtestParser {
     private {
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
-        enum re_run_block = ctRegex!(`\[\s*RUN\s*\]\s(?P<tc>.*)`);
+        enum re_run_block = ctRegex!(`.*\[\s*RUN\s*\]\s*(?P<tc>.*)`);
         // example: gtest_output_test_.cc:#: Failure
         enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
-        enum re_failed_block = ctRegex!(`\[\s*FAILED\s*\]\s*(?P<tc>.*)`);
+        enum re_failed_block = ctRegex!(`.*\[\s*FAILED\s*\]\s*(?P<tc>.*)`);
 
         AbsolutePath reldir;
         FsmData data;
@@ -910,14 +910,16 @@ version (unittest) {
     }
 
     string[] testData3() {
+        // this contains a little fuzzy data that the parser should be able to
+        // handle. this is what typically can happen when running tets from via
+        // a makefile.
         return [
 `Running main() from gtest_main.cc`,
 `[==========] Running 4 tests from 1 test case.`,
 `[----------] Global test environment set-up.`,
 `[----------] 4 tests from MessageTest`,
 `[ RUN      ] MessageTest.CopyConstructor`,
-`[       OK ] MessageTest.CopyConstructor (0 ms)`,
-`[ RUN      ] MessageTest.ConstructsFromCString`,
+`[       OK ] MessageTest.CopyConstructor (0 ms) [ RUN      ] MessageTest.ConstructsFromCString`,
 `[       OK ] MessageTest.ConstructsFromCString (0 ms)`,
 `[ RUN      ] MessageTest.StreamsFloat`,
 `[       OK ] MessageTest.StreamsFloat (0 ms)`,
