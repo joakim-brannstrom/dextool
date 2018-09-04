@@ -220,10 +220,10 @@ unittest {
     auto parser = GtestParser(reldir);
     testData3.each!(a => parser.process(a, app));
 
-    shouldEqual(app.foundAsArray, [TestCase("MessageTest.CopyConstructor", ""),
-            TestCase("MessageTest.ConstructsFromCString",
-                ""), TestCase("MessageTest.StreamsFloat", ""),
-            TestCase("MessageTest.StreamsDouble", ""),]);
+    shouldEqual(app.foundAsArray.sort, [TestCase("MessageTest.ConstructsFromCString",
+            ""), TestCase("MessageTest.CopyConstructor",
+            ""), TestCase("MessageTest.StreamsDouble", ""),
+            TestCase("MessageTest.StreamsFloat", ""),]);
 }
 
 @("shall report the failed test cases even though there are junk in the output")
@@ -919,9 +919,9 @@ version (unittest) {
 `[----------] Global test environment set-up.`,
 `[----------] 4 tests from MessageTest`,
 `[ RUN      ] MessageTest.CopyConstructor`,
-`[       OK ] MessageTest.CopyConstructor (0 ms) [ RUN      ] MessageTest.ConstructsFromCString`,
-`[       OK ] MessageTest.ConstructsFromCString (0 ms)`,
-`[ RUN      ] MessageTest.StreamsFloat`,
+`[       OK ] MessageTest.CopyConstructor (0 ms)`,
+`[ RUN      ] MessageTest.ConstructsFromCString`,
+`[       OK ] MessageTest.ConstructsFromCString (0 ms) [ RUN      ] MessageTest.StreamsFloat`,
 `[       OK ] MessageTest.StreamsFloat (0 ms)`,
 `[ RUN      ] MessageTest.StreamsDouble`,
 `[       OK ] MessageTest.StreamsDouble (0 ms)`,

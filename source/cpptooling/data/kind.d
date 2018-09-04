@@ -18,6 +18,8 @@ import std.traits;
 import std.typecons : Nullable, Flag;
 import logger = std.experimental.logger;
 
+public import taggedalgebraic : Void;
+
 import cpptooling.data.symbol.types : USRType;
 
 version (unittest) {
@@ -73,7 +75,7 @@ struct TypeKind {
     }
 
     this(T)(T info) @safe if (!is(T == TypeKind)) {
-        this(info, USRType(""));
+        this(info, USRType.init);
     }
 
     invariant {
@@ -106,7 +108,7 @@ struct TypeKind {
 
     /// Formatting information needed to reproduce the type and identifier.
     static @safe pure nothrow @nogc union InternalInfo {
-        typeof(null) null_;
+        Void null_;
         PrimitiveInfo primitive;
         SimpleInfo simple;
         ArrayInfo array;

@@ -14,7 +14,7 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 //TODO move TypeKind to .data
-import cpptooling.data.kind_type : TypeKind;
+import cpptooling.data.kind_type : TypeKind, Void;
 
 import cpptooling.data.symbol.types;
 import cpptooling.data.type : LocationTag;
@@ -347,7 +347,7 @@ unittest {
 
     Container cont;
 
-    auto kind = TypeKind(null, USRType("key"));
+    auto kind = TypeKind(Void.init, USRType("key"));
     cont.put(kind);
     {
         auto result = cont.find!TypeKind(USRType("key"));
@@ -370,7 +370,7 @@ unittest {
 
     Container cont;
 
-    auto kind = TypeKind(null, USRType("key"));
+    auto kind = TypeKind(Void.init, USRType("key"));
     cont.put(kind);
     cont.put(kind);
     cont.find!TypeKind(USRType("key")).length.shouldEqual(1);
@@ -394,7 +394,7 @@ unittest {
         auto loc = LocationTag(Location("file" ~ to!string(i), 1, 2));
         cont.put(loc, USRType("key" ~ to!string(i)), cast(Flag!"isDefinition")(i % 2 == 0));
 
-        auto kind = TypeKind(null, USRType("key" ~ to!string(i)));
+        auto kind = TypeKind(Void.init, USRType("key" ~ to!string(i)));
         cont.put(kind);
     }
 

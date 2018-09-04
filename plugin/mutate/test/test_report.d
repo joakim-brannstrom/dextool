@@ -176,7 +176,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall report test cases with how many mutants killed correctly counting the sum of mutants to as two")
+@(testId ~ "shall report test cases with how many mutants killed correctly counting the sum of mutants to as two")
 unittest {
     // regression that the count of mutations are the total are correct (killed+timeout+alive)
     import dextool.plugin.mutate.backend.type : TestCase;
@@ -201,8 +201,8 @@ unittest {
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
         "| 66.6667    | 2     | tc_2     |",
-        "| 33.3333    | 1     | tc_1     |",
         "| 33.3333    | 1     | tc_3     |",
+        "| 33.3333    | 1     | tc_1     |",
     ]).shouldBeIn(r.stdout);
 }
 

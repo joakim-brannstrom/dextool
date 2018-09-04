@@ -16,7 +16,7 @@ module cpptooling.analyzer.clang.analyze_helper;
 import logger = std.experimental.logger;
 
 import std.traits : Unqual;
-import std.typecons : Nullable, tuple, Flag, Yes, No;
+import std.typecons : tuple, Flag, Yes, No;
 import std.meta : staticIndexOf;
 
 import clang.c.Index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
@@ -35,6 +35,8 @@ import cpptooling.data : AccessType, VariadicType, CxParam, TypeKindVariable,
     CppMethodName, CppClassName, CppNs, CppAccess, StorageClass, CFunctionName,
     Language, CFunction, CxGlobalVariable;
 import cpptooling.data.symbol : Container, USRType;
+
+import dextool.nullable;
 
 /// Convert Cursor attributes to enum representation.
 private CppVirtualMethod classify(T)(T c) @safe if (is(Unqual!T == Cursor)) {
