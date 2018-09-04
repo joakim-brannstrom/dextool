@@ -1213,10 +1213,12 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
     import std.stdio : File;
     import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
+    import dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze;
 
     foreach (f; analyze_files) {
         auto gtest = GtestParser(reldir);
         CtestParser ctest;
+        MakefileParser makefile;
 
         File* fin;
         try {
@@ -1245,6 +1247,9 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
                         break;
                     case TestCaseAnalyzeBuiltin.ctest:
                         ctest.process(l, app);
+                        break;
+                    case TestCaseAnalyzeBuiltin.makefile:
+                        makefile.process(l, app);
                         break;
                     }
                 }
