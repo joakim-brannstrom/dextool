@@ -6,6 +6,7 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/dextool/from.d
     ${CMAKE_SOURCE_DIR}/source/dextool/hash.d
     ${CMAKE_SOURCE_DIR}/source/dextool/io.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/nullable.d
     ${CMAKE_SOURCE_DIR}/source/dextool/set.d
     ${CMAKE_SOURCE_DIR}/source/dextool/type.d
     ${CMAKE_SOURCE_DIR}/source/dextool/user_filerange.d

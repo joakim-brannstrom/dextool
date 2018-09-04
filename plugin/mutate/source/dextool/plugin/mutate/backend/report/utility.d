@@ -145,7 +145,19 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
     import std.conv : to;
     import std.range : take;
 
-    foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(take_)) {
+    static bool cmp(T)(ref T a, ref T b) {
+        if (a.value > b.value)
+            return true;
+        else if (a.value < b.value)
+            return false;
+        else if (a.key > b.key)
+            return true;
+        else if (a.key < b.key)
+            return false;
+        return false;
+    }
+
+    foreach (v; mut_stat.byKeyValue.array.sort!cmp.take(take_)) {
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
             typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key.toString];

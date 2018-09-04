@@ -189,14 +189,19 @@ g++ %s -o %s
         .addPostArg(["--test-case-analyze-builtin", "gtest"])
         .addPostArg(["--test-timeout", "10000"])
         .run;
-    testConsecutiveSparseOrder!SubStr([
-        "Found new test case",
+
+    foreach (l; [
         "MessageTest.CopyConstructor",
         "MessageTest.ConstructsFromCString",
         "MessageTest.StreamsFloat",
         "MessageTest.StreamsDouble",
-        "Resetting alive mutants",
-    ]).shouldBeIn(r.stdout);
+    ]) {
+        testConsecutiveSparseOrder!SubStr([
+            "Found new test case",
+            l,
+            "Resetting alive mutants",
+        ]).shouldBeIn(r.stdout);
+    }
 }
 
 immutable scriptSimulatingComplextCTestSuite =

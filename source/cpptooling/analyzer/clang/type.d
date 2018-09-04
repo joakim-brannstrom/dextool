@@ -37,7 +37,7 @@ import std.algorithm : among;
 import std.conv : to;
 import std.string : format;
 import std.traits;
-import std.typecons : Flag, Yes, No, Nullable, Tuple;
+import std.typecons : Flag, Yes, No, Tuple;
 import logger = std.experimental.logger;
 
 import clang.c.Index : CXTypeKind, CXCursorKind;
@@ -50,6 +50,8 @@ import cpptooling.analyzer.clang.type_logger : logType;
 import cpptooling.data : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data : Location, LocationTag;
 import cpptooling.data.symbol : Container, USRType;
+
+import dextool.nullable;
 
 private string nextSequence() @safe {
     import std.conv : text;
@@ -147,11 +149,11 @@ private void assertTypeResult(const ref TypeResults results) {
 
 struct BacktrackLocation {
     static import clang.SourceLocation;
-    import taggedalgebraic : TaggedAlgebraic;
+    import taggedalgebraic : TaggedAlgebraic, Void;
     import cpptooling.data.type : Location;
 
     union TagType {
-        typeof(null) null_;
+        Void null_;
         cpptooling.data.type.Location loc;
     }
 

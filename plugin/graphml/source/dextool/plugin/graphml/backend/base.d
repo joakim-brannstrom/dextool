@@ -1010,7 +1010,7 @@ private bool isPrimitive(T, LookupT)(const T data, LookupT lookup) @safe nothrow
 }
 
 package struct NodeData {
-    import taggedalgebraic : TaggedAlgebraic;
+    import taggedalgebraic : TaggedAlgebraic, Void;
 
     alias Tag = TaggedAlgebraic!TagUnion;
 
@@ -1018,7 +1018,7 @@ package struct NodeData {
     alias tag this;
 
     static union TagUnion {
-        typeof(null) null_;
+        Void null_;
         NodeFunction func;
         NodeType type;
         NodeVariable variable;

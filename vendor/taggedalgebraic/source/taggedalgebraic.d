@@ -88,14 +88,12 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 
 	this(TaggedAlgebraic other)
 	{
-		import std.algorithm : swap;
-		swap(this, other);
+		rawSwap(this, other);
 	}
 
 	void opAssign(TaggedAlgebraic other)
 	{
-		import std.algorithm : swap;
-		swap(this, other);
+		rawSwap(this, other);
 	}
 
 	// postblit constructor
@@ -191,7 +189,18 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	/// Enables accessing properties/fields of the stored value.
 	@property auto opDispatch(string name, this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.field, name, ARGS) && !hasOp!(TA, OpKind.method, name, ARGS)) { return implementOp!(OpKind.field, name)(this, args); }
 	/// Enables equality comparison with the stored value.
-	auto opEquals(T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, "==", T)) { return implementOp!(OpKind.binary, "==")(this, other); }
+	auto opEquals(T, this TA)(auto ref T other)
+		if (is(Unqual!T == TaggedAlgebraic) || hasOp!(TA, OpKind.binary, "==", T))
+	{
+		static if (is(Unqual!T == TaggedAlgebraic)) {
+			if (this.kind != other.kind) return false;
+			final switch (this.kind)
+				foreach (i, fname; fieldNames)
+					case __traits(getMember, Kind, fname):
+						return trustedGet!fname == other.trustedGet!fname;
+			assert(false); // never reached
+		} else return implementOp!(OpKind.binary, "==")(this, other);
+	}
 	/// Enables relational comparisons with the stored value.
 	auto opCmp(T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, "<", T)) { assert(false, "TODO!"); }
 	/// Enables the use of unary operators with the stored value.
@@ -364,6 +373,28 @@ unittest { // std.conv integration
 	assert(ta.kind == TA.Kind.null_);
 }
 
+@safe unittest { // comparison of whole TAs
+	static union Test {
+		typeof(null) a;
+		typeof(null) b;
+		Void c;
+		Void d;
+		int e;
+		int f;
+	}
+	alias TA = TaggedAlgebraic!Test;
+
+	assert(TA(null, TA.Kind.a) == TA(null, TA.Kind.a));
+	assert(TA(null, TA.Kind.a) != TA(null, TA.Kind.b));
+	assert(TA(null, TA.Kind.a) != TA(Void.init, TA.Kind.c));
+	assert(TA(null, TA.Kind.a) != TA(0, TA.Kind.e));
+	assert(TA(Void.init, TA.Kind.c) == TA(Void.init, TA.Kind.c));
+	assert(TA(Void.init, TA.Kind.c) != TA(Void.init, TA.Kind.d));
+	assert(TA(1, TA.Kind.e) == TA(1, TA.Kind.e));
+	assert(TA(1, TA.Kind.e) != TA(2, TA.Kind.e));
+	assert(TA(1, TA.Kind.e) != TA(1, TA.Kind.f));
+}
+
 unittest {
 	// test proper type modifier support
 	static struct  S {
@@ -433,29 +464,26 @@ unittest {
 	static assert( is(typeof(ta.testI())));
 }
 
-version (unittest) {
-	// test recursive definition using a wrapper dummy struct
-	// (needed to avoid "no size yet for forward reference" errors)
-	template ID(What) { alias ID = What; }
-	private struct _test_Wrapper {
-		TaggedAlgebraic!_test_U u;
+// test recursive definition using a wrapper dummy struct
+// (needed to avoid "no size yet for forward reference" errors)
+unittest {
+	static struct TA {
+		union U {
+			TA[] children;
+			int value;
+		}
+		TaggedAlgebraic!U u;
 		alias u this;
-		this(ARGS...)(ARGS args) { u = TaggedAlgebraic!_test_U(args); }
+		this(ARGS...)(ARGS args) { u = TaggedAlgebraic!U(args); }
 	}
-	private union _test_U {
-		_test_Wrapper[] children;
-		int value;
-	}
-	unittest {
-		alias TA = _test_Wrapper;
-		auto ta = TA(null);
-		ta ~= TA(0);
-		ta ~= TA(1);
-		ta ~= TA([TA(2)]);
-		assert(ta[0] == 0);
-		assert(ta[1] == 1);
-		assert(ta[2][0] == 2);
-	}
+
+	auto ta = TA(null);
+	ta ~= TA(0);
+	ta ~= TA(1);
+	ta ~= TA([TA(2)]);
+	assert(ta[0] == 0);
+	assert(ta[1] == 1);
+	assert(ta[2][0] == 2);
 }
 
 unittest { // postblit/destructor test
@@ -595,6 +623,64 @@ unittest
 	}
 }
 
+static if (__VERSION__ >= 2072) {
+	unittest { // issue #8
+		static struct Result(T,E)
+		{
+			static union U
+			{
+				T ok;
+				E err;
+			}
+			alias TA = TaggedAlgebraic!U;
+			TA payload;
+			alias payload this;
+
+			this(T ok) { payload = ok; }
+			this(E err) { payload = err; }
+		}
+
+		static struct Option(T)
+		{
+			static union U
+			{
+				T some;
+				typeof(null) none;
+			}
+			alias TA = TaggedAlgebraic!U;
+			TA payload;
+			alias payload this;
+
+			this(T some) { payload = some; }
+			this(typeof(null) none) { payload = null; }
+		}
+
+		Result!(Option!size_t, int) foo()
+		{
+			return Result!(Option!size_t, int)(42);
+		}
+
+		assert(foo() == 42);
+	}
+}
+
+unittest { // issue #13
+	struct S1 { Void dummy; int foo; }
+	struct S {
+		struct T { TaggedAlgebraic!S1 foo() { return TaggedAlgebraic!S1(42); } }
+		struct U { string foo() { return "foo"; } }
+		Void dummy;
+		T t;
+		U u;
+	}
+	alias TA = TaggedAlgebraic!S;
+	auto ta = TA(S.T.init);
+	assert(ta.foo().get!(TaggedAlgebraic!S1) == 42);
+
+	ta = TA(S.U.init);
+	assert(ta.foo() == "foo");
+}
+
 
 /** Tests if the algebraic type stores a value of a certain data type.
 */
@@ -655,6 +741,35 @@ unittest {
 
 	const(TA) test() { return TA(12); }
 	assert(test().hasType!int);
+}
+
+
+static if (__VERSION__ >= 2072) {
+	/** Maps a kind enumeration value to the corresponding field type.
+
+		`kind` must be a value of the `TaggedAlgebraic!T.Kind` enumeration.
+	*/
+	template TypeOf(alias kind)
+		if (isInstanceOf!(TypeEnum, typeof(kind)))
+	{
+		import std.traits : FieldTypeTuple, TemplateArgsOf;
+		alias U = TemplateArgsOf!(typeof(kind));
+		alias TypeOf = FieldTypeTuple!U[kind];
+	}
+
+	///
+	unittest {
+		static struct S {
+			int a;
+			string b;
+			string c;
+		}
+		alias TA = TaggedAlgebraic!S;
+
+		static assert(is(TypeOf!(TA.Kind.a) == int));
+		static assert(is(TypeOf!(TA.Kind.b) == string));
+		static assert(is(TypeOf!(TA.Kind.c) == string));
+	}
 }
 
 
@@ -838,8 +953,7 @@ private static auto implementOp(OpKind kind, string name, T, ARGS...)(ref T self
 					alias Alg = Algebraic!(NoDuplicates!(info.ReturnTypes));
 					info.ReturnTypes[i] ret = info.perform(self.trustedGet!FT, args);
 					import std.traits : isInstanceOf;
-					static if (isInstanceOf!(TaggedAlgebraic, typeof(ret))) return Alg(ret.payload);
-					else return Alg(ret);
+					return Alg(ret);
 				}
 				else static if (is(FT == Variant))
 					return info.perform(self.trustedGet!FT, args);
@@ -1071,7 +1185,7 @@ private string generateConstructors(U)()
 		}.format(tname, tname, tname, tname, tname, tname);
 
 	// type constructors with explicit type tag
-	foreach (tname; AmbiguousTypeFields!U)
+	foreach (tname; TypeTuple!(UniqueTypeFields!U, AmbiguousTypeFields!U))
 		ret ~= q{
 			this(typeof(U.%s) value, Kind type)
 			{
@@ -1211,4 +1325,27 @@ private void rawEmplace(T)(void[] dst, ref T src)
 		emplace!T(&tdst[0]);
 		tdst[0] = src;
 	}
+}
+
+// std.algorithm.mutation.swap sometimes fails to compile due to
+// internal errors in hasElaborateAssign!T/isAssignable!T. This is probably
+// caused by cyclic dependencies. However, there is no reason to do these
+// checks in this context, so we just directly move the raw memory.
+private void rawSwap(T)(ref T a, ref T b)
+@trusted {
+	void[T.sizeof] tmp = void;
+	void[] ab = (cast(void*)&a)[0 .. T.sizeof];
+	void[] bb = (cast(void*)&b)[0 .. T.sizeof];
+	tmp[] = ab[];
+	ab[] = bb[];
+	bb[] = tmp[];
+}
+
+
+unittest {
+	struct TU { int i; }
+	alias TA = TaggedAlgebraic!TU;
+
+	auto ta = TA(12);
+	static assert(!is(typeof(ta.put(12))));
 }

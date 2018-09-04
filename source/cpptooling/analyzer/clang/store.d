@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module cpptooling.analyzer.clang.store;
 
-import std.typecons : Nullable;
+import dextool.nullable;
 
 import clang.Cursor : Cursor;
 
