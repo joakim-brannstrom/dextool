@@ -10,8 +10,9 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          "dextool.plugin.mutate.backend.watchdog",
                           "dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze",
+                          "dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze",
+                          "dextool.plugin.mutate.backend.watchdog",
                           );
     //dfmt on
 }
