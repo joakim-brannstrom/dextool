@@ -18,7 +18,15 @@ import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport,
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 
-/** Parse input for ctest test cases.
+/** Parse input for the first makefile targets that fail.
+ *
+ * It is important that it is the first failing to avoid possible problems with
+ * recursive makefiles which would end with multiple makefile targets that
+ * fail. I assume that the first one is the most specific and relevant.
+ *
+ * TODO: if that isn't good enough maybe another approach would be to
+ * concatenate them to one big target? It would reflect in a "chain" of targets
+ * that lead up to the error.
  *
  * Params:
  *  r = range that is chunked by line
@@ -28,6 +36,8 @@ struct MakefileParser {
     import std.regex : regex, ctRegex, matchFirst;
 
     private {
+        bool isDone;
+
         // example: binary exiting with something else than zero.
         //make: *** [exit1] Error 1
         //make: *** [exit2] Error 2
@@ -39,10 +49,14 @@ struct MakefileParser {
         import std.range : put;
         import std.string : strip;
 
+        if (isDone)
+            return;
+
         auto exit_with_error_code_match = matchFirst(line, re_exit_with_error_code);
 
         if (!exit_with_error_code_match.empty) {
             report.reportFailed(TestCase(exit_with_error_code_match["tc"].strip.idup));
+            isDone = true;
         }
     }
 }
@@ -69,6 +83,5 @@ unittest {
     ]) parser.process(a, app);
     // dfmt on
 
-    shouldEqual(app.failed.byKey.array, [TestCase("segfault"),
-            TestCase("exit1"), TestCase("exit2")]);
+    shouldEqual(app.failed.byKey.array, [TestCase("segfault")]);
 }
