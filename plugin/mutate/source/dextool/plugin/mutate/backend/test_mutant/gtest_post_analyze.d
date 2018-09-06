@@ -8,16 +8,6 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 #SPC-plugin_mutate_track_gtest
-
-# Design
-The parser is a strict Moore FSM.
-The FSM is small enough that a switch implementation is good enough, clear and explicit.
-
-The parser has a strict separation of the *next state* and *action*.
-This is to make it easier to unittest the FSM is so is needed.
-It also makes it easier to understand what the state transitions are dependent on and when an action is performed.
-
-The calculation of the next state is a strongly pure function to enforce that it is only dependent on the input. See: `nextState`.
 */
 module dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
 
@@ -37,20 +27,21 @@ Params:
     reldir = file paths are adjusted to be relative to this parameter.
   */
 struct GtestParser {
-    import std.regex : regex, ctRegex, matchFirst;
+    import std.regex : regex, ctRegex, matchFirst, matchAll;
 
     private {
+        // example: [==========] Running
+        enum re_delim = ctRegex!(`.*?\[=*\]`);
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
-        enum re_run_block = ctRegex!(`.*\[\s*RUN\s*\]\s*(?P<tc>.*)`);
+        enum re_run_block = ctRegex!(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
         // example: gtest_output_test_.cc:#: Failure
         enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
-        enum re_failed_block = ctRegex!(`.*\[\s*FAILED\s*\]\s*(?P<tc>.*)`);
+        enum re_failed_block = ctRegex!(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
 
         AbsolutePath reldir;
-        FsmData data;
-        string fail_msg_file;
+        StateData data;
     }
 
     this(AbsolutePath reldir) @safe pure nothrow @nogc {
@@ -65,47 +56,57 @@ struct GtestParser {
         import std.range : put;
         import std.string : strip;
 
-        auto run_block_match = matchFirst(line, re_run_block);
+        auto run_block_match = matchAll(line, re_run_block);
         auto fail_msg_match = matchFirst(line, re_fail_msg);
-        auto failed_block_match = matchFirst(line, re_failed_block);
+        auto failed_block_match = matchAll(line, re_failed_block);
+        auto delim_match = matchFirst(line, re_delim);
         data.hasRunBlock = !run_block_match.empty;
         data.hasFailedMessage = !fail_msg_match.empty;
         data.hasFailedBlock = !failed_block_match.empty;
+        data.hasDelim = !delim_match.empty;
 
-        {
-            auto rval = nextState(data);
-            data.st = rval[0];
-            data.act = rval[1];
+        if (data.hasDelim) {
+            final switch (data.delim) {
+            case DelimState.unknown:
+                data.delim = DelimState.start;
+                break;
+            case DelimState.start:
+                data.delim = DelimState.stop;
+                break;
+            case DelimState.stop:
+                data.delim = DelimState.start;
+                break;
+            }
         }
 
-        final switch (data.act) with (Action) {
-        case none:
-            break;
-        case saveFileName:
-            fail_msg_file = fail_msg_match["file"].strip.idup;
+        if (data.hasFailedMessage) {
+            data.fail_msg_file = fail_msg_match["file"].strip.idup;
             try {
-                if (fail_msg_file.isValidPath)
-                    fail_msg_file = relativePath(fail_msg_file, reldir);
+                if (data.fail_msg_file.isValidPath)
+                    data.fail_msg_file = relativePath(data.fail_msg_file, reldir);
             } catch (Exception e) {
                 debug logger.trace(e.msg).collectException;
             }
-            break;
-        case putFoundTestCase:
-            data.linesAfterRun = 0;
-            report.reportFound(TestCase(run_block_match["tc"].idup));
-            break;
-        case putFailedTestCase:
-            // remove the time that googletest print.
-            // it isn't part of the test case name but additional metadata.
-            report.reportFailed(TestCase(failed_block_match["tc"].until(' ')
-                    .toUTF8, fail_msg_file));
-            break;
-        case countLinesAfterRun:
-            data.linesAfterRun += 1;
-            break;
-        case resetCounter:
-            data.linesAfterRun = 0;
-            break;
+        }
+
+        if (data.hasRunBlock) {
+            // force it to a start so failed messages can be found
+            data.delim = DelimState.start;
+
+            foreach (m; run_block_match) {
+                report.reportFound(TestCase(m["tc"].idup));
+            }
+        }
+
+        if (data.hasFailedBlock && data.delim == DelimState.start) {
+            foreach (m; failed_block_match) {
+                if (m["tc"].length == 0)
+                    continue;
+                report.reportFailed(TestCase(m["tc"].idup, data.fail_msg_file));
+                // the best we can do for now is for the first failed test case.
+                // May improve in the future.
+                data.fail_msg_file = null;
+            }
         }
     }
 }
@@ -115,25 +116,20 @@ version (unittest) {
 private:
 }
 
-enum State {
-    findRun,
-    findFailureMsg,
-    findEndFailed,
+// Determine what type of delimiter that where last found.
+enum DelimState {
+    unknown,
+    start,
+    stop,
 }
 
-enum Action {
-    none,
-    saveFileName,
-    putFoundTestCase,
-    putFailedTestCase,
-    resetCounter,
-    countLinesAfterRun,
-}
+struct StateData {
+    DelimState delim;
 
-struct FsmData {
-    State st;
-    Action act;
+    string fail_msg_file;
 
+    /// The line contains a [======] block.
+    bool hasDelim;
     /// The line contains a [ RUN   ] block.
     bool hasRunBlock;
     /// The line contains a <path>:line: Failure.
@@ -142,54 +138,6 @@ struct FsmData {
     bool hasFailedBlock;
     /// the line contains a [ OK   ] block.
     bool hasOkBlock;
-
-    /// Number of lines since a [ RUN   ] block where encountered.
-    uint linesAfterRun;
-}
-
-auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
-    import std.typecons : tuple;
-
-    State next = d.st;
-    Action act = d.act;
-
-    final switch (d.st) with (State) {
-    case findRun:
-        act = Action.resetCounter;
-        if (d.hasRunBlock) {
-            next = findFailureMsg;
-            act = Action.putFoundTestCase;
-        }
-        break;
-    case findFailureMsg:
-        act = Action.countLinesAfterRun;
-
-        if (d.hasFailedMessage) {
-            next = findEndFailed;
-            act = Action.saveFileName;
-        } else if (d.linesAfterRun > 10) {
-            // 10 is chosen to be somewhat resilient against junk in the output but still be conservative.
-            next = findRun;
-        } else if (d.hasRunBlock) {
-            act = Action.putFoundTestCase;
-        } else if (d.hasOkBlock)
-            next = findRun;
-        else if (d.hasFailedBlock)
-            next = findRun;
-        break;
-    case findEndFailed:
-        act = Action.none;
-
-        if (d.hasRunBlock)
-            next = findFailureMsg;
-        else if (d.hasFailedBlock) {
-            act = Action.putFailedTestCase;
-            next = findRun;
-        }
-        break;
-    }
-
-    return tuple(next, act);
 }
 
 version (unittest) {
@@ -220,10 +168,22 @@ unittest {
     auto parser = GtestParser(reldir);
     testData3.each!(a => parser.process(a, app));
 
-    shouldEqual(app.foundAsArray.sort, [TestCase("MessageTest.ConstructsFromCString",
-            ""), TestCase("MessageTest.CopyConstructor",
-            ""), TestCase("MessageTest.StreamsDouble", ""),
-            TestCase("MessageTest.StreamsFloat", ""),]);
+    shouldEqual(app.foundAsArray.sort, [TestCase("Comp.A", ""),
+            TestCase("Comp.B", ""), TestCase("Comp.C", ""), TestCase("Comp.D",
+                ""), TestCase("Comp.E/a", ""), TestCase("Comp.E/b", ""),]);
+}
+
+@("shall report the failed test cases")
+unittest {
+    auto app = new GatherTestCase;
+    auto reldir = AbsolutePath(FileName(getcwd));
+
+    auto parser = GtestParser(reldir);
+    testData4.each!(a => parser.process(a, app));
+
+    shouldEqual(app.failedAsArray.sort, [TestCase("Foo.A", ""),
+            TestCase("Foo.B", ""), TestCase("Foo.C", ""), TestCase("Foo.D",
+                ""), TestCase("Foo.E", ""),]);
 }
 
 @("shall report the failed test cases even though there are junk in the output")
@@ -268,8 +228,8 @@ TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_
 TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
 TestCase(`NonfatalFailureTest.DiffForLongStrings`, "gtest_output_test_.cc"),
 TestCase(`NonfatalFailureTest.EscapesStringOperands`, "gtest_output_test_.cc"),
-TestCase(`PrintingFailingParams/FailingParamTest.Fails/0,`, "gtest_output_test_.cc"),
-TestCase(`PrintingStrings/ParamTest.Failure/a,`, "gtest_output_test_.cc"),
+TestCase(`PrintingFailingParams/FailingParamTest.Fails/0`, "gtest_output_test_.cc"),
+TestCase(`PrintingStrings/ParamTest.Failure/a`, "gtest_output_test_.cc"),
 TestCase(`SCOPED_TRACETest.CanBeNested`, "gtest_output_test_.cc"),
 TestCase(`SCOPED_TRACETest.CanBeRepeated`, "gtest_output_test_.cc"),
 TestCase(`SCOPED_TRACETest.ObeysScopes`, "gtest_output_test_.cc"),
@@ -277,9 +237,9 @@ TestCase(`SCOPED_TRACETest.WorksConcurrently`, "gtest_output_test_.cc"),
 TestCase(`SCOPED_TRACETest.WorksInLoop`, "gtest_output_test_.cc"),
 TestCase(`SCOPED_TRACETest.WorksInSubroutine`, "gtest_output_test_.cc"),
 TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`, "gtest_output_test_.cc"),
-TestCase(`TypedTest/0.Failure,`, "gtest_output_test_.cc"),
-TestCase(`Unsigned/TypedTestP/0.Failure,`, "gtest_output_test_.cc"),
-TestCase(`Unsigned/TypedTestP/1.Failure,`, "gtest_output_test_.cc"),
+TestCase(`TypedTest/0.Failure`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/0.Failure`, "gtest_output_test_.cc"),
+TestCase(`Unsigned/TypedTestP/1.Failure`, "gtest_output_test_.cc"),
             ];
     // dfmt on
 
@@ -287,7 +247,7 @@ TestCase(`Unsigned/TypedTestP/1.Failure,`, "gtest_output_test_.cc"),
         v.shouldBeIn(app.failed);
     }
 
-    shouldEqual(expected.length, app.failed.length);
+    shouldEqual(app.failed.length, expected.length);
 }
 
 version (unittest) {
@@ -899,8 +859,6 @@ version (unittest) {
 ` gtest_output_test_.cc:#: Failure`,
 ` Failed`,
 ` Expected fatal failure.`,
-`-[==========] 66 tests from 29 test cases ran.`,
-`-[  PASSED  ] 22 tests.`,
 `+ull)m[==========] 66 tests from 29 test cases ran.`,
 `+ull)m[  PASSED  ] 22 tests.`,
 ` [  FAILED  ] 44 tests, listed below:`,
@@ -918,19 +876,35 @@ version (unittest) {
 `[==========] Running 4 tests from 1 test case.`,
 `[----------] Global test environment set-up.`,
 `[----------] 4 tests from MessageTest`,
-`[ RUN      ] MessageTest.CopyConstructor`,
-`[       OK ] MessageTest.CopyConstructor (0 ms)`,
-`[ RUN      ] MessageTest.ConstructsFromCString`,
-`[       OK ] MessageTest.ConstructsFromCString (0 ms) [ RUN      ] MessageTest.StreamsFloat`,
-`[       OK ] MessageTest.StreamsFloat (0 ms)`,
-`[ RUN      ] MessageTest.StreamsDouble`,
-`[       OK ] MessageTest.StreamsDouble (0 ms)`,
-`[----------] 4 tests from MessageTest (0 ms total)`,
+`[ RUN      ] Comp.A`,
+`[       OK ] Comp.A (0 ms)`,
+`[ RUN      ] Comp.B`,
+`[       OK ] Comp.B (0 ms) [ RUN      ] Comp.C`,
+`[       OK ] Comp.C (0 ms)`,
+`[ RUN      ] Comp.D`,
+`[       OK ] Comp.D (0 ms)`,
+`[ RUN      ] Comp.E/a[       OK ] Comp.E/a (0 ms)[ RUN      ] Comp.E/b[       OK ] Comp.E/b (0 ms)`,
+`[----------] 4 tests from Comp (0 ms total)`,
 ``,
 `[----------] Global test environment tear-down`,
 `[==========] 4 tests from 1 test case ran. (0 ms total)`,
 `[  PASSED  ] 4 tests.`,
         ];
     }
+
+    string[] testData4() {
+        return [
+"Running main() from gtest_main.cc",
+"[==========] Running 17 tests from 1 test case.",
+"[----------] Global test environment set-up.",
+"[----------] 17 tests from MessageTest",
+"[ RUN      ] Foo.A",
+"[ FAILED   ] Foo.A (0 ms)[ RUN      ] Foo.B[ FAILED   ] Foo.B (0 ms)[ RUN      ] Foo.C[ FAILED   ] Foo.C (0 ms)",
+"[ RUN      ] Foo.D[ FAILED   ] Foo.D (0 ms)[ RUN      ] Foo.E",
+"[ FAILED   ] Foo.E (0 ms)",
+"[----------] 3 tests from MessageTest (0 ms total)",
+        ];
+    }
+
     // dfmt on
 }
