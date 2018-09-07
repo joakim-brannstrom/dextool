@@ -102,7 +102,7 @@ g++ %s -o %s
         .addPostArg(["--test-timeout", "10000"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        `killed by [../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.DefaultConstructor, ../../../../smurf/googletest/test/gtest-message_test.cc:MessageTest.StreamsNullPointer]`
+        `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
     ]).shouldBeIn(r.stdout);
 }
 
