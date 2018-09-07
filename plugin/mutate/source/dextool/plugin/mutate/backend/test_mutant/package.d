@@ -479,6 +479,8 @@ nothrow:
 
     GatherTestCase test_cases;
 
+    AutoCleanup auto_cleanup;
+
     this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd, AbsolutePath test_cmd,
             AbsolutePath test_case_cmd,
             TestCaseAnalyzeBuiltin[] tc_analyze_builtin, Duration tester_runtime) {
@@ -581,6 +583,7 @@ nothrow:
                 if (tmpdir.length == 0)
                     return;
                 test_tmp_output = Path(tmpdir).AbsolutePath;
+                auto_cleanup.add(test_tmp_output);
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
                 return;
@@ -718,6 +721,7 @@ struct TestDriver(ImplT) {
         initialize,
         sanityCheck,
         updateAndResetAliveMutants,
+        cleanupAfterTCAnalyze,
         checkMutantsLeft,
         preCompileSut,
         measureTestSuite,
@@ -797,6 +801,9 @@ struct TestDriver(ImplT) {
         case updateAndResetAliveMutants:
             impl.updateAndResetAliveMutants;
             break;
+        case cleanupAfterTCAnalyze:
+            impl.cleanupAfterTCAnalyze;
+            break;
         case done:
             break;
         case error:
@@ -822,6 +829,9 @@ struct TestDriver(ImplT) {
                 next_ = State.error;
             break;
         case updateAndResetAliveMutants:
+            next_ = cleanupAfterTCAnalyze;
+            break;
+        case cleanupAfterTCAnalyze:
             next_ = checkMutantsLeft;
             break;
         case checkMutantsLeft:
@@ -887,6 +897,8 @@ nothrow:
     TestDriverSignal driver_sig;
     ReturnType!mutationDriverFactory mut_driver;
     long last_timeout_mutant_count = long.max;
+
+    AutoCleanup auto_cleanup;
 
     this(DriverData data) {
         this.data = data;
@@ -976,22 +988,11 @@ nothrow:
             if (tmpdir.length == 0)
                 return;
             test_tmp_output = Path(tmpdir).AbsolutePath;
+            auto_cleanup.add(test_tmp_output);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
             return;
         }
-
-        // trusted: test_tmp_output is tested to be valid data.
-        scope (exit)
-            () @trusted{
-            try {
-                import std.file : rmdirRecurse;
-
-                rmdirRecurse(test_tmp_output);
-            } catch (Exception e) {
-                logger.info(e.msg).collectException;
-            }
-        }();
 
         Set!string old_tcs;
         try {
@@ -1036,6 +1037,11 @@ nothrow:
         }
 
         warnIfConflictingTestCaseIdentifiers(found_tc);
+    }
+
+    void cleanupAfterTCAnalyze() {
+        driver_sig = TestDriverSignal.next;
+        auto_cleanup.cleanup;
     }
 
     void checkMutantsLeft() {
@@ -1338,5 +1344,35 @@ void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
             logger.info("%s", tc).collectException;
             conflict = true;
         }
+    }
+}
+
+/// Paths stored will be removed automatically either when manually called or goes out of scope.
+struct AutoCleanup {
+    AbsolutePath[] remove_dirs;
+
+    ~this() @safe nothrow {
+        cleanup;
+    }
+
+    void add(AbsolutePath p) @safe nothrow {
+        remove_dirs ~= p;
+    }
+
+    // trusted: the paths are forced to be valid paths.
+    void cleanup() @trusted nothrow {
+        import std.algorithm : filter;
+        import std.file : rmdirRecurse, exists;
+
+        foreach (p; remove_dirs.filter!(a => a.length != 0)) {
+            try {
+                if (exists(p))
+                    rmdirRecurse(p);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }
+
+        remove_dirs = null;
     }
 }
