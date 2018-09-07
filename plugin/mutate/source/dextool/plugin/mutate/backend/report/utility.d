@@ -170,9 +170,9 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
 
 /** Update the table with those test cases that has killed zero mutants.
  */
-void reportDeadTestCases(TestCase[] zero_kills_test_cases, ref Table!1 tbl) @safe nothrow {
+void reportDeadTestCases(TestCase[] zero_kills_test_cases, ref Table!2 tbl) @safe nothrow {
     foreach (tc; zero_kills_test_cases) {
-        typeof(tbl).Row r = [tc.toString];
+        typeof(tbl).Row r = [tc.name, tc.location];
         tbl.put(r);
     }
 }
