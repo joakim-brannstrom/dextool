@@ -254,8 +254,8 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         if (ReportSection.tc_killed_no_mutants in sections) {
             logger.info("Test Case(s) that has killed no mutants");
 
-            Table!1 tbl;
-            tbl.heading = ["TestCase"];
+            Table!2 tbl;
+            tbl.heading = ["TestCase", "Location"];
 
             reportDeadTestCases(db.getTestCasesWithZeroKills, tbl);
             writeln(tbl);

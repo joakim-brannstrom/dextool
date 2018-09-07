@@ -264,8 +264,8 @@ struct Markdown(Writer, TraceWriter) {
         if (report_level != ReportLevel.summary && zero_kills.length != 0) {
             auto item = markdown.heading("Test Cases with Zero Kills");
 
-            Table!1 tbl;
-            tbl.heading = ["TestCase"];
+            Table!2 tbl;
+            tbl.heading = ["TestCase", "Location"];
 
             reportDeadTestCases(zero_kills, tbl);
             auto fmt = FormatSpec!char("%s");
