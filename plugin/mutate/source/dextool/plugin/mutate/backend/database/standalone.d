@@ -557,4 +557,23 @@ struct Database {
             del_stmt.execute;
         }
     }
+
+    /// Remove these test cases from those linked to having killed a mutant.
+    void removeTestCases(const(TestCase)[] tcs) @trusted {
+        import std.format : format;
+
+        immutable sql = format("DELETE FROM %s WHERE name == :name", killedTestCaseTable);
+        auto stmt = db.prepare(sql);
+
+        db.begin;
+        scope (success)
+            db.commit;
+        scope (failure)
+            db.rollback;
+        foreach (tc; tcs) {
+            stmt.reset;
+            stmt.bind(":name", tc.name);
+            stmt.execute;
+        }
+    }
 }
