@@ -155,6 +155,12 @@ g++ %s -o %s
 @(testId ~ "shall detect all test cases")
 unittest {
     mixin(EnvSetup(globalTestdir));
+    immutable compile_script = (testEnv.outdir ~ "compile.sh").toString;
+    immutable test_script = (testEnv.outdir ~ "test.sh").toString;
+    runShallDetectAllTestCases(testEnv, compile_script, test_script);
+}
+
+void runShallDetectAllTestCases(ref TestEnv testEnv, immutable(string) compile_script, immutable(string) test_script) {
     immutable program_cpp = (testEnv.outdir ~ "program.cpp").toString;
     immutable program_bin = (testEnv.outdir ~ "program").toString;
 
@@ -163,9 +169,6 @@ unittest {
     makeDextoolAnalyze(testEnv)
         .addInputArg(program_cpp)
         .run;
-
-    immutable compile_script = (testEnv.outdir ~ "compile.sh").toString;
-    immutable test_script = (testEnv.outdir ~ "test.sh").toString;
 
     File(compile_script, "w").write(format(
 "#!/bin/bash
@@ -202,6 +205,35 @@ g++ %s -o %s
             "Resetting alive mutants",
         ]).shouldBeIn(r.stdout);
     }
+}
+
+@(testId ~ "shall detect the dropped test case")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    immutable test_script = (testEnv.outdir ~ "test.sh").toString;
+    immutable compile_script = (testEnv.outdir ~ "compile.sh").toString;
+    runShallDetectAllTestCases(testEnv, compile_script, test_script);
+
+    File(test_script, "w").write(scriptGTestSuiteDropOne);
+    makeExecutable(test_script);
+
+    auto r = dextool_test.makeDextool(testEnv)
+        .setWorkdir(workDir)
+        .args(["mutate"])
+        .addArg(["test"])
+        .addPostArg(["--mutant", "dcr"])
+        .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+        .addPostArg(["--compile", compile_script])
+        .addPostArg(["--test", test_script])
+        .addPostArg(["--test-case-analyze-builtin", "gtest"])
+        .addPostArg(["--test-timeout", "10000"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "Detected test cases that has been removed",
+        "MessageTest.StreamsDouble",
+    ]).shouldBeIn(r.stdout);
 }
 
 immutable scriptSimulatingComplextCTestSuite =
@@ -619,6 +651,28 @@ Running main() from gtest_main.cc
 [       OK ] MessageTest.StreamsFloat (0 ms)
 [ RUN      ] MessageTest.StreamsDouble
 [       OK ] MessageTest.StreamsDouble (0 ms)
+[----------] 4 tests from MessageTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 4 tests from 1 test case ran. (0 ms total)
+[  PASSED  ] 4 tests.
+EOF
+exit 1
+";
+
+immutable scriptGTestSuiteDropOne =
+"#!/bin/bash
+cat <<EOF
+Running main() from gtest_main.cc
+[==========] Running 4 tests from 1 test case.
+[----------] Global test environment set-up.
+[----------] 4 tests from MessageTest
+[ RUN      ] MessageTest.CopyConstructor
+[       OK ] MessageTest.CopyConstructor (0 ms)
+[ RUN      ] MessageTest.ConstructsFromCString
+[       OK ] MessageTest.ConstructsFromCString (0 ms)
+[ RUN      ] MessageTest.StreamsFloat
+[       OK ] MessageTest.StreamsFloat (0 ms)
 [----------] 4 tests from MessageTest (0 ms total)
 
 [----------] Global test environment tear-down
