@@ -1346,7 +1346,7 @@ void removeDroppedTestCases(ref Database db, ref Set!string old_tcs, ref Set!str
 
     logger.info(removed.length != 0, "Detected test cases that has been removed:").collectException;
     foreach (tc; removed) {
-        logger.info("%s", tc).collectException;
+        logger.infof("%s", tc).collectException;
     }
 
     try {
