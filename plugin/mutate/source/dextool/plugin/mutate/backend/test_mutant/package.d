@@ -972,6 +972,7 @@ nothrow:
     // TODO: refactor. This method is too long.
     void updateAndResetAliveMutants() {
         import core.time : dur;
+        import std.algorithm : map;
         import std.datetime.stopwatch : StopWatch;
         import std.path : buildPath;
         import dextool.type : Path;
@@ -1002,7 +1003,8 @@ nothrow:
             logger.warning(e.msg).collectException;
         }
 
-        TestCase[] found_tc;
+        Set!string found_tcs;
+        TestCase[] all_found_tc;
 
         try {
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
@@ -1026,17 +1028,22 @@ nothrow:
                 success = success && builtin(data.filesysIO.getOutputDir,
                         [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
 
-            found_tc = gather_tc.foundAsArray;
-            data.db.setDetectedTestCases(found_tc);
+            all_found_tc = gather_tc.foundAsArray;
+            data.db.setDetectedTestCases(all_found_tc);
+
+            found_tcs = setFromRange!string(all_found_tc.map!"a.name");
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
-        if (hasNewTestCases(old_tcs, found_tc)) {
+        warnIfConflictingTestCaseIdentifiers(all_found_tc);
+
+        if (hasNewTestCases(old_tcs, found_tcs)) {
+            logger.info("Resetting alive mutants").collectException;
             resetAliveMutants(data.db);
         }
 
-        warnIfConflictingTestCaseIdentifiers(found_tc);
+        removeDroppedTestCases(data.db, old_tcs, found_tcs);
     }
 
     void cleanupAfterTCAnalyze() {
@@ -1312,20 +1319,41 @@ void resetAliveMutants(ref Database db) @safe nothrow {
 }
 
 /// Compare the old test cases with those that have been found this run.
-bool hasNewTestCases(Set!string old_tcs, TestCase[] found_tcs) @safe nothrow {
+bool hasNewTestCases(ref Set!string old_tcs, ref Set!string found_tcs) @safe nothrow {
     bool rval;
 
-    foreach (tc; found_tcs) {
-        if (!old_tcs.contains(tc.name)) {
-            logger.info(!rval, "Found new test case(s):").collectException;
-            logger.infof("%s", tc).collectException;
-            rval = true;
-        }
+    auto new_tcs = found_tcs.setDifference(old_tcs);
+    foreach (tc; new_tcs.byKey) {
+        logger.info(!rval, "Found new test case(s):").collectException;
+        logger.infof("%s", tc).collectException;
+        rval = true;
     }
 
-    logger.info(rval, "Resetting alive mutants").collectException;
-
     return rval;
+}
+
+/** Compare old and new test cases. Those test cases that has been removed are
+ * removed from the database tracing mutant -> TC.
+ */
+void removeDroppedTestCases(ref Database db, ref Set!string old_tcs, ref Set!string found_tcs) @safe nothrow {
+    import std.algorithm : map;
+    import std.array : array;
+
+    auto diff = old_tcs.setDifference(found_tcs);
+    TestCase[] removed = diff.setToList!string
+        .map!(a => TestCase(a))
+        .array;
+
+    logger.info(removed.length != 0, "Detected test cases that has been removed:").collectException;
+    foreach (tc; removed) {
+        logger.info("%s", tc).collectException;
+    }
+
+    try {
+        db.removeTestCases(removed);
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
 }
 
 /// Returns: true if all tests cases have unique identifiers
