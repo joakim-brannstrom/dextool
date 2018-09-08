@@ -650,7 +650,7 @@ nothrow:
     }
 
     void storeResult() {
-        import std.algorithm : sort;
+        import std.algorithm : sort, map;
         import dextool.plugin.mutate.backend.mutation_type : broadcast;
 
         driver_sig = MutationDriverSignal.stop;
@@ -663,8 +663,8 @@ nothrow:
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
                     test_cases.failedAsArray, bcast);
             logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.failed.length != 0, `%s killed by [%(%s, %)]`,
-                    mutp.id, test_cases.failedAsArray.sort);
+            logger.infof(test_cases.failed.length != 0, `%s killed by [%-(%s, %)]`,
+                    mutp.id, test_cases.failedAsArray.sort.map!"a.name");
             driver_sig = MutationDriverSignal.next;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -1317,7 +1317,7 @@ bool hasNewTestCases(Set!string old_tcs, TestCase[] found_tcs) @safe nothrow {
 
     foreach (tc; found_tcs) {
         if (!old_tcs.contains(tc.name)) {
-            logger.info(!rval, "Found new test case(s):", tc).collectException;
+            logger.info(!rval, "Found new test case(s):").collectException;
             logger.infof("%s", tc).collectException;
             rval = true;
         }
