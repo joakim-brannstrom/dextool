@@ -91,6 +91,14 @@ enum ReportSection {
     tc_killed_no_mutants,
 }
 
+/// How to sort test cases when reporting them by their kill statistics.
+enum ReportKillSortOrder {
+    /// From the top down
+    top,
+    /// From the botton up
+    bottom,
+}
+
 /// Administrative operation to perform
 enum AdminOperation {
     none,

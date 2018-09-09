@@ -26,16 +26,17 @@ import dextool.plugin.mutate.backend.type : Mutation, Offset;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     window, windowSize, makeMutationText;
+import dextool.plugin.mutate.config : ReportConfig;
 
-ExitStatusType runReport(ref Database db, const MutationKind[] kind, const ReportKind report_kind,
-        const ReportLevel report_level, const ReportSection[] sections, FilesysIO fio) @safe nothrow {
+ExitStatusType runReport(ref Database db, const MutationKind[] kind,
+        const ReportConfig conf, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
     try {
-        auto genrep = ReportGenerator.make(kind, report_kind, report_level, sections, fio);
+        auto genrep = ReportGenerator.make(kind, conf, fio);
         genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
 
         genrep.locationStartEvent;
@@ -73,28 +74,27 @@ struct ReportGenerator {
 
     ReportEvent[] listeners;
 
-    static auto make(const MutationKind[] kind, const ReportKind report_kind,
-            const ReportLevel report_level, const ReportSection[] sections, FilesysIO fio) {
+    static auto make(const MutationKind[] kind, const ReportConfig conf, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
         ReportEvent[] listeners;
 
-        final switch (report_kind) {
+        final switch (conf.reportKind) {
         case ReportKind.plain:
-            listeners = [new ReportPlain(kinds, report_level, sections, fio)];
+            listeners = [new ReportPlain(kinds, conf, fio)];
             break;
         case ReportKind.markdown:
-            listeners = [new ReportMarkdown(kinds, report_level, fio)];
+            listeners = [new ReportMarkdown(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.compiler:
-            listeners = [new ReportCompiler(kinds, report_level, fio)];
+            listeners = [new ReportCompiler(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.json:
-            listeners = [new ReportJson(report_level, fio)];
+            listeners = [new ReportJson(conf.reportLevel, fio)];
             break;
         case ReportKind.csv:
-            listeners = [new ReportCSV(kinds, report_level, fio)];
+            listeners = [new ReportCSV(kinds, conf.reportLevel, fio)];
             break;
         }
 

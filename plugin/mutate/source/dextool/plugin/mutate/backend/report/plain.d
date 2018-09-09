@@ -16,12 +16,13 @@ import logger = std.experimental.logger;
 
 import dextool.type;
 
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
-    ReportSection;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow,
     MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.config : ReportConfig;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
+    ReportSection;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
@@ -32,6 +33,8 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 @safe:
 
 /** Report mutations in a format easily readable by a human.
+ *
+ * TODO: use dextool.set for sections.
  */
 @safe final class ReportPlain : ReportEvent {
     import std.array : Appender;
@@ -47,15 +50,16 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
+    const ReportConfig conf;
 
-    this(const Mutation.Kind[] kinds, const ReportLevel report_level,
-            const ReportSection[] sections, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, const ReportConfig conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
+        this.conf = conf;
 
         ReportSection[] tmp_sec;
-        if (sections.length == 0) {
-            final switch (report_level) with (ReportSection) {
+        if (conf.reportSection.length == 0) {
+            final switch (conf.reportLevel) with (ReportSection) {
             case ReportLevel.summary:
                 tmp_sec = [summary, mut_stat];
                 break;
@@ -67,12 +71,11 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 break;
             }
         } else {
-            tmp_sec = sections.dup;
+            tmp_sec = conf.reportSection.dup;
         }
 
-        import std.algorithm : each;
-
-        tmp_sec.each!(a => this.sections[a] = true);
+        foreach (a; tmp_sec)
+            this.sections[a] = true;
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
@@ -238,15 +241,12 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
 
-            long take_ = 20;
-            if (ReportSection.all_mut in sections)
-                take_ = 1024;
-
             Table!3 tc_tbl;
 
             tc_tbl.heading = ["Percentage", "Count", "TestCase"];
             const total = db.totalMutants(kinds);
-            reportTestCaseStats(testCaseStat, total.isNull ? 1 : total.count, take_, tc_tbl);
+            reportTestCaseStats(testCaseStat, total.isNull ? 1 : total.count,
+                    conf.tcKillSortNum, conf.tcKillSortOrder, tc_tbl);
 
             writeln(tc_tbl);
         }
