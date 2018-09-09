@@ -170,7 +170,8 @@ struct ArgParser {
                    );
             // dfmt on
 
-            if (data.report.reportSection.length != 0 && data.report.reportLevel != ReportLevel.summary) {
+            if (data.report.reportSection.length != 0
+                    && data.report.reportLevel != ReportLevel.summary) {
                 logger.error("Combining --section and --level is not supported");
                 help_info.helpWanted = true;
             }
