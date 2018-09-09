@@ -17,6 +17,7 @@ import dextool.type : AbsolutePath, FileName, ExitStatusType;
 import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode, Mutation;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
+import dextool.plugin.mutate.config;
 
 @safe class Frontend {
     import core.time : Duration;
@@ -37,6 +38,8 @@ private:
     AbsolutePath mutationTestCaseAnalyze;
     Nullable!Duration mutationTesterRuntime;
     CompileCommandDB compileDb;
+
+    ReportConfig report;
 }
 
 @safe:
@@ -123,8 +126,8 @@ ExitStatusType runMutate(Frontend fe) @trusted {
         case ToolMode.report:
             import dextool.plugin.mutate.backend : runReport;
 
-            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.reportKind,
-                    fe.rawUserData.reportLevel, fe.rawUserData.reportSection, fe_io);
+            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.report.reportKind,
+                    fe.rawUserData.report.reportLevel, fe.rawUserData.report.reportSection, fe_io);
         case ToolMode.admin:
             import dextool.plugin.mutate.backend : makeAdmin;
 

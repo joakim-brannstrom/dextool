@@ -6,6 +6,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+This module is responsible for converting the users CLI arguments to
+configuration of how the mutation plugin should behave.
 */
 module dextool.plugin.mutate.frontend.argparser;
 
@@ -39,6 +42,7 @@ struct ArgParser {
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
     import std.traits : EnumMembers;
     import dextool.type : FileName;
+    import dextool.plugin.mutate.config;
 
     struct Data {
         string[] inFiles;
@@ -64,9 +68,7 @@ struct ArgParser {
         MutationKind[] mutation;
         MutationOrder mutationOrder;
 
-        ReportKind reportKind;
-        ReportLevel reportLevel;
-        ReportSection[] reportSection;
+        ReportConfig report;
 
         AdminOperation adminOp;
         Mutation.Status mutantStatus;
@@ -159,16 +161,16 @@ struct ArgParser {
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "db", db_help, &data.db,
-                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.reportLevel,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.report.reportLevel,
                    "out", out_help, &data.outputDirectory,
                    "restrict", restrict_help, &data.restrictDir,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &data.reportSection,
-                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.reportKind,
+                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &data.report.reportSection,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.report.reportKind,
                    );
             // dfmt on
 
-            if (data.reportSection.length != 0 && data.reportLevel != ReportLevel.summary) {
+            if (data.report.reportSection.length != 0 && data.report.reportLevel != ReportLevel.summary) {
                 logger.error("Combining --section and --level is not supported");
                 help_info.helpWanted = true;
             }
