@@ -338,6 +338,8 @@ struct MutationTestDriver(ImplT) {
     }
 
     void execute() {
+        import dextool.fsm : generateActions;
+
         const auto signal = impl.signal;
 
         debug auto old_st = st;
@@ -346,40 +348,7 @@ struct MutationTestDriver(ImplT) {
 
         debug logger.trace(old_st, "->", st, ":", signal).collectException;
 
-        final switch (st) {
-        case State.none:
-            break;
-        case State.initialize:
-            impl.initialize;
-            break;
-        case State.mutateCode:
-            impl.mutateCode;
-            break;
-        case State.testMutant:
-            impl.testMutant;
-            break;
-        case State.testCaseAnalyze:
-            impl.testCaseAnalyze;
-            break;
-        case State.restoreCode:
-            impl.cleanup;
-            break;
-        case State.storeResult:
-            impl.storeResult;
-            break;
-        case State.done:
-            break;
-        case State.allMutantsTested:
-            break;
-        case State.filesysError:
-            logger.warning("Filesystem error").collectException;
-            break;
-        case State.noResultRestoreCode:
-            impl.cleanup;
-            break;
-        case State.noResult:
-            break;
-        }
+        mixin(generateActions!(State, "st", "impl"));
     }
 
     private static State nextState(immutable State current, immutable MutationDriverSignal signal) @safe pure nothrow @nogc {
@@ -493,6 +462,26 @@ nothrow:
         this.tc_analyze_builtin = tc_analyze_builtin;
         this.tester_runtime = tester_runtime;
         this.test_cases = new GatherTestCase;
+    }
+
+    void none() {
+    }
+
+    void done() {
+    }
+
+    void allMutantsTested() {
+    }
+
+    void filesysError() {
+        logger.warning("Filesystem error").collectException;
+    }
+
+    void noResultRestoreCode() {
+        restoreCode;
+    }
+
+    void noResult() {
     }
 
     void initialize() {
@@ -671,7 +660,7 @@ nothrow:
         }
     }
 
-    void cleanup() {
+    void restoreCode() {
         driver_sig = MutationDriverSignal.next;
 
         // restore the original file.
@@ -757,6 +746,8 @@ struct TestDriver(ImplT) {
     }
 
     void execute() {
+        import dextool.fsm : generateActions;
+
         const auto signal = impl.signal;
 
         debug auto old_st = st;
@@ -765,50 +756,7 @@ struct TestDriver(ImplT) {
 
         debug logger.trace(old_st, "->", st, ":", signal).collectException;
 
-        final switch (st) with (State) {
-        case none:
-            break;
-        case initialize:
-            impl.initialize;
-            break;
-        case sanityCheck:
-            impl.sanityCheck;
-            break;
-        case checkMutantsLeft:
-            impl.checkMutantsLeft;
-            break;
-        case preCompileSut:
-            impl.compileProgram;
-            break;
-        case measureTestSuite:
-            impl.measureTestSuite;
-            break;
-        case preMutationTest:
-            impl.preMutationTest;
-            break;
-        case mutationTest:
-            impl.testMutant;
-            break;
-        case checkTimeout:
-            impl.checkTimeout;
-            break;
-        case incrWatchdog:
-            impl.incrWatchdog;
-            break;
-        case resetTimeout:
-            impl.resetTimeout;
-            break;
-        case updateAndResetAliveMutants:
-            impl.updateAndResetAliveMutants;
-            break;
-        case cleanupAfterTCAnalyze:
-            impl.cleanupAfterTCAnalyze;
-            break;
-        case done:
-            break;
-        case error:
-            break;
-        }
+        mixin(generateActions!(State, "st", "impl"));
     }
 
     private static State nextState(const State current, const TestDriverSignal signal) {
@@ -902,6 +850,15 @@ nothrow:
 
     this(DriverData data) {
         this.data = data;
+    }
+
+    void none() {
+    }
+
+    void done() {
+    }
+
+    void error() {
     }
 
     void initialize() {
@@ -1065,7 +1022,7 @@ nothrow:
         }
     }
 
-    void compileProgram() {
+    void preCompileSut() {
         driver_sig = TestDriverSignal.compilationError;
 
         logger.info("Preparing for mutation testing by checking that the program and tests compile without any errors (no mutants injected)")
@@ -1114,7 +1071,7 @@ nothrow:
         mut_driver = mutationDriverFactory(data, prog_wd.timeout);
     }
 
-    void testMutant() {
+    void mutationTest() {
         if (mut_driver.isRunning) {
             mut_driver.execute();
             driver_sig = TestDriverSignal.stop;
