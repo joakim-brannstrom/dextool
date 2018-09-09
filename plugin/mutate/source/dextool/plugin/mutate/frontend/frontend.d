@@ -126,8 +126,7 @@ ExitStatusType runMutate(Frontend fe) @trusted {
         case ToolMode.report:
             import dextool.plugin.mutate.backend : runReport;
 
-            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.report.reportKind,
-                    fe.rawUserData.report.reportLevel, fe.rawUserData.report.reportSection, fe_io);
+            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.report, fe_io);
         case ToolMode.admin:
             import dextool.plugin.mutate.backend : makeAdmin;
 
