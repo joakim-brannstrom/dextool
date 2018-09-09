@@ -32,7 +32,7 @@ import dextool.type : AbsolutePath;
 /** Parse input for ctest test cases.
 Params:
     r = range that is chunked by line
-    sink = an output that accepts values of type TestCase via `put`.
+    report = where the results are put.
   */
 struct CtestParser {
     import std.regex : regex, ctRegex, matchFirst;
