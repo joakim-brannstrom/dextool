@@ -18,6 +18,7 @@ import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
     Language;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.type : ReportKillSortOrder;
 
 @safe:
 
@@ -139,11 +140,11 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
  *  tbl = table to write the data to
  */
 void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
-        const long take_, ref Table!3 tbl) @safe nothrow {
+        const long take_, const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
     import std.algorithm : sort;
     import std.array : array;
     import std.conv : to;
-    import std.range : take;
+    import std.range : take, retro;
 
     static bool cmp(T)(ref T a, ref T b) {
         if (a.value > b.value)
@@ -157,7 +158,16 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
         return false;
     }
 
-    foreach (v; mut_stat.byKeyValue.array.sort!cmp.take(take_)) {
+    auto takeOrder(RangeT)(RangeT range) {
+        final switch (sort_order) {
+        case ReportKillSortOrder.top:
+            return range.take(take_).array;
+        case ReportKillSortOrder.bottom:
+            return range.array.retro.take(take_).array;
+        }
+    }
+
+    foreach (v; takeOrder(mut_stat.byKeyValue.array.sort!cmp)) {
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
             typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key.toString];

@@ -16,4 +16,8 @@ struct ReportConfig {
     ReportKind reportKind;
     ReportLevel reportLevel;
     ReportSection[] reportSection;
+
+    /// Controls how to sort test cases by their kill statistics.
+    ReportKillSortOrder tcKillSortOrder;
+    int tcKillSortNum = 20;
 }

@@ -82,8 +82,7 @@ struct ReportGenerator {
 
         final switch (conf.reportKind) {
         case ReportKind.plain:
-            listeners = [new ReportPlain(kinds,
-                    conf.reportLevel, conf.reportSection, fio)];
+            listeners = [new ReportPlain(kinds, conf, fio)];
             break;
         case ReportKind.markdown:
             listeners = [new ReportMarkdown(kinds, conf.reportLevel, fio)];

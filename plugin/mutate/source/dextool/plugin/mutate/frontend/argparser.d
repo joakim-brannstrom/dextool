@@ -167,6 +167,8 @@ struct ArgParser {
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &data.report.reportSection,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.report.reportKind,
+                   "tc-kill-num", "number of test cases to report", &data.report.tcKillSortNum,
+                   "tc-kill-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &data.report.tcKillSortOrder,
                    );
             // dfmt on
 
