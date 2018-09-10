@@ -27,7 +27,7 @@ public import dextool.plugin.mutate.backend.mutation_type.uoi;
 
 /** Expand a mutation to all kinds at the same mutation point that would result in the same mutation being performed.
  */
-Mutation.Kind[] broadcast(const Mutation.Kind k) {
+Mutation.Kind[] broadcast(const Mutation.Kind k) @safe pure nothrow {
     switch (k) with (Mutation.Kind) {
     case rorLT:
         goto case;

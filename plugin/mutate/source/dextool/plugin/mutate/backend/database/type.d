@@ -51,7 +51,6 @@ struct NextMutationEntry {
 
     enum Status {
         ok,
-        queryError,
         done,
     }
 

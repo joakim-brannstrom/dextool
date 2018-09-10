@@ -9,6 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.utility;
 
+import core.time : Duration;
 import std.algorithm : filter;
 
 import dextool.type : Path, AbsolutePath;
@@ -40,4 +41,21 @@ Checksum ckecksum(T)(const(T[2]) a) @safe if (T.sizeof == 8) {
 /// Package the values to a checksum.
 Checksum checksum(T)(const T a, const T b) @safe if (T.sizeof == 8) {
     return Checksum(cast(ulong) a, cast(ulong) b);
+}
+
+/// Sleep for a random time that is min_ + rnd(0, span msecs)
+void rndSleep(Duration min_, int span) nothrow @trusted {
+    import core.thread : Thread;
+    import core.time : dur;
+    import std.random : uniform;
+
+    auto t_span = () {
+        try {
+            return uniform(0, span).dur!"msecs";
+        } catch (Exception e) {
+        }
+        return span.dur!"msecs";
+    }();
+
+    Thread.sleep(min_ + t_span);
 }
