@@ -225,8 +225,8 @@ unittest {
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--section", "tc_stat"])
         .addArg(["--style", "plain"])
-        .addArg(["--tc-kill-num", "2"])
-        .addArg(["--tc-kill-sort", "bottom"])
+        .addArg(["--section-tc_stat-num", "2"])
+        .addArg(["--section-tc_stat-sort", "bottom"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
