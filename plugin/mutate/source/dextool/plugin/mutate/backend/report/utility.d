@@ -16,7 +16,7 @@ import dextool.type;
 
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
     Language;
-import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.database : Database, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 
@@ -146,6 +146,10 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
     import std.conv : to;
     import std.range : take, retro;
 
+    // nothing to do. this also ensure that we do not divide by zero.
+    if (total == 0)
+        return;
+
     static bool cmp(T)(ref T a, ref T b) {
         if (a.value > b.value)
             return true;
@@ -272,22 +276,22 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     import std.datetime : Clock;
     import dextool.plugin.mutate.backend.utility;
 
-    const alive = db.aliveMutants(kinds);
-    const killed = db.killedMutants(kinds);
-    const timeout = db.timeoutMutants(kinds);
-    const untested = db.unknownMutants(kinds);
-    const killed_by_compiler = db.killedByCompilerMutants(kinds);
-    const total = db.totalMutants(kinds);
+    const alive = spinSqlQuery!(() { return db.aliveMutants(kinds); });
+    const killed = spinSqlQuery!(() { return db.killedMutants(kinds); });
+    const timeout = spinSqlQuery!(() { return db.timeoutMutants(kinds); });
+    const untested = spinSqlQuery!(() { return db.unknownMutants(kinds); });
+    const killed_by_compiler = spinSqlQuery!(() {
+        return db.killedByCompilerMutants(kinds);
+    });
+    const total = spinSqlQuery!(() { return db.totalMutants(kinds); });
 
     try {
         immutable align_ = 8;
 
-        const total_time = total.isNull ? 0.dur!"msecs" : total.time;
-        const total_cnt = total.isNull ? 0 : total.count;
-        const killed_cnt = only(killed, timeout).filter!(a => !a.isNull)
-            .map!(a => a.count)
-            .sum;
-        const untested_cnt = untested.isNull ? 0 : untested.count;
+        const total_time = total.time;
+        const total_cnt = total.count;
+        const killed_cnt = only(killed, timeout).map!(a => a.count).sum;
+        const untested_cnt = untested.count;
         const predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt)) : 0
             .dur!"msecs";
 
@@ -296,27 +300,23 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
             item.writefln("Predicted time until mutation testing is done: %s (%s)",
                     predicted, Clock.currTime + predicted);
         item.writefln("%-*s %s", align_ * 4, "Mutation execution time:", total_time);
-        if (!killed_by_compiler.isNull)
+        if (killed_by_compiler.count > 0)
             item.tracef("%-*s %s", align_ * 4, "Mutants killed by compiler:",
                     killed_by_compiler.time);
 
         item.writeln("");
 
         // mutation score and details
-        if (!untested.isNull && untested.count > 0)
+        if (untested.count > 0)
             item.writefln("Untested: %s", untested.count);
-        if (!alive.isNull)
-            item.writefln("%-*s %s", align_, "Alive:", alive.count);
-        if (!killed.isNull)
-            item.writefln("%-*s %s", align_, "Killed:", killed.count);
-        if (!timeout.isNull)
-            item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
+        item.writefln("%-*s %s", align_, "Alive:", alive.count);
+        item.writefln("%-*s %s", align_, "Killed:", killed.count);
+        item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
         item.writefln("%-*s %s", align_, "Total:", total_cnt);
         if (total_cnt > 0)
             item.writefln("%-*s %s", align_, "Score:",
                     cast(double) killed_cnt / cast(double) total_cnt);
-        if (!killed_by_compiler.isNull)
-            item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
+        item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }

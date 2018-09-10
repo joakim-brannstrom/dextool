@@ -21,6 +21,7 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
 public import dextool.plugin.mutate.backend.database.type;
+public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
@@ -65,14 +66,13 @@ struct Database {
     /** Get the next mutation point + 1 mutant for it that has status unknown.
      *
      * TODO to run many instances in parallel the mutation should be locked.
-     * TODO remove nothrow or add a retry-loop
      *
      * The chosen point is randomised.
      *
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) nothrow @trusted {
+    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) @trusted {
         import std.algorithm : map;
         import std.exception : collectException;
         import std.format : format;
@@ -83,47 +83,42 @@ struct Database {
 
         auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
 
-        try {
-            auto prep_str = format("SELECT
-                                   mutation.id,
-                                   mutation.kind,
-                                   mutation.time,
-                                   mutation_point.offset_begin,
-                                   mutation_point.offset_end,
-                                   mutation_point.line,
-                                   mutation_point.column,
-                                   files.path,
-                                   files.lang
-                                   FROM mutation,mutation_point,files
-                                   WHERE
-                                   mutation.status == 0 AND
-                                   mutation.mp_id == mutation_point.id AND
-                                   mutation_point.file_id == files.id AND
-                                   mutation.kind IN (%(%s,%)) %s LIMIT 1",
-                    kinds.map!(a => cast(int) a), order);
-            auto stmt = db.prepare(prep_str);
-            // TODO this should work. why doesn't it?
-            //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
-            auto res = stmt.execute;
-            if (res.empty) {
-                rval.st = NextMutationEntry.Status.done;
-                return rval;
-            }
-
-            auto v = res.front;
-
-            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
-            mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
-            auto pkey = MutationId(v.peek!long(0));
-            auto file = Path(FileName(v.peek!string(7)));
-            auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
-            auto lang = v.peek!long(8).to!Language;
-
-            rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
-        } catch (Exception e) {
-            rval.st = NextMutationEntry.Status.queryError;
-            collectException(logger.warning(e.msg));
+        auto prep_str = format("SELECT
+                               mutation.id,
+                               mutation.kind,
+                               mutation.time,
+                               mutation_point.offset_begin,
+                               mutation_point.offset_end,
+                               mutation_point.line,
+                               mutation_point.column,
+                               files.path,
+                               files.lang
+                               FROM mutation,mutation_point,files
+                               WHERE
+                               mutation.status == 0 AND
+                               mutation.mp_id == mutation_point.id AND
+                               mutation_point.file_id == files.id AND
+                               mutation.kind IN (%(%s,%)) %s LIMIT 1",
+                kinds.map!(a => cast(int) a), order);
+        auto stmt = db.prepare(prep_str);
+        // TODO this should work. why doesn't it?
+        //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
+        auto res = stmt.execute;
+        if (res.empty) {
+            rval.st = NextMutationEntry.Status.done;
+            return rval;
         }
+
+        auto v = res.front;
+
+        auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
+        mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
+        auto pkey = MutationId(v.peek!long(0));
+        auto file = Path(FileName(v.peek!string(7)));
+        auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
+        auto lang = v.peek!long(8).to!Language;
+
+        rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
 
         return rval;
     }

@@ -9,7 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.test_mutant;
 
-import core.time : Duration;
+import core.thread : Thread;
+import core.time : Duration, dur;
 import std.typecons : Nullable, NullableRef, nullableRef;
 import std.exception : collectException;
 
@@ -17,7 +18,7 @@ import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry;
+    NextMutationEntry, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
@@ -49,7 +50,7 @@ nothrow:
     private InternalData data;
 
     auto mutations(MutationKind[] v) {
-        import dextool.plugin.mutate.backend.utility;
+        import dextool.plugin.mutate.backend.utility : toInternal;
 
         data.mut_kinds = toInternal(v);
         return this;
@@ -85,7 +86,9 @@ nothrow:
 
     ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
         auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
-            static class Rval {
+            import std.typecons : Unique;
+
+            static struct Rval {
                 ImplMutationDriver impl;
                 MutationTestDriver!(ImplMutationDriver*) driver;
 
@@ -102,7 +105,7 @@ nothrow:
                 alias driver this;
             }
 
-            return new Rval(data, test_base_timeout);
+            return Unique!Rval(new Rval(data, test_base_timeout));
         }
 
         // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
@@ -149,13 +152,13 @@ struct DriverData {
  */
 Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester_p,
         AbsolutePath test_output_dir, WatchdogT watchdog, FilesysIO fio) nothrow {
-    import core.thread : Thread;
     import std.algorithm : among;
     import std.datetime.stopwatch : StopWatch;
     import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait,
         kill, wait;
     import std.stdio : File;
     import core.sys.posix.signal : SIGKILL;
+    import dextool.plugin.mutate.backend.utility : rndSleep;
 
     Mutation.Status rval;
 
@@ -209,10 +212,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester
                 break;
             }
 
-            import core.time : dur;
-
-            // trusted: a hard coded value is used, no user input.
-            () @trusted{ Thread.sleep(10.dur!"msecs"); }();
+            rndSleep(10.dur!"msecs", 50);
         }
     } catch (Exception e) {
         // unable to for example execute the test suite
@@ -497,13 +497,10 @@ nothrow:
 
         driver_sig = MutationDriverSignal.stop;
 
-        auto next_m = db.nextMutation(mut_kind);
+        auto next_m = spinSqlQuery!(() { return db.nextMutation(mut_kind); });
         if (next_m.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
             driver_sig = MutationDriverSignal.allMutantsTested;
-            return;
-        } else if (next_m.st == NextMutationEntry.Status.queryError) {
-            // the database is locked. It will automatically sleep and continue.
             return;
         } else {
             mutp = next_m.entry;
@@ -642,22 +639,19 @@ nothrow:
         import std.algorithm : sort, map;
         import dextool.plugin.mutate.backend.mutation_type : broadcast;
 
-        driver_sig = MutationDriverSignal.stop;
+        driver_sig = MutationDriverSignal.next;
 
         sw.stop;
 
-        try {
-            auto bcast = broadcast(mutp.mp.mutations[0].kind);
-
+        auto bcast = broadcast(mutp.mp.mutations[0].kind);
+        spinSqlQuery!(() {
             db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
-                    test_cases.failedAsArray, bcast);
-            logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek);
-            logger.infof(test_cases.failed.length != 0, `%s killed by [%-(%s, %)]`,
-                    mutp.id, test_cases.failedAsArray.sort.map!"a.name");
-            driver_sig = MutationDriverSignal.next;
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+                test_cases.failedAsArray, bcast);
+        });
+
+        logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek).collectException;
+        logger.infof(test_cases.failed.length != 0, `%s killed by [%-(%s, %)]`,
+                mutp.id, test_cases.failedAsArray.sort.map!"a.name").collectException;
     }
 
     void restoreCode() {
@@ -835,8 +829,8 @@ struct TestDriver(ImplT) {
 }
 
 struct ImplTestDriver(alias mutationDriverFactory) {
-    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
     import std.traits : ReturnType;
+    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
 
 nothrow:
     DriverData data;
@@ -872,27 +866,15 @@ nothrow:
             trustedRelativePath;
         import dextool.plugin.mutate.backend.type : Checksum;
 
+        driver_sig = TestDriverSignal.sanityCheckFailed;
+
         const(Path)[] files;
-        try {
-            files = data.db.getFiles;
-        } catch (Exception e) {
-            // assume the database is locked thus need to retry
-            driver_sig = TestDriverSignal.stop;
-            logger.trace(e.msg).collectException;
-            return;
-        }
+        spinSqlQuery!(() { files = data.db.getFiles; });
 
         bool has_sanity_check_failed;
         for (size_t i; i < files.length;) {
             Checksum db_checksum;
-            try {
-                db_checksum = data.db.getFileChecksum(files[i]);
-            } catch (Exception e) {
-                // the database is locked
-                logger.trace(e.msg).collectException;
-                // retry
-                continue;
-            }
+            spinSqlQuery!(() { db_checksum = data.db.getFileChecksum(files[i]); });
 
             try {
                 auto abs_f = AbsolutePath(FileName(files[i]),
@@ -953,12 +935,11 @@ nothrow:
         }
 
         Set!string old_tcs;
-        try {
+        spinSqlQuery!(() {
+            old_tcs = null;
             foreach (tc; data.db.getDetectedTestCases)
                 old_tcs.add(tc.name);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+        });
 
         Set!string found_tcs;
         TestCase[] all_found_tc;
@@ -986,12 +967,12 @@ nothrow:
                         [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
 
             all_found_tc = gather_tc.foundAsArray;
-            data.db.setDetectedTestCases(all_found_tc);
-
             found_tcs = setFromRange!string(all_found_tc.map!"a.name");
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
+
+        spinSqlQuery!(() { data.db.setDetectedTestCases(all_found_tc); });
 
         warnIfConflictingTestCaseIdentifiers(all_found_tc);
 
@@ -1011,12 +992,11 @@ nothrow:
     void checkMutantsLeft() {
         driver_sig = TestDriverSignal.next;
 
-        const auto mutant = data.db.nextMutation(data.mutKind);
+        auto mutant = spinSqlQuery!(() {
+            return data.db.nextMutation(data.mutKind);
+        });
 
-        if (mutant.st == NextMutationEntry.Status.queryError) {
-            // the database is locked
-            driver_sig = TestDriverSignal.stop;
-        } else if (mutant.st == NextMutationEntry.Status.done) {
+        if (mutant.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
             driver_sig = TestDriverSignal.allMutantsTested;
         }
@@ -1087,11 +1067,9 @@ nothrow:
     void checkTimeout() {
         driver_sig = TestDriverSignal.stop;
 
-        auto entry = data.db.timeoutMutants(data.mutKind);
-        if (entry.isNull) {
-            // the database is locked
-            return;
-        }
+        auto entry = spinSqlQuery!(() {
+            return data.db.timeoutMutants(data.mutKind);
+        });
 
         try {
             if (!data.testProgramTimeout.isNull) {
@@ -1267,12 +1245,10 @@ void resetAliveMutants(ref Database db) @safe nothrow {
     // are part of "this" execution because new test cases can only mean one
     // thing: re-test all alive mutants.
 
-    try {
+    spinSqlQuery!(() {
         db.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.alive,
-                Mutation.Status.unknown);
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
+            Mutation.Status.unknown);
+    });
 }
 
 /// Compare the old test cases with those that have been found this run.
@@ -1306,11 +1282,7 @@ void removeDroppedTestCases(ref Database db, ref Set!string old_tcs, ref Set!str
         logger.infof("%s", tc).collectException;
     }
 
-    try {
-        db.removeTestCases(removed);
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
+    spinSqlQuery!(() { db.removeTestCases(removed); });
 }
 
 /// Returns: true if all tests cases have unique identifiers

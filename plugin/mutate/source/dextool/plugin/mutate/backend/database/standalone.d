@@ -175,48 +175,44 @@ struct Database {
         }
     }
 
-    Nullable!MutationEntry getMutation(const MutationId id) nothrow @trusted {
+    Nullable!MutationEntry getMutation(const MutationId id) @trusted {
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;
 
         typeof(return) rval;
 
-        try {
-            auto stmt = db.prepare("SELECT
-                                   mutation.id,
-                                   mutation.kind,
-                                   mutation.time,
-                                   mutation_point.offset_begin,
-                                   mutation_point.offset_end,
-                                   mutation_point.line,
-                                   mutation_point.column,
-                                   files.path,
-                                   files.lang
-                                   FROM mutation,mutation_point,files
-                                   WHERE
-                                   mutation.id == :id AND
-                                   mutation.mp_id == mutation_point.id AND
-                                   mutation_point.file_id == files.id");
-            stmt.bind(":id", cast(long) id);
-            auto res = stmt.execute;
-            if (res.empty)
-                return rval;
+        auto stmt = db.prepare("SELECT
+                               mutation.id,
+                               mutation.kind,
+                               mutation.time,
+                               mutation_point.offset_begin,
+                               mutation_point.offset_end,
+                               mutation_point.line,
+                               mutation_point.column,
+                               files.path,
+                               files.lang
+                               FROM mutation,mutation_point,files
+                               WHERE
+                               mutation.id == :id AND
+                               mutation.mp_id == mutation_point.id AND
+                               mutation_point.file_id == files.id");
+        stmt.bind(":id", cast(long) id);
+        auto res = stmt.execute;
+        if (res.empty)
+            return rval;
 
-            auto v = res.front;
+        auto v = res.front;
 
-            auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
-            mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
-            auto pkey = MutationId(v.peek!long(0));
-            auto file = Path(FileName(v.peek!string(7)));
-            auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
-            auto lang = v.peek!long(8).to!Language;
+        auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
+        mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
+        auto pkey = MutationId(v.peek!long(0));
+        auto file = Path(FileName(v.peek!string(7)));
+        auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
+        auto lang = v.peek!long(8).to!Language;
 
-            import core.time : dur;
+        import core.time : dur;
 
-            rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+        rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
 
         return rval;
     }
@@ -258,7 +254,7 @@ struct Database {
     alias unknownMutants = countMutants!([Mutation.Status.unknown]);
     alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler]);
 
-    private Nullable!MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) nothrow @trusted {
+    private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
         import core.time : dur;
         import std.algorithm : map;
         import std.format : format;
@@ -268,16 +264,11 @@ struct Database {
                     status, "%(%s,%)");
 
         typeof(return) rval;
-        try {
-            auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
-            auto res = stmt.execute;
-            if (res.empty)
-                return rval;
-            rval = MutationReportEntry(res.front.peek!long(0),
-                    res.front.peek!long(1).dur!"msecs");
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+        auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
+        auto res = stmt.execute;
+        if (res.empty)
+            return rval;
+        rval = MutationReportEntry(res.front.peek!long(0), res.front.peek!long(1).dur!"msecs");
 
         return rval;
     }
@@ -420,6 +411,12 @@ struct Database {
 
         if (tcs.length == 0)
             return;
+
+        db.begin;
+        scope (success)
+            db.commit;
+        scope (failure)
+            db.rollback;
 
         immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
         db.run(remove_old_sql);
@@ -576,4 +573,26 @@ struct Database {
             stmt.execute;
         }
     }
+}
+
+/** This is only intended to be used when interacting with the SQLite database.
+ *
+ * It spins in a loop until the query stop throwing exceptions.
+ */
+auto spinSqlQuery(alias Callback)() nothrow {
+    import core.time : dur;
+    import std.exception : collectException;
+    import dextool.plugin.mutate.backend.utility : rndSleep;
+
+    while (true) {
+        try {
+            return Callback();
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            // even though the database have a builtin sleep it still result in too much spam.
+            rndSleep(50.dur!"msecs", 100);
+        }
+    }
+
+    assert(0, "this shoud never happen");
 }
