@@ -85,7 +85,9 @@ nothrow:
 
     ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
         auto mutationFactory(DriverData data, Duration test_base_timeout) @safe {
-            static class Rval {
+            import std.typecons : Unique;
+
+            static struct Rval {
                 ImplMutationDriver impl;
                 MutationTestDriver!(ImplMutationDriver*) driver;
 
@@ -102,7 +104,7 @@ nothrow:
                 alias driver this;
             }
 
-            return new Rval(data, test_base_timeout);
+            return Unique!Rval(new Rval(data, test_base_timeout));
         }
 
         // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
@@ -835,8 +837,8 @@ struct TestDriver(ImplT) {
 }
 
 struct ImplTestDriver(alias mutationDriverFactory) {
-    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
     import std.traits : ReturnType;
+    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
 
 nothrow:
     DriverData data;
