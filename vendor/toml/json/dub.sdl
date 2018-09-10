@@ -1,0 +1,5 @@
+name "json"
+description "TOML/JSON conversion"
+authors "Kripth"
+license "MIT"
+dependency "toml" path=".."

@@ -1,0 +1,16 @@
+language: d
+
+d:
+  - dmd
+  - ldc
+ 
+os:
+  - linux
+  - osx
+
+script:
+  - dub test -b unittest-cov --compiler=$DC :json
+  - dub test -b unittest-cov --compiler=$DC
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
