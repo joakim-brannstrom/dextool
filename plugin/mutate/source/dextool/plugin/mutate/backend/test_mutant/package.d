@@ -955,12 +955,11 @@ nothrow:
         }
 
         Set!string old_tcs;
-        try {
+        spinSqlQuery!(() {
+            old_tcs = null;
             foreach (tc; data.db.getDetectedTestCases)
                 old_tcs.add(tc.name);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+        });
 
         Set!string found_tcs;
         TestCase[] all_found_tc;
@@ -988,12 +987,12 @@ nothrow:
                         [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
 
             all_found_tc = gather_tc.foundAsArray;
-            data.db.setDetectedTestCases(all_found_tc);
-
             found_tcs = setFromRange!string(all_found_tc.map!"a.name");
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
+
+        spinSqlQuery!(() { data.db.setDetectedTestCases(all_found_tc); });
 
         warnIfConflictingTestCaseIdentifiers(all_found_tc);
 
