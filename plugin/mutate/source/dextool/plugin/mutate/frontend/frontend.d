@@ -14,7 +14,7 @@ import logger = std.experimental.logger;
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
 
-import dextool.plugin.mutate.frontend.argparser : ArgParser, ToolMode, Mutation;
+import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
@@ -28,7 +28,7 @@ import dextool.plugin.mutate.config;
     }
 
 private:
-    ArgParser.Data rawUserData;
+    ArgParser conf;
 
     AbsolutePath db;
     AbsolutePath outputDirectory;
@@ -37,7 +37,8 @@ private:
     AbsolutePath mutationTester;
     AbsolutePath mutationTestCaseAnalyze;
     Nullable!Duration mutationTesterRuntime;
-    CompileCommandDB compileDb;
+
+    CompileCommandDB fusedCompileDb;
 
     ReportConfig report;
 }
@@ -52,13 +53,9 @@ auto buildFrontend(ref ArgParser p) {
 
     auto r = new Frontend;
 
-    r.rawUserData = p.data;
+    r.conf = p;
 
     r.db = AbsolutePath(FileName(p.db));
-    r.mutationTester = AbsolutePath(FileName(p.mutationTester));
-    r.mutationCompile = AbsolutePath(FileName(p.mutationCompile));
-    if (p.mutationTestCaseAnalyze.length != 0)
-        r.mutationTestCaseAnalyze = AbsolutePath(FileName(p.mutationTestCaseAnalyze));
 
     r.outputDirectory = AbsolutePath(FileName(p.outputDirectory.toRealPath));
     if (p.restrictDir.length == 0)
@@ -66,12 +63,9 @@ auto buildFrontend(ref ArgParser p) {
     else
         r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a.toRealPath))).array;
 
-    if (p.mutationTesterRuntime != 0)
-        r.mutationTesterRuntime = p.mutationTesterRuntime.dur!"msecs";
-
-    if (p.compileDb.length != 0) {
+    if (p.compileDb.dbs.length != 0) {
         try {
-            r.compileDb = p.compileDb.fromArgCompileDb;
+            r.fusedCompileDb = p.compileDb.dbs.fromArgCompileDb;
         } catch (Exception e) {
             logger.error(e.msg);
             throw new Exception("Unable to open compile commands database(s)");
@@ -89,21 +83,20 @@ ExitStatusType runMutate(Frontend fe) @trusted {
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto db = Database.make(fe.db, fe.rawUserData.mutationOrder);
+    auto db = Database.make(fe.db, fe.conf.data.mutationOrder);
 
     return () @safe{
-        auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.rawUserData.dryRun);
+        auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.conf.data.dryRun);
         scope (success)
             fe_io.release;
         auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
 
-        auto default_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
-        auto frange = UserFileRange(fe.compileDb, fe.rawUserData.inFiles,
-                fe.rawUserData.cflags, default_filter);
+        auto frange = UserFileRange(fe.fusedCompileDb, fe.conf.data.inFiles,
+                fe.conf.compiler.extraFlags, fe.conf.compileDb.flagFilter);
 
-        logger.trace("ToolMode: ", fe.rawUserData.toolMode);
+        logger.trace("ToolMode: ", fe.conf.data.toolMode);
 
-        final switch (fe.rawUserData.toolMode) {
+        final switch (fe.conf.data.toolMode) {
         case ToolMode.none:
             logger.error("No mode specified");
             return ExitStatusType.Errors;
@@ -114,25 +107,31 @@ ExitStatusType runMutate(Frontend fe) @trusted {
         case ToolMode.generate_mutant:
             import dextool.plugin.mutate.backend : runGenerateMutant;
 
-            return runGenerateMutant(db, fe.rawUserData.mutation,
-                    fe.rawUserData.mutationId, fe_io, fe_validate);
+            return runGenerateMutant(db, fe.conf.data.mutation,
+                    fe.conf.data.mutationId, fe_io, fe_validate);
         case ToolMode.test_mutants:
             import dextool.plugin.mutate.backend : makeTestMutant;
 
-            return makeTestMutant.mutations(fe.rawUserData.mutation)
-                .testSuiteProgram(fe.mutationTester).compileProgram(fe.mutationCompile)
-                .testCaseAnalyzeProgram(fe.mutationTestCaseAnalyze).testSuiteTimeout(fe.mutationTesterRuntime)
-                .testCaseAnalyzeBuiltin(fe.rawUserData.mutationTestCaseBuiltin).run(db, fe_io);
+            return makeTestMutant.mutations(fe.conf.data.mutation)
+                .testSuiteProgram(fe.conf.mutationTest.mutationTester)
+                .compileProgram(fe.conf.mutationTest.mutationCompile).testCaseAnalyzeProgram(
+                        fe.conf.mutationTest.mutationTestCaseAnalyze)
+                .testSuiteTimeout(fe.conf.mutationTest.mutationTesterRuntime)
+                .testCaseAnalyzeBuiltin(fe.conf.mutationTest.mutationTestCaseBuiltin).run(db,
+                        fe_io);
         case ToolMode.report:
             import dextool.plugin.mutate.backend : runReport;
 
-            return runReport(db, fe.rawUserData.mutation, fe.rawUserData.report, fe_io);
+            return runReport(db, fe.conf.data.mutation, fe.conf.data.report, fe_io);
         case ToolMode.admin:
             import dextool.plugin.mutate.backend : makeAdmin;
 
-            return makeAdmin().operation(fe.rawUserData.adminOp).mutations(fe.rawUserData.mutation)
-                .fromStatus(fe.rawUserData.mutantStatus).toStatus(fe.rawUserData.mutantToStatus)
-                .testCaseRegex(fe.rawUserData.testCaseRegex).run(db);
+            return makeAdmin().operation(fe.conf.data.adminOp)
+                .mutations(fe.conf.data.mutation).fromStatus(fe.conf.data.mutantStatus)
+                .toStatus(fe.conf.data.mutantToStatus).testCaseRegex(fe.conf.data.testCaseRegex)
+                .run(db);
+        case ToolMode.dumpConfig:
+            return modeDumpFullConfig(fe.conf);
         }
     }();
 }
@@ -293,4 +292,18 @@ string toRealPath(const string orig_p) @trusted {
         return orig_p;
     else
         return absp.fromStringz.idup;
+}
+
+ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
+    import std.stdio : writeln, stderr;
+
+    () @trusted{
+        // make it easy for a user to pipe the output to the config file
+        stderr.writeln("Dumping the configuration used. The format is TOML (.toml)");
+        stderr.writeln("If you want to use it put it in your 'dextool_mutate.toml'");
+    }();
+
+    writeln(conf.toTOML);
+
+    return ExitStatusType.Ok;
 }

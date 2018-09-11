@@ -20,9 +20,12 @@ auto runPlugin(string[] args) @safe {
     import dextool.type;
     import dextool.utility;
     import dextool.xml : makeXmlLog;
-    import dextool.plugin.mutate.frontend : buildFrontend, ArgParser;
+    import dextool.plugin.mutate.frontend : buildFrontend, ArgParser,
+        cliToMiniConfig, loadConfig;
 
-    ArgParser argp;
+    auto argp = ArgParser.make;
+    argp.miniConf = cliToMiniConfig(args);
+    loadConfig(argp);
     argp.parse(args);
 
     debug logger.trace(args);

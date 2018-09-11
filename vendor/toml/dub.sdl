@@ -1,0 +1,5 @@
+name "toml"
+description "D implementation of TOML"
+authors "Kripth"
+license "MIT"
+subPackage "json"

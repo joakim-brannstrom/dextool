@@ -1,0 +1,10 @@
+.dub/
+*.sln
+*.exe
+*.obj
+*.dproj
+*.sln
+*.userprefs
+*.lst
+*.lib
+dub.selections.json
