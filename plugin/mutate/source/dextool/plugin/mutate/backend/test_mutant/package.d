@@ -93,8 +93,8 @@ nothrow:
                 MutationTestDriver!(ImplMutationDriver*) driver;
 
                 this(DriverData d, Duration test_base_timeout) {
-                    this.impl = ImplMutationDriver(d.filesysIO, d.db, d.mutKind, d.compilerProgram,
-                            d.testProgram, d.testCaseAnalyzeProgram,
+                    this.impl = ImplMutationDriver(d.filesysIO, d.db, d.autoCleanup, d.mutKind,
+                            d.compilerProgram, d.testProgram, d.testCaseAnalyzeProgram,
                             d.testCaseAnalyzeBuiltin, test_base_timeout);
 
                     this.driver = MutationTestDriver!(ImplMutationDriver*)(() @trusted{
@@ -114,7 +114,7 @@ nothrow:
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds,
                 data.compile_program, data.test_suite_execute_program,
                 data.test_case_analyze_program, data.tc_analyze_builtin,
-                data.test_suite_execute_timeout);
+                data.test_suite_execute_timeout, new AutoCleanup);
 
         auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
         auto test_driver_impl_ref = () @trusted{
@@ -142,6 +142,7 @@ struct DriverData {
     AbsolutePath testCaseAnalyzeProgram;
     TestCaseAnalyzeBuiltin[] testCaseAnalyzeBuiltin;
     Nullable!Duration testProgramTimeout;
+    AutoCleanup autoCleanup;
 }
 
 /** Run the test suite to verify a mutation.
@@ -284,7 +285,7 @@ enum MutationDriverSignal {
     mutationError,
 }
 
-/** Drive the control flow when testing a mutant.
+/** Drive the control flow when testing **a** mutant.
  *
  * The architecture assume that there will be behavior changes therefore a
  * strict FSM that separate the context, action and next_state.
@@ -450,8 +451,9 @@ nothrow:
 
     AutoCleanup auto_cleanup;
 
-    this(FilesysIO fio, NullableRef!Database db, Mutation.Kind[] mut_kind, AbsolutePath compile_cmd, AbsolutePath test_cmd,
-            AbsolutePath test_case_cmd,
+    this(FilesysIO fio, NullableRef!Database db, AutoCleanup auto_cleanup,
+            Mutation.Kind[] mut_kind, AbsolutePath compile_cmd,
+            AbsolutePath test_cmd, AbsolutePath test_case_cmd,
             TestCaseAnalyzeBuiltin[] tc_analyze_builtin, Duration tester_runtime) {
         this.fio = fio;
         this.db = db;
@@ -462,6 +464,7 @@ nothrow:
         this.tc_analyze_builtin = tc_analyze_builtin;
         this.tester_runtime = tester_runtime;
         this.test_cases = new GatherTestCase;
+        this.auto_cleanup = auto_cleanup;
     }
 
     void none() {
@@ -565,7 +568,7 @@ nothrow:
 
         if (test_case_cmd.length != 0 || tc_analyze_builtin.length != 0) {
             try {
-                auto tmpdir = createTmpDir;
+                auto tmpdir = createTmpDir(mutp.id);
                 if (tmpdir.length == 0)
                     return;
                 test_tmp_output = Path(tmpdir).AbsolutePath;
@@ -704,7 +707,7 @@ struct TestDriver(ImplT) {
         initialize,
         sanityCheck,
         updateAndResetAliveMutants,
-        cleanupAfterTCAnalyze,
+        cleanupTempDirs,
         checkMutantsLeft,
         preCompileSut,
         measureTestSuite,
@@ -771,9 +774,6 @@ struct TestDriver(ImplT) {
                 next_ = State.error;
             break;
         case updateAndResetAliveMutants:
-            next_ = cleanupAfterTCAnalyze;
-            break;
-        case cleanupAfterTCAnalyze:
             next_ = checkMutantsLeft;
             break;
         case checkMutantsLeft:
@@ -790,16 +790,19 @@ struct TestDriver(ImplT) {
             break;
         case measureTestSuite:
             if (signal == TestDriverSignal.next)
-                next_ = State.preMutationTest;
+                next_ = State.cleanupTempDirs;
             else if (signal == TestDriverSignal.unreliableTestSuite)
                 next_ = State.error;
+            break;
+        case cleanupTempDirs:
+            next_ = preMutationTest;
             break;
         case preMutationTest:
             next_ = State.mutationTest;
             break;
         case mutationTest:
             if (signal == TestDriverSignal.next)
-                next_ = State.preMutationTest;
+                next_ = State.cleanupTempDirs;
             else if (signal == TestDriverSignal.allMutantsTested)
                 next_ = State.checkTimeout;
             else if (signal == TestDriverSignal.mutationError)
@@ -816,7 +819,7 @@ struct TestDriver(ImplT) {
             break;
         case resetTimeout:
             if (signal == TestDriverSignal.next)
-                next_ = State.preMutationTest;
+                next_ = State.cleanupTempDirs;
             break;
         case done:
             break;
@@ -840,8 +843,6 @@ nothrow:
     ReturnType!mutationDriverFactory mut_driver;
     long last_timeout_mutant_count = long.max;
 
-    AutoCleanup auto_cleanup;
-
     this(DriverData data) {
         this.data = data;
     }
@@ -850,9 +851,11 @@ nothrow:
     }
 
     void done() {
+        data.autoCleanup.cleanup;
     }
 
     void error() {
+        data.autoCleanup.cleanup;
     }
 
     void initialize() {
@@ -924,11 +927,11 @@ nothrow:
 
         AbsolutePath test_tmp_output;
         try {
-            auto tmpdir = createTmpDir;
+            auto tmpdir = createTmpDir(0);
             if (tmpdir.length == 0)
                 return;
             test_tmp_output = Path(tmpdir).AbsolutePath;
-            auto_cleanup.add(test_tmp_output);
+            data.autoCleanup.add(test_tmp_output);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
             return;
@@ -984,9 +987,9 @@ nothrow:
         removeDroppedTestCases(data.db, old_tcs, found_tcs);
     }
 
-    void cleanupAfterTCAnalyze() {
+    void cleanupTempDirs() {
         driver_sig = TestDriverSignal.next;
-        auto_cleanup.cleanup;
+        data.autoCleanup.cleanup;
     }
 
     void checkMutantsLeft() {
@@ -1210,7 +1213,7 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
 }
 
 /// Returns: path to a tmp directory or null on failure.
-string createTmpDir() nothrow {
+string createTmpDir(long id) nothrow {
     import std.random : uniform;
     import std.format : format;
     import std.file : mkdir, exists;
@@ -1220,7 +1223,7 @@ string createTmpDir() nothrow {
     // try 5 times or bailout
     foreach (const _; 0 .. 5) {
         try {
-            auto tmp = format("dextool_tmp_%s", uniform!ulong);
+            auto tmp = format("dextool_tmp_id_%s_%s", id, uniform!ulong);
             mkdir(tmp);
             test_tmp_output = AbsolutePath(FileName(tmp));
             break;
@@ -1304,32 +1307,31 @@ void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
     }
 }
 
-/// Paths stored will be removed automatically either when manually called or goes out of scope.
-struct AutoCleanup {
-    AbsolutePath[] remove_dirs;
-
-    ~this() @safe nothrow {
-        cleanup;
-    }
+/** Paths stored will be removed automatically either when manually called or goes out of scope.
+ */
+class AutoCleanup {
+    private string[] remove_dirs;
 
     void add(AbsolutePath p) @safe nothrow {
-        remove_dirs ~= p;
+        remove_dirs ~= cast(string) p;
     }
 
     // trusted: the paths are forced to be valid paths.
     void cleanup() @trusted nothrow {
         import std.algorithm : filter;
+        import std.array : array;
         import std.file : rmdirRecurse, exists;
 
         foreach (p; remove_dirs.filter!(a => a.length != 0)) {
             try {
                 if (exists(p))
                     rmdirRecurse(p);
+                p = null;
             } catch (Exception e) {
                 logger.info(e.msg).collectException;
             }
         }
 
-        remove_dirs = null;
+        remove_dirs = remove_dirs.filter!(a => a.length != 0).array;
     }
 }
