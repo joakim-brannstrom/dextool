@@ -17,6 +17,7 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 
 import dextool.type : AbsolutePath;
+import dextool.type : FilterClangFlag;
 
 version (unittest) {
     import std.path : buildPath;
@@ -481,7 +482,6 @@ const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilte
 /// Returns: array of default flags to exclude.
 auto defaultCompilerFlagFilter() @safe {
     import std.array : appender;
-    import dextool.type : FilterClangFlag;
 
     auto app = appender!(FilterClangFlag[])();
 
@@ -515,8 +515,6 @@ auto defaultCompilerFlagFilter() @safe {
 }
 
 struct CompileCommandFilter {
-    import dextool.type : FilterClangFlag;
-
     FilterClangFlag[] filter;
     int skipCompilerArgs = 1;
 }
@@ -544,7 +542,6 @@ struct ParseFlags {
  */
 ParseFlags parseFlag(const CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
     import std.algorithm : among;
-    import dextool.type : FilterClangFlag;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
         import std.algorithm : startsWith, filter, count;
@@ -702,6 +699,14 @@ CompileCommandDB fromArgCompileDb(string[] paths) @safe {
     paths.orDefaultDb.fromFiles(app);
 
     return CompileCommandDB(app.data);
+}
+
+/// ditto
+CompileCommandDB fromArgCompileDb(AbsolutePath[] paths) @safe {
+    import std.algorithm : map;
+    import std.array : array;
+
+    return fromArgCompileDb(paths.map!(a => cast(string) a).array);
 }
 
 @("Should be cflags with all unnecessary flags removed")
