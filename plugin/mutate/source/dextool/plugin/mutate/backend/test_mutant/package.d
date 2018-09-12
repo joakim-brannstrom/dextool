@@ -1322,11 +1322,12 @@ class AutoCleanup {
         import std.array : array;
         import std.file : rmdirRecurse, exists;
 
-        foreach (p; remove_dirs.filter!(a => a.length != 0)) {
+        foreach (ref p; remove_dirs.filter!(a => a.length != 0)) {
             try {
                 if (exists(p))
                     rmdirRecurse(p);
-                p = null;
+                if (!exists(p))
+                    p = null;
             } catch (Exception e) {
                 logger.info(e.msg).collectException;
             }
