@@ -68,6 +68,7 @@ struct ConfigMutationTest {
     AbsolutePath mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
     Nullable!Duration mutationTesterRuntime;
+    MutationOrder mutationOrder;
 }
 
 /// Settings for the administration mode
@@ -103,7 +104,6 @@ struct ArgParser {
         bool dryRun;
 
         MutationKind[] mutation;
-        MutationOrder mutationOrder;
 
         Nullable!long mutationId;
 
@@ -176,6 +176,8 @@ struct ArgParser {
         app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin]));
+        app.put("# determine in what order mutations are chosen");
+        app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder]));
 
         return app.data.joiner(newline).toUTF8;
     }
@@ -257,7 +259,7 @@ struct ArgParser {
                    "db", db_help, &data.db,
                    "dry-run", "do not write data to the filesystem", &data.dryRun,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &data.mutationOrder,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &data.outputDirectory,
                    "restrict", restrict_help, &data.restrictDir,
                    "test", "program used to run the test suite", &mutationTester,
@@ -481,6 +483,13 @@ void loadConfig(ref ArgParser rval) @trusted {
         try {
             c.mutationTest.mutationTestCaseBuiltin = v.array.map!(
                     a => a.str.to!TestCaseAnalyzeBuiltin).array;
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    };
+    callbacks["mutant_test.order"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.mutationOrder = v.str.to!MutationOrder;
         } catch (Exception e) {
             logger.error(e.msg).collectException;
         }

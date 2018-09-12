@@ -83,7 +83,7 @@ ExitStatusType runMutate(Frontend fe) @trusted {
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto db = Database.make(fe.db, fe.conf.data.mutationOrder);
+    auto db = Database.make(fe.db, fe.conf.mutationTest.mutationOrder);
 
     return () @safe{
         auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.conf.data.dryRun);
