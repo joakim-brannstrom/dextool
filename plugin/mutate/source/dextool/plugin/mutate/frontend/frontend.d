@@ -18,85 +18,43 @@ import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
-
-@safe class Frontend {
-    import core.time : Duration;
-    import std.typecons : Nullable;
-
-    ExitStatusType run() {
-        return runMutate(this);
-    }
-
-private:
-    ArgParser conf;
-
-    AbsolutePath db;
-    AbsolutePath outputDirectory;
-    AbsolutePath[] restrictDir;
-    AbsolutePath mutationCompile;
-    AbsolutePath mutationTester;
-    AbsolutePath mutationTestCaseAnalyze;
-    Nullable!Duration mutationTesterRuntime;
-
-    CompileCommandDB fusedCompileDb;
-
-    ReportConfig report;
-}
+import dextool.plugin.mutate.utility;
 
 @safe:
 
-auto buildFrontend(ref ArgParser p) {
-    import std.algorithm : map;
-    import std.array : array;
-    import core.time : dur;
-    import dextool.compilation_db;
+ExitStatusType runMutate(ArgParser conf) @trusted {
+    import dextool.compilation_db : CompileCommandFilter,
+        defaultCompilerFlagFilter, fromArgCompileDb;
+    import dextool.user_filerange;
+    import dextool.plugin.mutate.backend : Database;
 
-    auto r = new Frontend;
+    CompileCommandDB fusedCompileDb;
 
-    r.conf = p;
-
-    r.db = AbsolutePath(FileName(p.db));
-
-    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory.toRealPath));
-    if (p.restrictDir.length == 0)
-        r.restrictDir = [r.outputDirectory];
-    else
-        r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a.toRealPath))).array;
-
-    if (p.compileDb.dbs.length != 0) {
+    if (conf.compileDb.dbs.length != 0) {
         try {
-            r.fusedCompileDb = p.compileDb.dbs.fromArgCompileDb;
+            fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
         } catch (Exception e) {
             logger.error(e.msg);
             throw new Exception("Unable to open compile commands database(s)");
         }
     }
 
-    return r;
-}
-
-private:
-
-ExitStatusType runMutate(Frontend fe) @trusted {
-    import dextool.compilation_db : CompileCommandFilter,
-        defaultCompilerFlagFilter;
-    import dextool.user_filerange;
-    import dextool.plugin.mutate.backend : Database;
-
-    auto db = Database.make(fe.db, fe.conf.data.mutationOrder);
+    auto db = Database.make(conf.db, conf.mutationTest.mutationOrder);
 
     return () @safe{
-        auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.conf.data.dryRun);
+        auto fe_io = new FrontendIO(conf.workArea.restrictDir,
+                conf.workArea.outputDirectory, conf.mutationTest.dryRun);
         scope (success)
             fe_io.release;
-        auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
+        auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
+                conf.workArea.outputDirectory);
 
-        auto frange = UserFileRange(fe.fusedCompileDb, fe.conf.data.inFiles,
-                fe.conf.compiler.extraFlags, fe.conf.compileDb.flagFilter);
+        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles,
+                conf.compiler.extraFlags, conf.compileDb.flagFilter);
 
-        logger.trace("ToolMode: ", fe.conf.data.toolMode);
+        logger.trace("ToolMode: ", conf.data.toolMode);
 
-        final switch (fe.conf.data.toolMode) {
+        final switch (conf.data.toolMode) {
         case ToolMode.none:
             logger.error("No mode specified");
             return ExitStatusType.Errors;
@@ -107,34 +65,33 @@ ExitStatusType runMutate(Frontend fe) @trusted {
         case ToolMode.generate_mutant:
             import dextool.plugin.mutate.backend : runGenerateMutant;
 
-            return runGenerateMutant(db, fe.conf.data.mutation,
-                    fe.conf.data.mutationId, fe_io, fe_validate);
+            return runGenerateMutant(db, conf.data.mutation,
+                    conf.data.mutationId, fe_io, fe_validate);
         case ToolMode.test_mutants:
             import dextool.plugin.mutate.backend : makeTestMutant;
 
-            return makeTestMutant.mutations(fe.conf.data.mutation)
-                .testSuiteProgram(fe.conf.mutationTest.mutationTester)
-                .compileProgram(fe.conf.mutationTest.mutationCompile).testCaseAnalyzeProgram(
-                        fe.conf.mutationTest.mutationTestCaseAnalyze)
-                .testSuiteTimeout(fe.conf.mutationTest.mutationTesterRuntime)
-                .testCaseAnalyzeBuiltin(fe.conf.mutationTest.mutationTestCaseBuiltin).run(db,
-                        fe_io);
+            return makeTestMutant.mutations(conf.data.mutation).testSuiteProgram(conf.mutationTest.mutationTester)
+                .compileProgram(conf.mutationTest.mutationCompile).testCaseAnalyzeProgram(
+                        conf.mutationTest.mutationTestCaseAnalyze)
+                .testSuiteTimeout(conf.mutationTest.mutationTesterRuntime)
+                .testCaseAnalyzeBuiltin(conf.mutationTest.mutationTestCaseBuiltin).run(db, fe_io);
         case ToolMode.report:
             import dextool.plugin.mutate.backend : runReport;
 
-            return runReport(db, fe.conf.data.mutation, fe.conf.data.report, fe_io);
+            return runReport(db, conf.data.mutation, conf.report, fe_io);
         case ToolMode.admin:
             import dextool.plugin.mutate.backend : makeAdmin;
 
-            return makeAdmin().operation(fe.conf.data.adminOp)
-                .mutations(fe.conf.data.mutation).fromStatus(fe.conf.data.mutantStatus)
-                .toStatus(fe.conf.data.mutantToStatus).testCaseRegex(fe.conf.data.testCaseRegex)
-                .run(db);
+            return makeAdmin().operation(conf.admin.adminOp).mutations(conf.data.mutation)
+                .fromStatus(conf.admin.mutantStatus).toStatus(conf.admin.mutantToStatus)
+                .testCaseRegex(conf.admin.testCaseRegex).run(db);
         case ToolMode.dumpConfig:
-            return modeDumpFullConfig(fe.conf);
+            return modeDumpFullConfig(conf);
         }
     }();
 }
+
+private:
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
 
@@ -263,35 +220,6 @@ final class FrontendValidateLoc : ValidateLoc {
         logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", realp, output_dir);
         return res;
     }
-}
-
-/** Convert a string to the "real path" by resolving all symlinks resulting in an absolute path.
-
-TODO: optimize
-This function is very inefficient. It creates a lot of GC garbage.
-It should also be moved to source/dextool in the future to be able to be re-used by other components.
-Maybe even integrated in AbsolutePath.
-
-trusted: orig_p is a string. A string is assured by the language to be memory
-safe. Thus this function that operates on strings as input are memory safe for
-all possible input.
-  */
-string toRealPath(const string orig_p) @trusted {
-    import core.sys.posix.stdlib : realpath;
-    import core.stdc.stdlib : free;
-    import std.string : toStringz, fromStringz;
-
-    auto p = orig_p.toStringz;
-    auto absp = realpath(p, null);
-    scope (exit) {
-        if (absp)
-            free(absp);
-    }
-
-    if (absp is null)
-        return orig_p;
-    else
-        return absp.fromStringz.idup;
 }
 
 ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {

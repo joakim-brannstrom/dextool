@@ -12,67 +12,16 @@ configuration of how the mutation plugin should behave.
 */
 module dextool.plugin.mutate.frontend.argparser;
 
-import core.time : Duration, dur;
+import core.time : dur;
 import std.exception : collectException;
-import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 public import dextool.plugin.mutate.type;
 public import dextool.plugin.mutate.backend : Mutation;
 import dextool.type : AbsolutePath, Path;
+import dextool.plugin.mutate.utility;
 
 @safe:
-
-/// The mode the tool is operating in
-enum ToolMode {
-    /// No mode set
-    none,
-    /// analyze for mutation points
-    analyzer,
-    /// center that can operate and control subcomponents
-    generate_mutant,
-    /// test mutation points with a test suite
-    test_mutants,
-    /// generate a report of the mutation points
-    report,
-    /// administrator interface for the mutation database
-    admin,
-    /// Dump the TOML configuration to the console
-    dumpConfig,
-}
-
-/// Configuration data for the compile_commands.json
-struct ConfigCompileDb {
-    import dextool.compilation_db : CompileCommandFilter;
-
-    /// Raw user input via either config or cli
-    string[] rawDbs;
-
-    /// path to compilation databases.
-    AbsolutePath[] dbs;
-
-    /// Flags the user wants to be automatically removed from the compile_commands.json.
-    CompileCommandFilter flagFilter;
-}
-
-/// Settings for the compiler
-struct ConfigCompiler {
-    /// Additional flags the user wants to add besides those that are in the compile_commands.json.
-    string[] extraFlags;
-}
-
-/// Settings for mutation testing
-struct ConfigMutationTest {
-    AbsolutePath mutationTester;
-    AbsolutePath mutationCompile;
-    AbsolutePath mutationTestCaseAnalyze;
-    TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
-    Nullable!Duration mutationTesterRuntime;
-}
-
-/// Settings for the administration mode
-struct ConfigAdmin {
-}
 
 /// Extract and cleanup user input from the command line.
 struct ArgParser {
@@ -89,30 +38,21 @@ struct ArgParser {
     ConfigCompileDb compileDb;
     ConfigCompiler compiler;
     ConfigMutationTest mutationTest;
+    ConfigAdmin admin;
+    ConfigWorkArea workArea;
+    ReportConfig report;
 
     struct Data {
         string[] inFiles;
 
-        string outputDirectory = ".";
-        string[] restrictDir;
-
-        string db = "dextool_mutate.sqlite3";
+        AbsolutePath db;
 
         bool help;
         bool shortPluginHelp;
-        bool dryRun;
 
         MutationKind[] mutation;
-        MutationOrder mutationOrder;
 
         Nullable!long mutationId;
-
-        ReportConfig report;
-
-        AdminOperation adminOp;
-        Mutation.Status mutantStatus;
-        Mutation.Status mutantToStatus;
-        string testCaseRegex;
 
         ToolMode toolMode;
     }
@@ -137,18 +77,35 @@ struct ArgParser {
 
     /// Convert the configuration to a TOML file.
     string toTOML() @trusted {
-        import std.algorithm : joiner;
-        import std.ascii : newline;
+        import std.algorithm : joiner, map;
         import std.array : appender, array;
+        import std.ascii : newline;
+        import std.conv : to;
         import std.format : format;
-        import std.utf : toUTF8;
         import std.traits : EnumMembers;
+        import std.utf : toUTF8;
 
         auto app = appender!(string[])();
 
+        app.put("[workarea]");
+        app.put("# path used as the root for accessing files");
+        app.put(
+                "# dextool will not modify files that escape this root when it perform mutation testing");
+        app.put("# workdir =");
+        app.put("# restrict analysis to files in this directory tree");
+        app.put("# this make it possible to only mutate certain parts of an application");
+        app.put("# it must be inside the workdir");
+        app.put("# restrict = []");
+        app.put(null);
+
+        app.put("[database]");
+        app.put("# path to where to store the sqlite3 database");
+        app.put(`# db = "dextool_mutate.sqlite3"`);
+        app.put(null);
+
         app.put("[compiler]");
-        app.put("# extra flags to pass on to the compiler");
-        app.put(`# extra_flags = [ "-std=c++11" ]`);
+        app.put("# extra flags to pass on to the compiler such as the C++ standard");
+        app.put(format(`# extra_flags = [%(%s, %)]`, compiler.extraFlags));
         app.put(null);
 
         app.put("[compile_commands]");
@@ -175,7 +132,14 @@ struct ArgParser {
         app.put("# analyze_cmd = ");
         app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
-                [EnumMembers!TestCaseAnalyzeBuiltin]));
+                [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
+        app.put("# determine in what order mutations are chosen");
+        app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put(null);
+
+        app.put("[report]");
+        app.put("# default style to use");
+        app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
 
         return app.data.joiner(newline).toUTF8;
     }
@@ -200,16 +164,20 @@ struct ArgParser {
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
 
+        string db = "dextool_mutate.sqlite3";
+        string outputDirectory = ".";
+        string[] restrictDir;
+
         void analyzerG(string[] args) {
             string[] compile_dbs;
             data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
-                   "db", db_help, &data.db,
+                   "db", db_help, &db,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
-                   "out", out_help, &data.outputDirectory,
-                   "restrict", restrict_help, &data.restrictDir,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    );
             // dfmt on
 
@@ -225,9 +193,9 @@ struct ArgParser {
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", db_help, &data.db,
-                   "out", out_help, &data.outputDirectory,
-                   "restrict", restrict_help, &data.restrictDir,
+                   "db", db_help, &db,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "id", "mutate the source code as mutant ID", &cli_mutation_id,
                    );
             // dfmt on
@@ -254,12 +222,12 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile", "program used to compile the application", &mutationCompile,
                    "c|config", conf_help, &conf_file,
-                   "db", db_help, &data.db,
-                   "dry-run", "do not write data to the filesystem", &data.dryRun,
+                   "db", db_help, &db,
+                   "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &data.mutationOrder,
-                   "out", out_help, &data.outputDirectory,
-                   "restrict", restrict_help, &data.restrictDir,
+                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "test", "program used to run the test suite", &mutationTester,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
@@ -279,20 +247,19 @@ struct ArgParser {
             data.toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "db", db_help, &data.db,
-                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &data.report.reportLevel,
-                   "out", out_help, &data.outputDirectory,
-                   "restrict", restrict_help, &data.restrictDir,
+                   "db", db_help, &db,
+                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
+                   "out", out_help, &outputDirectory,
+                   "restrict", restrict_help, &restrictDir,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &data.report.reportSection,
-                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &data.report.reportKind,
-                   "section-tc_stat-num", "number of test cases to report", &data.report.tcKillSortNum,
-                   "section-tc_stat-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &data.report.tcKillSortOrder,
+                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &report.reportSection,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
+                   "section-tc_stat-num", "number of test cases to report", &report.tcKillSortNum,
+                   "section-tc_stat-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &report.tcKillSortOrder,
                    );
             // dfmt on
 
-            if (data.report.reportSection.length != 0
-                    && data.report.reportLevel != ReportLevel.summary) {
+            if (report.reportSection.length != 0 && report.reportLevel != ReportLevel.summary) {
                 logger.error("Combining --section and --level is not supported");
                 help_info.helpWanted = true;
             }
@@ -303,13 +270,13 @@ struct ArgParser {
             data.toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                "db", db_help, &data.db,
+                "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &data.adminOp,
-                "test-case-regex", "regex to use when removing test cases", &data.testCaseRegex,
-                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &data.mutantStatus,
-                "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &data.mutantToStatus,
+                "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
+                "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
+                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
+                "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
                 );
             // dfmt on
 
@@ -359,6 +326,15 @@ struct ArgParser {
         import std.algorithm : find;
         import std.array : array;
         import std.range : drop;
+
+        data.db = AbsolutePath(FileName(db));
+
+        workArea.outputDirectory = AbsolutePath(FileName(outputDirectory.toRealPath));
+        if (restrictDir.length == 0)
+            workArea.restrictDir = [workArea.outputDirectory];
+        else
+            workArea.restrictDir = restrictDir.map!(
+                    a => AbsolutePath(FileName(a.toRealPath))).array;
 
         compiler.extraFlags = args.find("--").drop(1).array();
     }
@@ -446,12 +422,18 @@ void loadConfig(ref ArgParser rval) @trusted {
     alias Fn = void delegate(ref ArgParser c, ref TOMLValue v);
     Fn[string] callbacks;
 
+    callbacks["workarea.workdir"] = (ref ArgParser c, ref TOMLValue v) {
+        c.workArea.outputDirectory = AbsolutePath(Path(v.str.toRealPath));
+    };
+    callbacks["workarea.restrict"] = (ref ArgParser c, ref TOMLValue v) {
+        c.workArea.restrictDir = v.array.map!(a => a.str.toRealPath.Path.AbsolutePath).array;
+    };
+    callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
+        c.db = v.str.Path.AbsolutePath;
+    };
     callbacks["compile_commands.search_paths"] = (ref ArgParser c, ref TOMLValue v) {
         c.compileDb.rawDbs = v.array.map!"a.str".array;
     };
-    //callbacks["compile_commands.exclude"] = (ref ArgParser c, ref TOMLValue v) {
-    //    c.staticCode.fileExcludeFilter = v.array.map!"a.str".array;
-    //};
     callbacks["compile_commands.filter"] = (ref ArgParser c, ref TOMLValue v) {
         import dextool.type : FilterClangFlag;
 
@@ -485,6 +467,20 @@ void loadConfig(ref ArgParser rval) @trusted {
             logger.error(e.msg).collectException;
         }
     };
+    callbacks["mutant_test.order"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.mutationOrder = v.str.to!MutationOrder;
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    };
+    callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.report.reportKind = v.str.to!ReportKind;
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
@@ -498,9 +494,12 @@ void loadConfig(ref ArgParser rval) @trusted {
         }
     }
 
-    iterSection(rval, "compile_commands");
+    iterSection(rval, "workarea");
+    iterSection(rval, "database");
     iterSection(rval, "compiler");
+    iterSection(rval, "compile_commands");
     iterSection(rval, "mutant_test");
+    iterSection(rval, "report");
 }
 
 /// Minimal config to setup path to config file.

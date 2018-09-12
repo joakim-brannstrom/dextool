@@ -20,8 +20,8 @@ auto runPlugin(string[] args) @safe {
     import dextool.type;
     import dextool.utility;
     import dextool.xml : makeXmlLog;
-    import dextool.plugin.mutate.frontend : buildFrontend, ArgParser,
-        cliToMiniConfig, loadConfig;
+    import dextool.plugin.mutate.frontend : ArgParser, cliToMiniConfig,
+        loadConfig, runMutate;
 
     auto argp = ArgParser.make;
     argp.miniConf = cliToMiniConfig(args);
@@ -40,13 +40,5 @@ auto runPlugin(string[] args) @safe {
         return ExitStatusType.Ok;
     }
 
-    ReturnType!buildFrontend frontend;
-    try {
-        frontend = buildFrontend(argp);
-    } catch (Exception e) {
-        logger.error(e.msg);
-        return ExitStatusType.Errors;
-    }
-
-    return frontend.run;
+    return runMutate(argp);
 }
