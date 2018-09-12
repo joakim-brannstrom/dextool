@@ -12,9 +12,8 @@ configuration of how the mutation plugin should behave.
 */
 module dextool.plugin.mutate.frontend.argparser;
 
-import core.time : Duration, dur;
+import core.time : dur;
 import std.exception : collectException;
-import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 public import dextool.plugin.mutate.type;
@@ -23,68 +22,6 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.utility;
 
 @safe:
-
-/// The mode the tool is operating in
-enum ToolMode {
-    /// No mode set
-    none,
-    /// analyze for mutation points
-    analyzer,
-    /// center that can operate and control subcomponents
-    generate_mutant,
-    /// test mutation points with a test suite
-    test_mutants,
-    /// generate a report of the mutation points
-    report,
-    /// administrator interface for the mutation database
-    admin,
-    /// Dump the TOML configuration to the console
-    dumpConfig,
-}
-
-/// Configuration data for the compile_commands.json
-struct ConfigCompileDb {
-    import dextool.compilation_db : CompileCommandFilter;
-
-    /// Raw user input via either config or cli
-    string[] rawDbs;
-
-    /// path to compilation databases.
-    AbsolutePath[] dbs;
-
-    /// Flags the user wants to be automatically removed from the compile_commands.json.
-    CompileCommandFilter flagFilter;
-}
-
-/// Settings for the compiler
-struct ConfigCompiler {
-    /// Additional flags the user wants to add besides those that are in the compile_commands.json.
-    string[] extraFlags;
-}
-
-/// Settings for mutation testing
-struct ConfigMutationTest {
-    AbsolutePath mutationTester;
-    AbsolutePath mutationCompile;
-    AbsolutePath mutationTestCaseAnalyze;
-    TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
-    Nullable!Duration mutationTesterRuntime;
-    MutationOrder mutationOrder;
-    bool dryRun;
-}
-
-/// Settings for the administration mode
-struct ConfigAdmin {
-    AdminOperation adminOp;
-    Mutation.Status mutantStatus;
-    Mutation.Status mutantToStatus;
-    string testCaseRegex;
-}
-
-struct ConfigWorkArea {
-    AbsolutePath outputDirectory;
-    AbsolutePath[] restrictDir;
-}
 
 /// Extract and cleanup user input from the command line.
 struct ArgParser {
