@@ -18,6 +18,7 @@ import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
+import dextool.plugin.mutate.utility;
 
 @safe class Frontend {
     import core.time : Duration;
@@ -29,18 +30,7 @@ import dextool.plugin.mutate.config;
 
 private:
     ArgParser conf;
-
-    AbsolutePath db;
-    AbsolutePath outputDirectory;
-    AbsolutePath[] restrictDir;
-    AbsolutePath mutationCompile;
-    AbsolutePath mutationTester;
-    AbsolutePath mutationTestCaseAnalyze;
-    Nullable!Duration mutationTesterRuntime;
-
     CompileCommandDB fusedCompileDb;
-
-    ReportConfig report;
 }
 
 @safe:
@@ -54,14 +44,6 @@ auto buildFrontend(ref ArgParser p) {
     auto r = new Frontend;
 
     r.conf = p;
-
-    r.db = AbsolutePath(FileName(p.db));
-
-    r.outputDirectory = AbsolutePath(FileName(p.outputDirectory.toRealPath));
-    if (p.restrictDir.length == 0)
-        r.restrictDir = [r.outputDirectory];
-    else
-        r.restrictDir = p.restrictDir.map!(a => AbsolutePath(FileName(a.toRealPath))).array;
 
     if (p.compileDb.dbs.length != 0) {
         try {
@@ -83,13 +65,15 @@ ExitStatusType runMutate(Frontend fe) @trusted {
     import dextool.user_filerange;
     import dextool.plugin.mutate.backend : Database;
 
-    auto db = Database.make(fe.db, fe.conf.mutationTest.mutationOrder);
+    auto db = Database.make(fe.conf.db, fe.conf.mutationTest.mutationOrder);
 
     return () @safe{
-        auto fe_io = new FrontendIO(fe.restrictDir, fe.outputDirectory, fe.conf.data.dryRun);
+        auto fe_io = new FrontendIO(fe.conf.workArea.restrictDir,
+                fe.conf.workArea.outputDirectory, fe.conf.mutationTest.dryRun);
         scope (success)
             fe_io.release;
-        auto fe_validate = new FrontendValidateLoc(fe.restrictDir, fe.outputDirectory);
+        auto fe_validate = new FrontendValidateLoc(fe.conf.workArea.restrictDir,
+                fe.conf.workArea.outputDirectory);
 
         auto frange = UserFileRange(fe.fusedCompileDb, fe.conf.data.inFiles,
                 fe.conf.compiler.extraFlags, fe.conf.compileDb.flagFilter);
@@ -122,13 +106,13 @@ ExitStatusType runMutate(Frontend fe) @trusted {
         case ToolMode.report:
             import dextool.plugin.mutate.backend : runReport;
 
-            return runReport(db, fe.conf.data.mutation, fe.conf.data.report, fe_io);
+            return runReport(db, fe.conf.data.mutation, fe.conf.report, fe_io);
         case ToolMode.admin:
             import dextool.plugin.mutate.backend : makeAdmin;
 
-            return makeAdmin().operation(fe.conf.data.adminOp)
-                .mutations(fe.conf.data.mutation).fromStatus(fe.conf.data.mutantStatus)
-                .toStatus(fe.conf.data.mutantToStatus).testCaseRegex(fe.conf.data.testCaseRegex)
+            return makeAdmin().operation(fe.conf.admin.adminOp)
+                .mutations(fe.conf.data.mutation).fromStatus(fe.conf.admin.mutantStatus)
+                .toStatus(fe.conf.admin.mutantToStatus).testCaseRegex(fe.conf.admin.testCaseRegex)
                 .run(db);
         case ToolMode.dumpConfig:
             return modeDumpFullConfig(fe.conf);
@@ -263,35 +247,6 @@ final class FrontendValidateLoc : ValidateLoc {
         logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", realp, output_dir);
         return res;
     }
-}
-
-/** Convert a string to the "real path" by resolving all symlinks resulting in an absolute path.
-
-TODO: optimize
-This function is very inefficient. It creates a lot of GC garbage.
-It should also be moved to source/dextool in the future to be able to be re-used by other components.
-Maybe even integrated in AbsolutePath.
-
-trusted: orig_p is a string. A string is assured by the language to be memory
-safe. Thus this function that operates on strings as input are memory safe for
-all possible input.
-  */
-string toRealPath(const string orig_p) @trusted {
-    import core.sys.posix.stdlib : realpath;
-    import core.stdc.stdlib : free;
-    import std.string : toStringz, fromStringz;
-
-    auto p = orig_p.toStringz;
-    auto absp = realpath(p, null);
-    scope (exit) {
-        if (absp)
-            free(absp);
-    }
-
-    if (absp is null)
-        return orig_p;
-    else
-        return absp.fromStringz.idup;
 }
 
 ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
