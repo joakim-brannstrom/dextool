@@ -187,10 +187,18 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
 /** Update the table with those test cases that has killed zero mutants.
  *
  * Params:
+ *  total = total number of test cases
  *  zero_kills_test_cases = test cases with zero kills
+ *  item = statistics is printed to this output
  *  tbl = output is written to this table
  */
-void reportDeadTestCases(TestCase[] zero_kills_test_cases, ref Table!2 tbl) @safe nothrow {
+void reportDeadTestCases(ReportT)(long total, TestCase[] zero_kills_test_cases,
+        ref ReportT item, ref Table!2 tbl) @safe nothrow {
+    if (total > 0) {
+        item.writefln("%s/%s = %s test cases", zero_kills_test_cases.length, total,
+                cast(double) zero_kills_test_cases.length / cast(double) total).collectException;
+    }
+
     foreach (tc; zero_kills_test_cases) {
         typeof(tbl).Row r = [tc.name, tc.location];
         tbl.put(r);

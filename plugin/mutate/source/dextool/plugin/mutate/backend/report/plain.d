@@ -238,6 +238,8 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln;
 
+        auto stdout_ = () @trusted{ return stdout; }();
+
         if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
 
@@ -257,7 +259,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
 
-            reportDeadTestCases(db.getTestCasesWithZeroKills, tbl);
+            reportDeadTestCases(db.getNumOfTestCases, db.getTestCasesWithZeroKills, stdout_, tbl);
             writeln(tbl);
         }
 
@@ -271,7 +273,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            auto stdout_ = () @trusted{ return stdout; }();
             struct Log {
                 File stdout;
                 alias stdout this;

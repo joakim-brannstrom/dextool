@@ -267,7 +267,7 @@ struct Markdown(Writer, TraceWriter) {
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
 
-            reportDeadTestCases(zero_kills, tbl);
+            reportDeadTestCases(db.getNumOfTestCases, zero_kills, item, tbl);
             auto fmt = FormatSpec!char("%s");
             tbl.toString(Writer, fmt);
 
