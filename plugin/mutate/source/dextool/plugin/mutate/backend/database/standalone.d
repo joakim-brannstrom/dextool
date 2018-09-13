@@ -405,7 +405,7 @@ struct Database {
             db.rollback;
 
         immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
-        db.run(remove_old_sql);
+        db.execute(remove_old_sql);
 
         immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
         auto stmt = db.prepare(add_tc_sql);
@@ -467,8 +467,7 @@ struct Database {
      */
     long getNumOfTestCases() @trusted {
         immutable num_test_cases_sql = format("SELECT count(*) FROM %s", allTestCaseTable);
-        auto stmt = db.prepare(num_test_cases_sql);
-        return stmt.execute.oneValue!long;
+        return db.execute(num_test_cases_sql).oneValue!long;
     }
 
     /** Returns: test cases that killed other mutants at the same mutation point as `id`.
