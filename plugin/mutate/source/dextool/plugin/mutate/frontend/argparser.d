@@ -164,8 +164,8 @@ struct ArgParser {
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
 
-        string db = "dextool_mutate.sqlite3";
-        string outputDirectory = ".";
+        string db;
+        string outputDirectory;
         string[] restrictDir;
 
         void analyzerG(string[] args) {
@@ -181,7 +181,8 @@ struct ArgParser {
                    );
             // dfmt on
 
-            compileDb.rawDbs = compile_dbs;
+            if (compile_dbs.length != 0)
+                compileDb.rawDbs = compile_dbs;
             compileDb.dbs = compileDb.rawDbs
                 .filter!(a => a.length != 0)
                 .map!(a => Path(a).AbsolutePath)
@@ -235,8 +236,10 @@ struct ArgParser {
                    );
             // dfmt on
 
-            mutationTest.mutationTester = Path(mutationTester).AbsolutePath;
-            mutationTest.mutationCompile = Path(mutationCompile).AbsolutePath;
+            if (mutationTester.length != 0)
+                mutationTest.mutationTester = Path(mutationTester).AbsolutePath;
+            if (mutationCompile.length != 0)
+                mutationTest.mutationCompile = Path(mutationCompile).AbsolutePath;
             if (mutationTestCaseAnalyze.length != 0)
                 mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
             if (mutationTesterRuntime != 0)
@@ -327,16 +330,23 @@ struct ArgParser {
         import std.array : array;
         import std.range : drop;
 
-        data.db = AbsolutePath(FileName(db));
+        if (db.length != 0)
+            data.db = AbsolutePath(FileName(db));
+        else if (data.db.length == 0)
+            data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
 
-        workArea.outputDirectory = AbsolutePath(FileName(outputDirectory.toRealPath));
-        if (restrictDir.length == 0)
-            workArea.restrictDir = [workArea.outputDirectory];
-        else
+        if (outputDirectory.length != 0)
+            workArea.outputDirectory = AbsolutePath(Path(outputDirectory.toRealPath));
+        else if (workArea.outputDirectory.length == 0)
+            workArea.outputDirectory = ".".toRealPath.Path.AbsolutePath;
+
+        if (restrictDir.length != 0)
             workArea.restrictDir = restrictDir.map!(
                     a => AbsolutePath(FileName(a.toRealPath))).array;
+        else if (workArea.restrictDir.length == 0)
+            workArea.restrictDir = [workArea.outputDirectory];
 
-        compiler.extraFlags = args.find("--").drop(1).array();
+        compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }
 
     /**
@@ -456,7 +466,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;
     };
-    callbacks["mutation_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
+    callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
         try {
             c.mutationTest.mutationTestCaseBuiltin = v.array.map!(
                     a => a.str.to!TestCaseAnalyzeBuiltin).array;
