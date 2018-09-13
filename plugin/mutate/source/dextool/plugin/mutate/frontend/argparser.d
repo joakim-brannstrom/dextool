@@ -48,7 +48,6 @@ struct ArgParser {
         AbsolutePath db;
 
         bool help;
-        bool shortPluginHelp;
 
         MutationKind[] mutation;
 
@@ -293,11 +292,6 @@ struct ArgParser {
         groups["report"] = &reportG;
         groups["admin"] = &adminG;
 
-        if (args.length == 2 && args[1] == "--short-plugin-help") {
-            shortPluginHelp = true;
-            return;
-        }
-
         if (args.length < 2) {
             logger.error("Missing command");
             help = true;
@@ -516,6 +510,8 @@ struct MiniConfig {
 
     /// The configuration file that has been loaded
     AbsolutePath confFile;
+
+    bool shortPluginHelp;
 }
 
 /// Returns: minimal config to load settings and setup working directory.
@@ -526,7 +522,8 @@ MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
 
     try {
         std.getopt.getopt(args, std.getopt.config.keepEndOfOptions, std.getopt.config.passThrough,
-                "c|config", "none not visible to the user", &conf.rawConfFile);
+                "c|config", "none not visible to the user", &conf.rawConfFile,
+                "short-plugin-help", "not visible to the user", &conf.shortPluginHelp);
         conf.confFile = Path(conf.rawConfFile).AbsolutePath;
     } catch (Exception e) {
         logger.error("Invalid cli values: ", e.msg).collectException;
