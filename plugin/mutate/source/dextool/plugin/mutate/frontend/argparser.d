@@ -159,7 +159,7 @@ struct ArgParser {
         const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
         const restrict_help = "restrict analysis to files in this directory tree (default: .)";
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
-        const conf_help = "load configuration (default: dextool_mutate.toml)";
+        const conf_help = "load configuration (default: .dextool_mutate.toml)";
 
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
@@ -505,7 +505,7 @@ void loadConfig(ref ArgParser rval) @trusted {
 /// Minimal config to setup path to config file.
 struct MiniConfig {
     /// Value from the user via CLI, unmodified.
-    string rawConfFile = "dextool_mutate.toml";
+    string rawConfFile = ".dextool_mutate.toml";
 
     /// The configuration file that has been loaded
     AbsolutePath confFile;
