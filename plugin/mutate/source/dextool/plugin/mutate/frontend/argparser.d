@@ -48,7 +48,6 @@ struct ArgParser {
         AbsolutePath db;
 
         bool help;
-        bool shortPluginHelp;
 
         MutationKind[] mutation;
 
@@ -111,7 +110,7 @@ struct ArgParser {
         app.put("[compile_commands]");
         app.put("# search for compile_commands.json in this paths");
         if (compileDb.dbs.length == 0)
-            app.put(format("search_paths = %s", ["./compile_commands.json"]));
+            app.put(`search_paths = ["./compile_commands.json"]`);
         else
             app.put(format("search_paths = %s", compileDb.rawDbs));
         app.put("# flags to remove when analyzing a file in the DB");
@@ -121,15 +120,15 @@ struct ArgParser {
         app.put(null);
 
         app.put("[mutant_test]");
-        app.put("# program used to run the test suite");
-        app.put("# test_cmd =");
+        app.put("# (required) program used to run the test suite");
+        app.put(`test_cmd = "test.sh"`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout =");
-        app.put("# program used to compile the application");
-        app.put("# compile_cmd =");
+        app.put("# (required) program used to compile the application");
+        app.put(`compile_cmd = "compile.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
-        app.put("# analyze_cmd = ");
+        app.put("# analyze_cmd =");
         app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
@@ -270,11 +269,13 @@ struct ArgParser {
 
         void adminG(string[] args) {
             bool dump_conf;
+            bool init_conf;
             data.toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
+                "init", "create an initial config to use", &init_conf,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
@@ -285,6 +286,8 @@ struct ArgParser {
 
             if (dump_conf)
                 data.toolMode = ToolMode.dumpConfig;
+            else if (init_conf)
+                data.toolMode = ToolMode.initConfig;
         }
 
         groups["analyze"] = &analyzerG;
@@ -292,11 +295,6 @@ struct ArgParser {
         groups["test"] = &testMutantsG;
         groups["report"] = &reportG;
         groups["admin"] = &adminG;
-
-        if (args.length == 2 && args[1] == "--short-plugin-help") {
-            shortPluginHelp = true;
-            return;
-        }
 
         if (args.length < 2) {
             logger.error("Missing command");
@@ -516,6 +514,8 @@ struct MiniConfig {
 
     /// The configuration file that has been loaded
     AbsolutePath confFile;
+
+    bool shortPluginHelp;
 }
 
 /// Returns: minimal config to load settings and setup working directory.
@@ -526,7 +526,8 @@ MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
 
     try {
         std.getopt.getopt(args, std.getopt.config.keepEndOfOptions, std.getopt.config.passThrough,
-                "c|config", "none not visible to the user", &conf.rawConfFile);
+                "c|config", "none not visible to the user", &conf.rawConfFile,
+                "short-plugin-help", "not visible to the user", &conf.shortPluginHelp);
         conf.confFile = Path(conf.rawConfFile).AbsolutePath;
     } catch (Exception e) {
         logger.error("Invalid cli values: ", e.msg).collectException;

@@ -25,17 +25,21 @@ auto runPlugin(string[] args) @safe {
 
     auto argp = ArgParser.make;
     argp.miniConf = cliToMiniConfig(args);
-    loadConfig(argp);
-    argp.parse(args);
 
-    debug logger.trace(args);
-    debug logger.trace(argp);
-
-    if (argp.shortPluginHelp) {
+    if (argp.miniConf.shortPluginHelp) {
         writeln("mutate");
         writeln("mutation testing plugin");
         return ExitStatusType.Ok;
-    } else if (argp.help) {
+    }
+
+    logger.trace(args);
+
+    loadConfig(argp);
+    argp.parse(args);
+
+    logger.trace(argp);
+
+    if (argp.help) {
         argp.printHelp;
         return ExitStatusType.Ok;
     }

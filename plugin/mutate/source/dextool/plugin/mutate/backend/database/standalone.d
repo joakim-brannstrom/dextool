@@ -19,6 +19,9 @@ The only acceptable dependency are:
 module dextool.plugin.mutate.backend.database.standalone;
 
 import core.time : Duration;
+import std.algorithm : map;
+import std.array : Appender, appender, array;
+import std.format : format;
 import logger = std.experimental.logger;
 
 import d2sqlite3 : sqlDatabase = Database;
@@ -95,8 +98,6 @@ struct Database {
 
     /// Returns: All files in the database as relative paths.
     Path[] getFiles() @trusted {
-        import std.array : appender;
-
         auto stmt = db.prepare("SELECT path from files");
         auto res = stmt.execute;
 
@@ -137,9 +138,6 @@ struct Database {
      */
     void updateMutationBroadcast(const MutationId id, const Mutation.Status st,
             const Duration d, const(TestCase)[] tcs, const(Mutation.Kind)[] bcast) @trusted {
-        import std.algorithm : map;
-        import std.array : array;
-        import std.format : format;
 
         if (bcast.length == 1) {
             updateMutation(id, st, d, tcs);
@@ -220,9 +218,6 @@ struct Database {
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
-        import std.algorithm : map;
-        import std.format : format;
-
         auto s = format("DELETE FROM mutation_point WHERE id IN (SELECT mp_id FROM mutation WHERE kind IN (%(%s,%)))",
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
@@ -232,9 +227,6 @@ struct Database {
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
-        import std.algorithm : map;
-        import std.format : format;
-
         auto s = format("UPDATE mutation SET status=%s WHERE status == %s AND kind IN (%(%s,%))",
                 to_st.to!long, st.to!long, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
@@ -256,8 +248,6 @@ struct Database {
 
     private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
         import core.time : dur;
-        import std.algorithm : map;
-        import std.format : format;
 
         enum query = format(
                     "SELECT count(*),sum(mutation.time) FROM mutation WHERE status IN (%(%s,%)) AND kind IN (%s)",
@@ -370,8 +360,6 @@ struct Database {
      *  tcs = test cases to add
      */
     void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
-        import std.format : format;
-
         if (tcs.length == 0)
             return;
 
@@ -407,8 +395,6 @@ struct Database {
      * This will replace those that where previously stored.
      */
     void setDetectedTestCases(const(TestCase)[] tcs) @trusted {
-        import std.format : format;
-
         if (tcs.length == 0)
             return;
 
@@ -419,7 +405,7 @@ struct Database {
             db.rollback;
 
         immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
-        db.run(remove_old_sql);
+        db.execute(remove_old_sql);
 
         immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
         auto stmt = db.prepare(add_tc_sql);
@@ -436,9 +422,6 @@ struct Database {
 
     /// Returns: detected test cases.
     TestCase[] getDetectedTestCases() @trusted {
-        import std.array : appender;
-        import std.format : format;
-
         immutable sql = format("SELECT name FROM %s", allTestCaseTable);
 
         auto rval = appender!(TestCase[])();
@@ -452,9 +435,6 @@ struct Database {
 
     /// Returns: test cases that has killed zero mutants
     TestCase[] getTestCasesWithZeroKills() @trusted {
-        import std.array : appender;
-        import std.format : format;
-
         immutable sql = format("SELECT name FROM %s WHERE %s.name NOT IN (SELECT name FROM %s)",
                 allTestCaseTable, allTestCaseTable, killedTestCaseTable);
 
@@ -470,9 +450,6 @@ struct Database {
     /** Returns: test cases that killed the mutant.
       */
     TestCase[] getTestCases(const MutationId id) @trusted {
-        import std.array : Appender;
-        import std.format : format;
-
         Appender!(TestCase[]) rval;
 
         immutable get_test_cases_sql = format(
@@ -486,13 +463,16 @@ struct Database {
         return rval.data;
     }
 
+    /** Returns: number of test cases
+     */
+    long getNumOfTestCases() @trusted {
+        immutable num_test_cases_sql = format("SELECT count(*) FROM %s", allTestCaseTable);
+        return db.execute(num_test_cases_sql).oneValue!long;
+    }
+
     /** Returns: test cases that killed other mutants at the same mutation point as `id`.
       */
     TestCase[] getSurroundingTestCases(const MutationId id) @trusted {
-        import std.algorithm : map;
-        import std.array : Appender, array;
-        import std.format : format;
-
         Appender!(TestCase[]) rval;
 
         // TODO: optimize this. should be able to merge the two first queries to one.
@@ -533,8 +513,6 @@ struct Database {
     import std.regex : Regex;
 
     void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
-        import std.algorithm : map;
-        import std.format : format;
         import std.regex : matchFirst;
 
         immutable sql = format(

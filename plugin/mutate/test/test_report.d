@@ -198,11 +198,11 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        "| Percentage | Count | TestCase |",
-        "|------------|-------|----------|",
-        "| 66.6667    | 2     | tc_2     |",
-        "| 33.3333    | 1     | tc_3     |",
-        "| 33.3333    | 1     | tc_1     |",
+        "| Percentage | Count | TestCase | Location |",
+        "|------------|-------|----------|----------|",
+        "| 66.6667    | 2     | tc_2     |          |",
+        "| 33.3333    | 1     | tc_3     |          |",
+        "| 33.3333    | 1     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 

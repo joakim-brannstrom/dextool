@@ -49,6 +49,8 @@ ExitStatusType runMutate(ArgParser conf) {
         return ExitStatusType.Errors;
     case ToolMode.dumpConfig:
         return modeDumpFullConfig(conf);
+    case ToolMode.initConfig:
+        return modeInitConfig(conf);
     default:
         logger.error("Mode not supported. This should not happen. Contact the maintainer of dextool: ",
                 conf.data.toolMode);
@@ -228,12 +230,32 @@ ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
     () @trusted{
         // make it easy for a user to pipe the output to the config file
         stderr.writeln("Dumping the configuration used. The format is TOML (.toml)");
-        stderr.writeln("If you want to use it put it in your 'dextool_mutate.toml'");
+        stderr.writeln("If you want to use it put it in your '.dextool_mutate.toml'");
     }();
 
     writeln(conf.toTOML);
 
     return ExitStatusType.Ok;
+}
+
+ExitStatusType modeInitConfig(ref ArgParser conf) @safe {
+    import std.stdio : File;
+    import std.file : exists;
+
+    if (exists(conf.miniConf.confFile)) {
+        logger.error("Configuration file already exists: ", conf.miniConf.confFile);
+        return ExitStatusType.Errors;
+    }
+
+    try {
+        File(conf.miniConf.confFile, "w").write(conf.toTOML);
+        logger.info("Wrote configuration to ", conf.miniConf.confFile);
+        return ExitStatusType.Ok;
+    } catch (Exception e) {
+        logger.error(e.msg);
+    }
+
+    return ExitStatusType.Errors;
 }
 
 ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
