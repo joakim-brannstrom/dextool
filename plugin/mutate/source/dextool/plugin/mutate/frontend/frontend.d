@@ -22,78 +22,78 @@ import dextool.plugin.mutate.utility;
 
 @safe:
 
-ExitStatusType runMutate(ArgParser conf) @trusted {
-    import dextool.compilation_db : CompileCommandFilter,
-        defaultCompilerFlagFilter, fromArgCompileDb;
-    import dextool.user_filerange;
-    import dextool.plugin.mutate.backend : Database;
+ExitStatusType runMutate(ArgParser conf) {
+    logger.trace("ToolMode: ", conf.data.toolMode);
 
-    CompileCommandDB fusedCompileDb;
+    alias Func1 = ExitStatusType function(ref ArgParser conf, ref DataAccess dacc) @safe;
+    Func1[ToolMode] modes;
 
-    if (conf.compileDb.dbs.length != 0) {
-        try {
-            fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
-        } catch (Exception e) {
-            logger.error(e.msg);
-            throw new Exception("Unable to open compile commands database(s)");
-        }
+    modes[ToolMode.analyzer] = &modeAnalyze;
+    modes[ToolMode.generate_mutant] = &modeGenerateMutant;
+    modes[ToolMode.test_mutants] = &modeTestMutants;
+    modes[ToolMode.report] = &modeReport;
+    modes[ToolMode.admin] = &modeAdmin;
+
+    if (auto f = conf.toolMode in modes) {
+        return () @trusted{
+            auto dacc = DataAccess.make(conf);
+            scope (exit)
+                dacc.io.release;
+            return (*f)(conf, dacc);
+        }();
     }
 
-    auto db = Database.make(conf.db, conf.mutationTest.mutationOrder);
-
-    return () @safe{
-        auto fe_io = new FrontendIO(conf.workArea.restrictDir,
-                conf.workArea.outputDirectory, conf.mutationTest.dryRun);
-        scope (success)
-            fe_io.release;
-        auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
-                conf.workArea.outputDirectory);
-
-        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles,
-                conf.compiler.extraFlags, conf.compileDb.flagFilter);
-
-        logger.trace("ToolMode: ", conf.data.toolMode);
-
-        final switch (conf.data.toolMode) {
-        case ToolMode.none:
-            logger.error("No mode specified");
-            return ExitStatusType.Errors;
-        case ToolMode.analyzer:
-            import dextool.plugin.mutate.backend : runAnalyzer;
-
-            return runAnalyzer(db, frange, fe_validate, fe_io);
-        case ToolMode.generate_mutant:
-            import dextool.plugin.mutate.backend : runGenerateMutant;
-
-            return runGenerateMutant(db, conf.data.mutation,
-                    conf.data.mutationId, fe_io, fe_validate);
-        case ToolMode.test_mutants:
-            import dextool.plugin.mutate.backend : makeTestMutant;
-
-            return makeTestMutant.mutations(conf.data.mutation).testSuiteProgram(conf.mutationTest.mutationTester)
-                .compileProgram(conf.mutationTest.mutationCompile).testCaseAnalyzeProgram(
-                        conf.mutationTest.mutationTestCaseAnalyze)
-                .testSuiteTimeout(conf.mutationTest.mutationTesterRuntime)
-                .testCaseAnalyzeBuiltin(conf.mutationTest.mutationTestCaseBuiltin).run(db, fe_io);
-        case ToolMode.report:
-            import dextool.plugin.mutate.backend : runReport;
-
-            return runReport(db, conf.data.mutation, conf.report, fe_io);
-        case ToolMode.admin:
-            import dextool.plugin.mutate.backend : makeAdmin;
-
-            return makeAdmin().operation(conf.admin.adminOp).mutations(conf.data.mutation)
-                .fromStatus(conf.admin.mutantStatus).toStatus(conf.admin.mutantToStatus)
-                .testCaseRegex(conf.admin.testCaseRegex).run(db);
-        case ToolMode.dumpConfig:
-            return modeDumpFullConfig(conf);
-        }
-    }();
+    switch (conf.toolMode) {
+    case ToolMode.none:
+        logger.error("No mode specified");
+        return ExitStatusType.Errors;
+    case ToolMode.dumpConfig:
+        return modeDumpFullConfig(conf);
+    default:
+        logger.error("Mode not supported. This should not happen. Contact the maintainer of dextool: ",
+                conf.data.toolMode);
+        return ExitStatusType.Errors;
+    }
 }
 
 private:
 
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
+
+struct DataAccess {
+    import dextool.compilation_db : CompileCommandFilter,
+        defaultCompilerFlagFilter, fromArgCompileDb;
+    import dextool.plugin.mutate.backend : Database;
+    import dextool.user_filerange;
+
+    Database db;
+    FrontendIO io;
+    FrontendValidateLoc validateLoc;
+    UserFileRange frange;
+    CompileCommandDB fusedCompileDb;
+
+    static auto make(ref ArgParser conf) @trusted {
+        CompileCommandDB fusedCompileDb;
+        if (conf.compileDb.dbs.length != 0) {
+            try {
+                fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
+            } catch (Exception e) {
+                logger.error(e.msg);
+                throw new Exception("Unable to open compile commands database(s)");
+            }
+        }
+
+        auto fe_io = new FrontendIO(conf.workArea.restrictDir,
+                conf.workArea.outputDirectory, conf.mutationTest.dryRun);
+        auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
+                conf.workArea.outputDirectory);
+        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles,
+                conf.compiler.extraFlags, conf.compileDb.flagFilter);
+
+        return DataAccess(Database.make(conf.db, conf.mutationTest.mutationOrder),
+                fe_io, fe_validate, frange, fusedCompileDb);
+    }
+}
 
 /** Responsible for ensuring that when the output from the backend is written
  * to a file it is within the user specified output directory.
@@ -234,4 +234,41 @@ ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
     writeln(conf.toTOML);
 
     return ExitStatusType.Ok;
+}
+
+ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
+    import dextool.plugin.mutate.backend : runAnalyzer;
+
+    return runAnalyzer(dacc.db, dacc.frange, dacc.validateLoc, dacc.io);
+}
+
+ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
+    import dextool.plugin.mutate.backend : runGenerateMutant;
+
+    return runGenerateMutant(dacc.db, conf.data.mutation, conf.data.mutationId,
+            dacc.io, dacc.validateLoc);
+}
+
+ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
+    import dextool.plugin.mutate.backend : makeTestMutant;
+
+    return makeTestMutant.mutations(conf.data.mutation).testSuiteProgram(conf.mutationTest.mutationTester)
+        .compileProgram(conf.mutationTest.mutationCompile).testCaseAnalyzeProgram(
+                conf.mutationTest.mutationTestCaseAnalyze)
+        .testSuiteTimeout(conf.mutationTest.mutationTesterRuntime)
+        .testCaseAnalyzeBuiltin(conf.mutationTest.mutationTestCaseBuiltin).run(dacc.db, dacc.io);
+}
+
+ExitStatusType modeReport(ref ArgParser conf, ref DataAccess dacc) {
+    import dextool.plugin.mutate.backend : runReport;
+
+    return runReport(dacc.db, conf.data.mutation, conf.report, dacc.io);
+}
+
+ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
+    import dextool.plugin.mutate.backend : makeAdmin;
+
+    return makeAdmin().operation(conf.admin.adminOp).mutations(conf.data.mutation)
+        .fromStatus(conf.admin.mutantStatus).toStatus(conf.admin.mutantToStatus)
+        .testCaseRegex(conf.admin.testCaseRegex).run(dacc.db);
 }
