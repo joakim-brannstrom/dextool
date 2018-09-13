@@ -269,11 +269,13 @@ struct ArgParser {
 
         void adminG(string[] args) {
             bool dump_conf;
+            bool init_conf;
             data.toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
+                "init", "create an initial config to use", &init_conf,
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
@@ -284,6 +286,8 @@ struct ArgParser {
 
             if (dump_conf)
                 data.toolMode = ToolMode.dumpConfig;
+            else if (init_conf)
+                data.toolMode = ToolMode.initConfig;
         }
 
         groups["analyze"] = &analyzerG;

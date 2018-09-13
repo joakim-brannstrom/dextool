@@ -32,6 +32,8 @@ enum ToolMode {
     admin,
     /// Dump the TOML configuration to the console
     dumpConfig,
+    /// Write a TOML config to the filesystem
+    initConfig,
 }
 
 /// Config of the report.
