@@ -241,9 +241,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
 
-            Table!3 tc_tbl;
+            Table!4 tc_tbl;
 
-            tc_tbl.heading = ["Percentage", "Count", "TestCase"];
+            tc_tbl.heading = ["Percentage", "Count", "TestCase", "Location"];
             const total = db.totalMutants(kinds);
             reportTestCaseStats(testCaseStat, total.count, conf.tcKillSortNum,
                     conf.tcKillSortOrder, tc_tbl);

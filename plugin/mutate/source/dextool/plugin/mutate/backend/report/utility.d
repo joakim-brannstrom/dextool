@@ -140,7 +140,7 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
  *  tbl = table to write the data to
  */
 void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
-        const long take_, const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
+        const long take_, const ReportKillSortOrder sort_order, ref Table!4 tbl) @safe nothrow {
     import std.algorithm : sort;
     import std.array : array;
     import std.conv : to;
@@ -174,7 +174,9 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
     foreach (v; takeOrder(mut_stat.byKeyValue.array.sort!cmp)) {
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
-            typeof(tbl).Row r = [percentage.to!string, v.value.to!string, v.key.toString];
+            typeof(tbl).Row r = [
+                percentage.to!string, v.value.to!string, v.key.name, v.key.location
+            ];
             tbl.put(r);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -183,6 +185,10 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
 }
 
 /** Update the table with those test cases that has killed zero mutants.
+ *
+ * Params:
+ *  zero_kills_test_cases = test cases with zero kills
+ *  tbl = output is written to this table
  */
 void reportDeadTestCases(TestCase[] zero_kills_test_cases, ref Table!2 tbl) @safe nothrow {
     foreach (tc; zero_kills_test_cases) {
