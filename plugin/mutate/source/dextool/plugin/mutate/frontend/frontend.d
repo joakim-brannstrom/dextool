@@ -230,7 +230,7 @@ ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
     () @trusted{
         // make it easy for a user to pipe the output to the config file
         stderr.writeln("Dumping the configuration used. The format is TOML (.toml)");
-        stderr.writeln("If you want to use it put it in your 'dextool_mutate.toml'");
+        stderr.writeln("If you want to use it put it in your '.dextool_mutate.toml'");
     }();
 
     writeln(conf.toTOML);
