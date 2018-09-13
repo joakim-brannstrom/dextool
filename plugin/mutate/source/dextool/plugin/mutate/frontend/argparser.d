@@ -159,7 +159,7 @@ struct ArgParser {
         const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
         const restrict_help = "restrict analysis to files in this directory tree (default: .)";
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
-        const conf_help = "load configuration (default: dextool_mutate.toml)";
+        const conf_help = "load configuration (default: .dextool_mutate.toml)";
 
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
@@ -275,7 +275,7 @@ struct ArgParser {
                 "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
-                "status", "change the state of the mutants --to-status unknown which currently have status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
+                "status", "change mutants with this state to the value specified by --to-statos " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
                 );
             // dfmt on
@@ -373,9 +373,6 @@ struct ArgParser {
             logger.errorf("--section possible values: %(%s|%)", [EnumMembers!ReportSection]);
             break;
         case admin:
-            logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
-            logger.errorf("--operation possible values: %(%s|%)", [EnumMembers!AdminOperation]);
-            logger.errorf("--status possible values: %(%s|%)", [EnumMembers!(Mutation.Status)]);
             break;
         default:
             break;
@@ -505,7 +502,7 @@ void loadConfig(ref ArgParser rval) @trusted {
 /// Minimal config to setup path to config file.
 struct MiniConfig {
     /// Value from the user via CLI, unmodified.
-    string rawConfFile = "dextool_mutate.toml";
+    string rawConfFile = ".dextool_mutate.toml";
 
     /// The configuration file that has been loaded
     AbsolutePath confFile;
