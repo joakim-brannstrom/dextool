@@ -24,7 +24,7 @@ import cpptooling.data;
 import cpptooling.data.symbol : Container;
 
 import cpptooling.analyzer.clang.ast : Visitor, ClangAST;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
+import cpptooling.utility.virtualfilesystem : FileName;
 
 import cpptooling.generator.gtest;
 import cpptooling.generator.gmock;
@@ -99,7 +99,7 @@ struct pod {
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     auto codegen = new CppModule;
@@ -141,7 +141,7 @@ private:
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     auto codegen = new CppModule;

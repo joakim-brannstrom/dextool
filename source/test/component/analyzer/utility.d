@@ -30,7 +30,7 @@ import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType,
     toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
+import cpptooling.utility.virtualfilesystem : FileName;
 
 final class TestVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
@@ -178,7 +178,7 @@ unittest {
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto code = format(raw_code, getValue!string, getValue!(string[], 1)[0],
             getValue!(string[], 1)[1]);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act

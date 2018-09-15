@@ -21,7 +21,6 @@ import cpptooling.data : TypeKind, USRType;
 import cpptooling.analyzer.clang.ast : ClangAST;
 import cpptooling.analyzer.clang.context;
 import cpptooling.data.symbol : Container;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
 import dextool.plugin.frontend.plantuml : Lookup;
 import dextool.plugin.backend.plantuml;
 
@@ -147,10 +146,9 @@ class A_ByCtor {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp/ctor.hpp",
-            cast(Content) format(comp_ctor, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp_a/a.hpp",
-            cast(Content) Snippet.comp_a);
+    be.ctx.virtualFileSystem.openAndWrite("/comp/ctor.hpp".FileName,
+            format(comp_ctor, getValue!string));
+    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/ctor.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -178,10 +176,9 @@ class A_ByParam {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp/a.hpp",
-            cast(Content) format(comp_method, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp_a/a.hpp",
-            cast(Content) Snippet.comp_a);
+    be.ctx.virtualFileSystem.openAndWrite("/comp/a.hpp".FileName,
+            format(comp_method, getValue!string));
+    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/a.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -207,10 +204,9 @@ void free_func(A%s a);
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp/fun.hpp",
-            cast(Content) format(comp_func, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp_a/a.hpp",
-            cast(Content) Snippet.comp_a);
+    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName,
+            format(comp_func, getValue!string));
+    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -238,11 +234,9 @@ class A_ByMember {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp/fun.hpp",
-            cast(Content) format(comp_func, getValue!string.length == 0
-                ? Snippet.include_comp_a : "", getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp_a/a.hpp",
-            cast(Content) Snippet.comp_a);
+    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName, format(comp_func,
+            getValue!string.length == 0 ? Snippet.include_comp_a : "", getValue!string));
+    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -287,9 +281,8 @@ A a;
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp/fun.hpp", cast(Content) comp);
-    be.ctx.virtualFileSystem.openAndWrite(cast(FileName) "/comp_a/a.hpp",
-            cast(Content) Snippet.comp_a);
+    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName, comp);
+    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 

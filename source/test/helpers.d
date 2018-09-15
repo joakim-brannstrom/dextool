@@ -7,7 +7,7 @@ module test.helpers;
 
 import cpptooling.utility.virtualfilesystem;
 
-void openAndWrite(ref VirtualFileSystem vfs, FileName fname, Content content) {
-    vfs.openInMemory(fname);
-    vfs.write(fname, content);
+void openAndWrite(ref VirtualFileSystem vfs, FileName fname, string content) {
+    auto f = vfs.openInMemory(fname);
+    f.write(content);
 }

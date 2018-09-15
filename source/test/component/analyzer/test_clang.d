@@ -19,7 +19,7 @@ import test.helpers;
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
+import cpptooling.utility.virtualfilesystem : FileName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeFalse, shouldBeTrue;
@@ -61,7 +61,7 @@ enum EnumFoo {
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
 
