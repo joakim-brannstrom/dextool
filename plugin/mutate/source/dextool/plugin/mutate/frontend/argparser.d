@@ -91,10 +91,10 @@ struct ArgParser {
         app.put("# path used as the root for accessing files");
         app.put(
                 "# dextool will not modify files that escape this root when it perform mutation testing");
-        app.put("# workdir =");
+        app.put("# root =");
         app.put("# restrict analysis to files in this directory tree");
         app.put("# this make it possible to only mutate certain parts of an application");
-        app.put("# it must be inside the workdir");
+        app.put("# it must be inside the root");
         app.put("# restrict = []");
         app.put(null);
 
@@ -462,7 +462,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     alias Fn = void delegate(ref ArgParser c, ref TOMLValue v);
     Fn[string] callbacks;
 
-    callbacks["workarea.workdir"] = (ref ArgParser c, ref TOMLValue v) {
+    callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRoot = v.str;
     };
     callbacks["workarea.restrict"] = (ref ArgParser c, ref TOMLValue v) {
