@@ -18,7 +18,7 @@ import logger = std.experimental.logger;
 
 public import dextool.plugin.mutate.type;
 public import dextool.plugin.mutate.backend : Mutation;
-import dextool.type : AbsolutePath, Path;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 import dextool.plugin.mutate.utility;
 
 @safe:
@@ -48,6 +48,7 @@ struct ArgParser {
         AbsolutePath db;
 
         bool help;
+        ExitStatusType exitStatus = ExitStatusType.Ok;
 
         MutationKind[] mutation;
 
@@ -173,6 +174,7 @@ struct ArgParser {
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
+                   "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "out", out_help, &outputDirectory,
@@ -193,6 +195,7 @@ struct ArgParser {
             string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "out", out_help, &outputDirectory,
                    "restrict", restrict_help, &restrictDir,
@@ -249,6 +252,7 @@ struct ArgParser {
             data.toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
                    "out", out_help, &outputDirectory,
@@ -273,6 +277,7 @@ struct ArgParser {
             data.toolMode = ToolMode.admin;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                "c|config", conf_help, &conf_file,
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "init", "create an initial config to use", &init_conf,
@@ -299,6 +304,7 @@ struct ArgParser {
         if (args.length < 2) {
             logger.error("Missing command");
             help = true;
+            exitStatus = ExitStatusType.Errors;
             return;
         }
 
@@ -314,13 +320,16 @@ struct ArgParser {
             } catch (std.getopt.GetOptException ex) {
                 logger.error(ex.msg);
                 help = true;
+                exitStatus = ExitStatusType.Errors;
             } catch (Exception ex) {
                 logger.error(ex.msg);
                 help = true;
+                exitStatus = ExitStatusType.Errors;
             }
         } else {
             logger.error("Unknown command: ", cg);
             help = true;
+            exitStatus = ExitStatusType.Errors;
             return;
         }
 
@@ -421,6 +430,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     } catch (Exception e) {
         logger.warning("Unable to read the configuration from ", rval.miniConf.confFile);
         logger.warning(e.msg);
+        rval.data.exitStatus = ExitStatusType.Errors;
         return;
     }
 
@@ -510,7 +520,7 @@ void loadConfig(ref ArgParser rval) @trusted {
 /// Minimal config to setup path to config file.
 struct MiniConfig {
     /// Value from the user via CLI, unmodified.
-    string rawConfFile = ".dextool_mutate.toml";
+    string rawConfFile;
 
     /// The configuration file that has been loaded
     AbsolutePath confFile;
@@ -520,7 +530,10 @@ struct MiniConfig {
 
 /// Returns: minimal config to load settings and setup working directory.
 MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
+    import std.file : exists;
     static import std.getopt;
+
+    immutable default_conf = ".dextool_mutate.toml";
 
     MiniConfig conf;
 
@@ -528,6 +541,8 @@ MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
         std.getopt.getopt(args, std.getopt.config.keepEndOfOptions, std.getopt.config.passThrough,
                 "c|config", "none not visible to the user", &conf.rawConfFile,
                 "short-plugin-help", "not visible to the user", &conf.shortPluginHelp);
+        if (conf.rawConfFile.length == 0 && exists(default_conf))
+            conf.rawConfFile = default_conf;
         conf.confFile = Path(conf.rawConfFile).AbsolutePath;
     } catch (Exception e) {
         logger.error("Invalid cli values: ", e.msg).collectException;

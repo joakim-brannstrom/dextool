@@ -39,9 +39,9 @@ auto runPlugin(string[] args) @safe {
 
     logger.trace(argp);
 
-    if (argp.help) {
+    if (argp.help || argp.data.exitStatus != ExitStatusType.Ok) {
         argp.printHelp;
-        return ExitStatusType.Ok;
+        return argp.data.exitStatus;
     }
 
     return runMutate(argp);

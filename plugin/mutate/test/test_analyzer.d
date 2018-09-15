@@ -9,7 +9,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall analyze the provided file")
+@(testId ~ "shall analyze the provided file")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
