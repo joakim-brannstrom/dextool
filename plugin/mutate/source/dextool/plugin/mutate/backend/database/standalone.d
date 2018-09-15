@@ -10,6 +10,13 @@ one at http://mozilla.org/MPL/2.0/.
 This module contains the a basic database interface that have minimal dependencies on internal modules.
 It is intended to be reusable from the test suite.
 
+Note that a `commit` may result in an exception.
+The correct way to handle a commit that fail is to rollback. Or rather it is the easy way.
+The other way would be to try the commmit at a later time.
+For now though this mean that `scope(success) db.commit` should never be used.
+Always use `scope(failure) db.rollback`. This ensures that a failed commit results in a rollback.
+By combining this with spinSqlQuery it means that it will be retried at a later time.
+
 The only acceptable dependency are:
  * ../type.d
  * ..backend/type.d
@@ -292,8 +299,6 @@ struct Database {
                 "INSERT INTO mutation (mp_id, kind, status) VALUES (:mp_id, :kind, :status)");
 
         db.begin;
-        scope (success)
-            db.commit;
         scope (failure)
             db.rollback;
 
@@ -351,6 +356,8 @@ struct Database {
             } catch (Exception e) {
             }
         }
+
+        db.commit;
     }
 
     /** Add a link between the mutation and what test case killed it.
@@ -399,8 +406,6 @@ struct Database {
             return;
 
         db.begin;
-        scope (success)
-            db.commit;
         scope (failure)
             db.rollback;
 
@@ -410,14 +415,12 @@ struct Database {
         immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
         auto stmt = db.prepare(add_tc_sql);
         foreach (tc; tcs) {
-            try {
-                stmt.reset;
-                stmt.bind(":name", tc.name);
-                stmt.execute;
-            } catch (Exception e) {
-                logger.trace(e.msg);
-            }
+            stmt.bind(":name", tc.name);
+            stmt.execute;
+            stmt.reset;
         }
+
+        db.commit;
     }
 
     /// Returns: detected test cases.
@@ -535,21 +538,20 @@ struct Database {
 
     /// Remove these test cases from those linked to having killed a mutant.
     void removeTestCases(const(TestCase)[] tcs) @trusted {
-        import std.format : format;
-
         immutable sql = format("DELETE FROM %s WHERE name == :name", killedTestCaseTable);
         auto stmt = db.prepare(sql);
 
         db.begin;
-        scope (success)
-            db.commit;
         scope (failure)
             db.rollback;
+
         foreach (tc; tcs) {
-            stmt.reset;
             stmt.bind(":name", tc.name);
             stmt.execute;
+            stmt.reset;
         }
+
+        db.commit;
     }
 }
 
