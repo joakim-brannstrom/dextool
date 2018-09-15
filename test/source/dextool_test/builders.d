@@ -63,6 +63,8 @@ struct BuildDextoolRun {
     auto setWorkdir(T)(T v) {
         static if (is(T == string))
             workdir_ = v;
+        else static if (is(T == typeof(null)))
+            workdir_ = null;
         else
             workdir_ = v.toString;
         return this;
@@ -119,7 +121,9 @@ struct BuildDextoolRun {
     }
 
     auto addInputArg(string[] v) {
-        post_args ~= v.map!(a => Path(a)).map!(a => "--in=" ~ a.escapePath).array();
+        post_args ~= v.map!(a => Path(a))
+            .map!(a => "--in=" ~ a.escapePath)
+            .array();
         return this;
     }
 
@@ -167,7 +171,8 @@ struct BuildDextoolRun {
         cmd ~= dextool;
         cmd ~= args_.dup;
         cmd ~= post_args;
-        cmd ~= "--out=" ~ workdir_;
+        if (workdir_.length != 0)
+            cmd ~= "--out=" ~ workdir_;
 
         if (arg_debug) {
             cmd ~= "--debug";
