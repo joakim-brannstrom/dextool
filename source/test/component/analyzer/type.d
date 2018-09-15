@@ -26,7 +26,7 @@ import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType,
     toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
+import cpptooling.utility.virtualfilesystem : FileName;
 
 /* These lines are useful when debugging.
 import unit_threaded;
@@ -296,7 +296,7 @@ version (linux) {
         visitor.find = "c:@F@__uselocale";
 
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+        ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
         auto tu = ctx.makeTranslationUnit("issue.hpp");
 
         // act
@@ -343,8 +343,8 @@ unittest {
     // arrange
     auto visitor = new TestVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp",
-            cast(Content) format(code, getValue!string, getValue!string));
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, format(code,
+            getValue!string, getValue!string));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -391,7 +391,7 @@ extern gun_type gun_func;
     visitor.find = "c:@F@gun_func#I#";
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -421,7 +421,7 @@ int* p1;
     // arrange
     auto visitor = new TestVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -451,7 +451,7 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
     visitor.find = "c:@F@func#1**1d#1**1$@S@Struct#";
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -502,7 +502,7 @@ void gun() {}
     visitor.find = "c:@F@fun";
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -529,7 +529,7 @@ fun_ptr *f;
     auto visitor = new TestVisitor;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act
@@ -563,8 +563,8 @@ class A_ByCtor { A_ByCtor(A a); };";
     auto visitor = new TestRecordVisitor;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/def.hpp", cast(Content) code_def);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
+    ctx.virtualFileSystem.openAndWrite("/def.hpp".FileName, code_def);
     auto tu0 = ctx.makeTranslationUnit("/issue.hpp");
     auto tu1 = ctx.makeTranslationUnit("/def.hpp");
 
@@ -593,7 +593,7 @@ unittest {
     // arrange
     auto visitor = new TestDeclVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) getValue!string);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, getValue!string);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
     // act
@@ -622,7 +622,7 @@ class A {
     // arrange
     auto visitor = new TestFunctionBodyVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
     // act
@@ -649,7 +649,7 @@ struct A {
     // arrange
     auto visitor = new TestUnionVisitor;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
     // act
@@ -672,7 +672,7 @@ const some_array& some_func();
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     visitor.find = "c:@F@some_func#";
@@ -700,7 +700,7 @@ void my_func(myString3 s);
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
 
@@ -736,8 +736,7 @@ class Class {
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp",
-            cast(Content) format(code, getValue!string));
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, format(code, getValue!string));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new ClassVisitor;
 

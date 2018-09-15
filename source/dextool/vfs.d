@@ -104,6 +104,10 @@ public import dextool.type : FileName;
         this.write(trustedCast!(ubyte[])(content));
     }
 
+    void clear() @safe {
+        this.payload.mem.data = this.payload.mem.data[0 .. 0];
+    }
+
     // Note: it is NOT safe to return a string because the buffer mutates if
     // the file on disk is changed.
     scope const(char)[] toChars() @safe {
@@ -217,7 +221,7 @@ struct VirtualFileSystem {
      * Returns: range of the filenames in the VFS.
      */
     auto files() @trusted pure nothrow const @nogc {
-        return rev_files.byKey;
+        return rev_files.byValue;
     }
 }
 

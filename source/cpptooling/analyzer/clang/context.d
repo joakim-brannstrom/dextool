@@ -31,8 +31,7 @@ struct ClangContext {
     import clang.Index : Index;
     import clang.TranslationUnit : TranslationUnit;
 
-    import cpptooling.utility.virtualfilesystem : VirtualFileSystem, FileName,
-        Content;
+    import cpptooling.utility.virtualfilesystem : VirtualFileSystem, FileName;
 
     import clang.c.Index : CXTranslationUnit_Flags;
 
@@ -73,17 +72,17 @@ struct ClangContext {
     this(Flag!"useInternalHeaders" useInternalHeaders,
             Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
         this.index = Index(false, false);
-        virtualFileSystem = VirtualFileSystem();
+        this.virtualFileSystem = VirtualFileSystem();
 
         if (useInternalHeaders) {
-            import cpptooling.utility.virtualfilesystem : FileName, Content;
+            import cpptooling.utility.virtualfilesystem : FileName;
             import clang.Compiler : Compiler;
 
             Compiler compiler;
             this.internal_header_arg = compiler.extraIncludeFlags;
             foreach (hdr; compiler.extraHeaders) {
-                virtualFileSystem.openInMemory(cast(FileName) hdr.filename);
-                virtualFileSystem.write(cast(FileName) hdr.filename, cast(Content) hdr.content);
+                auto f = virtualFileSystem.openInMemory(hdr.filename.FileName);
+                f.write(hdr.content);
             }
         }
 

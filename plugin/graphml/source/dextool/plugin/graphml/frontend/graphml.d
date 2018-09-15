@@ -169,8 +169,6 @@ ExitStatusType pluginMain(GraphMLFrontend variant, const string[] in_cflags,
 
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.symbol : Container;
-    import cpptooling.utility.virtualfilesystem : vfsFileName = FileName,
-        vfsMode = Mode;
     import dextool.plugin.graphml.backend : GraphMLAnalyzer,
         TransformToXmlStream;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;

@@ -84,7 +84,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
                         db.removeFile(relp);
                     }
 
-                    auto cs = checksum(ctx.virtualFileSystem.slice!(ubyte[])(a.path.FileName));
+                    auto cs = checksum(ctx.virtualFileSystem.open(a.path.FileName)[]);
                     db.put(Path(relp), cs, a.lang);
                 } catch (Exception e) {
                     logger.warning(e.msg);

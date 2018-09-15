@@ -29,7 +29,7 @@ import cpptooling.data.symbol : Container;
 import cpptooling.data.representation;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, CppNsStack,
     USRType, toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName, Content;
+import cpptooling.utility.virtualfilesystem : FileName;
 
 /* These lines are useful when debugging.
 import unit_threaded;
@@ -101,7 +101,7 @@ public:
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite(cast(FileName) "/issue.hpp", cast(Content) code);
+    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     //visitor.find = "c:@F@some_func#";
