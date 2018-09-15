@@ -165,8 +165,6 @@ struct ArgParser {
         string conf_file;
 
         string db;
-        string outputDirectory;
-        string[] restrictDir;
 
         void analyzerG(string[] args) {
             string[] compile_dbs;
@@ -177,8 +175,8 @@ struct ArgParser {
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "out", out_help, &workArea.rawRoot,
+                   "restrict", restrict_help, &workArea.rawRestrict,
                    );
             // dfmt on
 
@@ -197,8 +195,8 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "out", out_help, &workArea.rawRoot,
+                   "restrict", restrict_help, &workArea.rawRestrict,
                    "id", "mutate the source code as mutant ID", &cli_mutation_id,
                    );
             // dfmt on
@@ -229,8 +227,8 @@ struct ArgParser {
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "out", out_help, &workArea.rawRoot,
+                   "restrict", restrict_help, &workArea.rawRestrict,
                    "test", "program used to run the test suite", &mutationTester,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
@@ -255,8 +253,8 @@ struct ArgParser {
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
-                   "out", out_help, &outputDirectory,
-                   "restrict", restrict_help, &restrictDir,
+                   "out", out_help, &workArea.rawRoot,
+                   "restrict", restrict_help, &workArea.rawRestrict,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &report.reportSection,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
@@ -342,16 +340,20 @@ struct ArgParser {
         else if (data.db.length == 0)
             data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
 
-        if (outputDirectory.length != 0)
-            workArea.outputDirectory = AbsolutePath(Path(outputDirectory.toRealPath));
-        else if (workArea.outputDirectory.length == 0)
-            workArea.outputDirectory = ".".toRealPath.Path.AbsolutePath;
+        if (workArea.rawRoot.length != 0)
+            workArea.outputDirectory = AbsolutePath(Path(workArea.rawRoot.toRealPath));
+        else if (workArea.outputDirectory.length == 0) {
+            workArea.rawRoot = ".";
+            workArea.outputDirectory = workArea.rawRoot.toRealPath.Path.AbsolutePath;
+        }
 
-        if (restrictDir.length != 0)
-            workArea.restrictDir = restrictDir.map!(
+        if (workArea.rawRestrict.length != 0)
+            workArea.restrictDir = workArea.rawRestrict.map!(
                     a => AbsolutePath(FileName(a.toRealPath))).array;
-        else if (workArea.restrictDir.length == 0)
+        else if (workArea.restrictDir.length == 0) {
+            workArea.rawRestrict = [workArea.rawRoot];
             workArea.restrictDir = [workArea.outputDirectory];
+        }
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }
@@ -399,6 +401,29 @@ struct ArgParser {
     }
 }
 
+/** Print a help message conveying how files in the compilation database will
+ * be analyzed.
+ *
+ * It must be enough information that the user can adjust `--out` and `--restrict`.
+ */
+void printFileAnalyzeHelp(ref ArgParser ap) @safe {
+    logger.infof("Reading compilation database:\n%(%s\n%)", ap.compileDb.dbs);
+
+    logger.info(
+            "Analyze and mutation of files will only be done on those inside this directory root");
+    logger.info("  User input: ", ap.workArea.rawRoot);
+    logger.info("  Real path: ", ap.workArea.outputDirectory);
+    logger.info("Further restricted to those inside these paths");
+
+    assert(ap.workArea.rawRestrict.length == ap.workArea.restrictDir.length);
+    foreach (idx; 0 .. ap.workArea.rawRestrict.length) {
+        if (ap.workArea.rawRestrict[idx] == ap.workArea.rawRoot)
+            continue;
+        logger.info("  User input: ", ap.workArea.rawRestrict[idx]);
+        logger.info("  Real path: ", ap.workArea.restrictDir[idx]);
+    }
+}
+
 /** Load the configuration from file.
  *
  * Example of a TOML configuration
@@ -438,10 +463,10 @@ void loadConfig(ref ArgParser rval) @trusted {
     Fn[string] callbacks;
 
     callbacks["workarea.workdir"] = (ref ArgParser c, ref TOMLValue v) {
-        c.workArea.outputDirectory = AbsolutePath(Path(v.str.toRealPath));
+        c.workArea.rawRoot = v.str;
     };
     callbacks["workarea.restrict"] = (ref ArgParser c, ref TOMLValue v) {
-        c.workArea.restrictDir = v.array.map!(a => a.str.toRealPath.Path.AbsolutePath).array;
+        c.workArea.rawRestrict = v.array.map!(a => a.str).array;
     };
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
         c.db = v.str.Path.AbsolutePath;

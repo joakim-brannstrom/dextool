@@ -87,6 +87,10 @@ struct ConfigAdmin {
 }
 
 struct ConfigWorkArea {
+    /// User input root.
+    string rawRoot;
+    string[] rawRestrict;
+
     AbsolutePath outputDirectory;
     AbsolutePath[] restrictDir;
 }
