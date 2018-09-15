@@ -27,7 +27,7 @@ Params:
     reldir = file paths are adjusted to be relative to this parameter.
   */
 struct GtestParser {
-    import std.regex : regex, ctRegex, matchFirst, matchAll;
+    import std.regex : ctRegex, matchFirst, matchAll;
 
     private {
         // example: [==========] Running
@@ -905,6 +905,5 @@ version (unittest) {
 "[----------] 3 tests from MessageTest (0 ms total)",
         ];
     }
-
     // dfmt on
 }
