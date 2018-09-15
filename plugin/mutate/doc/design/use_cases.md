@@ -37,10 +37,15 @@ The inspection should verify that the test procedures have used the required tes
  * Time-related functions test,
  * Robustness range test design for techniques above
 
-See [@softwareVerAndVal] for inspiration
+See [@softwareVerAndVal] for inspiration.
 
 ## Note
-It is costly to develop test cases because inspection is used to verify that they adher to the test design methods by manual inspection. The intention is to try and automate parts or all of this to lower the development cost and at the same time follow DO-178C.
+It is costly to develop test cases because inspection is used to verify that they adhere to the test design methods by manual inspection. The intention is to try and automate parts or all of this to lower the development cost and at the same time follow DO-178C.
+
+## Note 2
+It may not be feasible to completely replace an activity. But parts of them should be possible. One that is currently being explored is to ensure a certain minimal quality of test cases.
+ * Test cases must verify *something*. A test case that do not kill any mutant is probably a junk test.
+ * Test cases that fully overlap what they test. Test cases that kill exactly the same set of mutants are probably equivalent. One of them is probably redundant.
 
 # REQ-plugin_mutate_test_design_metric
 partof: REQ-plugin_mutate_inspection_of_test_proc
@@ -78,3 +83,16 @@ A draft of a workflow and architecture would be.
  * The user import the previous analysis from file X into deXtool.
  * The user export a mutation result report to file Y (same fileformat as X).
  * The user only has to go through and determine equivalence for the new mutations.
+
+# REQ-plugin_mutate_uc_understand_analyze
+partof:
+###
+
+The user wants to help to understand what is being analyzed and mutated.
+
+## Why?
+
+It has been observed that it is hard for a user to understand this when the user uses symlinks.
+On one hand the plugin try to protect the user from rogue symlinks that point "outside" the e.g. a git repo. But on the other hand resolving the real path for symlinks makes it hard for an user that has symlinks to the source code from where they are building.
+
+Do not underestimate this point and the frustration it creates for an user. It leads to considerable irritation. To such a degree that the user will not use the tool.
