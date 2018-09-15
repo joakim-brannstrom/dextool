@@ -12,10 +12,11 @@ generate a mutant for it.
 */
 module dextool.plugin.mutate.backend.generate_mutant;
 
-import std.exception : collectException;
-import std.typecons : Nullable;
 import logger = std.experimental.logger;
+import std.exception : collectException;
 import std.path : buildPath;
+import std.typecons : Nullable;
+import std.utf : validate;
 
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
@@ -135,13 +136,14 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
         return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 
-    // must copy the memory because content is backed by a memory mapped file and can thus change
-    const string from_ = (cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end])
-        .idup;
-
     auto mut = makeMutation(mutp.mp.mutations[0].kind, mutp.lang);
 
     try {
+        auto from_ = () @trusted{
+            return cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end];
+        }();
+        from_.validate;
+
         fout.write(mut.top());
         auto s = content.drop(mutp.mp.offset);
         fout.write(s.front);

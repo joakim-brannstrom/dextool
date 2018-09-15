@@ -8,6 +8,11 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 Abstractions merging in-memory *file like objects" with memory mapped files.
+
+In in-memory *file like objects* abstraction.
+Objects are read-only.
+
+They can be either constructed from files on the filesystem or from memory.
 */
 module dextool.vfs;
 
@@ -16,11 +21,6 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 public import dextool.type : FileName;
-
-enum Mode {
-    read,
-    readWrite
-}
 
 /**
  * TODO use DIP-1000 to implement slices that do not escape the scope.
@@ -97,11 +97,7 @@ enum Mode {
     void write(const(ubyte)[] content) {
         assert(payload.isInitialized);
 
-        if (payload.mem.isMmf) {
-            owner.appendMmf(payload.mem, content);
-        } else {
-            payload.mem.data ~= content;
-        }
+        payload.mem.data ~= content;
     }
 
     void write(string content) @safe {
@@ -133,30 +129,18 @@ enum Mode {
  * The lookup rule for a filename is:
  *  - in-memory container.
  *  - load from the filesystem.
- *
- * TODO Is it better to have everything as MMF?
- * I think it would be possible to have the source code as an anonymous MMF.
  */
 struct VirtualFileSystem {
     import std.typecons : nullableRef;
-    import std.mmfile : MmFile;
 
     private {
         struct RefCntMem {
             ubyte[] data;
             size_t count;
-            bool isMmf;
 
-            this(bool is_mmf) @safe pure nothrow {
+            this(bool dummy) @safe pure nothrow {
                 this.count = 1;
-                this.isMmf = is_mmf;
             }
-        }
-
-        struct MmFSize {
-            MmFile file;
-            Mode mode;
-            size_t size;
         }
 
         // enables *fast* reverse mapping of a ptr to its filename.
@@ -164,28 +148,19 @@ struct VirtualFileSystem {
         FileName[RefCntMem* ] rev_files;
 
         RefCntMem*[FileName] files_;
-        MmFSize[RefCntMem* ] filesys;
     }
 
+    // The VFS is expected to be "static". A pointer to an object is always valid.
     // The VFS is "heavy", forbid movement.
     @disable this(this);
 
     /** Release all resources held by the VFS.
-     *
-     * trusted: the memory mapped files are NOT really trusted until DIP-1000
-     * is used. This is because the slices that leave them can be stored/used
-     * at other places in such a manner that the ptr of the slice reference a
-     * memory mapped file that has been released.
      *
      * But this is so far a minor problem that is partially mitigated by
      * disabling the postblit. This mean that the VFS commonly have a lifetime
      * that is longer than the users of the slices.
      */
     void release() @trusted nothrow {
-        foreach (f; filesys.byValue()) {
-            f.destroy;
-        }
-        filesys.clear;
         files_.clear;
         rev_files.clear;
     }
@@ -195,38 +170,17 @@ struct VirtualFileSystem {
      * Params:
      *   fname = file to map into the VFS
      */
-    VfsFile open(FileName fname, Mode mode = Mode.read) @safe {
+    VfsFile open(FileName fname) @safe {
         if (auto v = fname in files_) {
             (*v).count += 1;
             return VfsFile(nullableRef(&this), *v);
         }
 
-        import std.file : getSize, exists;
+        static import std.file;
 
-        auto mmf_mode = mode == Mode.read ? MmFile.Mode.read : MmFile.Mode.readWriteNew;
+        auto mem = new RefCntMem(false);
+        mem.data = () @trusted{ return cast(ubyte[]) std.file.read(fname); }();
 
-        size_t sz;
-        size_t buf_size;
-        if (exists(cast(string) fname)) {
-            sz = getSize(cast(string) fname);
-            buf_size = sz;
-        }
-
-        // a new file must have a buffer size > 0 or it crashes.
-        if (buf_size == 0)
-            buf_size = 1;
-
-        // TODO I'm not sure what checks need to be added to make this safe.
-        // Should be doable so marking it as safe for now with the intention of
-        // revisiting this to ensure it is safe.
-        auto mmf = () @trusted{
-            return new MmFile(cast(string) fname, mmf_mode, buf_size, null);
-        }();
-
-        auto mem = new RefCntMem(true);
-        mem.data = () @trusted{ return cast(ubyte[]) mmf[0 .. mmf.length]; }();
-
-        filesys[mem] = MmFSize(mmf, mode, sz);
         files_[fname] = mem;
         rev_files[mem] = fname;
 
@@ -252,31 +206,8 @@ struct VirtualFileSystem {
 
     private void close(FileName fname) @safe nothrow @nogc {
         if (auto v = fname in files_) {
-            if ((*v).isMmf) {
-                if (auto mmf = *v in filesys) {
-                    mmf.destroy;
-                    filesys.remove(*v);
-                }
-            }
             rev_files.remove(*v);
             files_.remove(fname);
-        }
-    }
-
-    /** Append data to a memory mapped file. */
-    private void appendMmf(VirtualFileSystem.RefCntMem* mem, const(ubyte)[] data) @safe {
-        assert(mem.isMmf);
-
-        if (auto mmf = mem in filesys) {
-            const orig_sz = mmf.size;
-
-            mem.data = () @trusted{
-                return cast(ubyte[])(*mmf).file[0 .. mmf.size + data.length];
-            }();
-            mmf.size += data.length;
-            mem.data[orig_sz .. $] = data[];
-        } else {
-            assert(0);
         }
     }
 

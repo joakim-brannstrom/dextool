@@ -34,7 +34,7 @@ Checksum checksum(const(ubyte)[] a) @safe {
 }
 
 /// Package the values to a checksum.
-Checksum ckecksum(T)(const(T[2]) a) @safe if (T.sizeof == 8) {
+Checksum checksum(T)(const(T[2]) a) @safe if (T.sizeof == 8) {
     return Checksum(cast(ulong) a[0], cast(ulong) a[1]);
 }
 
