@@ -566,12 +566,12 @@ MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
         std.getopt.getopt(args, std.getopt.config.keepEndOfOptions, std.getopt.config.passThrough,
                 "c|config", "none not visible to the user", &conf.rawConfFile,
                 "short-plugin-help", "not visible to the user", &conf.shortPluginHelp);
-        if (conf.rawConfFile.length == 0 && exists(default_conf))
+        if (conf.rawConfFile.length == 0)
             conf.rawConfFile = default_conf;
         conf.confFile = Path(conf.rawConfFile).AbsolutePath;
     } catch (Exception e) {
-        logger.error("Invalid cli values: ", e.msg).collectException;
         logger.trace(conf).collectException;
+        logger.error(e.msg).collectException;
     }
 
     return conf;
