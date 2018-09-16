@@ -8,16 +8,6 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
 #SPC-plugin_mutate_track_ctest
-
-# Design
-The parser is a strict Moore FSM.
-The FSM is small enough that a switch implementation is good enough, clear and explicit.
-
-The parser has a strict separation of the *next state* and *action*.
-This is to make it easier to unittest the FSM is so is needed.
-It also makes it easier to understand what the state transitions are dependent on and when an action is performed.
-
-The calculation of the next state is a strongly pure function to enforce that it is only dependent on the input. See: `nextState`.
 */
 module dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
 
@@ -25,95 +15,126 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport,
+    GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 
 /** Parse input for ctest test cases.
-Params:
-    r = range that is chunked by line
-    report = where the results are put.
-  */
+ *
+ * Params:
+ *  r = range that is chunked by line
+ *  report = where the results are put.
+ */
 struct CtestParser {
-    import std.regex : regex, ctRegex, matchFirst;
+    import std.regex : ctRegex, matchFirst;
 
     private {
-        // example: The following tests FAILED:
-        enum re_start_failing_tc_list = ctRegex!(`^\s*The following tests FAILED`);
-        // example: 40 - gtest-typed-test_test (OTHER_FAULT)
-        enum re_fail_msg = ctRegex!(`^\s*\d*\s*-\s*(?P<tc>.*?)\s*\(.*\)`);
-        // example: Errors while running CTest
-        enum re_end_failing_tc_list = ctRegex!(`^\s*Errors while running CTest`);
+        // example: Start 35: gtest_repeat_test
+        enum re_start_tc = ctRegex!(`^\s*Start\s*\d*:\s*(?P<tc>.*)`);
+        // example:  2/3  Test  #2: gmock-cardinalities_test ................***Failed    0.00 sec
+        enum re_fail_tc = ctRegex!(`.*?Test.*:\s*(?P<tc>.*?)\s*\.*\*\*\*.*`);
 
-        FsmData data;
+        StateData data;
     }
 
     void process(T)(T line, TestCaseReport report) {
         import std.range : put;
         import std.string : strip;
 
-        auto fail_msg_match = matchFirst(line, re_fail_msg);
-        data.hasStartOfList = !matchFirst(line, re_start_failing_tc_list).empty;
-        data.hasFailedMessage = !fail_msg_match.empty;
-        data.hasEndOfList = !matchFirst(line, re_end_failing_tc_list).empty;
+        auto start_tc_match = matchFirst(line, re_start_tc);
+        auto fail_tc_match = matchFirst(line, re_fail_tc);
 
-        {
-            auto rval = nextState(data);
-            data.st = rval[0];
-            data.act = rval[1];
-        }
+        data.hasStartTc = !start_tc_match.empty;
+        data.hasFailTc = !fail_tc_match.empty;
 
-        final switch (data.act) with (Action) {
-        case none:
-            break;
-        case putTestCase:
-            report.reportFailed(TestCase(fail_msg_match["tc"].strip.idup));
-            break;
-        }
+        if (data.hasStartTc)
+            report.reportFound(TestCase(start_tc_match["tc"].idup));
+
+        if (data.hasFailTc)
+            report.reportFailed(TestCase(fail_tc_match["tc"].idup));
     }
 }
 
 private:
 
-enum State {
-    findStartOfList,
-    extractTestCase,
+struct StateData {
+    bool hasStartTc;
+    bool hasFailTc;
 }
 
-enum Action {
-    none,
-    putTestCase,
+version (unittest) {
+    import std.algorithm : each, sort;
+    import std.array : array;
+    import dextool.type : FileName;
+    import unit_threaded : shouldEqual, shouldBeIn;
 }
 
-struct FsmData {
-    State st;
-    Action act;
+@("shall report the failed test cases")
+unittest {
+    auto app = new GatherTestCase;
+    CtestParser parser;
+    testData2.each!(a => parser.process(a, app));
 
-    bool hasStartOfList;
-    bool hasFailedMessage;
-    bool hasEndOfList;
+    // dfmt off
+    shouldEqual(app.failedAsArray.sort,
+                [TestCase("gmock-cardinalities_test")]
+                );
+    // dfmt on
 }
 
-auto nextState(immutable FsmData d) @safe pure nothrow @nogc {
-    import std.typecons : tuple;
+@("shall report the found test cases")
+unittest {
+    auto app = new GatherTestCase;
+    CtestParser parser;
+    testData1.each!(a => parser.process(a, app));
 
-    State next = d.st;
-    Action act = d.act;
+    // dfmt off
+    shouldEqual(app.foundAsArray.sort, [
+                TestCase("gmock-actions_test"),
+                TestCase("gmock-cardinalities_test"),
+                TestCase("gmock_ex_test")
+                ]);
+    // dfmt on
+}
 
-    final switch (d.st) with (State) {
-    case findStartOfList:
-        act = Action.none;
-        if (d.hasStartOfList)
-            next = extractTestCase;
-        break;
-    case extractTestCase:
-        act = Action.none;
-        if (d.hasFailedMessage)
-            act = Action.putTestCase;
-        else if (d.hasEndOfList)
-            next = findStartOfList;
-        break;
+version (unittest) {
+    string[] testData1() {
+        // dfmt off
+        return [
+"Test project /home/joker/src/cpp/googletest/build",
+"      Start  1: gmock-actions_test",
+" 1/3  Test  #1: gmock-actions_test ......................   Passed    1.61 sec",
+"      Start  2: gmock-cardinalities_test",
+" 2/3  Test  #2: gmock-cardinalities_test ................   Passed    0.00 sec",
+"      Start  3: gmock_ex_test",
+" 3/3  Test  #3: gmock_ex_test ...........................   Passed    0.01 sec",
+"",
+"100% tests passed, 0 tests failed out of 3",
+"",
+"Total Test time (real) =   7.10 sec",
+        ];
+        // dfmt on
     }
 
-    return tuple(next, act);
+    string[] testData2() {
+        // dfmt off
+        return [
+"Test project /home/joker/src/cpp/googletest/build",
+"      Start  1: gmock-actions_test",
+" 1/3  Test  #1: gmock-actions_test ......................   Passed    1.61 sec",
+"      Start  2: gmock-cardinalities_test",
+" 2/3  Test  #2: gmock-cardinalities_test ................***Failed    0.00 sec",
+"      Start  3: gmock_ex_test",
+" 3/3  Test  #3: gmock_ex_test ...........................   Passed    0.01 sec",
+"",
+"100% tests passed, 0 tests failed out of 3",
+"",
+"Total Test time (real) =   7.10 sec",
+"",
+"The following tests FAILED:",
+"         15 - gmock-cardinalities_test (Failed)",
+        ];
+        // dfmt on
+    }
 }

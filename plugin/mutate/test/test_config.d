@@ -21,3 +21,13 @@ unittest {
     auto res = makeDextoolAnalyze(testEnv).addArg(["-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString])
         .addArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString]).run;
 }
+
+@(testId ~ "shall create a config file when called with --init from admin subcommand")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    auto res = makeDextool(testEnv).setWorkdir(null).args(["mutate", "admin"])
+        .postArg(["-c", (testEnv.outdir ~ "myconf.toml").toString]).addPostArg("--init").run;
+
+    exists((testEnv.outdir ~ "myconf.toml").toString).shouldBeTrue;
+}

@@ -57,8 +57,14 @@ This probably need to be "weighted" against other mutants so it is *dynamic* for
 
 This should make it possible to statically find *semantically high impact mutants* cheaply. No need to even have a test suite.
 
-# SPC-mutate_analyzer-junk_tests
+# SPC-plugin_mutate_analyzer-junk_tests
 partof: SPC-plugin_mutate_analyzer
 ###
 
 The plugin shall report test cases that has killed zero mutants when the user requests such a report via the *CLI*.
+
+# SPC-plugin_mutate_analyzer-understand
+partof: REQ-plugin_mutate_uc_understand_analyze
+###
+
+The plugin shall print a message containing the root directory and restrictions when beginning analyze for mutants.

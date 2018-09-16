@@ -33,20 +33,43 @@ cd googletest
 Generate a JSON compilation database for the project:
 ```sh
 mkdir build
-cd build
+pushd build
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 make
+popd
+```
+
+Create a configuration file:
+```sh
+dextool mutate admin --init
+```
+
+Open the config file and change the following fields:
+```toml
+[workarea]
+restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
+[database]
+db = "dextool_mutate.sqlite3"
+[compiler]
+extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
+[compile_commands]
+search_paths = ["./build/compile_commands.json"]
+[mutant_test]
+test_cmd = "test.sh"
+compile_cmd = "compile.sh"
+analyze_using_builtin = ["gtest", "ctest"]
 ```
 
 Generate a database of all mutation points:
 ```sh
-dextool mutate analyze --compile-db compile_commands.json --out .. --restrict ../googlemock/include --restrict ../googlemock/src --restrict ../googletest/include --restrict ../googletest/src -- -D_POSIX_PATH_MAX=1024
+dextool mutate analyze
 ```
 
-Create a file `tester.sh` that will run the entire test suite when invoked:
+Create a file `test.sh` that will run the entire test suite when invoked:
 ```sh
 #!/bin/bash
 set -e
+cd build
 ctest --output-on-failure -j4
 ```
 
@@ -54,29 +77,39 @@ Create a file `compile.sh` that will build the entire project when invoked:
 ```sh
 #!/bin/bash
 set -e
+cd build
 make -j$(nproc)
-```
-
-Create a file `test_analyze.sh` that will identify a failing test from stdout:
-```sh
-#!/bin/bash
-# The binaries that failed
-grep -h "(Failed)" $1 $2
 ```
 
 Make the files executable so they can be used by dextool:
 ```sh
 chmod 755 test.sh
 chmod 755 compile.sh
-chmod 755 test_analyze.sh
 ```
 
 Run the mutation testing:
 ```sh
-dextool mutate test --test ./test.sh --compile ./compile.sh --test-case-analyze-cmd ./test_analyze.sh --out .. --mutant lcr
+dextool mutate test --mutant lcr
 ```
 
-Dextool has builtin support for Google Test which improves the tracking to the test case and file level. To use the builtin support, change the `--test-case-analyze-cmd ./test_analyze.sh` to `--test-case-analyze-builtin gtest --test-case-analyze-builtin ctest`
+## Custom Test Analyzer
+
+Create a file `test_analyze.sh` that will identify a failing test from stdout:
+```sh
+#!/bin/bash
+# The arguments are paths to stdout ($1) and stderr ($2).
+grep -h "(Failed)" $1 $2
+```
+
+Don't forget to make it executable:
+```sh
+chmod 755 test_analyze.sh
+```
+
+And configure dextool to use it. Either via CLI (`--test-case-analyze-cmd`) or config:
+```toml
+analyze_cmd = "test_analyze.sh"
+```
 
 ## Parallel Run
 
@@ -88,13 +121,13 @@ To see the result of the mutation testing and thus specifically those that survi
 It prints a summary and the mutants that survived.
 
 ```sh
-dextool mutate report --out .. --level alive --mutant lcr
+dextool mutate report --level alive --mutant lcr
 ```
 
 But it is possible to in more detail control what sections are printed for the `--plain` printer.
 Lets say we want to print the test case statistics, the summary and the killed mutants.
 ```sh
-dextool mutate report --out .. --section tc_stat --section summary --section killed --mutant lcr
+dextool mutate report --section tc_stat --section summary --section killed --section tc_killed_no_mutants --mutant lcr
 ```
 
 See `--section` for a specification of the supported sections.

@@ -1,5 +1,5 @@
 [workarea]
-workdir = "."
+root = "."
 restrict = []
 
 [database]

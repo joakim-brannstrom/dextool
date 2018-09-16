@@ -260,6 +260,9 @@ ExitStatusType modeInitConfig(ref ArgParser conf) @safe {
 
 ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runAnalyzer;
+    import dextool.plugin.mutate.frontend.argparser : printFileAnalyzeHelp;
+
+    printFileAnalyzeHelp(conf);
 
     return runAnalyzer(dacc.db, dacc.frange, dacc.validateLoc, dacc.io);
 }

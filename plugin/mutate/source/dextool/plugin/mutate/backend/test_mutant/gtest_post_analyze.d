@@ -27,7 +27,7 @@ Params:
     reldir = file paths are adjusted to be relative to this parameter.
   */
 struct GtestParser {
-    import std.regex : regex, ctRegex, matchFirst, matchAll;
+    import std.regex : ctRegex, matchFirst, matchAll;
 
     private {
         // example: [==========] Running
@@ -35,8 +35,6 @@ struct GtestParser {
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
         enum re_run_block = ctRegex!(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
-        // example: gtest_output_test_.cc:#: Failure
-        enum re_fail_msg = ctRegex!(`^(?P<file>.*?):.*Failure`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
         enum re_failed_block = ctRegex!(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
 
@@ -57,11 +55,9 @@ struct GtestParser {
         import std.string : strip;
 
         auto run_block_match = matchAll(line, re_run_block);
-        auto fail_msg_match = matchFirst(line, re_fail_msg);
         auto failed_block_match = matchAll(line, re_failed_block);
         auto delim_match = matchFirst(line, re_delim);
         data.hasRunBlock = !run_block_match.empty;
-        data.hasFailedMessage = !fail_msg_match.empty;
         data.hasFailedBlock = !failed_block_match.empty;
         data.hasDelim = !delim_match.empty;
 
@@ -76,16 +72,6 @@ struct GtestParser {
             case DelimState.stop:
                 data.delim = DelimState.start;
                 break;
-            }
-        }
-
-        if (data.hasFailedMessage) {
-            data.fail_msg_file = fail_msg_match["file"].strip.idup;
-            try {
-                if (data.fail_msg_file.isValidPath)
-                    data.fail_msg_file = relativePath(data.fail_msg_file, reldir);
-            } catch (Exception e) {
-                debug logger.trace(e.msg).collectException;
             }
         }
 
@@ -132,8 +118,6 @@ struct StateData {
     bool hasDelim;
     /// The line contains a [ RUN   ] block.
     bool hasRunBlock;
-    /// The line contains a <path>:line: Failure.
-    bool hasFailedMessage;
     /// the line contains a [ FAILED  ] block.
     bool hasFailedBlock;
     /// the line contains a [ OK   ] block.
@@ -156,8 +140,7 @@ unittest {
     auto parser = GtestParser(reldir);
     testData1.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failed.byKey.array, [TestCase("MessageTest.DefaultConstructor",
-            "./googletest/test/gtest-message_test.cc")]);
+    shouldEqual(app.failed.byKey.array, [TestCase("MessageTest.DefaultConstructor")]);
 }
 
 @("shall report the found test cases")
@@ -186,6 +169,17 @@ unittest {
                 ""), TestCase("Foo.E", ""),]);
 }
 
+@("shall report the failed test cases")
+unittest {
+    auto app = new GatherTestCase;
+    auto reldir = AbsolutePath(FileName(getcwd));
+
+    auto parser = GtestParser(reldir);
+    testData5.each!(a => parser.process(a, app));
+
+    shouldEqual(app.failedAsArray.sort, [TestCase("FooTest.ShouldFail")]);
+}
+
 @("shall report the failed test cases even though there are junk in the output")
 unittest {
     auto app = new GatherTestCase;
@@ -196,50 +190,50 @@ unittest {
 
     // dfmt off
     auto expected = [
-TestCase(`AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`, "foo.cc"),
-TestCase(`ExpectFailureTest.ExpectFatalFailureOnAllThreads`, "gtest.cc"),
-TestCase(`ExpectFailureTest.ExpectFatalFailure`, "gtest.cc"),
-TestCase(`ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`, "gtest.cc"),
-TestCase(`ExpectFailureTest.ExpectNonFatalFailure`, "gtest.cc"),
-TestCase(`ExpectFatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
-TestCase(`ExpectFatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
-TestCase(`ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`, "gtest.cc"),
-TestCase(`ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`, "gtest.cc"),
-TestCase(`ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`, "gtest.cc"),
-TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementReturns`, "gtest.cc"),
-TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementThrows`, "gtest.cc"),
-TestCase(`ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`, "gtest.cc"),
-TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`, "gtest.cc"),
-TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`, "gtest.cc"),
-TestCase(`MixedUpTestCaseTest.ThisShouldFailToo`, "gtest.cc"),
-TestCase(`MixedUpTestCaseTest.ThisShouldFail`, "gtest.cc"),
-TestCase(`MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`, "gtest.cc"),
-TestCase(`TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`, "gtest.cc"),
-TestCase(`TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`, "gtest.cc"),
-TestCase(`ExpectFailureWithThreadsTest.ExpectFatalFailure`, "gtest_output_test_.cc"),
-TestCase(`ExpectFailureWithThreadsTest.ExpectNonFatalFailure`, "gtest_output_test_.cc"),
-TestCase(`FatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
-TestCase(`FatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
-TestCase(`FatalFailureTest.FatalFailureInNestedSubroutine`, "gtest_output_test_.cc"),
-TestCase(`FatalFailureTest.FatalFailureInSubroutine`, "gtest_output_test_.cc"),
-TestCase(`FatalFailureTest.NonfatalFailureInSubroutine`, "gtest_output_test_.cc"),
-TestCase(`LoggingTest.InterleavingLoggingAndAssertions`, "gtest_output_test_.cc"),
-TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`, "gtest_output_test_.cc"),
-TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`, "gtest_output_test_.cc"),
-TestCase(`NonfatalFailureTest.DiffForLongStrings`, "gtest_output_test_.cc"),
-TestCase(`NonfatalFailureTest.EscapesStringOperands`, "gtest_output_test_.cc"),
-TestCase(`PrintingFailingParams/FailingParamTest.Fails/0`, "gtest_output_test_.cc"),
-TestCase(`PrintingStrings/ParamTest.Failure/a`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.CanBeNested`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.CanBeRepeated`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.ObeysScopes`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.WorksConcurrently`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.WorksInLoop`, "gtest_output_test_.cc"),
-TestCase(`SCOPED_TRACETest.WorksInSubroutine`, "gtest_output_test_.cc"),
-TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`, "gtest_output_test_.cc"),
-TestCase(`TypedTest/0.Failure`, "gtest_output_test_.cc"),
-TestCase(`Unsigned/TypedTestP/0.Failure`, "gtest_output_test_.cc"),
-TestCase(`Unsigned/TypedTestP/1.Failure`, "gtest_output_test_.cc"),
+TestCase(`AddFailureAtTest.MessageContainsSpecifiedFileAndLineNumber`),
+TestCase(`ExpectFailureTest.ExpectFatalFailureOnAllThreads`),
+TestCase(`ExpectFailureTest.ExpectFatalFailure`),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailureOnAllThreads`),
+TestCase(`ExpectFailureTest.ExpectNonFatalFailure`),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementReturns`),
+TestCase(`ExpectFatalFailureTest.FailsWhenStatementThrows`),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereAreTwoFatalFailures`),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsNoFatalFailure`),
+TestCase(`ExpectFatalFailureTest.FailsWhenThereIsOneNonfatalFailure`),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementReturns`),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenStatementThrows`),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereAreTwoNonfatalFailures`),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsNoNonfatalFailure`),
+TestCase(`ExpectNonfatalFailureTest.FailsWhenThereIsOneFatalFailure`),
+TestCase(`MixedUpTestCaseTest.ThisShouldFailToo`),
+TestCase(`MixedUpTestCaseTest.ThisShouldFail`),
+TestCase(`MixedUpTestCaseWithSameTestNameTest.TheSecondTestWithThisNameShouldFail`),
+TestCase(`TEST_F_before_TEST_in_same_test_case.DefinedUsingTESTAndShouldFail`),
+TestCase(`TEST_before_TEST_F_in_same_test_case.DefinedUsingTEST_FAndShouldFail`),
+TestCase(`ExpectFailureWithThreadsTest.ExpectFatalFailure`),
+TestCase(`ExpectFailureWithThreadsTest.ExpectNonFatalFailure`),
+TestCase(`FatalFailureInFixtureConstructorTest.FailureInConstructor`),
+TestCase(`FatalFailureInSetUpTest.FailureInSetUp`),
+TestCase(`FatalFailureTest.FatalFailureInNestedSubroutine`),
+TestCase(`FatalFailureTest.FatalFailureInSubroutine`),
+TestCase(`FatalFailureTest.NonfatalFailureInSubroutine`),
+TestCase(`LoggingTest.InterleavingLoggingAndAssertions`),
+TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`),
+TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`),
+TestCase(`NonfatalFailureTest.DiffForLongStrings`),
+TestCase(`NonfatalFailureTest.EscapesStringOperands`),
+TestCase(`PrintingFailingParams/FailingParamTest.Fails/0`),
+TestCase(`PrintingStrings/ParamTest.Failure/a`),
+TestCase(`SCOPED_TRACETest.CanBeNested`),
+TestCase(`SCOPED_TRACETest.CanBeRepeated`),
+TestCase(`SCOPED_TRACETest.ObeysScopes`),
+TestCase(`SCOPED_TRACETest.WorksConcurrently`),
+TestCase(`SCOPED_TRACETest.WorksInLoop`),
+TestCase(`SCOPED_TRACETest.WorksInSubroutine`),
+TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`),
+TestCase(`TypedTest/0.Failure`),
+TestCase(`Unsigned/TypedTestP/0.Failure`),
+TestCase(`Unsigned/TypedTestP/1.Failure`),
             ];
     // dfmt on
 
@@ -253,6 +247,7 @@ TestCase(`Unsigned/TypedTestP/1.Failure`, "gtest_output_test_.cc"),
 version (unittest) {
     // dfmt off
     string[] testData1() {
+        // dfmt off
         return [
 "Running main() from gtest_main.cc",
 "[==========] Running 17 tests from 1 test case.",
@@ -278,10 +273,12 @@ version (unittest) {
 "",
 " 1 FAILED TEST",
         ];
+        // dfmt on
 }
 
-    // Example data from the "wild" that should still parse
-    string[] testData2() {
+// Example data from the "wild" that should still parse
+string[] testData2() {
+    // dfmt off
         return [
 `-[==========] Running 66 tests from 29 test cases.`,
 `-[----------] Global test environment set-up.`,
@@ -865,12 +862,14 @@ version (unittest) {
 ` [  FAILED  ] NonfatalFailureTest.EscapesStringOperands`,
 ` [  FAILED  ] NonfatalFailureTest.DiffForLongStrings`,
         ];
-    }
+        // dfmt on
+}
 
-    string[] testData3() {
-        // this contains a little fuzzy data that the parser should be able to
-        // handle. this is what typically can happen when running tets from via
-        // a makefile.
+string[] testData3() {
+    // this contains a little fuzzy data that the parser should be able to
+    // handle. this is what typically can happen when running tets from via
+    // a makefile.
+    // dfmt off
         return [
 `Running main() from gtest_main.cc`,
 `[==========] Running 4 tests from 1 test case.`,
@@ -890,9 +889,11 @@ version (unittest) {
 `[==========] 4 tests from 1 test case ran. (0 ms total)`,
 `[  PASSED  ] 4 tests.`,
         ];
-    }
+        // dfmt on
+}
 
-    string[] testData4() {
+string[] testData4() {
+    // dfmt off
         return [
 "Running main() from gtest_main.cc",
 "[==========] Running 17 tests from 1 test case.",
@@ -904,7 +905,42 @@ version (unittest) {
 "[ FAILED   ] Foo.E (0 ms)",
 "[----------] 3 tests from MessageTest (0 ms total)",
         ];
-    }
+        // dfmt on
+}
 
-    // dfmt on
+string[] testData5() {
+    // dfmt off
+        return [
+"35: [==========] Running 13 tests from 3 test cases.",
+"35: [----------] Global test environment set-up.",
+"35: [----------] 1 test from BarDeathTest",
+"35: [ RUN      ] BarDeathTest.ThreadSafeAndFast",
+"35: [       OK ] BarDeathTest.ThreadSafeAndFast (436 ms)",
+"35: [----------] 1 test from BarDeathTest (436 ms total)",
+"35: [----------] 10 tests from MyParamSequence/MyParamTest",
+"35: [ RUN      ] MyParamSequence/MyParamTest.ShouldPass/0",
+"35: [       OK ] MyParamSequence/MyParamTest.ShouldPass/0 (0 ms)",
+"35: [ RUN      ] MyParamSequence/MyParamTest.ShouldPass/1",
+"35: [       OK ] MyParamSequence/MyParamTest.ShouldPass/1 (0 ms)",
+"35: [----------] 2  tests from MyParamSequence/MyParamTest (0 ms total)",
+"35: ",
+"35: [----------] 2 tests from FooTest",
+"35: [ RUN      ] FooTest.ShouldFail",
+"35: /home/joker/src/cpp/googletest/googletest/test/gtest_repeat_test.cc:96: Failure",
+"35: Expected equality of these values:",
+"35:   0",
+"35:   1",
+"35: Expected failure.",
+"35: [  FAILED  ] FooTest.ShouldFail (0 ms)",
+"35: [ RUN      ] FooTest.ShouldPass",
+"35: [       OK ] FooTest.ShouldPass (0 ms)",
+"35: [----------] 2 tests from FooTest (0 ms total)",
+"35: [----------] Global test environment tear-down",
+"35: [==========] 13 tests from 3 test cases ran. (436 ms total)",
+"35: [  PASSED  ] 12 tests.",
+"35: [  FAILED  ] 1 test, listed below:",
+"35: [  FAILED  ] FooTest.ShouldFail",
+        ];
+        // dfmt on
+}
 }
