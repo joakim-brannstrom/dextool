@@ -43,7 +43,7 @@ The intention is to generate a report such that it is easy to publish in other c
    But the user should be informed that the content is different.
  * Separate the mutation time in compiling SUT+tests and executing tests.
 
-# SPC-plugin_mutate_report_for_human
+# SPC-report_for_human
 partof: REQ-plugin_mutate-report
 ###
 
@@ -64,8 +64,8 @@ This decision has been partially reverted. It is a bit too limited to only show 
 
 But the original reason for not implementing it is still valid. Thus a window of ~7 characters are used. For most mutations this is is actually not any more leak of information than it was before. For those mutations that remove source code or replaces large chunks a window that display at most 7 characters is used.
 
-# SPC-plugin_mutate_report_for_human-cli
-partof: SPC-plugin_mutate_report_for_human
+# SPC-report_for_human-cli
+partof: SPC-report_for_human
 ###
 
 The command line argument *--level* shall control the *report level* of the human readable report.
@@ -148,8 +148,8 @@ The summary shall be the last section in the report.
 
 **Note**: See ## Summary for the specification of the content
 
-# TST-plugin_mutate_report_for_human
-partof: SPC-plugin_mutate_report_for_human
+# TST-report_for_human
+partof: SPC-report_for_human
 ###
 
 *database content*
@@ -163,7 +163,7 @@ partof: SPC-plugin_mutate_report_for_human
 
 Verify that the produced report contains the expected result when the input is a database with *database content* and *report level*.
 
-# SPC-plugin_mutate_report_for_tool_ide_integration
+# SPC-report_for_tool_ide_integration
 partof: REQ-plugin_mutate-report
 ###
 
@@ -213,7 +213,7 @@ The assumption made by this requirement is that IDE's that are used have good in
 
 The fixit hint is intended to make it easy for a user to see how the mutant modified the source code. This is especially important for those cases where there are many mutations for the same line. Some IDE's such as Eclipse do not move the cursor to the column which makes it harder for the human to manually inspect the mutation.
 
-# SPC-plugin_mutate_report_for_tool_integration_format
+# SPC-report_for_tool_integration_format
 partof: REQ-plugin_mutate-report
 ###
 
@@ -247,7 +247,7 @@ Each mutant is:
 }
 ```
 
-# SPC-plugin_mutate_report_for_human_plain
+# SPC-report_for_human_plain
 partof: REQ-plugin_mutate-report
 ###
 
@@ -264,7 +264,7 @@ The intention is that by providing the absolute path it becomes easier for the u
 By printing the full code both from and to it becomes easier to find it on the line.
 It becomes easier to understand.
 
-# SPC-plugin_mutate_report_as_csv
+# SPC-report_as_csv
 partof: REQ-plugin_mutate-report
 ###
 
@@ -318,8 +318,8 @@ From wikipedia regarding the double quotes:
  * Each of the embedded double-quote characters must be represented by a pair of double-quote characters.
     * 1997,Ford,E350,"Super, ""luxurious"" truck"
 
-# TST-plugin_mutate_report_as_csv
-partof: SPC-plugin_mutate_report_as_csv
+# TST-report_as_csv
+partof: SPC-report_as_csv
 ###
 
 As input to the program use a file that contains DCC/DCR mutations.

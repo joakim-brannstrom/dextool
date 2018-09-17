@@ -1,5 +1,5 @@
-# SPC-plugin_mutate_test_mutant
-partof: SPC-plugin_mutate_architecture
+# SPC-test_mutant
+partof: SPC-architecture
 ###
 
 ## Design Decision
@@ -12,8 +12,8 @@ The implementation testing mutants should separate the drivers in three parts:
 
 ## Drivers
 
-# SPC-plugin_mutate_test_mutant_timeout
-partof: SPC-plugin_mutate_test_mutant
+# SPC-test_mutant_timeout
+partof: SPC-test_mutant
 ###
 
 The program shall terminate a test suite when it reached the *timeout*.

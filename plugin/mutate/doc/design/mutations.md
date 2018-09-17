@@ -27,27 +27,27 @@ interesting to note that this set includes the operators that are required to
 satisfy branch and extended branch coverage leading us to believe that extended
 branch coverage is in some sense a major part of mutation.*
 
-# SPC-plugin_mutate_mutation_ror
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_ror
+partof: REQ-mutations
 ###
 
 The plugin shall mutate the relational operators according to the RORG schema.
 
 The plugin shall use the *floating point RORG schema* when the type of the expressions on both sides of the operator are floating point types.
 
-**Note**: See [[SPC-plugin_mutate_mutation_ror_float]].
+**Note**: See [[SPC-mutation_ror_float]].
 
 The plugin shall use the *enum RORG schema* when the type of the expressions on both sides of the operator are enums and of the same enum type.
 
-**Note**: See [[SPC-plugin_mutate_mutation_ror_enum]]
+**Note**: See [[SPC-mutation_ror_enum]]
 
 The plugin shall use the *pointer RORG schema* when the type of the expressions on either sides of the operator are pointer types and the mutation type is RORP.
 
-**Note**: See [[SPC-plugin_mutate_mutation_ror_ptr]]
+**Note**: See [[SPC-mutation_ror_ptr]]
 
 The plugin shall use the *bool RORG schema* when the type of the expressions on both sides of the operator are boolean types.
 
-**Note**: See [[SPC-plugin_mutate_mutation_ror_bool]]
+**Note**: See [[SPC-mutation_ror_bool]]
 
 ## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
@@ -75,8 +75,8 @@ Mutation subsuming table from [@thesis1]:
 | `x == y`            | `x <= y` | `x >= y` | `false`  |
 | `x != y`            | `x < y`  | `x > y`  | `true`   |
 
-# SPC-plugin_mutate_mutation_ror_bool
-partof: SPC-plugin_mutate_mutation_ror
+# SPC-mutation_ror_bool
+partof: SPC-mutation_ror
 ###
 
 This schema is only applicable when the type of the expressions on both sides of an operator are of boolean type.
@@ -90,8 +90,8 @@ This schema is only applicable when the type of the expressions on both sides of
 
 Mutations such as `<` for a boolean type is nonsensical in C++ or in C when the type is `_Bool`.
 
-# SPC-plugin_mutate_mutation_ror_float
-partof: SPC-plugin_mutate_mutation_ror
+# SPC-mutation_ror_float
+partof: SPC-mutation_ror
 ###
 
 This schema is only applicable when the type of the expressions on both sides of an operator are of floating point type.
@@ -117,8 +117,8 @@ Strict equal is not recommended to ever use for floating point numbers. Because 
 
 TODO empirical evidence needed to demonstrate how much the undesired mutations are reduced.
 
-# SPC-plugin_mutate_mutation_ror_enum
-partof: SPC-plugin_mutate_mutation_ror
+# SPC-mutation_ror_enum
+partof: SPC-mutation_ror
 ###
 
 This schema is only applicable when type of the expressions on both sides of an operator are enums and the same enum type.
@@ -162,8 +162,8 @@ If the `x != y` is true then a change to a relational operator is equivalent to 
 The goal is to reduce the number of equivalent mutants.
 Normally an enum can't be *outside* the boundaries of an enum thus the test suite can't possibly kill such a mutants that would require an enum outside the boundaries.
 
-# SPC-plugin_mutate_mutation_ror_ptr
-partof: SPC-plugin_mutate_mutation_ror
+# SPC-mutation_ror_ptr
+partof: SPC-mutation_ror
 ###
 
 This schema is only applicable when type of the expressions either sides is a pointer type.
@@ -185,8 +185,8 @@ Design knowledge: Do the program use such C++ constructs that guarantee memory a
 
 This schema can't fully replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
 
-# SPC-plugin_mutate_mutation_aor
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_aor
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -198,8 +198,8 @@ The operators are:
 +,-,*,/,%
 ```
 
-# SPC-plugin_mutate_mutation_lcr
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_lcr
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -211,8 +211,8 @@ The operands are:
 ||,&&
 ```
 
-# SPC-plugin_mutate_mutation_uoi
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_uoi
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -240,8 +240,8 @@ Note: The address, indirection and complement operator need to be evaluated to
 see how efficient those mutants are.
 Are most mutants killed? Compilation errors?
 
-# SPC-plugin_mutate_mutation_abs
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_abs
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -270,8 +270,8 @@ Further studies on this subject is needed.
 > The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
 > Note though that abs(-0.0) is a separate case.
 
-# SPC-plugin_mutate_mutation_cor
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_cor
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -299,8 +299,8 @@ See [@conf:1, p. 2].
 
 TODO: OR should be `||` but it doesn't render corrently on github.
 
-# SPC-plugin_mutate_mutation_dcc
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_dcc
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -340,8 +340,8 @@ The DCC bomb is only needed for case statements.
 
 Note that the bomb do not provide any more information than a coverage report do because it doesn't force the test suite to check the output of the program. It is equivalent to coverage information.
 
-# SPC-plugin_mutate_mutation_dcr
-partof: REQ-plugin_mutate-mutations
+# SPC-mutation_dcr
+partof: REQ-mutations
 ###
 
 TODO: add requirement.
@@ -395,8 +395,8 @@ The branch is deleted.
 
 Thus `false` is equivalent to statement deletion of the branch content.
 
-# SPC-plugin_mutate_mutations_statement_del
-partof: REQ-plugin_mutate-mutations
+# SPC-mutations_statement_del
+partof: REQ-mutations
 ###
 
 The plugin shall remove one statement when generating a _SDL_ mutation.
@@ -405,7 +405,8 @@ The plugin shall remove one statement when generating a _SDL_ mutation.
 
 Delete one statement at a time.
 
-# SPC-plugin_mutate_mutations_statement_del-call_expression
+# SPC-mutations_statement_del-call_expression
+partof: SPC-mutations_statement_del
 ###
 
 The plugin shall remove the specific function call.
@@ -414,8 +415,8 @@ Note: How it is removed depend on where it is in the AST.
 A function call that is terminated with a `;` should remove the trailing `;`.
 In contrast with the initialization list where it should remove the trailing `,`.
 
-#SPC-plugin_mutate_lcrb
-partof: REQ-plugin_mutate-mutations
+# SPC-lcrb
+partof: REQ-mutations
 ###
 
 The plugin shall mutate the bitwise operators `|` and `&`.
@@ -429,20 +430,28 @@ These two bitwise operators correlate well with the LCR operator. Coverage tools
 | `x | y`             | `x & y`  |
 | `x & y`             | `x | y`  |
 
-# TST-plugin_mutate_statement_del_call_expression
-partof: SPC-plugin_mutate_mutations_statement_del-call_expression
+# TST-statement_del_call_expression
+partof: SPC-mutations_statement_del-call_expression
 ###
 
 A mutation is expected to produce valid code.
 
-# TST-plugin_mutate_mutation_ror
-partof: SPC-plugin_mutate_mutation_ror
+# TST-mutation_aor
+partof: SPC-mutation_aor
 ###
+
+```
+ops = {+,-,/,%,*}
+```
 
 Expected result when the input is a single assignment using the operator from column _original expression_.
 
-# SPC-plugin_mutate_mutant_identifier
-partof: REQ-plugin_mutate-mutations
+Expected result for a C++ file containg *ops* between integers.
+
+Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
+
+# SPC-mutant_identifier
+partof: REQ-mutations
 ###
 
 The plugin shall generate an identifier for each mutant.
@@ -465,20 +474,8 @@ From this perspective it is an performance improvements.
 
 The checksum is intended to be used in the future for mutation metaprograms. See [@thesis1].
 
-# TST-plugin_mutate_mutation_aor
-partof: SPC-plugin_mutate_mutation_aor
-###
-
-```
-ops = {+,-,/,%,*}
-```
-
-Expected result for a C++ file containg *ops* between integers.
-
-Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
-
-# TST-plugin_mutate_mutation_lcr
-partof: SPC-plugin_mutate_mutation_lcr
+# TST-mutation_lcr
+partof: SPC-mutation_lcr
 ###
 
 ```
@@ -489,8 +486,8 @@ Expected result for a C++ file containg *ops* between integers.
 
 Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
-# TST-plugin_mutate_mutation_ror
-partof: SPC-plugin_mutate_mutation_ror
+# TST-mutation_ror
+partof: SPC-mutation_ror
 ###
 
 ```
@@ -501,8 +498,8 @@ Expected result for a C++ file containg *ops* between integers.
 
 Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
-# TST-plugin_mutate_mutation_cor
-partof: SPC-plugin_mutate_mutation_cor
+# TST-mutation_cor
+partof: SPC-mutation_cor
 ###
 
 ```
@@ -513,8 +510,8 @@ Expected result for a C++ file containg *ops* between integers.
 
 Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
 
-# TST-plugin_mutate_mutation_dcc
-partof: SPC-plugin_mutate_mutation_dcc
+# TST-mutation_dcc
+partof: SPC-mutation_dcc
 ###
 
 ## Decision Coverage

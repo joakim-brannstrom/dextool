@@ -1,5 +1,5 @@
-# SPC-plugin_mutate_analyzer
-partof: SPC-plugin_mutate_architecture
+# SPC-analyzer
+partof: SPC-architecture
 ###
 *Note: functional design*
 
@@ -19,8 +19,8 @@ The analyzer shall skip analysis of the provided file+compiler flags when the ch
 
 *Rationale: The purpose is to speed up analysis of source code that has already been analyzed and tested, incremental mutation*
 
-# SPC-plugin_mutate_analyzer-checksum
-partof: SPC-plugin_mutate_analyzer
+# SPC-analyzer-checksum
+partof: SPC-analyzer
 ###
 
 The analyzer shall calculate and save two checksum for each file:
@@ -29,8 +29,8 @@ The analyzer shall calculate and save two checksum for each file:
    Flags can have a semantic effect on the code such as `#define`.
  - the content of the file.
 
-# SPC-plugin_mutate_analyzer-reanalyze_files
-partof: SPC-plugin_mutate_analyzer
+# SPC-analyzer-reanalyze_files
+partof: SPC-analyzer
 ###
 
 The analyzer shall re-analyze _the_ file when it exists in the database but has a different checksum.
@@ -43,8 +43,8 @@ How?
 Why?
 This will then trigger the mutation testers to retest all mutation points that exist in this specific file.
 
-# SPC-plugin_mutate_analyzer-semantic_impact
-partof: SPC-plugin_mutate_analyzer
+# SPC-analyzer-semantic_impact
+partof: SPC-analyzer
 ###
 
 TODO: add req.
@@ -57,14 +57,14 @@ This probably need to be "weighted" against other mutants so it is *dynamic* for
 
 This should make it possible to statically find *semantically high impact mutants* cheaply. No need to even have a test suite.
 
-# SPC-plugin_mutate_analyzer-junk_tests
-partof: SPC-plugin_mutate_analyzer
+# SPC-analyzer-junk_tests
+partof: SPC-analyzer
 ###
 
 The plugin shall report test cases that has killed zero mutants when the user requests such a report via the *CLI*.
 
-# SPC-plugin_mutate_analyzer-understand
-partof: REQ-plugin_mutate_uc_understand_analyze
+# SPC-analyzer-understand
+partof: REQ-uc_understand_analyze
 ###
 
 The plugin shall print a message containing the root directory and restrictions when beginning analyze for mutants.

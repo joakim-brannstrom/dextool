@@ -1,4 +1,4 @@
-# SPC-plugin_mutate_file_security
+# SPC-file_security
 partof: REQ-plugin_mutate
 ###
 
@@ -31,8 +31,8 @@ Highest impact :
  - injection of a fault in an operating system header.
    (assumption 3)
 
-# SPC-plugin_mutate_file_security-single_output
-partof: SPC-plugin_mutate_file_security
+# SPC-file_security-single_output
+partof: SPC-file_security
 ###
 The plugin shall use the _current working directory_ as the _output directory_ by default.
 
@@ -44,14 +44,14 @@ _note: the intention is to make it easier to review the software that it fulfill
 
 There *shall* be only one class that create and write generic files to the filesystem.
 
-# SPC-plugin_mutate_file_security-header_as_warning
-partof: SPC-plugin_mutate_file_security
+# SPC-file_security-header_as_warning
+partof: SPC-file_security
 ###
 The plugin shall write a line at the end of the mutated file to indicate that it has been mutated.
 *Rationale: minor help for users with an adequate source code version system, major help for users without one.*
 *Rationale: by writing to the end of the file it doesn't affect the generated reports so much*
 
-# SPC-plugin_mutate_memory_safety
+# SPC-memory_safety
 partof: REQ-plugin_mutate
 ###
 

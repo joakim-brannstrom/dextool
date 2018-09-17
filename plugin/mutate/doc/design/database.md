@@ -1,4 +1,4 @@
-# SPC-plugin_mutate_database_upgrade
+# SPC-database_upgrade
 partof: REQ-purpose
 ###
 
