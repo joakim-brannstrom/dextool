@@ -135,11 +135,15 @@ struct ArgParser {
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
         app.put("# determine in what order mutations are chosen");
         app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put("# how to behave when new test cases are found");
+        app.put(format("# detected_new_test_case = %(%s|%)",
+                [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
         app.put(null);
 
         app.put("[report]");
         app.put("# default style to use");
         app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
+        app.put(null);
 
         return app.data.joiner(newline).toUTF8;
     }
@@ -512,6 +516,15 @@ void loadConfig(ref ArgParser rval) @trusted {
             c.mutationTest.mutationOrder = v.str.to!MutationOrder;
         } catch (Exception e) {
             logger.error(e.msg).collectException;
+        }
+    };
+    callbacks["mutant_test.detected_new_test_case"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.onNewTestCases = v.str.to!(ConfigMutationTest.NewTestCases);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.info("Available alternatives: ",
+                    [EnumMembers!(ConfigMutationTest.NewTestCases)]);
         }
     };
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {

@@ -117,6 +117,7 @@ struct DriverData {
     TestCaseAnalyzeBuiltin[] testCaseAnalyzeBuiltin;
     Nullable!Duration testProgramTimeout;
     AutoCleanup autoCleanup;
+    ConfigMutationTest.NewTestCases onNewTestCases;
 }
 
 /** Run the test suite to verify a mutation.
@@ -953,7 +954,9 @@ nothrow:
 
         warnIfConflictingTestCaseIdentifiers(all_found_tc);
 
-        if (hasNewTestCases(old_tcs, found_tcs)) {
+        const new_test_cases = hasNewTestCases(old_tcs, found_tcs);
+
+        if (new_test_cases && data.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Resetting alive mutants").collectException;
             resetAliveMutants(data.db);
         }
@@ -1228,7 +1231,10 @@ void resetAliveMutants(ref Database db) @safe nothrow {
     });
 }
 
-/// Compare the old test cases with those that have been found this run.
+/** Compare the old test cases with those that have been found this run.
+ *
+ * TODO: the side effect that this function print to the console is NOT good.
+ */
 bool hasNewTestCases(ref Set!string old_tcs, ref Set!string found_tcs) @safe nothrow {
     bool rval;
 

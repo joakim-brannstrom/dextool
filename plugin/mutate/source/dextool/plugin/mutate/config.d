@@ -76,6 +76,15 @@ struct ConfigMutationTest {
     Nullable!Duration mutationTesterRuntime;
     MutationOrder mutationOrder;
     bool dryRun;
+
+    /// How to behave when new test cases are detected.
+    enum NewTestCases {
+        doNothing,
+        /// Automatically reset alive mutants
+        resetAlive,
+    }
+
+    NewTestCases onNewTestCases;
 }
 
 /// Settings for the administration mode
