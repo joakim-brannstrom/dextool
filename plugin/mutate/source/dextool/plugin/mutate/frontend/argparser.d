@@ -40,7 +40,7 @@ struct ArgParser {
     ConfigMutationTest mutationTest;
     ConfigAdmin admin;
     ConfigWorkArea workArea;
-    ReportConfig report;
+    ConfigReport report;
 
     struct Data {
         string[] inFiles;

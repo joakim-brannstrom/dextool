@@ -37,7 +37,7 @@ enum ToolMode {
 }
 
 /// Config of the report.
-struct ReportConfig {
+struct ConfigReport {
     ReportKind reportKind;
     ReportLevel reportLevel;
     ReportSection[] reportSection;
