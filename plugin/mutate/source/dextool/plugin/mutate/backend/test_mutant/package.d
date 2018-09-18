@@ -16,12 +16,13 @@ import std.exception : collectException;
 
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
+import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 
 @safe:
 
@@ -39,48 +40,21 @@ nothrow:
 
     private struct InternalData {
         Mutation.Kind[] mut_kinds;
-        AbsolutePath test_suite_execute_program;
-        AbsolutePath compile_program;
-        AbsolutePath test_case_analyze_program;
-        Nullable!Duration test_suite_execute_timeout;
         FilesysIO filesys_io;
-        TestCaseAnalyzeBuiltin[] tc_analyze_builtin;
+        ConfigMutationTest config;
     }
 
     private InternalData data;
+
+    auto config(ConfigMutationTest c) {
+        data.config = c;
+        return this;
+    }
 
     auto mutations(MutationKind[] v) {
         import dextool.plugin.mutate.backend.utility : toInternal;
 
         data.mut_kinds = toInternal(v);
-        return this;
-    }
-
-    /// a program to execute that test the mutant. The mutant is marked as alive if the exit code is 0, otherwise it is dead.
-    auto testSuiteProgram(AbsolutePath v) {
-        data.test_suite_execute_program = v;
-        return this;
-    }
-
-    /// program to use to compile the SUT + tests after a mutation has been performed.
-    auto compileProgram(AbsolutePath v) {
-        data.compile_program = v;
-        return this;
-    }
-
-    /// The time it takes to run the tests.
-    auto testSuiteTimeout(Nullable!Duration v) {
-        data.test_suite_execute_timeout = v;
-        return this;
-    }
-
-    auto testCaseAnalyzeProgram(AbsolutePath v) {
-        data.test_case_analyze_program = v;
-        return this;
-    }
-
-    auto testCaseAnalyzeBuiltin(TestCaseAnalyzeBuiltin[] v) {
-        data.tc_analyze_builtin = v;
         return this;
     }
 
@@ -112,9 +86,9 @@ nothrow:
         auto db_ref = () @trusted{ return nullableRef(&db); }();
 
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds,
-                data.compile_program, data.test_suite_execute_program,
-                data.test_case_analyze_program, data.tc_analyze_builtin,
-                data.test_suite_execute_timeout, new AutoCleanup);
+                data.config.mutationCompile, data.config.mutationTester,
+                data.config.mutationTestCaseAnalyze, data.config.mutationTestCaseBuiltin,
+                data.config.mutationTesterRuntime, new AutoCleanup, data.config.onNewTestCases);
 
         auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
         auto test_driver_impl_ref = () @trusted{

@@ -13,13 +13,15 @@ configuration of how the mutation plugin should behave.
 module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.exception : collectException;
+import std.traits : EnumMembers;
 
-public import dextool.plugin.mutate.type;
 public import dextool.plugin.mutate.backend : Mutation;
-import dextool.type : AbsolutePath, Path, ExitStatusType;
+public import dextool.plugin.mutate.type;
+import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.utility;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 @safe:
 
@@ -28,9 +30,7 @@ struct ArgParser {
     import std.typecons : Nullable;
     import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
-    import std.traits : EnumMembers;
     import dextool.type : FileName;
-    import dextool.plugin.mutate.config;
 
     /// Minimal data needed to bootstrap the configuration.
     MiniConfig miniConf;
