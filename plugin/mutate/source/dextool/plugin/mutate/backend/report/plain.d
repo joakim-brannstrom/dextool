@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-#SPC-plugin_mutate_report_for_human_plain
+#SPC-report_for_human_plain
 */
 module dextool.plugin.mutate.backend.report.plain;
 

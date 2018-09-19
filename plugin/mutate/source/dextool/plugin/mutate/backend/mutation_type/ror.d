@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-#SPC-plugin_mutate_mutation_ror
+#SPC-mutation_ror
 */
 module dextool.plugin.mutate.backend.mutation_type.ror;
 
@@ -27,7 +27,7 @@ import dextool.clang_extensions : OpKind;
  * ror = normal - float - enum - bool
  * rorp = pointer - float - enum - bool
  *
- * See SPC-plugin_mutate_mutation_ror for the subsumed table.
+ * See SPC-mutation_ror for the subsumed table.
  */
 auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
     import std.typecons : Tuple, Nullable;
@@ -53,7 +53,7 @@ auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
         }
     }
 
-    // #SPC-plugin_mutate_mutation_ror_float
+    // #SPC-mutation_ror_float
     void floatingPointSchema() {
         with (Mutation.Kind) {
             if (op.among(OpKind.LT, OpKind.OO_Less)) {
@@ -68,7 +68,7 @@ auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
         }
     }
 
-    // #SPC-plugin_mutate_mutation_ror_enum
+    // #SPC-mutation_ror_enum
     void enumSchema() {
         with (Mutation.Kind) {
             if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
@@ -95,7 +95,7 @@ auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
         }
     }
 
-    // #SPC-plugin_mutate_mutation_ror_ptr
+    // #SPC-mutation_ror_ptr
     void pointerSchema() {
         with (Mutation.Kind) {
             if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
@@ -106,7 +106,7 @@ auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
         }
     }
 
-    // #SPC-plugin_mutate_mutation_ror_bool
+    // #SPC-mutation_ror_bool
     void boolSchema() {
         with (Mutation.Kind) {
             if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {

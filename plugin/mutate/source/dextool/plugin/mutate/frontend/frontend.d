@@ -105,7 +105,7 @@ struct DataAccess {
  *
  * Dryrun is used for testing the mutate plugin.
  *
- * #SPC-plugin_mutate_file_security-single_output
+ * #SPC-file_security-single_output
  */
 final class FrontendIO : FilesysIO {
     import std.exception : collectException;

@@ -863,7 +863,7 @@ nothrow:
     }
 
     void sanityCheck() {
-        // #SPC-plugin_mutate_sanity_check_db_vs_filesys
+        // #SPC-sanity_check_db_vs_filesys
         import dextool.type : Path;
         import dextool.plugin.mutate.backend.utility : checksum,
             trustedRelativePath;

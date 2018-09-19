@@ -153,7 +153,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
         fout.write(to_);
         fout.write(s.front);
 
-        // #SPC-plugin_mutate_file_security-header_as_warning
+        // #SPC-file_security-header_as_warning
         fout.write("\n/* DEXTOOL: THIS FILE IS MUTATED */");
 
         return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
@@ -225,7 +225,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = &clangFalse;
         break;
         /// Logical connector replacement
-        /// #SPC-plugin_mutate_mutation_lcr
+        /// #SPC-mutation_lcr
     case lcrAnd:
         m.mutate = (const(char)[] expr) { return "&&"; };
         break;
@@ -233,7 +233,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(char)[] expr) { return "||"; };
         break;
         /// Arithmetic operator replacement
-        /// #SPC-plugin_mutate_mutation_aor
+        /// #SPC-mutation_aor
     case aorMul:
         m.mutate = (const(char)[] expr) { return "*"; };
         break;
@@ -265,7 +265,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(char)[] expr) { return "-="; };
         break;
         /// Unary operator insert on an lvalue
-        /// #SPC-plugin_mutate_mutation_uoi
+        /// #SPC-mutation_uoi
     case uoiPostInc:
         m.mutate = (const(char)[] expr) { return format("%s++", expr); };
         break;
@@ -301,7 +301,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(char)[] expr) { return format("sizeof(%s)", expr); };
         break;
         /// Absolute value replacement
-        /// #SPC-plugin_mutate_mutation_abs
+        /// #SPC-mutation_abs
     case absPos:
         m.top = () { return preambleAbs; };
         m.mutate = (const(char)[] b) { return format("abs_dextool(%s)", b); };
@@ -317,12 +317,12 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         };
         break;
     case stmtDel:
-        /// #SPC-plugin_mutate_mutations_statement_del
+        /// #SPC-mutations_statement_del
         // delete by commenting out the code block
         m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
         break;
         /// Conditional Operator Replacement (reduced set)
-        /// #SPC-plugin_mutate_mutation_cor
+        /// #SPC-mutation_cor
     case corAnd:
         assert(0);
     case corOr:
