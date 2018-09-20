@@ -39,7 +39,7 @@ Priority 3: maintain code quality standards.
 Rational: reduce technical debt which has a negative impact on development speed.
 Prepare the plugin for being used outside of research projects.
 
-# SPC-plugin_mutate_poc_purpose
+# SPC-poc_purpose
 partof: REQ-plugin_mutate
 done: by definition
 ###
@@ -64,7 +64,7 @@ The PoC will focus on realizing the following features:
  - ease of use.
  - the only language supported are C and c++.
 
-# REQ-plugin_mutate_language
+# REQ-language
 partof: REQ-purpose
 ###
 

@@ -37,7 +37,7 @@ enum ToolMode {
 }
 
 /// Config of the report.
-struct ReportConfig {
+struct ConfigReport {
     ReportKind reportKind;
     ReportLevel reportLevel;
     ReportSection[] reportSection;
@@ -76,6 +76,15 @@ struct ConfigMutationTest {
     Nullable!Duration mutationTesterRuntime;
     MutationOrder mutationOrder;
     bool dryRun;
+
+    /// How to behave when new test cases are detected.
+    enum NewTestCases {
+        doNothing,
+        /// Automatically reset alive mutants
+        resetAlive,
+    }
+
+    NewTestCases onNewTestCases;
 }
 
 /// Settings for the administration mode

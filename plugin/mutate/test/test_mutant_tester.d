@@ -152,88 +152,147 @@ g++ %s -o %s
     ]).shouldBeIn(r.stdout);
 }
 
-@(testId ~ "shall detect all test cases")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    immutable compile_script = (testEnv.outdir ~ "compile.sh").toString;
-    immutable test_script = (testEnv.outdir ~ "test.sh").toString;
-    runShallDetectAllTestCases(testEnv, compile_script, test_script);
-}
+class TestCaseDetection : TestCase {
+    string program_cpp;
+    string program_bin;
+    string compile_script;
+    string test_script;
 
-void runShallDetectAllTestCases(ref TestEnv testEnv, immutable(string) compile_script, immutable(string) test_script) {
-    immutable program_cpp = (testEnv.outdir ~ "program.cpp").toString;
-    immutable program_bin = (testEnv.outdir ~ "program").toString;
+    void precondition(ref TestEnv testEnv) {
+        compile_script = (testEnv.outdir ~ "compile.sh").toString;
+        test_script = (testEnv.outdir ~ "test.sh").toString;
 
-    copy(testData ~ "test_mutant_tester_one_mutation_point.cpp", program_cpp);
+        program_cpp = (testEnv.outdir ~ "program.cpp").toString;
+        program_bin = (testEnv.outdir ~ "program").toString;
 
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(program_cpp)
-        .run;
+        copy(testData ~ "test_mutant_tester_one_mutation_point.cpp", program_cpp);
 
-    File(compile_script, "w").write(format(
+        File(compile_script, "w").write(format(
 "#!/bin/bash
 set -e
 g++ %s -o %s
 ", program_cpp, program_bin));
 
-    File(test_script, "w").write(scriptGTestSuitePassed);
+        File(test_script, "w").write(scriptGTestSuitePassed);
 
-    makeExecutable(compile_script);
-    makeExecutable(test_script);
-
-    auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(workDir)
-        .args(["mutate"])
-        .addArg(["test"])
-        .addPostArg(["--mutant", "dcr"])
-        .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-        .addPostArg(["--compile", compile_script])
-        .addPostArg(["--test", test_script])
-        .addPostArg(["--test-case-analyze-builtin", "gtest"])
-        .addPostArg(["--test-timeout", "10000"])
-        .run;
-
-    foreach (l; [
-        "MessageTest.CopyConstructor",
-        "MessageTest.ConstructsFromCString",
-        "MessageTest.StreamsFloat",
-        "MessageTest.StreamsDouble",
-    ]) {
-        testConsecutiveSparseOrder!SubStr([
-            "Found new test case",
-            l,
-            "Resetting alive mutants",
-        ]).shouldBeIn(r.stdout);
+        makeExecutable(compile_script);
+        makeExecutable(test_script);
     }
 }
 
-@(testId ~ "shall detect the dropped test case")
-unittest {
-    mixin(EnvSetup(globalTestdir));
+class ShallDetectAllTestCases : TestCaseDetection {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
 
-    immutable test_script = (testEnv.outdir ~ "test.sh").toString;
-    immutable compile_script = (testEnv.outdir ~ "compile.sh").toString;
-    runShallDetectAllTestCases(testEnv, compile_script, test_script);
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--compile", compile_script])
+            .addPostArg(["--test", test_script])
+            .addPostArg(["--test-case-analyze-builtin", "gtest"])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
 
-    File(test_script, "w").write(scriptGTestSuiteDropOne);
-    makeExecutable(test_script);
+        foreach (l; [
+            "MessageTest.CopyConstructor",
+            "MessageTest.ConstructsFromCString",
+            "MessageTest.StreamsFloat",
+            "MessageTest.StreamsDouble"]) {
+            testConsecutiveSparseOrder!SubStr([
+                "Found new test case",
+                l,
+            ]).shouldBeIn(r.stdout);
+        }
 
-    auto r = dextool_test.makeDextool(testEnv)
-        .setWorkdir(workDir)
-        .args(["mutate"])
-        .addArg(["test"])
-        .addPostArg(["--mutant", "dcr"])
-        .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-        .addPostArg(["--compile", compile_script])
-        .addPostArg(["--test", test_script])
-        .addPostArg(["--test-case-analyze-builtin", "gtest"])
-        .addPostArg(["--test-timeout", "10000"])
-        .run;
+        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldNotBeIn(r.stdout);
+    }
+}
 
-    testConsecutiveSparseOrder!SubStr([
-        "Detected test cases that has been removed",
-        "MessageTest.StreamsDouble",
-    ]).shouldBeIn(r.stdout);
+class ShallResetOnNewTestCases : TestCaseDetection {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        immutable conf_f = (testEnv.outdir ~ "conf.toml").toString;
+
+        File(conf_f, "w").write(
+`[mutant_test]
+detected_new_test_case = "resetAlive"
+`);
+
+        auto r0 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--compile", compile_script])
+            .addPostArg(["--test", test_script])
+            .addPostArg(["--test-case-analyze-builtin", "gtest"])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
+
+        File(test_script, "w").write(scriptGTestSuiteAddOne);
+        makeExecutable(test_script);
+
+        auto r1 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addArg(["-c", conf_f])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--compile", compile_script])
+            .addPostArg(["--test", test_script])
+            .addPostArg(["--test-case-analyze-builtin", "gtest"])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldBeIn(r1.stdout);
+    }
+}
+
+class ShallDetectDroppedTestCases : TestCaseDetection {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto r0 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--compile", compile_script])
+            .addPostArg(["--test", test_script])
+            .addPostArg(["--test-case-analyze-builtin", "gtest"])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
+
+        File(test_script, "w").write(scriptGTestSuiteDropOne);
+        makeExecutable(test_script);
+
+        auto r1 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--compile", compile_script])
+            .addPostArg(["--test", test_script])
+            .addPostArg(["--test-case-analyze-builtin", "gtest"])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+            "Detected test cases that has been removed",
+            "MessageTest.StreamsDouble",
+        ]).shouldBeIn(r1.stdout);
+    }
 }
 
 immutable scriptSimulatingComplextCTestSuite =
@@ -673,6 +732,32 @@ Running main() from gtest_main.cc
 [       OK ] MessageTest.ConstructsFromCString (0 ms)
 [ RUN      ] MessageTest.StreamsFloat
 [       OK ] MessageTest.StreamsFloat (0 ms)
+[----------] 4 tests from MessageTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 4 tests from 1 test case ran. (0 ms total)
+[  PASSED  ] 4 tests.
+EOF
+exit 1
+";
+
+immutable scriptGTestSuiteAddOne =
+"#!/bin/bash
+cat <<EOF
+Running main() from gtest_main.cc
+[==========] Running 4 tests from 1 test case.
+[----------] Global test environment set-up.
+[----------] 4 tests from MessageTest
+[ RUN      ] MessageTest.CopyConstructor
+[       OK ] MessageTest.CopyConstructor (0 ms)
+[ RUN      ] MessageTest.ConstructsFromCString
+[       OK ] MessageTest.ConstructsFromCString (0 ms)
+[ RUN      ] MessageTest.StreamsFloat
+[       OK ] MessageTest.StreamsFloat (0 ms)
+[ RUN      ] MessageTest.StreamsDouble
+[       OK ] MessageTest.StreamsDouble (0 ms)
+[ RUN      ] MessageTest.StreamsDouble2
+[       OK ] MessageTest.StreamsDouble2 (0 ms)
 [----------] 4 tests from MessageTest (0 ms total)
 
 [----------] Global test environment tear-down

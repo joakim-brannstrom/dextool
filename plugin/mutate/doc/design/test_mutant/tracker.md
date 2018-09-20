@@ -1,5 +1,5 @@
-# SPC-plugin_mutant_track_test_case
-partof: SPC-plugin_mutant_test_mutant
+# SPC-track_test_case
+partof: SPC-test_mutant
 ###
 
 The plugin shall activate the *test case tracker* functionality when the *CLI* is *test case analyzer command*.
@@ -42,16 +42,16 @@ This is *probably* information that the user would like either way.
 
 A negative thing is that this would require the user to finish testing most of the mutants to get this information.
 
-# SPC-plugin_mutate_track_gtest
-partof: SPC-plugin_mutant_track_test_case
+# SPC-track_gtest
+partof: SPC-track_test_case
 ###
 
 The plugin shall parse the output from the test suite when a mutant is killed and the *test case tracker* is gtest.
 
 The plugin shall find the test cases that failed.
 
-# TST-plugin_mutate_track_gtest
-partof: SPC-plugin_mutate_track_gtest
+# TST-track_gtest
+partof: SPC-track_gtest
 ###
 
 TODO
@@ -112,14 +112,14 @@ Expected equality of these values:
  1 FAILED TEST
 ```
 
-# SPC-plugin_mutate_track_ctest
-partof: SPC-plugin_mutate_track_test_case
+# SPC-track_ctest
+partof: SPC-track_test_case
 ###
 
 TODO: add req
 
-# SPC-plugin_mutant_reset_alive
-partof: REQ/SPC/TST-short text
+# SPC-reset_alive
+partof: SPC-track_test_case
 ###
 
 The plugin shall reset alive mutants to unknown when new test cases are detected.

@@ -3,7 +3,7 @@ Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-// #TST-plugin_mutate_statement_del_call_expression
+// #TST-statement_del_call_expression
 */
 module dextool_test.mutate_stmt_deletion;
 

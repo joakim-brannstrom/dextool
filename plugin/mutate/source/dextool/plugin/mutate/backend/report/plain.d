@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-#SPC-plugin_mutate_report_for_human_plain
+#SPC-report_for_human_plain
 */
 module dextool.plugin.mutate.backend.report.plain;
 
@@ -20,7 +20,7 @@ import dextool.plugin.mutate.backend.database : Database, IterateMutantRow,
     MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.config : ReportConfig;
+import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
     ReportSection;
 
@@ -50,9 +50,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
-    const ReportConfig conf;
+    const ConfigReport conf;
 
-    this(const Mutation.Kind[] kinds, const ReportConfig conf, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
         this.conf = conf;

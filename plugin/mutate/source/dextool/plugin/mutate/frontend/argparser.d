@@ -13,13 +13,15 @@ configuration of how the mutation plugin should behave.
 module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.exception : collectException;
+import std.traits : EnumMembers;
 
-public import dextool.plugin.mutate.type;
 public import dextool.plugin.mutate.backend : Mutation;
-import dextool.type : AbsolutePath, Path, ExitStatusType;
+public import dextool.plugin.mutate.type;
+import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.utility;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 @safe:
 
@@ -28,9 +30,7 @@ struct ArgParser {
     import std.typecons : Nullable;
     import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
-    import std.traits : EnumMembers;
     import dextool.type : FileName;
-    import dextool.plugin.mutate.config;
 
     /// Minimal data needed to bootstrap the configuration.
     MiniConfig miniConf;
@@ -40,7 +40,7 @@ struct ArgParser {
     ConfigMutationTest mutationTest;
     ConfigAdmin admin;
     ConfigWorkArea workArea;
-    ReportConfig report;
+    ConfigReport report;
 
     struct Data {
         string[] inFiles;
@@ -135,11 +135,15 @@ struct ArgParser {
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
         app.put("# determine in what order mutations are chosen");
         app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put("# how to behave when new test cases are found");
+        app.put(format("# detected_new_test_case = %(%s|%)",
+                [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
         app.put(null);
 
         app.put("[report]");
         app.put("# default style to use");
         app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
+        app.put(null);
 
         return app.data.joiner(newline).toUTF8;
     }
@@ -512,6 +516,15 @@ void loadConfig(ref ArgParser rval) @trusted {
             c.mutationTest.mutationOrder = v.str.to!MutationOrder;
         } catch (Exception e) {
             logger.error(e.msg).collectException;
+        }
+    };
+    callbacks["mutant_test.detected_new_test_case"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.onNewTestCases = v.str.to!(ConfigMutationTest.NewTestCases);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.info("Available alternatives: ",
+                    [EnumMembers!(ConfigMutationTest.NewTestCases)]);
         }
     };
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {

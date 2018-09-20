@@ -1,4 +1,4 @@
-# REQ-plugin_mutate_architecture
+# REQ-architecture
 partof: REQ-plugin_mutate
 ###
 
@@ -17,8 +17,8 @@ Architectural goals:
  * it should be possible to incrementally use mutation testing during development.
  * it should be robust to infrastructure failures
 
-# SPC-plugin_mutate_architecture
-partof: REQ-plugin_mutate_architecture
+# SPC-architecture
+partof: REQ-architecture
 ###
 
 The overarching purpose of the design is to break down mutation and
@@ -37,8 +37,8 @@ Figures (to be moved to each functional design when they are created):
  * figures/report.pu : generate a report for the user from the database.
  * figures/test_mutant.pu : test a mutation point.
 
-# SPC-plugin_mutate_information_center
-partof: SPC-plugin_mutate_architecture
+# SPC-information_center
+partof: SPC-architecture
 ###
 *Note: component*
 

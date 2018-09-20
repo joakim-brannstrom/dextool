@@ -20,6 +20,7 @@ compile_cmd = "compile.sh"
 analyze_cmd = "foo.sh"
 analyze_using_builtin = ["gtest", "ctest", "makefile"]
 order = "random"
+detected_new_test_case = "resetAlive"
 
 [report]
 style = "plain"

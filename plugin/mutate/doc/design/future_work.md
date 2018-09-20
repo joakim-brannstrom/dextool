@@ -1,18 +1,18 @@
-# REQ-plugin_mutate_future_work
+# REQ-future_work
 partof: REQ-plugin_mutate
 ###
 This is a meta requirement capturing future work and ideas to be performed in
 the PoC.
 
-# SPC-plugin_mutate_optimize_generated_mutants
-partof: REQ-plugin_mutate_future_work
+# SPC-optimize_generated_mutants
+partof: REQ-future_work
 ###
 Implement the optimization found in [Improving Quality of Avionics Software Using Mutation Testing](http://liu.diva-portal.org/smash/record.jsf?pid=diva2%3A707336&dswid=-3612) to reduce the amount of equivalent mutants.
 
 Use semantic information regarding the boundaries.
 
-# SPC-plugin_mutate_visualization
-partof: REQ-plugin_mutate_future_work
+# SPC-visualization
+partof: REQ-future_work
 ###
 Implement interactive mutation visualisation.
 See [triangle](http://john-tornblom.github.io/llvm-p86/triangle/) for an example.
@@ -27,8 +27,8 @@ For the syntax highlight to work correctly a tokenizer must be implemented.
 
 Besides each file there should also be an _index_.
 
-# SPC-plugin_mutate_multiple_mutations_at_mp
-partof: REQ-plugin_mutate_future_work
+# SPC-multiple_mutations_at_mp
+partof: REQ-future_work
 ###
 This is a draft design for how to change the current mutations to be able to
 generate _one_ source code that contains _all_ possible mutations for a
@@ -63,8 +63,8 @@ to run the tests for the MP-ID.
 
 Maybe a simple way of doing this would be to generate a binary with *one* mutant for each mutation point. This would considerably reduce the number of compile cycles and should be relatively easy to implement.
 
-# SPC-plugin_mutate_distributed_mutation
-partof: REQ-plugin_mutate_future_work
+# SPC-distributed_mutation
+partof: REQ-future_work
 ###
 
 ## Step 1
@@ -114,18 +114,19 @@ unknown
 3. This can be very time consuming.
     But even though it takes 10min per mutation it is still better than a human having to analyze by hand.
 
-# SPC-plugin_mutate_notes_for_gui
-partof: REQ-plugin_mutate_future_work
+# SPC-notes_for_gui
+partof: REQ-future_work
 ###
 
 Consider using `vibe.d + CEF + vue.js` as the basis for a GUI.
 
-# SPC-plugin_mutate_todo
-partof: REQ-plugin_mutate_future_work
+# SPC-todo
+partof: REQ-future_work
 ###
 This is a simple TODO.
 New items are added at the top
 
+ * let the finder of test cases that don't kill any tests be able to do it by mutation type.
  * implement a command line switch that take a file/files and ranges in those file as places to where to mutate.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.

@@ -11,7 +11,7 @@ module dextool.plugin.runner;
 
 /**
  * Tagging the main entry point to the plugin with @safe to fulfill
- * #SPC-plugin_mutate_memory_safety
+ * #SPC-memory_safety
  */
 auto runPlugin(string[] args) @safe {
     import std.stdio : writeln;

@@ -3,7 +3,7 @@ Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
-#TST-plugin_mutate_report_for_human
+#TST-report_for_human
 
 TODO the full test specification is not implemented.
 */
@@ -153,7 +153,7 @@ unittest {
 
 @("shall report mutants in csv format")
 unittest {
-    //#TST-plugin_mutate_report_as_csv
+    //#TST-report_as_csv
 
     auto input_src = testData ~ "report_as_csv.cpp";
     mixin(EnvSetup(globalTestdir));

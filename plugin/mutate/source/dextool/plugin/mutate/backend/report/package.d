@@ -26,10 +26,10 @@ import dextool.plugin.mutate.backend.type : Mutation, Offset;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     window, windowSize, makeMutationText;
-import dextool.plugin.mutate.config : ReportConfig;
+import dextool.plugin.mutate.config : ConfigReport;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
-        const ReportConfig conf, FilesysIO fio) @safe nothrow {
+        const ConfigReport conf, FilesysIO fio) @safe nothrow {
     import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
 
@@ -74,7 +74,7 @@ struct ReportGenerator {
 
     ReportEvent[] listeners;
 
-    static auto make(const MutationKind[] kind, const ReportConfig conf, FilesysIO fio) {
+    static auto make(const MutationKind[] kind, const ConfigReport conf, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
@@ -211,7 +211,7 @@ struct CompilerMsgBuilder(Writer) {
 
 /** Report mutations as gcc would do for compilation warnings with fixit hints.
  *
- * #SPC-plugin_mutate_report_for_tool_integration
+ * #SPC-report_for_tool_integration
  */
 @safe final class ReportCompiler : ReportEvent {
     import std.algorithm : each;

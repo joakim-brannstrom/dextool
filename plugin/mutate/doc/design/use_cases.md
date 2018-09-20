@@ -5,7 +5,7 @@ An important aspect is ease of use in day-to-day development. When verification 
 
 When the tool is integrated into the development environment programmers must be able to run it routinely each time they develop new modules or modify existing ones. Ideally as part of the code compile step. The sooner checking is performed in the development process, the better.
 
-# REQ-plugin_mutate_early_validation
+# REQ-early_validation
 partof: REQ-plugin_mutate-use_case
 ###
 This plugin should be easy to use in the day-to-day development.
@@ -22,7 +22,7 @@ The plugin should on request visualize the changes to the code.
 
 The plugin should be easy to integrate with an IDE for visual feedback to the user.
 
-# REQ-plugin_mutate_inspection_of_test_proc
+# REQ-inspection_of_test_proc
 partof: REQ-plugin_mutate-use_case
 ###
 This plugin should replace or simplify parts of the inspection as required by DO-178C.
@@ -47,10 +47,10 @@ It may not be feasible to completely replace an activity. But parts of them shou
  * Test cases must verify *something*. A test case that do not kill any mutant is probably a junk test.
  * Test cases that fully overlap what they test. Test cases that kill exactly the same set of mutants are probably equivalent. One of them is probably redundant.
 
-# REQ-plugin_mutate_test_design_metric
-partof: REQ-plugin_mutate_inspection_of_test_proc
+# REQ-test_design_metric
+partof: REQ-inspection_of_test_proc
 ###
-The plugin should produce metrics for how well the design methods in [[REQ-plugin_mutate_inspection_of_test_proc]] has been carried out.
+The plugin should produce metrics for how well the design methods in [[REQ-inspection_of_test_proc]] has been carried out.
 
 Regarding code coverage:
  * The modified condition / decision coverage shows to some extent that boolean operators have been exercised. However, it does not require the observed output to be verified by a testing oracle.
@@ -58,8 +58,8 @@ Regarding code coverage:
 Regarding mutation:
  * By injecting faults in the source code and executing the test suite on all mutated versions of the program, the quality of the requirements based test can be measured in mutation score. Ideally the mutation operations should be representative of all realistic type of faults that could occur in practice.
 
-# SPC-plugin_mutate_incremental_mutation
-partof: REQ-plugin_mutate_early_validation
+# SPC-incremental_mutation
+partof: REQ-early_validation
 ###
 The plugin shall support incremental mutation.
 
@@ -84,15 +84,23 @@ A draft of a workflow and architecture would be.
  * The user export a mutation result report to file Y (same fileformat as X).
  * The user only has to go through and determine equivalence for the new mutations.
 
-# REQ-plugin_mutate_uc_understand_analyze
+# REQ-uc_understand_analyze
 partof:
 ###
 
-The user wants to help to understand what is being analyzed and mutated.
+The user wants to help to understand what is being analyzed and mutated. (1)
 
-## Why?
+The user wants to understand the acronyms for the mutation operators. (2)
+
+## Why? (1)
 
 It has been observed that it is hard for a user to understand this when the user uses symlinks.
 On one hand the plugin try to protect the user from rogue symlinks that point "outside" the e.g. a git repo. But on the other hand resolving the real path for symlinks makes it hard for an user that has symlinks to the source code from where they are building.
 
 Do not underestimate this point and the frustration it creates for an user. It leads to considerable irritation. To such a degree that the user will not use the tool.
+
+## Why? (2)
+
+Users have complained that they do not understand what e.g. LCR/ROR mean. They want it spelled out.
+The goal should be to provide enough information for the user to easier understand the report.
+They shouldn't need to look up a wiki or other things. The tool should help them understand.
