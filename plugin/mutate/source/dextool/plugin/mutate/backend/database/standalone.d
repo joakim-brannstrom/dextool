@@ -370,6 +370,10 @@ struct Database {
         if (tcs.length == 0)
             return;
 
+        db.begin;
+        scope (failure)
+            db.rollback;
+
         immutable mut_id = id.to!string;
 
         try {
@@ -381,20 +385,33 @@ struct Database {
         } catch (Exception e) {
         }
 
-        immutable add_new_sql = format("INSERT INTO %s (mut_id, name,location) VALUES(:mut_id, :tc, :loc)",
-                killedTestCaseTable);
+        immutable add_if_non_exist_tc_sql = format(
+                "INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)",
+                allTestCaseTable, allTestCaseTable);
+        auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
+
+        immutable add_new_sql = format(
+                "INSERT INTO %s (mut_id, tc_id, location) SELECT :mut_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
+                killedTestCaseTable, allTestCaseTable);
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
+                stmt_insert_tc.reset;
+                stmt_insert_tc.bind(":name1", tc.name);
+                stmt_insert_tc.bind(":name2", tc.name);
+                stmt_insert_tc.execute;
+
                 stmt_insert.reset;
                 stmt_insert.bind(":mut_id", mut_id);
-                stmt_insert.bind(":tc", tc.name);
                 stmt_insert.bind(":loc", tc.location);
+                stmt_insert.bind(":tc", tc.name);
                 stmt_insert.execute;
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
         }
+
+        db.commit;
     }
 
     /** Set detected test cases.
@@ -438,8 +455,8 @@ struct Database {
 
     /// Returns: test cases that has killed zero mutants
     TestCase[] getTestCasesWithZeroKills() @trusted {
-        immutable sql = format("SELECT name FROM %s WHERE %s.name NOT IN (SELECT name FROM %s)",
-                allTestCaseTable, allTestCaseTable, killedTestCaseTable);
+        immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
+                allTestCaseTable, killedTestCaseTable);
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
@@ -456,7 +473,8 @@ struct Database {
         Appender!(TestCase[]) rval;
 
         immutable get_test_cases_sql = format(
-                "SELECT name,location FROM %s WHERE mut_id=:id", killedTestCaseTable);
+                "SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id",
+                allTestCaseTable, killedTestCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute) {
@@ -503,8 +521,9 @@ struct Database {
         }
 
         // get all the test cases that are killed at the mutation point
-        immutable get_test_cases_sql = format("SELECT name,location FROM %s WHERE mut_id IN (%(%s,%))",
-                killedTestCaseTable, mut_ids);
+        immutable get_test_cases_sql = format(
+                "SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND mut_id IN (%(%s,%))",
+                killedTestCaseTable, allTestCaseTable, mut_ids);
         auto stmt = db.prepare(get_test_cases_sql);
         foreach (a; stmt.execute) {
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
@@ -518,19 +537,19 @@ struct Database {
     void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
         import std.regex : matchFirst;
 
-        immutable sql = format(
-                "SELECT test_case.id,test_case.name FROM %s,%s WHERE %s.mut_id=%s.id AND %s.kind IN (%(%s,%))",
-                killedTestCaseTable, mutationTable,
-                killedTestCaseTable, mutationTable, mutationTable, kinds.map!(a => cast(long) a));
+        immutable sql = format("SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id = t3.id AND t3.kind IN (%(%s,%))",
+                allTestCaseTable, killedTestCaseTable, mutationTable,
+                kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
 
+        auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", allTestCaseTable));
         foreach (row; stmt.execute) {
             string tc = row.peek!string(1);
             if (tc.matchFirst(rex).empty)
                 continue;
 
             long id = row.peek!long(0);
-            auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", killedTestCaseTable));
+            del_stmt.reset;
             del_stmt.bind(":id", id);
             del_stmt.execute;
         }
@@ -538,12 +557,13 @@ struct Database {
 
     /// Remove these test cases from those linked to having killed a mutant.
     void removeTestCases(const(TestCase)[] tcs) @trusted {
-        immutable sql = format("DELETE FROM %s WHERE name == :name", killedTestCaseTable);
-        auto stmt = db.prepare(sql);
-
         db.begin;
         scope (failure)
             db.rollback;
+
+        immutable sql = format("DELETE FROM %s WHERE %s.tc_id IN (SELECT id FROM %s WHERE name = :name)",
+                killedTestCaseTable, killedTestCaseTable, allTestCaseTable);
+        auto stmt = db.prepare(sql);
 
         foreach (tc; tcs) {
             stmt.bind(":name", tc.name);

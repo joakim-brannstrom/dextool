@@ -19,7 +19,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall report a summary of the untested mutants as human readable to stdout")
+@(testId ~ "shall report a summary of the untested mutants as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
     // Arrange
@@ -42,7 +42,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall report the alive in the database as human readable to stdout")
+@(testId ~ "shall report the alive in the database as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
     // Arrange
@@ -78,7 +78,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
+@(testId ~ "shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
 unittest {
     auto input_src = testData ~ "report_one_ror_mutation_point.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -104,7 +104,7 @@ unittest {
     ]).shouldBeIn(r.stderr);
 }
 
-@("shall report tool integration notes with the full text for dccTrue and dccBomb")
+@(testId ~ "shall report tool integration notes with the full text for dccTrue and dccBomb")
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -130,12 +130,7 @@ unittest {
     ]).shouldBeIn(r.stderr);
 }
 
-@("shall append a line indicating that the file is mutated")
-unittest {
-    // TODO
-}
-
-@("shall report mutants as a json")
+@(testId ~ "shall report mutants as a json")
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -151,7 +146,7 @@ unittest {
     writelnUt(r.stdout);
 }
 
-@("shall report mutants in csv format")
+@(testId ~ "shall report mutants in csv format")
 unittest {
     //#TST-report_as_csv
 
