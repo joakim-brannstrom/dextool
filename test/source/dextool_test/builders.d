@@ -9,13 +9,14 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool_test.builders;
 
-import scriptlike;
-
+import logger = std.experimental.logger;
 import std.datetime.stopwatch : StopWatch;
 import std.path : buildPath;
 import std.range : isInputRange;
-import std.typecons : Yes, No, Flag;
 import std.traits : ReturnType;
+import std.typecons : Yes, No, Flag;
+
+import scriptlike;
 
 static import core.thread;
 
@@ -182,6 +183,8 @@ struct BuildDextoolRun {
             cmd ~= "--";
             cmd ~= flags_.dup;
         }
+
+        logger.tracef("run: %-(%s %)", cmd);
 
         StopWatch sw;
         ReturnType!(std.process.tryWait) exit_;

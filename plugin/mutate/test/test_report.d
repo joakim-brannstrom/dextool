@@ -19,7 +19,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall report a summary of the untested mutants as human readable to stdout")
+@(testId ~ "shall report a summary of the untested mutants as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
     // Arrange
@@ -42,7 +42,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall report the alive in the database as human readable to stdout")
+@(testId ~ "shall report the alive in the database as human readable to stdout")
 unittest {
     mixin(EnvSetup(globalTestdir));
     // Arrange
@@ -78,7 +78,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
+@(testId ~ "shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
 unittest {
     auto input_src = testData ~ "report_one_ror_mutation_point.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -104,7 +104,7 @@ unittest {
     ]).shouldBeIn(r.stderr);
 }
 
-@("shall report tool integration notes with the full text for dccTrue and dccBomb")
+@(testId ~ "shall report tool integration notes with the full text for dccTrue and dccBomb")
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -130,12 +130,7 @@ unittest {
     ]).shouldBeIn(r.stderr);
 }
 
-@("shall append a line indicating that the file is mutated")
-unittest {
-    // TODO
-}
-
-@("shall report mutants as a json")
+@(testId ~ "shall report mutants as a json")
 unittest {
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -151,7 +146,7 @@ unittest {
     writelnUt(r.stdout);
 }
 
-@("shall report mutants in csv format")
+@(testId ~ "shall report mutants in csv format")
 unittest {
     //#TST-report_as_csv
 
@@ -203,6 +198,38 @@ unittest {
         "| 66.6667    | 2     | tc_2     |          |",
         "| 33.3333    | 1     | tc_3     |          |",
         "| 33.3333    | 1     | tc_1     |          |",
+    ]).shouldBeIn(r.stdout);
+}
+
+@(testId ~ "shall report test cases that kill the same mutants (overlap)")
+unittest {
+    // regression that the count of mutations are the total are correct (killed+timeout+alive)
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+    db.setDetectedTestCases([TestCase("tc_4")]);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", [TestCase("tc_3")]);
+
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section", "tc_full_overlap"])
+        .addArg(["--style", "plain"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "2/4 = 0.5 test cases",
+        "| TestCase |",
+        "|----------|",
+        "| tc_1     |",
+        "| tc_2     |",
     ]).shouldBeIn(r.stdout);
 }
 

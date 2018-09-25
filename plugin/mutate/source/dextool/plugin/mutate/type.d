@@ -89,6 +89,8 @@ enum ReportSection {
     tc_suggestion,
     /// Test cases that has killed zero mutants
     tc_killed_no_mutants,
+    /// Test cases that kill the same mutants
+    tc_full_overlap,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

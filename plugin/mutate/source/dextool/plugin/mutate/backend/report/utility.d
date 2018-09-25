@@ -330,10 +330,65 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
         if (total_cnt > 0)
             item.writefln("%-*s %s", align_, "Score:",
                     cast(double) killed_cnt / cast(double) total_cnt);
+        else
+            item.writefln("%-*s %s", align_, "Score:", 1.0);
         item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
+}
+
+/** Report test cases that completly overlap each other.
+ *
+ * Returns: a string with statistics.
+ */
+string reportTestCaseFullOverlap(ref Database db, ref Table!1 tbl) @safe nothrow {
+    import std.algorithm : sort, map, filter;
+    import std.array : array;
+    import std.format : format;
+    import dextool.hash;
+    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+
+    string stat;
+    // map between test cases and the mutants they have killed.
+    TestCaseId[][Murmur3] tc_mut;
+
+    try {
+        const total = db.getNumOfTestCases;
+
+        foreach (tc_id; db.getTestCasesWithAtLeastOneKill) {
+            auto muts = db.getTestCaseMutantKills(tc_id).sort.map!(a => cast(long) a).array;
+            auto m3 = makeMurmur3(cast(ubyte[]) muts);
+            if (auto v = m3 in tc_mut)
+                (*v) ~= tc_id;
+            else
+                tc_mut[m3] = [tc_id];
+        }
+
+        if (tc_mut.length == 0)
+            return null;
+
+        long overlap;
+        foreach (tcs; tc_mut.byValue.filter!(a => a.length > 1)) {
+            // TODO this is a bit slow. use a DB row iterator instead.
+            foreach (name; tcs.map!(id => db.getTestCaseName(id))) {
+                overlap++;
+
+                typeof(tbl).Row r = [name];
+                tbl.put(r);
+            }
+            typeof(tbl).Row r = [""];
+            tbl.put(r);
+        }
+
+        if (total > 0)
+            stat = format("%s/%s = %s test cases", overlap, total,
+                    cast(double) overlap / cast(double) total);
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+
+    return stat;
 }
 
 struct Table(int columnsNr) {
@@ -346,6 +401,10 @@ struct Table(int columnsNr) {
     this(const Row heading) {
         this.heading = heading;
         updateColumns(heading);
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return rows.length == 0;
     }
 
     void heading(const Row r) {
