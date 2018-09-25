@@ -26,8 +26,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
-    reportTestCaseStats, MutationsMap, reportTestCaseKillMap, MutationReprMap,
-    MutationRepr, reportMutationTestCaseSuggestion, reportDeadTestCases;
+    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -64,10 +63,12 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 tmp_sec = [summary, mut_stat];
                 break;
             case ReportLevel.alive:
-                tmp_sec = [summary, mut_stat, alive];
+                tmp_sec = [summary, mut_stat,
+                    tc_killed_no_mutants, tc_full_overlap, alive];
                 break;
             case ReportLevel.all:
-                tmp_sec = [summary, mut_stat, all_mut, tc_killed];
+                tmp_sec = [summary, mut_stat, all_mut,
+                    tc_killed, tc_killed_no_mutants, tc_full_overlap];
                 break;
             }
         } else {
@@ -237,12 +238,14 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln;
+        import dextool.plugin.mutate.backend.report.utility : reportTestCaseFullOverlap,
+            reportTestCaseStats, reportMutationTestCaseSuggestion,
+            reportDeadTestCases;
 
         auto stdout_ = () @trusted{ return stdout; }();
 
         if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
-
             Table!4 tc_tbl;
 
             tc_tbl.heading = ["Percentage", "Count", "TestCase", "Location"];
@@ -255,7 +258,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         if (ReportSection.tc_killed_no_mutants in sections) {
             logger.info("Test Case(s) that has killed no mutants");
-
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
 
@@ -269,6 +271,15 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             }
 
             reportMutationTestCaseSuggestion(db, testCaseSuggestions.data, &writer);
+        }
+
+        if (ReportSection.tc_full_overlap in sections) {
+            logger.info("Redundant Test Cases (killing the exactly same mutants)");
+            Table!1 tbl;
+            tbl.heading = ["TestCase"];
+            auto stat = reportTestCaseFullOverlap(db, tbl);
+            writeln(stat);
+            writeln(tbl);
         }
 
         if (ReportSection.summary in sections) {

@@ -1,26 +1,46 @@
 @startuml
+hide circle
+hide methods
+
+class schema_version {
+    version INTEGER NOT NULL
+}
+
+class killed_test_case {
+    id          INTEGER PRIMARY KEY,
+    mut_id      INTEGER NOT NULL,
+    tc_id       INTEGER NOT NULL,
+    location    TEXT,
+}
+killed_test_case "mut_id" --> "id" mutation
+killed_test_case "tc_id" --> "id" all_test_case
+
+class all_test_case {
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL
+}
+
 class mutation {
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
-    FOREIGN KEY(mp_id) REFERENCES mutation_point(id)
 }
+mutation "mp_id" --> "id" mutation_point
 
 class mutation_point {
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
     offset_end      INTEGER NOT NULL,
-    FOREIGN KEY(file_id) REFERENCES files(id)
 }
+mutation_point "file_id" --> "id" files
 
 class files {
     id          INTEGER PRIMARY KEY,
     path        TEXT NOT NULL,
-    checksum    INTEGER NOT NULL
+    checksum0   INTEGER NOT NULL
+    checksum1   INTEGER NOT NULL
+    lang        INTEGER
 }
-
-mutation_point "*" --> files
-mutation "*" --> mutation_point
 @enduml

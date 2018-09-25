@@ -453,22 +453,59 @@ struct Database {
         return rval.data;
     }
 
-    /// Returns: test cases that has killed zero mutants
+    /// Returns: test cases that has killed zero mutants.
     TestCase[] getTestCasesWithZeroKills() @trusted {
         immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
                 allTestCaseTable, killedTestCaseTable);
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
-        foreach (a; stmt.execute) {
+        foreach (a; stmt.execute)
             rval.put(TestCase(a.peek!string(0)));
-        }
 
         return rval.data;
     }
 
-    /** Returns: test cases that killed the mutant.
-      */
+    /** Guarantees that the there are no duplications of `TestCaseId`.
+     *
+     * Returns: test cases that has killed at least one mutant.
+     */
+    TestCaseId[] getTestCasesWithAtLeastOneKill() @trusted {
+        immutable sql = format("SELECT DISTINCT t1.id FROM %s t1, %s t2 WHERE t1.id = t2.tc_id",
+                allTestCaseTable, killedTestCaseTable);
+
+        auto rval = appender!(TestCaseId[])();
+        auto stmt = db.prepare(sql);
+        foreach (a; stmt.execute)
+            rval.put(TestCaseId(a.peek!long(0)));
+
+        return rval.data;
+    }
+
+    /// Returns: the name of the test case.
+    string getTestCaseName(const TestCaseId id) @trusted {
+        immutable sql = format("SELECT name FROM %s WHERE id = :id", allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(long) id);
+        auto res = stmt.execute;
+        return res.oneValue!string;
+    }
+
+    /// Returns: the mutants the test case killed.
+    MutationId[] getTestCaseMutantKills(const TestCaseId id) @trusted {
+        immutable sql = format("SELECT t1.mut_id FROM %s t1 WHERE t1.tc_id == :tid",
+                killedTestCaseTable);
+
+        auto rval = appender!(MutationId[])();
+        auto stmt = db.prepare(sql);
+        stmt.bind(":tid", cast(long) id);
+        foreach (a; stmt.execute)
+            rval.put(MutationId(a.peek!long(0)));
+
+        return rval.data;
+    }
+
+    /// Returns: test cases that killed the mutant.
     TestCase[] getTestCases(const MutationId id) @trusted {
         Appender!(TestCase[]) rval;
 
@@ -477,9 +514,8 @@ struct Database {
                 allTestCaseTable, killedTestCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
-        foreach (a; stmt.execute) {
+        foreach (a; stmt.execute)
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
-        }
 
         return rval.data;
     }

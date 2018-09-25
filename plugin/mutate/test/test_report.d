@@ -201,6 +201,38 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
+@(testId ~ "shall report test cases that kill the same mutants (overlap)")
+unittest {
+    // regression that the count of mutations are the total are correct (killed+timeout+alive)
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+    db.setDetectedTestCases([TestCase("tc_4")]);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", [TestCase("tc_3")]);
+
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section", "tc_full_overlap"])
+        .addArg(["--style", "plain"])
+        .run;
+
+    testConsecutiveSparseOrder!SubStr([
+        "2/4 = 0.5 test cases",
+        "| TestCase |",
+        "|----------|",
+        "| tc_1     |",
+        "| tc_2     |",
+    ]).shouldBeIn(r.stdout);
+}
+
 @(testId ~ "shall report the bottom (least killed) test cases stat of how many mutants they killed")
 unittest {
     // regression that the count of mutations are the total are correct (killed+timeout+alive)
