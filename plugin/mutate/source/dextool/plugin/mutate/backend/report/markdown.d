@@ -258,7 +258,10 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void statEvent(ref Database db) {
-        import dextool.plugin.mutate.backend.report.utility : reportDeadTestCases;
+        import dextool.plugin.mutate.backend.report.utility : reportDeadTestCases,
+            reportTestCaseFullOverlap;
+
+        const fmt = FormatSpec!char("%s");
 
         auto zero_kills = db.getTestCasesWithZeroKills;
         if (report_level != ReportLevel.summary && zero_kills.length != 0) {
@@ -268,10 +271,23 @@ struct Markdown(Writer, TraceWriter) {
             tbl.heading = ["TestCase", "Location"];
 
             reportDeadTestCases(db.getNumOfTestCases, zero_kills, item, tbl);
-            auto fmt = FormatSpec!char("%s");
             tbl.toString(Writer, fmt);
 
             item.popHeading;
+        }
+
+        if (report_level != ReportLevel.summary) {
+            Table!1 tbl;
+            tbl.heading = ["TestCase"];
+            auto stat = reportTestCaseFullOverlap(db, tbl);
+
+            if (!tbl.empty) {
+                auto item = markdown.heading(
+                        "Redundant Test Cases (killing the exactly same mutants)");
+                item.writeln(stat);
+                tbl.toString(Writer, fmt);
+                item.popHeading;
+            }
         }
 
         markdown_sum = markdown.heading("Summary");

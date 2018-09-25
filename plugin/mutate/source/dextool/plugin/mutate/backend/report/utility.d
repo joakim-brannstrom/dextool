@@ -403,6 +403,10 @@ struct Table(int columnsNr) {
         updateColumns(heading);
     }
 
+    bool empty() @safe pure nothrow const @nogc {
+        return rows.length == 0;
+    }
+
     void heading(const Row r) {
         heading_ = r;
         updateColumns(r);
