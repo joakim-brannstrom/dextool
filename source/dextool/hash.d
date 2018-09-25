@@ -40,7 +40,11 @@ struct Murmur3 {
     ulong c0;
     ulong c1;
 
-    bool opEquals(const typeof(this) o) nothrow @safe {
+    size_t toHash() @safe nothrow const {
+        return typeid(c0).getHash(&c0) + typeid(c1).getHash(&c1);
+    }
+
+    bool opEquals(const typeof(this) o) const nothrow @safe {
         return c0 == o.c0 && c1 == o.c1;
     }
 
