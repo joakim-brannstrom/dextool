@@ -274,9 +274,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         }
 
         if (ReportSection.tc_full_overlap in sections) {
-            logger.info("Redundant Test Cases (killing the exactly same mutants)");
-            Table!1 tbl;
-            tbl.heading = ["TestCase"];
+            logger.info("Redundant Test Cases (killing the same mutants)");
+            Table!2 tbl;
+            tbl.heading = ["TestCase", "Mutation ID"];
             auto stat = reportTestCaseFullOverlap(db, tbl);
             writeln(stat);
             writeln(tbl);

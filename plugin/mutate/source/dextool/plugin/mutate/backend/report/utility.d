@@ -342,8 +342,8 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
  *
  * Returns: a string with statistics.
  */
-string reportTestCaseFullOverlap(ref Database db, ref Table!1 tbl) @safe nothrow {
-    import std.algorithm : sort, map, filter;
+string reportTestCaseFullOverlap(ref Database db, ref Table!2 tbl) @safe nothrow {
+    import std.algorithm : sort, map, filter, joiner;
     import std.array : array;
     import std.format : format;
     import dextool.hash;
@@ -352,6 +352,8 @@ string reportTestCaseFullOverlap(ref Database db, ref Table!1 tbl) @safe nothrow
     string stat;
     // map between test cases and the mutants they have killed.
     TestCaseId[][Murmur3] tc_mut;
+    // map between mutation IDs and the test cases that killed them.
+    long[][Murmur3] mutid_mut;
 
     try {
         const total = db.getNumOfTestCases;
@@ -361,23 +363,32 @@ string reportTestCaseFullOverlap(ref Database db, ref Table!1 tbl) @safe nothrow
             auto m3 = makeMurmur3(cast(ubyte[]) muts);
             if (auto v = m3 in tc_mut)
                 (*v) ~= tc_id;
-            else
+            else {
                 tc_mut[m3] = [tc_id];
+                mutid_mut[m3] = muts;
+            }
         }
 
         if (tc_mut.length == 0)
             return null;
 
         long overlap;
-        foreach (tcs; tc_mut.byValue.filter!(a => a.length > 1)) {
+        foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
+            bool first = true;
             // TODO this is a bit slow. use a DB row iterator instead.
-            foreach (name; tcs.map!(id => db.getTestCaseName(id))) {
+            foreach (name; tcs.value.map!(id => db.getTestCaseName(id))) {
                 overlap++;
 
-                typeof(tbl).Row r = [name];
+                typeof(tbl).Row r;
+                r[0] = name;
+                if (first) {
+                    r[1] = format("%-(%s,%)", mutid_mut[tcs.key]);
+                    first = false;
+                }
+
                 tbl.put(r);
             }
-            typeof(tbl).Row r = [""];
+            typeof(tbl).Row r = ["", ""];
             tbl.put(r);
         }
 
