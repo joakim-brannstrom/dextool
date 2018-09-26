@@ -277,8 +277,8 @@ struct Markdown(Writer, TraceWriter) {
         }
 
         if (report_level != ReportLevel.summary) {
-            Table!2 tbl;
-            tbl.heading = ["TestCase", "Mutation ID"];
+            Table!3 tbl;
+            tbl.heading = ["TestCase", "Count", "Mutation ID"];
             auto stat = reportTestCaseFullOverlap(db, tbl);
 
             if (!tbl.empty) {

@@ -342,9 +342,10 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
  *
  * Returns: a string with statistics.
  */
-string reportTestCaseFullOverlap(ref Database db, ref Table!2 tbl) @safe nothrow {
+string reportTestCaseFullOverlap(ref Database db, ref Table!3 tbl) @safe nothrow {
     import std.algorithm : sort, map, filter, joiner;
     import std.array : array;
+    import std.conv : to;
     import std.format : format;
     import dextool.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
@@ -382,13 +383,15 @@ string reportTestCaseFullOverlap(ref Database db, ref Table!2 tbl) @safe nothrow
                 typeof(tbl).Row r;
                 r[0] = name;
                 if (first) {
-                    r[1] = format("%-(%s,%)", mutid_mut[tcs.key]);
+                    auto muts = mutid_mut[tcs.key];
+                    r[1] = muts.length.to!string;
+                    r[2] = format("%-(%s,%)", muts);
                     first = false;
                 }
 
                 tbl.put(r);
             }
-            typeof(tbl).Row r = ["", ""];
+            typeof(tbl).Row r = ["", "", ""];
             tbl.put(r);
         }
 
