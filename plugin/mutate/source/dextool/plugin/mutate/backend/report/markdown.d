@@ -277,13 +277,12 @@ struct Markdown(Writer, TraceWriter) {
         }
 
         if (report_level != ReportLevel.summary) {
-            Table!1 tbl;
-            tbl.heading = ["TestCase"];
+            Table!3 tbl;
+            tbl.heading = ["TestCase", "Count", "Mutation ID"];
             auto stat = reportTestCaseFullOverlap(db, tbl);
 
             if (!tbl.empty) {
-                auto item = markdown.heading(
-                        "Redundant Test Cases (killing the exactly same mutants)");
+                auto item = markdown.heading("Redundant Test Cases (killing the same mutants)");
                 item.writeln(stat);
                 tbl.toString(Writer, fmt);
                 item.popHeading;
