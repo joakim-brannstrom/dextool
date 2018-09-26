@@ -374,7 +374,7 @@ struct Database {
         scope (failure)
             db.rollback;
 
-        immutable mut_id = id.to!string;
+        immutable mut_id = cast(long) id;
 
         try {
             immutable remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id",
@@ -426,16 +426,41 @@ struct Database {
         scope (failure)
             db.rollback;
 
-        immutable remove_old_sql = format("DELETE FROM %s", allTestCaseTable);
-        db.execute(remove_old_sql);
+        immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        db.run(format("CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+                tmp_name));
 
-        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", allTestCaseTable);
-        auto stmt = db.prepare(add_tc_sql);
+        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", tmp_name);
+        auto insert_s = db.prepare(add_tc_sql);
         foreach (tc; tcs) {
-            stmt.bind(":name", tc.name);
-            stmt.execute;
-            stmt.reset;
+            insert_s.bind(":name", tc.name);
+            insert_s.execute;
+            insert_s.reset;
         }
+
+        // https://stackoverflow.com/questions/2686254/how-to-select-all-records-from-one-table-that-do-not-exist-in-another-table
+        //Q: What is happening here?
+        //
+        //A: Conceptually, we select all rows from table1 and for each row we
+        //attempt to find a row in table2 with the same value for the name
+        //column.  If there is no such row, we just leave the table2 portion of
+        //our result empty for that row. Then we constrain our selection by
+        //picking only those rows in the result where the matching row does not
+        //exist. Finally, We ignore all fields from our result except for the
+        //name column (the one we are sure that exists, from table1).
+        //
+        //While it may not be the most performant method possible in all cases,
+        //it should work in basically every database engine ever that attempts
+        //to implement ANSI 92 SQL
+        immutable add_missing_sql = format("INSERT INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL",
+                allTestCaseTable, tmp_name, allTestCaseTable);
+        db.run(add_missing_sql);
+
+        immutable remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
+                allTestCaseTable, tmp_name);
+        db.run(remove_old_sql);
+
+        db.run(format("DROP TABLE %s", tmp_name));
 
         db.commit;
     }

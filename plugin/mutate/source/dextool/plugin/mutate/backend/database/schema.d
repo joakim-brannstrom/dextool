@@ -50,8 +50,8 @@ interchangeably.
 */
 module dextool.plugin.mutate.backend.database.schema;
 
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.exception : collectException;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -351,8 +351,11 @@ void upgradeV4(ref sqlDatabase db) {
     //should work in basically every database engine ever that attempts to
     //implement ANSI 92 SQL
 
-    db.run(format("INSERT INTO %s (id,mut_id,tc_id,location) SELECT t1.id,t1.mut_id,t2.id,t1.location FROM %s t1 INNER JOIN %s t2 ON t1.name = t2.name",
-            new_tbl, killedTestCaseTable, allTestCaseTable));
+    // This do NOT WORK. The result is that that this upgrade is broken because
+    // it drops all maps between killed_test_case and mutation.
+    //db.run(format("INSERT INTO %s (id,mut_id,tc_id,location) SELECT t1.id,t1.mut_id,t2.id,t1.location FROM %s t1 INNER JOIN %s t2 ON t1.name = t2.name",
+    //        new_tbl, killedTestCaseTable, allTestCaseTable));
+
     db.run(format("DROP TABLE %s", killedTestCaseTable));
     db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
 
