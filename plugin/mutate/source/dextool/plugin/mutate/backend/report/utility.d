@@ -350,7 +350,7 @@ template reportTestCaseFullOverlap(Flag!"colWithMutants" colMutants) {
     }
     alias RowT = TableT.Row;
 
-    string reportTestCaseFullOverlap(ref Database db, ref TableT tbl) @safe nothrow {
+    string reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds, ref TableT tbl) @safe nothrow {
         import std.algorithm : sort, map, filter, joiner;
         import std.array : array;
         import std.conv : to;
@@ -367,8 +367,9 @@ template reportTestCaseFullOverlap(Flag!"colWithMutants" colMutants) {
         try {
             const total = db.getNumOfTestCases;
 
-            foreach (tc_id; db.getTestCasesWithAtLeastOneKill) {
-                auto muts = db.getTestCaseMutantKills(tc_id).sort.map!(a => cast(long) a).array;
+            foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
+                auto muts = db.getTestCaseMutantKills(tc_id, kinds)
+                    .sort.map!(a => cast(long) a).array;
                 auto m3 = makeMurmur3(cast(ubyte[]) muts);
                 if (auto v = m3 in tc_mut)
                     (*v) ~= tc_id;

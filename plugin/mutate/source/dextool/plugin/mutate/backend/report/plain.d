@@ -278,7 +278,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             logger.info("Redundant Test Cases (killing the same mutants)");
             Table!2 tbl;
             tbl.heading = ["TestCase", "Count"];
-            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, tbl);
+            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, kinds, tbl);
             writeln(stat);
             writeln(tbl);
         }
@@ -287,7 +287,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             logger.info("Redundant Test Cases (killing the same mutants)");
             Table!3 tbl;
             tbl.heading = ["TestCase", "Count", "Mutation ID"];
-            auto stat = reportTestCaseFullOverlap!(Yes.colWithMutants)(db, tbl);
+            auto stat = reportTestCaseFullOverlap!(Yes.colWithMutants)(db, kinds, tbl);
             writeln(stat);
             writeln(tbl);
         }
