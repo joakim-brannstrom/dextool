@@ -11,8 +11,9 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.plain;
 
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.exception : collectException;
+import std.typecons : Yes, No;
 
 import dextool.type;
 
@@ -275,9 +276,18 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         if (ReportSection.tc_full_overlap in sections) {
             logger.info("Redundant Test Cases (killing the same mutants)");
+            Table!2 tbl;
+            tbl.heading = ["TestCase", "Count"];
+            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, tbl);
+            writeln(stat);
+            writeln(tbl);
+        }
+
+        if (ReportSection.tc_full_overlap_with_mutation_id in sections) {
+            logger.info("Redundant Test Cases (killing the same mutants)");
             Table!3 tbl;
             tbl.heading = ["TestCase", "Count", "Mutation ID"];
-            auto stat = reportTestCaseFullOverlap(db, tbl);
+            auto stat = reportTestCaseFullOverlap!(Yes.colWithMutants)(db, tbl);
             writeln(stat);
             writeln(tbl);
         }

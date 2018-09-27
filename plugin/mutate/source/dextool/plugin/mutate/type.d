@@ -91,6 +91,8 @@ enum ReportSection {
     tc_killed_no_mutants,
     /// Test cases that kill the same mutants
     tc_full_overlap,
+    /// Test cases that kill the same mutants with a mutation ID column
+    tc_full_overlap_with_mutation_id,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.
