@@ -495,9 +495,9 @@ struct Database {
      *
      * Returns: test cases that has killed at least one mutant.
      */
-    TestCaseId[] getTestCasesWithAtLeastOneKill() @trusted {
-        immutable sql = format("SELECT DISTINCT t1.id FROM %s t1, %s t2 WHERE t1.id = t2.tc_id",
-                allTestCaseTable, killedTestCaseTable);
+    TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
+        immutable sql = format("SELECT DISTINCT t1.id FROM %s t1, %s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id == t3.id AND t3.kind IN (%(%s,%))",
+                allTestCaseTable, killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
@@ -517,9 +517,10 @@ struct Database {
     }
 
     /// Returns: the mutants the test case killed.
-    MutationId[] getTestCaseMutantKills(const TestCaseId id) @trusted {
-        immutable sql = format("SELECT t1.mut_id FROM %s t1 WHERE t1.tc_id == :tid",
-                killedTestCaseTable);
+    MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
+        immutable sql = format(
+                "SELECT t1.mut_id FROM %s t1, %s t2 WHERE t1.tc_id = :tid AND t1.mut_id = t2.id AND t2.kind IN (%(%s,%))",
+                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
         auto stmt = db.prepare(sql);

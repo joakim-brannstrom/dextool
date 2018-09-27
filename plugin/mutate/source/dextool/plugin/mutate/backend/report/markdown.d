@@ -310,7 +310,7 @@ struct Markdown(Writer, TraceWriter) {
         if (sections.contains(ReportSection.tc_full_overlap)) {
             Table!2 tbl;
             tbl.heading = ["TestCase", "Count"];
-            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, tbl);
+            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, kinds, tbl);
 
             if (!tbl.empty) {
                 auto item = markdown.heading("Redundant Test Cases (killing the same mutants)");
