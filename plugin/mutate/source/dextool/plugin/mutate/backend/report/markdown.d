@@ -11,6 +11,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.markdown;
 
+import std.typecons : Yes, No;
 import std.exception : collectException;
 import logger = std.experimental.logger;
 
@@ -277,9 +278,9 @@ struct Markdown(Writer, TraceWriter) {
         }
 
         if (report_level != ReportLevel.summary) {
-            Table!3 tbl;
-            tbl.heading = ["TestCase", "Count", "Mutation ID"];
-            auto stat = reportTestCaseFullOverlap(db, tbl);
+            Table!2 tbl;
+            tbl.heading = ["TestCase", "Count"];
+            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, tbl);
 
             if (!tbl.empty) {
                 auto item = markdown.heading("Redundant Test Cases (killing the same mutants)");

@@ -9,16 +9,16 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.utility;
 
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.exception : collectException;
+import std.typecons : Flag, Yes, No;
 
-import dextool.type;
-
-import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
-    Language;
 import dextool.plugin.mutate.backend.database : Database, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
+    Language;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
+import dextool.type;
 
 @safe:
 
@@ -342,67 +342,81 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
  *
  * Returns: a string with statistics.
  */
-string reportTestCaseFullOverlap(ref Database db, ref Table!3 tbl) @safe nothrow {
-    import std.algorithm : sort, map, filter, joiner;
-    import std.array : array;
-    import std.conv : to;
-    import std.format : format;
-    import dextool.hash;
-    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+template reportTestCaseFullOverlap(Flag!"colWithMutants" colMutants) {
+    static if (colMutants) {
+        alias TableT = Table!3;
+    } else {
+        alias TableT = Table!2;
+    }
+    alias RowT = TableT.Row;
 
-    string stat;
-    // map between test cases and the mutants they have killed.
-    TestCaseId[][Murmur3] tc_mut;
-    // map between mutation IDs and the test cases that killed them.
-    long[][Murmur3] mutid_mut;
+    string reportTestCaseFullOverlap(ref Database db, ref TableT tbl) @safe nothrow {
+        import std.algorithm : sort, map, filter, joiner;
+        import std.array : array;
+        import std.conv : to;
+        import std.format : format;
+        import dextool.hash;
+        import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
-    try {
-        const total = db.getNumOfTestCases;
+        string stat;
+        // map between test cases and the mutants they have killed.
+        TestCaseId[][Murmur3] tc_mut;
+        // map between mutation IDs and the test cases that killed them.
+        long[][Murmur3] mutid_mut;
 
-        foreach (tc_id; db.getTestCasesWithAtLeastOneKill) {
-            auto muts = db.getTestCaseMutantKills(tc_id).sort.map!(a => cast(long) a).array;
-            auto m3 = makeMurmur3(cast(ubyte[]) muts);
-            if (auto v = m3 in tc_mut)
-                (*v) ~= tc_id;
-            else {
-                tc_mut[m3] = [tc_id];
-                mutid_mut[m3] = muts;
-            }
-        }
+        try {
+            const total = db.getNumOfTestCases;
 
-        if (tc_mut.length == 0)
-            return null;
-
-        long overlap;
-        foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
-            bool first = true;
-            // TODO this is a bit slow. use a DB row iterator instead.
-            foreach (name; tcs.value.map!(id => db.getTestCaseName(id))) {
-                overlap++;
-
-                typeof(tbl).Row r;
-                r[0] = name;
-                if (first) {
-                    auto muts = mutid_mut[tcs.key];
-                    r[1] = muts.length.to!string;
-                    r[2] = format("%-(%s,%)", muts);
-                    first = false;
+            foreach (tc_id; db.getTestCasesWithAtLeastOneKill) {
+                auto muts = db.getTestCaseMutantKills(tc_id).sort.map!(a => cast(long) a).array;
+                auto m3 = makeMurmur3(cast(ubyte[]) muts);
+                if (auto v = m3 in tc_mut)
+                    (*v) ~= tc_id;
+                else {
+                    tc_mut[m3] = [tc_id];
+                    mutid_mut[m3] = muts;
                 }
+            }
 
+            if (tc_mut.length == 0)
+                return null;
+
+            long overlap;
+            foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
+                bool first = true;
+                // TODO this is a bit slow. use a DB row iterator instead.
+                foreach (name; tcs.value.map!(id => db.getTestCaseName(id))) {
+                    overlap++;
+
+                    RowT r;
+                    r[0] = name;
+                    if (first) {
+                        auto muts = mutid_mut[tcs.key];
+                        r[1] = muts.length.to!string;
+                        static if (colMutants) {
+                            r[2] = format("%-(%s,%)", muts);
+                        }
+                        first = false;
+                    }
+
+                    tbl.put(r);
+                }
+                static if (colMutants)
+                    RowT r = ["", "", ""];
+                else
+                    RowT r = ["", ""];
                 tbl.put(r);
             }
-            typeof(tbl).Row r = ["", "", ""];
-            tbl.put(r);
+
+            if (total > 0)
+                stat = format("%s/%s = %s test cases", overlap, total,
+                        cast(double) overlap / cast(double) total);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
 
-        if (total > 0)
-            stat = format("%s/%s = %s test cases", overlap, total,
-                    cast(double) overlap / cast(double) total);
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
+        return stat;
     }
-
-    return stat;
 }
 
 struct Table(int columnsNr) {
