@@ -11,16 +11,19 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.markdown;
 
-import std.typecons : Yes, No;
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.array : empty;
+import std.exception : collectException;
+import std.typecons : Yes, No;
 
-import dextool.type;
-
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
+import dextool.plugin.mutate.config : ConfigReport;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
+    ReportSection;
+import dextool.set;
+import dextool.type;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, window, windowSize, reportMutationSubtypeStats,
@@ -129,7 +132,8 @@ struct Markdown(Writer, TraceWriter) {
     static immutable mutation_w = 10 + 8 + 8;
 
     const Mutation.Kind[] kinds;
-    const ReportLevel report_level;
+    bool reportIndividualMutants;
+    Set!ReportSection sections;
     FilesysIO fio;
 
     Markdown!(SimpleWriter, SimpleWriter) markdown;
@@ -145,10 +149,32 @@ struct Markdown(Writer, TraceWriter) {
 
     write(s); };
 
-    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
-        this.report_level = report_level;
         this.fio = fio;
+
+        ReportSection[] tmp_sec;
+        if (conf.reportSection.empty) {
+            final switch (conf.reportLevel) with (ReportSection) {
+            case ReportLevel.summary:
+                tmp_sec = [summary, mut_stat];
+                break;
+            case ReportLevel.alive:
+                tmp_sec = [summary, mut_stat,
+                    tc_killed_no_mutants, tc_full_overlap, alive];
+                break;
+            case ReportLevel.all:
+                tmp_sec = [summary, mut_stat, all_mut,
+                    tc_killed, tc_killed_no_mutants, tc_full_overlap];
+                break;
+            }
+        } else {
+            tmp_sec = conf.reportSection.dup;
+        }
+
+        sections = setFromList(tmp_sec);
+        reportIndividualMutants = sections.contains(ReportSection.all_mut)
+            || sections.contains(ReportSection.alive) || sections.contains(ReportSection.killed);
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
@@ -159,21 +185,20 @@ struct Markdown(Writer, TraceWriter) {
         };
 
         SimpleWriter tracer;
-        if (report_level == ReportLevel.all) {
+        if (ReportSection.all_mut)
             tracer = writer;
-        } else {
+        else
             tracer = delegate(const(char)[] s) {  };
-        }
 
         markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
         markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
     }
 
     override void locationStartEvent() {
-        if (report_level == ReportLevel.summary)
-            return;
-        markdown_loc = markdown.heading("Mutants");
-        mut_tbl.heading = ["From", "To", "File Line:Column", "ID", "Status"];
+        if (reportIndividualMutants) {
+            markdown_loc = markdown.heading("Mutants");
+            mut_tbl.heading = ["From", "To", "File Line:Column", "ID", "Status"];
+        }
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {
@@ -206,26 +231,31 @@ struct Markdown(Writer, TraceWriter) {
             // dfmt on
         }
 
+        if (!reportIndividualMutants)
+            return;
+
         try {
-            final switch (report_level) {
-            case ReportLevel.summary:
-                break;
-            case ReportLevel.alive:
+            if (sections.contains(ReportSection.alive)) {
                 if (r.mutation.status == Mutation.Status.alive) {
                     report();
                 }
-                break;
-            case ReportLevel.all:
-                report();
-                break;
             }
+
+            if (sections.contains(ReportSection.killed)) {
+                if (r.mutation.status == Mutation.Status.killed) {
+                    report();
+                }
+            }
+
+            if (sections.contains(ReportSection.all_mut))
+                report();
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }
 
     override void locationEndEvent() {
-        if (report_level == ReportLevel.summary)
+        if (!reportIndividualMutants)
             return;
 
         auto writer = delegate(const(char)[] s) {
@@ -243,7 +273,7 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void locationStatEvent() {
-        if (mutationStat.length != 0 && report_level != ReportLevel.summary) {
+        if (mutationStat.length != 0 && sections.contains(ReportSection.mut_stat)) {
             auto item = markdown.heading("Alive Mutation Statistics");
 
             Table!4 substat_tbl;
@@ -264,8 +294,8 @@ struct Markdown(Writer, TraceWriter) {
 
         const fmt = FormatSpec!char("%s");
 
-        auto zero_kills = db.getTestCasesWithZeroKills;
-        if (report_level != ReportLevel.summary && zero_kills.length != 0) {
+        if (sections.contains(ReportSection.tc_killed_no_mutants)) {
+            auto zero_kills = db.getTestCasesWithZeroKills;
             auto item = markdown.heading("Test Cases with Zero Kills");
 
             Table!2 tbl;
@@ -277,7 +307,7 @@ struct Markdown(Writer, TraceWriter) {
             item.popHeading;
         }
 
-        if (report_level != ReportLevel.summary) {
+        if (sections.contains(ReportSection.tc_full_overlap)) {
             Table!2 tbl;
             tbl.heading = ["TestCase", "Count"];
             auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, tbl);
@@ -290,12 +320,14 @@ struct Markdown(Writer, TraceWriter) {
             }
         }
 
-        markdown_sum = markdown.heading("Summary");
+        if (sections.contains(ReportSection.summary)) {
+            markdown_sum = markdown.heading("Summary");
 
-        markdown_sum.beginSyntaxBlock;
-        reportStatistics(db, kinds, markdown_sum);
-        markdown_sum.endSyntaxBlock;
+            markdown_sum.beginSyntaxBlock;
+            reportStatistics(db, kinds, markdown_sum);
+            markdown_sum.endSyntaxBlock;
 
-        markdown_sum.popHeading;
+            markdown_sum.popHeading;
+        }
     }
 }
