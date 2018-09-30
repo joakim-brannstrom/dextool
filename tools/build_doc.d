@@ -1,4 +1,7 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env dub
+/+ dub.sdl:
+    name "build_doc"
++/
 /**
 Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
@@ -64,11 +67,13 @@ int main(string[] args) {
         auto cur = dirs[0];
         dirs = dirs[1 .. $];
 
-        dirs ~= dirEntries(cur, SpanMode.shallow).filter!(a => a.isDir
-                && !a.isSymlink).map!(a => a.name).array;
-        docs ~= dirEntries(cur, SpanMode.shallow).filter!(a => a.isFile
-                && !a.isSymlink).filter!(a => a.name.endsWith("_docs.json"))
-            .map!(a => a.name).array;
+        dirs ~= dirEntries(cur, SpanMode.shallow).filter!(a => a.isDir && !a.isSymlink)
+            .map!(a => a.name)
+            .array;
+        docs ~= dirEntries(cur, SpanMode.shallow).filter!(a => a.isFile && !a.isSymlink)
+            .filter!(a => a.name.endsWith("_docs.json"))
+            .map!(a => a.name)
+            .array;
     }
     writefln("Found %s", docs);
 

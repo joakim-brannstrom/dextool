@@ -11,5 +11,5 @@ set(flags "-I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src -I${CMAKE_SOURCE_DIR}/tes
 
 # Setup expected test environment around the integration test binary
 execute_process(
-    COMMAND ${CMAKE_SOURCE_DIR}/tools/symlink.d ${CMAKE_CURRENT_LIST_DIR}/testdata ${CMAKE_BINARY_DIR}/testdata
+    COMMAND ${CMAKE_BINARY_DIR}/symlink ${CMAKE_CURRENT_LIST_DIR}/testdata ${CMAKE_BINARY_DIR}/testdata
 )

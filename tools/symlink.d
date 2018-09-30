@@ -1,4 +1,7 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env dub
+/+ dub.sdl:
+    name "symlink"
++/
 
 import std.stdio;
 import std.file;

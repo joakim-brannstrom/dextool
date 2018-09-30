@@ -1,4 +1,7 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env dub
+/+ dub.sdl:
+    name "travis_install_dep"
++/
 
 import std.stdio;
 import std.process;
