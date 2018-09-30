@@ -14,7 +14,7 @@ First we need to do some basic setup such as cloning the repo.
 
 The mutation testing is separated in three phases, analyze/test/report.
 
-The analyze phase only need to be performed when the source code is changed.
+The analyze phase analyze the source code for mutants. This means that the analyze phase has to be re-executed when the source code change. Dextool warn when you need to do this.
 
  * [2 analyze](gtest/2_analyze.sh)
 
