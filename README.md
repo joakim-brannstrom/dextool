@@ -19,9 +19,15 @@ The plugins in a standard installation of deXtool are:
 
 # Plugin Status
 
+ * **Analyze**: production ready.
  * **C TestDouble**: production ready. The API of the generated code and how it behaves is stable.
- * **C++ TestDouble** is production ready.
- * [**Mutate**](plugin/mutate/README.md) is production ready.
+ * **C++ TestDouble** is production ready. The API of the generated code and how it behaves is stable.
+ * **CompileDB**: alpha.
+ * **Fuzzer**: alpha.
+ * **GraphML**: beta.
+ * **Intercept**: alpha.
+ * **UML**: beta.
+ * [**Mutate**](plugin/mutate/README.md): production ready.
 
 # Getting Started
 
