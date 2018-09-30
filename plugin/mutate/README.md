@@ -22,75 +22,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 This section explains how to use Dextool Mutate to analyze a C++ project. The tool works with any type of build system that is able to generate a JSON compilation database.
 
-The [Google Test project](https://github.com/google/googletest) will be used as an example.
-
-Obtain the project you want to analyze:
-```sh
-git clone https://github.com/google/googletest.git
-cd googletest
-```
-
-Generate a JSON compilation database for the project:
-```sh
-mkdir build
-pushd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
-make
-popd
-```
-
-Create a configuration file:
-```sh
-dextool mutate admin --init
-```
-
-Open the config file and change the following fields:
-```toml
-[workarea]
-restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
-[database]
-db = "dextool_mutate.sqlite3"
-[compiler]
-extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
-[compile_commands]
-search_paths = ["./build/compile_commands.json"]
-[mutant_test]
-test_cmd = "test.sh"
-compile_cmd = "compile.sh"
-analyze_using_builtin = ["gtest", "ctest"]
-```
-
-Generate a database of all mutation points:
-```sh
-dextool mutate analyze
-```
-
-Create a file `test.sh` that will run the entire test suite when invoked:
-```sh
-#!/bin/bash
-set -e
-cd build
-ctest --output-on-failure -j4
-```
-
-Create a file `compile.sh` that will build the entire project when invoked:
-```sh
-#!/bin/bash
-set -e
-cd build
-make -j$(nproc)
-```
-
-Make the files executable so they can be used by dextool:
-```sh
-chmod 755 test.sh
-chmod 755 compile.sh
-```
-
-Run the mutation testing:
-```sh
-dextool mutate test --mutant lcr
-```
+See [examples](examples) for how to use the mutate plugin.
 
 ## Custom Test Analyzer
 
