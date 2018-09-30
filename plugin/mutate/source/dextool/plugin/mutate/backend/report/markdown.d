@@ -27,7 +27,7 @@ import dextool.type;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, window, windowSize, reportMutationSubtypeStats,
-    reportStatistics, Table;
+    reportStatistics, Table, toSections;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 
 @safe:
@@ -153,24 +153,8 @@ struct Markdown(Writer, TraceWriter) {
         this.kinds = kinds;
         this.fio = fio;
 
-        ReportSection[] tmp_sec;
-        if (conf.reportSection.empty) {
-            final switch (conf.reportLevel) with (ReportSection) {
-            case ReportLevel.summary:
-                tmp_sec = [summary, mut_stat];
-                break;
-            case ReportLevel.alive:
-                tmp_sec = [summary, mut_stat,
-                    tc_killed_no_mutants, tc_full_overlap, alive];
-                break;
-            case ReportLevel.all:
-                tmp_sec = [summary, mut_stat, all_mut,
-                    tc_killed, tc_killed_no_mutants, tc_full_overlap];
-                break;
-            }
-        } else {
-            tmp_sec = conf.reportSection.dup;
-        }
+        ReportSection[] tmp_sec = conf.reportSection.length == 0
+            ? conf.reportLevel.toSections : conf.reportSection.dup;
 
         sections = setFromList(tmp_sec);
         reportIndividualMutants = sections.contains(ReportSection.all_mut)
