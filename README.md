@@ -19,12 +19,9 @@ The plugins in a standard installation of deXtool are:
 
 # Plugin Status
 
-"C TestDouble", production ready.
-The API of the generated code and how it behaves is stable.
-
-"C++ TestDouble" is nearing production quality.
-
-"Mutate" is in alpha phase. [Further info](plugin/mutate/README.md)
+ * **C TestDouble**: production ready. The API of the generated code and how it behaves is stable.
+ * **C++ TestDouble** is production ready.
+ * [**Mutate**](plugin/mutate/README.md) is production ready.
 
 # Getting Started
 
@@ -63,6 +60,11 @@ make install -j2
 
 Done! Have fun.
 Don't be shy to report any issue that you find.
+
+# Usage
+
+See the usage examples in respective plugin directory:
+ * [mutate](plugin/mutate/examples)
 
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
