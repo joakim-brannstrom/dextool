@@ -14,9 +14,9 @@ filter = ["-Werror", "-c", "-o", "-m", "-nodevicelib", "-Waddr-space-convert", "
 skip_compiler_args = 1
 
 [mutant_test]
-test_cmdd = "test.sh"
+test_cmd = "test.sh"
 test_cmd_timeout = 1000
-compile_cmd = "compile.sh"
+build_cmd = "compile.sh"
 analyze_cmd = "foo.sh"
 analyze_using_builtin = ["gtest", "ctest", "makefile"]
 order = "random"
