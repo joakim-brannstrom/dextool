@@ -1,4 +1,7 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env dub
+/+ dub.sdl:
+    name "travis"
++/
 
 import std.algorithm;
 import std.conv;

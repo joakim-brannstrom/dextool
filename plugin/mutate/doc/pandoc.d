@@ -1,4 +1,7 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env dub
+/+ dub.sdl:
+    name "pandoc"
++/
 /** This script produces a PDF of the requirements, design and test
  * documentation for the deXtool mutation testing plugin.
  *

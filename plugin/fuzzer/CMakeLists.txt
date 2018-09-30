@@ -55,6 +55,6 @@ compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_mai
 # Additional test environment
 if (BUILD_TEST)
     execute_process(
-        COMMAND ${CMAKE_SOURCE_DIR}/tools/symlink.d ${CMAKE_CURRENT_LIST_DIR}/support ${CMAKE_CURRENT_BINARY_DIR}/support
+        COMMAND ${CMAKE_BINARY_DIR}/symlink ${CMAKE_CURRENT_LIST_DIR}/support ${CMAKE_CURRENT_BINARY_DIR}/support
         )
 endif()
