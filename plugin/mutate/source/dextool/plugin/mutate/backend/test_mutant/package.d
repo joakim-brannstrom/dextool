@@ -213,7 +213,7 @@ struct MeasureTestDurationResult {
  * Params:
  *  p = ?
  */
-auto measureTesterDuration(AbsolutePath p) nothrow {
+MeasureTestDurationResult measureTesterDuration(AbsolutePath p) nothrow {
     if (p.length == 0) {
         collectException(logger.error("No test suite runner specified (--mutant-tester)"));
         return MeasureTestDurationResult(ExitStatusType.Errors);
@@ -1012,8 +1012,12 @@ nothrow:
             logger.info("Measuring the time to run the tests: ", data.testProgram).collectException;
             auto tester = measureTesterDuration(data.testProgram);
             if (tester.status == ExitStatusType.Ok) {
-                logger.info("Tester measured to: ", tester.runtime).collectException;
-                prog_wd = ProgressivWatchdog(tester.runtime);
+                // The sampling of the test suite become too unreliable when the timeout is <1s.
+                // This is a quick and dirty fix.
+                // A proper fix requires an update of the sampler in runTester.
+                auto t = tester.runtime < 1.dur!"seconds" ? 1.dur!"seconds" : tester.runtime;
+                logger.info("Tester measured to: ", t).collectException;
+                prog_wd = ProgressivWatchdog(t);
                 driver_sig = TestDriverSignal.next;
             } else {
                 logger.error(
