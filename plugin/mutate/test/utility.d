@@ -33,8 +33,8 @@ auto makeDextool(const ref TestEnv env) {
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .addPostArg("--dry-run")
         .addPostArg(["--order", "consecutive"])
-        .addPostArg(["--compile", "/bin/true"])
-        .addPostArg(["--test", "/bin/true"])
+        .addPostArg(["--build-cmd", "/bin/true"])
+        .addPostArg(["--test-cmd", "/bin/true"])
         .addPostArg(["--test-timeout", "10000"]);
     // dfmt on
 }
