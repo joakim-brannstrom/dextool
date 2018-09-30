@@ -386,14 +386,10 @@ struct ArgParser {
         case generate_mutant:
             break;
         case test_mutants:
-            logger.errorf("--test-case-analyze-builtin possible values: %(%s|%)",
+            logger.infof("--test-case-analyze-builtin possible values: %(%s|%)",
                     [EnumMembers!TestCaseAnalyzeBuiltin]);
             break;
         case report:
-            logger.errorf("--mutant possible values: %(%s|%)", [EnumMembers!MutationKind]);
-            logger.errorf("--report possible values: %(%s|%)", [EnumMembers!ReportKind]);
-            logger.errorf("--level possible values: %(%s|%)", [EnumMembers!ReportLevel]);
-            logger.errorf("--section possible values: %(%s|%)", [EnumMembers!ReportSection]);
             break;
         case admin:
             break;
