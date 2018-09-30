@@ -67,6 +67,20 @@ make install -j2
 Done! Have fun.
 Don't be shy to report any issue that you find.
 
+## Common Build Errors
+
+### Mismatch Clang and LLVM
+
+To build dextool the dev packages are required. Dextool is optimistic and assume that the latest and greatest version of llvm+libclang should be used. But this also requires that the dev packages are installed.
+
+If you get this error:
+```sh
+libclang_interop.hpp:13:10: fatal error: clang/Analysis/CFG.h: No such file or directory
+ #include <clang/Analysis/CFG.h>
+```
+
+It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the version that deXtool detected.
+
 # Usage
 
 See the usage examples in respective plugin directory:
