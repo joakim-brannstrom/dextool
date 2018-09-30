@@ -4,16 +4,24 @@ It assumes that dextool has been installed and is available in the PATH.
 
 # Simple and Easy
 
-The [Google Test project](https://github.com/google/googletest) will be used as an example.
+This is an example of how to do mutation testing on the [Google Test project](https://github.com/google/googletest).
 
-Example [found here](gtest).
+The root of the examples are [found here](gtest).
 
-This is an example of how to do mutation testing of googletest + googlemock.
+First we need to do some basic setup such as cloning the repo.
 
-[1 setup](gtest/1_setup.sh)
+ * [1 setup](gtest/1_setup.sh)
 
 The mutation testing is separated in three phases, analyze/test/report.
 
+The analyze phase only need to be performed when the source code is changed.
+
  * [2 analyze](gtest/2_analyze.sh)
- * [3_test](gtest/3_test.sh)
+
+The test phase is time consuming. Multiple instances can be ran in parallell if they all use the same underlying database.
+
+ * [3 test](gtest/3_test.sh)
+
+Reporting can be performed whenever you want.
+
  * [4 report](gtest/4_report.sh)
