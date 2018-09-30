@@ -125,8 +125,8 @@ struct ArgParser {
         app.put(`test_cmd = "test.sh"`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout =");
-        app.put("# (required) program used to compile the application");
-        app.put(`compile_cmd = "compile.sh"`);
+        app.put("# (required) program used to build the application");
+        app.put(`build_cmd = "build.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
         app.put("# analyze_cmd =");
@@ -225,7 +225,7 @@ struct ArgParser {
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile", "program used to compile the application", &mutationCompile,
+                   "build-cmd", "program used to build the application", &mutationCompile,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
@@ -233,7 +233,7 @@ struct ArgParser {
                    "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "test", "program used to run the test suite", &mutationTester,
+                   "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
