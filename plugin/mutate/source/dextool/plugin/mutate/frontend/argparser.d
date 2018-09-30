@@ -497,7 +497,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
     };
-    callbacks["mutant_test.compile_cmd"] = (ref ArgParser c, ref TOMLValue v) {
+    callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationCompile = Path(v.str).AbsolutePath;
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
