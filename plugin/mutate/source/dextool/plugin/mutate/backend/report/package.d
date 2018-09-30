@@ -92,7 +92,7 @@ struct ReportGenerator {
             listeners = [new ReportCompiler(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.json:
-            listeners = [new ReportJson(conf.reportLevel, fio)];
+            listeners = [new ReportJson(kinds, conf, fio)];
             break;
         case ReportKind.csv:
             listeners = [new ReportCSV(kinds, conf.reportLevel, fio)];

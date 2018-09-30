@@ -27,7 +27,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
-    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
+    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
+    toSections;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -41,6 +42,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     import dextool.plugin.mutate.backend.utility;
 
     const Mutation.Kind[] kinds;
+    const ConfigReport conf;
     bool[ReportSection] sections;
     FilesysIO fio;
 
@@ -50,31 +52,14 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
-    const ConfigReport conf;
 
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
         this.conf = conf;
 
-        ReportSection[] tmp_sec;
-        if (conf.reportSection.length == 0) {
-            final switch (conf.reportLevel) with (ReportSection) {
-            case ReportLevel.summary:
-                tmp_sec = [summary, mut_stat];
-                break;
-            case ReportLevel.alive:
-                tmp_sec = [summary, mut_stat,
-                    tc_killed_no_mutants, tc_full_overlap, alive];
-                break;
-            case ReportLevel.all:
-                tmp_sec = [summary, mut_stat, all_mut,
-                    tc_killed, tc_killed_no_mutants, tc_full_overlap];
-                break;
-            }
-        } else {
-            tmp_sec = conf.reportSection.dup;
-        }
+        ReportSection[] tmp_sec = conf.reportSection.length == 0
+            ? conf.reportLevel.toSections : conf.reportSection.dup;
 
         foreach (a; tmp_sec)
             this.sections[a] = true;
@@ -171,17 +156,11 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
         }
 
         try {
-            if (ReportSection.alive in sections) {
-                if (r.mutation.status == Mutation.Status.alive) {
-                    report();
-                }
-            }
+            if (ReportSection.alive in sections && r.mutation.status == Mutation.Status.alive)
+                report();
 
-            if (ReportSection.killed in sections) {
-                if (r.mutation.status == Mutation.Status.killed) {
-                    report();
-                }
-            }
+            if (ReportSection.killed in sections && r.mutation.status == Mutation.Status.killed)
+                report();
 
             if (ReportSection.all_mut in sections)
                 report;

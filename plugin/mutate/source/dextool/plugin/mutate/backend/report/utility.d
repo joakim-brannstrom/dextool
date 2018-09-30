@@ -18,6 +18,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
     Language;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
+import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
 
 @safe:
@@ -38,6 +39,24 @@ auto window(T)(T a, size_t maxlen) {
     return chain(a.take(maxlen).filter!(a => !a.among('\n')),
                  only(a.length > maxlen ? "..." : null).joiner);
     // dfmt on
+}
+
+ReportSection[] toSections(const ReportLevel l) {
+    ReportSection[] secs;
+    final switch (l) with (ReportSection) {
+    case ReportLevel.summary:
+        secs = [summary, mut_stat];
+        break;
+    case ReportLevel.alive:
+        secs = [summary, mut_stat, tc_killed_no_mutants, tc_full_overlap, alive];
+        break;
+    case ReportLevel.all:
+        secs = [summary, mut_stat, all_mut, tc_killed,
+            tc_killed_no_mutants, tc_full_overlap];
+        break;
+    }
+
+    return secs;
 }
 
 struct MakeMutationTextResult {
