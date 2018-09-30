@@ -111,7 +111,7 @@ struct ArgParser {
         app.put("[compile_commands]");
         app.put("# search for compile_commands.json in this paths");
         if (compileDb.dbs.length == 0)
-            app.put(`search_paths = ["./compile_commands.json"]`);
+            app.put(`# search_paths = ["./compile_commands.json"]`);
         else
             app.put(format("search_paths = %s", compileDb.rawDbs));
         app.put("# flags to remove when analyzing a file in the DB");
