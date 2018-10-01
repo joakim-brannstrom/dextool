@@ -47,13 +47,6 @@ struct GtestParser {
     }
 
     void process(T)(T line, TestCaseReport report) {
-        import std.algorithm : until;
-        import std.utf : toUTF8;
-        import std.format : format;
-        import std.path : isValidPath, relativePath;
-        import std.range : put;
-        import std.string : strip;
-
         auto run_block_match = matchAll(line, re_run_block);
         auto failed_block_match = matchAll(line, re_failed_block);
         auto delim_match = matchFirst(line, re_delim);
