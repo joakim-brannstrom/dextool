@@ -4,7 +4,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 ## Features
 
-* Provides support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR.
+* Provides support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR, SDL.
 * Can continue from where a testing session was interrupted.
 * Allows multiple instances to be run in parallel.
 * Makes type aware ROR to reduce the number of equivalent mutants.
@@ -17,12 +17,86 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 * Works with C++ templates.
 * Has a simple workflow.
 * Integrates without modifications to the projects build system.
+* Detect test cases that do not kill any mutants. These test cases most *probably* do not verify anything.
+* Detect test cases that kill the same mutants. These is an indication of redundant test cases.
 
 # Mutation Testing
 
-This section explains how to use Dextool Mutate to analyze a C++ project. The tool works with any type of build system that is able to generate a JSON compilation database.
+This section explains how to use Dextool Mutate to analyze a C++ project that uses the CMake build system.
 
-See [examples](examples) for how to use the mutate plugin.
+Note though that the deXtool work with any build system that is able to generate a JSON compilation database.
+It is just that CMake conveniently has builtin support to generate those.
+For other build systems there exists the excellent [BEAR](https://github.com/rizsotto/Bear) tool that can spy on the build process to generate such a database.
+
+The [Google Test project](https://github.com/google/googletest) is used as an example.
+
+Obtain the project you want to analyze:
+```sh
+git clone https://github.com/google/googletest.git
+cd googletest
+```
+
+Generate a JSON compilation database for the project:
+```sh
+mkdir build
+pushd build
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
+make
+popd
+```
+
+Create a configuration file:
+```sh
+dextool mutate admin --init
+```
+
+Open the config file and change the following fields:
+```toml
+[workarea]
+restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
+[compiler]
+extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
+[compile_commands]
+search_paths = ["./build/compile_commands.json"]
+[mutant_test]
+test_cmd = "test.sh"
+build_cmd = "build.sh"
+analyze_using_builtin = ["gtest", "ctest"]
+```
+
+Generate a database of all mutation points:
+```sh
+dextool mutate analyze
+```
+
+Create a file `test.sh` that will run the entire test suite when invoked:
+```sh
+#!/bin/bash
+set -e
+cd build
+ctest --output-on-failure -j4
+```
+
+Create a file `compile.sh` that will build the entire project when invoked:
+```sh
+#!/bin/bash
+set -e
+cd build
+make -j$(nproc)
+```
+
+Make the files executable so they can be used by dextool:
+```sh
+chmod 755 test.sh
+chmod 755 compile.sh
+```
+
+Run the mutation testing on the LCR mutants:
+```sh
+dextool mutate test --mutant lcr
+```
+
+For more examples [see here](examples).
 
 ## Custom Test Analyzer
 
