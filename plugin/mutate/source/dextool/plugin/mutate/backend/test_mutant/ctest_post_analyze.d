@@ -39,9 +39,6 @@ struct CtestParser {
     }
 
     void process(T)(T line, TestCaseReport report) {
-        import std.range : put;
-        import std.string : strip;
-
         auto start_tc_match = matchFirst(line, re_start_tc);
         auto fail_tc_match = matchFirst(line, re_fail_tc);
 

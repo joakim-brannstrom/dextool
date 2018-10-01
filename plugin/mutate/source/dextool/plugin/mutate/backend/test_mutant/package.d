@@ -1166,12 +1166,22 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
                 fin.close;
                 destroy(fin);
             } catch (Exception e) {
+                logger.warning(e.msg).collectException;
             }
         }();
 
         // an invalid UTF-8 char shall only result in the rest of the file being skipped
-        try
+        try {
             foreach (l; fin.byLine) {
+                if (l.length > 2048) {
+                    // The byLine split may fail and thus result in one huge line.
+                    // The result of this is that regex's that use backtracking become really slow.
+                    // By skipping these lines dextool at list doesn't hang.
+                    logger.warning(
+                            "Failed to split the file for test case analyse by newline. Skipping...");
+                    continue;
+                }
+
                 foreach (const p; tc_analyze_builtin) {
                     final switch (p) {
                     case TestCaseAnalyzeBuiltin.gtest:
@@ -1185,7 +1195,8 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
                         break;
                     }
                 }
-            } catch (Exception e) {
+            }
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
