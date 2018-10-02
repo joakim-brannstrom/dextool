@@ -1,7 +1,5 @@
 [workarea]
 restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
-[database]
-db = "dextool_mutate.sqlite3"
 [compiler]
 extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
 [compile_commands]
