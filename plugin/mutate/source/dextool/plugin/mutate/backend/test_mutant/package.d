@@ -88,7 +88,8 @@ nothrow:
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds,
                 data.config.mutationCompile, data.config.mutationTester,
                 data.config.mutationTestCaseAnalyze, data.config.mutationTestCaseBuiltin,
-                data.config.mutationTesterRuntime, new AutoCleanup, data.config.onNewTestCases);
+                data.config.mutationTesterRuntime,
+                new AutoCleanup, data.config.onNewTestCases, data.config.onRemovedTestCases);
 
         auto test_driver_impl = ImplTestDriver!mutationFactory(driver_data);
         auto test_driver_impl_ref = () @trusted{
@@ -118,6 +119,7 @@ struct DriverData {
     Nullable!Duration testProgramTimeout;
     AutoCleanup autoCleanup;
     ConfigMutationTest.NewTestCases onNewTestCases;
+    ConfigMutationTest.RemovedTestCases onRemovedTestCases;
 }
 
 /** Run the test suite to verify a mutation.
@@ -912,14 +914,6 @@ nothrow:
             return;
         }
 
-        Set!string old_tcs;
-        spinSqlQuery!(() {
-            old_tcs = null;
-            foreach (tc; data.db.getDetectedTestCases)
-                old_tcs.add(tc.name);
-        });
-
-        Set!string found_tcs;
         TestCase[] all_found_tc;
 
         try {
@@ -945,14 +939,37 @@ nothrow:
                         [stdout_, stderr_], data.testCaseAnalyzeBuiltin, gather_tc);
 
             all_found_tc = gather_tc.foundAsArray;
-            found_tcs = setFromRange!string(all_found_tc.map!"a.name");
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
-        spinSqlQuery!(() { data.db.setDetectedTestCases(all_found_tc); });
-
         warnIfConflictingTestCaseIdentifiers(all_found_tc);
+
+        // the test cases before anything has potentially changed.
+        Set!string old_tcs;
+        spinSqlQuery!(() {
+            old_tcs = null;
+            foreach (tc; data.db.getDetectedTestCases)
+                old_tcs.add(tc.name);
+        });
+
+        final switch (data.onRemovedTestCases) with (ConfigMutationTest.RemovedTestCases) {
+        case doNothing:
+            spinSqlQuery!(() { data.db.addDetectedTestCases(all_found_tc); });
+            break;
+        case remove:
+            spinSqlQuery!(() { data.db.setDetectedTestCases(all_found_tc); });
+            break;
+        }
+
+        Set!string found_tcs;
+        spinSqlQuery!(() {
+            found_tcs = null;
+            foreach (tc; data.db.getDetectedTestCases)
+                found_tcs.add(tc.name);
+        });
+
+        printDroppedTestCases(old_tcs, found_tcs);
 
         const new_test_cases = hasNewTestCases(old_tcs, found_tcs);
 
@@ -960,8 +977,6 @@ nothrow:
             logger.info("Resetting alive mutants").collectException;
             resetAliveMutants(data.db);
         }
-
-        removeDroppedTestCases(data.db, old_tcs, found_tcs);
     }
 
     void cleanupTempDirs() {
@@ -1263,24 +1278,16 @@ bool hasNewTestCases(ref Set!string old_tcs, ref Set!string found_tcs) @safe not
     return rval;
 }
 
-/** Compare old and new test cases. Those test cases that has been removed are
- * removed from the database tracing mutant -> TC.
+/** Compare old and new test cases to print those that have been removed.
  */
-void removeDroppedTestCases(ref Database db, ref Set!string old_tcs, ref Set!string found_tcs) @safe nothrow {
-    import std.algorithm : map;
-    import std.array : array;
-
-    auto diff = old_tcs.setDifference(found_tcs);
-    TestCase[] removed = diff.setToList!string
-        .map!(a => TestCase(a))
-        .array;
+void printDroppedTestCases(ref Set!string old_tcs, ref Set!string changed_tcs) @safe nothrow {
+    auto diff = old_tcs.setDifference(changed_tcs);
+    auto removed = diff.setToList!string;
 
     logger.info(removed.length != 0, "Detected test cases that has been removed:").collectException;
     foreach (tc; removed) {
         logger.infof("%s", tc).collectException;
     }
-
-    spinSqlQuery!(() { db.removeTestCases(removed); });
 }
 
 /// Returns: true if all tests cases have unique identifiers

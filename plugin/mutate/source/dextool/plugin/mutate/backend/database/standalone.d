@@ -427,10 +427,40 @@ struct Database {
             db.rollback;
 
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
-        db.run(format("CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
-                tmp_name));
+        internalAddDetectedTestCases(tcs, tmp_name);
 
-        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", tmp_name);
+        immutable remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
+                allTestCaseTable, tmp_name);
+        db.run(remove_old_sql);
+
+        db.run(format("DROP TABLE %s", tmp_name));
+        db.commit;
+    }
+
+    /** Add test cases to those that have been detected.
+     *
+     * They will be added if they are unique.
+     */
+    void addDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return;
+
+        db.begin;
+        scope (failure)
+            db.rollback;
+
+        immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        internalAddDetectedTestCases(tcs, tmp_name);
+        db.run(format("DROP TABLE %s", tmp_name));
+        db.commit;
+    }
+
+    /// ditto.
+    private void internalAddDetectedTestCases(const(TestCase)[] tcs, string tmp_tbl) @trusted {
+        db.run(format("CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+                tmp_tbl));
+
+        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", tmp_tbl);
         auto insert_s = db.prepare(add_tc_sql);
         foreach (tc; tcs) {
             insert_s.bind(":name", tc.name);
@@ -453,16 +483,8 @@ struct Database {
         //it should work in basically every database engine ever that attempts
         //to implement ANSI 92 SQL
         immutable add_missing_sql = format("INSERT INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL",
-                allTestCaseTable, tmp_name, allTestCaseTable);
+                allTestCaseTable, tmp_tbl, allTestCaseTable);
         db.run(add_missing_sql);
-
-        immutable remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
-                allTestCaseTable, tmp_name);
-        db.run(remove_old_sql);
-
-        db.run(format("DROP TABLE %s", tmp_name));
-
-        db.commit;
     }
 
     /// Returns: detected test cases.
@@ -615,25 +637,6 @@ struct Database {
             del_stmt.bind(":id", id);
             del_stmt.execute;
         }
-    }
-
-    /// Remove these test cases from those linked to having killed a mutant.
-    void removeTestCases(const(TestCase)[] tcs) @trusted {
-        db.begin;
-        scope (failure)
-            db.rollback;
-
-        immutable sql = format("DELETE FROM %s WHERE %s.tc_id IN (SELECT id FROM %s WHERE name = :name)",
-                killedTestCaseTable, killedTestCaseTable, allTestCaseTable);
-        auto stmt = db.prepare(sql);
-
-        foreach (tc; tcs) {
-            stmt.bind(":name", tc.name);
-            stmt.execute;
-            stmt.reset;
-        }
-
-        db.commit;
     }
 }
 

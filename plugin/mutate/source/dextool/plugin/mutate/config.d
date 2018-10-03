@@ -85,6 +85,15 @@ struct ConfigMutationTest {
     }
 
     NewTestCases onNewTestCases;
+
+    /// How to behave when test cases are detected of having been removed
+    enum RemovedTestCases {
+        doNothing,
+        /// Remove it and all results connectedto the test case
+        remove,
+    }
+
+    RemovedTestCases onRemovedTestCases;
 }
 
 /// Settings for the administration mode

@@ -21,6 +21,7 @@ analyze_cmd = "foo.sh"
 analyze_using_builtin = ["gtest", "ctest", "makefile"]
 order = "random"
 detected_new_test_case = "resetAlive"
+detected_dropped_test_case = "remove"
 
 [report]
 style = "plain"

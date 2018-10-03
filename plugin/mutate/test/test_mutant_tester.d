@@ -256,11 +256,8 @@ detected_new_test_case = "resetAlive"
     }
 }
 
-class ShallDetectDroppedTestCases : TestCaseDetection {
-    override void test() {
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-
+class DroppedTestCases : TestCaseDetection {
+    auto run(ref TestEnv testEnv, string[] extra_args) {
         auto r0 = dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
@@ -280,6 +277,7 @@ class ShallDetectDroppedTestCases : TestCaseDetection {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg(extra_args)
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compile_script])
@@ -287,6 +285,27 @@ class ShallDetectDroppedTestCases : TestCaseDetection {
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
+        return r1;
+    }
+}
+
+class ShallDoNothingWhenDetectDroppedTestCases : DroppedTestCases {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+        auto r1 = run(testEnv, null);
+
+        testConsecutiveSparseOrder!SubStr([
+            "Detected test cases that has been removed",
+        ]).shouldNotBeIn(r1.stdout);
+    }
+}
+
+class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+        auto r1 = run(testEnv, ["-c", (testData ~ "config/remove_dropped_test_cases.toml").toString]);
 
         testConsecutiveSparseOrder!SubStr([
             "Detected test cases that has been removed",
