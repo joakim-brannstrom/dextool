@@ -138,6 +138,10 @@ struct ArgParser {
         app.put("# how to behave when new test cases are found");
         app.put(format("# detected_new_test_case = %(%s|%)",
                 [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
+        app.put("# how to behave when test cases are detected as having been removed");
+        app.put("# should the test and the gathered statistics be remove too?");
+        app.put(format("# detected_dropped_test_case = %(%s|%)",
+                [EnumMembers!(ConfigMutationTest.RemovedTestCases)].map!(a => a.to!string)));
         app.put(null);
 
         app.put("[report]");
@@ -521,6 +525,15 @@ void loadConfig(ref ArgParser rval) @trusted {
             logger.error(e.msg).collectException;
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.NewTestCases)]);
+        }
+    };
+    callbacks["mutant_test.detected_dropped_test_case"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.onRemovedTestCases = v.str.to!(ConfigMutationTest.RemovedTestCases);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.info("Available alternatives: ",
+                    [EnumMembers!(ConfigMutationTest.RemovedTestCases)]);
         }
     };
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {

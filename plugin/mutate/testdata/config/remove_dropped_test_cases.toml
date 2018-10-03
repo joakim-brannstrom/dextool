@@ -1,0 +1,2 @@
+[mutant_test]
+detected_dropped_test_case = "remove"
