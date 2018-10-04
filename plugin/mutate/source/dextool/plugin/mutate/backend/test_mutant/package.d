@@ -1188,12 +1188,14 @@ bool builtin(AbsolutePath reldir, string[] analyze_files,
         // an invalid UTF-8 char shall only result in the rest of the file being skipped
         try {
             foreach (l; fin.byLine) {
-                if (l.length > 2048) {
+                // this is a magic number that felt good. Why would there be a line in a test case log that is longer than this?
+                immutable magic_nr = 2048;
+                if (l.length > magic_nr) {
                     // The byLine split may fail and thus result in one huge line.
                     // The result of this is that regex's that use backtracking become really slow.
                     // By skipping these lines dextool at list doesn't hang.
-                    logger.warning(
-                            "Failed to split the file for test case analyse by newline. Skipping...");
+                    logger.warningf("Line in test case log is too long to analyze (%s > %s). Skipping...",
+                            l.length, magic_nr);
                     continue;
                 }
 
