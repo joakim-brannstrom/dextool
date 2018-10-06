@@ -75,6 +75,7 @@ VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
     rval.transf.unaryInjectCallback ~= (ValueKind k) => k == ValueKind.lvalue
         ? uoiLvalueMutations : uoiRvalueMutations;
 
+    rval.transf.branchClauseCallback ~= () => dccBranchMutations;
     rval.transf.branchCondCallback ~= () => dccBranchMutations;
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         return k in isDcc ? dccBranchMutations : null;
@@ -444,6 +445,7 @@ class Transform {
         this.val_loc = vloc;
     }
 
+    /// Call the callback without arguments.
     private void noArgCallback(T)(const Cursor c, T callbacks) {
         mixin(makeAndCheckLocation("c"));
         mixin(mixinPath);
@@ -559,7 +561,7 @@ class Transform {
         if (mp.isValid) {
             binaryOpInternal(mp);
 
-            foreach (cb; branchClauseCallback) {
+            foreach (cb; branchCondCallback) {
                 mp.expr.mp.mutations ~= cb().map!(a => Mutation(a)).array();
             }
 
