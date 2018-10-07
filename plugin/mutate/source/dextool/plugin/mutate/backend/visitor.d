@@ -862,6 +862,7 @@ import dextool.plugin.mutate.backend.type : Offset;
 
 class AnalyzeResult {
     import std.array : Appender;
+    import dextool.set;
 
     static struct FileResult {
         Path path;
@@ -870,15 +871,15 @@ class AnalyzeResult {
 
     Appender!(MutationPointEntry[]) exprs;
     Appender!(FileResult[]) files;
-    bool[Path] file_index;
+    Set!Path file_index;
 
     void put(MutationPointEntry a) {
         exprs.put(a);
     }
 
     void put(Path a, Language lang) {
-        if (a !in file_index) {
-            file_index[a] = true;
+        if (!file_index.contains(a)) {
+            file_index.add(a);
             files.put(FileResult(a, lang));
         }
     }
