@@ -141,10 +141,8 @@ how much the mutations cover of the program.
 ## Mutation Point
 A source code location that *can* be mutated.
 
-The location should be a range as an offset [start, end). The offset should
-completely cover the source code that should be mutated.
-
-A mutation point should have a list of all the mutations that can be applied.
+The location is a file and an offset [start, end). The offset completely cover
+the source code that should be mutated.
 
 ## Mutation
 
