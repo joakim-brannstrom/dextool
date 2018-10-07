@@ -15,16 +15,16 @@ module dextool.plugin.mutate.backend.analyzer;
 
 import logger = std.experimental.logger;
 
-import dextool.plugin.mutate.backend.database : Database;
-
-import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB;
+import dextool.set;
+import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
 
+import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
+import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 
 /** Analyze the files in `frange` for mutations.
  */
@@ -36,15 +36,15 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
     import dextool.clang : findFlags;
+    import dextool.plugin.mutate.backend.type : Language;
     import dextool.type : FileName, Exists, makeExists;
     import dextool.utility : analyzeFile;
-    import dextool.plugin.mutate.backend.type : Language;
 
     // they are not by necessity the same.
     // Input could be a file that is excluded via --restrict but pull in a
     // header-only library that is allowed to be mutated.
-    bool[AbsolutePath] analyzed_files;
-    bool[AbsolutePath] files_with_mutations;
+    Set!AbsolutePath analyzed_files;
+    Set!AbsolutePath files_with_mutations;
 
     foreach (in_file; frange) {
         // find the file and flags to analyze
@@ -57,11 +57,11 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
             continue;
         }
 
-        if (checked_in_file in analyzed_files) {
+        if (analyzed_files.contains(checked_in_file)) {
             continue;
         }
 
-        analyzed_files[checked_in_file] = true;
+        analyzed_files.add(checked_in_file);
 
         // analyze the file
         () @trusted{
@@ -71,8 +71,8 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
 
             foreach (a; root.mutationPointFiles) {
                 auto abs_path = AbsolutePath(a.path.FileName);
-                analyzed_files[abs_path] = true;
-                files_with_mutations[abs_path] = true;
+                analyzed_files.add(abs_path);
+                files_with_mutations.add(abs_path);
 
                 auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
 
@@ -109,13 +109,13 @@ enum FileStatus {
 }
 
 /// Prune the database of files that has been removed since last analysis.
-void prune(ref Database db, const bool[AbsolutePath] analyzed_files, const AbsolutePath root_dir) @safe {
+void prune(ref Database db, ref const Set!AbsolutePath analyzed_files, const AbsolutePath root_dir) @safe {
     import dextool.type : FileName;
 
     foreach (const f; db.getFiles) {
         auto abs_f = AbsolutePath(FileName(f), DirName(cast(string) root_dir));
 
-        if (abs_f in analyzed_files)
+        if (analyzed_files.contains(abs_f))
             continue;
 
         logger.infof("Removed from files to mutate: '%s'", abs_f);
