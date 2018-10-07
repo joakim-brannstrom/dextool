@@ -76,7 +76,8 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
         auto fout = fio.makeOutput(ofile);
         auto res = generateMutant(db, mutp, content, fout);
         if (res.status == GenerateMutantStatus.ok) {
-            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id, res.from, res.to, ofile);
+            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id,
+                    cast(const(char)[]) res.from, cast(const(char)[]) res.to, ofile);
             exit_st = ExitStatusType.Ok;
         }
     } catch (Exception e) {
@@ -98,8 +99,8 @@ private AbsolutePath makeOutputFilename(ValidateLoc val_loc, FilesysIO fio, Abso
 
 struct GenerateMutantResult {
     GenerateMutantStatus status;
-    const(char)[] from;
-    const(char)[] to;
+    const(ubyte)[] from;
+    const(ubyte)[] to;
 }
 
 auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe nothrow {
@@ -139,17 +140,13 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     auto mut = makeMutation(mutp.mp.mutations[0].kind, mutp.lang);
 
     try {
-        auto from_ = () @trusted{
-            return cast(const(char)[]) content[mutp.mp.offset.begin .. mutp.mp.offset.end];
-        }();
-        from_.validate;
-
         fout.write(mut.top());
         auto s = content.drop(mutp.mp.offset);
         fout.write(s.front);
         s.popFront;
 
-        const string to_ = mut.mutate(from_);
+        auto from_ = content[mutp.mp.offset.begin .. mutp.mp.offset.end];
+        auto to_ = mut.mutate(from_);
         fout.write(to_);
         fout.write(s.front);
 
@@ -165,22 +162,26 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
 auto makeMutation(Mutation.Kind kind, Language lang) {
     import std.format : format;
 
-    MutateImpl m;
-    m.top = () { return null; };
-    m.mutate = (const(char)[] from) { return null; };
-
-    auto clangTrue(const(char)[]) {
-        if (lang == Language.c)
-            return "1";
-        else
-            return "true";
+    static const(ubyte)[] toB(string s) @safe {
+        return cast(const(ubyte)[]) s;
     }
 
-    auto clangFalse(const(char)[]) {
+    MutateImpl m;
+    m.top = () { return null; };
+    m.mutate = (const(ubyte)[] from) { return null; };
+
+    const(ubyte)[] clangTrue(const(ubyte)[]) {
         if (lang == Language.c)
-            return "0";
+            return toB("1");
         else
-            return "false";
+            return toB("true");
+    }
+
+    const(ubyte)[] clangFalse(const(ubyte)[]) {
+        if (lang == Language.c)
+            return cast(const(ubyte)[]) "0";
+        else
+            return cast(const(ubyte)[]) "false";
     }
 
     final switch (kind) with (Mutation.Kind) {
@@ -191,32 +192,32 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case rorLT:
         goto case;
     case rorpLT:
-        m.mutate = (const(char)[] expr) { return ("<"); };
+        m.mutate = (const(ubyte)[] expr) { return toB("<"); };
         break;
     case rorLE:
         goto case;
     case rorpLE:
-        m.mutate = (const(char)[] expr) { return "<="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("<="); };
         break;
     case rorGT:
         goto case;
     case rorpGT:
-        m.mutate = (const(char)[] expr) { return ">"; };
+        m.mutate = (const(ubyte)[] expr) { return toB(">"); };
         break;
     case rorGE:
         goto case;
     case rorpGE:
-        m.mutate = (const(char)[] expr) { return ">="; };
+        m.mutate = (const(ubyte)[] expr) { return toB(">="); };
         break;
     case rorEQ:
         goto case;
     case rorpEQ:
-        m.mutate = (const(char)[] expr) { return "=="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("=="); };
         break;
     case rorNE:
         goto case;
     case rorpNE:
-        m.mutate = (const(char)[] expr) { return "!="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("!="); };
         break;
     case rorTrue:
         m.mutate = &clangTrue;
@@ -227,99 +228,99 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         /// Logical connector replacement
         /// #SPC-mutation_lcr
     case lcrAnd:
-        m.mutate = (const(char)[] expr) { return "&&"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("&&"); };
         break;
     case lcrOr:
-        m.mutate = (const(char)[] expr) { return "||"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("||"); };
         break;
         /// Arithmetic operator replacement
         /// #SPC-mutation_aor
     case aorMul:
-        m.mutate = (const(char)[] expr) { return "*"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("*"); };
         break;
     case aorDiv:
-        m.mutate = (const(char)[] expr) { return "/"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("/"); };
         break;
     case aorRem:
-        m.mutate = (const(char)[] expr) { return "%"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("%"); };
         break;
     case aorAdd:
-        m.mutate = (const(char)[] expr) { return "+"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("+"); };
         break;
     case aorSub:
-        m.mutate = (const(char)[] expr) { return "-"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("-"); };
         break;
     case aorMulAssign:
-        m.mutate = (const(char)[] expr) { return "*="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("*="); };
         break;
     case aorDivAssign:
-        m.mutate = (const(char)[] expr) { return "/="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("/="); };
         break;
     case aorRemAssign:
-        m.mutate = (const(char)[] expr) { return "%="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("%="); };
         break;
     case aorAddAssign:
-        m.mutate = (const(char)[] expr) { return "+="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("+="); };
         break;
     case aorSubAssign:
-        m.mutate = (const(char)[] expr) { return "-="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("-="); };
         break;
         /// Unary operator insert on an lvalue
         /// #SPC-mutation_uoi
     case uoiPostInc:
-        m.mutate = (const(char)[] expr) { return format("%s++", expr); };
+        m.mutate = (const(ubyte)[] expr) { return expr ~ toB("++"); };
         break;
     case uoiPostDec:
-        m.mutate = (const(char)[] expr) { return format("%s--", expr); };
+        m.mutate = (const(ubyte)[] expr) { return expr ~ toB("--"); };
         break;
         // these work for rvalue
     case uoiPreInc:
-        m.mutate = (const(char)[] expr) { return format("++%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("++") ~ expr; };
         break;
     case uoiPreDec:
-        m.mutate = (const(char)[] expr) { return format("--%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("--") ~ expr; };
         break;
     case uoiAddress:
-        m.mutate = (const(char)[] expr) { return format("&%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("&") ~ expr; };
         break;
     case uoiIndirection:
-        m.mutate = (const(char)[] expr) { return format("*%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("*") ~ expr; };
         break;
     case uoiPositive:
-        m.mutate = (const(char)[] expr) { return format("+%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("+") ~ expr; };
         break;
     case uoiNegative:
-        m.mutate = (const(char)[] expr) { return format("-%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("-") ~ expr; };
         break;
     case uoiComplement:
-        m.mutate = (const(char)[] expr) { return format("~%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("~") ~ expr; };
         break;
     case uoiNegation:
-        m.mutate = (const(char)[] expr) { return format("!%s", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("!") ~ expr; };
         break;
     case uoiSizeof_:
-        m.mutate = (const(char)[] expr) { return format("sizeof(%s)", expr); };
-        break;
-        /// Absolute value replacement
-        /// #SPC-mutation_abs
+        m.mutate = (const(ubyte)[] expr) { return toB("sizeof(") ~ expr ~ toB(")");  };
+            break;
+            /// Absolute value replacement
+            /// #SPC-mutation_abs
     case absPos:
-        m.top = () { return preambleAbs; };
-        m.mutate = (const(char)[] b) { return format("abs_dextool(%s)", b); };
-        break;
+        m.top = () { return toB(preambleAbs); };
+        m.mutate = (const(ubyte)[] b) { return toB("abs_dextool(") ~ b ~ toB(")");  };
+            break;
     case absNeg:
-        m.top = () { return preambleAbs; };
-        m.mutate = (const(char)[] b) { return format("-abs_dextool(%s)", b); };
-        break;
+        m.top = () { return toB(preambleAbs); };
+        m.mutate = (const(ubyte)[] b) { return toB("-abs_dextool(") ~ b ~ toB(")");  };
+            break;
     case absZero:
-        m.top = () { return preambleAbs; };
-        m.mutate = (const(char)[] b) {
-            return format("fail_on_zero_dextool(%s)", b);
+        m.top = () { return toB(preambleAbs); };
+        m.mutate = (const(ubyte)[] b) {
+            return toB("fail_on_zero_dextool(") ~ b ~ toB(")");
         };
         break;
     case stmtDel:
         /// #SPC-mutations_statement_del
         // delete by commenting out the code block
-        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
         break;
         /// Conditional Operator Replacement (reduced set)
         /// #SPC-mutation_cor
@@ -332,17 +333,17 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         break;
     case corLhs:
         // delete by commenting out
-        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
         break;
     case corRhs:
         // delete by commenting out
-        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
         break;
     case corEQ:
-        m.mutate = (const(char)[] expr) { return "=="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("=="); };
         break;
     case corNE:
-        m.mutate = (const(char)[] expr) { return "!="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("!="); };
         break;
     case corTrue:
         m.mutate = &clangTrue;
@@ -355,23 +356,23 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         break;
     case dccBomb:
         // assigning null should crash the program, thus a 'bomb'
-        m.mutate = (const(char)[] expr) { return `*((char*)0)='x';break;`; };
+        m.mutate = (const(ubyte)[] expr) { return toB(`*((char*)0)='x';break;`); };
         break;
     case dcrCaseDel:
         // delete by commenting out
-        m.mutate = (const(char)[] expr) { return format("/*%s*/", expr); };
+        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
         break;
     case lcrbAnd:
-        m.mutate = (const(char)[] expr) { return "&"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("&"); };
         break;
     case lcrbOr:
-        m.mutate = (const(char)[] expr) { return "|"; };
+        m.mutate = (const(ubyte)[] expr) { return toB("|"); };
         break;
     case lcrbAndAssign:
-        m.mutate = (const(char)[] expr) { return "&="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("&="); };
         break;
     case lcrbOrAssign:
-        m.mutate = (const(char)[] expr) { return "|="; };
+        m.mutate = (const(ubyte)[] expr) { return toB("|="); };
         break;
     }
 
@@ -384,8 +385,8 @@ private:
 import dextool.plugin.mutate.backend.type : Offset, Mutation;
 
 struct MutateImpl {
-    alias CallbackTop = string delegate() @safe;
-    alias CallbackMut = string delegate(const(char)[] from) @safe;
+    alias CallbackTop = const(ubyte)[]delegate() @safe;
+    alias CallbackMut = const(ubyte)[]delegate(const(ubyte)[] from) @safe;
 
     /// Called before any other data has been written to the file.
     CallbackTop top;

@@ -21,14 +21,15 @@ import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
 
-@safe:
+public import dextool.plugin.mutate.backend.utility : MakeMutationTextResult,
+    makeMutationText;
 
 // 5 because it covers all the operators and true/false
 immutable windowSize = 5;
 
-immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
-
 immutable invalidFile = "Dextool: Invalid UTF-8 content";
+
+@safe:
 
 /// Create a range from `a` that has at most maxlen+3 letters in it.
 auto window(T)(T a, size_t maxlen) {
@@ -59,44 +60,6 @@ ReportSection[] toSections(const ReportLevel l) {
     return secs;
 }
 
-struct MakeMutationTextResult {
-    string original = originalIsCorrupt;
-    string mutation;
-
-    nothrow @safe size_t toHash() {
-        import std.digest.murmurhash;
-
-        MurmurHash3!32 hash;
-        hash.put(cast(const(ubyte)[]) original);
-        hash.put(cast(const(ubyte)[]) mutation);
-        auto h = hash.finish;
-        return ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]);
-    }
-
-    bool opEquals(const typeof(this) o) const nothrow @safe {
-        return original == o.original && mutation == o.mutation;
-    }
-}
-
-auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) nothrow {
-    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-
-    MakeMutationTextResult rval;
-
-    try {
-        if (offs.end < file_.read.length) {
-            rval.original = file_.read[offs.begin .. offs.end].toInternal;
-        }
-
-        auto mut = makeMutation(kind, lang);
-        rval.mutation = mut.mutate(rval.original);
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
-
-    return rval;
-}
-
 string toInternal(ubyte[] data) @safe nothrow {
     import std.utf : validate;
 
@@ -111,27 +74,15 @@ string toInternal(ubyte[] data) @safe nothrow {
 }
 
 void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!4 tbl) @safe nothrow {
+    import std.algorithm : sum, map, sort, filter;
+    import std.array : array;
     import std.conv : to;
     import std.format : format;
-    import std.algorithm : sum, map, sort, filter;
+    import std.range : take;
 
     long total = mut_stat.byValue.sum;
 
-    import std.array : array;
-    import std.range : take;
-    import std.typecons : Tuple;
-
-    // trusted because it is marked as @safe in dmd-2.078.1
-    // TODO remove this trusted when upgrading the minimal compiler
-    // can be simplified to:
-    // foreach (v, alive.byKeyValue.array.sort!((a, b) => a.value > b.value))....
-    auto kv = () @trusted{
-        return mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value)
-            .take(20).map!(a => Tuple!(MakeMutationTextResult, "key", long,
-                    "value")(a.key, a.value)).array;
-    }();
-
-    foreach (v; kv) {
+    foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(20)) {
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
 
