@@ -908,9 +908,6 @@ class AnalyzeResult {
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
-            logger.warning(
-                    "A mutation point without a file where generated. Run with -d for more details");
-            logger.trace(a);
             return;
         }
 
