@@ -126,6 +126,9 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * remove orphaned mutants
+ * change the cascade in the tables. this is so mutants are NOT deleted just because the mutation point is. this is to make it possible to "reconnect" mutants.
+   this will be extremly useful when the algorithm for calculating the mutants checksum is changed to doing it on the tokens and skip comments.
  * calculate the score on the unique changes in the source code. this is to avoid inflating when different mutants can result in the same source code change.
  * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.
  * make it possible for the user to define "mutation operator sets" from the 40+ primitives. There is no reason why they are hardcoded.
