@@ -162,7 +162,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
 auto makeMutation(Mutation.Kind kind, Language lang) {
     import std.format : format;
 
-    static const(ubyte)[] toB(string s) @safe {
+    static auto toB(string s) @safe {
         return cast(const(ubyte)[]) s;
     }
 
@@ -170,14 +170,14 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     m.top = () { return null; };
     m.mutate = (const(ubyte)[] from) { return null; };
 
-    const(ubyte)[] clangTrue(const(ubyte)[]) {
+    auto clangTrue(const(ubyte)[]) {
         if (lang == Language.c)
             return toB("1");
         else
             return toB("true");
     }
 
-    const(ubyte)[] clangFalse(const(ubyte)[]) {
+    auto clangFalse(const(ubyte)[]) {
         if (lang == Language.c)
             return cast(const(ubyte)[]) "0";
         else

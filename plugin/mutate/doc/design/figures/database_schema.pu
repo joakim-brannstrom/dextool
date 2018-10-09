@@ -20,19 +20,27 @@ class all_test_case {
     name        TEXT NOT NULL
 }
 
+class mutation_status {
+    id          INTEGER PRIMARY KEY,
+    status      INTEGER NOT NULL
+    checksum0   INTEGER,
+    checksum1   INTEGER
+}
+
 class mutation {
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
+    st_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
-    status  INTEGER NOT NULL,
 }
 mutation "mp_id" --> "id" mutation_point
+mutation "st_id" --> "id" mutation_status
 
 class mutation_point {
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
-    offset_end      INTEGER NOT NULL,
+    offset_end      INTEGER NOT NULL
 }
 mutation_point "file_id" --> "id" files
 

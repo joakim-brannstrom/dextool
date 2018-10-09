@@ -66,6 +66,20 @@ struct MutationPointEntry {
     SourceLoc sloc;
 }
 
+/// The source code mutations for a mutation point.
+struct MutationPointEntry2 {
+    import dextool.plugin.mutate.backend.type;
+
+    Path file;
+    Offset offset;
+    SourceLoc sloc;
+    CodeMutant[] cms;
+
+    void put(CodeMutant m) @safe pure nothrow {
+        cms ~= m;
+    }
+}
+
 struct MutationReportEntry {
     import core.time : Duration;
 

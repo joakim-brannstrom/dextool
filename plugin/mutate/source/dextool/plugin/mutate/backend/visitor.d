@@ -6,36 +6,46 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
+
+The flow of information is:
+ * Visitor. Visit the AST
+ * Transform. Gets data from the AST and transforms them into an abstraction.
+   The abstractions are common points where a mutation schema would want to create mutants.
+   The registered callbacks creates mutants.
+ * AnalyzeResult. Gets the mutants and files that contains mutants.
+ * MutantResult. Takes a AnalyzeResult and transform into code mutations.
 */
 module dextool.plugin.mutate.backend.visitor;
 
 @safe:
 
-public import dextool.clang_extensions : ValueKind;
 import logger = std.experimental.logger;
 
+public import dextool.clang_extensions : ValueKind;
+
 import cpptooling.analyzer.clang.ast : Visitor;
-import dextool.type : AbsolutePath, Path, FileName;
+import dextool.type : AbsolutePath, Path, FileName, DirName;
 
 // these imports are used in visitors. They are here to avoid cluttering the
 // individual visitors with a wall of text of imports.
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-import dextool.plugin.mutate.backend.database : MutationPointEntry;
-import dextool.plugin.mutate.backend.interface_ : ValidateLoc;
+import dextool.plugin.mutate.backend.database : MutationPointEntry,
+    MutationPointEntry2;
+import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc,
     OpTypeInfo;
 import dextool.plugin.mutate.backend.type : Language;
 
 /// Contain a visitor and the data.
 struct VisitorResult {
-    const(MutationPointEntry[]) mutationPoints() {
-        return result.mutationPoints;
+    MutationPointEntry2[] mutationPoints() {
+        return result.entries.data;
     }
 
     auto mutationPointFiles() @trusted {
-        return result.mutationPointFiles;
+        return result.files.data;
     }
 
     ExtendedVisitor visitor;
@@ -53,10 +63,10 @@ private:
  *  val_loc_ = queried by the visitor with paths for the AST nodes to determine
  *      if they should be analyzed.
  */
-VisitorResult makeRootVisitor(ValidateLoc val_loc_) {
+VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     typeof(return) rval;
     rval.validateLoc = val_loc_;
-    rval.result = new AnalyzeResult;
+    rval.result = new AnalyzeResult(fio);
     rval.transf = new Transform(rval.result, val_loc_);
     rval.enum_cache = new EnumCache;
     rval.visitor = new BaseVisitor(rval.transf, rval.enum_cache);
@@ -857,26 +867,66 @@ OpTypeInfo deriveOpTypeInfo(const Cursor lhs_, const Cursor rhs_, const EnumCach
     return OpTypeInfo.none;
 }
 
-import dextool.clang_extensions : Operator;
-
 import clang.c.Index : CXTokenKind;
+import dextool.clang_extensions : Operator;
 import dextool.plugin.mutate.backend.type : Offset;
 
+/// Holds the resulting mutants.
 class AnalyzeResult {
     import std.array : Appender;
     import dextool.set;
 
     static struct FileResult {
+        import std.range : isOutputRange;
+
         Path path;
         Language lang;
+
+        void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+            import std.format : formattedWrite;
+
+            formattedWrite(w, "%s (%s)", path, lang);
+        }
     }
 
-    Appender!(MutationPointEntry[]) exprs;
+    FilesysIO fio;
+    Appender!(MutationPointEntry2[]) entries;
+
     Appender!(FileResult[]) files;
     Set!Path file_index;
 
+    /// The source code language of the current file that is producing mutants.
+    Language lang;
+
+    this(FilesysIO fio) {
+        this.fio = fio;
+    }
+
     void put(MutationPointEntry a) {
-        exprs.put(a);
+        import dextool.plugin.mutate.backend.type : MutationIdFactory;
+        import dextool.plugin.mutate.backend.utility : makeMutationText;
+
+        if (a.file.length == 0) {
+            // TODO: this is a workaround. There should never be mutation points without a valid path.
+            logger.warning(
+                    "A mutation point without a file where generated. Run with -d for more details");
+            logger.trace(a);
+            return;
+        }
+
+        auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
+        auto fin = fio.makeInput(p);
+
+        auto id_factory = MutationIdFactory(a.file, a.mp.offset);
+        auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc);
+
+        foreach (m; a.mp.mutations) {
+            auto txt = makeMutationText(fin, mpe.offset, m.kind, lang);
+            auto cm = id_factory.makeMutant(m, txt.rawMutation);
+            mpe.put(cm);
+        }
+
+        entries.put(mpe);
     }
 
     void put(Path a, Language lang) {
@@ -884,14 +934,8 @@ class AnalyzeResult {
             file_index.add(a);
             files.put(FileResult(a, lang));
         }
-    }
 
-    const(MutationPointEntry[]) mutationPoints() {
-        return exprs.data;
-    }
-
-    FileResult[] mutationPointFiles() {
-        return files.data;
+        this.lang = lang;
     }
 }
 

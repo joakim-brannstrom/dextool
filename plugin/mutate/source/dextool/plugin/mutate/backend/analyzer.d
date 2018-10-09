@@ -66,7 +66,7 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
         // analyze the file
         () @trusted{
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-            auto root = makeRootVisitor(val_loc);
+            auto root = makeRootVisitor(fio, val_loc);
             analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
             foreach (a; root.mutationPointFiles) {
