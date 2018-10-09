@@ -31,6 +31,22 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "dcr_cc_ifstmt_bug.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "dcr"])
+        .run;
+    testAnyOrder!SubStr([
+        "from '!otherFun()' to 'true'",
+        "from '!otherFun()' to 'false'",
+    ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce 4 predicate mutations")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "dcc_dc_ifstmt2.cpp")
         .run;
     auto r = makeDextool(testEnv)

@@ -195,7 +195,7 @@ struct CompilerMsgBuilder(Writer) {
         return this;
     }
 
-    auto fixit(long offset, string mutation) {
+    auto fixit(long offset, const(char)[] mutation) {
         // Example of a fixit hint from gcc:
         // fix-it:"foo.cpp":{5:12-5:17}:"argc"
         // the second value in the location is bytes (starting from 1) from the

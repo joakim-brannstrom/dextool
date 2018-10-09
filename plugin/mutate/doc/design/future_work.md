@@ -126,7 +126,10 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
- * let the finder of test cases that don't kill any tests be able to do it by mutation type.
+ * calculate the score on the unique changes in the source code. this is to avoid inflating when different mutants can result in the same source code change.
+ * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.
+ * make it possible for the user to define "mutation operator sets" from the 40+ primitives. There is no reason why they are hardcoded.
+ * implement a test case analyser that can find test cases that encompases others. Supersets.
  * implement a command line switch that take a file/files and ranges in those file as places to where to mutate.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.

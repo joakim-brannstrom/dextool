@@ -271,11 +271,7 @@ struct Database {
     }
 
     void put(const Path p, Checksum cs, const Language lang) @trusted {
-        if (isAnalyzed(p))
-            return;
-
-        auto stmt = db.prepare(
-                "INSERT INTO files (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)");
+        auto stmt = db.prepare("INSERT OR IGNORE INTO files (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)");
         stmt.bind(":path", cast(string) p);
         stmt.bind(":checksum0", cast(long) cs.c0);
         stmt.bind(":checksum1", cast(long) cs.c1);
@@ -283,77 +279,65 @@ struct Database {
         stmt.execute;
     }
 
-    /** Save mutation points found in a specific file.
-     *
-     * Note: this assumes a file is never added more than once.
-     * If it where ever to be the mutation points would be duplicated.
-     *
-     * trusted: the d2sqlite3 interface is assumed to work correctly when the
-     * data via bind is *ok*.
-     */
-    void put(const(MutationPointEntry)[] mps, AbsolutePath rel_dir) @trusted {
+    /// Store all found mutants.
+    void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
+        import std.algorithm : map, joiner;
         import std.path : relativePath;
-
-        auto mp_stmt = db.prepare("INSERT INTO mutation_point (file_id, offset_begin, offset_end, line, column) VALUES (:fid, :begin, :end, :line, :column)");
-        auto m_stmt = db.prepare(
-                "INSERT INTO mutation (mp_id, kind, status) VALUES (:mp_id, :kind, :status)");
 
         db.begin;
         scope (failure)
             db.rollback;
 
-        FileId[Path] file_ids;
-        foreach (a; mps) {
-            // remove mutation points that would never result in a mutation
-            if (a.mp.mutations.length == 0)
-                continue;
+        enum insert_mp_sql = format("INSERT OR IGNORE INTO %s (file_id, offset_begin, offset_end, line, column) SELECT id, :begin, :end, :line, :column FROM %s WHERE path = :path",
+                    mutationPointTable, filesTable);
+        auto mp_stmt = db.prepare(insert_mp_sql);
 
-            if (a.file is null) {
-                debug logger.trace("this should not happen. The file is null file");
-                continue;
-            }
-            auto rel_file = relativePath(a.file, rel_dir).Path;
+        foreach (mp; mps) {
+            auto rel_file = relativePath(mp.file, rel_dir).Path;
+            mp_stmt.bind(":begin", mp.offset.begin);
+            mp_stmt.bind(":end", mp.offset.end);
+            mp_stmt.bind(":line", mp.sloc.line);
+            mp_stmt.bind(":column", mp.sloc.column);
+            mp_stmt.bind(":path", cast(string) rel_file);
+            mp_stmt.execute;
+            mp_stmt.reset;
+        }
 
-            FileId id;
-            // assuming it is slow to lookup in the database so cache the lookups.
-            if (auto e = rel_file in file_ids) {
-                id = *e;
-            } else {
-                auto e = getFileId(rel_file);
-                if (e.isNull) {
-                    // this only happens when the database is out of sync with
-                    // the filesystem or absolute paths are used.
-                    logger.errorf("File '%s' do not exist in the database",
-                            rel_file).collectException;
-                    continue;
-                }
-                id = e;
-                file_ids[rel_file] = id;
-            }
+        enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s (status,checksum0,checksum1) VALUES(:st,:c0,:c1)",
+                    mutationStatusTable);
+        auto cmut_stmt = db.prepare(insert_cmut_sql);
 
-            // fails if the constraint for mutation_point is violated
-            // TODO still a bit slow because this generates many exceptions.
-            try {
-                const long mp_id = () {
-                    scope (exit)
-                        mp_stmt.reset;
-                    mp_stmt.bind(":fid", cast(long) id);
-                    mp_stmt.bind(":begin", a.mp.offset.begin);
-                    mp_stmt.bind(":end", a.mp.offset.end);
-                    mp_stmt.bind(":line", a.sloc.line);
-                    mp_stmt.bind(":column", a.sloc.column);
-                    mp_stmt.execute;
-                    return db.lastInsertRowid;
-                }();
+        cmut_stmt.bind(":st", Mutation.Status.unknown);
+        foreach (cm; mps.map!(a => a.cms).joiner) {
+            cmut_stmt.bind(":c0", cast(long) cm.id.c0);
+            cmut_stmt.bind(":c1", cast(long) cm.id.c1);
+            cmut_stmt.execute;
+            cmut_stmt.reset;
+        }
 
-                m_stmt.bind(":mp_id", mp_id);
-                foreach (k; a.mp.mutations) {
-                    m_stmt.bind(":kind", k.kind);
-                    m_stmt.bind(":status", k.status);
-                    m_stmt.execute;
-                    m_stmt.reset;
-                }
-            } catch (Exception e) {
+        enum insert_m_sql = format("INSERT OR IGNORE INTO %s (mp_id, st_id, kind, status)
+            SELECT t0.id,t1.id,:kind,:status FROM %s t0, %s t1, %s t2 WHERE
+            t2.path = :path AND
+            t0.file_id = t2.id AND
+            t0.offset_begin = :off_begin AND
+            t0.offset_end = :off_end AND
+            t1.checksum0 = :c0 AND
+            t1.checksum1 = :c1",
+                    mutationTable, mutationPointTable, mutationStatusTable, filesTable);
+        auto insert_m = db.prepare(insert_m_sql);
+
+        foreach (mp; mps) {
+            foreach (m; mp.cms) {
+                auto rel_file = relativePath(mp.file, rel_dir).Path;
+                insert_m.bind(":path", cast(string) rel_file);
+                insert_m.bind(":off_begin", mp.offset.begin);
+                insert_m.bind(":off_end", mp.offset.end);
+                insert_m.bind(":c0", cast(long) m.id.c0);
+                insert_m.bind(":c1", cast(long) m.id.c1);
+                insert_m.bind(":kind", m.mut.kind);
+                insert_m.bind(":status", m.mut.status);
+                insert_m.execute;
+                insert_m.reset;
             }
         }
 
@@ -377,22 +361,21 @@ struct Database {
         immutable mut_id = cast(long) id;
 
         try {
-            immutable remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id",
-                    killedTestCaseTable);
+            enum remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id", killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
             stmt.bind(":id", mut_id);
             stmt.execute;
         } catch (Exception e) {
         }
 
-        immutable add_if_non_exist_tc_sql = format(
-                "INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)",
-                allTestCaseTable, allTestCaseTable);
+        enum add_if_non_exist_tc_sql = format(
+                    "INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)",
+                    allTestCaseTable, allTestCaseTable);
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
-        immutable add_new_sql = format(
-                "INSERT INTO %s (mut_id, tc_id, location) SELECT :mut_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
-                killedTestCaseTable, allTestCaseTable);
+        enum add_new_sql = format(
+                    "INSERT INTO %s (mut_id, tc_id, location) SELECT :mut_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
+                    killedTestCaseTable, allTestCaseTable);
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
@@ -429,8 +412,8 @@ struct Database {
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
 
-        immutable remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
-                allTestCaseTable, tmp_name);
+        enum remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
+                    allTestCaseTable, tmp_name);
         db.run(remove_old_sql);
 
         db.run(format("DROP TABLE %s", tmp_name));
@@ -489,7 +472,7 @@ struct Database {
 
     /// Returns: detected test cases.
     TestCase[] getDetectedTestCases() @trusted {
-        immutable sql = format("SELECT name FROM %s", allTestCaseTable);
+        enum sql = format("SELECT name FROM %s", allTestCaseTable);
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
@@ -502,8 +485,8 @@ struct Database {
 
     /// Returns: test cases that has killed zero mutants.
     TestCase[] getTestCasesWithZeroKills() @trusted {
-        immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
-                allTestCaseTable, killedTestCaseTable);
+        enum sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
+                    allTestCaseTable, killedTestCaseTable);
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
@@ -531,7 +514,7 @@ struct Database {
 
     /// Returns: the name of the test case.
     string getTestCaseName(const TestCaseId id) @trusted {
-        immutable sql = format("SELECT name FROM %s WHERE id = :id", allTestCaseTable);
+        enum sql = format("SELECT name FROM %s WHERE id = :id", allTestCaseTable);
         auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
         auto res = stmt.execute;
@@ -557,9 +540,9 @@ struct Database {
     TestCase[] getTestCases(const MutationId id) @trusted {
         Appender!(TestCase[]) rval;
 
-        immutable get_test_cases_sql = format(
-                "SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id",
-                allTestCaseTable, killedTestCaseTable);
+        enum get_test_cases_sql = format(
+                    "SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id",
+                    allTestCaseTable, killedTestCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute)
@@ -571,7 +554,7 @@ struct Database {
     /** Returns: number of test cases
      */
     long getNumOfTestCases() @trusted {
-        immutable num_test_cases_sql = format("SELECT count(*) FROM %s", allTestCaseTable);
+        enum num_test_cases_sql = format("SELECT count(*) FROM %s", allTestCaseTable);
         return db.execute(num_test_cases_sql).oneValue!long;
     }
 

@@ -55,13 +55,14 @@ import std.exception : collectException;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 5;
+immutable latestSchemaVersion = 6;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
 immutable mutationTable = "mutation";
 immutable killedTestCaseTable = "killed_test_case";
 immutable allTestCaseTable = "all_test_case";
+immutable mutationStatusTable = "mutation_status";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -111,6 +112,7 @@ do {
         initializeTables(db);
     }
 
+    db.run("PRAGMA foreign_keys=OFF;");
     upgrade(db);
     setPragmas(db);
 
@@ -141,6 +143,15 @@ immutable files3_tbl = "CREATE TABLE %s (
     lang        INTEGER
     )";
 
+immutable files4_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    path        TEXT NOT NULL,
+    checksum0   INTEGER NOT NULL,
+    checksum1   INTEGER NOT NULL,
+    lang        INTEGER,
+    CONSTRAINT unique_ UNIQUE (path)
+    )";
+
 // line start from zero
 // there shall never exist two mutations points for the same file+offset.
 immutable mutation_point_tbl = "CREATE TABLE %s (
@@ -155,13 +166,41 @@ immutable mutation_point_tbl = "CREATE TABLE %s (
     )";
 
 // time in ms spent on verifying the mutant
-immutable mutation_tbl = "CREATE TABLE %s (
+immutable mutation_v1_tbl = "CREATE TABLE %s (
     id      INTEGER PRIMARY KEY,
     mp_id   INTEGER NOT NULL,
     kind    INTEGER NOT NULL,
     status  INTEGER NOT NULL,
     time    INTEGER,
     FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
+    )";
+
+// status is deprecated. to be removed in when upgradeV5 is removed.
+immutable mutation_v2_tbl = "CREATE TABLE %s (
+    id      INTEGER PRIMARY KEY,
+    mp_id   INTEGER NOT NULL,
+    st_id   INTEGER,
+    kind    INTEGER NOT NULL,
+    status  INTEGER,
+    time    INTEGER,
+    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE,
+    FOREIGN KEY(st_id) REFERENCES mutation_status(id),
+    CONSTRAINT unique_ UNIQUE (mp_id, kind)
+    )";
+
+// the status of a mutant. if it is killed or otherwise.
+// multiple mutation operators can result in the same change of the source
+// code. By coupling the mutant status to the checksum of the source code
+// change it means that two mutations that have the same checksum will
+// "cooperate".
+// TODO: change the checksum to being NOT NULL in the future. Can't for now
+// when migrating to schema version 5->6.
+immutable mutation_status_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    status      INTEGER NOT NULL,
+    checksum0   INTEGER,
+    checksum1   INTEGER,
+    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
     )";
 
 // test_case is whatever identifier the user choose.
@@ -205,7 +244,7 @@ void initializeTables(ref sqlDatabase db) {
 
     db.run(format(files_tbl, filesTable));
     db.run(format(mutation_point_tbl, mutationPointTable));
-    db.run(format(mutation_tbl, mutationTable));
+    db.run(format(mutation_v1_tbl, mutationTable));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
@@ -243,6 +282,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[2] = &upgradeV2;
     tbl[3] = &upgradeV3;
     tbl[4] = &upgradeV4;
+    tbl[5] = &upgradeV5;
 
     while (true) {
         long version_ = 0;
@@ -267,6 +307,7 @@ void upgrade(ref sqlDatabase db) nothrow {
                     db.rollback;
                 (*f)(db);
             } catch (Exception e) {
+                logger.trace(e).collectException;
                 logger.error(e.msg).collectException;
                 logger.warningf("Unable to upgrade a database of version %s",
                         version_).collectException;
@@ -360,4 +401,35 @@ void upgradeV4(ref sqlDatabase db) {
     db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
 
     updateSchemaVersion(db, 5);
+}
+
+/** 2018-09-30
+ *
+ * This upgrade will drop all existing mutations and thus all results.
+ * It is too complex trying to upgrade and keep the results.
+ *
+ * When removing this function also remove the status field in mutation_v2_tbl.
+ */
+void upgradeV5(ref sqlDatabase db) {
+    import std.format : format;
+
+    db.run("PRAGMA foreign_keys=OFF;");
+    scope (exit)
+        db.run("PRAGMA foreign_keys=ON;");
+
+    db.run(format(mutation_status_tbl, mutationStatusTable));
+
+    immutable new_mut_tbl = "new_" ~ mutationTable;
+
+    db.run(format("DROP TABLE %s", mutationTable));
+    db.run(format(mutation_v2_tbl, mutationTable));
+
+    immutable new_files_tbl = "new_" ~ filesTable;
+    db.run(format(files4_tbl, new_files_tbl));
+    db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang) SELECT * FROM %s",
+            new_files_tbl, filesTable));
+    db.run(format("DROP TABLE %s", filesTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_files_tbl, filesTable));
+
+    updateSchemaVersion(db, 6);
 }

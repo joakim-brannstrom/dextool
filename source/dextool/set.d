@@ -116,3 +116,7 @@ auto setToList(T)(ref Set!T set) {
         app.put(key);
     return app.data;
 }
+
+auto setToRange(T)(ref Set!T set) {
+    return set.byKey;
+}

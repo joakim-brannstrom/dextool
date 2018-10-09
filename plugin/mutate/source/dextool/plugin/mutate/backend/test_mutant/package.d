@@ -527,8 +527,14 @@ nothrow:
                 break;
             case ok:
                 driver_sig = MutationDriverSignal.next;
-                logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.id, mut_res.from,
-                        mut_res.to, mut_file, mutp.sloc.line, mutp.sloc.column);
+                try {
+                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.id,
+                            cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
+                            mut_file, mutp.sloc.line, mutp.sloc.column);
+
+                } catch (Exception e) {
+                    logger.warning("Mutation ID", e.msg);
+                }
                 break;
             }
         } catch (Exception e) {
