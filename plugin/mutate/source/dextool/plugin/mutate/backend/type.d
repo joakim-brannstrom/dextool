@@ -36,6 +36,7 @@ struct MutationIdFactory {
 
     Path file;
     Offset offset;
+    Checksum cs;
 
     /// Calculate the unique ID for a specific mutation at this point.
     Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
@@ -43,6 +44,8 @@ struct MutationIdFactory {
 
         BuildChecksum128 h;
         h.put(cast(const(ubyte)[]) file);
+        h.put(cs.c0.toBytes);
+        h.put(cs.c1.toBytes);
         h.put(offset.begin.toBytes);
         h.put(offset.end.toBytes);
         h.put(mut);
