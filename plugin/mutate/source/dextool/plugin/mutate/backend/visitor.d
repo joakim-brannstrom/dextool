@@ -907,7 +907,8 @@ class AnalyzeResult {
 
     void put(MutationPointEntry a) {
         import dextool.plugin.mutate.backend.type : MutationIdFactory;
-        import dextool.plugin.mutate.backend.utility : makeMutationText, checksum;
+        import dextool.plugin.mutate.backend.utility : makeMutationText,
+            checksum;
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
@@ -919,7 +920,7 @@ class AnalyzeResult {
 
         Checksum cs;
         if (auto v = p in fileChecksum) {
-            cs =*v;
+            cs = *v;
         } else {
             fileChecksum[p] = checksum(fin.read);
         }

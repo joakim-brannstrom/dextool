@@ -356,6 +356,12 @@ struct Database {
         db.run(del_mp_sql);
     }
 
+    /// ditto
+    void removeAllFiles() @trusted {
+        enum del_f_sql = format("DELETE FROM %s", filesTable);
+        db.run(del_f_sql);
+    }
+
     /// Remove mutants that have no connection to a mutation point, orphened mutants.
     void removeOrphanedMutants() @trusted {
         enum del_orp_m_sql = format("DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)",
