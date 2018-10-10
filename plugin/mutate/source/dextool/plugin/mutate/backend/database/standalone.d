@@ -98,14 +98,14 @@ struct Database {
 
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const Path p) @trusted {
-        auto stmt = db.prepare("DELETE FROM files WHERE path=:path");
+        auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(filesTable));
         stmt.bind(":path", cast(string) p);
         stmt.execute;
     }
 
     /// Returns: All files in the database as relative paths.
     Path[] getFiles() @trusted {
-        auto stmt = db.prepare("SELECT path from files");
+        auto stmt = db.prepare(format!"SELECT path from %s"(filesTable));
         auto res = stmt.execute;
 
         auto app = appender!(Path[]);
@@ -159,7 +159,7 @@ struct Database {
             return;
         long mp_id = res.front.peek!long(0);
 
-        stmt = db.prepare(format("SELECT id FROM mutation WHERE mp_id=:id AND kind IN (%(%s,%))",
+        stmt = db.prepare(format!"SELECT id FROM mutation WHERE mp_id=:id AND kind IN (%(%s,%))"(
                 bcast.map!(a => cast(int) a)));
         stmt.bind(":id", mp_id);
         res = stmt.execute;
@@ -169,7 +169,7 @@ struct Database {
 
         auto mut_ids = res.map!(a => a.peek!long(0).MutationId).array;
 
-        stmt = db.prepare(format("UPDATE mutation SET status=:st,time=:time WHERE id IN (%(%s,%))",
+        stmt = db.prepare(format!"UPDATE mutation SET status=:st,time=:time WHERE id IN (%(%s,%))"(
                 mut_ids.map!(a => cast(long) a)));
         stmt.bind(":st", st.to!long);
         stmt.bind(":time", d.total!"msecs");
@@ -225,8 +225,8 @@ struct Database {
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
-        auto s = format("DELETE FROM mutation_point WHERE id IN (SELECT mp_id FROM mutation WHERE kind IN (%(%s,%)))",
-                kinds.map!(a => cast(int) a));
+        auto s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
+                mutationPointTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
     }
@@ -234,7 +234,7 @@ struct Database {
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
-        auto s = format("UPDATE mutation SET status=%s WHERE status == %s AND kind IN (%(%s,%))",
+        auto s = format!"UPDATE mutation SET status=%s WHERE status == %s AND kind IN (%(%s,%))"(
                 to_st.to!long, st.to!long, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
@@ -263,10 +263,9 @@ struct Database {
         typeof(return) rval;
         auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
         auto res = stmt.execute;
-        if (res.empty)
-            return rval;
-        rval = MutationReportEntry(res.front.peek!long(0), res.front.peek!long(1).dur!"msecs");
-
+        if (!res.empty)
+            rval = MutationReportEntry(res.front.peek!long(0),
+                    res.front.peek!long(1).dur!"msecs");
         return rval;
     }
 
@@ -344,6 +343,27 @@ struct Database {
         db.commit;
     }
 
+    /** Remove all mutants points from the database.
+     *
+     * This removes all the mutants because of the cascade delete of the
+     * tables. But it will keep the mutation statuses and thus the checksums
+     * and the status of the code changes.
+     *
+     * This then mean that when mutations+mutation points are added back they
+     * may reconnect with a mutation status.
+     */
+    void removeAllMutationPoints() @trusted {
+        enum del_mp_sql = format("DELETE FROM %s", mutationPointTable);
+        db.run(del_mp_sql);
+    }
+
+    /// Remove mutants that have no connection to a mutation point, orphened mutants.
+    void removeOrphanedMutants() @trusted {
+        enum del_orp_m_sql = format("DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)",
+                    mutationStatusTable, mutationTable);
+        db.run(del_orp_m_sql);
+    }
+
     /** Add a link between the mutation and what test case killed it.
      *
      * Params:
@@ -416,7 +436,7 @@ struct Database {
                     allTestCaseTable, tmp_name);
         db.run(remove_old_sql);
 
-        db.run(format("DROP TABLE %s", tmp_name));
+        db.run(format!"DROP TABLE %s"(tmp_name));
         db.commit;
     }
 
@@ -434,16 +454,16 @@ struct Database {
 
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
-        db.run(format("DROP TABLE %s", tmp_name));
+        db.run(format!"DROP TABLE %s"(tmp_name));
         db.commit;
     }
 
     /// ditto.
     private void internalAddDetectedTestCases(const(TestCase)[] tcs, string tmp_tbl) @trusted {
-        db.run(format("CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+        db.run(format!"CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"(
                 tmp_tbl));
 
-        immutable add_tc_sql = format("INSERT INTO %s (name) VALUES(:name)", tmp_tbl);
+        immutable add_tc_sql = format!"INSERT INTO %s (name) VALUES(:name)"(tmp_tbl);
         auto insert_s = db.prepare(add_tc_sql);
         foreach (tc; tcs) {
             insert_s.bind(":name", tc.name);
@@ -465,7 +485,7 @@ struct Database {
         //While it may not be the most performant method possible in all cases,
         //it should work in basically every database engine ever that attempts
         //to implement ANSI 92 SQL
-        immutable add_missing_sql = format("INSERT INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL",
+        immutable add_missing_sql = format!"INSERT INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
                 allTestCaseTable, tmp_tbl, allTestCaseTable);
         db.run(add_missing_sql);
     }
@@ -501,7 +521,7 @@ struct Database {
      * Returns: test cases that has killed at least one mutant.
      */
     TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format("SELECT DISTINCT t1.id FROM %s t1, %s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id == t3.id AND t3.kind IN (%(%s,%))",
+        immutable sql = format!"SELECT DISTINCT t1.id FROM %s t1, %s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id == t3.id AND t3.kind IN (%(%s,%))"(
                 allTestCaseTable, killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(TestCaseId[])();
@@ -514,7 +534,7 @@ struct Database {
 
     /// Returns: the name of the test case.
     string getTestCaseName(const TestCaseId id) @trusted {
-        enum sql = format("SELECT name FROM %s WHERE id = :id", allTestCaseTable);
+        enum sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
         auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
         auto res = stmt.execute;
@@ -523,8 +543,7 @@ struct Database {
 
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format(
-                "SELECT t1.mut_id FROM %s t1, %s t2 WHERE t1.tc_id = :tid AND t1.mut_id = t2.id AND t2.kind IN (%(%s,%))",
+        immutable sql = format!"SELECT t1.mut_id FROM %s t1, %s t2 WHERE t1.tc_id = :tid AND t1.mut_id = t2.id AND t2.kind IN (%(%s,%))"(
                 killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
@@ -540,8 +559,7 @@ struct Database {
     TestCase[] getTestCases(const MutationId id) @trusted {
         Appender!(TestCase[]) rval;
 
-        enum get_test_cases_sql = format(
-                    "SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id",
+        enum get_test_cases_sql = format!"SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id"(
                     allTestCaseTable, killedTestCaseTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
@@ -554,7 +572,7 @@ struct Database {
     /** Returns: number of test cases
      */
     long getNumOfTestCases() @trusted {
-        enum num_test_cases_sql = format("SELECT count(*) FROM %s", allTestCaseTable);
+        enum num_test_cases_sql = format!"SELECT count(*) FROM %s"(allTestCaseTable);
         return db.execute(num_test_cases_sql).oneValue!long;
     }
 
@@ -568,7 +586,7 @@ struct Database {
         // get the mutation point ID that id reside at
         long mp_id;
         {
-            auto stmt = db.prepare(format("SELECT mp_id FROM %s WHERE id=:id", mutationTable));
+            auto stmt = db.prepare(format!"SELECT mp_id FROM %s WHERE id=:id"(mutationTable));
             stmt.bind(":id", cast(long) id);
             auto res = stmt.execute;
             if (res.empty)
@@ -579,7 +597,7 @@ struct Database {
         // get all the mutation ids at the mutation point
         long[] mut_ids;
         {
-            auto stmt = db.prepare(format("SELECT id FROM %s WHERE mp_id=:id", mutationTable));
+            auto stmt = db.prepare(format!"SELECT id FROM %s WHERE mp_id=:id"(mutationTable));
             stmt.bind(":id", mp_id);
             auto res = stmt.execute;
             if (res.empty)
@@ -588,8 +606,7 @@ struct Database {
         }
 
         // get all the test cases that are killed at the mutation point
-        immutable get_test_cases_sql = format(
-                "SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND mut_id IN (%(%s,%))",
+        immutable get_test_cases_sql = format!"SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND mut_id IN (%(%s,%))"(
                 killedTestCaseTable, allTestCaseTable, mut_ids);
         auto stmt = db.prepare(get_test_cases_sql);
         foreach (a; stmt.execute) {
@@ -604,12 +621,12 @@ struct Database {
     void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
         import std.regex : matchFirst;
 
-        immutable sql = format("SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id = t3.id AND t3.kind IN (%(%s,%))",
+        immutable sql = format!"SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id = t3.id AND t3.kind IN (%(%s,%))"(
                 allTestCaseTable, killedTestCaseTable, mutationTable,
                 kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
 
-        auto del_stmt = db.prepare(format("DELETE FROM %s WHERE id=:id", allTestCaseTable));
+        auto del_stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
         foreach (row; stmt.execute) {
             string tc = row.peek!string(1);
             if (tc.matchFirst(rex).empty)
