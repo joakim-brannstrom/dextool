@@ -874,12 +874,14 @@ import dextool.plugin.mutate.backend.type : Offset;
 /// Holds the resulting mutants.
 class AnalyzeResult {
     import std.array : Appender;
+    import dextool.plugin.mutate.backend.type : Checksum;
     import dextool.set;
 
     static struct FileResult {
         import std.range : isOutputRange;
 
         Path path;
+        Checksum cs;
         Language lang;
 
         void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
@@ -894,6 +896,7 @@ class AnalyzeResult {
 
     Appender!(FileResult[]) files;
     Set!Path file_index;
+    Checksum[AbsolutePath] fileChecksum;
 
     /// The source code language of the current file that is producing mutants.
     Language lang;
@@ -904,7 +907,8 @@ class AnalyzeResult {
 
     void put(MutationPointEntry a) {
         import dextool.plugin.mutate.backend.type : MutationIdFactory;
-        import dextool.plugin.mutate.backend.utility : makeMutationText;
+        import dextool.plugin.mutate.backend.utility : makeMutationText,
+            checksum;
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
@@ -914,7 +918,14 @@ class AnalyzeResult {
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
         auto fin = fio.makeInput(p);
 
-        auto id_factory = MutationIdFactory(a.file, a.mp.offset);
+        Checksum cs;
+        if (auto v = p in fileChecksum) {
+            cs = *v;
+        } else {
+            fileChecksum[p] = checksum(fin.read);
+        }
+
+        auto id_factory = MutationIdFactory(a.file, a.mp.offset, cs);
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc);
 
         foreach (m; a.mp.mutations) {
@@ -927,9 +938,16 @@ class AnalyzeResult {
     }
 
     void put(Path a, Language lang) {
+        import dextool.plugin.mutate.backend.utility : checksum;
+
         if (!file_index.contains(a)) {
+            auto p = AbsolutePath(a, DirName(fio.getOutputDir));
+            auto fin = fio.makeInput(p);
+            auto cs = checksum(fin.read);
+            fileChecksum[p] = cs;
+
             file_index.add(a);
-            files.put(FileResult(a, lang));
+            files.put(FileResult(a, cs, lang));
         }
 
         this.lang = lang;

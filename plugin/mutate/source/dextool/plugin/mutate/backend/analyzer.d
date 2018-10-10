@@ -23,7 +23,8 @@ import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
+    Checksum;
 import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 
 /** Analyze the files in `frange` for mutations.
@@ -45,6 +46,9 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
     // header-only library that is allowed to be mutated.
     Set!AbsolutePath analyzed_files;
     Set!AbsolutePath files_with_mutations;
+
+    Set!Path before_files = db.getFiles.setFromList;
+    db.removeAllFiles;
 
     foreach (in_file; frange) {
         // find the file and flags to analyze
@@ -77,27 +81,23 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
                 auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
 
                 try {
-                    auto f_status = isFileChanged(db, AbsolutePath(a.path.FileName,
-                            DirName(fio.getOutputDir)), fio);
+                    auto f_status = isFileChanged(db, relp, a.cs);
                     if (f_status == FileStatus.changed) {
                         logger.infof("Updating analyze of '%s'", a);
-                        db.removeFile(relp);
                     }
 
-                    auto cs = checksum(ctx.virtualFileSystem.open(a.path.FileName)[]);
-                    db.put(Path(relp), cs, a.lang);
+                    db.put(Path(relp), a.cs, a.lang);
                 } catch (Exception e) {
                     logger.warning(e.msg);
                 }
             }
 
-            db.removeAllMutationPoints;
             db.put(root.mutationPoints, fio.getOutputDir);
-            db.removeOrphanedMutants;
         }();
     }
 
-    prune(db, files_with_mutations, fio.getOutputDir);
+    db.removeOrphanedMutants;
+    printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
 
     return ExitStatusType.Ok;
 }
@@ -110,29 +110,22 @@ enum FileStatus {
     changed
 }
 
-/// Prune the database of files that has been removed since last analysis.
-void prune(ref Database db, ref const Set!AbsolutePath analyzed_files, const AbsolutePath root_dir) @safe {
+/// Print the files that has been removed from the database since last analysis.
+void printPrunedFiles(ref Set!Path before_files,
+        ref Set!AbsolutePath analyzed_files, const AbsolutePath root_dir) @safe {
     import dextool.type : FileName;
 
-    foreach (const f; db.getFiles) {
+    foreach (const f; setToRange!Path(before_files)) {
         auto abs_f = AbsolutePath(FileName(f), DirName(cast(string) root_dir));
-
-        if (analyzed_files.contains(abs_f))
-            continue;
-
-        logger.infof("Removed from files to mutate: '%s'", abs_f);
-        db.removeFile(f);
+        logger.infof(!analyzed_files.contains(abs_f), "Removed from files to mutate: '%s'", abs_f);
     }
 }
 
-FileStatus isFileChanged(ref Database db, AbsolutePath p, FilesysIO fio) @safe {
-    auto relp = trustedRelativePath(p, fio.getOutputDir);
-
+FileStatus isFileChanged(ref Database db, Path relp, Checksum f_checksum) @safe {
     if (!db.isAnalyzed(relp))
         return FileStatus.notInDatabase;
 
     auto db_checksum = db.getFileChecksum(relp);
-    auto f_checksum = checksum(fio.makeInput(p).read[]);
 
     auto rval = (!db_checksum.isNull && db_checksum != f_checksum) ? FileStatus.changed
         : FileStatus.noChange;
