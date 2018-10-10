@@ -1,4 +1,4 @@
-# REQ-plugin_mutate-report
+# REQ-report
 partof: REQ-plugin_mutate
 ###
 
@@ -44,7 +44,7 @@ The intention is to generate a report such that it is easy to publish in other c
  * Separate the mutation time in compiling SUT+tests and executing tests.
 
 # SPC-report_for_human
-partof: REQ-plugin_mutate-report
+partof: REQ-report
 ###
 
 The plugin shall produce a report in markdown format when commanded via the *CLI*.
@@ -164,7 +164,7 @@ partof: SPC-report_for_human
 Verify that the produced report contains the expected result when the input is a database with *database content* and *report level*.
 
 # SPC-report_for_tool_ide_integration
-partof: REQ-plugin_mutate-report
+partof: REQ-report
 ###
 
 The plugin shall report mutants as *gcc compiler warnings* when commanded via the *CLI*.
@@ -214,7 +214,7 @@ The assumption made by this requirement is that IDE's that are used have good in
 The fixit hint is intended to make it easy for a user to see how the mutant modified the source code. This is especially important for those cases where there are many mutations for the same line. Some IDE's such as Eclipse do not move the cursor to the column which makes it harder for the human to manually inspect the mutation.
 
 # SPC-report_for_tool_integration_format
-partof: REQ-plugin_mutate-report
+partof: REQ-report
 ###
 
 The plugin shall report mutants as a *json model* when commanded via the *CLI*.
@@ -248,7 +248,7 @@ Each mutant is:
 ```
 
 # SPC-report_for_human_plain
-partof: REQ-plugin_mutate-report
+partof: REQ-report
 ###
 
 The plugin shall report mutants as *plain text* when commande via the *CLI*.
@@ -265,7 +265,7 @@ By printing the full code both from and to it becomes easier to find it on the l
 It becomes easier to understand.
 
 # SPC-report_as_csv
-partof: REQ-plugin_mutate-report
+partof: REQ-report
 ###
 
 The plugin shall report mutants in the *CSV format* when commanded via the *CLI*.
@@ -328,3 +328,17 @@ Verify that the report:
  * has a CSV header
  * contains a report of mutations for each column
  * the last column, comment, shall be empty
+
+# REQ-report_mutation_score
+partof: REQ-report
+###
+
+The plugin shall calculate the mutation score based on the number of unique source code mutations of the specified kind(s).
+
+## Rationale
+
+None of these assumptions are verified.
+
+This is based on the idea that a developer is more interested in the actual changes in the source code. The developer is less interested in the "academically" correct way of calculating mutations.
+
+A side effect of this is that a problem that can occur is that when combining multiple mutation operators it can result in duplications of source code changes. By doing it this way, on the source code changes, the score should be more "stable" and "truer".
