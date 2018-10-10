@@ -263,10 +263,9 @@ struct Database {
         typeof(return) rval;
         auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
         auto res = stmt.execute;
-        if (res.empty)
-            return rval;
-        rval = MutationReportEntry(res.front.peek!long(0), res.front.peek!long(1).dur!"msecs");
-
+        if (!res.empty)
+            rval = MutationReportEntry(res.front.peek!long(0),
+                    res.front.peek!long(1).dur!"msecs");
         return rval;
     }
 
