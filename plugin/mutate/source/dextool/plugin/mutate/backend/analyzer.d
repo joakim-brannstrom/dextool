@@ -91,7 +91,9 @@ ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
                 }
             }
 
+            db.removeAllMutationPoints;
             db.put(root.mutationPoints, fio.getOutputDir);
+            db.removeOrphanedMutants;
         }();
     }
 

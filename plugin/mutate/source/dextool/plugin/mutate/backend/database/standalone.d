@@ -344,6 +344,26 @@ struct Database {
         db.commit;
     }
 
+    /** Remove all mutants points from the database.
+     *
+     * This removes all the mutants because of the cascade delete of the
+     * tables. But it will keep the mutation statuses and thus the checksums
+     * and the status of the code changes.
+     *
+     * This then mean that when mutations+mutation points are added back they
+     * may reconnect with a mutation status.
+     */
+    void removeAllMutationPoints() @trusted {
+        enum del_mp_sql = format("DELETE FROM %s", mutationPointTable);
+        db.run(del_mp_sql);
+    }
+
+    /// Remove mutants that have no connection to a mutation point, orphened mutants.
+    void removeOrphanedMutants() @trusted {
+        enum del_orp_m_sql = format("DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)", mutationStatusTable, mutationTable);
+        db.run(del_orp_m_sql);
+    }
+
     /** Add a link between the mutation and what test case killed it.
      *
      * Params:
