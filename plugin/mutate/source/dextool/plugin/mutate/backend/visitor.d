@@ -262,6 +262,7 @@ class BaseVisitor : ExtendedVisitor {
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
 
+        // block UOI injection when inside an assignment
         if (kind_stack.hasValue(CXCursorKind.compoundAssignOperator).isNull)
             transf.unaryInject(v.cursor);
         v.accept(this);
