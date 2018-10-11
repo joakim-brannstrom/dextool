@@ -117,67 +117,32 @@ struct Database {
     }
 
     /** Update the status of a mutant.
-     * Params:
-     *  id = ?
-     *  st = ?
-     *  d = time spent on veryfing the mutant
-     */
-    void updateMutation(const MutationId id, const Mutation.Status st,
-            const Duration d, const(TestCase)[] tcs) @trusted {
-        auto stmt = db.prepare(
-                "UPDATE mutation SET status=:st,time=:time WHERE mutation.id == :id");
-        stmt.bind(":st", st.to!long);
-        stmt.bind(":id", id.to!long);
-        stmt.bind(":time", d.total!"msecs");
-        stmt.execute;
-
-        updateMutationTestCases(id, tcs);
-    }
-
-    /** Update the status of a mutant and broadcast the status to other mutants at that point.
      *
      * Params:
      *  id = mutation point is derived from this mutation ID
      *  st = status to broadcast
-     *  d = mutation test time to broadcast
-     *  tcs = killed test cases to broadcast
-     *  bcast = mutants to broadcast the status to in addition to the id
+     *  d = time spent on veryfing the mutant
+     *  tcs = test cases that killed the mutant
      */
-    void updateMutationBroadcast(const MutationId id, const Mutation.Status st,
-            const Duration d, const(TestCase)[] tcs, const(Mutation.Kind)[] bcast) @trusted {
+    void updateMutation(const MutationId id, const Mutation.Status st,
+            const Duration d, const(TestCase)[] tcs) @trusted {
+        import std.datetime : SysTime, Clock;
 
-        if (bcast.length == 1) {
-            updateMutation(id, st, d, tcs);
-            return;
-        }
+        const ts = Clock.currTime.toUTC;
 
-        auto stmt = db.prepare("SELECT mp_id FROM mutation WHERE id=:id");
-        stmt.bind(":id", id.to!long);
-        auto res = stmt.execute;
-
-        if (res.empty)
-            return;
-        long mp_id = res.front.peek!long(0);
-
-        stmt = db.prepare(format!"SELECT id FROM mutation WHERE mp_id=:id AND kind IN (%(%s,%))"(
-                bcast.map!(a => cast(int) a)));
-        stmt.bind(":id", mp_id);
-        res = stmt.execute;
-
-        if (res.empty)
-            return;
-
-        auto mut_ids = res.map!(a => a.peek!long(0).MutationId).array;
-
-        stmt = db.prepare(format!"UPDATE mutation SET status=:st,time=:time WHERE id IN (%(%s,%))"(
-                mut_ids.map!(a => cast(long) a)));
+        enum update_sql = format(
+                    "UPDATE %s SET status=:st,time=:time,timestamp=:tstamp WHERE id IN (SELECT st_id FROM %s WHERE id = :id)",
+                    mutationStatusTable, mutationTable);
+        auto stmt = db.prepare(update_sql);
         stmt.bind(":st", st.to!long);
+        stmt.bind(":id", id.to!long);
         stmt.bind(":time", d.total!"msecs");
+        stmt.bind(":tstamp", format("%04s-%02s-%02sT%02s:%02s:%02s.%s",
+                ts.year, cast(ushort) ts.month, ts.day, ts.hour, ts.minute,
+                ts.second, ts.fracSecs.total!"msecs"));
         stmt.execute;
 
-        foreach (const mut_id; mut_ids) {
-            updateMutationTestCases(mut_id, tcs);
-        }
+        updateMutationTestCases(id, tcs);
     }
 
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {
@@ -186,23 +151,29 @@ struct Database {
 
         typeof(return) rval;
 
-        auto stmt = db.prepare("SELECT
-                               mutation.id,
-                               mutation.kind,
-                               mutation.time,
-                               mutation_point.offset_begin,
-                               mutation_point.offset_end,
-                               mutation_point.line,
-                               mutation_point.column,
-                               files.path,
-                               files.lang
-                               FROM mutation,mutation_point,files
-                               WHERE
-                               mutation.id == :id AND
-                               mutation.mp_id == mutation_point.id AND
-                               mutation_point.file_id == files.id");
+        enum get_mut_sql = format("SELECT
+            t0.id,
+            t0.kind,
+            t3.time,
+            t1.offset_begin,
+            t1.offset_end,
+            t1.line,
+            t1.column,
+            t2.path,
+            t2.lang
+            FROM %s t0,%s t1,%s t2,%s t3
+            WHERE
+            t0.id == :id AND
+            t0.mp_id == t1.id AND
+            t1.file_id == t2.id AND
+            t3.id = t0.st_id
+            ", mutationTable, mutationPointTable,
+                    filesTable, mutationStatusTable);
+
+        auto stmt = db.prepare(get_mut_sql);
         stmt.bind(":id", cast(long) id);
         auto res = stmt.execute;
+
         if (res.empty)
             return rval;
 
@@ -234,8 +205,9 @@ struct Database {
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
-        auto s = format!"UPDATE mutation SET status=%s WHERE status == %s AND kind IN (%(%s,%))"(
-                to_st.to!long, st.to!long, kinds.map!(a => cast(int) a));
+        auto s = format!"UPDATE %s SET status=%s WHERE status = %s AND id IN(SELECT st_id FROM %s WHERE kind IN (%(%s,%)))"(
+                mutationStatusTable, to_st.to!long, st.to!long,
+                mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
     }
@@ -256,16 +228,15 @@ struct Database {
     private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
         import core.time : dur;
 
-        auto query = format(
-            "SELECT count(*),sum(t1.time)
+        auto query = format("SELECT count(*),sum(t1.time)
             FROM %s t0, %s t1
             WHERE
             t0.st_id = t1.id AND
             t1.status IN (%(%s,%)) AND
             t0.kind IN (%(%s,%))
             GROUP BY t1.id
-            ",
-            mutationTable, mutationStatusTable, status, kinds.map!(a => cast(int) a));
+            ", mutationTable,
+                mutationStatusTable, status, kinds.map!(a => cast(int) a));
 
         typeof(return) rval;
         auto stmt = db.prepare(query);
@@ -321,8 +292,8 @@ struct Database {
             cmut_stmt.reset;
         }
 
-        enum insert_m_sql = format("INSERT OR IGNORE INTO %s (mp_id, st_id, kind, status)
-            SELECT t0.id,t1.id,:kind,:status FROM %s t0, %s t1, %s t2 WHERE
+        enum insert_m_sql = format("INSERT OR IGNORE INTO %s (mp_id, st_id, kind)
+            SELECT t0.id,t1.id,:kind FROM %s t0, %s t1, %s t2 WHERE
             t2.path = :path AND
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
@@ -341,7 +312,6 @@ struct Database {
                 insert_m.bind(":c0", cast(long) m.id.c0);
                 insert_m.bind(":c1", cast(long) m.id.c1);
                 insert_m.bind(":kind", m.mut.kind);
-                insert_m.bind(":status", m.mut.status);
                 insert_m.execute;
                 insert_m.reset;
             }
