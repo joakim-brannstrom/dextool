@@ -52,10 +52,11 @@ module dextool.plugin.mutate.backend.database.schema;
 
 import logger = std.experimental.logger;
 import std.exception : collectException;
+import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 6;
+immutable latestSchemaVersion = 7;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -188,6 +189,16 @@ immutable mutation_v2_tbl = "CREATE TABLE %s (
     CONSTRAINT unique_ UNIQUE (mp_id, kind)
     )";
 
+immutable mutation_v3_tbl = "CREATE TABLE %s (
+    id      INTEGER PRIMARY KEY,
+    mp_id   INTEGER NOT NULL,
+    st_id   INTEGER,
+    kind    INTEGER NOT NULL,
+    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE,
+    FOREIGN KEY(st_id) REFERENCES mutation_status(id),
+    CONSTRAINT unique_ UNIQUE (mp_id, kind)
+    )";
+
 // the status of a mutant. if it is killed or otherwise.
 // multiple mutation operators can result in the same change of the source
 // code. By coupling the mutant status to the checksum of the source code
@@ -195,9 +206,21 @@ immutable mutation_v2_tbl = "CREATE TABLE %s (
 // "cooperate".
 // TODO: change the checksum to being NOT NULL in the future. Can't for now
 // when migrating to schema version 5->6.
-immutable mutation_status_tbl = "CREATE TABLE %s (
+immutable mutation_status_v1_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     status      INTEGER NOT NULL,
+    checksum0   INTEGER,
+    checksum1   INTEGER,
+    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
+    )";
+
+// time in ms spent on verifying the mutant
+// timestamp is seconds at UTC+0
+immutable mutation_status_v2_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    status      INTEGER NOT NULL,
+    time        INTEGER,
+    timestamp   DATETIME,
     checksum0   INTEGER,
     checksum1   INTEGER,
     CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
@@ -240,16 +263,12 @@ immutable all_test_case_tbl = "CREATE TABLE %s (
     )";
 
 void initializeTables(ref sqlDatabase db) {
-    import std.format : format;
-
     db.run(format(files_tbl, filesTable));
     db.run(format(mutation_point_tbl, mutationPointTable));
     db.run(format(mutation_v1_tbl, mutationTable));
 }
 
 void updateSchemaVersion(ref sqlDatabase db, long ver) {
-    import std.format : format;
-
     try {
         auto stmt = db.prepare(format("DELETE FROM %s", schemaVersionTable));
         stmt.execute;
@@ -283,6 +302,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[3] = &upgradeV3;
     tbl[4] = &upgradeV4;
     tbl[5] = &upgradeV5;
+    tbl[6] = &upgradeV6;
 
     while (true) {
         long version_ = 0;
@@ -324,24 +344,18 @@ void upgrade(ref sqlDatabase db) nothrow {
 
 /// 2018-04-07
 void upgradeV0(ref sqlDatabase db) {
-    import std.format : format;
-
     db.run(format(version_tbl, schemaVersionTable));
     updateSchemaVersion(db, 1);
 }
 
 /// 2018-04-08
 void upgradeV1(ref sqlDatabase db) {
-    import std.format : format;
-
     db.run(format(test_case_killed_v1_tbl, testCaseTableV1));
     updateSchemaVersion(db, 2);
 }
 
 /// 2018-04-22
 void upgradeV2(ref sqlDatabase db) {
-    import std.format : format;
-
     immutable new_tbl = "new_" ~ filesTable;
     db.run(format(files3_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
@@ -354,8 +368,6 @@ void upgradeV2(ref sqlDatabase db) {
 
 /// 2018-09-01
 void upgradeV3(ref sqlDatabase db) {
-    import std.format : format;
-
     immutable new_tbl = "new_" ~ testCaseTableV1;
     db.run(format(test_case_killed_v2_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s", new_tbl, testCaseTableV1));
@@ -369,8 +381,6 @@ void upgradeV3(ref sqlDatabase db) {
 
 /// 2018-09-24
 void upgradeV4(ref sqlDatabase db) {
-    import std.format : format;
-
     immutable new_tbl = "new_" ~ killedTestCaseTable;
     db.run(format(test_case_killed_v3_tbl, new_tbl));
 
@@ -411,13 +421,11 @@ void upgradeV4(ref sqlDatabase db) {
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
 void upgradeV5(ref sqlDatabase db) {
-    import std.format : format;
-
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
 
-    db.run(format(mutation_status_tbl, mutationStatusTable));
+    db.run(format(mutation_status_v1_tbl, mutationStatusTable));
 
     immutable new_mut_tbl = "new_" ~ mutationTable;
 
@@ -432,4 +440,27 @@ void upgradeV5(ref sqlDatabase db) {
     db.run(format("ALTER TABLE %s RENAME TO %s", new_files_tbl, filesTable));
 
     updateSchemaVersion(db, 6);
+}
+
+/// 2018-10-11
+void upgradeV6(ref sqlDatabase db) {
+    db.run("PRAGMA foreign_keys=OFF;");
+    scope (exit)
+        db.run("PRAGMA foreign_keys=ON;");
+
+    enum new_mut_tbl = "new_" ~ mutationTable;
+    db.run(format(mutation_v3_tbl, new_mut_tbl));
+    db.run(format("INSERT INTO %s (id,mp_id,st_id,kind) SELECT id,mp_id,st_id,kind FROM %s",
+            new_mut_tbl, mutationTable));
+    db.run(format("DROP TABLE %s", mutationTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_mut_tbl, mutationTable));
+
+    enum new_muts_tbl = "new_" ~ mutationStatusTable;
+    db.run(format(mutation_status_v2_tbl, new_muts_tbl));
+    db.run(format("INSERT INTO %s (id,status,checksum0,checksum1) SELECT id,status,checksum0,checksum1 FROM %s",
+            new_muts_tbl, mutationStatusTable));
+    db.run(format("DROP TABLE %s", mutationStatusTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_muts_tbl, mutationStatusTable));
+
+    updateSchemaVersion(db, 7);
 }

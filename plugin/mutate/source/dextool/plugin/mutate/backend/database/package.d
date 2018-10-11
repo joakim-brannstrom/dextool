@@ -84,22 +84,23 @@ struct Database {
         auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
 
         auto prep_str = format("SELECT
-                               mutation.id,
-                               mutation.kind,
-                               mutation.time,
-                               mutation_point.offset_begin,
-                               mutation_point.offset_end,
-                               mutation_point.line,
-                               mutation_point.column,
-                               files.path,
-                               files.lang
-                               FROM mutation,mutation_point,files
+                               t0.id,
+                               t0.kind,
+                               t3.time,
+                               t1.offset_begin,
+                               t1.offset_end,
+                               t1.line,
+                               t1.column,
+                               t2.path,
+                               t2.lang
+                               FROM %s t0,%s t1,%s t2,%s t3
                                WHERE
-                               mutation.status == 0 AND
-                               mutation.mp_id == mutation_point.id AND
-                               mutation_point.file_id == files.id AND
-                               mutation.kind IN (%(%s,%)) %s LIMIT 1",
-                kinds.map!(a => cast(int) a), order);
+                               t0.st_id = t3.id AND
+                               t3.status == 0 AND
+                               t0.mp_id == t1.id AND
+                               t1.file_id == t2.id AND
+                               t0.kind IN (%(%s,%)) %s LIMIT 1", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a), order);
         auto stmt = db.prepare(prep_str);
         // TODO this should work. why doesn't it?
         //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
@@ -123,33 +124,35 @@ struct Database {
         return rval;
     }
 
-    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) nothrow @trusted {
+    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) @trusted {
         import std.algorithm : map;
         import std.format : format;
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        immutable all_mutants = "SELECT
-            mutation.id,
-            mutation.status,
-            mutation.kind,
-            mutation.time,
-            mutation_point.offset_begin,
-            mutation_point.offset_end,
-            mutation_point.line,
-            mutation_point.column,
-            files.path,
-            files.checksum0,
-            files.checksum1,
-            files.lang
-            FROM mutation,mutation_point,files
+        immutable all_mutants = format("SELECT
+            t0.id,
+            t3.status,
+            t0.kind,
+            t3.time,
+            t1.offset_begin,
+            t1.offset_end,
+            t1.line,
+            t1.column,
+            t2.path,
+            t2.checksum0,
+            t2.checksum1,
+            t2.lang
+            FROM %s t0,%s t1,%s t2, %s t3
             WHERE
-            mutation.kind IN (%(%s,%)) AND
-            mutation.mp_id == mutation_point.id AND
-            mutation_point.file_id == files.id
-            ORDER BY mutation.status";
+            t0.kind IN (%(%s,%)) AND
+            t0.st_id = t3.id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t2.id
+            ORDER BY t3.status", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
 
         try {
-            auto res = db.prepare(format(all_mutants, kinds.map!(a => cast(int) a))).execute;
+            auto res = db.prepare(all_mutants).execute;
             foreach (ref r; res) {
                 IterateMutantRow d;
                 d.id = MutationId(r.peek!long(0));
