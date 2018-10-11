@@ -623,16 +623,13 @@ nothrow:
 
     void storeResult() {
         import std.algorithm : sort, map;
-        import dextool.plugin.mutate.backend.mutation_type : broadcast;
 
         driver_sig = MutationDriverSignal.next;
 
         sw.stop;
 
-        auto bcast = broadcast(mutp.mp.mutations[0].kind);
         spinSqlQuery!(() {
-            db.updateMutationBroadcast(mutp.id, mut_status, sw.peek,
-                test_cases.failedAsArray, bcast);
+            db.updateMutation(mutp.id, mut_status, sw.peek, test_cases.failedAsArray);
         });
 
         logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek).collectException;

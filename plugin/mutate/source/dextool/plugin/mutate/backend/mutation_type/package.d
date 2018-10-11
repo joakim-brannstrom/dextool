@@ -25,40 +25,6 @@ public import dextool.plugin.mutate.backend.mutation_type.uoi;
 
 @safe:
 
-/** Expand a mutation to all kinds at the same mutation point that would result in the same mutation being performed.
- */
-Mutation.Kind[] broadcast(const Mutation.Kind k) @safe pure nothrow {
-    switch (k) with (Mutation.Kind) {
-    case rorLT:
-        goto case;
-    case rorpLT:
-        return [rorLT, rorpLT];
-    case rorLE:
-        goto case;
-    case rorpLE:
-        return [rorLE, rorpLE];
-    case rorGT:
-        goto case;
-    case rorpGT:
-        return [rorGT, rorpGT];
-    case rorGE:
-        goto case;
-    case rorpGE:
-        return [rorGE, rorpGE];
-    case rorEQ:
-        goto case;
-    case rorpEQ:
-        return [rorEQ, rorpEQ];
-    case rorNE:
-        goto case;
-    case rorpNE:
-        return [rorNE, rorpNE];
-
-    default:
-        return [k];
-    }
-}
-
 Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
     import std.algorithm : map, joiner;
     import std.array : array;
