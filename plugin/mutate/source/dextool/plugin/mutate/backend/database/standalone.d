@@ -228,15 +228,18 @@ struct Database {
     private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
         import core.time : dur;
 
-        auto query = format("SELECT count(*),sum(t1.time)
+        auto query = format("
+            SELECT count(*),sum(time)
+            FROM (
+            SELECT count(*),sum(t1.time) time
             FROM %s t0, %s t1
             WHERE
             t0.st_id = t1.id AND
             t1.status IN (%(%s,%)) AND
             t0.kind IN (%(%s,%))
             GROUP BY t1.id
-            ", mutationTable,
-                mutationStatusTable, status, kinds.map!(a => cast(int) a));
+            )", mutationTable, mutationStatusTable, status,
+                kinds.map!(a => cast(int) a));
 
         typeof(return) rval;
         auto stmt = db.prepare(query);
