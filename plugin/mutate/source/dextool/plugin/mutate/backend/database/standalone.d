@@ -256,11 +256,19 @@ struct Database {
     private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
         import core.time : dur;
 
-        enum query = format("SELECT count(*),sum(t0.time) FROM %s t0 WHERE t0.status IN (%(%s,%)) AND t0.kind IN (%s) AND t0.st_id IN (SELECT id FROM %s GROUP BY checksum0, checksum1 HAVING count(*) = 1)",
-                    mutationTable, status, "%(%s,%)", mutationStatusTable);
+        auto query = format(
+            "SELECT count(*),sum(t1.time)
+            FROM %s t0, %s t1
+            WHERE
+            t0.st_id = t1.id AND
+            t1.status IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%))
+            GROUP BY t1.id
+            ",
+            mutationTable, mutationStatusTable, status, kinds.map!(a => cast(int) a));
 
         typeof(return) rval;
-        auto stmt = db.prepare(format(query, kinds.map!(a => cast(int) a)));
+        auto stmt = db.prepare(query);
         auto res = stmt.execute;
         if (!res.empty)
             rval = MutationReportEntry(res.front.peek!long(0),

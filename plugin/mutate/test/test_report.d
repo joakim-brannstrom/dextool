@@ -67,9 +67,9 @@ unittest {
         "## Alive Mutation Statistics",
         "| Percentage | Count | From | To   |",
         "|------------|-------|------|------|",
-        "| 100        | 1     | `>`  | `>=` |",
+        "| 100        | 2     | `>`  | `>=` |",
         "## Summary",
-        "Mutation execution time:         5 ms",
+        "Mutation execution time:",
         "Untested:",
         "Alive:",
         "Killed:",
@@ -195,9 +195,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase | Location |",
         "|------------|-------|----------|----------|",
-        "| 66.6667    | 2     | tc_2     |          |",
-        "| 33.3333    | 1     | tc_3     |          |",
-        "| 33.3333    | 1     | tc_1     |          |",
+        "| 100        | 2     | tc_2     |          |",
+        "| 50         | 1     | tc_3     |          |",
+        "| 50         | 1     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -259,8 +259,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 33.3333    | 1     | tc_1     |",
-        "| 33.3333    | 1     | tc_3     |",
+        "| 50         | 1     | tc_1     |",
+        "| 50         | 1     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
 
