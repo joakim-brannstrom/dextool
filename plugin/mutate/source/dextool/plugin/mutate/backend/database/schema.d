@@ -150,7 +150,7 @@ immutable files4_tbl = "CREATE TABLE %s (
     checksum0   INTEGER NOT NULL,
     checksum1   INTEGER NOT NULL,
     lang        INTEGER,
-    CONSTRAINT unique_ UNIQUE (path)
+    CONSTRAINT  unique_ UNIQUE (path)
     )";
 
 // line start from zero
