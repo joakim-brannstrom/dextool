@@ -260,14 +260,14 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     import std.datetime : Clock;
     import dextool.plugin.mutate.backend.utility;
 
-    const alive = spinSqlQuery!(() { return db.aliveMutants(kinds); });
-    const killed = spinSqlQuery!(() { return db.killedMutants(kinds); });
-    const timeout = spinSqlQuery!(() { return db.timeoutMutants(kinds); });
-    const untested = spinSqlQuery!(() { return db.unknownMutants(kinds); });
+    const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds); });
+    const killed = spinSqlQuery!(() { return db.killedSrcMutants(kinds); });
+    const timeout = spinSqlQuery!(() { return db.timeoutSrcMutants(kinds); });
+    const untested = spinSqlQuery!(() { return db.unknownSrcMutants(kinds); });
     const killed_by_compiler = spinSqlQuery!(() {
-        return db.killedByCompilerMutants(kinds);
+        return db.killedByCompilerSrcMutants(kinds);
     });
-    const total = spinSqlQuery!(() { return db.totalMutants(kinds); });
+    const total = spinSqlQuery!(() { return db.totalSrcMutants(kinds); });
 
     try {
         immutable align_ = 8;

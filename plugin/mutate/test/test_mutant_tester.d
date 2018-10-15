@@ -328,14 +328,14 @@ unittest {
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1")]);
     // verify pre-condition that test cases exist in the DB
     auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
-    testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(r0.stdout);
+    testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(r0.stdout);
 
     // Act
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
 
     // Assert that the test cases are still their
     auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
-    testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(r1.stdout);
+    testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(r1.stdout);
 }
 
 immutable scriptSimulatingComplextCTestSuite =

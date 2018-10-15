@@ -214,31 +214,54 @@ struct Database {
 
     import dextool.plugin.mutate.backend.type;
 
-    alias aliveMutants = countMutants!([Mutation.Status.alive]);
-    alias killedMutants = countMutants!([Mutation.Status.killed]);
-    alias timeoutMutants = countMutants!([Mutation.Status.timeout]);
+    alias aliveMutants = countMutants!([Mutation.Status.alive], false);
+    alias killedMutants = countMutants!([Mutation.Status.killed], false);
+    alias timeoutMutants = countMutants!([Mutation.Status.timeout], false);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalMutants = countMutants!([Mutation.Status.alive,
-            Mutation.Status.killed, Mutation.Status.timeout]);
+            Mutation.Status.killed, Mutation.Status.timeout], false);
 
-    alias unknownMutants = countMutants!([Mutation.Status.unknown]);
-    alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler]);
+    alias unknownMutants = countMutants!([Mutation.Status.unknown], false);
+    alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler], false);
 
-    private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds) @trusted {
+    alias aliveSrcMutants = countMutants!([Mutation.Status.alive], true);
+    alias killedSrcMutants = countMutants!([Mutation.Status.killed], true);
+    alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout], true);
+
+    /// Returns: Total that should be counted when calculating the mutation score.
+    alias totalSrcMutants = countMutants!([Mutation.Status.alive,
+            Mutation.Status.killed, Mutation.Status.timeout], true);
+
+    alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
+    alias killedByCompilerSrcMutants = countMutants!([Mutation.Status.killedByCompiler], true);
+
+    /// Count the distinct mutants
+    private MutationReportEntry countMutants(int[] status, bool distinct)(const Mutation
+            .Kind[] kinds) @trusted {
         import core.time : dur;
 
-        auto query = format("
-            SELECT count(*),sum(time)
-            FROM (
-            SELECT count(*),sum(t1.time) time
-            FROM %s t0, %s t1
-            WHERE
-            t0.st_id = t1.id AND
-            t1.status IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))
-            GROUP BY t1.id
-            )", mutationTable, mutationStatusTable, status,
+        static if (distinct) {
+            auto qq = "
+                SELECT count(*),sum(time)
+                FROM (
+                SELECT count(*),sum(t1.time) time
+                FROM %s t0, %s t1
+                WHERE
+                t0.st_id = t1.id AND
+                t1.status IN (%(%s,%)) AND
+                t0.kind IN (%(%s,%))
+                GROUP BY t1.id)";
+        } else {
+            auto qq = "
+                SELECT count(*),sum(t1.time) time
+                FROM %s t0, %s t1
+                WHERE
+                t0.st_id = t1.id AND
+                t1.status IN (%(%s,%)) AND
+                t0.kind IN (%(%s,%))";
+        }
+        auto query = format(qq, mutationTable, mutationStatusTable, status,
                 kinds.map!(a => cast(int) a));
 
         typeof(return) rval;
@@ -364,12 +387,17 @@ struct Database {
         scope (failure)
             db.rollback;
 
-        immutable mut_id = cast(long) id;
+        immutable st_id = () {
+            enum st_id_for_mutation_q = format("SELECT st_id FROM %s WHERE id=:id", mutationTable);
+            auto stmt = db.prepare(st_id_for_mutation_q);
+            stmt.bind(":id", cast(long) id);
+            return stmt.execute.oneValue!long;
+        }();
 
         try {
-            enum remove_old_sql = format("DELETE FROM %s WHERE mut_id=:id", killedTestCaseTable);
+            enum remove_old_sql = format("DELETE FROM %s WHERE st_id=:id", killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
-            stmt.bind(":id", mut_id);
+            stmt.bind(":id", st_id);
             stmt.execute;
         } catch (Exception e) {
         }
@@ -380,7 +408,7 @@ struct Database {
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
         enum add_new_sql = format(
-                    "INSERT INTO %s (mut_id, tc_id, location) SELECT :mut_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
+                    "INSERT INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
                     killedTestCaseTable, allTestCaseTable);
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
@@ -391,7 +419,7 @@ struct Database {
                 stmt_insert_tc.execute;
 
                 stmt_insert.reset;
-                stmt_insert.bind(":mut_id", mut_id);
+                stmt_insert.bind(":st_id", st_id);
                 stmt_insert.bind(":loc", tc.location);
                 stmt_insert.bind(":tc", tc.name);
                 stmt_insert.execute;
@@ -507,8 +535,13 @@ struct Database {
      * Returns: test cases that has killed at least one mutant.
      */
     TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT DISTINCT t1.id FROM %s t1, %s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id == t3.id AND t3.kind IN (%(%s,%))"(
-                allTestCaseTable, killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+        immutable sql = format!"SELECT DISTINCT t1.id
+            FROM %s t1, %s t2, %s t3
+            WHERE
+            t1.id = t2.tc_id AND
+            t2.st_id == t3.st_id AND
+            t3.kind IN (%(%s,%))"(allTestCaseTable,
+                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
@@ -529,8 +562,13 @@ struct Database {
 
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT t1.mut_id FROM %s t1, %s t2 WHERE t1.tc_id = :tid AND t1.mut_id = t2.id AND t2.kind IN (%(%s,%))"(
-                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+        immutable sql = format!"SELECT t2.id
+            FROM %s t1, %s t2
+            WHERE
+            t1.tc_id = :tid AND
+            t1.st_id = t2.st_id AND
+            t2.kind IN (%(%s,%))"(killedTestCaseTable,
+                mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
         auto stmt = db.prepare(sql);
@@ -545,8 +583,13 @@ struct Database {
     TestCase[] getTestCases(const MutationId id) @trusted {
         Appender!(TestCase[]) rval;
 
-        enum get_test_cases_sql = format!"SELECT t1.name,t2.location FROM %s t1, %s t2 WHERE t2.mut_id=:id AND t2.tc_id=t1.id"(
-                    allTestCaseTable, killedTestCaseTable);
+        enum get_test_cases_sql = format!"SELECT t1.name,t2.location
+            FROM %s t1, %s t2, %s t3
+            WHERE
+            t3.id = :id AND
+            t3.st_id = t2.st_id AND
+            t2.tc_id = t1.id"(allTestCaseTable,
+                    killedTestCaseTable, mutationTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.bind(":id", cast(long) id);
         foreach (a; stmt.execute)
@@ -580,20 +623,20 @@ struct Database {
             mp_id = res.oneValue!long;
         }
 
-        // get all the mutation ids at the mutation point
-        long[] mut_ids;
+        // get all the mutation status ids at the mutation point
+        long[] mut_st_ids;
         {
-            auto stmt = db.prepare(format!"SELECT id FROM %s WHERE mp_id=:id"(mutationTable));
+            auto stmt = db.prepare(format!"SELECT st_id FROM %s WHERE mp_id=:id"(mutationTable));
             stmt.bind(":id", mp_id);
             auto res = stmt.execute;
             if (res.empty)
                 return null;
-            mut_ids = res.map!(a => a.peek!long(0)).array;
+            mut_st_ids = res.map!(a => a.peek!long(0)).array;
         }
 
         // get all the test cases that are killed at the mutation point
-        immutable get_test_cases_sql = format!"SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND mut_id IN (%(%s,%))"(
-                killedTestCaseTable, allTestCaseTable, mut_ids);
+        immutable get_test_cases_sql = format!"SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND t0.st_id IN (%(%s,%))"(
+                killedTestCaseTable, allTestCaseTable, mut_st_ids);
         auto stmt = db.prepare(get_test_cases_sql);
         foreach (a; stmt.execute) {
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
@@ -607,7 +650,7 @@ struct Database {
     void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
         import std.regex : matchFirst;
 
-        immutable sql = format!"SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.mut_id = t3.id AND t3.kind IN (%(%s,%))"(
+        immutable sql = format!"SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.st_id = t3.st_id AND t3.kind IN (%(%s,%))"(
                 allTestCaseTable, killedTestCaseTable, mutationTable,
                 kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
