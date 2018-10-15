@@ -56,7 +56,7 @@ import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 7;
+immutable latestSchemaVersion = 8;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -252,6 +252,14 @@ immutable test_case_killed_v3_tbl = "CREATE TABLE %s (
     FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE,
     FOREIGN KEY(tc_id) REFERENCES all_test_case(id) ON DELETE CASCADE
     )";
+immutable test_case_killed_v4_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    st_id       INTEGER NOT NULL,
+    tc_id       INTEGER NOT NULL,
+    location    TEXT,
+    FOREIGN KEY(st_id) REFERENCES mutation_status(id) ON DELETE CASCADE,
+    FOREIGN KEY(tc_id) REFERENCES all_test_case(id) ON DELETE CASCADE
+    )";
 
 // Track all test cases that has been found by the test suite output analyzer.
 // Useful to find test cases that has never killed any mutant.
@@ -303,6 +311,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[4] = &upgradeV4;
     tbl[5] = &upgradeV5;
     tbl[6] = &upgradeV6;
+    tbl[7] = &upgradeV7;
 
     while (true) {
         long version_ = 0;
@@ -463,4 +472,25 @@ void upgradeV6(ref sqlDatabase db) {
     db.run(format("ALTER TABLE %s RENAME TO %s", new_muts_tbl, mutationStatusTable));
 
     updateSchemaVersion(db, 7);
+}
+
+/// 2018-10-15
+void upgradeV7(ref sqlDatabase db) {
+    db.run("PRAGMA foreign_keys=OFF;");
+    scope (exit)
+        db.run("PRAGMA foreign_keys=ON;");
+
+    enum new_tbl = "new_" ~ killedTestCaseTable;
+    db.run(format(test_case_killed_v4_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,st_id,tc_id,location)
+        SELECT t0.id,t1.st_id,t0.tc_id,t0.location
+        FROM %s t0, %s t1
+        WHERE
+        t0.mut_id = t1.id", new_tbl,
+            killedTestCaseTable, mutationTable));
+
+    db.run(format("DROP TABLE %s", killedTestCaseTable));
+    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
+
+    updateSchemaVersion(db, 8);
 }

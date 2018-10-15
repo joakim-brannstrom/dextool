@@ -314,6 +314,30 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
     }
 }
 
+@(testId ~ "shall keep the test case results linked to mutants when re-analyzing")
+unittest {
+    import dextool.plugin.mutate.backend.database.standalone;
+    import dextool.plugin.mutate.backend.database.type;
+    import dextool.plugin.mutate.backend.type : TestCase;
+    import dextool.plugin.mutate.backend.type;
+
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
+    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1")]);
+    // verify pre-condition that test cases exist in the DB
+    auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
+    testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(r0.stdout);
+
+    // Act
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
+
+    // Assert that the test cases are still their
+    auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
+    testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(r1.stdout);
+}
+
 immutable scriptSimulatingComplextCTestSuite =
 `#!/bin/bash
 cat <<EOF

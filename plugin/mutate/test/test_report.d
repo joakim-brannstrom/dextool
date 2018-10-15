@@ -182,9 +182,15 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+    // the mutation ID's are chosen in such a way that 1 and 2 is the same.
+    // This mean that the second updateMutation will overwrite whatever 1 was set to.
+    // by setting mutant 3 to killed it automatically propagate to mutant 4
+    // because they are the same source code change.
+    // Then tc_1 is added to mutant 3 because that one is distinct from 1 and 2.
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
     db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", null);
+    db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(5), Mutation.Status.alive, 10.dur!"msecs", null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -195,9 +201,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase | Location |",
         "|------------|-------|----------|----------|",
-        "| 100        | 2     | tc_2     |          |",
-        "| 50         | 1     | tc_3     |          |",
-        "| 50         | 1     | tc_1     |          |",
+        "| 80         | 4     | tc_2     |          |",
+        "| 40         | 2     | tc_3     |          |",
+        "| 40         | 2     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -245,8 +251,8 @@ unittest {
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", null);
+    db.updateMutation(MutationId(3), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(5), Mutation.Status.alive, 10.dur!"msecs", null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -259,8 +265,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 50         | 1     | tc_1     |",
-        "| 50         | 1     | tc_3     |",
+        "| 40         | 2     | tc_1     |",
+        "| 40         | 2     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
 
