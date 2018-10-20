@@ -308,7 +308,7 @@ struct Markdown(Writer, TraceWriter) {
             markdown_sum = markdown.heading("Summary");
 
             markdown_sum.beginSyntaxBlock;
-            reportStatistics(db, kinds, markdown_sum);
+            markdown_sum.writefln(reportStatistics(db, kinds).toString);
             markdown_sum.endSyntaxBlock;
 
             markdown_sum.popHeading;

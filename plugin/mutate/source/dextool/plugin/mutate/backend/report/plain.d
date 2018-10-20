@@ -273,17 +273,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            struct Log {
-                File stdout;
-                alias stdout this;
-
-                void tracef(ARGS...)(auto ref ARGS args) {
-                    stdout.writef(args);
-                }
-            }
-
-            auto log = Log(stdout_);
-            reportStatistics(db, kinds, log);
+            writeln(reportStatistics(db, kinds).toString);
         }
 
         writeln;

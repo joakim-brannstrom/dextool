@@ -43,6 +43,7 @@ struct FileIndex {
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
     const AbsolutePath logDir;
+    MutationKind[] humanReadableKinds;
     Set!ReportSection sections;
     FilesysIO fio;
 
@@ -64,9 +65,10 @@ struct FileIndex {
                 : conf.reportSection.dup).setFromList;
     }
 
-    override void mutationKindEvent(const MutationKind[]) {
+    override void mutationKindEvent(const MutationKind[] k) {
         import std.file : mkdirRecurse;
 
+        humanReadableKinds = k.dup;
         mkdirRecurse(this.logDir);
     }
 
@@ -145,8 +147,10 @@ struct FileIndex {
     }
 
     override void postProcessEvent(ref Database db) {
+        import std.algorithm : splitter;
         import std.datetime : Clock;
         import std.path : buildPath;
+        import dextool.plugin.mutate.backend.report.utility : reportStatistics;
 
         const index_f = buildPath(logDir, "index" ~ htmlExt);
         auto index = File(index_f, "w");
@@ -155,12 +159,19 @@ struct FileIndex {
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-<title>Mutation Testing Report %s</title>
+<title>Mutation Testing Report %(%s %) %s</title>
 </head>
 <style>body {font-family: monospace; font-size: 14px;}</style>
-`, Clock.currTime);
+`, humanReadableKinds, Clock.currTime);
+
+        auto stats = reportStatistics(db, kinds);
+        index.writeln(`<table>`);
+        foreach (l; stats.toString.splitter('\n'))
+            index.writefln(`<tr><td>%s</td></tr>`, encode(l));
+        index.writeln(`</table>`);
+
         foreach (f; files.data) {
-            index.writefln(`<a href="%s">%s</a>`, f.path, encode(f.display));
+            index.writefln(`<p><a href="%s">%s</a></p>`, f.path, encode(f.display));
         }
 
         index.writeln(`</body></html>`);

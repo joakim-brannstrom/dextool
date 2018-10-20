@@ -252,11 +252,70 @@ void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
     }
 }
 
-void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref ReportT item) @safe nothrow {
+/// Statistics for a group of mutants.
+struct MutationStat {
+    import core.time : Duration;
+    import std.range : isOutputRange;
+
+    long alive;
+    long killed;
+    long timeout;
+    long untested;
+    long killedByCompiler;
+    long total;
+
+    Duration totalTime;
+    Duration killedByCompilerTime;
+    Duration predictedDone;
+
+    string toString() @safe const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import core.time : dur;
+        import std.ascii : newline;
+        import std.datetime : Clock;
+        import std.format : formattedWrite;
+        import std.range : put;
+        import dextool.plugin.mutate.backend.utility;
+
+        immutable align_ = 8;
+
+        // execution time
+        if (untested > 0 && predictedDone > 0.dur!"msecs")
+            formattedWrite(w, "Predicted time until mutation testing is done: %s (%s)\n",
+                    predictedDone, Clock.currTime + predictedDone);
+        formattedWrite(w, "%-*s %s\n", align_ * 4, "Mutation execution time:", totalTime);
+        if (killedByCompiler > 0)
+            formattedWrite(w, "%-*s %s\n", align_ * 4,
+                    "Mutants killed by compiler:", killedByCompilerTime);
+        put(w, newline);
+
+        // mutation score and details
+        if (untested > 0)
+            formattedWrite(w, "Untested: %s\n", untested);
+        formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
+        formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
+        formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
+        formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
+        if (total > 0)
+            formattedWrite(w, "%-*s %s\n", align_, "Score:",
+                    cast(double) killed / cast(double) total);
+        else
+            formattedWrite(w, "%-*s %s\n", align_, "Score:", 1.0);
+        formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
+    }
+}
+
+MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
     import core.time : dur;
-    import std.algorithm : map, filter, sum;
+    import std.algorithm : map, sum;
     import std.range : only;
-    import std.datetime : Clock;
     import dextool.plugin.mutate.backend.utility;
 
     const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds); });
@@ -268,43 +327,17 @@ void reportStatistics(ReportT)(ref Database db, const Mutation.Kind[] kinds, ref
     });
     const total = spinSqlQuery!(() { return db.totalSrcMutants(kinds); });
 
-    try {
-        immutable align_ = 8;
+    MutationStat st;
+    st.alive = alive.count;
+    st.killed = only(killed, timeout).map!(a => a.count).sum;
+    st.timeout = timeout.count;
+    st.untested = untested.count;
+    st.total = total.count;
+    st.totalTime = total.time;
+    st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
+    st.killedByCompilerTime = killed_by_compiler.time;
 
-        const total_time = total.time;
-        const total_cnt = total.count;
-        const killed_cnt = only(killed, timeout).map!(a => a.count).sum;
-        const untested_cnt = untested.count;
-        const predicted = total_cnt > 0 ? (untested_cnt * (total_time / total_cnt)) : 0
-            .dur!"msecs";
-
-        // execution time
-        if (untested_cnt > 0 && predicted > 0.dur!"msecs")
-            item.writefln("Predicted time until mutation testing is done: %s (%s)",
-                    predicted, Clock.currTime + predicted);
-        item.writefln("%-*s %s", align_ * 4, "Mutation execution time:", total_time);
-        if (killed_by_compiler.count > 0)
-            item.tracef("%-*s %s", align_ * 4, "Mutants killed by compiler:",
-                    killed_by_compiler.time);
-
-        item.writeln("");
-
-        // mutation score and details
-        if (untested.count > 0)
-            item.writefln("Untested: %s", untested.count);
-        item.writefln("%-*s %s", align_, "Alive:", alive.count);
-        item.writefln("%-*s %s", align_, "Killed:", killed.count);
-        item.writefln("%-*s %s", align_, "Timeout:", timeout.count);
-        item.writefln("%-*s %s", align_, "Total:", total_cnt);
-        if (total_cnt > 0)
-            item.writefln("%-*s %s", align_, "Score:",
-                    cast(double) killed_cnt / cast(double) total_cnt);
-        else
-            item.writefln("%-*s %s", align_, "Score:", 1.0);
-        item.tracef("%-*s %s", align_, "Killed by compiler:", killed_by_compiler.count);
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
+    return st;
 }
 
 /** Report test cases that completly overlap each other.
