@@ -13,7 +13,8 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.typecons : Flag, Yes, No;
 
-import dextool.plugin.mutate.backend.database : Database, spinSqlQuery;
+import dextool.plugin.mutate.backend.database : Database, spinSqlQuery,
+    MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
     Language;
@@ -174,8 +175,6 @@ void reportDeadTestCases(ReportT)(long total, TestCase[] zero_kills_test_cases,
         tbl.put(r);
     }
 }
-
-import dextool.plugin.mutate.backend.database : MutationId;
 
 /// Information needed to present the mutant to an user.
 struct MutationRepr {

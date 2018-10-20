@@ -13,6 +13,7 @@ configuration of how the mutation plugin should behave.
 module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
+import std.array : empty;
 import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.traits : EnumMembers;
@@ -188,12 +189,7 @@ struct ArgParser {
                    );
             // dfmt on
 
-            if (compile_dbs.length != 0)
-                compileDb.rawDbs = compile_dbs;
-            compileDb.dbs = compileDb.rawDbs
-                .filter!(a => a.length != 0)
-                .map!(a => Path(a).AbsolutePath)
-                .array;
+            updateCompileDb(compileDb, compile_dbs);
         }
 
         void generateMutantG(string[] args) {
@@ -255,10 +251,15 @@ struct ArgParser {
         }
 
         void reportG(string[] args) {
+            string[] compile_dbs;
+            string logDir;
+
             data.toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "c|config", conf_help, &conf_file,
+                   "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
+                   "logdir", "Directory to write log files to (default: .)", &logDir,
                    "db", db_help, &db,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
                    "out", out_help, &workArea.rawRoot,
@@ -275,6 +276,12 @@ struct ArgParser {
                 logger.error("Combining --section and --level is not supported");
                 help_info.helpWanted = true;
             }
+
+            if (logDir.empty)
+                logDir = ".";
+            report.logDir = logDir.toRealPath.Path.AbsolutePath;
+
+            updateCompileDb(compileDb, compile_dbs);
         }
 
         void adminG(string[] args) {
@@ -403,6 +410,19 @@ struct ArgParser {
 
         defaultGetoptPrinter(base_help, help_info.options);
     }
+}
+
+/// Update the config from the users input.
+void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
+    import std.array : array;
+    import std.algorithm : filter, map;
+
+    if (compile_dbs.length != 0)
+        db.rawDbs = compile_dbs;
+    db.dbs = db.rawDbs
+        .filter!(a => a.length != 0)
+        .map!(a => Path(a).AbsolutePath)
+        .array;
 }
 
 /** Print a help message conveying how files in the compilation database will

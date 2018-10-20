@@ -9,17 +9,57 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.type;
 
-import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
+import dextool.type : AbsolutePath, Path;
+
+import dextool.plugin.mutate.backend.database : Database, IterateMutantRow,
+    FileRow, FileMutantRow;
 import dextool.plugin.mutate.type : MutationKind;
 
 alias SimpleWriter = void delegate(const(char)[]) @safe;
 
-/// Generic interface that a report event listeners shall implement.
+/** Generic interface that a reporter can implement.
+ *
+ * Event order:
+ *  * mutationKindEvent
+ *  * locationStatEvent
+ *  * locationEvent. Looping over every mutant.
+ *  * locationEndEvent
+ *  * locationStatEvent
+ *  * statEvent
+ */
 @safe interface ReportEvent {
+    /// The printer is informed of what kind of mutants there are.
     void mutationKindEvent(const MutationKind[]);
     void locationStartEvent();
     void locationEvent(const ref IterateMutantRow);
     void locationEndEvent();
     void locationStatEvent();
     void statEvent(ref Database db);
+}
+
+/** Iterate over all mutants in a file.
+ */
+@safe interface FileReport {
+    /// A mutant in that file.
+    void fileMutantEvent(const ref FileMutantRow);
+
+    /// The file has finished being processed.
+    void endFileEvent();
+}
+
+/** Iterate over all files.
+ */
+@safe interface FilesReporter {
+    /// The users input of what mutants to report.
+    void mutationKindEvent(const MutationKind[]);
+
+    /// Get the reporter that should be used to report all mutants in a file.
+    FileReport getFileReportEvent(ref Database db, const ref FileRow);
+
+    /// All files have been reported.
+    void postProcessEvent(ref Database db);
+
+    /// The last event to be called.
+    /// Sync any IO if needed before destruction.
+    void endEvent(ref Database db);
 }
