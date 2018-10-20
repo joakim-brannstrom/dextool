@@ -100,7 +100,8 @@ struct FileIndex {
 
         auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
         auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-        ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset, txt.mutation.idup));
+        ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
+                txt.original.idup, txt.mutation.idup));
     }
 
     override void endFileEvent() {
@@ -123,11 +124,14 @@ struct FileIndex {
             ctx.out_.writeln(`<div style="display: inline;">`);
             ctx.out_.writefln(`<span class="original %s %(mutid%s %)">%s</span>`,
                     s.tok.toName, s.muts.map!(a => a.id), encode(s.tok.spelling));
+
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
-                    ctx.out_.writefln(`<span id="%s" class="mutant %s">%s</span>`,
-                            m.id, s.tok.toName, encode(m.mutation));
+                    const org = m.original.encode;
+                    const mut = m.mutation.encode;
+                    ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
+                            m.id, org, org, s.tok.toName, mut);
                     ctx.out_.writefln(`<a href="#%s"></a>`, m.id);
                 }
             }
@@ -177,14 +181,6 @@ struct FileCtx {
 
     Spanner span;
 }
-
-immutable mutantTmpl = `
-        <a href="#%s"></a>
-        <span id="%s"
-              onmouseenter="fly(event, '%s')"
-              onmouseleave="fly(event, '%s')"
-              class="mutant $cls">%s</span>
-`;
 
 immutable htmlBegin = `<!DOCTYPE html>
 <html>
@@ -337,7 +333,9 @@ auto tokenize(AbsolutePath base_dir, Path f) @trusted {
 struct FileMutant {
     MutationId id;
     Offset offset;
-    /// The mutation that covers the offset.
+    /// the original text that covers the offset.
+    string original;
+    /// The mutation text that covers the offset.
     string mutation;
 
     int opCmp(ref const typeof(this) s) const @safe {
