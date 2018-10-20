@@ -73,8 +73,8 @@ import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
             // dfmt off
             auto b = compiler.build
                 .file(abs_path)
-                .line(r.sloc.line)
-                .column(r.sloc.column)
+                .start(r.sloc)
+                .end(r.slocEnd)
                 .begin("%s: replace '%s' with '%s'", r.mutation.kind.toUser,
                        window(mut_txt.original, windowSize),
                        window(mut_txt.mutation, windowSize))
@@ -85,8 +85,7 @@ import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
             if (mut_txt.mutation.length > windowSize)
                 b = b.note("with '%s'", mut_txt.mutation);
 
-            b.fixit(r.mutationPoint.offset.end - r.mutationPoint.offset.begin, mut_txt.mutation)
-                .end;
+            b.fixit(mut_txt.mutation).end;
             // dfmt on
         }
 
@@ -146,12 +145,13 @@ struct CompilerMsgBuilder(Writer) {
     import std.ascii : newline;
     import std.format : formattedWrite;
     import std.range : put;
+    import dextool.plugin.mutate.backend.type : SourceLoc;
 
     private {
         Writer w;
         string file_;
-        long line_;
-        long column_;
+        SourceLoc start_;
+        SourceLoc end_;
     }
 
     this(Writer w) {
@@ -163,39 +163,39 @@ struct CompilerMsgBuilder(Writer) {
         return this;
     }
 
-    auto line(long a) {
-        line_ = a;
+    auto start(SourceLoc a) {
+        start_ = a;
         return this;
     }
 
-    auto column(long a) {
-        column_ = a;
+    auto end(SourceLoc a) {
+        end_ = a;
         return this;
     }
 
     auto begin(ARGS...)(auto ref ARGS args) {
         // for now the severity is hard coded to warning because nothing else
         // needs to be supported.
-        formattedWrite(w, "%s:%s:%s: warning: ", file_, line_, column_);
+        formattedWrite(w, "%s:%s:%s: warning: ", file_, start_.line, start_.column);
         formattedWrite(w, args);
         put(w, newline);
         return this;
     }
 
     auto note(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w, "%s:%s:%s: note: ", file_, line_, column_);
+        formattedWrite(w, "%s:%s:%s: note: ", file_, start_.line, start_.column);
         formattedWrite(w, args);
         put(w, newline);
         return this;
     }
 
-    auto fixit(long offset, const(char)[] mutation) {
+    auto fixit(const(char)[] mutation) {
         // Example of a fixit hint from gcc:
         // fix-it:"foo.cpp":{5:12-5:17}:"argc"
         // the second value in the location is bytes (starting from 1) from the
         // start of the line.
-        formattedWrite(w, `fix-it:"%s":{%s:%s-%s:%s}:"%s"`, file_, line_,
-                column_, line_, column_ + offset, mutation);
+        formattedWrite(w, `fix-it:"%s":{%s:%s-%s:%s}:"%s"`, file_, start_.line,
+                start_.column, end_.line, end_.column, mutation);
         put(w, newline);
         return this;
     }

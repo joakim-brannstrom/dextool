@@ -126,7 +126,7 @@ unittest {
                       ":11:5: note: status:unknown id:",
                       ":11:5: note: replace 'return true;'",
                       ":11:5: note: with '*((char*)0)='x';break;'",
-                      `fix-it:"` ~ input_src.toString ~ `":{11:5-11:17}:"*((char*)0)='x';break;"`,
+                      `fix-it:"` ~ input_src.toString ~ `":{11:5-12:20}:"*((char*)0)='x';break;"`,
     ]).shouldBeIn(r.stderr);
 }
 
