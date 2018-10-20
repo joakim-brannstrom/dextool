@@ -291,7 +291,7 @@ struct Database {
         scope (failure)
             db.rollback;
 
-        enum insert_mp_sql = format("INSERT OR IGNORE INTO %s (file_id, offset_begin, offset_end, line, column) SELECT id, :begin, :end, :line, :column FROM %s WHERE path = :path",
+        enum insert_mp_sql = format("INSERT OR IGNORE INTO %s (file_id, offset_begin, offset_end, line, column, line_end, column_end) SELECT id,:begin,:end,:line,:column,:line_end,:column_end FROM %s WHERE path = :path",
                     mutationPointTable, filesTable);
         auto mp_stmt = db.prepare(insert_mp_sql);
 
@@ -301,6 +301,8 @@ struct Database {
             mp_stmt.bind(":end", mp.offset.end);
             mp_stmt.bind(":line", mp.sloc.line);
             mp_stmt.bind(":column", mp.sloc.column);
+            mp_stmt.bind(":line_end", mp.slocEnd.line);
+            mp_stmt.bind(":column_end", mp.slocEnd.column);
             mp_stmt.bind(":path", cast(string) rel_file);
             mp_stmt.execute;
             mp_stmt.reset;

@@ -63,7 +63,10 @@ struct MutationPointEntry {
 
     MutationPoint mp;
     Path file;
+    /// Start of the mutation point.
     SourceLoc sloc;
+    /// End of the mutation point.
+    SourceLoc slocEnd;
 }
 
 /// The source code mutations for a mutation point.
@@ -72,7 +75,10 @@ struct MutationPointEntry2 {
 
     Path file;
     Offset offset;
+    /// Start of the mutation point.
     SourceLoc sloc;
+    /// End of the mutation point.
+    SourceLoc slocEnd;
     CodeMutant[] cms;
 
     void put(CodeMutant m) @safe pure nothrow {

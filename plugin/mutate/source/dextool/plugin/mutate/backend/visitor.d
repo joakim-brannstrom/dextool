@@ -347,7 +347,10 @@ class BaseVisitor : ExtendedVisitor {
 string makeAndCheckLocation(string cursor) {
     import std.format : format;
 
-    return format(q{auto loc = %s.location;
+    return format(q{
+        auto extent = %s.extent;
+        auto loc = extent.start;
+        auto loc_end = extent.end;
     if (!val_loc.shouldAnalyze(loc.path)) {
         return;
     }}, cursor);
@@ -464,7 +467,8 @@ class Transform {
         auto sr = c.extent;
         auto offs = Offset(sr.start.offset, sr.end.offset);
 
-        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
+        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line,
+                loc.column), SourceLoc(loc_end.line, loc_end.column));
         foreach (cb; callbacks) {
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
         }
@@ -477,7 +481,8 @@ class Transform {
         mixin(mixinPath);
 
         auto offs = calcOffset(v);
-        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line, loc.column));
+        auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line,
+                loc.column), SourceLoc(loc_end.line, loc_end.column));
         foreach (cb; stmtCallback) {
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
         }
@@ -505,7 +510,7 @@ class Transform {
         const auto kind = exprValueKind(getUnderlyingExprNode(c));
 
         auto p = MutationPointEntry(MutationPoint(offs, null), path,
-                SourceLoc(loc.line, loc.column));
+                SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
         foreach (cb; unaryInjectCallback) {
             p.mp.mutations ~= cb(kind).map!(a => Mutation(a)).array();
         }
@@ -584,7 +589,7 @@ class Transform {
             auto sr = c.extent;
             auto offs = Offset(sr.start.offset, sr.end.offset);
             auto p = MutationPointEntry(MutationPoint(offs, null), path,
-                    SourceLoc(loc.line, loc.column));
+                    SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
 
             foreach (cb; branchCondCallback) {
                 p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
@@ -624,7 +629,7 @@ class Transform {
         auto offs = Offset(sr.start.offset, sr.end.offset);
 
         auto p = MutationPointEntry(MutationPoint(offs, null), path,
-                SourceLoc(loc.line, loc.column));
+                SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
 
         foreach (cb; branchThenCallback) {
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
@@ -641,7 +646,7 @@ class Transform {
         auto offs = Offset(sr.start.offset, sr.end.offset);
 
         auto p = MutationPointEntry(MutationPoint(offs, null), path,
-                SourceLoc(loc.line, loc.column));
+                SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
 
         foreach (cb; branchElseCallback) {
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
@@ -673,8 +678,8 @@ class Transform {
         }
 
         void subStmt() {
-            auto p = MutationPointEntry(MutationPoint(offs), path,
-                    SourceLoc(loc.line, loc.column));
+            auto p = MutationPointEntry(MutationPoint(offs), path, SourceLoc(loc.line,
+                    loc.column), SourceLoc(loc_end.line, loc_end.column));
 
             foreach (cb; caseSubStmtCallback) {
                 p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
@@ -689,7 +694,7 @@ class Transform {
             auto stmt_offs = Offset(stmt_sr.start.offset, offs.end);
 
             auto p = MutationPointEntry(MutationPoint(stmt_offs), path,
-                    SourceLoc(loc.line, loc.column));
+                    SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
 
             foreach (cb; caseStmtCallback) {
                 p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
@@ -745,13 +750,15 @@ class Transform {
             if (sides.rhs.isValid) {
                 auto offs_rhs = Offset(opsr.offset, sr.end.offset);
                 rval.rhs = MutationPointEntry(MutationPoint(offs_rhs, null), path,
-                        SourceLoc(sides.rhs.location.line, sides.rhs.location.column));
+                        SourceLoc(sides.rhs.extent.start.line, sides.rhs.extent.start.column),
+                        SourceLoc(sides.rhs.extent.end.line, sides.rhs.extent.end.column));
             }
 
             if (sides.lhs.isValid) {
                 auto offs_lhs = Offset(sr.start.offset, cast(uint)(opsr.offset + op_.length));
                 rval.lhs = MutationPointEntry(MutationPoint(offs_lhs, null), path,
-                        SourceLoc(sides.lhs.location.line, sides.lhs.location.column));
+                        SourceLoc(sides.lhs.location.line, sides.lhs.location.column),
+                        SourceLoc(sides.lhs.extent.end.line, sides.lhs.extent.end.column));
             }
         }
 
@@ -759,20 +766,21 @@ class Transform {
             auto sr = op_.location.spelling;
             auto offs = Offset(sr.offset, cast(uint)(sr.offset + op_.length));
             rval.op = MutationPointEntry(MutationPoint(offs, null), path,
-                    SourceLoc(op_.location.line, op_.location.column));
+                    SourceLoc(op_.location.line, op_.location.column),
+                    SourceLoc(op_.location.line, cast(uint)(op_.location.column + op_.length)));
 
             auto sides = op_.sides;
             rval.typeInfo = deriveOpTypeInfo(sides.lhs, sides.rhs, ec);
         }
 
         void exprPoint() {
-            auto sloc = SourceLoc(loc.line, loc.column);
-
             // TODO this gives a slightly different result from calling getUnderlyingExprNode on v.cursor.
             // Investigate which one is the "correct" way.
             auto sr = op_.cursor.extent;
             auto offs_expr = Offset(sr.start.offset, sr.end.offset);
-            rval.expr = MutationPointEntry(MutationPoint(offs_expr, null), path, sloc);
+            rval.expr = MutationPointEntry(MutationPoint(offs_expr, null), path,
+                    SourceLoc(sr.start.line, sr.start.column),
+                    SourceLoc(sr.end.line, sr.end.column));
         }
 
         sidesPoint();
@@ -927,7 +935,7 @@ class AnalyzeResult {
         }
 
         auto id_factory = MutationIdFactory(a.file, a.mp.offset, cs);
-        auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc);
+        auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
         foreach (m; a.mp.mutations) {
             auto txt = makeMutationText(fin, mpe.offset, m.kind, lang);
