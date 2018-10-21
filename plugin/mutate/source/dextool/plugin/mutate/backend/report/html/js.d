@@ -34,7 +34,11 @@ immutable js_file = `function init() {
     for(var i=0; i<g_mutids.length; i++) {
         var s = document.createElement('OPTION');
         s.value = g_mutids[i];
-        s.text = g_mutids[i] + ":'" + g_muts_orgs[i] + "' to '" + g_muts_muts[i] + "'";
+        var txt = "";
+        if (g_muts_st[i] == "alive")
+            txt += "+";
+        txt += g_mutids[i] + ":'" + g_muts_orgs[i] + "' to '" + g_muts_muts[i] + "'";
+        s.text = txt;
         document.getElementById('current_mutant').add(s,g_mutids[i]);
         if (mutid == g_mutids[i])
             document.getElementById('current_mutant').selectedIndex = i+1;
@@ -63,6 +67,13 @@ function highlight_mutant(mutid) {
         }
         mut.style.display = 'inline';
         scroll_to(mutid);
+
+        for(var i=0; i<g_mutids.length; i++) {
+            if (g_mutids[i] == mutid) {
+                document.getElementById("current_mutant_status").innerText = g_muts_st[i];
+                break;
+            }
+        }
     }
 }
 

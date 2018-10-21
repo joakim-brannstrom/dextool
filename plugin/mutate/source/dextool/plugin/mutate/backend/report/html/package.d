@@ -112,13 +112,15 @@ struct FileIndex {
 
     override void endFileEvent() {
         import std.algorithm : max, each, map, min, canFind;
+        import std.array : appender;
+        import std.conv : to;
         import std.format : format;
         import std.range : repeat;
-        import std.array : appender;
 
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
+            Mutation.Status status;
         }
 
         Set!MutationId ids;
@@ -143,7 +145,7 @@ struct FileIndex {
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
-                    muts.put(MData(m.id, m.txt));
+                    muts.put(MData(m.id, m.txt, m.status));
                     const org = m.original.encode;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
@@ -157,11 +159,14 @@ struct FileIndex {
             column = s.tok.locEnd.column;
         }
 
-        ctx.out_.writefln("<script>var g_mutids = [%(%s,%)];</script>", muts.data.map!(a => a.id));
-        ctx.out_.writefln("<script>var g_muts_orgs = [%(%s,%)];</script>",
+        ctx.out_.writeln("<script>");
+        ctx.out_.writefln("var g_mutids = [%(%s,%)];", muts.data.map!(a => a.id));
+        ctx.out_.writefln("var g_muts_orgs = [%(%s,%)];",
                 muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]));
-        ctx.out_.writefln("<script>var g_muts_muts = [%(%s,%)];</script>",
+        ctx.out_.writefln("var g_muts_muts = [%(%s,%)];",
                 muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]));
+        ctx.out_.writefln("var g_muts_st = [%(%s,%)];", muts.data.map!(a => a.status.to!string));
+        ctx.out_.writeln("</script>");
         ctx.out_.writefln(htmlEnd, js_file);
     }
 

@@ -75,6 +75,11 @@ span.xx_label {
 <table>
   <tr>
     <td><a href="index.html" style="color: white">Back</a></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Status: </span></td>
+    <td><span id="current_mutant_status"></div></td>
+  </tr>
   <tr>
     <td><span class="xx_label">Mutant: </span></td>
     <td>
