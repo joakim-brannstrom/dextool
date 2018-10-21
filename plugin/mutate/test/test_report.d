@@ -313,6 +313,7 @@ unittest {
         .run;
 
     // assert that the expected files have been generated
-    exists(buildPath(testEnv.outdir.toString, "html", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+    exists(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+    exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
     exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
 }

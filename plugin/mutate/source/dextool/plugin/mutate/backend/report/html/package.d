@@ -23,8 +23,9 @@ import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc;
 import dextool.plugin.mutate.config : ConfigReport;
 
-import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.report.html.js;
+import dextool.plugin.mutate.backend.report.html.nodes;
+import dextool.plugin.mutate.backend.report.html.tmpl;
 
 version (unittest) {
     import unit_threaded : shouldEqual;
@@ -43,10 +44,16 @@ struct FileIndex {
 
     immutable htmlExt = ".html";
     immutable htmlDir = "html";
+    immutable htmlFileDir = "files";
 
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
+
+    /// The base directory of logdirs
     const AbsolutePath logDir;
+    /// Reports for each file
+    const AbsolutePath logFilesDir;
+
     MutationKind[] humanReadableKinds;
     Set!ReportSection sections;
     FilesysIO fio;
@@ -64,6 +71,7 @@ struct FileIndex {
         this.fio = fio;
         this.conf = conf;
         this.logDir = buildPath(conf.logDir, htmlDir).Path.AbsolutePath;
+        this.logFilesDir = buildPath(this.logDir, htmlFileDir).Path.AbsolutePath;
 
         sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
                 : conf.reportSection.dup).setFromList;
@@ -74,6 +82,7 @@ struct FileIndex {
 
         humanReadableKinds = k.dup;
         mkdirRecurse(this.logDir);
+        mkdirRecurse(this.logFilesDir);
     }
 
     override FileReport getFileReportEvent(ref Database db, const ref FileRow fr) {
@@ -86,7 +95,7 @@ struct FileIndex {
         const report = (original ~ htmlExt).Path;
         files.put(FileIndex(report, fr.file));
 
-        const out_path = buildPath(logDir, report).Path.AbsolutePath;
+        const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
         ctx = FileCtx.init;
         ctx.processFile = fr.file;
@@ -174,31 +183,33 @@ struct FileIndex {
     override void postProcessEvent(ref Database db) {
         import std.algorithm : splitter, sort;
         import std.datetime : Clock;
-        import std.path : buildPath;
+        import std.format : format;
+        import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.utility;
 
-        const index_f = buildPath(logDir, "index" ~ htmlExt);
-        auto index = File(index_f, "w");
+        const stats_f = buildPath(logDir, "stats" ~ htmlExt);
 
-        index.writefln(`<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-<title>Mutation Testing Report %(%s %) %s</title>
-</head>
-<style>body {font-family: monospace; font-size: 14px;}</style>
-`, humanReadableKinds, Clock.currTime);
+        auto indexh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
+                humanReadableKinds, Clock.currTime));
+        auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
+                humanReadableKinds, Clock.currTime));
 
-        auto stats = reportStatistics(db, kinds);
-        linesAsTable(index, stats.toString);
+        auto mut_stat = reportStatistics(db, kinds);
+        linesAsTable(statsh.body_, mut_stat.toString);
         auto dead_tcstat = reportDeadTestCases(db);
-        linesAsTable(index, dead_tcstat.toString);
+        linesAsTable(statsh.body_, dead_tcstat.toString);
+
+        indexh.body_.n(`p`).put(aHref(stats_f.baseName, "Statistics"));
 
         foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
-            index.writefln(`<p><a href="%s">%s</a></p>`, f.path, encode(f.display));
+            indexh.body_.n(`p`).put(aHref(buildPath(htmlFileDir, f.path), f.display));
         }
 
-        index.writeln(`</body></html>`);
+        auto stats = File(stats_f, "w");
+        stats.write(statsh);
+
+        auto index = File(buildPath(logDir, "index" ~ htmlExt), "w");
+        index.write(indexh);
     }
 
     override void endEvent(ref Database) {
@@ -388,7 +399,7 @@ struct Spanner {
 
     void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
         import std.format : formattedWrite;
-        import std.range : put, zip, StoppingPolicy;
+        import std.range : zip, StoppingPolicy;
         import std.string;
         import std.algorithm : max;
         import std.traits : Unqual;
@@ -562,12 +573,12 @@ struct Span {
 }
 
 /// Print the lines as a html table.
-void linesAsTable(ref File f, string s) @safe {
+void linesAsTable(ref HtmlNode n, string s) @safe {
     import std.algorithm : splitter;
     import std.xml : encode;
 
-    f.writeln(`<table>`);
-    foreach (l; s.splitter('\n'))
-        f.writefln(`<tr><td>%s</td></tr>`, encode(l));
-    f.writeln(`</table>`);
+    auto tbl = n.n("table");
+    foreach (l; s.splitter('\n')) {
+        tbl.n("tr").n("td").put(encode(l));
+    }
 }

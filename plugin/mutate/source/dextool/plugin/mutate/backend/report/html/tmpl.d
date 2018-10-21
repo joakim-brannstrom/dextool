@@ -74,7 +74,7 @@ span.xx_label {
 <div id="info" class="fixed">
 <table>
   <tr>
-    <td><a href="index.html" style="color: white">Back</a></td>
+    <td><a href="../index.html" style="color: white">Back</a></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
