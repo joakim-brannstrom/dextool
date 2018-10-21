@@ -79,7 +79,7 @@ void runFilesReporter(ref Database db, FilesReporter fps, const MutationKind[] k
     foreach (f; db.getDetailedFiles) {
         auto fp = fps.getFileReportEvent(db, f);
         db.iterateFileMutants(kinds, f.file, &fp.fileMutantEvent);
-        fp.endFileEvent();
+        fp.endFileEvent(db);
     }
 
     fps.postProcessEvent(db);

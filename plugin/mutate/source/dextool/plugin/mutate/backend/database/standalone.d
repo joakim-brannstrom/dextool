@@ -237,8 +237,8 @@ struct Database {
     alias killedByCompilerSrcMutants = countMutants!([Mutation.Status.killedByCompiler], true);
 
     /// Count the distinct mutants
-    private MutationReportEntry countMutants(int[] status, bool distinct)(const Mutation
-            .Kind[] kinds) @trusted {
+    private MutationReportEntry countMutants(int[] status, bool distinct)(
+            const Mutation.Kind[] kinds, string file = null) @trusted {
         import core.time : dur;
 
         static if (distinct) {
@@ -246,8 +246,9 @@ struct Database {
                 SELECT count(*),sum(time)
                 FROM (
                 SELECT count(*),sum(t1.time) time
-                FROM %s t0, %s t1
+                FROM %s t0, %s t1%s
                 WHERE
+                %s
                 t0.st_id = t1.id AND
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))
@@ -255,17 +256,26 @@ struct Database {
         } else {
             auto qq = "
                 SELECT count(*),sum(t1.time) time
-                FROM %s t0, %s t1
+                FROM %s t0, %s t1%s
                 WHERE
+                %s
                 t0.st_id = t1.id AND
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))";
         }
-        auto query = format(qq, mutationTable, mutationStatusTable, status,
-                kinds.map!(a => cast(int) a));
+        auto query = () {
+            auto fq = file.length == 0 ? null
+                : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
+            auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
+                    mutationPointTable, filesTable);
+            return format(qq, mutationTable, mutationStatusTable, fq_from, fq,
+                    status, kinds.map!(a => cast(int) a));
+        }();
 
         typeof(return) rval;
         auto stmt = db.prepare(query);
+        if (file.length != 0)
+            stmt.bind(":path", file);
         auto res = stmt.execute;
         if (!res.empty)
             rval = MutationReportEntry(res.front.peek!long(0),

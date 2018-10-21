@@ -44,7 +44,7 @@ alias SimpleWriter = void delegate(const(char)[]) @safe;
     void fileMutantEvent(const ref FileMutantRow);
 
     /// The file has finished being processed.
-    void endFileEvent();
+    void endFileEvent(ref Database db);
 }
 
 /** Iterate over all files.

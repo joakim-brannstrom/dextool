@@ -34,6 +34,7 @@ version (unittest) {
 struct FileIndex {
     Path path;
     string display;
+    long alive;
 }
 
 @safe final class ReportHtml : FileReport, FilesReporter {
@@ -93,7 +94,7 @@ struct FileIndex {
 
         const original = fr.file.dup.pathSplitter.joiner("_").toUTF8;
         const report = (original ~ htmlExt).Path;
-        files.put(FileIndex(report, fr.file));
+        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file).count));
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
@@ -120,7 +121,7 @@ struct FileIndex {
                 txt.original.idup, txt.mutation.idup, fr.mutation.status));
     }
 
-    override void endFileEvent() {
+    override void endFileEvent(ref Database db) {
         import std.algorithm : max, each, map, min, canFind;
         import std.array : appender;
         import std.conv : to;
@@ -182,6 +183,7 @@ struct FileIndex {
 
     override void postProcessEvent(ref Database db) {
         import std.algorithm : splitter, sort;
+        import std.conv : to;
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
@@ -205,7 +207,8 @@ struct FileIndex {
         indexh.body_.n(`p`).put(aHref(stats_f.baseName, "Statistics"));
 
         foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
-            indexh.body_.n(`p`).put(aHref(buildPath(htmlFileDir, f.path), f.display));
+            indexh.body_.n(`p`).put(format("%s alive ", f.alive))
+                .put(aHref(buildPath(htmlFileDir, f.path), f.display));
         }
 
         auto stats = File(stats_f, "w");
