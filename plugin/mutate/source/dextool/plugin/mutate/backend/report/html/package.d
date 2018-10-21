@@ -107,11 +107,11 @@ struct FileIndex {
         auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
         auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
         ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
-                txt.original.idup, txt.mutation.idup));
+                txt.original.idup, txt.mutation.idup, fr.mutation.status));
     }
 
     override void endFileEvent() {
-        import std.algorithm : max, each, map, min;
+        import std.algorithm : max, each, map, min, canFind;
         import std.format : format;
         import std.range : repeat;
         import std.array : appender;
@@ -130,8 +130,10 @@ struct FileIndex {
             if (spaces > 1)
                 "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
             ctx.out_.writeln(`<div style="display: inline;">`);
-            ctx.out_.writefln(`<span class="original %s %(mutid%s %)">%s</span>`,
-                    s.tok.toName, s.muts.map!(a => a.id), encode(s.tok.spelling));
+            ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)">%s</span>`,
+                    s.tok.toName, s.muts.canFind!((a,
+                        b) => a.status == b)(Mutation.Status.alive) ? "status_alive"
+                    : null, s.muts.map!(a => a.id), encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
@@ -285,16 +287,18 @@ struct FileMutant {
     MutationId id;
     Offset offset;
     Text txt;
+    Mutation.Status status;
 
-    this(MutationId id, Offset offset, string original, string mutation) {
+    this(MutationId id, Offset offset, string original, string mutation, Mutation.Status st) {
         this.id = id;
         this.offset = offset;
         this.txt.original = original;
         this.txt.mutation = mutation;
+        this.status = st;
     }
 
     this(MutationId id, Offset offset, string original) {
-        this(id, offset, original, null);
+        this(id, offset, original, null, Mutation.Status.init);
     }
 
     string original() @safe pure nothrow const @nogc scope {

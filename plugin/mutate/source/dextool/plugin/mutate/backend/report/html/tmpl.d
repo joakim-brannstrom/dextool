@@ -23,6 +23,7 @@ immutable htmlBegin2 = `
 <style>
 body {font-family: monospace; font-size: 14px;}
 .mutant {display:none; background-color: yellow;}
+.status_alive {background-color: lightpink}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
