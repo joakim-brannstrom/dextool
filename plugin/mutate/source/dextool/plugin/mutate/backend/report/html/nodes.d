@@ -53,6 +53,8 @@ class HtmlNode {
     Appender!(string[]) lines;
     alias lines this;
 
+    Appender!(string[2][]) attrs;
+
     /// automatically write a newline after each line
     bool autoNewline = true;
 
@@ -89,12 +91,24 @@ class HtmlNode {
         return this;
     }
 
+    HtmlNode putAttr(string key, string val) {
+        string[2] s = [key, val];
+        attrs.put(s);
+        return this;
+    }
+
     void toString(Writer)(ref Writer w) {
         import std.format : formattedWrite;
         import std.range : put;
 
         if (tag.length != 0) {
-            formattedWrite(w, "<%s>", tag);
+            if (attrs.data.length != 0) {
+                formattedWrite(w, "<%s", tag);
+                foreach (t; attrs.data)
+                    formattedWrite(w, ` %s="%s"`, t[0], t[1]);
+                put(w, ">");
+            } else
+                formattedWrite(w, "<%s>", tag);
             if (autoNewline)
                 put(w, "\n");
         }

@@ -193,11 +193,14 @@ struct FileIndex {
                 humanReadableKinds, Clock.currTime));
         auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
+        statsh.preambleBody.n("style")
+            .put(`.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`)
+            .put(`.stat_tbl td{border-style: none;}`);
 
         auto mut_stat = reportStatistics(db, kinds);
-        linesAsTable(statsh.body_, mut_stat.toString);
+        linesAsTable(statsh.body_, mut_stat.toString).putAttr("class", "stat_tbl");
         auto dead_tcstat = reportDeadTestCases(db);
-        linesAsTable(statsh.body_, dead_tcstat.toString);
+        linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
 
         indexh.body_.n(`p`).put(aHref(stats_f.baseName, "Statistics"));
 
@@ -573,7 +576,7 @@ struct Span {
 }
 
 /// Print the lines as a html table.
-void linesAsTable(ref HtmlNode n, string s) @safe {
+HtmlNode linesAsTable(HtmlNode n, string s) @safe {
     import std.algorithm : splitter;
     import std.xml : encode;
 
@@ -581,4 +584,6 @@ void linesAsTable(ref HtmlNode n, string s) @safe {
     foreach (l; s.splitter('\n')) {
         tbl.n("tr").n("td").put(encode(l));
     }
+
+    return tbl;
 }
