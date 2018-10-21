@@ -39,6 +39,14 @@ struct Html {
         return r;
     }
 
+    string toString() @safe {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
     void toString(Writer)(ref Writer w) {
         root.toString(w);
     }
@@ -95,6 +103,14 @@ class HtmlNode {
         string[2] s = [key, val];
         attrs.put(s);
         return this;
+    }
+
+    override string toString() @safe {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
     }
 
     void toString(Writer)(ref Writer w) {
