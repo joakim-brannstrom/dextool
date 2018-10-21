@@ -171,7 +171,7 @@ struct FileIndex {
     }
 
     override void postProcessEvent(ref Database db) {
-        import std.algorithm : splitter;
+        import std.algorithm : splitter, sort;
         import std.datetime : Clock;
         import std.path : buildPath;
         import dextool.plugin.mutate.backend.report.utility : reportStatistics;
@@ -194,7 +194,7 @@ struct FileIndex {
             index.writefln(`<tr><td>%s</td></tr>`, encode(l));
         index.writeln(`</table>`);
 
-        foreach (f; files.data) {
+        foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
             index.writefln(`<p><a href="%s">%s</a></p>`, f.path, encode(f.display));
         }
 
