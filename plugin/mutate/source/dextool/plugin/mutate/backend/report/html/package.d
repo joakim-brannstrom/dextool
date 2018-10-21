@@ -22,6 +22,9 @@ import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc;
 import dextool.plugin.mutate.config : ConfigReport;
 
+import dextool.plugin.mutate.backend.report.html.tmpl;
+import dextool.plugin.mutate.backend.report.html.js;
+
 version (unittest) {
     import unit_threaded : shouldEqual;
 }
@@ -202,159 +205,6 @@ struct FileCtx {
 
     Spanner span;
 }
-
-immutable htmlBegin = `<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-<title>%s</title>
-</head>
-`;
-
-immutable htmlBegin2 = `
-<body onload="javascript:init();">
-<div id="mousehover"></div>
-<style>
-body {font-family: monospace; font-size: 14px;}
-.mutant {display:none; background-color: yellow;}
-.literal {color: darkred;}
-.keyword {color: blue;}
-.comment {color: grey;}
-#mousehover {
-    background: grey;
-    border-radius: 8px;
-    -moz-border-radius: 8px;
-    padding: 5px;
-    display: none;
-    position: absolute;
-    background: #2e3639;
-    color: #fff;
-}
-span.xx_label {
-    font-weight: bold;
-}
-#info_wrapper {
-    position: absolute;
-    width: 99%;
-}
-#info {
-    position: absolute;
-    top: 0;
-    width: 400px;
-    background: grey;
-    border-radius: 10px;
-    -moz-border-radius: 10px;
-    padding: 5px;
-    border: 1px solid;
-    opacity:0.9;
-
-    background: #2e3639;
-}
-#info.fixed {
-    position: fixed;
-}
-#info span {
-    font-size: 80%;
-    color: #fff;
-    font-family: sans-serif;
-}
-
-#info select {
-    width: 250px;
-}
-</style>
-<div id="info_wrapper">
-<div id="info" class="fixed">
-<table>
-  <tr>
-    <td><a href="index.html" style="color: white">Back</a></td>
-  <tr>
-    <td><span class="xx_label">Mutant: </span></td>
-    <td>
-      <select id="current_mutant">
-        <option value="-1">Original</option>
-      </select>
-    </td>
-  </tr>
-</table>
-</div>
-</div>
-`;
-
-immutable htmlEnd = `<script>%s</script>
-</body>
-</html>
-`;
-
-immutable js_file = `function init() {
-    var mutid = window.location.hash.substring(1);
-    if(mutid) {
-        highlight_mutant(mutid);
-    }
-
-    document.getElementById('current_mutant').addEventListener("change",
-    function() {
-        var id = document.getElementById('current_mutant').value;
-        if (id >= 0)
-            window.location.hash = id;
-        else
-            window.location.hash = "";
-        highlight_mutant(id);
-        document.getElementById('current_mutant').focus();
-    });
-
-    var top = document.getElementById('info').offsetTop - document.getElementById('info').style.marginTop;
-    var left = window.innerWidth - document.getElementById('info').clientWidth - 30;
-    document.getElementById('info').style.left = left + "px";
-    document.getElementById('info').style.top = top + "px";
-
-    for(var i=0; i<g_mutids.length; i++) {
-        var s = document.createElement('OPTION');
-        s.value = g_mutids[i];
-        s.text = g_mutids[i] + ":'" + g_muts_orgs[i] + "' to '" + g_muts_muts[i] + "'";
-        document.getElementById('current_mutant').add(s,g_mutids[i]);
-        if (mutid == g_mutids[i])
-            document.getElementById('current_mutant').selectedIndex = i+1;
-    }
-}
-
-function highlight_mutant(mutid) {
-    var orgs = document.querySelectorAll(".original");
-    var muts = document.querySelectorAll(".mutant");
-
-    for (var i=0; i<orgs.length; i++) {
-        orgs[i].style.display = "inline";
-    }
-
-    for (i=0; i<muts.length; i++) {
-        muts[i].style.display = "none";
-    }
-
-    mut = document.getElementById(mutid);
-    if(mut) {
-        clss = document.getElementsByClassName("mutid" + mutid);
-        if (clss) {
-            for(var i=0; i<clss.length; i++) {
-                clss[i].style.display = 'none';
-            }
-        }
-        mut.style.display = 'inline';
-    }
-}
-
-function fly(evt, html) {
-    var el = document.getElementById("mousehover");
-    if(evt.type == "mouseenter") {
-        el.style.display = "inline";
-    } else {
-        el.style.display = "none";
-    }
-
-    el.innerHTML = html;
-    el.style.left = (evt.pageX - el.offsetWidth) + 'px';
-    el.style.top = (evt.pageY - el.offsetHeight) + 'px';
-}
-`;
 
 struct Token {
     import clang.c.Index : CXTokenKind;
