@@ -65,7 +65,7 @@ string toInternal(ubyte[] data) @safe nothrow {
     import std.utf : validate;
 
     try {
-        auto result = () @trusted{ return cast(string) data; }();
+        auto result = () @trusted { return cast(string) data; }();
         validate(result);
         return result;
     } catch (Exception e) {
@@ -155,25 +155,49 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
     }
 }
 
-/** Update the table with those test cases that has killed zero mutants.
- *
- * Params:
- *  total = total number of test cases
- *  zero_kills_test_cases = test cases with zero kills
- *  item = statistics is printed to this output
- *  tbl = output is written to this table
- */
-void reportDeadTestCases(ReportT)(long total, TestCase[] zero_kills_test_cases,
-        ref ReportT item, ref Table!2 tbl) @safe nothrow {
-    if (total > 0) {
-        item.writefln("%s/%s = %s test cases", zero_kills_test_cases.length, total,
-                cast(double) zero_kills_test_cases.length / cast(double) total).collectException;
+/// Statistics about dead test cases.
+struct TestCaseDeadStat {
+    import std.range : isOutputRange;
+
+    /// The ratio of dead TC of the total.
+    double ratio;
+    TestCase[] testCases;
+    long total;
+
+    long numDeadTC() @safe pure nothrow const @nogc scope {
+        return testCases.length;
     }
 
-    foreach (tc; zero_kills_test_cases) {
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        import std.ascii : newline;
+        import std.format : formattedWrite;
+        import std.range : put;
+
+        if (total > 0)
+            formattedWrite(w, "%s/%s = %s of all test cases", numDeadTC, total, ratio);
+        foreach (tc; testCases) {
+            put(w, tc);
+            put(w, newline);
+        }
+    }
+}
+
+void toTable(ref TestCaseDeadStat st, ref Table!2 tbl) @safe pure nothrow {
+    foreach (tc; st.testCases) {
         typeof(tbl).Row r = [tc.name, tc.location];
         tbl.put(r);
     }
+}
+
+/** Returns: report of test cases that has killed zero mutants.
+ */
+TestCaseDeadStat reportDeadTestCases(ref Database db) @safe {
+    TestCaseDeadStat r;
+    r.total = db.getNumOfTestCases;
+    r.testCases = db.getTestCasesWithZeroKills;
+    if (r.total > 0)
+        r.ratio = cast(double) r.numDeadTC / cast(double) r.total;
+    return r;
 }
 
 /// Information needed to present the mutant to an user.

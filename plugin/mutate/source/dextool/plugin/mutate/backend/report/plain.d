@@ -217,12 +217,12 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     }
 
     override void statEvent(ref Database db) {
-        import std.stdio : stdout, File, writeln;
+        import std.stdio : stdout, File, writeln, writefln;
         import dextool.plugin.mutate.backend.report.utility : reportTestCaseFullOverlap,
             reportTestCaseStats, reportMutationTestCaseSuggestion,
-            reportDeadTestCases;
+            reportDeadTestCases, toTable;
 
-        auto stdout_ = () @trusted{ return stdout; }();
+        auto stdout_ = () @trusted { return stdout; }();
 
         if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
             logger.info("Test Case Kill Statistics");
@@ -238,10 +238,13 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         if (ReportSection.tc_killed_no_mutants in sections) {
             logger.info("Test Case(s) that has killed no mutants");
+            auto r = reportDeadTestCases(db);
+            if (r.ratio > 0)
+                writefln("%s/%s = %s of all test cases", r.numDeadTC, r.total, r.ratio);
+
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
-
-            reportDeadTestCases(db.getNumOfTestCases, db.getTestCasesWithZeroKills, stdout_, tbl);
+            r.toTable(tbl);
             writeln(tbl);
         }
 
