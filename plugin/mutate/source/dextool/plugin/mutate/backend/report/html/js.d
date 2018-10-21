@@ -62,6 +62,7 @@ function highlight_mutant(mutid) {
             }
         }
         mut.style.display = 'inline';
+        scroll_to(mutid);
     }
 }
 
@@ -76,5 +77,9 @@ function fly(evt, html) {
     el.innerHTML = html;
     el.style.left = (evt.pageX - el.offsetWidth) + 'px';
     el.style.top = (evt.pageY - el.offsetHeight) + 'px';
+}
+
+function scroll_to(anchor) {
+    location.hash = "#" + anchor;
 }
 `;
