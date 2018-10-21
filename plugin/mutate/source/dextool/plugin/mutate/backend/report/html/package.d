@@ -116,8 +116,13 @@ struct FileIndex {
         import std.range : repeat;
         import std.array : appender;
 
+        static struct MData {
+            MutationId id;
+            FileMutant.Text txt;
+        }
+
         Set!MutationId ids;
-        auto txt_muts = appender!(FileMutant.Text[])();
+        auto muts = appender!(MData[])();
         int line = 1;
         int column = 1;
 
@@ -138,7 +143,7 @@ struct FileIndex {
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
-                    txt_muts.put(m.txt);
+                    muts.put(MData(m.id, m.txt));
                     const org = m.original.encode;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
@@ -152,12 +157,11 @@ struct FileIndex {
             column = s.tok.locEnd.column;
         }
 
-        ctx.out_.writefln("<script>var g_mutids = [%(%s,%)];</script>", setToList!MutationId(ids));
+        ctx.out_.writefln("<script>var g_mutids = [%(%s,%)];</script>", muts.data.map!(a => a.id));
         ctx.out_.writefln("<script>var g_muts_orgs = [%(%s,%)];</script>",
-                txt_muts.data.map!(a => a.original[0 .. min(5, a.original.length)]));
+                muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]));
         ctx.out_.writefln("<script>var g_muts_muts = [%(%s,%)];</script>",
-                txt_muts.data.map!(a => a.mutation[0 .. min(5, a.mutation.length)]));
-
+                muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]));
         ctx.out_.writefln(htmlEnd, js_file);
     }
 

@@ -75,7 +75,7 @@ function fly(evt, html) {
     }
 
     el.innerHTML = html;
-    el.style.left = (evt.pageX - el.offsetWidth) + 'px';
+    el.style.left = (evt.pageX + el.offsetWidth) + 'px';
     el.style.top = (evt.pageY - el.offsetHeight) + 'px';
 }
 
