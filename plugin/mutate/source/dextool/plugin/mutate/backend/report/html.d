@@ -90,6 +90,7 @@ struct FileIndex {
         ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
 
         ctx.out_.writefln(htmlBegin, encode(original));
+        ctx.out_.writeln(htmlBegin2);
 
         return this;
     }
@@ -107,11 +108,13 @@ struct FileIndex {
     }
 
     override void endFileEvent() {
-        import std.algorithm : max, each, map;
+        import std.algorithm : max, each, map, min;
         import std.format : format;
         import std.range : repeat;
+        import std.array : appender;
 
         Set!MutationId ids;
+        auto txt_muts = appender!(FileMutant.Text[])();
         int line = 1;
         int column = 1;
 
@@ -130,6 +133,7 @@ struct FileIndex {
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
+                    txt_muts.put(m.txt);
                     const org = m.original.encode;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
@@ -142,6 +146,12 @@ struct FileIndex {
             line = s.tok.locEnd.line;
             column = s.tok.locEnd.column;
         }
+
+        ctx.out_.writefln("<script>var g_mutids = [%(%s,%)];</script>", setToList!MutationId(ids));
+        ctx.out_.writefln("<script>var g_muts_orgs = [%(%s,%)];</script>",
+                txt_muts.data.map!(a => a.original[0 .. min(5, a.original.length)]));
+        ctx.out_.writefln("<script>var g_muts_muts = [%(%s,%)];</script>",
+                txt_muts.data.map!(a => a.mutation[0 .. min(5, a.mutation.length)]));
 
         ctx.out_.writefln(htmlEnd, js_file);
     }
@@ -199,6 +209,9 @@ immutable htmlBegin = `<!DOCTYPE html>
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 <title>%s</title>
 </head>
+`;
+
+immutable htmlBegin2 = `
 <body onload="javascript:init();">
 <div id="mousehover"></div>
 <style>
@@ -208,16 +221,64 @@ body {font-family: monospace; font-size: 14px;}
 .keyword {color: blue;}
 .comment {color: grey;}
 #mousehover {
-background: grey;
-border-radius: 8px;
--moz-border-radius: 8px;
-padding: 5px;
-display: none;
-position: absolute;
-background: #2e3639;
-color: #fff;
+    background: grey;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    padding: 5px;
+    display: none;
+    position: absolute;
+    background: #2e3639;
+    color: #fff;
+}
+span.xx_label {
+    font-weight: bold;
+}
+#info_wrapper {
+    position: absolute;
+    width: 99%;
+}
+#info {
+    position: absolute;
+    top: 0;
+    width: 400px;
+    background: grey;
+    border-radius: 10px;
+    -moz-border-radius: 10px;
+    padding: 5px;
+    border: 1px solid;
+    opacity:0.9;
+
+    background: #2e3639;
+}
+#info.fixed {
+    position: fixed;
+}
+#info span {
+    font-size: 80%;
+    color: #fff;
+    font-family: sans-serif;
+}
+
+#info select {
+    width: 250px;
 }
 </style>
+<div id="info_wrapper">
+<div id="info" class="fixed">
+<table>
+  <tr>
+    <td><a href="index.html" style="color: white">Back</a></td>
+  <tr>
+    <td><span class="xx_label">Mutant: </span></td>
+    <td>
+      <select id="current_mutant">
+        <option value="-1">Original</option>
+      </select>
+    </td>
+  </tr>
+</table>
+</div>
+</div>
 `;
 
 immutable htmlEnd = `<script>%s</script>
@@ -230,6 +291,31 @@ immutable js_file = `function init() {
     if(mutid) {
         highlight_mutant(mutid);
     }
+
+    document.getElementById('current_mutant').addEventListener("change",
+    function() {
+        var id = document.getElementById('current_mutant').value;
+        if (id >= 0)
+            window.location.hash = id;
+        else
+            window.location.hash = "";
+        highlight_mutant(id);
+        document.getElementById('current_mutant').focus();
+    });
+
+    var top = document.getElementById('info').offsetTop - document.getElementById('info').style.marginTop;
+    var left = window.innerWidth - document.getElementById('info').clientWidth - 30;
+    document.getElementById('info').style.left = left + "px";
+    document.getElementById('info').style.top = top + "px";
+
+    for(var i=0; i<g_mutids.length; i++) {
+        var s = document.createElement('OPTION');
+        s.value = g_mutids[i];
+        s.text = g_mutids[i] + ":'" + g_muts_orgs[i] + "' to '" + g_muts_muts[i] + "'";
+        document.getElementById('current_mutant').add(s,g_mutids[i]);
+        if (mutid == g_mutids[i])
+            document.getElementById('current_mutant').selectedIndex = i+1;
+    }
 }
 
 function highlight_mutant(mutid) {
@@ -237,7 +323,7 @@ function highlight_mutant(mutid) {
     var muts = document.querySelectorAll(".mutant");
 
     for (var i=0; i<orgs.length; i++) {
-        orgs[i].style.display = "default";
+        orgs[i].style.display = "inline";
     }
 
     for (i=0; i<muts.length; i++) {
@@ -246,9 +332,6 @@ function highlight_mutant(mutid) {
 
     mut = document.getElementById(mutid);
     if(mut) {
-        for(var i=0; i<mut.parentNode.children.length; i++) {
-            mut.parentNode.children[i].style.display = 'none';
-        }
         clss = document.getElementsByClassName("mutid" + mutid);
         if (clss) {
             for(var i=0; i<clss.length; i++) {
@@ -311,7 +394,7 @@ struct Token {
 @safe unittest {
     import clang.c.Index : CXTokenKind;
 
-    auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), "smurf");
+    auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
 }
 
 // This is a bit slow, I think. Optimize by reducing the created strings.
@@ -342,12 +425,35 @@ auto tokenize(AbsolutePath base_dir, Path f) @trusted {
 }
 
 struct FileMutant {
+    static struct Text {
+        /// the original text that covers the offset.
+        string original;
+        /// The mutation text that covers the offset.
+        string mutation;
+    }
+
     MutationId id;
     Offset offset;
-    /// the original text that covers the offset.
-    string original;
-    /// The mutation text that covers the offset.
-    string mutation;
+    Text txt;
+
+    this(MutationId id, Offset offset, string original, string mutation) {
+        this.id = id;
+        this.offset = offset;
+        this.txt.original = original;
+        this.txt.mutation = mutation;
+    }
+
+    this(MutationId id, Offset offset, string original) {
+        this(id, offset, original, null);
+    }
+
+    string original() @safe pure nothrow const @nogc scope {
+        return txt.original;
+    }
+
+    string mutation() @safe pure nothrow const @nogc scope {
+        return txt.mutation;
+    }
 
     int opCmp(ref const typeof(this) s) const @safe {
         if (offset.begin > s.offset.begin)
@@ -405,7 +511,7 @@ struct Spanner {
         muts.insert(fm);
     }
 
-    SpannerRange toRange() @safe pure {
+    SpannerRange toRange() @safe {
         return SpannerRange(tokens, muts);
     }
 
@@ -445,7 +551,7 @@ struct Spanner {
     import clang.c.Index : CXTokenKind;
 
     auto toks = zip(iota(10), iota(10, 20)).map!(a => Token(CXTokenKind.comment,
-            Offset(a[0], a[1]), SourceLoc.init, a[0].to!string)).retro.array;
+            Offset(a[0], a[1]), SourceLoc.init, SourceLoc.init, a[0].to!string)).retro.array;
     auto span = Spanner(toks);
 
     span.put(FileMutant(MutationId(1), Offset(1, 10), "smurf"));
@@ -479,7 +585,7 @@ struct SpannerRange {
     BTree!Token tokens;
     BTree!FileMutant muts;
 
-    this(BTree!Token tokens, BTree!FileMutant muts) @safe pure {
+    this(BTree!Token tokens, BTree!FileMutant muts) @safe {
         this.tokens = tokens;
         this.muts = muts;
         dropMutants;
@@ -490,7 +596,6 @@ struct SpannerRange {
 
         assert(!empty, "Can't get front of an empty range");
         auto t = tokens.front;
-
         if (muts.empty)
             return Span(t);
 
@@ -505,7 +610,7 @@ struct SpannerRange {
         return Span(t, app.data);
     }
 
-    void popFront() @safe pure {
+    void popFront() @safe {
         assert(!empty, "Can't pop front of an empty range");
         tokens.removeFront;
         dropMutants;
@@ -515,15 +620,17 @@ struct SpannerRange {
         return tokens.empty;
     }
 
-    private void dropMutants() @safe pure {
+    private void dropMutants() @safe {
+        import std.algorithm : filter;
+        import std.array : array;
+
         if (tokens.empty)
             return;
 
         // removing mutants that the tokens have "passed by"
         const t = tokens.front;
-        while (!muts.empty && muts.front.offset.end <= t.offset.begin) {
-            muts.removeFront;
-        }
+        auto r = muts[].filter!(a => a.offset.end <= t.offset.begin).array;
+        muts.removeKey(r);
     }
 }
 
@@ -561,20 +668,19 @@ struct Span {
     auto offsets = zip(iota(0, 150, 10), iota(10, 160, 10)).map!(a => Offset(a[0], a[1])).array;
 
     auto toks = offsets.map!(a => Token(CXTokenKind.comment, a, SourceLoc.init,
-            a.begin.to!string)).retro.array;
+            SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(1), Offset(0, 10), "perfect overlap"));
     span.put(FileMutant(MutationId(2), Offset(11, 15), "token enclosing mutant"));
     span.put(FileMutant(MutationId(3), Offset(31, 42), "mutant beginning inside a token"));
     span.put(FileMutant(MutationId(4), Offset(50, 80), "mutant overlapping multiple tokens"));
 
     span.put(FileMutant(MutationId(5), Offset(90, 100), "1 multiple mutants for a token"));
     span.put(FileMutant(MutationId(6), Offset(90, 110), "2 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(1), Offset(120, 130), "perfect overlap"));
 
     auto res = span.toRange.array;
     //logger.tracef("%(%s\n%)", res);
-    res[0].muts[0].id.shouldEqual(1);
     res[1].muts[0].id.shouldEqual(2);
     res[2].muts.length.shouldEqual(0);
     res[3].muts[0].id.shouldEqual(3);
@@ -588,4 +694,6 @@ struct Span {
     res[9].muts[1].id.shouldEqual(6);
     res[10].muts[0].id.shouldEqual(6);
     res[11].muts.length.shouldEqual(0);
+    res[12].muts[0].id.shouldEqual(1);
+    res[13].muts.length.shouldEqual(0);
 }
