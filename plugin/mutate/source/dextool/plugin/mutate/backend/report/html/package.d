@@ -9,6 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html;
 
+import std.stdio : File;
 import logger = std.experimental.logger;
 
 import dextool.type : AbsolutePath, Path, DirName;
@@ -174,7 +175,7 @@ struct FileIndex {
         import std.algorithm : splitter, sort;
         import std.datetime : Clock;
         import std.path : buildPath;
-        import dextool.plugin.mutate.backend.report.utility : reportStatistics;
+        import dextool.plugin.mutate.backend.report.utility;
 
         const index_f = buildPath(logDir, "index" ~ htmlExt);
         auto index = File(index_f, "w");
@@ -189,10 +190,9 @@ struct FileIndex {
 `, humanReadableKinds, Clock.currTime);
 
         auto stats = reportStatistics(db, kinds);
-        index.writeln(`<table>`);
-        foreach (l; stats.toString.splitter('\n'))
-            index.writefln(`<tr><td>%s</td></tr>`, encode(l));
-        index.writeln(`</table>`);
+        linesAsTable(index, stats.toString);
+        auto dead_tcstat = reportDeadTestCases(db);
+        linesAsTable(index, dead_tcstat.toString);
 
         foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
             index.writefln(`<p><a href="%s">%s</a></p>`, f.path, encode(f.display));
@@ -559,4 +559,15 @@ struct Span {
     res[11].muts.length.shouldEqual(0);
     res[12].muts[0].id.shouldEqual(1);
     res[13].muts.length.shouldEqual(0);
+}
+
+/// Print the lines as a html table.
+void linesAsTable(ref File f, string s) @safe {
+    import std.algorithm : splitter;
+    import std.xml : encode;
+
+    f.writeln(`<table>`);
+    foreach (l; s.splitter('\n'))
+        f.writefln(`<tr><td>%s</td></tr>`, encode(l));
+    f.writeln(`</table>`);
 }

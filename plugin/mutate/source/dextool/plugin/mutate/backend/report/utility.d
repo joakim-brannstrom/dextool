@@ -168,7 +168,16 @@ struct TestCaseDeadStat {
         return testCases.length;
     }
 
-    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+    string toString() @safe const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) @safe const 
+            if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range : put;
@@ -176,7 +185,11 @@ struct TestCaseDeadStat {
         if (total > 0)
             formattedWrite(w, "%s/%s = %s of all test cases", numDeadTC, total, ratio);
         foreach (tc; testCases) {
-            put(w, tc);
+            put(w, tc.name);
+            if (tc.location.length > 0) {
+                put(w, " | ");
+                put(w, tc.location);
+            }
             put(w, newline);
         }
     }
