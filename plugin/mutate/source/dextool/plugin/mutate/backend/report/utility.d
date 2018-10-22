@@ -183,7 +183,7 @@ struct TestCaseDeadStat {
         import std.range : put;
 
         if (total > 0)
-            formattedWrite(w, "%s/%s = %s of all test cases", numDeadTC, total, ratio);
+            formattedWrite(w, "%s/%s = %s of all test cases\n", numDeadTC, total, ratio);
         foreach (tc; testCases) {
             put(w, tc.name);
             if (tc.location.length > 0) {

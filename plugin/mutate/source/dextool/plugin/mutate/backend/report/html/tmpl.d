@@ -23,7 +23,11 @@ immutable htmlBegin2 = `
 <style>
 body {font-family: monospace; font-size: 14px;}
 .mutant {display:none; background-color: yellow;}
-.status_alive {background-color: lightpink}
+.status_alive {background-color: lightpink;}
+.status_killed {background-color: lightgreen;}
+.status_killedByCompiler {background-color: mediumseagreen;}
+.status_timeout {background-color: limegreen;}
+.status_unkown {background-color: mistyrose;}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}

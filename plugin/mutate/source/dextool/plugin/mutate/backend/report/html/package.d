@@ -34,7 +34,10 @@ version (unittest) {
 struct FileIndex {
     Path path;
     string display;
-    long alive;
+
+    long aliveMutants;
+    long killedMutants;
+    long totalMutants;
 }
 
 @safe final class ReportHtml : FileReport, FilesReporter {
@@ -94,7 +97,9 @@ struct FileIndex {
 
         const original = fr.file.dup.pathSplitter.joiner("_").toUTF8;
         const report = (original ~ htmlExt).Path;
-        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file).count));
+        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file)
+                .count, db.killedSrcMutants(kinds, fr.file).count,
+                db.totalSrcMutants(kinds, fr.file).count));
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
@@ -115,10 +120,21 @@ struct FileIndex {
         // TODO unnecessary to create the mutation text here.
         // Move it to endFileEvent. This is inefficient.
 
+        // the mutation text has been found to contain '\0' characters when the
+        // mutant span multiple lines. These null characters render badly in
+        // the html report.
+        static string cleanup(const(char)[] raw) {
+            import std.algorithm : filter;
+            import std.array : array;
+            import std.utf;
+
+            return raw.byChar.filter!(a => a != '\0').array.idup;
+        }
+
         auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
         auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
         ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
-                txt.original.idup, txt.mutation.idup, fr.mutation.status));
+                cleanup(txt.original), cleanup(txt.mutation), fr.mutation.status));
     }
 
     override void endFileEvent(ref Database db) {
@@ -132,6 +148,39 @@ struct FileIndex {
             MutationId id;
             FileMutant.Text txt;
             Mutation.Status status;
+        }
+
+        static string pickColor(const(FileMutant)[] muts) {
+            bool killed;
+            bool killedByCompiler;
+            bool timeout;
+
+            foreach (m; muts) {
+                final switch (m.status) with (Mutation) {
+                case Status.alive:
+                    return "status_alive";
+                case Status.killed:
+                    killed = true;
+                    break;
+                case Status.killedByCompiler:
+                    killedByCompiler = true;
+                    break;
+                case Status.timeout:
+                    timeout = true;
+                    break;
+                case Status.unknown:
+                    break;
+                }
+            }
+
+            if (killed)
+                return "status_killed";
+            else if (timeout)
+                return "status_timeout";
+            else if (killedByCompiler)
+                return "status_killedByCompiler";
+
+            return "status_unknown";
         }
 
         Set!MutationId ids;
@@ -149,17 +198,16 @@ struct FileIndex {
                 "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
             ctx.out_.writeln(`<div style="display: inline;">`);
             ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)">%s</span>`,
-                    s.tok.toName, s.muts.canFind!((a,
-                        b) => a.status == b)(Mutation.Status.alive) ? "status_alive"
-                    : null, s.muts.map!(a => a.id), encode(s.tok.spelling));
+                    s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
+                    encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.status));
-                    const org = m.original.encode;
+                    const org = format(`fly(event, '%s')`, m.original.encode).toJson;
                     const mut = m.mutation.encode;
-                    ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
+                    ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
                             m.id, org, org, s.tok.toName, mut);
                     ctx.out_.writefln(`<a href="#%s"></a>`, m.id);
                 }
@@ -182,8 +230,6 @@ struct FileIndex {
     }
 
     override void postProcessEvent(ref Database db) {
-        import std.algorithm : splitter, sort;
-        import std.conv : to;
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
@@ -191,11 +237,11 @@ struct FileIndex {
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
 
-        auto indexh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
+        auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
         auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
-        statsh.preambleBody.n("style")
+        statsh.preambleBody.n("style".Tag)
             .put(`.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`)
             .put(`.stat_tbl td{border-style: none;}`);
 
@@ -204,12 +250,9 @@ struct FileIndex {
         auto dead_tcstat = reportDeadTestCases(db);
         linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
 
-        indexh.body_.n(`p`).put(aHref(stats_f.baseName, "Statistics"));
+        indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
 
-        foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
-            indexh.body_.n(`p`).put(format("%s alive ", f.alive))
-                .put(aHref(buildPath(htmlFileDir, f.path), f.display));
-        }
+        files.data.toIndex(indexh, htmlFileDir);
 
         auto stats = File(stats_f, "w");
         stats.write(statsh);
@@ -224,6 +267,12 @@ struct FileIndex {
 
 @safe:
 private:
+
+string toJson(string s) {
+    import std.json;
+
+    return JSONValue(s).toString;
+}
 
 struct FileCtx {
     import std.stdio;
@@ -583,10 +632,48 @@ HtmlNode linesAsTable(HtmlNode n, string s) @safe {
     import std.algorithm : splitter;
     import std.xml : encode;
 
-    auto tbl = n.n("table");
+    auto tbl = HtmlTable.make;
     foreach (l; s.splitter('\n')) {
-        tbl.n("tr").n("td").put(encode(l));
+        tbl.newRow.td.put(encode(l));
     }
 
-    return tbl;
+    return tbl.root;
+}
+
+void toIndex(FileIndex[] files, ref Html h, string htmlFileDir) {
+    import std.algorithm : sort;
+    import std.conv : to;
+    import std.path : buildPath;
+
+    auto tbl = HtmlTable.make;
+    tbl.root.putAttr("class", "files");
+    tbl.putColumn("Path").putAttr("class", "tg-g59y");
+    tbl.putColumn("Score").putAttr("class", "tg-g59y");
+    tbl.putColumn("Alive").putAttr("class", "tg-g59y");
+    tbl.putColumn("Total").putAttr("class", "tg-g59y");
+
+    foreach (f; files.sort!((a, b) => a.path < b.path)) {
+        auto r = tbl.newRow;
+        r.td.put(aHref(buildPath(htmlFileDir, f.path), f.display)).putAttr("class", "tg-0lax");
+        r.td.put(f.totalMutants == 0 ? "1.0"
+                : (cast(double) f.killedMutants / cast(double) f.totalMutants).to!string).putAttr("class",
+                "tg-0lax");
+        r.td.put(f.aliveMutants.to!string).putAttr("class", "tg-0lax");
+        r.td.put(f.totalMutants.to!string).putAttr("class", "tg-0lax");
+    }
+
+    h.put(tbl.root);
+}
+
+Html makeHtmlIndex(string title) {
+    auto r = defaultHtml(title);
+    auto s = r.preambleBody.n("style".Tag);
+    s.putAttr("type", "text/css");
+    s.put(`.files  {border-collapse:collapse;border-spacing:0;}`);
+    s.put(`.files td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.files th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.files .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
+    s.put(`.files .tg-0lax{text-align:left;vertical-align:top}`);
+
+    return r;
 }
