@@ -23,31 +23,24 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
     ReportSection;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
-import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
+import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent,
+    FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     window, windowSize, makeMutationText;
 import dextool.plugin.mutate.config : ConfigReport;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ConfigReport conf, FilesysIO fio) @safe nothrow {
-    import std.stdio : write;
-    import dextool.plugin.mutate.backend.utility;
-
-    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
-
     try {
         auto genrep = ReportGenerator.make(kind, conf, fio);
-        genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
+        runAllMutantReporter(db, kind, genrep);
 
-        genrep.locationStartEvent;
-        db.iterateMutants(kinds, &genrep.locationEvent);
-        genrep.locationEndEvent;
-
-        genrep.locationStatEvent;
-
-        genrep.statEvent(db);
+        auto fp = makeFilesReporter(db, conf, kind, fio);
+        if (fp !is null)
+            runFilesReporter(db, fp, kind);
     } catch (Exception e) {
         logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
     }
 
     return ExitStatusType.Ok;
@@ -55,6 +48,62 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
 
 @safe:
 private:
+
+void runAllMutantReporter(ref Database db, const MutationKind[] kind, ref ReportGenerator genrep) {
+    import dextool.plugin.mutate.backend.utility;
+
+    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
+
+    // TODO remove this parameter. seems to be unnecessary.
+    genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
+
+    genrep.locationStartEvent;
+    db.iterateMutants(kinds, &genrep.locationEvent);
+    genrep.locationEndEvent;
+
+    genrep.locationStatEvent;
+
+    genrep.statEvent(db);
+}
+
+void runFilesReporter(ref Database db, FilesReporter fps, const MutationKind[] kind) {
+    assert(fps !is null, "report should never be null");
+
+    import dextool.plugin.mutate.backend.utility;
+    import dextool.plugin.mutate.backend.database : FileMutantRow;
+
+    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
+
+    fps.mutationKindEvent(kind);
+
+    foreach (f; db.getDetailedFiles) {
+        auto fp = fps.getFileReportEvent(db, f);
+        db.iterateFileMutants(kinds, f.file, &fp.fileMutantEvent);
+        fp.endFileEvent(db);
+    }
+
+    fps.postProcessEvent(db);
+    fps.endEvent(db);
+}
+
+FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
+        const MutationKind[] kind, FilesysIO fio) {
+    import dextool.plugin.mutate.backend.report.html;
+    import dextool.plugin.mutate.backend.utility;
+
+    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
+
+    final switch (conf.reportKind) {
+    case ReportKind.plain:
+    case ReportKind.markdown:
+    case ReportKind.compiler:
+    case ReportKind.json:
+    case ReportKind.csv:
+        return null;
+    case ReportKind.html:
+        return new ReportHtml(kinds, conf, fio);
+    }
+}
 
 /**
  * Expects the event to come in the following order:
@@ -70,11 +119,13 @@ struct ReportGenerator {
     import std.algorithm : each;
     import dextool.plugin.mutate.backend.report.compiler;
     import dextool.plugin.mutate.backend.report.csv;
+    import dextool.plugin.mutate.backend.report.html;
     import dextool.plugin.mutate.backend.report.json;
     import dextool.plugin.mutate.backend.report.markdown;
     import dextool.plugin.mutate.backend.report.plain;
 
     ReportEvent[] listeners;
+    FilesReporter fileReporter;
 
     static auto make(const MutationKind[] kind, const ConfigReport conf, FilesysIO fio) {
         import dextool.plugin.mutate.backend.utility;
@@ -97,6 +148,9 @@ struct ReportGenerator {
             break;
         case ReportKind.csv:
             listeners = [new ReportCSV(kinds, conf.reportLevel, fio)];
+            break;
+        case ReportKind.html:
+            listeners = null;
             break;
         }
 

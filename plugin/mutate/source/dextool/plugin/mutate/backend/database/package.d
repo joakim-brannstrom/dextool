@@ -15,6 +15,7 @@ module dextool.plugin.mutate.backend.database;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
+import std.format : format;
 
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
@@ -75,7 +76,6 @@ struct Database {
     NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) @trusted {
         import std.algorithm : map;
         import std.exception : collectException;
-        import std.format : format;
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;
 
@@ -126,7 +126,6 @@ struct Database {
 
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) @trusted {
         import std.algorithm : map;
-        import std.format : format;
         import dextool.plugin.mutate.backend.utility : checksum;
 
         immutable all_mutants = format("SELECT
@@ -138,6 +137,8 @@ struct Database {
             t1.offset_end,
             t1.line,
             t1.column,
+            t1.line_end,
+            t1.column_end,
             t2.path,
             t2.checksum0,
             t2.checksum1,
@@ -160,10 +161,11 @@ struct Database {
                         r.peek!int(1).to!(Mutation.Status));
                 auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
                 d.mutationPoint = MutationPoint(offset, null);
-                d.file = r.peek!string(8);
-                d.fileChecksum = checksum(r.peek!long(9), r.peek!long(10));
+                d.file = r.peek!string(10);
+                d.fileChecksum = checksum(r.peek!long(11), r.peek!long(12));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
-                d.lang = r.peek!long(11).to!Language;
+                d.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));
+                d.lang = r.peek!long(13).to!Language;
 
                 d.testCases = db.getTestCases(d.id);
 
@@ -171,6 +173,75 @@ struct Database {
             }
         } catch (Exception e) {
             logger.error(e.msg).collectException;
+        }
+    }
+
+    FileRow[] getDetailedFiles() @trusted {
+        import std.array : appender;
+        import dextool.plugin.mutate.backend.utility : checksum;
+
+        enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang FROM %s t0",
+                    filesTable);
+        auto app = appender!(FileRow[])();
+        foreach (ref r; db.prepare(files_q).execute) {
+            auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1),
+                    r.peek!long(2)), r.peek!Language(3));
+            app.put(fr);
+        }
+
+        return app.data;
+    }
+
+    /** Iterate over the mutants in a specific file.
+     *
+     * Mutants are guaranteed to be ordered by their starting offset in the
+     * file.
+     *
+     * Params:
+     *  kinds = the type of mutation operators to have in the report
+     *  file = the file to retrieve mutants from
+     *  dg = callback for reach row
+     */
+    void iterateFileMutants(const Mutation.Kind[] kinds, Path file,
+            void delegate(ref const FileMutantRow) dg) @trusted {
+        import std.algorithm : map;
+
+        immutable all_fmut = format("SELECT
+            t0.id,
+            t0.kind,
+            t3.status,
+            t1.offset_begin,
+            t1.offset_end,
+            t1.line,
+            t1.column,
+            t1.line_end,
+            t1.column_end,
+            t2.lang
+            FROM %s t0, %s t1, %s t2, %s t3
+            WHERE
+            t0.kind IN (%(%s,%)) AND
+            t0.st_id = t3.id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t2.id AND
+            t2.path = :path
+            ORDER BY t1.offset_begin
+            ", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(all_fmut);
+        stmt.bind(":path", cast(string) file);
+        foreach (ref r; stmt.execute) {
+            FileMutantRow fr;
+            fr.id = MutationId(r.peek!long(0));
+            fr.mutation = Mutation(r.peek!int(1).to!(Mutation.Kind),
+                    r.peek!int(2).to!(Mutation.Status));
+            auto offset = Offset(r.peek!uint(3), r.peek!uint(4));
+            fr.mutationPoint = MutationPoint(offset, null);
+            fr.sloc = SourceLoc(r.peek!uint(5), r.peek!uint(6));
+            fr.slocEnd = SourceLoc(r.peek!uint(7), r.peek!uint(8));
+            fr.lang = r.peek!int(9).to!Language;
+
+            dg(fr);
         }
     }
 }
@@ -182,6 +253,22 @@ struct IterateMutantRow {
     Path file;
     Checksum fileChecksum;
     SourceLoc sloc;
+    SourceLoc slocEnd;
     TestCase[] testCases;
+    Language lang;
+}
+
+struct FileRow {
+    Path file;
+    Checksum fileChecksum;
+    Language lang;
+}
+
+struct FileMutantRow {
+    MutationId id;
+    Mutation mutation;
+    MutationPoint mutationPoint;
+    SourceLoc sloc;
+    SourceLoc slocEnd;
     Language lang;
 }

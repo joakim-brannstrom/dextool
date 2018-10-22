@@ -274,18 +274,20 @@ struct Markdown(Writer, TraceWriter) {
 
     override void statEvent(ref Database db) {
         import dextool.plugin.mutate.backend.report.utility : reportDeadTestCases,
-            reportTestCaseFullOverlap;
+            reportTestCaseFullOverlap, toTable;
 
         const fmt = FormatSpec!char("%s");
 
         if (sections.contains(ReportSection.tc_killed_no_mutants)) {
-            auto zero_kills = db.getTestCasesWithZeroKills;
             auto item = markdown.heading("Test Cases with Zero Kills");
+            auto r = reportDeadTestCases(db);
+
+            if (r.ratio > 0)
+                item.writefln("%s/%s = %s of all test cases", r.numDeadTC, r.total, r.ratio);
 
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
-
-            reportDeadTestCases(db.getNumOfTestCases, zero_kills, item, tbl);
+            r.toTable(tbl);
             tbl.toString(Writer, fmt);
 
             item.popHeading;
@@ -308,7 +310,7 @@ struct Markdown(Writer, TraceWriter) {
             markdown_sum = markdown.heading("Summary");
 
             markdown_sum.beginSyntaxBlock;
-            reportStatistics(db, kinds, markdown_sum);
+            markdown_sum.writefln(reportStatistics(db, kinds).toString);
             markdown_sum.endSyntaxBlock;
 
             markdown_sum.popHeading;

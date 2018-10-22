@@ -10,6 +10,7 @@ TODO the full test specification is not implemented.
 module dextool_test.test_report;
 
 import core.time : dur;
+import std.path : buildPath;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type;
@@ -126,7 +127,7 @@ unittest {
                       ":11:5: note: status:unknown id:",
                       ":11:5: note: replace 'return true;'",
                       ":11:5: note: with '*((char*)0)='x';break;'",
-                      `fix-it:"` ~ input_src.toString ~ `":{11:5-11:17}:"*((char*)0)='x';break;"`,
+                      `fix-it:"` ~ input_src.toString ~ `":{11:5-12:20}:"*((char*)0)='x';break;"`,
     ]).shouldBeIn(r.stderr);
 }
 
@@ -272,7 +273,7 @@ unittest {
 
 @(testId ~ "shall report test cases that has killed zero mutants")
 unittest {
-    // regression that the count of mutations are the total are correct (killed+timeout+alive)
+    // regression: the sum of all mutants shall be killed+timeout+alive
     import dextool.plugin.mutate.backend.type : TestCase;
 
     mixin(EnvSetup(globalTestdir));
@@ -296,4 +297,23 @@ unittest {
         "|----------|",
         "| tc_4     |",
     ]).shouldBeIn(r.stdout);
+}
+
+@(testId ~ "shall produce a html report")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    // Arrange
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+    // Act
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--style", "html"])
+        .addArg(["--logdir", testEnv.outdir.toString])
+        .run;
+
+    // assert that the expected files have been generated
+    exists(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+    exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
+    exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
 }

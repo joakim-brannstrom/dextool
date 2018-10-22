@@ -56,7 +56,7 @@ import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 8;
+immutable latestSchemaVersion = 9;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -150,18 +150,31 @@ immutable files4_tbl = "CREATE TABLE %s (
     checksum0   INTEGER NOT NULL,
     checksum1   INTEGER NOT NULL,
     lang        INTEGER,
-    CONSTRAINT unique_ UNIQUE (path)
+    CONSTRAINT  unique_ UNIQUE (path)
     )";
 
 // line start from zero
 // there shall never exist two mutations points for the same file+offset.
-immutable mutation_point_tbl = "CREATE TABLE %s (
+immutable mutation_point_v1_tbl = "CREATE TABLE %s (
     id              INTEGER PRIMARY KEY,
     file_id         INTEGER NOT NULL,
     offset_begin    INTEGER NOT NULL,
     offset_end      INTEGER NOT NULL,
     line            INTEGER,
     column          INTEGER,
+    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
+    CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
+    )";
+
+immutable mutation_point_v2_tbl = "CREATE TABLE %s (
+    id              INTEGER PRIMARY KEY,
+    file_id         INTEGER NOT NULL,
+    offset_begin    INTEGER NOT NULL,
+    offset_end      INTEGER NOT NULL,
+    line            INTEGER,
+    column          INTEGER,
+    line_end        INTEGER,
+    column_end      INTEGER,
     FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
     )";
@@ -272,7 +285,7 @@ immutable all_test_case_tbl = "CREATE TABLE %s (
 
 void initializeTables(ref sqlDatabase db) {
     db.run(format(files_tbl, filesTable));
-    db.run(format(mutation_point_tbl, mutationPointTable));
+    db.run(format(mutation_point_v1_tbl, mutationPointTable));
     db.run(format(mutation_v1_tbl, mutationTable));
 }
 
@@ -312,6 +325,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[5] = &upgradeV5;
     tbl[6] = &upgradeV6;
     tbl[7] = &upgradeV7;
+    tbl[8] = &upgradeV8;
 
     while (true) {
         long version_ = 0;
@@ -493,4 +507,26 @@ void upgradeV7(ref sqlDatabase db) {
     db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
 
     updateSchemaVersion(db, 8);
+}
+
+/// 2018-10-20
+void upgradeV8(ref sqlDatabase db) {
+    db.run("PRAGMA foreign_keys=OFF;");
+    scope (exit)
+        db.run("PRAGMA foreign_keys=ON;");
+
+    enum new_tbl = "new_" ~ mutationPointTable;
+    db.run(format(mutation_point_v2_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
+        SELECT t0.id,t0.file_id,t0.offset_begin,t0.offset_end,t0.line,t0.column
+        FROM %s t0",
+            new_tbl, mutationPointTable));
+
+    replaceTbl(db, new_tbl, mutationPointTable);
+    updateSchemaVersion(db, 9);
+}
+
+void replaceTbl(ref sqlDatabase db, string src, string dst) {
+    db.run(format("DROP TABLE %s", dst));
+    db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
 }

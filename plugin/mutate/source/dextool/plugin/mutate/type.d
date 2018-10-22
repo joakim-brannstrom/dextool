@@ -55,6 +55,8 @@ enum ReportKind {
     json,
     /// In the CSV format
     csv,
+    /// As a HTML report
+    html,
 }
 
 /// The level of reporting

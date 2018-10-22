@@ -42,6 +42,9 @@ struct ConfigReport {
     ReportLevel reportLevel;
     ReportSection[] reportSection;
 
+    /// Directory to write logs to when writing to the filesystem.
+    AbsolutePath logDir;
+
     /// Controls how to sort test cases by their kill statistics.
     ReportKillSortOrder tcKillSortOrder;
     int tcKillSortNum = 20;

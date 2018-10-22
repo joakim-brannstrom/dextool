@@ -2,7 +2,15 @@ This directory contains examples of how to use the mutate plugin.
 
 It assumes that dextool has been installed and is available in the PATH.
 
-# Simple and Easy
+# Test Code Snippets
+
+This is an example of how to do mutation testing on small code snippets. It assumes that no dedicated build system or testing framework is used.
+
+The root of the examples are [found here](triangle).
+
+ * [1 setup](triangle/1_setup.sh)
+
+# Complex Project
 
 This is an example of how to do mutation testing on the [Google Test project](https://github.com/google/googletest).
 
