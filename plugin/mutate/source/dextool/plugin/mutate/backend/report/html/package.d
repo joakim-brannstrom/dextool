@@ -34,7 +34,10 @@ version (unittest) {
 struct FileIndex {
     Path path;
     string display;
-    long alive;
+
+    long aliveMutants;
+    long killedMutants;
+    long totalMutants;
 }
 
 @safe final class ReportHtml : FileReport, FilesReporter {
@@ -94,7 +97,9 @@ struct FileIndex {
 
         const original = fr.file.dup.pathSplitter.joiner("_").toUTF8;
         const report = (original ~ htmlExt).Path;
-        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file).count));
+        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file)
+                .count, db.killedSrcMutants(kinds, fr.file).count,
+                db.totalSrcMutants(kinds, fr.file).count));
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
@@ -182,8 +187,6 @@ struct FileIndex {
     }
 
     override void postProcessEvent(ref Database db) {
-        import std.algorithm : splitter, sort;
-        import std.conv : to;
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
@@ -191,11 +194,11 @@ struct FileIndex {
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
 
-        auto indexh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
+        auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
         auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
-        statsh.preambleBody.n("style")
+        statsh.preambleBody.n("style".Tag)
             .put(`.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`)
             .put(`.stat_tbl td{border-style: none;}`);
 
@@ -204,12 +207,9 @@ struct FileIndex {
         auto dead_tcstat = reportDeadTestCases(db);
         linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
 
-        indexh.body_.n(`p`).put(aHref(stats_f.baseName, "Statistics"));
+        indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
 
-        foreach (f; files.data.sort!((a, b) => a.path < b.path)) {
-            indexh.body_.n(`p`).put(format("%s alive ", f.alive))
-                .put(aHref(buildPath(htmlFileDir, f.path), f.display));
-        }
+        files.data.toIndex(indexh, htmlFileDir);
 
         auto stats = File(stats_f, "w");
         stats.write(statsh);
@@ -583,10 +583,48 @@ HtmlNode linesAsTable(HtmlNode n, string s) @safe {
     import std.algorithm : splitter;
     import std.xml : encode;
 
-    auto tbl = n.n("table");
+    auto tbl = n.n("table".Tag);
     foreach (l; s.splitter('\n')) {
-        tbl.n("tr").n("td").put(encode(l));
+        tbl.n("tr".Tag).n("td".Tag).put(encode(l));
     }
 
     return tbl;
+}
+
+void toIndex(FileIndex[] files, ref Html h, string htmlFileDir) {
+    import std.algorithm : sort;
+    import std.conv : to;
+    import std.path : buildPath;
+
+    auto tbl = HtmlTable.make;
+    tbl.root.putAttr("class", "files");
+    tbl.putColumn("Path").putAttr("class", "tg-g59y");
+    tbl.putColumn("Score").putAttr("class", "tg-g59y");
+    tbl.putColumn("Alive").putAttr("class", "tg-g59y");
+    tbl.putColumn("Total").putAttr("class", "tg-g59y");
+
+    foreach (f; files.sort!((a, b) => a.path < b.path)) {
+        auto r = tbl.newRow;
+        r.td.put(aHref(buildPath(htmlFileDir, f.path), f.display)).putAttr("class", "tg-0lax");
+        r.td.put(f.totalMutants == 0 ? "1.0"
+                : (cast(double) f.killedMutants / cast(double) f.totalMutants).to!string).putAttr("class",
+                "tg-0lax");
+        r.td.put(f.aliveMutants.to!string).putAttr("class", "tg-0lax");
+        r.td.put(f.totalMutants.to!string).putAttr("class", "tg-0lax");
+    }
+
+    h.put(tbl.root);
+}
+
+Html makeHtmlIndex(string title) {
+    auto r = defaultHtml(title);
+    auto s = r.preambleBody.n("style".Tag);
+    s.putAttr("type", "text/css");
+    s.put(`.files  {border-collapse:collapse;border-spacing:0;}`);
+    s.put(`.files td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.files th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.files .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
+    s.put(`.files .tg-0lax{text-align:left;vertical-align:top}`);
+
+    return r;
 }

@@ -9,6 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.nodes;
 
+import std.format : format;
+import std.xml : encode;
+
 @safe:
 
 struct Html {
@@ -52,6 +55,11 @@ struct Html {
     }
 }
 
+struct Tag {
+    string value;
+    alias value this;
+}
+
 class HtmlNode {
     import std.array : Appender;
     import std.range.primitives : isInputRange;
@@ -59,15 +67,20 @@ class HtmlNode {
     HtmlNode[] nodes;
 
     Appender!(string[]) lines;
-    alias lines this;
-
     Appender!(string[2][]) attrs;
 
     /// automatically write a newline after each line
     bool autoNewline = true;
 
     /// Tag to use to open/close.
-    string tag;
+    Tag tag;
+
+    this() {
+    }
+
+    this(Tag tag) {
+        this.tag = tag;
+    }
 
     /// Create and return a new node
     HtmlNode n() {
@@ -76,7 +89,7 @@ class HtmlNode {
         return n_;
     }
 
-    HtmlNode n(string tag) {
+    HtmlNode n(Tag tag) {
         auto n_ = new HtmlNode;
         n_.tag = tag;
         put(n_);
@@ -147,9 +160,6 @@ class HtmlNode {
 }
 
 Html defaultHtml(string title) {
-    import std.format;
-    import std.xml : encode;
-
     auto h = Html.make;
     h.preamble.put(`<!DOCTYPE html>`);
     h.head.put(`<head>`);
@@ -163,10 +173,42 @@ Html defaultHtml(string title) {
 
 /// Create a href link.
 HtmlNode aHref(T)(T link, string desc) {
-    import std.format : format;
-    import std.xml : encode;
-
     auto n = new HtmlNode;
     n.put(format(`<a href="%s">%s</a>`, link, desc.encode));
     return n;
+}
+
+struct HtmlTable {
+    HtmlNode root;
+    HtmlNode hdr;
+    HtmlNode rows;
+
+    static HtmlTable make() {
+        auto tbl = HtmlTable(new HtmlNode("table".Tag));
+        tbl.hdr = tbl.root.n("tr".Tag);
+        tbl.rows = tbl.root.n;
+        return tbl;
+    }
+
+    HtmlNode putColumn(string txt) {
+        return hdr.n("th".Tag).put(txt);
+    }
+
+    HtmlTableRow newRow() {
+        return HtmlTableRow(rows.n("tr".Tag));
+    }
+}
+
+struct HtmlTableRow {
+    HtmlNode row;
+
+    alias row this;
+
+    this(HtmlNode parent) {
+        row = parent;
+    }
+
+    HtmlNode td() {
+        return row.n("td".Tag);
+    }
 }
