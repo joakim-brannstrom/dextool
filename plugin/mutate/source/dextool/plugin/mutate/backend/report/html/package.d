@@ -150,6 +150,39 @@ struct FileIndex {
             Mutation.Status status;
         }
 
+        static string pickColor(const(FileMutant)[] muts) {
+            bool killed;
+            bool killedByCompiler;
+            bool timeout;
+
+            foreach (m; muts) {
+                final switch (m.status) with (Mutation) {
+                case Status.alive:
+                    return "status_alive";
+                case Status.killed:
+                    killed = true;
+                    break;
+                case Status.killedByCompiler:
+                    killedByCompiler = true;
+                    break;
+                case Status.timeout:
+                    timeout = true;
+                    break;
+                case Status.unknown:
+                    break;
+                }
+            }
+
+            if (killed)
+                return "status_killed";
+            else if (timeout)
+                return "status_timeout";
+            else if (killedByCompiler)
+                return "status_killedByCompiler";
+
+            return "status_unknown";
+        }
+
         Set!MutationId ids;
         auto muts = appender!(MData[])();
         int line = 1;
@@ -165,15 +198,14 @@ struct FileIndex {
                 "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
             ctx.out_.writeln(`<div style="display: inline;">`);
             ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)">%s</span>`,
-                    s.tok.toName, s.muts.canFind!((a,
-                        b) => a.status == b)(Mutation.Status.alive) ? "status_alive"
-                    : null, s.muts.map!(a => a.id), encode(s.tok.spelling));
+                    s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
+                    encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.status));
-                    const org = format(`fly(event, '%s')`,m.original.encode).toJson;
+                    const org = format(`fly(event, '%s')`, m.original.encode).toJson;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
                             m.id, org, org, s.tok.toName, mut);
