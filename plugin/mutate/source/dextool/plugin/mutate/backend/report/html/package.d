@@ -600,12 +600,12 @@ HtmlNode linesAsTable(HtmlNode n, string s) @safe {
     import std.algorithm : splitter;
     import std.xml : encode;
 
-    auto tbl = n.n("table".Tag);
+    auto tbl = HtmlTable.make;
     foreach (l; s.splitter('\n')) {
-        tbl.n("tr".Tag).n("td".Tag).put(encode(l));
+        tbl.newRow.td.put(encode(l));
     }
 
-    return tbl;
+    return tbl.root;
 }
 
 void toIndex(FileIndex[] files, ref Html h, string htmlFileDir) {
