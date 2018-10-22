@@ -86,8 +86,8 @@ function fly(evt, html) {
     }
 
     el.innerHTML = html;
-    el.style.left = (evt.pageX + el.offsetWidth) + 'px';
-    el.style.top = (evt.pageY - el.offsetHeight) + 'px';
+    el.style.left = (evt.pageX + 30) + 'px';
+    el.style.top = (evt.pageY + 30) + 'px';
 }
 
 function scroll_to(anchor) {
