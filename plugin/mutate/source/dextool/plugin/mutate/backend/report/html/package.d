@@ -120,10 +120,21 @@ struct FileIndex {
         // TODO unnecessary to create the mutation text here.
         // Move it to endFileEvent. This is inefficient.
 
+        // the mutation text has been found to contain '\0' characters when the
+        // mutant span multiple lines. These null characters render badly in
+        // the html report.
+        static string cleanup(const(char)[] raw) {
+            import std.algorithm : filter;
+            import std.array : array;
+            import std.utf;
+
+            return raw.byChar.filter!(a => a != '\0').array.idup;
+        }
+
         auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
         auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
         ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
-                txt.original.idup, txt.mutation.idup, fr.mutation.status));
+                cleanup(txt.original), cleanup(txt.mutation), fr.mutation.status));
     }
 
     override void endFileEvent(ref Database db) {
@@ -162,9 +173,9 @@ struct FileIndex {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.status));
-                    const org = m.original.encode;
+                    const org = format("fly(event, %s)", m.original.encode.toJson).toJson;
                     const mut = m.mutation.encode;
-                    ctx.out_.writefln(`<span id="%s" onmouseenter="fly(event, '%s')" onmouseleave="fly(event, '%s')" class="mutant %s">%s</span>`,
+                    ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
                             m.id, org, org, s.tok.toName, mut);
                     ctx.out_.writefln(`<a href="#%s"></a>`, m.id);
                 }
@@ -224,6 +235,12 @@ struct FileIndex {
 
 @safe:
 private:
+
+string toJson(string s) {
+    import std.json;
+
+    return JSONValue(s).toString;
+}
 
 struct FileCtx {
     import std.stdio;
