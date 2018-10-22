@@ -173,7 +173,7 @@ struct FileIndex {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.status));
-                    const org = format("fly(event, %s)", m.original.encode.toJson).toJson;
+                    const org = format(`fly(event, '%s')`,m.original.encode).toJson;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
                             m.id, org, org, s.tok.toName, mut);
