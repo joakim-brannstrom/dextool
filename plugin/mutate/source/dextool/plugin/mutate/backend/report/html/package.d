@@ -134,7 +134,7 @@ struct FileIndex {
         auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
         auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
         ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
-                cleanup(txt.original), cleanup(txt.mutation), fr.mutation.status));
+                cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
     }
 
     override void endFileEvent(ref Database db) {
@@ -147,16 +147,17 @@ struct FileIndex {
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
-            Mutation.Status status;
+            Mutation mut;
         }
 
         static string pickColor(const(FileMutant)[] muts) {
             bool killed;
             bool killedByCompiler;
             bool timeout;
+            bool unknown;
 
             foreach (m; muts) {
-                final switch (m.status) with (Mutation) {
+                final switch (m.mut.status) with (Mutation) {
                 case Status.alive:
                     return "status_alive";
                 case Status.killed:
@@ -169,6 +170,7 @@ struct FileIndex {
                     timeout = true;
                     break;
                 case Status.unknown:
+                    unknown = true;
                     break;
                 }
             }
@@ -179,8 +181,10 @@ struct FileIndex {
                 return "status_timeout";
             else if (killedByCompiler)
                 return "status_killedByCompiler";
+            else if (unknown)
+                return "status_unknown";
 
-            return "status_unknown";
+            return null;
         }
 
         Set!MutationId ids;
@@ -197,18 +201,20 @@ struct FileIndex {
             if (spaces > 1)
                 "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
             ctx.out_.writeln(`<div style="display: inline;">`);
-            ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)">%s</span>`,
+            ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)" onclick='ui_set_mut(%s)'>%s</span>`,
                     s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
-                    encode(s.tok.spelling));
+                    s.muts.length == 0 ? -1 : s.muts[0].id, encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
-                    muts.put(MData(m.id, m.txt, m.status));
-                    const org = format(`fly(event, '%s')`, m.original.encode).toJson;
+                    muts.put(MData(m.id, m.txt, m.mut));
+                    const fly = format(`fly(event, '%-(%s %)')`,
+                            s.muts.map!(a => format("%s%s", a.id == m.id ? "*" : null, a.mut.kind)))
+                        .toJson;
                     const mut = m.mutation.encode;
                     ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
-                            m.id, org, org, s.tok.toName, mut);
+                            m.id, fly, fly, s.tok.toName, mut);
                     ctx.out_.writefln(`<a href="#%s"></a>`, m.id);
                 }
             }
@@ -224,7 +230,8 @@ struct FileIndex {
                 muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]));
         ctx.out_.writefln("var g_muts_muts = [%(%s,%)];",
                 muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]));
-        ctx.out_.writefln("var g_muts_st = [%(%s,%)];", muts.data.map!(a => a.status.to!string));
+        ctx.out_.writefln("var g_muts_st = [%(%s,%)];",
+                muts.data.map!(a => a.mut.status.to!string));
         ctx.out_.writeln("</script>");
         ctx.out_.writefln(htmlEnd, js_file);
     }
@@ -362,18 +369,18 @@ struct FileMutant {
     MutationId id;
     Offset offset;
     Text txt;
-    Mutation.Status status;
+    Mutation mut;
 
-    this(MutationId id, Offset offset, string original, string mutation, Mutation.Status st) {
+    this(MutationId id, Offset offset, string original, string mutation, Mutation mut) {
         this.id = id;
         this.offset = offset;
         this.txt.original = original;
         this.txt.mutation = mutation;
-        this.status = st;
+        this.mut = mut;
     }
 
     this(MutationId id, Offset offset, string original) {
-        this(id, offset, original, null, Mutation.Status.init);
+        this(id, offset, original, null, Mutation.init);
     }
 
     string original() @safe pure nothrow const @nogc scope {

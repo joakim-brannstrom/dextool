@@ -27,7 +27,7 @@ body {font-family: monospace; font-size: 14px;}
 .status_killed {background-color: lightgreen;}
 .status_killedByCompiler {background-color: mediumseagreen;}
 .status_timeout {background-color: limegreen;}
-.status_unkown {background-color: mistyrose;}
+.status_unknown {background-color: mistyrose;}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
@@ -82,7 +82,7 @@ span.xx_label {
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
-    <td><span id="current_mutant_status"></div></td>
+    <td><span id="current_mutant_status"></span></td>
   </tr>
   <tr>
     <td><span class="xx_label">Mutant: </span></td>
@@ -91,6 +91,7 @@ span.xx_label {
         <option value="-1">Original</option>
       </select>
     </td>
+    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'><span class="xx_label">Show</span></input></td>
   </tr>
 </table>
 </div>
