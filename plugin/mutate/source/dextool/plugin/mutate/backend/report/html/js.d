@@ -47,6 +47,18 @@ function init() {
     }
 }
 
+function ui_set_mut(id) {
+    set_active_mutant(id);
+    highlight_mutant(id);
+
+    for(var i=0; i<g_mutids.length; i++) {
+        if (id == g_mutids[i]) {
+            document.getElementById('current_mutant').selectedIndex = i+1;
+            break;
+        }
+    }
+}
+
 function set_active_mutant(mutid) {
     if (mutid) {
         g_active_mutid = mutid;
@@ -93,11 +105,11 @@ function deactivate_mutants() {
 }
 
 function highlight_mutant(mutid) {
-    deactivate_mutants();
-    activate_mutant(mutid);
-
     mut = document.getElementById(mutid);
     if(mut) {
+        deactivate_mutants();
+        activate_mutant(mutid);
+
         scroll_to(mutid);
         for(var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
@@ -123,8 +135,9 @@ function fly(evt, html) {
 
 function scroll_to(anchor) {
     location.hash = "#" + anchor;
-    var top = document.getElementById(anchor).offsetTop;
-    var center = window.innerHeight/2;
-    window.scrollTo(0, top - center);
+    var newpos = document.getElementById(anchor).offsetTop - window.innerHeight/2;
+    if (newpos > 0) {
+        window.scrollTo(0, newpos);
+    }
 }
 `;
