@@ -18,10 +18,6 @@ immutable js_file = `function init() {
     document.getElementById('current_mutant').addEventListener("change",
     function() {
         var id = document.getElementById('current_mutant').value;
-        if (id >= 0)
-            window.location.hash = id;
-        else
-            window.location.hash = "";
         highlight_mutant(id);
         document.getElementById('current_mutant').focus();
     });
@@ -92,5 +88,8 @@ function fly(evt, html) {
 
 function scroll_to(anchor) {
     location.hash = "#" + anchor;
+    var top = document.getElementById(anchor).offsetTop;
+    var center = window.innerHeight/2;
+    window.scrollTo(0, top - center);
 }
 `;
