@@ -91,6 +91,7 @@ span.xx_label {
         <option value="-1">Original</option>
       </select>
     </td>
+    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'><span class="xx_label">Show</span></input></td>
   </tr>
 </table>
 </div>

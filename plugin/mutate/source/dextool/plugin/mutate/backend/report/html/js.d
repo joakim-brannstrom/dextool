@@ -9,15 +9,21 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.js;
 
-immutable js_file = `function init() {
+immutable js_file = `
+var g_show_mutant = true;
+var g_active_mutid = 0;
+
+function init() {
     var mutid = window.location.hash.substring(1);
     if(mutid) {
+        set_active_mutant(mutid);
         highlight_mutant(mutid);
     }
 
     document.getElementById('current_mutant').addEventListener("change",
     function() {
         var id = document.getElementById('current_mutant').value;
+        set_active_mutant(id);
         highlight_mutant(id);
         document.getElementById('current_mutant').focus();
     });
@@ -41,7 +47,39 @@ immutable js_file = `function init() {
     }
 }
 
-function highlight_mutant(mutid) {
+function set_active_mutant(mutid) {
+    if (mutid) {
+        g_active_mutid = mutid;
+    }
+}
+
+function click_show_mutant() {
+    g_show_mutant = document.getElementById("show_mutant").checked;
+
+    if (g_show_mutant) {
+        activate_mutant(g_active_mutid);
+    } else {
+        deactivate_mutants();
+    }
+}
+
+function activate_mutant(mutid) {
+    if (!g_show_mutant)
+        return;
+
+    mut = document.getElementById(mutid);
+    if (mut) {
+        clss = document.getElementsByClassName("mutid" + mutid);
+        if (clss) {
+            for(var i=0; i<clss.length; i++) {
+                clss[i].style.display = 'none';
+            }
+        }
+        mut.style.display = 'inline';
+    }
+}
+
+function deactivate_mutants() {
     var orgs = document.querySelectorAll(".original");
     var muts = document.querySelectorAll(".mutant");
 
@@ -52,18 +90,15 @@ function highlight_mutant(mutid) {
     for (i=0; i<muts.length; i++) {
         muts[i].style.display = "none";
     }
+}
+
+function highlight_mutant(mutid) {
+    deactivate_mutants();
+    activate_mutant(mutid);
 
     mut = document.getElementById(mutid);
     if(mut) {
-        clss = document.getElementsByClassName("mutid" + mutid);
-        if (clss) {
-            for(var i=0; i<clss.length; i++) {
-                clss[i].style.display = 'none';
-            }
-        }
-        mut.style.display = 'inline';
         scroll_to(mutid);
-
         for(var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
                 document.getElementById("current_mutant_status").innerText = g_muts_st[i];
