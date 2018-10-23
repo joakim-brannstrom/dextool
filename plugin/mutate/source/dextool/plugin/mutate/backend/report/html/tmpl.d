@@ -27,7 +27,7 @@ body {font-family: monospace; font-size: 14px;}
 .status_killed {background-color: lightgreen;}
 .status_killedByCompiler {background-color: mediumseagreen;}
 .status_timeout {background-color: limegreen;}
-.status_unkown {background-color: mistyrose;}
+.status_unknown {background-color: mistyrose;}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
