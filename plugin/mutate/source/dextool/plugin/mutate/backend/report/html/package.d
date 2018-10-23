@@ -637,6 +637,8 @@ HtmlNode linesAsTable(HtmlNode n, string s) @safe {
         tbl.newRow.td.put(encode(l));
     }
 
+    n.put(tbl.root);
+
     return tbl.root;
 }
 
