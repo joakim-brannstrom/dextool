@@ -198,10 +198,8 @@ struct FileIndex {
 
             "<br>".repeat(max(0, s.tok.loc.line - line)).each!(a => ctx.out_.writeln(a));
             const spaces = max(0, s.tok.loc.column - column);
-            if (spaces > 1)
-                "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
-            ctx.out_.writeln(`<div style="display: inline;">`);
-            ctx.out_.writefln(`<span class="original %s %s %(mutid%s %)" onclick='ui_set_mut(%s)'>%s</span>`,
+            "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
+            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" onclick='ui_set_mut(%s)'>%s</span>`,
                     s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
                     s.muts.length == 0 ? -1 : s.muts[0].id, encode(s.tok.spelling));
 
@@ -213,12 +211,12 @@ struct FileIndex {
                             s.muts.map!(a => format("%s%s", a.id == m.id ? "*" : null, a.mut.kind)))
                         .toJson;
                     const mut = m.mutation.encode;
-                    ctx.out_.writefln(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
+                    ctx.out_.writef(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
                             m.id, fly, fly, s.tok.toName, mut);
-                    ctx.out_.writefln(`<a href="#%s"></a>`, m.id);
+                    ctx.out_.writef(`<a href="#%s"></a>`, m.id);
                 }
             }
-            ctx.out_.writeln(`</div>`);
+            ctx.out_.write(`</div>`);
 
             line = s.tok.locEnd.line;
             column = s.tok.locEnd.column;
