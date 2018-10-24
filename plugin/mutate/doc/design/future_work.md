@@ -126,7 +126,7 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
- * remove orphaned mutants
+ * propose to the user mutants to fix. algo: record when the mutant where discovered, the number of times it has survived. sort by latest mutants added and highest survive count. propose those to the user to kill. maybe two. the one with highest count and the one with absolutly latest date.
  * change the cascade in the tables. this is so mutants are NOT deleted just because the mutation point is. this is to make it possible to "reconnect" mutants.
    this will be extremly useful when the algorithm for calculating the mutants checksum is changed to doing it on the tokens and skip comments.
  * calculate the score on the unique changes in the source code. this is to avoid inflating when different mutants can result in the same source code change.
