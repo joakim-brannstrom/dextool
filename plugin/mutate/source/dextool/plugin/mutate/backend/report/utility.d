@@ -377,11 +377,65 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds) @saf
     return st;
 }
 
+struct TestCaseOverlapStat {
+    import std.format : formattedWrite, format;
+    import std.range : put;
+    import dextool.hash;
+    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+
+    long overlap;
+    long total;
+    double ratio;
+
+    // map between test cases and the mutants they have killed.
+    TestCaseId[][Murmur3] tc_mut;
+    // map between mutation IDs and the test cases that killed them.
+    long[][Murmur3] mutid_mut;
+    string[TestCaseId] name_tc;
+
+    string sumToString() {
+        return format("%s/%s = %s test cases", overlap, total, ratio);
+    }
+
+    void sumToString(Writer)(ref Writer w) @safe const {
+        formattedWrite(w, "%s/%s = %s test cases\n", overlap, total, ratio);
+    }
+
+    string toString() @safe const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) @safe const {
+        import std.algorithm : sort, map, filter, count;
+        import std.array : array;
+
+        sumToString(w);
+
+        foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
+            bool first = true;
+            // TODO this is a bit slow. use a DB row iterator instead.
+            foreach (name; tcs.value.map!(id => name_tc[id])) {
+                if (first) {
+                    formattedWrite(w, "%s %s\n", name, mutid_mut[tcs.key].length);
+                    first = false;
+                } else {
+                    formattedWrite(w, "%s\n", name);
+                }
+            }
+            put(w, "\n");
+        }
+    }
+}
+
 /** Report test cases that completly overlap each other.
  *
  * Returns: a string with statistics.
  */
-template reportTestCaseFullOverlap(Flag!"colWithMutants" colMutants) {
+template toTable(Flag!"colWithMutants" colMutants) {
     static if (colMutants) {
         alias TableT = Table!3;
     } else {
@@ -389,74 +443,67 @@ template reportTestCaseFullOverlap(Flag!"colWithMutants" colMutants) {
     }
     alias RowT = TableT.Row;
 
-    string reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds, ref TableT tbl) @safe nothrow {
-        import std.algorithm : sort, map, filter, joiner;
+    void toTable(ref TestCaseOverlapStat st, ref TableT tbl) {
+        import std.algorithm : sort, map, filter, count;
         import std.array : array;
         import std.conv : to;
         import std.format : format;
-        import dextool.hash;
-        import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
-        string stat;
-        // map between test cases and the mutants they have killed.
-        TestCaseId[][Murmur3] tc_mut;
-        // map between mutation IDs and the test cases that killed them.
-        long[][Murmur3] mutid_mut;
-
-        try {
-            const total = db.getNumOfTestCases;
-
-            foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
-                auto muts = db.getTestCaseMutantKills(tc_id, kinds)
-                    .sort.map!(a => cast(long) a).array;
-                auto m3 = makeMurmur3(cast(ubyte[]) muts);
-                if (auto v = m3 in tc_mut)
-                    (*v) ~= tc_id;
-                else {
-                    tc_mut[m3] = [tc_id];
-                    mutid_mut[m3] = muts;
-                }
-            }
-
-            if (tc_mut.length == 0)
-                return null;
-
-            long overlap;
-            foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
-                bool first = true;
-                // TODO this is a bit slow. use a DB row iterator instead.
-                foreach (name; tcs.value.map!(id => db.getTestCaseName(id))) {
-                    overlap++;
-
-                    RowT r;
-                    r[0] = name;
-                    if (first) {
-                        auto muts = mutid_mut[tcs.key];
-                        r[1] = muts.length.to!string;
-                        static if (colMutants) {
-                            r[2] = format("%-(%s,%)", muts);
-                        }
-                        first = false;
+        foreach (tcs; st.tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
+            bool first = true;
+            // TODO this is a bit slow. use a DB row iterator instead.
+            foreach (name; tcs.value.map!(id => st.name_tc[id])) {
+                RowT r;
+                r[0] = name;
+                if (first) {
+                    auto muts = st.mutid_mut[tcs.key];
+                    r[1] = muts.length.to!string;
+                    static if (colMutants) {
+                        r[2] = format("%-(%s,%)", muts);
                     }
-
-                    tbl.put(r);
+                    first = false;
                 }
-                static if (colMutants)
-                    RowT r = ["", "", ""];
-                else
-                    RowT r = ["", ""];
+
                 tbl.put(r);
             }
-
-            if (total > 0)
-                stat = format("%s/%s = %s test cases", overlap, total,
-                        cast(double) overlap / cast(double) total);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+            static if (colMutants)
+                RowT r = ["", "", ""];
+            else
+                RowT r = ["", ""];
+            tbl.put(r);
         }
-
-        return stat;
     }
+}
+
+TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
+    import std.algorithm : sort, map, filter, count;
+    import std.array : array;
+    import dextool.hash;
+    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+
+    TestCaseOverlapStat st;
+    st.total = db.getNumOfTestCases;
+
+    foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
+        auto muts = db.getTestCaseMutantKills(tc_id, kinds).sort.map!(a => cast(long) a).array;
+        auto m3 = makeMurmur3(cast(ubyte[]) muts);
+        if (auto v = m3 in st.tc_mut)
+            (*v) ~= tc_id;
+        else {
+            st.tc_mut[m3] = [tc_id];
+            st.mutid_mut[m3] = muts;
+        }
+        st.name_tc[tc_id] = db.getTestCaseName(tc_id);
+    }
+
+    foreach (tcs; st.tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
+        st.overlap += tcs.value.count;
+    }
+
+    if (st.total > 0)
+        st.ratio = cast(double) st.overlap / cast(double) st.total;
+
+    return st;
 }
 
 struct Table(int columnsNr) {

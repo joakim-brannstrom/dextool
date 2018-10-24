@@ -279,6 +279,8 @@ struct FileIndex {
         linesAsTable(statsh.body_, mut_stat.toString).putAttr("class", "stat_tbl");
         auto dead_tcstat = reportDeadTestCases(db);
         linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
+        auto tc_overlap = reportTestCaseFullOverlap(db, kinds);
+        linesAsTable(statsh.body_, tc_overlap.toString).putAttr("class", "stat_tbl");
 
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
 

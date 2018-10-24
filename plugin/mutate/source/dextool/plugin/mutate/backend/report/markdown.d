@@ -87,6 +87,10 @@ struct Markdown(Writer, TraceWriter) {
         return this;
     }
 
+    void put(const(char)[] s) {
+        write(s);
+    }
+
     auto write(ARGS...)(auto ref ARGS args) {
         formattedWrite(w, "%s", args);
         return this;
@@ -296,10 +300,12 @@ struct Markdown(Writer, TraceWriter) {
         if (sections.contains(ReportSection.tc_full_overlap)) {
             Table!2 tbl;
             tbl.heading = ["TestCase", "Count"];
-            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, kinds, tbl);
+            auto stat = reportTestCaseFullOverlap(db, kinds);
+            stat.toTable!(No.colWithMutants)(tbl);
 
             if (!tbl.empty) {
                 auto item = markdown.heading("Redundant Test Cases (killing the same mutants)");
+                stat.sumToString(item);
                 item.writeln(stat);
                 tbl.toString(Writer, fmt);
                 item.popHeading;
