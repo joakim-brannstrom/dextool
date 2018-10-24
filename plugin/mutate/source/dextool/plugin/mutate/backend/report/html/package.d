@@ -150,6 +150,9 @@ struct FileIndex {
             Mutation mut;
         }
 
+        // TODO: multiple loops over the mutants. reduce to one loop that
+        // deduce the necessary data.
+
         static string pickColor(const(FileMutant)[] muts) {
             bool killed;
             bool killedByCompiler;
@@ -197,6 +200,20 @@ struct FileIndex {
             return format("%s%s", p, m.mut.kind);
         }
 
+        static string genMutantForClick(const(FileMutant)[] muts) {
+            immutable fmt = "onclick='ui_set_mut(%s)'";
+
+            foreach (m; muts) {
+                if (m.mut.status == Mutation.Status.alive) {
+                    return format(fmt, m.id);
+                }
+            }
+
+            if (muts.length != 0)
+                return format(fmt, muts[0].id);
+            return null;
+        }
+
         Set!MutationId ids;
         auto muts = appender!(MData[])();
         int line = 1;
@@ -209,9 +226,9 @@ struct FileIndex {
             "<br>".repeat(max(0, s.tok.loc.line - line)).each!(a => ctx.out_.writeln(a));
             const spaces = max(0, s.tok.loc.column - column);
             "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
-            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" onclick='ui_set_mut(%s)'>%s</span>`,
+            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" %s>%s</span>`,
                     s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
-                    s.muts.length == 0 ? -1 : s.muts[0].id, encode(s.tok.spelling));
+                    genMutantForClick(s.muts), encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
