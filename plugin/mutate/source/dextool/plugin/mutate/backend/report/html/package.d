@@ -187,6 +187,16 @@ struct FileIndex {
             return null;
         }
 
+        static string styleMutant(MutationId this_mut, const(FileMutant) m) {
+            string p;
+            if (m.mut.status == Mutation.Status.alive)
+                p = "+";
+
+            if (this_mut == m.id)
+                return format("%s<b>%s</b>", p, m.mut.kind);
+            return format("%s%s", p, m.mut.kind);
+        }
+
         Set!MutationId ids;
         auto muts = appender!(MData[])();
         int line = 1;
@@ -208,11 +218,9 @@ struct FileIndex {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.mut));
                     const fly = format(`fly(event, '%-(%s %)')`,
-                            s.muts.map!(a => format("%s%s", a.id == m.id ? "*" : null, a.mut.kind)))
-                        .toJson;
-                    const mut = m.mutation.encode;
+                            s.muts.map!(a => styleMutant(m.id, a))).toJson;
                     ctx.out_.writef(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
-                            m.id, fly, fly, s.tok.toName, mut);
+                            m.id, fly, fly, s.tok.toName, m.mutation.encode);
                     ctx.out_.writef(`<a href="#%s"></a>`, m.id);
                 }
             }
