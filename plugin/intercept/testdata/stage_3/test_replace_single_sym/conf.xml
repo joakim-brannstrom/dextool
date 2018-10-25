@@ -1,5 +1,0 @@
-<dextool>
-    <intercept>
-        <func prefix="custom_prefix_">intercepted</func>
-    </intercept>
-</dextool>

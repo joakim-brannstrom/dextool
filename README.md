@@ -7,14 +7,9 @@ The plugins in a standard installation of deXtool are:
  - Analyze. Analyze C/C++ code to generate complexity numbers such as McCabe.
  - C TestDouble. Analyze C code to generate a test double implementation.
  - C++ TestDouble. Analyze C++ code to generate a test double implementation.
- - Compilation Database. Tool for manipulating db(s) such as merge, compiler
-   flag filtering, relative->absolute path.
-   Usually called compile_commands.json.
  - Mutate. Mutation testing tool for C/C++.
  - GraphML. Analyze C/C++ code to generate a GraphML representation.
    Call chains, type usage, classes as _groups_ of methods and members.
- - Intercept. Analyze a C header together with a config to generate interceptor
-   functions.
  - UML. Analyze C/C++ code to generate PlantUML diagrams.
 
 # Plugin Status
@@ -22,10 +17,8 @@ The plugins in a standard installation of deXtool are:
  * **Analyze**: production ready.
  * **C TestDouble**: production ready. The API of the generated code and how it behaves is stable.
  * **C++ TestDouble** is production ready. The API of the generated code and how it behaves is stable.
- * **CompileDB**: alpha.
  * **Fuzzer**: alpha.
  * **GraphML**: beta.
- * **Intercept**: alpha.
  * **UML**: beta.
  * [**Mutate**](plugin/mutate/README.md): production ready.
 

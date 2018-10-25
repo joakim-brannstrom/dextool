@@ -1,9 +1,0 @@
-#ifndef intercept_hpp
-#define intercept_hpp
-extern "C"  {
-#include "orig.h"
-
-int custom_prefix_intercepted();
-
-}
-#endif // intercept_hpp
