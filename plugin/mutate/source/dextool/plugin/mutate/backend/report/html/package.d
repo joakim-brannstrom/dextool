@@ -263,31 +263,18 @@ struct FileIndex {
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
-        import dextool.plugin.mutate.backend.report.utility;
+        import dextool.plugin.mutate.backend.report.html.page_stats;
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
 
         auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
-        auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
-                humanReadableKinds, Clock.currTime));
-        statsh.preambleBody.n("style".Tag)
-            .put(`.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`)
-            .put(`.stat_tbl td{border-style: none;}`);
-
-        auto mut_stat = reportStatistics(db, kinds);
-        linesAsTable(statsh.body_, mut_stat.toString).putAttr("class", "stat_tbl");
-        auto dead_tcstat = reportDeadTestCases(db);
-        linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
-        auto tc_overlap = reportTestCaseFullOverlap(db, kinds);
-        linesAsTable(statsh.body_, tc_overlap.toString).putAttr("class", "stat_tbl");
-
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
 
         files.data.toIndex(indexh, htmlFileDir);
 
         auto stats = File(stats_f, "w");
-        stats.write(statsh);
+        stats.write(makeStats(db, humanReadableKinds, kinds));
 
         auto index = File(buildPath(logDir, "index" ~ htmlExt), "w");
         index.write(indexh);
@@ -657,21 +644,6 @@ struct Span {
     res[11].muts.length.shouldEqual(0);
     res[12].muts[0].id.shouldEqual(1);
     res[13].muts.length.shouldEqual(0);
-}
-
-/// Print the lines as a html table.
-HtmlNode linesAsTable(HtmlNode n, string s) @safe {
-    import std.algorithm : splitter;
-    import std.xml : encode;
-
-    auto tbl = HtmlTable.make;
-    foreach (l; s.splitter('\n')) {
-        tbl.newRow.td.put(encode(l));
-    }
-
-    n.put(tbl.root);
-
-    return tbl.root;
 }
 
 void toIndex(FileIndex[] files, ref Html h, string htmlFileDir) {

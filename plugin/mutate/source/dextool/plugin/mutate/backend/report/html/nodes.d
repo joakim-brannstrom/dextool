@@ -171,6 +171,21 @@ Html defaultHtml(string title) {
     return h;
 }
 
+/// Print the lines as a html table.
+HtmlNode linesAsTable(HtmlNode n, string s) @safe {
+    import std.algorithm : splitter;
+    import std.xml : encode;
+
+    auto tbl = HtmlTable.make;
+    foreach (l; s.splitter('\n')) {
+        tbl.newRow.td.put(encode(l));
+    }
+
+    n.put(tbl.root);
+
+    return tbl.root;
+}
+
 /// Create a href link.
 HtmlNode aHref(T)(T link, string desc) {
     auto n = new HtmlNode;
