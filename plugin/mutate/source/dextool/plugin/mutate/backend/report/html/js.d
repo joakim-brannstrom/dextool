@@ -22,6 +22,11 @@ function init() {
 
     document.getElementById('current_mutant').addEventListener("change",
     function() {
+        if (document.getElementById("current_mutant").selectedIndex == 0) {
+            set_active_mutant(-1);
+            deactivate_mutants();
+            return;
+        }
         var id = document.getElementById('current_mutant').value;
         set_active_mutant(id);
         highlight_mutant(id);

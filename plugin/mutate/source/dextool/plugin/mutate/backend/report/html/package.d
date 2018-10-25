@@ -150,6 +150,9 @@ struct FileIndex {
             Mutation mut;
         }
 
+        // TODO: multiple loops over the mutants. reduce to one loop that
+        // deduce the necessary data.
+
         static string pickColor(const(FileMutant)[] muts) {
             bool killed;
             bool killedByCompiler;
@@ -187,6 +190,30 @@ struct FileIndex {
             return null;
         }
 
+        static string styleMutant(MutationId this_mut, const(FileMutant) m) {
+            string p;
+            if (m.mut.status == Mutation.Status.alive)
+                p = "+";
+
+            if (this_mut == m.id)
+                return format("%s<b>%s</b>", p, m.mut.kind);
+            return format("%s%s", p, m.mut.kind);
+        }
+
+        static string genMutantForClick(const(FileMutant)[] muts) {
+            immutable fmt = "onclick='ui_set_mut(%s)'";
+
+            foreach (m; muts) {
+                if (m.mut.status == Mutation.Status.alive) {
+                    return format(fmt, m.id);
+                }
+            }
+
+            if (muts.length != 0)
+                return format(fmt, muts[0].id);
+            return null;
+        }
+
         Set!MutationId ids;
         auto muts = appender!(MData[])();
         int line = 1;
@@ -199,20 +226,18 @@ struct FileIndex {
             "<br>".repeat(max(0, s.tok.loc.line - line)).each!(a => ctx.out_.writeln(a));
             const spaces = max(0, s.tok.loc.column - column);
             "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
-            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" onclick='ui_set_mut(%s)'>%s</span>`,
+            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" %s>%s</span>`,
                     s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
-                    s.muts.length == 0 ? -1 : s.muts[0].id, encode(s.tok.spelling));
+                    genMutantForClick(s.muts), encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.mut));
                     const fly = format(`fly(event, '%-(%s %)')`,
-                            s.muts.map!(a => format("%s%s", a.id == m.id ? "*" : null, a.mut.kind)))
-                        .toJson;
-                    const mut = m.mutation.encode;
+                            s.muts.map!(a => styleMutant(m.id, a))).toJson;
                     ctx.out_.writef(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
-                            m.id, fly, fly, s.tok.toName, mut);
+                            m.id, fly, fly, s.tok.toName, m.mutation.encode);
                     ctx.out_.writef(`<a href="#%s"></a>`, m.id);
                 }
             }
@@ -254,6 +279,8 @@ struct FileIndex {
         linesAsTable(statsh.body_, mut_stat.toString).putAttr("class", "stat_tbl");
         auto dead_tcstat = reportDeadTestCases(db);
         linesAsTable(statsh.body_, dead_tcstat.toString).putAttr("class", "stat_tbl");
+        auto tc_overlap = reportTestCaseFullOverlap(db, kinds);
+        linesAsTable(statsh.body_, tc_overlap.toString).putAttr("class", "stat_tbl");
 
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
 

@@ -256,22 +256,27 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
             reportMutationTestCaseSuggestion(db, testCaseSuggestions.data, &writer);
         }
 
-        if (ReportSection.tc_full_overlap in sections) {
-            logger.info("Redundant Test Cases (killing the same mutants)");
-            Table!2 tbl;
-            tbl.heading = ["TestCase", "Count"];
-            auto stat = reportTestCaseFullOverlap!(No.colWithMutants)(db, kinds, tbl);
-            writeln(stat);
-            writeln(tbl);
-        }
+        if (ReportSection.tc_full_overlap in sections
+                || ReportSection.tc_full_overlap_with_mutation_id in sections) {
+            auto stat = reportTestCaseFullOverlap(db, kinds);
 
-        if (ReportSection.tc_full_overlap_with_mutation_id in sections) {
-            logger.info("Redundant Test Cases (killing the same mutants)");
-            Table!3 tbl;
-            tbl.heading = ["TestCase", "Count", "Mutation ID"];
-            auto stat = reportTestCaseFullOverlap!(Yes.colWithMutants)(db, kinds, tbl);
-            writeln(stat);
-            writeln(tbl);
+            if (ReportSection.tc_full_overlap in sections) {
+                logger.info("Redundant Test Cases (killing the same mutants)");
+                Table!2 tbl;
+                stat.toTable!(No.colWithMutants)(tbl);
+                tbl.heading = ["TestCase", "Count"];
+                writeln(stat.sumToString);
+                writeln(tbl);
+            }
+
+            if (ReportSection.tc_full_overlap_with_mutation_id in sections) {
+                logger.info("Redundant Test Cases (killing the same mutants)");
+                Table!3 tbl;
+                stat.toTable!(Yes.colWithMutants)(tbl);
+                tbl.heading = ["TestCase", "Count", "Mutation ID"];
+                writeln(stat.sumToString);
+                writeln(tbl);
+            }
         }
 
         if (ReportSection.summary in sections) {
