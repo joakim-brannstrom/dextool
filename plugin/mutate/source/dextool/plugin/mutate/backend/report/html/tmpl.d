@@ -28,6 +28,11 @@ body {font-family: monospace; font-size: 14px;}
 .status_killedByCompiler {background-color: mediumseagreen;}
 .status_timeout {background-color: limegreen;}
 .status_unknown {background-color: mistyrose;}
+.hover_alive {color: lightpink;}
+.hover_killed {color: lightgreen;}
+.hover_killedByCompiler {color: mediumseagreen;}
+.hover_timeout {color: limegreen;}
+.hover_unknown {color: mistyrose;}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
@@ -91,7 +96,7 @@ span.xx_label {
         <option value="-1">Original</option>
       </select>
     </td>
-    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'><span class="xx_label">Show</span></input></td>
+    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
   </tr>
 </table>
 </div>

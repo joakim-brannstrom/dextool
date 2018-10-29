@@ -150,68 +150,10 @@ struct FileIndex {
             Mutation mut;
         }
 
-        // TODO: multiple loops over the mutants. reduce to one loop that
-        // deduce the necessary data.
-
-        static string pickColor(const(FileMutant)[] muts) {
-            bool killed;
-            bool killedByCompiler;
-            bool timeout;
-            bool unknown;
-
-            foreach (m; muts) {
-                final switch (m.mut.status) with (Mutation) {
-                case Status.alive:
-                    return "status_alive";
-                case Status.killed:
-                    killed = true;
-                    break;
-                case Status.killedByCompiler:
-                    killedByCompiler = true;
-                    break;
-                case Status.timeout:
-                    timeout = true;
-                    break;
-                case Status.unknown:
-                    unknown = true;
-                    break;
-                }
-            }
-
-            if (killed)
-                return "status_killed";
-            else if (timeout)
-                return "status_timeout";
-            else if (killedByCompiler)
-                return "status_killedByCompiler";
-            else if (unknown)
-                return "status_unknown";
-
-            return null;
-        }
-
-        static string styleMutant(MutationId this_mut, const(FileMutant) m) {
-            string p;
-            if (m.mut.status == Mutation.Status.alive)
-                p = "+";
-
+        static string styleHover(MutationId this_mut, const(FileMutant) m) {
             if (this_mut == m.id)
-                return format("%s<b>%s</b>", p, m.mut.kind);
-            return format("%s%s", p, m.mut.kind);
-        }
-
-        static string genMutantForClick(const(FileMutant)[] muts) {
-            immutable fmt = "onclick='ui_set_mut(%s)'";
-
-            foreach (m; muts) {
-                if (m.mut.status == Mutation.Status.alive) {
-                    return format(fmt, m.id);
-                }
-            }
-
-            if (muts.length != 0)
-                return format(fmt, muts[0].id);
-            return null;
+                return format(`<b class="%s">%s</b>`, pickColor(m).toHover, m.mut.kind);
+            return format(`<span class="%s">%s</span>`, pickColor(m).toHover, m.mut.kind);
         }
 
         Set!MutationId ids;
@@ -223,20 +165,23 @@ struct FileIndex {
             if (s.tok.loc.line > line)
                 column = 1;
 
+            auto meta = MetaSpan(s.muts);
+
             "<br>".repeat(max(0, s.tok.loc.line - line)).each!(a => ctx.out_.writeln(a));
             const spaces = max(0, s.tok.loc.column - column);
             "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
             ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" %s>%s</span>`,
-                    s.tok.toName, pickColor(s.muts), s.muts.map!(a => a.id),
-                    genMutantForClick(s.muts), encode(s.tok.spelling));
+                    s.tok.toName, meta.status.toVisible,
+                    s.muts.map!(a => a.id), meta.onClick, encode(s.tok.spelling));
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
                     muts.put(MData(m.id, m.txt, m.mut));
-                    const fly = format(`fly(event, '%-(%s %)')`,
-                            s.muts.map!(a => styleMutant(m.id, a))).toJson;
-                    ctx.out_.writef(`<span id="%s" onmouseenter=%s onmouseleave=%s class="mutant %s">%s</span>`,
+                    const inside_fly = format(`%-(%s %)`, s.muts.map!(a => styleHover(m.id, a)))
+                        .toJson;
+                    const fly = format(`fly(event, %s)`, inside_fly);
+                    ctx.out_.writef(`<span id="%s" onmouseenter='%-s' onmouseleave='%-s' class="mutant %s">%s</span>`,
                             m.id, fly, fly, s.tok.toName, m.mutation.encode);
                     ctx.out_.writef(`<a href="#%s"></a>`, m.id);
                 }
@@ -682,4 +627,78 @@ Html makeHtmlIndex(string title) {
     s.put(`.files .tg-0lax{text-align:left;vertical-align:top}`);
 
     return r;
+}
+
+/// Metadata about the span to be used to e.g. color it.
+struct MetaSpan {
+    // ordered in priority
+    enum StatusColor {
+        alive,
+        killed,
+        timeout,
+        killedByCompiler,
+        unknown,
+        none,
+    }
+
+    StatusColor status;
+    string onClick;
+
+    this(const(FileMutant)[] muts) {
+        import std.format : format;
+
+        immutable click_fmt = "onclick='ui_set_mut(%s)'";
+        status = StatusColor.none;
+
+        foreach (ref const m; muts) {
+            status = pickColor(m, status);
+            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive)
+                onClick = format(click_fmt, m.id);
+        }
+
+        if (onClick.length == 0 && muts.length != 0)
+            onClick = format(click_fmt, muts[0].id);
+    }
+}
+
+MetaSpan.StatusColor pickColor(const FileMutant m,
+        MetaSpan.StatusColor status = MetaSpan.StatusColor.none) {
+    final switch (m.mut.status) {
+    case Mutation.Status.alive:
+        status = MetaSpan.StatusColor.alive;
+        break;
+    case Mutation.Status.killed:
+        if (status > MetaSpan.StatusColor.killed)
+            status = MetaSpan.StatusColor.killed;
+        break;
+    case Mutation.Status.killedByCompiler:
+        if (status > MetaSpan.StatusColor.killedByCompiler)
+            status = MetaSpan.StatusColor.killedByCompiler;
+        break;
+    case Mutation.Status.timeout:
+        if (status > MetaSpan.StatusColor.timeout)
+            status = MetaSpan.StatusColor.timeout;
+        break;
+    case Mutation.Status.unknown:
+        if (status > MetaSpan.StatusColor.unknown)
+            status = MetaSpan.StatusColor.unknown;
+        break;
+    }
+    return status;
+}
+
+string toVisible(MetaSpan.StatusColor s) {
+    import std.format : format;
+
+    if (s == MetaSpan.StatusColor.none)
+        return null;
+    return format("status_%s", s);
+}
+
+string toHover(MetaSpan.StatusColor s) {
+    import std.format : format;
+
+    if (s == MetaSpan.StatusColor.none)
+        return null;
+    return format("hover_%s", s);
 }
