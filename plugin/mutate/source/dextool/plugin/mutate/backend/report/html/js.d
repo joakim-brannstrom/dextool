@@ -23,6 +23,7 @@ function init() {
     document.getElementById('current_mutant').addEventListener("change",
     function() {
         if (document.getElementById("current_mutant").selectedIndex == 0) {
+            location.hash = "#";
             set_active_mutant(-1);
             deactivate_mutants();
             return;
