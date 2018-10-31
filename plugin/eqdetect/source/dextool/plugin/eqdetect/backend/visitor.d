@@ -39,6 +39,10 @@ final class TUVisitor : Visitor {
     string function_name;
     string[] function_params;
 
+    import std.typecons : Tuple;
+
+    Tuple!(uint, uint)[] offsets;
+
     import dextool.plugin.eqdetect.backend : Mutation;
 
     Mutation mutation;
@@ -61,15 +65,46 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
-        generateCode(v.cursor);
+        saveOffsets(v.cursor);
+        v.accept(this);
+    }
+
+    override void visit(const(ParmDecl) v) {
+        mixin(mixinNodeLog!());
+        saveOffsets(v.cursor);
+        v.accept(this);
+    }
+
+    override void visit(const(VarDecl) v) {
+        mixin(mixinNodeLog!());
+        saveOffsets(v.cursor);
+        v.accept(this);
+    }
+
+    override void visit(const(CxxMethod) v) {
+        mixin(mixinNodeLog!());
+        saveOffsets(v.cursor);
         v.accept(this);
     }
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
-        generateCode(v.cursor);
+        saveOffsets(v.cursor);
+        generateCode(v.cursor); //TODO: call on this elsewhere
+        v.accept(this);
+    }
+
+    override void visit(const(Declaration) v) {
+        mixin(mixinNodeLog!());
+        saveOffsets(v.cursor);
+        v.accept(this);
+    }
+
+    override void visit(const(MemberRefExpr) v) {
+        mixin(mixinNodeLog!());
+        saveOffsets(v.cursor);
         v.accept(this);
     }
 
@@ -103,26 +138,45 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(ForStmt) v) {
-        mixin(mixinNodeLog!());
-        v.accept(this);
+    bool mutationInInterval(Cursor c) {
+        return ((c.extent.end.offset >= offset) && (c.extent.start.offset <= offset));
     }
 
-    bool inInterval(Cursor c) {
-        return ((c.extent.end.offset >= offset) && (c.extent.start.offset <= offset));
+    //TODO: Fix ugly implementation, doesn't work in all cases (ex. int i = 0)
+    void saveOffsets(Cursor c) {
+        import std.path : buildNormalizedPath;
+        import std.file : getcwd;
+
+        if (buildNormalizedPath(getcwd(), mutation.path) == c.definition.location.path
+                && buildNormalizedPath(getcwd(), mutation.path) == c.extent.path) {
+            Tuple!(uint, uint) offset;
+            import std.stdio : File, writeln;
+            import std.file : getSize;
+            import std.string : indexOf;
+
+            auto file = File(c.extent.path, "r");
+            auto buffer = file.rawRead(new char[getSize(c.extent.path)]);
+            buffer = buffer[c.extent.start.offset .. c.extent.end.offset];
+            int name_offset = cast(int) indexOf(buffer, c.spelling);
+            offset[0] = c.extent.start.offset + name_offset;
+            offset[1] = c.extent.end.offset - (
+                    c.extent.end.offset - c.extent.start.offset - cast(
+                    uint) c.spelling.length - name_offset);
+
+            offsets ~= offset;
+        }
     }
 
     void generateCode(Cursor c) {
         import std.path : baseName;
 
-        if (!generated && inInterval(c) && c.extent.path.length != 0
+        if (!generated && c.extent.path.length != 0
                 && baseName(mutation.path) == baseName(c.extent.path)) {
-
             import dextool.plugin.eqdetect.backend : SnippetFinder;
+
             auto s = SnippetFinder.generate(c, this.mutation);
 
             this.generatedSource.text(s[0]);
-            this.generatedMutation.text(s[1]);
 
             getFunctionDecl(c);
 
@@ -130,13 +184,20 @@ final class TUVisitor : Visitor {
         }
     }
 
-    @trusted void getFunctionDecl(Cursor c){
+    @trusted void getFunctionDecl(Cursor c) {
         import clang.c.Index;
+
         function_name = c.tokens[1].spelling;
 
         foreach (child; c.children) {
             if (child.kind == CXCursorKind.parmDecl) {
-                function_params = function_params ~ child.tokens[0].spelling;
+                string tmp = "";
+                if (child.tokens[1].spelling == "*") {
+                    tmp = child.tokens[0].spelling ~ "*";
+                } else {
+                    tmp = child.tokens[0].spelling;
+                }
+                function_params = function_params ~ tmp;
             }
         }
     }
