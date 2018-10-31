@@ -393,7 +393,7 @@ struct TestCaseOverlapStat {
     long[][Murmur3] mutid_mut;
     string[TestCaseId] name_tc;
 
-    string sumToString() {
+    string sumToString() @safe const {
         return format("%s/%s = %s test cases", overlap, total, ratio);
     }
 
