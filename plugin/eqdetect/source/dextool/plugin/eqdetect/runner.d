@@ -67,7 +67,8 @@ ExitStatusType runPlugin(string[] args) {
             logger.info("Could not analyze file: " ~ m.path);
 
         } else {
-            import dextool.plugin.eqdetect.backend: handleMutation;
+            import dextool.plugin.eqdetect.backend : handleMutation;
+
             handleMutation(visitor, m);
 
             // separate the output

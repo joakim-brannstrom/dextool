@@ -19,7 +19,6 @@ import std.format : format;
 import dextool.plugin.eqdetect.backend.type : Mutation;
 import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
 
-
 private SDatabase sdb;
 
 void initDB(string filepath) {
@@ -53,8 +52,8 @@ Mutation[] getMutations() {
 }
 
 private Mutation getMutationPoint(Mutation mutation, string mp_id) {
-    auto stmt = sdb.db.prepare(format("SELECT file_id, offset_begin, offset_end FROM mutation_point WHERE id='%s';",
-            mp_id));
+    auto stmt = sdb.db.prepare(format(
+            "SELECT file_id, offset_begin, offset_end FROM mutation_point WHERE id='%s';", mp_id));
     auto res = stmt.execute;
 
     mutation = getFilePath(mutation, res.front.peek!string(0));
