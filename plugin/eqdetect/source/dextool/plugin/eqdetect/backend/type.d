@@ -10,17 +10,17 @@ one at http://mozilla.org/MPL/2.0/.
 
 module dextool.plugin.eqdetect.backend.type;
 
+
 struct ErrorResult {
     char[][] inputdata;
     char[] status;
 }
 
-import dextool.plugin.mutate.backend.type : Language;
+import dextool.plugin.mutate.backend.type : Language, Offset;
 
 struct Mutation {
     string path;
-    int offset_begin;
-    int offset_end;
+    Offset offset;
     int kind;
     Language lang;
     int id;

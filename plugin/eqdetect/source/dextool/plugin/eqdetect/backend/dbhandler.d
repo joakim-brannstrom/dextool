@@ -57,8 +57,8 @@ private Mutation getMutationPoint(Mutation mutation, string mp_id) {
     auto res = stmt.execute;
 
     mutation = getFilePath(mutation, res.front.peek!string(0));
-    mutation.offset_begin = res.front.peek!int(1);
-    mutation.offset_end = res.front.peek!int(2);
+    mutation.offset.begin = res.front.peek!int(1);
+    mutation.offset.end = res.front.peek!int(2);
 
     return mutation;
 }

@@ -15,9 +15,9 @@ the result before marking the mutation in the database.
 module dextool.plugin.eqdetect.backend.mutation_handler;
 
 import dextool.plugin.eqdetect.backend.visitor : TUVisitor;
-import dextool.plugin.eqdetect.backend.type : Mutation;
+import dextool.plugin.eqdetect.backend.type : Mutation, ErrorResult;
 import logger = std.experimental.logger;
-import dextool.plugin.eqdetect.backend.type : ErrorResult;
+import dextool.plugin.mutate.backend.type : Offset;
 
 void handleMutation(TUVisitor visitor, Mutation mutation) {
     // create file for sourcecode, the mutant and code prepared for KLEE
@@ -31,42 +31,37 @@ void handleMutation(TUVisitor visitor, Mutation mutation) {
     markMutation(errorResult, mutation);
 }
 
+Offset updateMutationOffset(TUVisitor visitor, Offset offset, int i){
+    if (offset.begin > visitor.offsets[i].begin
+            && offset.end > visitor.offsets[i].end) {
+        offset.begin += 2;
+        offset.end += 2;
+    } else if (offset.begin <= visitor.offsets[i].begin
+            && offset.end >= visitor.offsets[i].end) {
+        offset.end += 2;
+    }
+    return offset;
+}
+
 void mutationEnhancer(TUVisitor visitor, Mutation mutation) {
-    import std.stdio;
-
     import std.algorithm;
-
-    visitor.offsets.sort!("a[0] > b[0]");
+    import std.stdio;
+    visitor.offsets.sort!("a.begin > b.begin");
     string text = visitor.generatedSource.render;
     for (int i = 0; i < visitor.offsets.length; i++) {
         text = nameReplacer(text, visitor.offsets[i]);
-        if (mutation.offset_begin > visitor.offsets[i][0]
-                && mutation.offset_end > visitor.offsets[i][1]) {
-            mutation.offset_begin += 2;
-            mutation.offset_end += 2;
-        } else if (mutation.offset_begin <= visitor.offsets[i][0]
-                && mutation.offset_end >= visitor.offsets[i][1]) {
-            mutation.offset_end += 2;
-        }
+        mutation.offset = updateMutationOffset(visitor, mutation.offset, i);
     }
 
-    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-    import dextool.plugin.mutate.backend.type : Offset,
-        mutationStruct = Mutation;
+    import dextool.plugin.eqdetect.backend.codegenerator : SnippetFinder;
 
-    auto mut = makeMutation(cast(mutationStruct.Kind) mutation.kind, mutation.lang);
-    auto temp = mut.top() ~ text[0 .. mutation.offset_begin];
-    temp = temp ~ mut.mutate(text[mutation.offset_begin .. mutation.offset_end]);
-    temp = temp ~ text[mutation.offset_end .. $];
-    writeln(temp);
-    visitor.generatedMutation.text(temp);
+    visitor.generatedMutation.text(SnippetFinder.generateMut(text, mutation));
 }
 
-import dextool.plugin.mutate.backend.type : Offset;
 import std.typecons : Tuple;
 
-string nameReplacer(string text, Tuple!(uint, uint) offset) {
-    text = text[0 .. offset[0]] ~ "m_" ~ text[offset[0] .. $];
+string nameReplacer(string text, Offset offset) {
+    text = text[0 .. offset.begin] ~ "m_" ~ text[offset.begin .. $];
     return text;
 }
 

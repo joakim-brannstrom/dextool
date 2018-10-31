@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 This module contains the functionality for extracting snippets of code from a given cursor
 and returns a validated UTF8 string of the extracted code. It also returns the mutated
 version of the code extracted.
-*/
+TODO: rename SnippetFinder*/
 
 module dextool.plugin.eqdetect.backend.codegenerator;
 
@@ -23,30 +23,29 @@ import std.typecons : Tuple;
 class SnippetFinder {
     import clang.Cursor;
 
-    static string[] generate(Cursor cursor, Mutation mutation) {
+    static string generateSource(Cursor cursor, Mutation mutation) {
         import std.stdio : File;
         import std.file : getSize;
 
         auto file = File(cursor.extent.path, "r");
         auto buffer = file.rawRead(new char[getSize(cursor.extent.path)]);
-        auto mutation_buffer = generateMut(buffer, mutation);
 
         import std.utf : validate, toUTF8;
 
         validate(buffer);
-        validate(mutation_buffer);
-        return [toUTF8(buffer), toUTF8(mutation_buffer)];
+
+        return toUTF8(buffer);
     }
 
-    static auto generateMut(char[] content, Mutation mutation) {
+    static auto generateMut(string content, Mutation mutation) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
         import dextool.plugin.mutate.backend.type : Offset,
             mutationStruct = Mutation;
 
         auto mut = makeMutation(cast(mutationStruct.Kind) mutation.kind, mutation.lang);
-        auto temp = mut.top() ~ content[0 .. mutation.offset_begin];
-        temp = temp ~ mut.mutate(content[mutation.offset_begin .. mutation.offset_end]);
-        temp = temp ~ content[mutation.offset_end .. content.length];
+        auto temp = mut.top() ~ content[0 .. mutation.offset.begin];
+        temp = temp ~ mut.mutate(content[mutation.offset.begin .. mutation.offset.end]);
+        temp = temp ~ content[mutation.offset.end .. content.length];
         return temp;
     }
 

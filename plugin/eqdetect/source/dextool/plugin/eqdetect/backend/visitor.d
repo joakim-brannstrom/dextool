@@ -21,6 +21,7 @@ module dextool.plugin.eqdetect.backend.visitor;
 
 import clang.Cursor;
 import cpptooling.analyzer.clang.ast : Visitor;
+import dextool.plugin.mutate.backend.type : Offset;
 
 @safe:
 
@@ -33,15 +34,13 @@ final class TUVisitor : Visitor {
     mixin generateIndentIncrDecr;
     CModule generatedSource;
     CModule generatedMutation;
-    int offset;
-    int offset_end;
     bool generated = false;
     string function_name;
     string[] function_params;
 
     import std.typecons : Tuple;
 
-    Tuple!(uint, uint)[] offsets;
+    Offset[] offsets;
 
     import dextool.plugin.eqdetect.backend : Mutation;
 
@@ -51,8 +50,6 @@ final class TUVisitor : Visitor {
         this.generatedSource = new CModule();
         this.generatedMutation = new CModule();
         this.mutation = m;
-        this.offset = m.offset_begin;
-        this.offset_end = m.offset_end;
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -138,10 +135,6 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    bool mutationInInterval(Cursor c) {
-        return ((c.extent.end.offset >= offset) && (c.extent.start.offset <= offset));
-    }
-
     //TODO: Fix ugly implementation, doesn't work in all cases (ex. int i = 0)
     void saveOffsets(Cursor c) {
         import std.path : buildNormalizedPath;
@@ -149,7 +142,7 @@ final class TUVisitor : Visitor {
 
         if (buildNormalizedPath(getcwd(), mutation.path) == c.definition.location.path
                 && buildNormalizedPath(getcwd(), mutation.path) == c.extent.path) {
-            Tuple!(uint, uint) offset;
+            Offset offset;
             import std.stdio : File, writeln;
             import std.file : getSize;
             import std.string : indexOf;
@@ -158,8 +151,8 @@ final class TUVisitor : Visitor {
             auto buffer = file.rawRead(new char[getSize(c.extent.path)]);
             buffer = buffer[c.extent.start.offset .. c.extent.end.offset];
             int name_offset = cast(int) indexOf(buffer, c.spelling);
-            offset[0] = c.extent.start.offset + name_offset;
-            offset[1] = c.extent.end.offset - (
+            offset.begin = c.extent.start.offset + name_offset;
+            offset.end = c.extent.end.offset - (
                     c.extent.end.offset - c.extent.start.offset - cast(
                     uint) c.spelling.length - name_offset);
 
@@ -174,9 +167,9 @@ final class TUVisitor : Visitor {
                 && baseName(mutation.path) == baseName(c.extent.path)) {
             import dextool.plugin.eqdetect.backend : SnippetFinder;
 
-            auto s = SnippetFinder.generate(c, this.mutation);
+            auto s = SnippetFinder.generateSource(c, this.mutation);
 
-            this.generatedSource.text(s[0]);
+            this.generatedSource.text(s);
 
             getFunctionDecl(c);
 
