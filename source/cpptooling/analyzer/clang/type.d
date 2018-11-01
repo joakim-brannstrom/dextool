@@ -193,7 +193,7 @@ private BacktrackLocation backtrackLocation(ref const(Cursor) c) @safe {
             break;
         }
 
-        parent = () @trusted{ return parent.lexicalParent; }();
+        parent = () @trusted { return parent.lexicalParent; }();
     }
 
     return rval;
@@ -224,7 +224,7 @@ private void putBacktrackLocation(Writer)(scope Writer app, ref const(Cursor) c,
     put(app, marker);
     put(app, back_loc.backtracked.to!string);
     if (c.isValid) {
-        put(app, () @trusted{ return c.spelling; }());
+        put(app, () @trusted { return c.spelling; }());
     }
 }
 
@@ -785,7 +785,8 @@ body {
  * The fall back strategy is in that case to represent the type textually as a Simple.
  * The TypeKind->typeRef then references this simple type.
  */
-private Nullable!TypeResults typeToFallBackTypeDef(ref const(Cursor) c, ref Type type, in uint this_indent)
+private Nullable!TypeResults typeToFallBackTypeDef(ref const(Cursor) c,
+        ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -859,8 +860,8 @@ private bool isFuncProtoTypedef(ref const(Cursor) c) {
     return result_t.isValid;
 }
 
-private Nullable!TypeResults typeToTypedef(ref const(Cursor) c, ref Type type, USRType typeRef,
-        USRType canonicalRef, ref const(Container) container, in uint this_indent)
+private Nullable!TypeResults typeToTypedef(ref const(Cursor) c, ref Type type,
+        USRType typeRef, USRType canonicalRef, ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -1136,8 +1137,8 @@ body {
     return typeof(return)(rval);
 }
 
-private Nullable!TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
-        ref Type type, ref const(Container) container, in uint this_indent)
+private Nullable!TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(
+        ref const(Cursor) c, ref Type type, ref const(Container) container, in uint this_indent)
         if (is(InfoT == TypeKind.FuncInfo) || is(InfoT == TypeKind.FuncSignatureInfo))
 in {
     logNode(c, this_indent);
