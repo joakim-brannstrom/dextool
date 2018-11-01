@@ -187,9 +187,12 @@ HtmlNode linesAsTable(HtmlNode n, string s) @safe {
 }
 
 /// Create a href link.
-HtmlNode aHref(T)(T link, string desc) {
+HtmlNode aHref(T)(T link, string desc, string anchor = null) {
     auto n = new HtmlNode;
-    n.put(format(`<a href="%s">%s</a>`, link, desc.encode));
+    if (anchor.length == 0)
+        n.put(format(`<a href="%s">%s</a>`, link, desc.encode));
+    else
+        n.put(format(`<a href="%s#%s">%s</a>`, link, desc.encode, anchor));
     return n;
 }
 

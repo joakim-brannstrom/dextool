@@ -14,7 +14,7 @@ import std.typecons : Nullable;
 
 import dextool.plugin.mutate.type;
 import dextool.type : AbsolutePath, Path;
-public import dextool.plugin.mutate.backend : Mutation;
+public import dextool.plugin.mutate.backend : Mutation, TestGroup;
 
 /// The mode the tool is operating in
 enum ToolMode {
@@ -48,6 +48,9 @@ struct ConfigReport {
     /// Controls how to sort test cases by their kill statistics.
     ReportKillSortOrder tcKillSortOrder;
     int tcKillSortNum = 20;
+
+    /// User regex for reporting groups of tests
+    TestGroup[] testGroups;
 }
 
 /// Configuration data for the compile_commands.json

@@ -25,3 +25,6 @@ detected_dropped_test_case = "remove"
 
 [report]
 style = "plain"
+
+[test_group]
+groups = ["g1.*", "g2.*"]

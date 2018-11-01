@@ -193,6 +193,38 @@ struct Database {
         return rval;
     }
 
+    Nullable!Path getPath(MutationId id) @trusted {
+        enum get_path_sql = format("SELECT t2.path
+            FROM
+            %s t0, %s t1, %s t2
+            WHERE
+            t0.id = :id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t2.id
+            ", mutationTable, mutationPointTable, filesTable);
+
+        auto stmt = db.prepare(get_path_sql);
+        stmt.bind(":id", cast(long) id);
+        auto res = stmt.execute;
+
+        typeof(return) rval;
+        if (!res.empty)
+            rval = Path(res.front.peek!string(0));
+        return rval;
+    }
+
+    MutationId[] getMutationIds(const(MutationStatusId)[] id) @trusted {
+        auto get_mutid_sql = format("SELECT id FROM %s t0 WHERE t0.st_id IN (%(%s,%))",
+                mutationTable, id.map!(a => cast(long) a));
+        auto stmt = db.prepare(get_mutid_sql);
+
+        auto app = appender!(MutationId[])();
+        foreach (res; stmt.execute)
+            app.put(MutationId(res.peek!long(0)));
+
+        return app.data;
+    }
+
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
@@ -281,6 +313,80 @@ struct Database {
             rval = MutationReportEntry(res.front.peek!long(0),
                     res.front.peek!long(1).dur!"msecs");
         return rval;
+    }
+
+    /// Returns: mutants killed by the test case.
+    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, TestCase tc) @trusted {
+        const query = format("
+            SELECT t1.id
+            FROM %s t0, %s t1, %s t2, %s t3
+            WHERE
+            t0.st_id = t1.id AND
+            t1.status = :st AND
+            t0.kind IN (%(%s,%)) AND
+            t2.name = :name AND
+            t2.id = t3.tc_id AND
+            t3.st_id = t1.id
+            GROUP BY t1.id", mutationTable, mutationStatusTable,
+                allTestCaseTable, killedTestCaseTable, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(query);
+        stmt.bind(":st", cast(long) Mutation.Status.killed);
+        stmt.bind(":name", tc.name);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (res; stmt.execute)
+            app.put(MutationStatusId(res.peek!long(0)));
+
+        return app.data;
+    }
+
+    /// Returns: mutants at mutations points that the test case has killed mutants at.
+    alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([Mutation.Status.alive]);
+    /// ditto
+    alias testCaseMutationPointTimeoutSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.timeout]);
+    /// ditto
+    alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([Mutation.Status.killed]);
+    /// ditto
+    alias testCaseMutationPointUnknownSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.unknown]);
+    /// ditto
+    alias testCaseMutationPointKilledByCompilerSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.killedByCompiler]);
+    /// ditto
+    alias testCaseMutationPointTotalSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout]);
+
+    private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
+            const Mutation.Kind[] kinds, TestCase tc) @trusted {
+        const query = format("
+            SELECT t1.id
+            FROM %s t0, %s t1
+            WHERE
+            t0.mp_id IN (SELECT t1.id
+                      FROM %s t0,%s t1, %s t2, %s t3
+                      WHERE
+                      t0.mp_id = t1.id AND
+                      t2.name = :name AND
+                      t2.id = t3.tc_id AND
+                      t3.st_id = t0.st_id
+                      )
+            AND
+            t0.st_id = t1.id AND
+            t1.status IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%))
+            GROUP BY t1.id", mutationTable, mutationStatusTable, mutationTable, mutationPointTable,
+                allTestCaseTable, killedTestCaseTable, status, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(query);
+        stmt.bind(":name", tc.name);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (res; stmt.execute)
+            app.put(MutationStatusId(res.peek!long(0)));
+
+        return app.data;
     }
 
     void put(const Path p, Checksum cs, const Language lang) @trusted {
