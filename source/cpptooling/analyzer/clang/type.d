@@ -331,7 +331,7 @@ body {
     foreach (pass; only(&pass1, &pass2, &pass3)) {
         auto r = pass(c, indent + 1);
         if (!r.isNull) {
-            rval = TypeResults(r.get, null);
+            rval = typeof(return)(TypeResults(r.get, null));
             return rval;
         }
     }
@@ -785,7 +785,7 @@ body {
  * The fall back strategy is in that case to represent the type textually as a Simple.
  * The TypeKind->typeRef then references this simple type.
  */
-private TypeResults typeToFallBackTypeDef(ref const(Cursor) c, ref Type type, in uint this_indent)
+private Nullable!TypeResults typeToFallBackTypeDef(ref const(Cursor) c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -815,10 +815,10 @@ body {
 
     auto loc = makeLocation(c);
 
-    return TypeResults(TypeResult(rval, loc), null);
+    return typeof(return)(TypeResults(TypeResult(rval, loc), null));
 }
 
-private TypeResults typeToSimple(ref const(Cursor) c, ref Type type, in uint this_indent)
+private Nullable!TypeResults typeToSimple(ref const(Cursor) c, ref Type type, in uint this_indent)
 in {
     logNode(c, this_indent);
     logType(type, this_indent);
@@ -849,7 +849,7 @@ body {
         loc = LocationTag(null);
     }
 
-    return TypeResults(TypeResult(rval, loc), null);
+    return typeof(return)(TypeResults(TypeResult(rval, loc), null));
 }
 
 /// A function proto signature?
@@ -859,7 +859,7 @@ private bool isFuncProtoTypedef(ref const(Cursor) c) {
     return result_t.isValid;
 }
 
-private TypeResults typeToTypedef(ref const(Cursor) c, ref Type type, USRType typeRef,
+private Nullable!TypeResults typeToTypedef(ref const(Cursor) c, ref Type type, USRType typeRef,
         USRType canonicalRef, ref const(Container) container, in uint this_indent)
 in {
     logNode(c, this_indent);
@@ -924,12 +924,12 @@ body {
 
     rval.primary.location = makeLocation(c);
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 /** Make a Record from a declaration or definition.
  */
-private TypeResults typeToRecord(ref const(Cursor) c, ref Type type, in uint indent)
+private Nullable!TypeResults typeToRecord(ref const(Cursor) c, ref Type type, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -959,14 +959,14 @@ body {
         rval.kind.usr = makeFallbackUSR(c, indent + 1);
     }
 
-    return TypeResults(TypeResult(rval, loc), null);
+    return typeof(return)(TypeResults(TypeResult(rval, loc), null));
 }
 
 /** Represent a pointer type hierarchy.
  *
  * Returns: TypeResults.primary.attr is the pointed at attribute.
  */
-private TypeResults typeToPointer(ref const(Cursor) c, ref Type type,
+private Nullable!TypeResults typeToPointer(ref const(Cursor) c, ref Type type,
         ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1076,14 +1076,14 @@ body {
 
     rval.extra = [pointee.primary] ~ pointee.extra;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 /** Represent a function pointer type.
  *
  * Return: correct formatting and attributes for a function pointer.
  */
-private TypeResults typeToFuncPtr(ref const(Cursor) c, ref Type type,
+private Nullable!TypeResults typeToFuncPtr(ref const(Cursor) c, ref Type type,
         ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1133,10 +1133,10 @@ body {
 
     rval.extra = [pointee.primary] ~ pointee.extra;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
-private TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
+private Nullable!TypeResults typeToFuncProto(InfoT = TypeKind.FuncInfo)(ref const(Cursor) c,
         ref Type type, ref const(Container) container, in uint this_indent)
         if (is(InfoT == TypeKind.FuncInfo) || is(InfoT == TypeKind.FuncSignatureInfo))
 in {
@@ -1228,10 +1228,10 @@ body {
     rval.extra ~= return_rval.primary;
     rval.extra ~= return_rval.extra;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
-private TypeResults typeToCtor(ref const(Cursor) c, ref Type type,
+private Nullable!TypeResults typeToCtor(ref const(Cursor) c, ref Type type,
         ref const(Container) container, in uint indent)
 in {
     logNode(c, indent);
@@ -1264,10 +1264,10 @@ body {
     rval.primary = primary;
     rval.extra ~= params.params.map!(a => a.result).array() ~ params.extra;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
-private TypeResults typeToDtor(ref const(Cursor) c, ref Type type, in uint indent)
+private Nullable!TypeResults typeToDtor(ref const(Cursor) c, ref Type type, in uint indent)
 in {
     logNode(c, indent);
     logType(type, indent);
@@ -1289,7 +1289,7 @@ body {
     rval.primary.location = makeLocation(c);
     rval.primary.type = primary;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 //TODO change the array to an appender, less GC pressure
@@ -1336,7 +1336,7 @@ body {
 }
 
 /// TODO this function is horrible. Refactor
-private TypeResults typeToArray(ref const(Cursor) c, ref Type type,
+private Nullable!TypeResults typeToArray(ref const(Cursor) c, ref Type type,
         ref const(Container) container, const uint this_indent)
 in {
     logNode(c, this_indent);
@@ -1450,7 +1450,7 @@ body {
     rval.primary.type.kind.info = info;
     rval.extra ~= [element.primary] ~ element.extra;
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 /** Retrieve the type of an instance declaration.
@@ -1895,7 +1895,7 @@ body {
  *
  * TODO Unable to instansiate.
  */
-private TypeResults retrieveClassTemplate(ref const(Cursor) c,
+private Nullable!TypeResults retrieveClassTemplate(ref const(Cursor) c,
         ref const(Container) container, in uint indent)
 in {
     import std.algorithm : among;
@@ -1913,7 +1913,7 @@ body {
     rval.primary.type.kind.usr = c.usr;
     rval.primary.location = makeLocation(c);
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 private Nullable!TypeResults retrieveClassBaseSpecifier(ref const(Cursor) c,
@@ -1940,10 +1940,10 @@ body {
     }
 
     // no definition exist. e.g in the cases of a template instantiation.
-    bool reconstructFromCursor(ref Nullable!TypeResults rval) {
+    bool reconstructFromCursor(ref Nullable!TypeResults rval_) {
         logger.trace("", this_indent);
 
-        rval = TypeResults();
+        TypeResults rval;
 
         auto type = c.type;
         rval.primary.type = makeTypeKindAttr(type, c);
@@ -1951,6 +1951,8 @@ body {
         rval.primary.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(c.spelling)));
         rval.primary.type.kind.usr = makeEnsuredUSR(c, indent);
         rval.primary.location = makeLocation(c);
+
+        rval_ = Nullable!TypeResults(rval);
 
         return true;
     }
@@ -1963,7 +1965,7 @@ body {
         }
     }
 
-    return rval;
+    return typeof(return)(rval);
 }
 
 /** Extract the type of a parameter cursor.
