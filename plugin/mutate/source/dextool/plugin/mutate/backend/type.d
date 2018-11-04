@@ -272,3 +272,33 @@ enum Language {
     ///
     c
 }
+
+/// Test Group criterias.
+struct TestGroup {
+    import std.regex : Regex, regex;
+
+    /// What the user configured. Useful when e.g. generating reports for a
+    /// user.
+    string userInput;
+    /// The compiled regex.
+    Regex!char re;
+
+    this(string r) {
+        userInput = r;
+        re = regex(r);
+    }
+
+    string toString() @safe pure const {
+        import std.format : format;
+
+        return format("TestGroup(%s)", userInput);
+    }
+
+    import std.range : isOutputRange;
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "TestGroup(%s)", userInput);
+    }
+}

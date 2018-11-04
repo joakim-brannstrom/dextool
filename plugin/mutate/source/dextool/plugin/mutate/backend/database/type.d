@@ -23,10 +23,14 @@ enum Pkeys {
     mutationId,
     fileId,
     testCaseId,
+    mutationStatusId,
 }
 
 /// Primary key in the mutation table
 alias MutationId = Pkey!(Pkeys.mutationId);
+
+/// Primary key for mutation status
+alias MutationStatusId = Pkey!(Pkeys.mutationStatusId);
 
 /// Primary key in the files table
 alias FileId = Pkey!(Pkeys.fileId);

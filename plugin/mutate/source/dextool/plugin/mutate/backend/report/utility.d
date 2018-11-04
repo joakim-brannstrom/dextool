@@ -17,7 +17,7 @@ import dextool.plugin.mutate.backend.database : Database, spinSqlQuery,
     MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
-    Language;
+    Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
@@ -294,6 +294,7 @@ struct MutationStat {
     import core.time : Duration;
     import std.range : isOutputRange;
 
+    // TODO: use MutationScore instead
     long alive;
     long killed;
     long timeout;
@@ -304,6 +305,12 @@ struct MutationStat {
     Duration totalTime;
     Duration killedByCompilerTime;
     Duration predictedDone;
+
+    double score() @safe pure nothrow const @nogc {
+        if (total > 0)
+            return cast(double)(killed + timeout) / cast(double) total;
+        return 1.0;
+    }
 
     string toString() @safe const {
         import std.array : appender;
@@ -340,11 +347,7 @@ struct MutationStat {
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
-        if (total > 0)
-            formattedWrite(w, "%-*s %s\n", align_, "Score:",
-                    cast(double) killed / cast(double) total);
-        else
-            formattedWrite(w, "%-*s %s\n", align_, "Score:", 1.0);
+        formattedWrite(w, "%-*s %s\n", align_, "Score:", score);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
     }
 }
@@ -475,6 +478,7 @@ template toTable(Flag!"colWithMutants" colMutants) {
     }
 }
 
+/// Test cases that kill exactly the same mutants.
 TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
     import std.algorithm : sort, map, filter, count;
     import std.array : array;
@@ -504,6 +508,93 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
         st.ratio = cast(double) st.overlap / cast(double) st.total;
 
     return st;
+}
+
+struct TestGroupStats {
+    static struct Mutant {
+        MutationId id;
+        Path path;
+    }
+
+    /// Statistics for a test group.
+    MutationStat[string] stats;
+    /// Map between test cases and their test group.
+    TestCase[][string] testCases_group;
+    /// Mutation ID's that are alive in a test group
+    Mutant[][string] aliveMutants;
+}
+
+TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup)[] tgs) @safe {
+    import std.algorithm : filter;
+    import std.typecons : tuple;
+    import std.array : appender;
+    import dextool.plugin.mutate.backend.database : MutationStatusId;
+    import dextool.set;
+
+    static struct TcStat {
+        Set!MutationStatusId alive;
+        Set!MutationStatusId killed;
+        Set!MutationStatusId timeout;
+        Set!MutationStatusId total;
+    }
+
+    TestGroupStats r;
+    TcStat[string] tcg_stat;
+
+    foreach (a; tgs) {
+        r.stats[a.userInput] = MutationStat.init;
+        tcg_stat[a.userInput] = TcStat.init;
+    }
+
+    // map test cases to their group
+    foreach (tc; db.getDetectedTestCases) {
+        foreach (ref g; tgs) {
+            import std.regex : matchFirst;
+
+            auto m = matchFirst(tc.name, g.re);
+            // the regex must match the full test case thus checking that
+            // nothing is left before or after
+            if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
+                r.testCases_group[g.userInput] ~= tc;
+            }
+        }
+    }
+
+    // collect mutation statistics for each test case group
+    foreach (ref const tcg; r.testCases_group.byKeyValue) {
+        foreach (const tc; tcg.value) {
+            auto v = tcg.key in tcg_stat;
+            foreach (const id; db.testCaseMutationPointAliveSrcMutants(kinds, tc))
+                v.alive.add(id);
+            foreach (const id; db.testCaseMutationPointKilledSrcMutants(kinds, tc))
+                v.killed.add(id);
+            foreach (const id; db.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
+                v.timeout.add(id);
+            foreach (const id; db.testCaseMutationPointTotalSrcMutants(kinds, tc))
+                v.total.add(id);
+        }
+    }
+
+    // store the alive mutants
+    foreach (ref const tcg; tcg_stat.byKeyValue) {
+        auto ids = db.getMutationIds(tcg.value.alive.setToList!MutationStatusId);
+        auto app = appender!(TestGroupStats.Mutant[])();
+        foreach (id; db.getMutationIds(tcg.value.alive.setToList!MutationStatusId)) {
+            app.put(TestGroupStats.Mutant(id, db.getPath(id)));
+        }
+        r.aliveMutants[tcg.key] = app.data;
+    }
+
+    // update the mutation stat for the test case group
+    foreach (ref tcg; r.stats.byKeyValue) {
+        auto v = tcg.key in tcg_stat;
+        tcg.value.alive = v.alive.length;
+        tcg.value.killed = v.killed.length;
+        tcg.value.timeout = v.timeout.length;
+        tcg.value.total = v.total.length;
+    }
+
+    return r;
 }
 
 struct Table(int columnsNr) {

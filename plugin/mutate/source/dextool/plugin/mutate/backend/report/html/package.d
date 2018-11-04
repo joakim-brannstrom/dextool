@@ -23,6 +23,7 @@ import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc;
 import dextool.plugin.mutate.config : ConfigReport;
 
+import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.nodes;
 import dextool.plugin.mutate.backend.report.html.tmpl;
@@ -46,10 +47,6 @@ struct FileIndex {
     import std.xml : encode;
     import dextool.set;
 
-    immutable htmlExt = ".html";
-    immutable htmlDir = "html";
-    immutable htmlFileDir = "files";
-
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
 
@@ -58,8 +55,10 @@ struct FileIndex {
     /// Reports for each file
     const AbsolutePath logFilesDir;
 
+    /// What the user configured.
     MutationKind[] humanReadableKinds;
     Set!ReportSection sections;
+
     FilesysIO fio;
 
     // all files that have been produced.
@@ -90,12 +89,11 @@ struct FileIndex {
     }
 
     override FileReport getFileReportEvent(ref Database db, const ref FileRow fr) {
-        import std.algorithm : joiner;
-        import std.path : pathSplitter, buildPath;
+        import std.path : buildPath;
         import std.stdio : File;
-        import std.utf : toUTF8;
+        import dextool.plugin.mutate.backend.report.html.page_files;
 
-        const original = fr.file.dup.pathSplitter.joiner("_").toUTF8;
+        const original = fr.file.dup.pathToHtml;
         const report = (original ~ htmlExt).Path;
         files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file)
                 .count, db.killedSrcMutants(kinds, fr.file).count,
@@ -219,7 +217,7 @@ struct FileIndex {
         files.data.toIndex(indexh, htmlFileDir);
 
         auto stats = File(stats_f, "w");
-        stats.write(makeStats(db, humanReadableKinds, kinds));
+        stats.write(makeStats(db, conf, humanReadableKinds, kinds));
 
         auto index = File(buildPath(logDir, "index" ~ htmlExt), "w");
         index.write(indexh);

@@ -342,3 +342,54 @@ None of these assumptions are verified.
 This is based on the idea that a developer is more interested in the actual changes in the source code. The developer is less interested in the "academically" correct way of calculating mutations.
 
 A side effect of this is that a problem that can occur is that when combining multiple mutation operators it can result in duplications of source code changes. By doing it this way, on the source code changes, the score should be more "stable" and "truer".
+
+# REQ-report_test_group
+partof: REQ-report
+###
+
+The plugin shall construct a *test case group* from a regex when reading the configuration file.
+
+The plugin shall report the *group mutation score* when reporting.
+
+TODO: improve the requirements. They are too few and badly written.
+What they try to say is that the user specify a regex in the configuration file.
+One regex == one test case group.
+A test case is part of a group if it matches the regex. Simple!
+Then this is reported to the user.
+
+## Rationale
+
+The user have a high level requirement that they want to get a quality metric
+for how well it is tested in the software. This could e.g. be a use case. Lets
+call it an use case henceforth.
+
+During the implementation of this use case a bunch of test cases have been
+implemented. These test cases have, obviously, been implemented with the
+intention to verify the implementation.
+
+It can thus be reasoned that this *group* of test cases collectively try to
+verify the implementation of the use case.
+
+Assume that if a test case in this *group* kill a mutant at a mutation point
+that this mutation point is part of the use case. In other words if a test case
+verify **an** aspect at a mutation point it is assumed that the whole mutation
+point represent behavior that is part of the use case. Thus the test case group
+should verify **all** aspects at this mutation point.
+
+**Definition**: Owned Mutation Point. A mutation point that has one or more
+mutants that where killed by a group test case.
+
+**Definition**: Test Case Group. Test cases that collectively verify the
+implementation of a use case.
+
+**Definition**: Group Kill. Mutants that has been killed by a test case that is part of a *test case group*.
+
+The Group Mutation Score is calculated as:
+
+(Group Kill) / (Total mutants in all Owned Mutation Points).
+
+This assumption, of course, is not always true. This is obvious if one consider
+mutation points that multiple use cases affect. But if the assumption is true
+most of the time it can be further reasoned that there is a correlation between
+this *group mutation score* and the *test quality* of the test suite in
+relation to the use case.

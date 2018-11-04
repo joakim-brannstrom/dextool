@@ -91,11 +91,11 @@ struct ArgParser {
         app.put("[workarea]");
         app.put("# path used as the root for accessing files");
         app.put(
-                "# dextool will not modify files that escape this root when it perform mutation testing");
-        app.put("# root =");
+                "# dextool will not modify files with a path outside the root when it perform mutation testing");
+        app.put(`# root = "."`);
         app.put("# restrict analysis to files in this directory tree");
         app.put("# this make it possible to only mutate certain parts of an application");
-        app.put("# it must be inside the root");
+        app.put("# use relative paths that are inside the root");
         app.put("# restrict = []");
         app.put(null);
 
@@ -148,6 +148,12 @@ struct ArgParser {
         app.put("[report]");
         app.put("# default style to use");
         app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
+        app.put(null);
+
+        app.put("[test_group]");
+        app.put("# an array of regex. each regex is a group");
+        app.put(`# see for regex syntax: http://dlang.org/phobos/std_regex.html`);
+        app.put(`# groups = ["g1.*", "g2.*"]`);
         app.put(null);
 
         return app.data.joiner(newline).toUTF8;
@@ -563,12 +569,20 @@ void loadConfig(ref ArgParser rval) @trusted {
             logger.error(e.msg).collectException;
         }
     };
+    callbacks["test_group.groups"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.report.testGroups = v.array.map!(a => TestGroup(a.str)).array;
+        } catch (Exception e) {
+            logger.info(v).collectException;
+            logger.error(e.msg).collectException;
+        }
+    };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
             // specific configuration from section members
             foreach (k, v; *section) {
-                if (auto cb = sectionName ~ "." ~ k in callbacks)
+                if (auto cb = (sectionName ~ "." ~ k) in callbacks)
                     (*cb)(c, v);
                 else
                     logger.infof("Unknown key '%s' in configuration section '%s'", k, sectionName);
@@ -582,6 +596,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     iterSection(rval, "compile_commands");
     iterSection(rval, "mutant_test");
     iterSection(rval, "report");
+    iterSection(rval, "test_group");
 }
 
 /// Minimal config to setup path to config file.
