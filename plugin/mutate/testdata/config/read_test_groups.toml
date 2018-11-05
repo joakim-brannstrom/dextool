@@ -1,0 +1,10 @@
+[test_group]
+[test_group.uc1]
+description = "Parameterized Tests"
+pattern = "Value.*|TypeTrait.*|Typed.*"
+[test_group.uc2]
+description = "Test Report"
+pattern = "TestResult.*|TestPartResult.*|TestInfo.*"
+[test_group.uc3]
+description = "Resetting Mocks"
+pattern = "VerifyAndClear.*"

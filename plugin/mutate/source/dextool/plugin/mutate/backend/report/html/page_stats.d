@@ -174,9 +174,13 @@ void testGroups(const TestGroupStats tgs, HtmlNode n) {
 
     foreach (tg; tgs.stats.byKeyValue.array.sort!((a, b) => a.key < b.key).enumerate) {
         auto r = tbl.newRow;
-        foreach (v; [tg.value.key.encode, tg.value.value.score.to!string,
-                tg.value.value.alive.to!string, tg.value.value.total.to!string])
+
+        r.td.put(tgs.description[tg.value.key].encode).putAttr("class", tableRowDarkStyle);
+        foreach (v; [tg.value.value.score.to!string,
+                tg.value.value.alive.to!string, tg.value.value.total.to!string]) {
             r.td.put(v).putAttr("class", tableRowDarkStyle);
+        }
+
         r.td.put(format("%(%s %)",
                 tgs.aliveMutants[tg.value.key].map!(a => aHref(buildPath(htmlFileDir,
                 pathToHtmlLink(a.path)), a.id.to!string, a.id.to!string)))).putAttr("class",

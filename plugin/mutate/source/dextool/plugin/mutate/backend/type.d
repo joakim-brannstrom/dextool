@@ -277,13 +277,18 @@ enum Language {
 struct TestGroup {
     import std.regex : Regex, regex;
 
-    /// What the user configured. Useful when e.g. generating reports for a
-    /// user.
+    string description;
+    string name;
+
+    /// What the user configured as regex. Useful when e.g. generating reports
+    /// for a user.
     string userInput;
     /// The compiled regex.
     Regex!char re;
 
-    this(string r) {
+    this(string name, string desc, string r) {
+        this.name = name;
+        description = desc;
         userInput = r;
         re = regex(r);
     }
@@ -291,7 +296,7 @@ struct TestGroup {
     string toString() @safe pure const {
         import std.format : format;
 
-        return format("TestGroup(%s)", userInput);
+        return format("TestGroup(%s, %s, %s)", name, description, userInput);
     }
 
     import std.range : isOutputRange;
@@ -299,6 +304,6 @@ struct TestGroup {
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         import std.format : formattedWrite;
 
-        formattedWrite(w, "TestGroup(%s)", userInput);
+        formattedWrite(w, "TestGroup(%s, %s, %s)", name, description, userInput);
     }
 }
