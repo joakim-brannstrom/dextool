@@ -18,6 +18,8 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.traits : EnumMembers;
 
+import toml : TOMLDocument;
+
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
@@ -151,9 +153,11 @@ struct ArgParser {
         app.put(null);
 
         app.put("[test_group]");
-        app.put("# an array of regex. each regex is a group");
+        app.put("# subgroups with a description and pattern. Example:");
+        app.put("# [test_group.uc1]");
+        app.put(`# description = "use case 1"`);
+        app.put(`# pattern = "uc_1.*"`);
         app.put(`# see for regex syntax: http://dlang.org/phobos/std_regex.html`);
-        app.put(`# groups = ["g1.*", "g2.*"]`);
         app.put(null);
 
         return app.data.joiner(newline).toUTF8;
@@ -569,14 +573,6 @@ void loadConfig(ref ArgParser rval) @trusted {
             logger.error(e.msg).collectException;
         }
     };
-    callbacks["test_group.groups"] = (ref ArgParser c, ref TOMLValue v) {
-        try {
-            c.report.testGroups = v.array.map!(a => TestGroup(a.str)).array;
-        } catch (Exception e) {
-            logger.info(v).collectException;
-            logger.error(e.msg).collectException;
-        }
-    };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
@@ -596,7 +592,28 @@ void loadConfig(ref ArgParser rval) @trusted {
     iterSection(rval, "compile_commands");
     iterSection(rval, "mutant_test");
     iterSection(rval, "report");
-    iterSection(rval, "test_group");
+
+    parseTestGroups(rval, doc);
+}
+
+void parseTestGroups(ref ArgParser c, ref TOMLDocument doc) @trusted {
+    import toml;
+
+    if ("test_group" !in doc)
+        return;
+
+    foreach (k, s; *("test_group" in doc)) {
+        if (s.type != TOML_TYPE.TABLE)
+            continue;
+
+        string desc;
+        if (auto v = "description" in s)
+            desc = v.str;
+        if (auto v = "pattern" in s) {
+            string re = v.str;
+            c.report.testGroups ~= TestGroup(k, desc, re);
+        }
+    }
 }
 
 /// Minimal config to setup path to config file.

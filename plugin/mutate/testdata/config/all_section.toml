@@ -27,4 +27,6 @@ detected_dropped_test_case = "remove"
 style = "plain"
 
 [test_group]
-groups = ["g1.*", "g2.*"]
+[test_group.uc1]
+description = "use case 1"
+pattern = "g1.*"

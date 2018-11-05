@@ -166,27 +166,53 @@ void testGroups(const TestGroupStats tgs, HtmlNode n) {
 
     n.n("h2".Tag).put("Test Groups");
 
-    auto tbl = HtmlTable.make;
-    n.put(tbl.root);
-    tbl.root.putAttr("class", "overlap_tbl");
-    foreach (h; ["Test Group", "Score", "Alive", "Total", "Alive Mutation IDs"])
-        tbl.putColumn(h).putAttr("class", tableColumnHdrStyle);
+    void renderTestGroup(string key) {
+        const stat = key in tgs.stats;
 
-    foreach (tg; tgs.stats.byKeyValue.array.sort!((a, b) => a.key < b.key).enumerate) {
-        auto r = tbl.newRow;
-        foreach (v; [tg.value.key.encode, tg.value.value.score.to!string,
-                tg.value.value.alive.to!string, tg.value.value.total.to!string])
-            r.td.put(v).putAttr("class", tableRowDarkStyle);
-        r.td.put(format("%(%s %)",
-                tgs.aliveMutants[tg.value.key].map!(a => aHref(buildPath(htmlFileDir,
-                pathToHtmlLink(a.path)), a.id.to!string, a.id.to!string)))).putAttr("class",
-                tableRowDarkStyle);
+        n.n("h3".Tag).put(tgs.description[key]);
 
-        if (auto tcs = tg.value.key in tgs.testCases_group) {
+        auto stat_tbl = HtmlTable.make;
+        n.put(stat_tbl.root);
+        stat_tbl.root.putAttr("class", "overlap_tbl");
+        foreach (const d; [tuple("Mutation Score", stat.score.to!string),
+                tuple("Alive", stat.alive.to!string), tuple("Total", stat.total.to!string)]) {
+            auto r = stat_tbl.newRow;
+            r.td.put(d[0]);
+            r.td.put(d[1]);
+        }
+
+        auto alive_ids = n.n("p".Tag);
+        alive_ids.put("Alive mutants: ");
+        foreach (a; tgs.aliveMutants[key]) {
+            alive_ids.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(a.path)),
+                    a.id.to!string, a.id.to!string));
+            alive_ids.put(" ");
+        }
+
+        if (auto files = key in tgs.files) {
+            n.n("p".Tag).put("The test group has killed mutants in these files.");
+            auto tc_tbl = HtmlTable.make;
+            n.put(tc_tbl.root);
+            tc_tbl.root.putAttr("class", "overlap_tbl");
+            tc_tbl.putColumn("Files").putAttr("class", tableColumnHdrStyle);
+            foreach (f; (*files).dup.sort) {
+                auto r = tc_tbl.newRow;
+                r.td.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(f)), f));
+            }
+        }
+
+        if (auto tcs = key in tgs.testCases_group) {
+            auto tc_tbl = HtmlTable.make;
+            n.put(tc_tbl.root);
+            tc_tbl.root.putAttr("class", "overlap_tbl");
+            tc_tbl.putColumn("Test Cases").putAttr("class", tableColumnHdrStyle);
             foreach (tc; *tcs) {
-                auto rtc = tbl.newRow;
-                rtc.td.put(tc.name);
+                auto r = tc_tbl.newRow;
+                r.td.put(tc.name);
             }
         }
     }
+
+    foreach (g; tgs.stats.byKey.array.sort)
+        renderTestGroup(g);
 }

@@ -522,10 +522,14 @@ struct TestGroupStats {
     TestCase[][string] testCases_group;
     /// Mutation ID's that are alive in a test group
     Mutant[][string] aliveMutants;
+    /// Description
+    string[string] description;
+    /// Files with mutants that this test group has killed
+    string[][string] files;
 }
 
 TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup)[] tgs) @safe {
-    import std.algorithm : filter;
+    import std.algorithm : filter, map;
     import std.typecons : tuple;
     import std.array : appender;
     import dextool.plugin.mutate.backend.database : MutationStatusId;
@@ -542,8 +546,9 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
     TcStat[string] tcg_stat;
 
     foreach (a; tgs) {
-        r.stats[a.userInput] = MutationStat.init;
-        tcg_stat[a.userInput] = TcStat.init;
+        r.stats[a.name] = MutationStat.init;
+        r.description[a.name] = a.description;
+        tcg_stat[a.name] = TcStat.init;
     }
 
     // map test cases to their group
@@ -555,13 +560,14 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
             // the regex must match the full test case thus checking that
             // nothing is left before or after
             if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
-                r.testCases_group[g.userInput] ~= tc;
+                r.testCases_group[g.name] ~= tc;
             }
         }
     }
 
     // collect mutation statistics for each test case group
     foreach (ref const tcg; r.testCases_group.byKeyValue) {
+        Set!string files;
         foreach (const tc; tcg.value) {
             auto v = tcg.key in tcg_stat;
             foreach (const id; db.testCaseMutationPointAliveSrcMutants(kinds, tc))
@@ -572,7 +578,15 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
                 v.timeout.add(id);
             foreach (const id; db.testCaseMutationPointTotalSrcMutants(kinds, tc))
                 v.total.add(id);
+
+            // TODO: this is slow.....
+            // store files that this test group killed mutants in
+            foreach (const p; db.getMutationIds(db.testCaseKilledSrcMutants(kinds,
+                    tc)).map!(a => db.getPath(a))) {
+                files.add(p);
+            }
         }
+        r.files[tcg.key] = files.setToList!string;
     }
 
     // store the alive mutants
