@@ -510,28 +510,28 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     return st;
 }
 
-struct TestGroupStats {
-    static struct Mutant {
-        MutationId id;
-        Path path;
-    }
+class TestGroupStat {
+    import dextool.plugin.mutate.backend.database : MutationId, FileId;
 
+    /// Human readable description for the test group.
+    string description;
     /// Statistics for a test group.
-    MutationStat[string] stats;
+    MutationStat stats;
     /// Map between test cases and their test group.
-    TestCase[][string] testCases_group;
-    /// Mutation ID's that are alive in a test group
-    Mutant[][string] aliveMutants;
-    /// Description
-    string[string] description;
-    /// Files with mutants that this test group has killed
-    string[][string] files;
+    TestCase[] testCases;
+    /// Lookup for converting a id to a filename
+    Path[FileId] files;
+    /// Mutants alive in a file.
+    MutationId[][FileId] alive;
+    /// Mutants killed in a file.
+    MutationId[][FileId] killed;
 }
 
-TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup)[] tgs) @safe {
+TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup) test_g) @safe {
     import std.algorithm : filter, map;
-    import std.typecons : tuple;
     import std.array : appender;
+    import std.typecons : tuple;
+    import std.range : only;
     import dextool.plugin.mutate.backend.database : MutationStatusId;
     import dextool.set;
 
@@ -540,71 +540,66 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
         Set!MutationStatusId killed;
         Set!MutationStatusId timeout;
         Set!MutationStatusId total;
+
+        // killed by the specific test case
+        Set!MutationStatusId tcKilled;
     }
 
-    TestGroupStats r;
-    TcStat[string] tcg_stat;
+    auto r = new TestGroupStat;
+    r.description = test_g.description;
+    TcStat tc_stat;
 
-    foreach (a; tgs) {
-        r.stats[a.name] = MutationStat.init;
-        r.description[a.name] = a.description;
-        tcg_stat[a.name] = TcStat.init;
-    }
-
-    // map test cases to their group
+    // map test cases to this test group
     foreach (tc; db.getDetectedTestCases) {
-        foreach (ref g; tgs) {
-            import std.regex : matchFirst;
+        import std.regex : matchFirst;
 
-            auto m = matchFirst(tc.name, g.re);
-            // the regex must match the full test case thus checking that
-            // nothing is left before or after
-            if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
-                r.testCases_group[g.name] ~= tc;
-            }
+        auto m = matchFirst(tc.name, test_g.re);
+        // the regex must match the full test case thus checking that
+        // nothing is left before or after
+        if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
+            r.testCases ~= tc;
         }
     }
 
     // collect mutation statistics for each test case group
-    foreach (ref const tcg; r.testCases_group.byKeyValue) {
-        Set!string files;
-        foreach (const tc; tcg.value) {
-            auto v = tcg.key in tcg_stat;
-            foreach (const id; db.testCaseMutationPointAliveSrcMutants(kinds, tc))
-                v.alive.add(id);
-            foreach (const id; db.testCaseMutationPointKilledSrcMutants(kinds, tc))
-                v.killed.add(id);
-            foreach (const id; db.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
-                v.timeout.add(id);
-            foreach (const id; db.testCaseMutationPointTotalSrcMutants(kinds, tc))
-                v.total.add(id);
-
-            // TODO: this is slow.....
-            // store files that this test group killed mutants in
-            foreach (const p; db.getMutationIds(kinds,
-                    db.testCaseKilledSrcMutants(kinds, tc)).map!(a => db.getPath(a))) {
-                files.add(p);
-            }
-        }
-        r.files[tcg.key] = files.setToList!string;
+    foreach (const tc; r.testCases) {
+        foreach (const id; db.testCaseMutationPointAliveSrcMutants(kinds, tc))
+            tc_stat.alive.add(id);
+        foreach (const id; db.testCaseMutationPointKilledSrcMutants(kinds, tc))
+            tc_stat.killed.add(id);
+        foreach (const id; db.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
+            tc_stat.timeout.add(id);
+        foreach (const id; db.testCaseMutationPointTotalSrcMutants(kinds, tc))
+            tc_stat.total.add(id);
+        foreach (const id; db.testCaseKilledSrcMutants(kinds, tc))
+            tc_stat.tcKilled.add(id);
     }
 
-    // store the alive mutants
-    foreach (ref const tcg; tcg_stat.byKeyValue) {
-        auto app = appender!(TestGroupStats.Mutant[])();
-        foreach (id; db.getMutationIds(kinds, tcg.value.alive.setToList!MutationStatusId)) {
-            app.put(TestGroupStats.Mutant(id, db.getPath(id)));
+    // update the mutation stat for the test group
+    r.stats.alive = tc_stat.alive.length;
+    r.stats.killed = tc_stat.killed.length;
+    r.stats.timeout = tc_stat.timeout.length;
+    r.stats.total = tc_stat.total.length;
+
+    // associate mutants with their file
+    foreach (const mid; db.getMutationIds(kinds, tc_stat.tcKilled.setToList!MutationStatusId)) {
+        auto fid = db.getFileId(mid);
+        r.killed[fid] ~= mid;
+
+        if (fid !in r.files) {
+            r.files[fid] = Path.init;
+            r.files[fid] = db.getFile(fid);
         }
-        r.aliveMutants[tcg.key] = app.data;
     }
 
-    // update the mutation stat for the test case group
-    foreach (ref tcg; r.stats.byKeyValue) {
-        auto v = tcg.key in tcg_stat;
-        tcg.value.alive = v.alive.length;
-        tcg.value.killed = v.killed.length;
-        tcg.value.timeout = v.timeout.length;
-        tcg.value.total = v.total.length;
+    foreach (const mid; db.getMutationIds(kinds, tc_stat.alive.setToList!MutationStatusId)) {
+        auto fid = db.getFileId(mid);
+        r.alive[fid] ~= mid;
+
+        if (fid !in r.files) {
+            r.files[fid] = Path.init;
+            r.files[fid] = db.getFile(fid);
+        }
     }
 
     return r;

@@ -96,6 +96,33 @@ struct Database {
         return rval;
     }
 
+    /// Returns: the path ID for the mutant.
+    Nullable!FileId getFileId(const MutationId id) @trusted {
+        enum get_path_id_sql = format("SELECT t1.file_id
+            FROM %s t0, %s t1
+            WHERE t0.id = :id AND t0.mp_id = t1.id",
+                    mutationTable, mutationPointTable);
+        auto stmt = db.prepare(get_path_id_sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (r; stmt.execute)
+            rval = FileId(r.peek!long(0));
+        return rval;
+    }
+
+    /// Returns: the file path that the id correspond to.
+    Nullable!Path getFile(const FileId id) @trusted {
+        enum get_path_id_sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
+        auto stmt = db.prepare(get_path_id_sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (r; stmt.execute)
+            rval = Path(r.peek!string(0));
+        return rval;
+    }
+
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const Path p) @trusted {
         auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(filesTable));
@@ -193,7 +220,7 @@ struct Database {
         return rval;
     }
 
-    Nullable!Path getPath(MutationId id) @trusted {
+    Nullable!Path getPath(const MutationId id) @trusted {
         enum get_path_sql = format("SELECT t2.path
             FROM
             %s t0, %s t1, %s t2
@@ -211,6 +238,19 @@ struct Database {
         if (!res.empty)
             rval = Path(res.front.peek!string(0));
         return rval;
+    }
+
+    /// Returns: the mutants that are connected to the mutation statuses.
+    MutationId[] getMutationIds(const(MutationStatusId)[] id) @trusted {
+        auto get_mutid_sql = format("SELECT id FROM %s t0 WHERE t0.st_id IN (%(%s,%))",
+                mutationTable, id.map!(a => cast(long) a));
+        auto stmt = db.prepare(get_mutid_sql);
+
+        auto app = appender!(MutationId[])();
+        foreach (res; stmt.execute)
+            app.put(MutationId(res.peek!long(0)));
+
+        return app.data;
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
