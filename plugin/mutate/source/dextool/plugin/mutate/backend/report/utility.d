@@ -581,8 +581,8 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
 
             // TODO: this is slow.....
             // store files that this test group killed mutants in
-            foreach (const p; db.getMutationIds(db.testCaseKilledSrcMutants(kinds,
-                    tc)).map!(a => db.getPath(a))) {
+            foreach (const p; db.getMutationIds(kinds,
+                    db.testCaseKilledSrcMutants(kinds, tc)).map!(a => db.getPath(a))) {
                 files.add(p);
             }
         }
@@ -591,9 +591,8 @@ TestGroupStats reportTestGroups(ref Database db, const Mutation.Kind[] kinds, co
 
     // store the alive mutants
     foreach (ref const tcg; tcg_stat.byKeyValue) {
-        auto ids = db.getMutationIds(tcg.value.alive.setToList!MutationStatusId);
         auto app = appender!(TestGroupStats.Mutant[])();
-        foreach (id; db.getMutationIds(tcg.value.alive.setToList!MutationStatusId)) {
+        foreach (id; db.getMutationIds(kinds, tcg.value.alive.setToList!MutationStatusId)) {
             app.put(TestGroupStats.Mutant(id, db.getPath(id)));
         }
         r.aliveMutants[tcg.key] = app.data;

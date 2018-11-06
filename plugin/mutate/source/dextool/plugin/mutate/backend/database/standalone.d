@@ -213,9 +213,13 @@ struct Database {
         return rval;
     }
 
-    MutationId[] getMutationIds(const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT id FROM %s t0 WHERE t0.st_id IN (%(%s,%))",
-                mutationTable, id.map!(a => cast(long) a));
+    /// Returns: the mutants that are connected to the mutation statuses.
+    MutationId[] getMutationIds(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
+        auto get_mutid_sql = format("SELECT id FROM %s t0
+            WHERE
+            t0.st_id IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%))", mutationTable,
+                id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutationId[])();
