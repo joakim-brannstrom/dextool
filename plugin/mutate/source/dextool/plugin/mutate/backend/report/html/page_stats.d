@@ -164,6 +164,7 @@ void testGroups(const TestGroupStat test_g, HtmlNode n) {
     import std.array : array;
     import std.path : buildPath;
     import std.range : enumerate;
+    import dextool.plugin.mutate.backend.mutation_type : toUser;
 
     n.n("h3".Tag).put(test_g.description);
 
@@ -178,13 +179,16 @@ void testGroups(const TestGroupStat test_g, HtmlNode n) {
         r.td.put(d[1]);
     }
 
-    n.n("p".Tag).put("Mutation data per file. The killed mutants are those that where killed by this test group. Therefor the total here is less than the reported total.");
+    with (n.n("p".Tag)) {
+        put("Mutation data per file.");
+        put("The killed mutants are those that where killed by this test group.");
+        put("Therefor the total here is less than the reported total.");
+    }
     auto file_tbl = HtmlTable.make;
     n.put(file_tbl.root);
     file_tbl.root.putAttr("class", "overlap_tbl");
-    file_tbl.putColumn("File").putAttr("class", tableColumnHdrStyle);
-    file_tbl.putColumn("Alive").putAttr("class", tableColumnHdrStyle);
-    file_tbl.putColumn("Killed").putAttr("class", tableColumnHdrStyle);
+    foreach (c; ["File", "Alive", "Killed"])
+        file_tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
 
     foreach (const pkv; test_g.files
             .byKeyValue
@@ -197,18 +201,18 @@ void testGroups(const TestGroupStat test_g, HtmlNode n) {
 
         auto alive_ids = r.td;
         if (auto alive = pkv[0] in test_g.alive) {
-            foreach (a; (*alive).dup.sort) {
-                alive_ids.put(aHref(buildPath(htmlFileDir,
-                        pathToHtmlLink(path)), a.to!string, a.to!string));
+            foreach (a; (*alive).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
+                alive_ids.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(path)),
+                        format("%s:%s", a.kind.toUser, a.sloc.line), a.id.to!string));
                 alive_ids.put(" ");
             }
         }
 
         auto killed_ids = r.td;
         if (auto killed = pkv[0] in test_g.killed) {
-            foreach (a; (*killed).dup.sort) {
-                killed_ids.put(aHref(buildPath(htmlFileDir,
-                        pathToHtmlLink(path)), a.to!string, a.to!string));
+            foreach (a; (*killed).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
+                killed_ids.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(path)),
+                        format("%s:%s", a.kind.toUser, a.sloc.line), a.id.to!string));
                 killed_ids.put(" ");
             }
         }

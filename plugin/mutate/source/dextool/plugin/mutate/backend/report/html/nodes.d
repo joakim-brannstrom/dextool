@@ -192,7 +192,7 @@ HtmlNode aHref(T)(T link, string desc, string anchor = null) {
     if (anchor.length == 0)
         n.put(format(`<a href="%s">%s</a>`, link, desc.encode));
     else
-        n.put(format(`<a href="%s#%s">%s</a>`, link, desc.encode, anchor));
+        n.put(format(`<a href="%s#%s">%s</a>`, link, anchor, desc.encode));
     return n;
 }
 

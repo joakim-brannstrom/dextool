@@ -26,10 +26,11 @@ The only acceptable dependency are:
 module dextool.plugin.mutate.backend.database.standalone;
 
 import core.time : Duration;
+import logger = std.experimental.logger;
 import std.algorithm : map;
 import std.array : Appender, appender, array;
 import std.format : format;
-import logger = std.experimental.logger;
+import std.typecons : Tuple;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -241,14 +242,20 @@ struct Database {
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
-    MutationId[] getMutationIds(const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT id FROM %s t0 WHERE t0.st_id IN (%(%s,%))",
-                mutationTable, id.map!(a => cast(long) a));
+    MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
+        auto get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
+            FROM %s t0,%s t1
+            WHERE
+            t0.st_id IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%)) AND
+            t0.mp_id = t1.id", mutationTable,
+                mutationPointTable, id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
-        auto app = appender!(MutationId[])();
+        auto app = appender!(MutantInfo[])();
         foreach (res; stmt.execute)
-            app.put(MutationId(res.peek!long(0)));
+            app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
+                    .to!(Mutation.Kind), SourceLoc(res.peek!uint(2), res.peek!uint(3))));
 
         return app.data;
     }
@@ -850,5 +857,13 @@ auto spinSqlQuery(alias Callback)() nothrow {
         }
     }
 
-    assert(0, "this shoud never happen");
+    assert(0, "this should never happen");
+}
+
+struct MutantInfo {
+    import dextool.plugin.mutate.backend.type;
+
+    MutationId id;
+    Mutation.Kind kind;
+    SourceLoc sloc;
 }
