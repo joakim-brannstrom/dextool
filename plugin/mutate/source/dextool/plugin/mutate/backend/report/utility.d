@@ -511,7 +511,8 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
 }
 
 class TestGroupStat {
-    import dextool.plugin.mutate.backend.database : MutationId, FileId;
+    import dextool.plugin.mutate.backend.database : MutationId, FileId,
+        MutantInfo;
 
     /// Human readable description for the test group.
     string description;
@@ -522,9 +523,9 @@ class TestGroupStat {
     /// Lookup for converting a id to a filename
     Path[FileId] files;
     /// Mutants alive in a file.
-    MutationId[][FileId] alive;
+    MutantInfo[][FileId] alive;
     /// Mutants killed in a file.
-    MutationId[][FileId] killed;
+    MutantInfo[][FileId] killed;
 }
 
 TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup) test_g) @safe {
@@ -582,9 +583,9 @@ TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, con
     r.stats.total = tc_stat.total.length;
 
     // associate mutants with their file
-    foreach (const mid; db.getMutationIds(kinds, tc_stat.tcKilled.setToList!MutationStatusId)) {
-        auto fid = db.getFileId(mid);
-        r.killed[fid] ~= mid;
+    foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.setToList!MutationStatusId)) {
+        auto fid = db.getFileId(m.id);
+        r.killed[fid] ~= m;
 
         if (fid !in r.files) {
             r.files[fid] = Path.init;
@@ -592,9 +593,9 @@ TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, con
         }
     }
 
-    foreach (const mid; db.getMutationIds(kinds, tc_stat.alive.setToList!MutationStatusId)) {
-        auto fid = db.getFileId(mid);
-        r.alive[fid] ~= mid;
+    foreach (const m; db.getMutantsInfo(kinds, tc_stat.alive.setToList!MutationStatusId)) {
+        auto fid = db.getFileId(m.id);
+        r.alive[fid] ~= m;
 
         if (fid !in r.files) {
             r.files[fid] = Path.init;
