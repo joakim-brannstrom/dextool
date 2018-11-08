@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.database.type;
 
 import core.time : Duration;
+import std.datetime : SysTime;
 
 import dextool.type : AbsolutePath, Path;
 
@@ -95,4 +96,19 @@ struct MutationReportEntry {
 
     long count;
     Duration time;
+}
+
+struct MutantInfo {
+    import dextool.plugin.mutate.backend.type;
+
+    MutationId id;
+    Mutation.Kind kind;
+    SourceLoc sloc;
+}
+
+struct OldMutant {
+    import std.datetime : SysTime;
+
+    MutationStatusId statusId;
+    SysTime timestamp;
 }

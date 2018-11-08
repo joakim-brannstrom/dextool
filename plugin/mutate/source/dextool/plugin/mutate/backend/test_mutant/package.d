@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.thread : Thread;
 import core.time : Duration, dur;
+import std.datetime : SysTime;
 import std.typecons : Nullable, NullableRef, nullableRef;
 import std.exception : collectException;
 
@@ -676,6 +677,7 @@ struct TestDriver(ImplT) {
         initialize,
         sanityCheck,
         updateAndResetAliveMutants,
+        resetOldMutants,
         cleanupTempDirs,
         checkMutantsLeft,
         preCompileSut,
@@ -743,6 +745,9 @@ struct TestDriver(ImplT) {
                 next_ = State.error;
             break;
         case updateAndResetAliveMutants:
+            next_ = resetOldMutants;
+            break;
+        case resetOldMutants:
             next_ = checkMutantsLeft;
             break;
         case checkMutantsLeft:
@@ -969,6 +974,25 @@ nothrow:
                 .NewTestCases.resetAlive) {
             logger.info("Resetting alive mutants").collectException;
             resetAliveMutants(data.db);
+        }
+    }
+
+    void resetOldMutants() {
+        import dextool.plugin.mutate.backend.database.type;
+
+        if (data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+            return;
+
+        logger.infof("Resetting the %s oldest mutants", data.conf.oldMutantsNr).collectException;
+        OldMutant[] oldest;
+        spinSqlQuery!(() {
+            oldest = data.db.getOldestMutants(data.mutKind, data.conf.oldMutantsNr);
+        });
+        foreach (const old; oldest) {
+            logger.info("  Last updated ", old.timestamp).collectException;
+            spinSqlQuery!(() {
+                data.db.updateMutationStatus(old.statusId, Mutation.Status.unknown);
+            });
         }
     }
 

@@ -22,8 +22,7 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
 public import dextool.plugin.mutate.backend.database.type;
-public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery,
-    MutantInfo;
+public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
@@ -32,8 +31,7 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable;
-    import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
-        Checksum;
+    import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
     import dextool.plugin.mutate.type : MutationOrder;
     import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
 
