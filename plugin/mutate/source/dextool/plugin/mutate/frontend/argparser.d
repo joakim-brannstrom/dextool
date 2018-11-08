@@ -70,8 +70,7 @@ struct ArgParser {
 
     /// Returns: a config object with default values.
     static ArgParser make() @safe {
-        import dextool.compilation_db : defaultCompilerFlagFilter,
-            CompileCommandFilter;
+        import dextool.compilation_db : defaultCompilerFlagFilter, CompileCommandFilter;
 
         ArgParser r;
         r.compileDb.flagFilter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
@@ -145,6 +144,13 @@ struct ArgParser {
         app.put("# should the test and the gathered statistics be remove too?");
         app.put(format("# detected_dropped_test_case = %(%s|%)",
                 [EnumMembers!(ConfigMutationTest.RemovedTestCases)].map!(a => a.to!string)));
+        app.put("# how the oldest mutants should be treated.");
+        app.put("# It is recommended to test them again.");
+        app.put("# Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.");
+        app.put(format("# oldest_mutants = %(%s|%)",
+                [EnumMembers!(ConfigMutationTest.OldMutant)].map!(a => a.to!string)));
+        app.put("# How many of the oldest mutants to do the above with");
+        app.put("# oldest_mutants_nr = 10");
         app.put(null);
 
         app.put("[report]");
@@ -163,12 +169,7 @@ struct ArgParser {
         return app.data.joiner(newline).toUTF8;
     }
 
-    /**
-     * trusted: getopt is safe in dmd-2.077.0.
-     * Remove the trusted attribute when upgrading the minimal required version
-     * of the D frontend.
-     */
-    void parse(string[] args) @trusted {
+    void parse(string[] args) {
         import std.algorithm : filter, map;
         import std.array : array;
         import std.format : format;
@@ -338,7 +339,8 @@ struct ArgParser {
 
         if (auto f = cg in groups) {
             try {
-                (*f)(subargs);
+                // trusted: not any external input.
+                () @trusted { (*f)(subargs); }();
                 help = help_info.helpWanted;
             } catch (std.getopt.GetOptException ex) {
                 logger.error(ex.msg);
@@ -564,6 +566,21 @@ void loadConfig(ref ArgParser rval) @trusted {
             logger.error(e.msg).collectException;
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.RemovedTestCases)]);
+        }
+    };
+    callbacks["mutant_test.oldest_mutants"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.onOldMutants = v.str.to!(ConfigMutationTest.OldMutant);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.info("Available alternatives: ", [EnumMembers!(ConfigMutationTest.OldMutant)]);
+        }
+    };
+    callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.oldMutantsNr = v.integer;
+        } catch (Exception e) {
+            logger.error(e.msg);
         }
     };
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {

@@ -100,6 +100,15 @@ struct ConfigMutationTest {
     }
 
     RemovedTestCases onRemovedTestCases;
+
+    /// How to behave when mutants have aged.
+    enum OldMutant {
+        nothing,
+        test,
+    }
+
+    OldMutant onOldMutants;
+    long oldMutantsNr;
 }
 
 /// Settings for the administration mode

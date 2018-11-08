@@ -29,6 +29,7 @@ import core.time : Duration;
 import logger = std.experimental.logger;
 import std.algorithm : map;
 import std.array : Appender, appender, array;
+import std.datetime : SysTime;
 import std.format : format;
 import std.typecons : Tuple;
 
@@ -46,8 +47,7 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable;
-    import dextool.plugin.mutate.backend.type : MutationPoint, Mutation,
-        Checksum;
+    import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
     sqlDatabase db;
     alias db this;
@@ -147,7 +147,7 @@ struct Database {
     /** Update the status of a mutant.
      *
      * Params:
-     *  id = mutation point is derived from this mutation ID
+     *  id = ID of the mutant
      *  st = status to broadcast
      *  d = time spent on veryfing the mutant
      *  tcs = test cases that killed the mutant
@@ -165,12 +165,24 @@ struct Database {
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.bind(":time", d.total!"msecs");
-        stmt.bind(":tstamp", format("%04s-%02s-%02sT%02s:%02s:%02s.%s",
-                ts.year, cast(ushort) ts.month, ts.day, ts.hour, ts.minute,
-                ts.second, ts.fracSecs.total!"msecs"));
+        stmt.bind(":tstamp", ts.toSqliteDateTime);
         stmt.execute;
 
         updateMutationTestCases(id, tcs);
+    }
+
+    /** Update the status of a mutant.
+     *
+     * Params:
+     *  id = mutation status ID
+     *  st = new status
+     */
+    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st) @trusted {
+        enum update_sql = format("UPDATE %s SET status=:st WHERE id=:id", mutationStatusTable);
+        auto stmt = db.prepare(update_sql);
+        stmt.bind(":st", st.to!long);
+        stmt.bind(":id", id.to!long);
+        stmt.execute;
     }
 
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {
@@ -272,7 +284,23 @@ struct Database {
         auto app = appender!(MutationId[])();
         foreach (res; stmt.execute)
             app.put(MutationId(res.peek!long(0)));
+        return app.data;
+    }
 
+    /// Returns: the `nr` mutants that where the longst since they where tested.
+    OldMutant[] getOldestMutants(const Mutation.Kind[] kinds, long nr) @trusted {
+        import dextool.plugin.mutate.backend.database.type : OldMutant;
+
+        enum sql = format(
+                    "SELECT id,timestamp FROM %s WHERE timestamp IS NOT NULL ORDER BY timestamp DESC LIMIT :limit",
+                    mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":limit", nr);
+
+        auto app = appender!(OldMutant[])();
+        foreach (res; stmt.execute)
+            app.put(OldMutant(MutationStatusId(res.peek!long(0)),
+                    res.peek!string(1).fromSqLiteDateTime));
         return app.data;
     }
 
@@ -860,10 +888,22 @@ auto spinSqlQuery(alias Callback)() nothrow {
     assert(0, "this should never happen");
 }
 
-struct MutantInfo {
-    import dextool.plugin.mutate.backend.type;
+SysTime fromSqLiteDateTime(string raw_dt) {
+    import core.time : dur;
+    import std.datetime : DateTime, UTC;
+    import std.format : formattedRead;
 
-    MutationId id;
-    Mutation.Kind kind;
-    SourceLoc sloc;
+    int year, month, day, hour, minute, second, msecs;
+    formattedRead(raw_dt, "%s-%s-%sT%s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
+    auto dt = DateTime(year, month, day, hour, minute, second);
+
+    return SysTime(dt, msecs.dur!"msecs", UTC());
+}
+
+string toSqliteDateTime(SysTime ts) {
+    import std.format;
+
+    return format("%04s-%02s-%02sT%02s:%02s:%02s.%s", ts.year,
+            cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
+            ts.fracSecs.total!"msecs");
 }
