@@ -289,11 +289,13 @@ struct Database {
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
     OldMutant[] getOldestMutants(const Mutation.Kind[] kinds, long nr) @trusted {
-        import dextool.plugin.mutate.backend.database.type : OldMutant;
-
-        enum sql = format(
-                    "SELECT id,timestamp FROM %s WHERE timestamp IS NOT NULL ORDER BY timestamp DESC LIMIT :limit",
-                    mutationStatusTable);
+        const sql = format("SELECT t0.id,t0.timestamp FROM %s t0, %s t1
+                    WHERE
+                    t0.timestamp IS NOT NULL AND
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%))
+                    ORDER BY t0.timestamp DESC LIMIT :limit",
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":limit", nr);
 
