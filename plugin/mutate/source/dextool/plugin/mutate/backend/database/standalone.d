@@ -255,7 +255,7 @@ struct Database {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
+        const get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
             FROM %s t0,%s t1
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -274,7 +274,7 @@ struct Database {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutationId[] getMutationIds(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT id FROM %s t0
+        const get_mutid_sql = format("SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
             t0.kind IN (%(%s,%))", mutationTable,
@@ -309,7 +309,7 @@ struct Database {
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
-        auto s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
+        const s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationPointTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
@@ -318,7 +318,7 @@ struct Database {
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
-        auto s = format!"UPDATE %s SET status=%s WHERE status = %s AND id IN(SELECT st_id FROM %s WHERE kind IN (%(%s,%)))"(
+        const s = format!"UPDATE %s SET status=%s WHERE status = %s AND id IN(SELECT st_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationStatusTable, to_st.to!long, st.to!long,
                 mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
@@ -376,7 +376,7 @@ struct Database {
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))";
         }
-        auto query = () {
+        const query = () {
             auto fq = file.length == 0 ? null
                 : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
