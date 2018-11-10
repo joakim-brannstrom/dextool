@@ -159,7 +159,7 @@ struct Database {
         const ts = Clock.currTime.toUTC;
 
         enum update_sql = format(
-                    "UPDATE %s SET status=:st,time=:time,timestamp=:tstamp WHERE id IN (SELECT st_id FROM %s WHERE id = :id)",
+                    "UPDATE %s SET status=:st,time=:time,update_ts=:tstamp WHERE id IN (SELECT st_id FROM %s WHERE id = :id)",
                     mutationStatusTable, mutationTable);
         auto stmt = db.prepare(update_sql);
         stmt.bind(":st", st.to!long);
@@ -289,12 +289,12 @@ struct Database {
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
     OldMutant[] getOldestMutants(const Mutation.Kind[] kinds, long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.timestamp FROM %s t0, %s t1
+        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
                     WHERE
-                    t0.timestamp IS NOT NULL AND
+                    t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%))
-                    ORDER BY t0.timestamp DESC LIMIT :limit",
+                    ORDER BY t0.update_ts DESC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":limit", nr);
