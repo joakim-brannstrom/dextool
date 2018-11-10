@@ -31,7 +31,6 @@ import std.algorithm : map;
 import std.array : Appender, appender, array;
 import std.datetime : SysTime;
 import std.format : format;
-import std.typecons : Tuple;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -46,7 +45,7 @@ import dextool.plugin.mutate.backend.type : Language;
 struct Database {
     import std.conv : to;
     import std.exception : collectException;
-    import std.typecons : Nullable;
+    import std.typecons : Nullable, Flag, No;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
     sqlDatabase db;
@@ -156,7 +155,7 @@ struct Database {
             const Duration d, const(TestCase)[] tcs) @trusted {
         import std.datetime : SysTime, Clock;
 
-        const ts = Clock.currTime.toUTC;
+        const ts = Clock.currTime.toUTC.toSqliteDateTime;
 
         enum update_sql = format(
                     "UPDATE %s SET status=:st,time=:time,update_ts=:tstamp WHERE id IN (SELECT st_id FROM %s WHERE id = :id)",
@@ -165,7 +164,7 @@ struct Database {
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.bind(":time", d.total!"msecs");
-        stmt.bind(":tstamp", ts.toSqliteDateTime);
+        stmt.bind(":tstamp", ts);
         stmt.execute;
 
         updateMutationTestCases(id, tcs);
@@ -176,13 +175,35 @@ struct Database {
      * Params:
      *  id = mutation status ID
      *  st = new status
+     *  update_ts = if the update timestamp should be updated.
      */
-    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st) @trusted {
-        enum update_sql = format("UPDATE %s SET status=:st WHERE id=:id", mutationStatusTable);
-        auto stmt = db.prepare(update_sql);
+    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st,
+            Flag!"updateTs" update_ts = No.updateTs) @trusted {
+        import std.datetime : SysTime, Clock;
+
+        auto stmt = () {
+            if (update_ts) {
+                const ts = Clock.currTime.toUTC.toSqliteDateTime;
+                auto s = db.prepare(format("UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id",
+                        mutationStatusTable));
+                s.bind(":update_ts", ts);
+                return s;
+            } else
+                return db.prepare(format("UPDATE %s SET status=:st WHERE id=:id",
+                        mutationStatusTable));
+        }();
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.execute;
+    }
+
+    MutationStatusId[] getAllMutationStatus() @trusted {
+        enum sql = format("SELECT id FROM %s", mutationStatusTable);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (r; db.prepare(sql).execute)
+            app.put(MutationStatusId(r.peek!long(0)));
+        return app.data;
     }
 
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {

@@ -8,7 +8,7 @@ module dextool_test.test_mutant_tester;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-@(testId ~ "shall report the test case that killed the mutant")
+@("shall report the test case that killed the mutant")
 class ShallReportTestCaseKilledMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -34,7 +34,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
     }
 }
 
-@(testId ~ "shall parse a gtest report for the test cases that killed the mutant")
+@("shall parse a gtest report for the test cases that killed the mutant")
 class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -126,7 +126,7 @@ exit 1
     }
 }
 
-@(testId ~ "shall parse a ctest report for failing test cases when a mutant is killed")
+@("shall parse a ctest report for failing test cases when a mutant is killed")
 class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -705,7 +705,7 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
     }
 }
 
-@(testId ~ "shall keep the test case results linked to mutants when re-analyzing")
+@("shall keep the test case results linked to mutants when re-analyzing")
 class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -728,5 +728,34 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
                 r1.stdout);
+    }
+}
+
+@("shall reset the oldest mutant")
+class ShallResetOldestMutant : DatabaseFixture {
+    override void test() {
+        import core.thread : Thread;
+        import core.time : dur;
+        import std.traits : EnumMembers;
+        import std.typecons : Yes;
+        import dextool.plugin.mutate.backend.database.type;
+        import dextool.plugin.mutate.backend.type;
+
+        const expected = 2;
+
+        mixin(EnvSetup(globalTestdir));
+        auto db = precondition(testEnv);
+
+        // arrange. moving all mutants except `expected` forward in time.
+        Thread.sleep(100.dur!"msecs");
+        foreach (const id; db.getAllMutationStatus.filter!(a => a != expected))
+            db.updateMutationStatus(id, Mutation.Status.killed, Yes.updateTs);
+
+        // act
+        auto oldest = db.getOldestMutants([EnumMembers!(Mutation.Kind)], 1);
+
+        // assert
+        oldest.length.shouldEqual(1);
+        oldest[0].statusId.shouldEqual(expected);
     }
 }
