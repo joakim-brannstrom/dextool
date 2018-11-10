@@ -393,3 +393,17 @@ mutation points that multiple use cases affect. But if the assumption is true
 most of the time it can be further reasoned that there is a correlation between
 this *group mutation score* and the *test quality* of the test suite in
 relation to the use case.
+
+# REQ-report_productive_mutant
+partof: REQ-report
+###
+
+TODO: write requirements.
+
+## Background
+See [@googleMutationTesting2018]. The paper coin the term *productive mutant*.
+
+TODO: move the definition to definitions.md. It is kept here for now though to
+keep it with the background material.
+
+
