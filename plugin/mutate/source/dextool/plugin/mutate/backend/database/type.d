@@ -112,3 +112,14 @@ struct OldMutant {
     MutationStatusId statusId;
     SysTime timestamp;
 }
+
+struct HardestToKillMutantResult {
+    import std.datetime : SysTime;
+    import dextool.plugin.mutate.backend.type;
+
+    MutationStatusId statusId;
+    Mutation.Status status;
+    MutantTestCount testCnt;
+    SysTime updated;
+    SysTime added;
+}

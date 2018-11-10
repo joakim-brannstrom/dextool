@@ -5,6 +5,11 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.test_mutant_tester;
 
+import core.thread : Thread;
+import core.time : dur;
+import std.traits : EnumMembers;
+import std.typecons : Yes;
+
 import dextool_test.utility;
 import dextool_test.fixtures;
 
@@ -734,19 +739,14 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
 @("shall reset the oldest mutant")
 class ShallResetOldestMutant : DatabaseFixture {
     override void test() {
-        import core.thread : Thread;
-        import core.time : dur;
-        import std.traits : EnumMembers;
-        import std.typecons : Yes;
         import dextool.plugin.mutate.backend.database.type;
         import dextool.plugin.mutate.backend.type;
-
-        const expected = 2;
 
         mixin(EnvSetup(globalTestdir));
         auto db = precondition(testEnv);
 
         // arrange. moving all mutants except `expected` forward in time.
+        const expected = 2;
         Thread.sleep(100.dur!"msecs");
         foreach (const id; db.getAllMutationStatus.filter!(a => a != expected))
             db.updateMutationStatus(id, Mutation.Status.killed, Yes.updateTs);
@@ -757,5 +757,62 @@ class ShallResetOldestMutant : DatabaseFixture {
         // assert
         oldest.length.shouldEqual(1);
         oldest[0].statusId.shouldEqual(expected);
+    }
+}
+
+@("shall update the counter for the mutant when it survives by default")
+class ShallUpdateMutationCounter : DatabaseFixture {
+    override void test() {
+        import dextool.plugin.mutate.backend.database.type;
+        import dextool.plugin.mutate.backend.type;
+
+        mixin(EnvSetup(globalTestdir));
+        auto db = precondition(testEnv);
+
+        // arrange
+        const mid = MutationId(2);
+        const mst_id = db.getMutationStatusId(mid).get;
+
+        // act. should be the highest count not oldest
+        db.updateMutation(MutationId(10), Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+
+        // assert
+        auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
+                Mutation.Status.killed);
+        hardest.isNull.shouldBeFalse;
+        auto hr = hardest.get;
+        mst_id.should == hr.statusId;
+    }
+}
+
+@("shall reset the counter for the mutant")
+class ShallResetMutationCounter : DatabaseFixture {
+    override void test() {
+        import dextool.plugin.mutate.backend.database.standalone;
+        import dextool.plugin.mutate.backend.database.type;
+        import dextool.plugin.mutate.backend.type;
+
+        mixin(EnvSetup(globalTestdir));
+        auto db = precondition(testEnv);
+
+        // arrange
+        const mid = MutationId(2);
+        const mst_id = db.getMutationStatusId(mid).get;
+        db.updateMutation(MutationId(10), Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+
+        // act
+        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null,
+                Database.CntAction.reset);
+
+        // assert
+        auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
+                Mutation.Status.killed);
+        hardest.isNull.shouldBeFalse;
+        auto hr = hardest.get;
+        mst_id.should.not == hr.statusId;
     }
 }

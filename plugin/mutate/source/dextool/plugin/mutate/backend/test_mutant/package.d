@@ -618,8 +618,14 @@ nothrow:
 
         sw.stop;
 
+        const cnt_action = () {
+            if (mut_status == Mutation.Status.alive)
+                return Database.CntAction.incr;
+            return Database.CntAction.reset;
+        }();
+
         spinSqlQuery!(() {
-            db.updateMutation(mutp.id, mut_status, sw.peek, test_cases.failedAsArray);
+            db.updateMutation(mutp.id, mut_status, sw.peek, test_cases.failedAsArray, cnt_action);
         });
 
         logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek).collectException;

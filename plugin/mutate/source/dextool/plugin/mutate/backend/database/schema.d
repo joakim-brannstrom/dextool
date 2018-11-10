@@ -245,7 +245,7 @@ immutable mutation_status_v3_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     status      INTEGER NOT NULL,
     time        INTEGER,
-    test_cnt    INTEGER,
+    test_cnt    INTEGER NOT NULL,
     update_ts   DATETIME,
     added_ts    DATETIME,
     checksum0   INTEGER,
@@ -549,8 +549,8 @@ void upgradeV9(ref sqlDatabase db) {
 
     enum new_tbl = "new_" ~ mutationStatusTable;
     db.run(format(mutation_status_v3_tbl, new_tbl));
-    db.run(format("INSERT INTO %s (id,status,time,update_ts,checksum0,checksum1)
-        SELECT t0.id,t0.status,t0.time,t0.timestamp,t0.checksum0,t0.checksum1
+    db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
+        SELECT t0.id,t0.status,t0.time,0,t0.timestamp,t0.checksum0,t0.checksum1
         FROM %s t0",
             new_tbl, mutationStatusTable));
 
