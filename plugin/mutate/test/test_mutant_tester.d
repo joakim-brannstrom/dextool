@@ -736,7 +736,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
     }
 }
 
-@("shall reset the oldest mutant")
+@("shall retrieve the oldest mutant")
 class ShallResetOldestMutant : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -747,12 +747,12 @@ class ShallResetOldestMutant : DatabaseFixture {
 
         // arrange. moving all mutants except `expected` forward in time.
         const expected = 2;
-        Thread.sleep(100.dur!"msecs");
+        Thread.sleep(1.dur!"seconds");
         foreach (const id; db.getAllMutationStatus.filter!(a => a != expected))
             db.updateMutationStatus(id, Mutation.Status.killed, Yes.updateTs);
 
         // act
-        auto oldest = db.getOldestMutants([EnumMembers!(Mutation.Kind)], 1);
+        const oldest = db.getOldestMutants([EnumMembers!(Mutation.Kind)], 1);
 
         // assert
         oldest.length.shouldEqual(1);
