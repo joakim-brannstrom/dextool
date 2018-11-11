@@ -1,0 +1,16 @@
+{
+    "name": "issue61",
+    "authors": [
+        "atila"
+    ],
+    "sourcePaths": ["."],
+    "importPaths": ["."],
+    "mainSourceFile": "main.d",
+    "targetType": "executable",
+    "dependencies": {
+        "unit-threaded": {"path": "../../.."}
+    },
+    "description": "A minimal D application.",
+    "copyright": "Copyright © 2017-2018, Atila Neves",
+    "license": "BSD"
+}

@@ -98,7 +98,7 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
     endif()
 
     set(target_name ${name}_unittest)
-    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/vendor/unit-threaded/source")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT}")
     set(lflags "${linker_args}")
 
     if (TEST_WITH_COV AND "${D_COMPILER_ID}" STREQUAL "DigitalMars")
@@ -167,7 +167,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
     endif()
 
     set(target_name ${name}_integration)
-    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest -I${CMAKE_SOURCE_DIR}/vendor/unit-threaded/source -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src")
     set(lflags "${linker_args}")
 
     conv_to_proper_args(dflags "${dflags}")
