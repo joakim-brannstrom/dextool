@@ -31,7 +31,6 @@ import std.algorithm : map;
 import std.array : Appender, appender, array;
 import std.datetime : SysTime;
 import std.format : format;
-import std.typecons : Tuple;
 
 import d2sqlite3 : sqlDatabase = Database;
 
@@ -46,7 +45,7 @@ import dextool.plugin.mutate.backend.type : Language;
 struct Database {
     import std.conv : to;
     import std.exception : collectException;
-    import std.typecons : Nullable;
+    import std.typecons : Nullable, Flag, No;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
     sqlDatabase db;
@@ -144,6 +143,13 @@ struct Database {
         return app.data;
     }
 
+    enum CntAction {
+        /// Increment the counter
+        incr,
+        /// Reset the counter to zero
+        reset,
+    }
+
     /** Update the status of a mutant.
      *
      * Params:
@@ -151,21 +157,32 @@ struct Database {
      *  st = status to broadcast
      *  d = time spent on veryfing the mutant
      *  tcs = test cases that killed the mutant
+     *  counter = how to act with the counter
      */
     void updateMutation(const MutationId id, const Mutation.Status st,
-            const Duration d, const(TestCase)[] tcs) @trusted {
+            const Duration d, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
         import std.datetime : SysTime, Clock;
 
-        const ts = Clock.currTime.toUTC;
+        enum sql = "UPDATE %s SET
+            status=:st,time=:time,update_ts=:update_ts,%s
+            WHERE
+            id IN (SELECT st_id FROM %s WHERE id = :id)";
 
-        enum update_sql = format(
-                    "UPDATE %s SET status=:st,time=:time,timestamp=:tstamp WHERE id IN (SELECT st_id FROM %s WHERE id = :id)",
-                    mutationStatusTable, mutationTable);
-        auto stmt = db.prepare(update_sql);
+        auto stmt = () {
+            final switch (counter) {
+            case CntAction.incr:
+                return db.prepare(format(sql,
+                        mutationStatusTable, "test_cnt=test_cnt+1", mutationTable));
+            case CntAction.reset:
+                return db.prepare(format(sql,
+                        mutationStatusTable, "test_cnt=0", mutationTable));
+            }
+        }();
+
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.bind(":time", d.total!"msecs");
-        stmt.bind(":tstamp", ts.toSqliteDateTime);
+        stmt.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
         stmt.execute;
 
         updateMutationTestCases(id, tcs);
@@ -176,13 +193,35 @@ struct Database {
      * Params:
      *  id = mutation status ID
      *  st = new status
+     *  update_ts = if the update timestamp should be updated.
      */
-    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st) @trusted {
-        enum update_sql = format("UPDATE %s SET status=:st WHERE id=:id", mutationStatusTable);
-        auto stmt = db.prepare(update_sql);
+    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st,
+            Flag!"updateTs" update_ts = No.updateTs) @trusted {
+        import std.datetime : SysTime, Clock;
+
+        auto stmt = () {
+            if (update_ts) {
+                const ts = Clock.currTime.toUTC.toSqliteDateTime;
+                auto s = db.prepare(format("UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id",
+                        mutationStatusTable));
+                s.bind(":update_ts", ts);
+                return s;
+            } else
+                return db.prepare(format("UPDATE %s SET status=:st WHERE id=:id",
+                        mutationStatusTable));
+        }();
         stmt.bind(":st", st.to!long);
         stmt.bind(":id", id.to!long);
         stmt.execute;
+    }
+
+    MutationStatusId[] getAllMutationStatus() @trusted {
+        enum sql = format("SELECT id FROM %s", mutationStatusTable);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (r; db.prepare(sql).execute)
+            app.put(MutationStatusId(r.peek!long(0)));
+        return app.data;
     }
 
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {
@@ -255,7 +294,7 @@ struct Database {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
+        const get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
             FROM %s t0,%s t1
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -273,8 +312,8 @@ struct Database {
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
-    MutationId[] getMutationIds(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        auto get_mutid_sql = format("SELECT id FROM %s t0
+    MutationId[] getMutationIds(const(Mutation.Kind)[] kinds, const(MutationStatusId)[] id) @trusted {
+        const get_mutid_sql = format("SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
             t0.kind IN (%(%s,%))", mutationTable,
@@ -287,29 +326,99 @@ struct Database {
         return app.data;
     }
 
+    Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
+        auto stmt = db.prepare(format("SELECT st_id FROM %s WHERE id=:id", mutationTable));
+        stmt.bind(":id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = MutationStatusId(res.peek!long(0));
+        return rval;
+    }
+
     /// Returns: the `nr` mutants that where the longst since they where tested.
-    OldMutant[] getOldestMutants(const Mutation.Kind[] kinds, long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.timestamp FROM %s t0, %s t1
+    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, long nr) @trusted {
+        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
                     WHERE
-                    t0.timestamp IS NOT NULL AND
+                    t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%))
-                    ORDER BY t0.timestamp DESC LIMIT :limit",
+                    ORDER BY t0.update_ts ASC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":limit", nr);
 
-        auto app = appender!(OldMutant[])();
+        auto app = appender!(MutationStatusTime[])();
         foreach (res; stmt.execute)
-            app.put(OldMutant(MutationStatusId(res.peek!long(0)),
+            app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
                     res.peek!string(1).fromSqLiteDateTime));
         return app.data;
+    }
+
+    /// Returns: the `nr` mutants that had there status last updated to the specified status.
+    MutationStatusTime[] getLatestMutants(const(Mutation.Kind)[] kinds,
+            const Mutation.Status status, long nr) @trusted {
+        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
+                    WHERE
+                    t0.update_ts IS NOT NULL AND
+                    t0.status = :status AND
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%))
+                    ORDER BY t0.update_ts DESC LIMIT :limit",
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":status", cast(long) status);
+        stmt.bind(":limit", nr);
+
+        auto app = appender!(MutationStatusTime[])();
+        foreach (res; stmt.execute)
+            app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
+                    res.peek!string(1).fromSqLiteDateTime));
+        return app.data;
+    }
+
+    /// Returns: the mutant with the highest count that has not been killed and existed in the system the longest.
+    Nullable!MutationStatus getHardestToKillMutant(const(Mutation.Kind)[] kinds,
+            const Mutation.Status status) @trusted {
+        const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts FROM %s t0, %s t1
+                    WHERE
+                    t0.update_ts IS NOT NULL AND
+                    t0.status = :status AND
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%))
+                    ORDER BY
+                    t0.test_cnt DESC,
+                    t0.added_ts ASC
+                    LIMIT 1",
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":status", cast(long) status);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            auto added = () {
+                auto raw = res.peek!string(4);
+                if (raw.length == 0)
+                    return Nullable!SysTime();
+                return Nullable!SysTime(raw.fromSqLiteDateTime);
+            }();
+
+            // dfmt off
+            rval = MutationStatus(
+                MutationStatusId(res.peek!long(0)),
+                res.peek!long(1).to!(Mutation.Status),
+                res.peek!long(2).MutantTestCount,
+                res.peek!string(3).fromSqLiteDateTime,
+                added,
+            );
+            // dfmt on
+        }
+        return rval;
     }
 
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
-        auto s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
+        const s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationPointTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
@@ -318,7 +427,7 @@ struct Database {
     /** Reset all mutations of kinds with the status `st` to unknown.
      */
     void resetMutant(const Mutation.Kind[] kinds, Mutation.Status st, Mutation.Status to_st) @trusted {
-        auto s = format!"UPDATE %s SET status=%s WHERE status = %s AND id IN(SELECT st_id FROM %s WHERE kind IN (%(%s,%)))"(
+        const s = format!"UPDATE %s SET status=%s WHERE status = %s AND id IN(SELECT st_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationStatusTable, to_st.to!long, st.to!long,
                 mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
@@ -376,7 +485,7 @@ struct Database {
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))";
         }
-        auto query = () {
+        const query = () {
             auto fq = file.length == 0 ? null
                 : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
@@ -482,14 +591,19 @@ struct Database {
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
         import std.algorithm : map, joiner;
+        import std.datetime : SysTime, Clock;
         import std.path : relativePath;
 
         db.begin;
         scope (failure)
             db.rollback;
 
-        enum insert_mp_sql = format("INSERT OR IGNORE INTO %s (file_id, offset_begin, offset_end, line, column, line_end, column_end) SELECT id,:begin,:end,:line,:column,:line_end,:column_end FROM %s WHERE path = :path",
-                    mutationPointTable, filesTable);
+        enum insert_mp_sql = format("INSERT OR IGNORE INTO %s
+            (file_id, offset_begin, offset_end, line, column, line_end, column_end)
+            SELECT id,:begin,:end,:line,:column,:line_end,:column_end
+            FROM %s
+            WHERE
+            path = :path", mutationPointTable, filesTable);
         auto mp_stmt = db.prepare(insert_mp_sql);
 
         foreach (mp; mps) {
@@ -505,11 +619,15 @@ struct Database {
             mp_stmt.reset;
         }
 
-        enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s (status,checksum0,checksum1) VALUES(:st,:c0,:c1)",
+        enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s
+            (status,test_cnt,update_ts,added_ts,checksum0,checksum1)
+            VALUES(:st,0,:update_ts,:added_ts,:c0,:c1)",
                     mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
-
+        const ts = Clock.currTime.toUTC.toSqliteDateTime;
         cmut_stmt.bind(":st", Mutation.Status.unknown);
+        cmut_stmt.bind(":update_ts", ts);
+        cmut_stmt.bind(":added_ts", ts);
         foreach (cm; mps.map!(a => a.cms).joiner) {
             cmut_stmt.bind(":c0", cast(long) cm.id.c0);
             cmut_stmt.bind(":c1", cast(long) cm.id.c1);
@@ -517,15 +635,16 @@ struct Database {
             cmut_stmt.reset;
         }
 
-        enum insert_m_sql = format("INSERT OR IGNORE INTO %s (mp_id, st_id, kind)
+        enum insert_m_sql = format("INSERT OR IGNORE INTO %s
+            (mp_id, st_id, kind)
             SELECT t0.id,t1.id,:kind FROM %s t0, %s t1, %s t2 WHERE
             t2.path = :path AND
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
             t0.offset_end = :off_end AND
             t1.checksum0 = :c0 AND
-            t1.checksum1 = :c1",
-                    mutationTable, mutationPointTable, mutationStatusTable, filesTable);
+            t1.checksum1 = :c1", mutationTable,
+                    mutationPointTable, mutationStatusTable, filesTable);
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {

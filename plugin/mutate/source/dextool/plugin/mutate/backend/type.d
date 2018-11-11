@@ -307,3 +307,9 @@ struct TestGroup {
         formattedWrite(w, "TestGroup(%s, %s, %s)", name, description, userInput);
     }
 }
+
+/// Number of times a mutant has been tested.
+struct MutantTestCount {
+    long value;
+    alias value this;
+}

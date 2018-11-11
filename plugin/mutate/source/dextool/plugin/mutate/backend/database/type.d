@@ -106,9 +106,21 @@ struct MutantInfo {
     SourceLoc sloc;
 }
 
-struct OldMutant {
+struct MutationStatusTime {
     import std.datetime : SysTime;
 
+    MutationStatusId id;
+    SysTime updated;
+}
+
+struct MutationStatus {
+    import std.datetime : SysTime;
+    import std.typecons : Nullable;
+    import dextool.plugin.mutate.backend.type;
+
     MutationStatusId statusId;
-    SysTime timestamp;
+    Mutation.Status status;
+    MutantTestCount testCnt;
+    SysTime updated;
+    Nullable!SysTime added;
 }

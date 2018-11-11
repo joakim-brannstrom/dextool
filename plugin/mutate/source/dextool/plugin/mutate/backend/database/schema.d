@@ -56,7 +56,7 @@ import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 9;
+immutable latestSchemaVersion = 10;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -227,13 +227,27 @@ immutable mutation_status_v1_tbl = "CREATE TABLE %s (
     CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
     )";
 
-// time in ms spent on verifying the mutant
-// timestamp is seconds at UTC+0
+// time = ms spent on verifying the mutant
+// timestamp = is when the status where last updated. Seconds at UTC+0.
 immutable mutation_status_v2_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
     status      INTEGER NOT NULL,
     time        INTEGER,
     timestamp   DATETIME,
+    checksum0   INTEGER,
+    checksum1   INTEGER,
+    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
+    )";
+// update_st = when the status where last updated. Seconds at UTC+0.
+// added_ts = when the mutant where added to the system.
+// test_cnt = nr of times the mutant has been tested without being killed.
+immutable mutation_status_v3_tbl = "CREATE TABLE %s (
+    id          INTEGER PRIMARY KEY,
+    status      INTEGER NOT NULL,
+    time        INTEGER,
+    test_cnt    INTEGER NOT NULL,
+    update_ts   DATETIME,
+    added_ts    DATETIME,
     checksum0   INTEGER,
     checksum1   INTEGER,
     CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
@@ -326,6 +340,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     tbl[6] = &upgradeV6;
     tbl[7] = &upgradeV7;
     tbl[8] = &upgradeV8;
+    tbl[9] = &upgradeV9;
 
     while (true) {
         long version_ = 0;
@@ -524,6 +539,23 @@ void upgradeV8(ref sqlDatabase db) {
 
     replaceTbl(db, new_tbl, mutationPointTable);
     updateSchemaVersion(db, 9);
+}
+
+/// 2018-11-10
+void upgradeV9(ref sqlDatabase db) {
+    db.run("PRAGMA foreign_keys=OFF;");
+    scope (exit)
+        db.run("PRAGMA foreign_keys=ON;");
+
+    enum new_tbl = "new_" ~ mutationStatusTable;
+    db.run(format(mutation_status_v3_tbl, new_tbl));
+    db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
+        SELECT t0.id,t0.status,t0.time,0,t0.timestamp,t0.checksum0,t0.checksum1
+        FROM %s t0",
+            new_tbl, mutationStatusTable));
+
+    replaceTbl(db, new_tbl, mutationStatusTable);
+    updateSchemaVersion(db, 10);
 }
 
 void replaceTbl(ref sqlDatabase db, string src, string dst) {

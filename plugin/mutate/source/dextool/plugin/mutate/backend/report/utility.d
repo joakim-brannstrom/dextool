@@ -13,17 +13,14 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.typecons : Flag, Yes, No;
 
-import dextool.plugin.mutate.backend.database : Database, spinSqlQuery,
-    MutationId;
+import dextool.plugin.mutate.backend.database : Database, spinSqlQuery, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
-import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase,
-    Language, TestGroup;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
 
-public import dextool.plugin.mutate.backend.utility : MakeMutationTextResult,
-    makeMutationText;
+public import dextool.plugin.mutate.backend.utility : MakeMutationTextResult, makeMutationText;
 
 // 5 because it covers all the operators and true/false
 immutable windowSize = 5;
@@ -511,8 +508,7 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
 }
 
 class TestGroupStat {
-    import dextool.plugin.mutate.backend.database : MutationId, FileId,
-        MutantInfo;
+    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo;
 
     /// Human readable description for the test group.
     string description;
@@ -528,7 +524,8 @@ class TestGroupStat {
     MutantInfo[][FileId] killed;
 }
 
-TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, const(TestGroup) test_g) @safe {
+TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
+        const(TestGroup) test_g) @safe {
     import std.algorithm : filter, map;
     import std.array : appender;
     import std.typecons : tuple;
@@ -604,6 +601,52 @@ TestGroupStat reportTestGroups(ref Database db, const Mutation.Kind[] kinds, con
     }
 
     return r;
+}
+
+class MutantSample {
+    import std.typecons : Nullable;
+    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
+        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+
+    MutationEntry[MutationStatusId] mutants;
+
+    MutationStatusTime[] oldest;
+
+    /// The mutant that has survived the longest in the system.
+    Nullable!MutationStatus hardestToKillStatus;
+    Nullable!MutationEntry hardestToKillMutant;
+
+    /// The latest mutants that where added and survived.
+    MutationStatusTime[] latest;
+}
+
+/// Returns: samples of mutants that are of high interest to the user.
+MutantSample reportSelectedAliveMutants(ref Database db,
+        const(Mutation.Kind)[] kinds, long history_nr) {
+    auto rval = new typeof(return);
+
+    rval.hardestToKillStatus = db.getHardestToKillMutant(kinds, Mutation.Status.alive);
+    if (!rval.hardestToKillStatus.isNull) {
+        auto ids = db.getMutationIds(kinds, [rval.hardestToKillStatus.statusId]);
+        if (ids.length != 0)
+            rval.hardestToKillMutant = db.getMutation(ids[0]);
+    }
+
+    rval.oldest = db.getOldestMutants(kinds, history_nr);
+    foreach (const mutst; rval.oldest) {
+        auto ids = db.getMutationIds(kinds, [mutst.id]);
+        if (ids.length != 0)
+            rval.mutants[mutst.id] = db.getMutation(ids[0]);
+    }
+
+    rval.latest = db.getLatestMutants(kinds, Mutation.Status.alive, history_nr);
+    foreach (const mutst; rval.latest) {
+        auto ids = db.getMutationIds(kinds, [mutst.id]);
+        if (ids.length != 0)
+            rval.mutants[mutst.id] = db.getMutation(ids[0]);
+    }
+
+    return rval;
 }
 
 struct Table(int columnsNr) {
