@@ -19,6 +19,17 @@ module unit_threaded.light;
 
 alias UnitTestException = Exception;
 
+
+/**
+   Dummy version so "normal" code compiles
+ */
+mixin template runTestsMain(Modules...) if(Modules.length > 0) {
+    int main() {
+        import unit_threaded.light: runTestsImpl;
+        return runTestsImpl;
+    }
+}
+
 /**
    Dummy version of runTests so "normal" code compiles.
  */
@@ -35,22 +46,16 @@ int runTestsImpl() {
     import core.runtime: Runtime;
     import core.stdc.stdio: printf;
 
-    try {
+    version(Posix)
+        printf("\033[32;1mOk\033[0;;m");
+    else
+        printf("Ok");
 
-        Runtime.moduleUnitTester();
+    printf(": All tests passed\n\n");
 
-        printf("\n");
-        version(Posix)
-            printf("\033[32;1mOk\033[0;;m");
-        else
-            printf("Ok");
-
-        printf(": All tests passed\n\n");
-
-        return 0;
-    } catch(Throwable _)
-        return 1;
+    return 0;
 }
+
 
 /**
    Dummy version so "normal" code compiles
@@ -145,20 +150,50 @@ void shouldEqual(V, E)(auto ref V value, auto ref E expected, in string file = _
     enum isInputRange(T) = is(T: Elt[], Elt) || is(typeof(checkInputRange(T.init)));
 
     static if(is(V == class)) {
-        assert_(value.tupleof == expected.tupleof, file, line);
+
+        import unit_threaded.should: isEqual;
+        assert_(isEqual(value, expected), file, line);
+
     } else static if(isInputRange!V && isInputRange!E) {
-        auto ref unqual(T)(auto ref const(T) obj) @trusted {
-            static if(is(T == void[]))
-                return cast(ubyte[])obj;
-            else
-                return cast(T)obj;
+
+        auto ref unqual(OriginalType)(auto ref OriginalType obj) @trusted {
+
+            // copied from std.traits
+            template Unqual(T) {
+                     static if (is(T U ==          immutable U)) alias Unqual = U;
+                else static if (is(T U == shared inout const U)) alias Unqual = U;
+                else static if (is(T U == shared inout       U)) alias Unqual = U;
+                else static if (is(T U == shared       const U)) alias Unqual = U;
+                else static if (is(T U == shared             U)) alias Unqual = U;
+                else static if (is(T U ==        inout const U)) alias Unqual = U;
+                else static if (is(T U ==        inout       U)) alias Unqual = U;
+                else static if (is(T U ==              const U)) alias Unqual = U;
+                else                                             alias Unqual = T;
+            }
+
+            static if(__traits(compiles, obj[])) {
+                static if(!is(typeof(obj[]) == OriginalType)) {
+                    return unqual(obj[]);
+                } else static if(__traits(compiles, cast(Unqual!OriginalType) obj)) {
+                    return cast(Unqual!OriginalType) obj;
+                } else {
+                    return obj;
+                }
+            } else  static if(__traits(compiles, cast(Unqual!OriginalType) obj)) {
+                return cast(Unqual!OriginalType) obj;
+            } else
+                return obj;
         }
+
         import std.algorithm: equal;
         assert_(equal(unqual(value), unqual(expected)), file, line);
+
     } else {
         assert_(cast(const)value == cast(const)expected, file, line);
     }
 }
+
+
 
 /// Assert value is not equal to expected.
 void shouldNotEqual(V, E)(in auto ref V value, in auto ref E expected, in string file = __FILE__, in size_t line = __LINE__) {
@@ -278,9 +313,9 @@ void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
 }
 
 /// Assert that value is approximately equal to expected.
-void shouldApproxEqual(V, E)(in V value, in E expected, string file = __FILE__, size_t line = __LINE__) {
+void shouldApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2, double maxAbsDiff = 1e-5, string file = __FILE__, size_t line = __LINE__) {
     import std.math: approxEqual;
-    assert_(approxEqual(value, expected), file, line);
+    assert_(approxEqual(value, expected, maxRelDiff, maxAbsDiff), file, line);
 }
 
 /// assert that rng is empty.
