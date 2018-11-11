@@ -312,7 +312,7 @@ struct Database {
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
-    MutationId[] getMutationIds(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
+    MutationId[] getMutationIds(const(Mutation.Kind)[] kinds, const(MutationStatusId)[] id) @trusted {
         const get_mutid_sql = format("SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -336,7 +336,7 @@ struct Database {
     }
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
-    OldMutant[] getOldestMutants(const Mutation.Kind[] kinds, long nr) @trusted {
+    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, long nr) @trusted {
         const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
@@ -347,15 +347,37 @@ struct Database {
         auto stmt = db.prepare(sql);
         stmt.bind(":limit", nr);
 
-        auto app = appender!(OldMutant[])();
+        auto app = appender!(MutationStatusTime[])();
         foreach (res; stmt.execute)
-            app.put(OldMutant(MutationStatusId(res.peek!long(0)),
+            app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
+                    res.peek!string(1).fromSqLiteDateTime));
+        return app.data;
+    }
+
+    /// Returns: the `nr` mutants that had there status last updated to the specified status.
+    MutationStatusTime[] getLatestMutants(const(Mutation.Kind)[] kinds,
+            const Mutation.Status status, long nr) @trusted {
+        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
+                    WHERE
+                    t0.update_ts IS NOT NULL AND
+                    t0.status = :status AND
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%))
+                    ORDER BY t0.update_ts DESC LIMIT :limit",
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":status", cast(long) status);
+        stmt.bind(":limit", nr);
+
+        auto app = appender!(MutationStatusTime[])();
+        foreach (res; stmt.execute)
+            app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
                     res.peek!string(1).fromSqLiteDateTime));
         return app.data;
     }
 
     /// Returns: the mutant with the highest count that has not been killed and existed in the system the longest.
-    Nullable!HardestToKillMutantResult getHardestToKillMutant(const Mutation.Kind[] kinds,
+    Nullable!MutationStatus getHardestToKillMutant(const(Mutation.Kind)[] kinds,
             const Mutation.Status status) @trusted {
         const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts FROM %s t0, %s t1
                     WHERE
@@ -373,13 +395,20 @@ struct Database {
 
         typeof(return) rval;
         foreach (res; stmt.execute) {
+            auto added = () {
+                auto raw = res.peek!string(4);
+                if (raw.length == 0)
+                    return Nullable!SysTime();
+                return Nullable!SysTime(raw.fromSqLiteDateTime);
+            }();
+
             // dfmt off
-            rval = HardestToKillMutantResult(
+            rval = MutationStatus(
                 MutationStatusId(res.peek!long(0)),
                 res.peek!long(1).to!(Mutation.Status),
                 res.peek!long(2).MutantTestCount,
                 res.peek!string(3).fromSqLiteDateTime,
-                res.peek!string(4).fromSqLiteDateTime,
+                added,
             );
             // dfmt on
         }

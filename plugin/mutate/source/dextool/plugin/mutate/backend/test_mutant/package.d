@@ -990,14 +990,14 @@ nothrow:
             return;
 
         logger.infof("Resetting the %s oldest mutants", data.conf.oldMutantsNr).collectException;
-        OldMutant[] oldest;
+        MutationStatusTime[] oldest;
         spinSqlQuery!(() {
             oldest = data.db.getOldestMutants(data.mutKind, data.conf.oldMutantsNr);
         });
         foreach (const old; oldest) {
-            logger.info("  Last updated ", old.timestamp).collectException;
+            logger.info("  Last updated ", old.updated).collectException;
             spinSqlQuery!(() {
-                data.db.updateMutationStatus(old.statusId, Mutation.Status.unknown);
+                data.db.updateMutationStatus(old.id, Mutation.Status.unknown);
             });
         }
     }

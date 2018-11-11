@@ -756,7 +756,7 @@ class ShallResetOldestMutant : DatabaseFixture {
 
         // assert
         oldest.length.shouldEqual(1);
-        oldest[0].statusId.shouldEqual(expected);
+        oldest[0].id.shouldEqual(expected);
     }
 }
 
