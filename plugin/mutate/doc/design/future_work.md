@@ -126,10 +126,10 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
- * propose to the user mutants to fix. algo: record when the mutant where discovered, the number of times it has survived. sort by latest mutants added and highest survive count. propose those to the user to kill. maybe two. the one with highest count and the one with absolutly latest date.
- * change the cascade in the tables. this is so mutants are NOT deleted just because the mutation point is. this is to make it possible to "reconnect" mutants.
-   this will be extremly useful when the algorithm for calculating the mutants checksum is changed to doing it on the tokens and skip comments.
- * calculate the score on the unique changes in the source code. this is to avoid inflating when different mutants can result in the same source code change.
+ * impl SDL for assignment operators. This is crucial because during code review it was found out that "this" specific mutation would have resulted in test cases failing.
+ * present "shared" and "core" to the user.
+     * calculate the difference between test groups to find the "core".
+     * calculate the intersect between test groups to find "shared".
  * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.
  * make it possible for the user to define "mutation operator sets" from the 40+ primitives. There is no reason why they are hardcoded.
  * implement a test case analyser that can find test cases that encompases others. Supersets.
@@ -137,19 +137,12 @@ New items are added at the top
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.
    The take the result and "merge it back" into the teams shared database.
- * change the database schema to mutation -> mutation_subtype.
-        the subtype in turn have the kind and status.
-    the intention is to reduce the number of overlapping mutation testing and thus in the end reduce the execution time needed for testing all mutants.
-    such a change would make it possible to propagate the result of testing one mutation subtype to other subtypes that actually result in the same generated code.
  * add an improved inspection "viewer"
  * add an attribute to mutants so they can be marked as "inspected/equivalent"
- * add support for configuration files
- * Separate the *time* statistics for mutation testing to a separate chapter because when it is written at the same line it creates unnecessary git conflicts
  * split the total time spent on mutation testing in: compile and execute tests
  * the time spent on mutations should always be added to the existing time, not overwritten.
  * Write requirement for the automatic "reanalyze" of files that has changed
    compared to those in the database.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
- * Change name of stmtDel to SDL
  * Fix sdl
      It only implements function deletion. Which are "wrong" when inside a binary operator.
