@@ -67,11 +67,14 @@ private Mutation getFilePath(Mutation mutation, string file_id) {
     auto stmt = sdb.db.prepare(format("SELECT path, lang FROM files WHERE id='%s';", file_id));
     auto res = stmt.execute;
 
-    import std.path : buildPath;
     import dextool.plugin.mutate.backend.type : Language;
 
     auto path = res.front.peek!string(0);
-    path = buildPath("..", path);
+
+    import std.path : buildNormalizedPath;
+    import std.file : getcwd;
+    path = buildNormalizedPath(getcwd(), "..", path);
+
     mutation.path = path;
     mutation.lang = res.front.peek!Language(1);
 
