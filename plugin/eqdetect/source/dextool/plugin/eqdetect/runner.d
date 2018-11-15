@@ -61,6 +61,8 @@ ExitStatusType runPlugin(string[] args) {
 
     foreach (m; mutations) {
         visitor = new TUVisitor(m);
+        import std.path : stripExtension;
+        exit_status = analyzeFile(AbsolutePath(FileName(stripExtension(m.path)~".hpp",)), cflags, visitor, ctx);
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
 
         if (exit_status != ExitStatusType.Ok) {
@@ -68,7 +70,6 @@ ExitStatusType runPlugin(string[] args) {
 
         } else {
             import dextool.plugin.eqdetect.backend : handleMutation;
-
             handleMutation(visitor, m);
 
             // separate the output
