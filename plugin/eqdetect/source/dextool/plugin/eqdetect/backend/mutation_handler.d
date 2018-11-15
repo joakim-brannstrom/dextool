@@ -19,10 +19,14 @@ import dextool.plugin.eqdetect.backend.type : Mutation, ErrorResult;
 import logger = std.experimental.logger;
 import dextool.plugin.mutate.backend.type : Offset;
 
+const string SOURCE_TYPE = "_source_";
+const string MUTANT_TYPE = "_mutant_";
+const string KLEE_TYPE = "_klee_";
+
 void handleMutation(TUVisitor visitor, Mutation mutation) {
     // create file for sourcecode, the mutant and code prepared for KLEE
     mutationEnhancer(visitor, mutation);
-    createSourceFiles(visitor, mutation);
+    createSourceFiles(visitor);
     // start the symbolic execution in KLEE
     runKLEE();
     // parse the result
@@ -31,13 +35,13 @@ void handleMutation(TUVisitor visitor, Mutation mutation) {
     markMutation(errorResult, mutation);
 }
 
-Offset updateMutationOffset(TUVisitor visitor, Offset offset, int i){
-    if (offset.begin > visitor.offsets[i].begin
-            && offset.end > visitor.offsets[i].end) {
+Offset updateMutationOffset(Offset visitorOffset, Offset offset){
+    if (offset.begin > visitorOffset.begin
+            && offset.end > visitorOffset.end) {
         offset.begin += 2;
         offset.end += 2;
-    } else if (offset.begin <= visitor.offsets[i].begin
-            && offset.end >= visitor.offsets[i].end) {
+    } else if (offset.begin <= visitorOffset.begin
+            && offset.end >= visitorOffset.end) {
         offset.end += 2;
     }
     return offset;
@@ -47,36 +51,82 @@ void mutationEnhancer(TUVisitor visitor, Mutation mutation) {
     import std.algorithm;
     import std.stdio;
     visitor.offsets.sort!("a.begin > b.begin");
+    visitor.headerOffsets.sort!("a.begin > b.begin");
     string text = visitor.generatedSource.render;
+    string text2 = visitor.generatedSourceHeader.render;
     for (int i = 0; i < visitor.offsets.length; i++) {
         text = nameReplacer(text, visitor.offsets[i]);
-        mutation.offset = updateMutationOffset(visitor, mutation.offset, i);
+        mutation.offset = updateMutationOffset(visitor.offsets[i], mutation.offset);
+    }
+    for (int i = 0; i < visitor.headerOffsets.length; i++) {
+        text2 = nameReplacer(text2, visitor.headerOffsets[i]);
     }
 
     import dextool.plugin.eqdetect.backend.codegenerator : SnippetFinder;
 
     visitor.generatedMutation.text(SnippetFinder.generateMut(text, mutation));
+    visitor.generatedMutationHeader.text(text2);
 }
-
-import std.typecons : Tuple;
 
 string nameReplacer(string text, Offset offset) {
     text = text[0 .. offset.begin] ~ "m_" ~ text[offset.begin .. $];
     return text;
 }
 
-void createSourceFiles(TUVisitor visitor, Mutation mutation) {
-    import std.path : baseName;
+import dextool.type : FileName;
+
+FileName createFilename(TUVisitor visitor, string filetype, string extension){
+    import std.path : baseName, stripExtension;
+    import std.conv : to;
+    import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
+
+    FileName base = stripExtension(baseName(visitor.mutation.path));
+    string kind = to!string(cast(mutationStruct.Kind) visitor.mutation.kind);
+    string id = to!string(visitor.mutation.id);
+    FileName ret = (base ~ filetype ~ id ~ "_" ~ kind ~ extension);
+    return ret;
+}
+
+void createSourceFiles(TUVisitor visitor) {
+    import std.path : extension, stripExtension;
     import dextool.plugin.eqdetect.backend : writeToFile, SnippetFinder;
     import dextool.type : FileName;
 
-    FileName source_path = writeToFile(visitor.generatedSource.render,
-            baseName(mutation.path), mutation.kind, mutation.id, "_source_");
-    FileName mutant_path = writeToFile(visitor.generatedMutation.render,
-            baseName(mutation.path), mutation.kind, mutation.id, "_mutant_");
+    FileName source_path = createFilename(visitor, SOURCE_TYPE, extension(visitor.mutation.path));
+    FileName mutant_path = createFilename(visitor, MUTANT_TYPE, extension(visitor.mutation.path));
+
+    string muttext;
+    string sourcetext;
+
+    if (visitor.includeOffset.begin != -1 && visitor.includeOffset.end != -1){
+        muttext = visitor.generatedMutation.render[0 .. visitor.includeOffset.begin] ~ "\"" ~
+        stripExtension(mutant_path)~".hpp" ~ "\"" ~ visitor.generatedMutation.render[visitor.includeOffset.end .. $];
+        sourcetext = visitor.generatedSource.render[0 .. visitor.includeOffset.begin] ~ "\"" ~
+        stripExtension(source_path)~".hpp" ~ "\"" ~ visitor.generatedSource.render[visitor.includeOffset.end .. $];
+    } else {
+        muttext = visitor.generatedMutation.render;
+        sourcetext = visitor.generatedSource.render;
+    }
+
+    writeToFile(sourcetext, source_path);
+    writeToFile(muttext, mutant_path);
+
     auto s = SnippetFinder.generateKlee(visitor.function_params, source_path,
-            mutant_path, visitor.function_name);
-    writeToFile(s, baseName(mutation.path), mutation.kind, mutation.id, "_klee_");
+            mutant_path, visitor.function_name, visitor.semanticParentList, visitor.isFunctionVoid);
+
+    writeToFile(s, createFilename(visitor, KLEE_TYPE, extension(visitor.mutation.path)));
+
+    import std.array : replace;
+    string headerExtension = extension(visitor.mutation.path).replace("c", "h");
+
+    source_path = createFilename(visitor, SOURCE_TYPE, headerExtension);
+    mutant_path = createFilename(visitor, MUTANT_TYPE, headerExtension);
+
+    //Can't find #ifndef when analyzing the AST, working for now
+    muttext = (visitor.generatedMutationHeader.render).replace("#ifndef ", "#ifndef m_");
+
+    writeToFile(visitor.generatedSourceHeader.render, source_path);
+    writeToFile(muttext, mutant_path);
 }
 
 void runKLEE() {
