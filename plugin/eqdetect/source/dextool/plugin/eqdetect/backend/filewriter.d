@@ -11,8 +11,6 @@ This file writes the generated code into a file with a name according to the plu
 standard. The user will provide what code to write to the file and what filetype it is
 (_source_, _mutant_ or _klee_).
 
-TODO:
-- Change type of input parameters (ex. Mutation.Kind instead of int)
 */
 
 module dextool.plugin.eqdetect.backend.filewriter;
@@ -20,25 +18,16 @@ import dextool.type : FileName;
 
 @safe:
 
-static FileName writeToFile(string text_to_write, string base, int kind, int id, string filetype) {
-    import std.stdio : File, writeln;
-    import std.conv : to;
-    import std.path : stripExtension, extension, baseName;
+void writeToFile(string text, FileName filename) {
+    import std.stdio : File;
     import std.file : mkdirRecurse;
-    import dextool.plugin.mutate.backend.type : mutationStruct = Mutation;
 
     auto dir = "eqdetect_generated_files";
     dir.mkdirRecurse;
 
-    FileName filename;
-
-    filename = stripExtension(base) ~ filetype ~ to!string(id) ~ "_" ~ to!string(
-            cast(mutationStruct.Kind) kind) ~ extension(base);
-
     import std.path : buildPath;
-
     string path = buildPath(dir, filename);
+
     auto file = File(path, "w");
-    file.write(text_to_write);
-    return filename;
+    file.write(text);
 }
