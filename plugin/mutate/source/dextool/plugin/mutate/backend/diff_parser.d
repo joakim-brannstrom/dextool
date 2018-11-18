@@ -64,10 +64,12 @@ struct UnifiedDiffParser {
     Diff result;
 
     private {
+        // diff --git a/usability/report.md b/usability/report.md
+        enum re_git_diff_hdr = ctRegex!(`^diff --git.*`);
         // --- a/standalone.d
-        enum re_hdr_original = ctRegex!(`^--- a/(?P<hdr>.*)`);
+        enum re_hdr_original = ctRegex!(`^--- (?P<hdr>.*)`);
         // +++ a/standalone.d
-        enum re_hdr_new = ctRegex!(`^\+\+\+ b/(?P<hdr>.*)`);
+        enum re_hdr_new = ctRegex!(`^\+\+\+ (?P<hdr>.*)`);
         // @@ -31,7 +31,6 @@ import std.algorithm : map;
         enum re_hunk_start_multiline = ctRegex!(`^@@ -\d*,\d* \+(?P<line>\d*),(?P<count>\d*) @@.*`);
         // @@ -31 +31 @@ import std.algorithm : map;
@@ -77,15 +79,18 @@ struct UnifiedDiffParser {
 
         FsmState st;
         StateData data;
+        bool isGitDiff;
     }
 
     void process(T)(T line) {
         import std.conv : to;
         import std.meta;
         import std.traits : EnumMembers;
+        import std.string : startsWith, split;
         import dextool.type : Path;
         import dextool.set;
 
+        auto is_git_diff = !matchFirst(line, re_git_diff_hdr).empty;
         auto hdr_original = matchFirst(line, re_hdr_original);
         auto hdr_new = matchFirst(line, re_hdr_new);
         auto hunk_start_multiline = matchFirst(line, re_hunk_start_multiline);
@@ -96,6 +101,15 @@ struct UnifiedDiffParser {
             auto next = FsmState(false, st, null);
 
             final switch (st) {
+            case State.findHdr:
+                if (is_git_diff) {
+                    next[1] = State.findHdrOriginal;
+                    next[2] = [Action.setGitDiff];
+                } else if (!hdr_original.empty) {
+                    next[0] = true;
+                    next[1] = State.findHdrOriginal;
+                }
+                break;
             case State.findHdrOriginal:
                 if (!hdr_original.empty) {
                     next[1] = State.findHdrNew;
@@ -161,11 +175,25 @@ struct UnifiedDiffParser {
         }
 
         void saveOriginalAct() {
-            data.hdrOriginal = Path(hdr_original["hdr"]);
+            auto a = hdr_original["hdr"];
+            auto p = () {
+                if (isGitDiff && a.length > 2)
+                    return a[2 .. $].split('\t');
+                return a.split('\t');
+            }();
+
+            data.hdrOriginal = Path(p[0].idup);
         }
 
         void saveNewAct() {
-            data.hdrNew = Path(hdr_new["hdr"]);
+            auto a = hdr_new["hdr"];
+            auto p = () {
+                if (isGitDiff && a.length > 2)
+                    return a[2 .. $].split('\t');
+                return a.split('\t');
+            }();
+
+            data.hdrNew = Path(p[0].idup);
         }
 
         void warnOriginalAct() {
@@ -201,10 +229,14 @@ struct UnifiedDiffParser {
             data.count++;
         }
 
+        void setGitDiffAct() {
+            isGitDiff = true;
+        }
+
         st[0] = true;
         while (st[0]) {
             st = nextState(st[1]);
-            logger.tracef("%s | %s", line, st);
+            debug logger.tracef("%s | %s", line, st);
 
             foreach (const act; st[2]) {
                 static foreach (Member; [EnumMembers!Action]) {
@@ -212,7 +244,7 @@ struct UnifiedDiffParser {
                         mixin(Member.to!string ~ "Act();");
                 }
             }
-            logger.tracef("%s | %s", result, data);
+            debug logger.tracef("%s | %s %s", result, data, isGitDiff);
         }
     }
 }
@@ -230,6 +262,7 @@ struct StateData {
 }
 
 enum State {
+    findHdr,
     findHdrOriginal,
     findHdrNew,
     checkOrigNew,
@@ -240,6 +273,7 @@ enum State {
 }
 
 enum Action {
+    setGitDiff,
     resetStateData,
     saveOriginal,
     saveNew,
@@ -251,14 +285,17 @@ enum Action {
     blankLine,
 }
 
-@("shall detect the changes lines")
-unittest {
-    import std.string;
-    import std.ascii : newline;
+version (unittest) {
+    import std.string : lineSplitter;
     import dextool.set;
     import dextool.type;
+}
 
-    immutable lines = `--- a/standalone.d
+@("shall detect the changes lines (unified git diff)")
+unittest {
+    immutable lines = `diff --git a/standalone2.d b/standalone2.d
+index 0123..2345 100644
+--- a/standalone.d
 +++ b/standalone2.d
 @@ -31,7 +31,6 @@ import std.algorithm : map;
  import std.array : Appender, appender, array;
@@ -283,9 +320,33 @@ unittest {
         p.process(line);
 
     // assert
-    logger.trace(p.result);
     p.result[Path("standalone2.d")].contains(33).shouldBeTrue;
     p.result[Path("standalone2.d")].contains(48).shouldBeTrue;
     p.result[Path("standalone2.d")].contains(51).shouldBeTrue;
+    p.result.length.should == 1;
+}
+
+@("shall detect the changed lines (unified with date)")
+unittest {
+
+    immutable lines = `--- plugin/mutate/testdata/report_one_ror_mutation_point.cpp	2018-11-18 21:25:46.631640690 +0100
++++ plugin/mutate/testdata/report_one_ror_mutation_point2.cpp	2018-11-18 21:26:17.003691847 +0100
+@@ -3,7 +3,7 @@
+ /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
+ 
+ int fun(int x) {
+-    if (x > 3) {
++    if (x != 3) {
+         return 0;
+     }
+     return 1;`;
+
+    UnifiedDiffParser p;
+    foreach (line; lines.lineSplitter)
+        p.process(line);
+
+    // assert
+    p.result[Path("plugin/mutate/testdata/report_one_ror_mutation_point2.cpp")].contains(6)
+        .shouldBeTrue;
     p.result.length.should == 1;
 }
