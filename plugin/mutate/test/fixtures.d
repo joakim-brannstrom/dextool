@@ -76,3 +76,13 @@ test -e $1 && echo 'Failed 42'
 ";
     }
 }
+
+class SimpleAnalyzeFixture : TestCase {
+    void precondition(ref TestEnv testEnv) {
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
+    }
+
+    string programFile() {
+        return (testData ~ "report_one_ror_mutation_point.cpp").toString;
+    }
+}

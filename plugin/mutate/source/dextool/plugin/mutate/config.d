@@ -51,6 +51,9 @@ struct ConfigReport {
 
     /// User regex for reporting groups of tests
     TestGroup[] testGroups;
+
+    /// If a unified diff should be used in the report
+    bool unifiedDiff;
 }
 
 /// Configuration data for the compile_commands.json

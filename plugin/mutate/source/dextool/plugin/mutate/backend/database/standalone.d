@@ -294,25 +294,31 @@ struct Database {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        const get_mutid_sql = format("SELECT t0.id,t0.kind,t1.line,t1.column
-            FROM %s t0,%s t1
+        const get_mutid_sql = format("SELECT t0.id,t2.status,t0.kind,t1.line,t1.column
+            FROM %s t0,%s t1, %s t2
             WHERE
             t0.st_id IN (%(%s,%)) AND
+            t0.st_id = t2.id AND
             t0.kind IN (%(%s,%)) AND
-            t0.mp_id = t1.id", mutationTable,
-                mutationPointTable, id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
+            t0.mp_id = t1.id",
+                mutationTable, mutationPointTable,
+                mutationStatusTable, id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
         foreach (res; stmt.execute)
             app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
-                    .to!(Mutation.Kind), SourceLoc(res.peek!uint(2), res.peek!uint(3))));
+                    .to!(Mutation.Status), res.peek!long(2).to!(Mutation.Kind),
+                    SourceLoc(res.peek!uint(3), res.peek!uint(4))));
 
         return app.data;
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutationId[] getMutationIds(const(Mutation.Kind)[] kinds, const(MutationStatusId)[] id) @trusted {
+        if (id.length == 0)
+            return null;
+
         const get_mutid_sql = format("SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -333,6 +339,28 @@ struct Database {
         foreach (res; stmt.execute)
             rval = MutationStatusId(res.peek!long(0));
         return rval;
+    }
+
+    /// Returns: the mutants in the file at the line.
+    MutationStatusId[] getMutationsOnLine(const(Mutation.Kind)[] kinds, FileId fid, SourceLoc sloc) @trusted {
+        // TODO: should it also be line_end?
+        const sql = format("SELECT t0.id FROM %s t0, %s t1, %s t2
+                    WHERE
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%)) AND
+                    t1.mp_id = t2.id AND
+                    t2.file_id = :fid AND
+                    t2.line = :line
+                    ", mutationStatusTable,
+                mutationTable, mutationPointTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":fid", cast(long) fid);
+        stmt.bind(":line", sloc.line);
+
+        auto app = appender!(typeof(return))();
+        foreach (res; stmt.execute)
+            app.put(MutationStatusId(res.peek!long(0)));
+        return app.data;
     }
 
     /// Returns: the `nr` mutants that where the longst since they where tested.

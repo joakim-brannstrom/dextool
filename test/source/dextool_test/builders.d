@@ -36,6 +36,9 @@ struct BuildDextoolRun {
         string[] post_args;
         string[] flags_;
 
+        /// Data to stream into stdin upon execute.
+        string stdin_data;
+
         /// if the output from running the command should be yapped via scriptlike
         bool yap_output = true;
 
@@ -68,6 +71,11 @@ struct BuildDextoolRun {
             workdir_ = null;
         else
             workdir_ = v.toString;
+        return this;
+    }
+
+    auto setStdin(string v) {
+        this.stdin_data = v;
         return this;
     }
 
@@ -194,8 +202,15 @@ struct BuildDextoolRun {
 
         sw.start;
         try {
-            auto p = std.process.pipeProcess(cmd,
-                    std.process.Redirect.stdout | std.process.Redirect.stderr);
+            auto pipe_mode = std.process.Redirect.stdout | std.process.Redirect.stderr;
+            if (stdin_data.length != 0)
+                pipe_mode |= std.process.Redirect.stdin;
+
+            auto p = std.process.pipeProcess(cmd, pipe_mode);
+            if (stdin_data.length != 0) {
+                p.stdin.writeln(stdin_data);
+                p.stdin.close;
+            }
 
             for (;;) {
                 exit_ = std.process.tryWait(p.pid);
@@ -242,6 +257,9 @@ struct BuildCommandRun {
         string workdir_;
         string[] args_;
 
+        /// Data to stream into stdin upon execute.
+        string stdin_data;
+
         bool run_in_outdir;
 
         /// if the output from running the command should be yapped via scriptlike
@@ -284,6 +302,11 @@ struct BuildCommandRun {
 
     auto throwOnExitStatus(bool v) {
         this.throw_on_exit_status = v;
+        return this;
+    }
+
+    auto setStdin(string v) {
+        this.stdin_data = v;
         return this;
     }
 
@@ -335,8 +358,15 @@ struct BuildCommandRun {
 
         sw.start;
         try {
-            auto p = std.process.pipeProcess(cmd,
-                    std.process.Redirect.stdout | std.process.Redirect.stderr);
+            auto pipe_mode = std.process.Redirect.stdout | std.process.Redirect.stderr;
+            if (stdin_data.length != 0)
+                pipe_mode |= std.process.Redirect.stdin;
+
+            auto p = std.process.pipeProcess(cmd, pipe_mode);
+            if (stdin_data.length != 0) {
+                p.stdin.writeln(stdin_data);
+                p.stdin.close;
+            }
 
             for (;;) {
                 exit_ = std.process.tryWait(p.pid);

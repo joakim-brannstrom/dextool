@@ -12,3 +12,9 @@ module dextool.plugin.mutate.backend.report.html.constants;
 immutable htmlExt = ".html";
 immutable htmlDir = "html";
 immutable htmlFileDir = "files";
+
+// CSS style
+immutable tableStyle = "overlap_tbl";
+immutable tableColumnHdrStyle = "tg-g59y";
+immutable tableRowStyle = "tg-0lax";
+immutable tableRowDarkStyle = "tg-0lax_dark";

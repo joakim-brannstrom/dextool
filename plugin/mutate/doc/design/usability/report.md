@@ -365,7 +365,8 @@ call it an use case henceforth.
 
 During the implementation of this use case a bunch of test cases have been
 implemented. These test cases have, obviously, been implemented with the
-intention to verify the implementation.
+intention to verify the parts of the implementation that are related to the use
+case..
 
 It can thus be reasoned that this *group* of test cases collectively try to
 verify the implementation of the use case.
@@ -394,7 +395,7 @@ most of the time it can be further reasoned that there is a correlation between
 this *group mutation score* and the *test quality* of the test suite in
 relation to the use case.
 
-# REQ-report_productive_mutant
+# REQ-report_individual_view
 partof: REQ-report
 ###
 
@@ -403,7 +404,30 @@ TODO: write requirements.
 ## Background
 See [@googleMutationTesting2018]. The paper coin the term *productive mutant*.
 
-TODO: move the definition to definitions.md. It is kept here for now though to
-keep it with the background material.
+**Assumption 1**: A developer feels that they *own* a part of code if they recently made changes to that part.
 
+# REQ-report_team_view
+partof: REQ-report
+###
 
+TODO: write requirements.
+
+## Background
+
+See [@googleMutationTesting2018].
+
+This is an interpretation of the paper. This view focus on presenting information that a team can take action on.
+
+**Assumption 1**: The team is responsible, collectively, for the long term maintenance of the SUT.
+Should the mutant be be suppressed? Fixed? Is this a potentially hidden bug?
+
+**Assumption 2**: The team feel that they own the *whole* code base. They feel *responsible*. This creates an incitement for the team to *act*.
+
+**Assumption 3**: There is a correlation between the mutants that has survived the longest in the system, over time, and where there are potential problems in the SUT.
+Problems such as hidden bugs, hard to maintain etc.
+
+## How
+
+Present the 10 mutants (configurable) that has survived the longest in the system.
+
+With a link, time when they where discovered, how many times they have been tested when the last test where done etc.

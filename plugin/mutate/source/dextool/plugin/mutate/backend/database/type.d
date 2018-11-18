@@ -102,6 +102,7 @@ struct MutantInfo {
     import dextool.plugin.mutate.backend.type;
 
     MutationId id;
+    Mutation.Status status;
     Mutation.Kind kind;
     SourceLoc sloc;
 }

@@ -117,6 +117,7 @@ auto setToList(T)(ref Set!T set) {
     return app.data;
 }
 
+/// Specify the template type or it doesn't work.
 auto setToRange(T)(ref Set!T set) {
     return set.byKey;
 }

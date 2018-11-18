@@ -268,18 +268,19 @@ struct ArgParser {
             data.toolMode = ToolMode.report;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "c|config", conf_help, &conf_file,
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
-                   "logdir", "Directory to write log files to (default: .)", &logDir,
+                   "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
+                   "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
+                   "logdir", "Directory to write log files to (default: .)", &logDir,
+                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &report.reportSection,
-                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
                    "section-tc_stat-num", "number of test cases to report", &report.tcKillSortNum,
                    "section-tc_stat-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &report.tcKillSortOrder,
+                   "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
                    );
             // dfmt on
 

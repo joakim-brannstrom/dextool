@@ -19,10 +19,10 @@ import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
-    ReportSection;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
+import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent,
     FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
@@ -31,11 +31,19 @@ import dextool.plugin.mutate.config : ConfigReport;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ConfigReport conf, FilesysIO fio) @safe nothrow {
+    Diff diff;
+    try {
+        if (conf.unifiedDiff)
+            diff = fromStdin;
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+
     try {
         auto genrep = ReportGenerator.make(kind, conf, fio);
         runAllMutantReporter(db, kind, genrep);
 
-        auto fp = makeFilesReporter(db, conf, kind, fio);
+        auto fp = makeFilesReporter(db, conf, kind, fio, diff);
         if (fp !is null)
             runFilesReporter(db, fp, kind);
     } catch (Exception e) {
@@ -49,7 +57,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
 @safe:
 private:
 
-void runAllMutantReporter(ref Database db, const MutationKind[] kind, ref ReportGenerator genrep) {
+void runAllMutantReporter(ref Database db, const(MutationKind)[] kind, ref ReportGenerator genrep) {
     import dextool.plugin.mutate.backend.utility;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
@@ -66,7 +74,7 @@ void runAllMutantReporter(ref Database db, const MutationKind[] kind, ref Report
     genrep.statEvent(db);
 }
 
-void runFilesReporter(ref Database db, FilesReporter fps, const MutationKind[] kind) {
+void runFilesReporter(ref Database db, FilesReporter fps, const(MutationKind)[] kind) {
     assert(fps !is null, "report should never be null");
 
     import dextool.plugin.mutate.backend.utility;
@@ -87,7 +95,7 @@ void runFilesReporter(ref Database db, FilesReporter fps, const MutationKind[] k
 }
 
 FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
-        const MutationKind[] kind, FilesysIO fio) {
+        const(MutationKind)[] kind, FilesysIO fio, ref Diff diff) {
     import dextool.plugin.mutate.backend.report.html;
     import dextool.plugin.mutate.backend.utility;
 
@@ -101,7 +109,7 @@ FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
     case ReportKind.csv:
         return null;
     case ReportKind.html:
-        return new ReportHtml(kinds, conf, fio);
+        return new ReportHtml(kinds, conf, fio, diff);
     }
 }
 
@@ -181,4 +189,16 @@ struct ReportGenerator {
     void statEvent(ref Database db) {
         listeners.each!(a => a.statEvent(db));
     }
+}
+
+Diff fromStdin() @trusted {
+    import std.stdio : stdin;
+    import dextool.plugin.mutate.backend.diff_parser : UnifiedDiffParser;
+
+    UnifiedDiffParser parser;
+    foreach (l; stdin.byLine) {
+        debug logger.trace(l);
+        parser.process(l);
+    }
+    return parser.result;
 }
