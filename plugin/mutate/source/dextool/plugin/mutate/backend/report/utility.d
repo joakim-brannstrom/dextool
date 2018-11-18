@@ -14,6 +14,7 @@ import std.exception : collectException;
 import std.typecons : Flag, Yes, No;
 
 import dextool.plugin.mutate.backend.database : Database, spinSqlQuery, MutationId;
+import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
@@ -603,6 +604,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     return r;
 }
 
+/// High interest mutants.
 class MutantSample {
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
@@ -644,6 +646,70 @@ MutantSample reportSelectedAliveMutants(ref Database db,
         auto ids = db.getMutationIds(kinds, [mutst.id]);
         if (ids.length != 0)
             rval.mutants[mutst.id] = db.getMutation(ids[0]);
+    }
+
+    return rval;
+}
+
+class DiffReport {
+    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
+        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+
+    Path[FileId] files;
+    MutantInfo[][FileId] alive;
+    MutantInfo[][FileId] killed;
+
+    override string toString() @safe const {
+        import std.algorithm : map;
+        import std.array : appender;
+        import std.format : formattedWrite;
+        import std.range : put;
+
+        auto w = appender!string;
+
+        foreach (file; files.byKeyValue) {
+            put(w, file.value);
+            foreach (mut; alive[file.key])
+                formattedWrite(w, "  %s\n", mut);
+            foreach (mut; killed[file.key])
+                formattedWrite(w, "  %s\n", mut);
+        }
+
+        return w.data;
+    }
+}
+
+DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds, ref Diff diff) {
+    import std.algorithm : map;
+    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
+        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+    import dextool.plugin.mutate.backend.type : SourceLoc;
+    import dextool.set;
+
+    auto rval = new DiffReport;
+
+    foreach (kv; diff.byKeyValue) {
+        auto fid = db.getFileId(kv.key);
+        if (fid.isNull) {
+            logger.info("File in diff do not exist in the database: ", kv.key);
+            continue;
+        }
+
+        bool has_mutants;
+        foreach (line; setToRange!uint(kv.value)) {
+            auto muts = db.getMutantsInfo(kinds, db.getMutationsOnLine(kinds,
+                    fid, SourceLoc(line, 0)));
+            foreach (m; muts) {
+                has_mutants = true;
+                if (m.status == Mutation.Status.alive)
+                    rval.alive[fid] ~= m;
+                else
+                    rval.killed[fid] ~= m;
+            }
+        }
+
+        if (has_mutants)
+            rval.files[fid] = kv.key;
     }
 
     return rval;

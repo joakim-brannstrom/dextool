@@ -1,0 +1,11 @@
+--- build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp	2018-11-18 21:25:46.631640690 +0100
++++ build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp	2018-11-18 21:26:17.003691847 +0100
+@@ -3,7 +3,7 @@
+ /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
+ 
+ int fun(int x) {
+-    if (x > 3) {
++    if (x != 3) {
+         return 0;
+     }
+     return 1;

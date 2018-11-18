@@ -9,6 +9,10 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.tmpl;
 
+import dextool.plugin.mutate.backend.report.html.nodes;
+
+@safe:
+
 immutable htmlBegin = `<!DOCTYPE html>
 <html>
 <head>
@@ -107,3 +111,17 @@ immutable htmlEnd = `<script>%s</script>
 </body>
 </html>
 `;
+
+void addStateTableCss(HtmlNode s) {
+    s.putAttr("type", "text/css");
+    s.put(
+            `.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`);
+    s.put(`.stat_tbl td{border-style: none;}`);
+    s.put(`.overlap_tbl  {border-collapse:collapse;border-spacing:0;}`);
+    s.put(`.overlap_tbl td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.overlap_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
+    s.put(`.overlap_tbl .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
+    s.put(`.overlap_tbl .tg-0lax{text-align:left;vertical-align:top}`);
+    s.put(
+            `.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}`);
+}

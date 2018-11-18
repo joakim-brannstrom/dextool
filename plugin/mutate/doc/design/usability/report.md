@@ -365,7 +365,8 @@ call it an use case henceforth.
 
 During the implementation of this use case a bunch of test cases have been
 implemented. These test cases have, obviously, been implemented with the
-intention to verify the implementation.
+intention to verify the parts of the implementation that are related to the use
+case..
 
 It can thus be reasoned that this *group* of test cases collectively try to
 verify the implementation of the use case.

@@ -315,3 +315,25 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
         exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
     }
 }
+
+class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
+    override void test() {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs", null);
+
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .addArg(["--mutant", "rorp"])
+            .addArg("--diff-from-stdin")
+            .setStdin(readText(programFile ~ ".diff"))
+            .run;
+
+        // Act
+    }
+}

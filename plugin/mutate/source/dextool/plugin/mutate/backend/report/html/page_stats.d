@@ -32,26 +32,17 @@ auto makeStats(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) {
     import dextool.plugin.mutate.type : ReportSection;
     import dextool.set;
+    import dextool.plugin.mutate.backend.report.html.tmpl : addStateTableCss;
 
     auto sections = setFromList(conf.reportSection);
 
     auto statsh = defaultHtml(format("Mutation Testing Report %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     auto s = statsh.preambleBody.n("style".Tag);
-    s.putAttr("type", "text/css");
-    s.put(
-            `.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`);
-    s.put(`.stat_tbl td{border-style: none;}`);
-    s.put(`.overlap_tbl  {border-collapse:collapse;border-spacing:0;}`);
-    s.put(`.overlap_tbl td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.overlap_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.overlap_tbl .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
-    s.put(`.overlap_tbl .tg-0lax{text-align:left;vertical-align:top}`);
-    s.put(
-            `.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}`);
+    addStateTableCss(s);
 
     overallStat(reportStatistics(db, kinds), statsh.body_);
-    selectedMutants(reportSelectedAliveMutants(db, kinds, 1), statsh.body_);
+    selectedMutants(reportSelectedAliveMutants(db, kinds, 5), statsh.body_);
     if (ReportSection.tc_killed_no_mutants in sections)
         deadTestCase(reportDeadTestCases(db), statsh.body_);
     if (ReportSection.tc_full_overlap in sections
@@ -67,11 +58,6 @@ auto makeStats(ref Database db, ref const ConfigReport conf,
 }
 
 private:
-
-immutable tableStyle = "overlap_tbl";
-immutable tableColumnHdrStyle = "tg-g59y";
-immutable tableRowStyle = "tg-0lax";
-immutable tableRowDarkStyle = "tg-0lax_dark";
 
 void overallStat(const MutationStat s, HtmlNode n) {
     n.n("h2".Tag).put("Summary");

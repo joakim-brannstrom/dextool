@@ -12,16 +12,15 @@ module dextool.plugin.mutate.backend.report.html;
 import std.stdio : File;
 import logger = std.experimental.logger;
 
-import dextool.type : AbsolutePath, Path, DirName;
-import dextool.plugin.mutate.backend.database : Database, FileRow,
-    FileMutantRow, MutationId;
-import dextool.plugin.mutate.backend.report.utility : toSections;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
-    ReportSection;
+import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
+import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
+import dextool.plugin.mutate.backend.report.utility : toSections;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc;
 import dextool.plugin.mutate.config : ConfigReport;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
+import dextool.type : AbsolutePath, Path, DirName;
 
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.js;
@@ -67,7 +66,10 @@ struct FileIndex {
     // the context for the file that is currently being processed.
     FileCtx ctx;
 
-    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
+    // Report alive mutants in this section
+    Diff diff;
+
+    this(const(Mutation.Kind)[] kinds, const ConfigReport conf, FilesysIO fio, ref Diff diff) {
         import std.path : buildPath;
 
         this.kinds = kinds;
@@ -75,6 +77,7 @@ struct FileIndex {
         this.conf = conf;
         this.logDir = buildPath(conf.logDir, htmlDir).Path.AbsolutePath;
         this.logFilesDir = buildPath(this.logDir, htmlFileDir).Path.AbsolutePath;
+        this.diff = diff;
 
         sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
                 : conf.reportSection.dup).setFromList;
@@ -207,20 +210,21 @@ struct FileIndex {
         import std.format : format;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_stats;
+        import dextool.plugin.mutate.backend.report.html.page_user;
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
+        const user_f = buildPath(logDir, "user" ~ htmlExt);
 
         auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
+        indexh.body_.n("p".Tag).put(aHref(user_f.baseName, "User"));
 
         files.data.toIndex(indexh, htmlFileDir);
 
-        auto stats = File(stats_f, "w");
-        stats.write(makeStats(db, conf, humanReadableKinds, kinds));
-
-        auto index = File(buildPath(logDir, "index" ~ htmlExt), "w");
-        index.write(indexh);
+        File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
+        File(user_f, "w").write(makeUserReport(db, conf, humanReadableKinds, kinds, diff));
+        File(buildPath(logDir, "index" ~ htmlExt), "w").write(indexh);
     }
 
     override void endEvent(ref Database) {
