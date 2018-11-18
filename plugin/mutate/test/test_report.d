@@ -17,6 +17,7 @@ import dextool.plugin.mutate.backend.database.type;
 import dextool.plugin.mutate.backend.type;
 
 import dextool_test.utility;
+import dextool_test.fixtures;
 
 // dfmt off
 
@@ -271,49 +272,46 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@(testId ~ "shall report test cases that has killed zero mutants")
-unittest {
-    // regression: the sum of all mutants shall be killed+timeout+alive
-    import dextool.plugin.mutate.backend.type : TestCase;
+class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
+    override void test() {
+        // regression: the sum of all mutants shall be killed+timeout+alive
+        import dextool.plugin.mutate.backend.type : TestCase;
 
-    mixin(EnvSetup(globalTestdir));
-    // Arrange
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
-        .run;
-    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    db.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
-    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
 
-    // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--section", "tc_killed_no_mutants"])
-        .addArg(["--style", "plain"])
-        .run;
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        db.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+        db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
 
-    testConsecutiveSparseOrder!SubStr([
-        "| TestCase |",
-        "|----------|",
-        "| tc_4     |",
-    ]).shouldBeIn(r.stdout);
+        // Act
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "tc_killed_no_mutants"])
+            .addArg(["--style", "plain"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+            "| TestCase |",
+            "|----------|",
+            "| tc_4     |",
+        ]).shouldBeIn(r.stdout);
+    }
 }
 
-@(testId ~ "shall produce a html report")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    // Arrange
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
-        .run;
-    // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--style", "html"])
-        .addArg(["--logdir", testEnv.outdir.toString])
-        .run;
+class ShallProduceHtmlReport : SimpleAnalyzeFixture {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
 
-    // assert that the expected files have been generated
-    exists(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
-    exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
-    exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        // assert that the expected files have been generated
+        exists(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+        exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
+        exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
+    }
 }
