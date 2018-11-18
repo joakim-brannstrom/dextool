@@ -48,7 +48,7 @@ struct Diff {
     import dextool.type : Path;
     import dextool.set;
 
-    alias ChangedLines = Set!long;
+    alias ChangedLines = Set!uint;
 
     ChangedLines[Path] changes;
     alias changes this;
@@ -179,13 +179,13 @@ struct UnifiedDiffParser {
         }
 
         void multiLineHunkAct() {
-            data.startPos = hunk_start_multiline["line"].to!long;
-            data.maxCount = hunk_start_multiline["count"].to!long;
+            data.startPos = hunk_start_multiline["line"].to!uint;
+            data.maxCount = hunk_start_multiline["count"].to!uint;
             data.count = 0;
         }
 
         void lineHunkAct() {
-            data.startPos = hunk_start_multiline["line"].to!long;
+            data.startPos = hunk_start_multiline["line"].to!uint;
             data.maxCount = 1;
             data.count = 0;
         }
@@ -224,9 +224,9 @@ struct StateData {
 
     Path hdrOriginal;
     Path hdrNew;
-    long startPos;
-    long maxCount;
-    long count;
+    uint startPos;
+    uint maxCount;
+    uint count;
 }
 
 enum State {
