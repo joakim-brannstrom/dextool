@@ -714,10 +714,8 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         string[] args;
         if (cmd.command.hasValue)
             args = cmd.command.payload.dup;
-        logger.trace(args).collectException;
         if (args.length > flag_filter.skipCompilerArgs && flag_filter.skipCompilerArgs != 0)
             args = args[min(flag_filter.skipCompilerArgs, args.length) .. $];
-        logger.trace(args).collectException;
         return args;
     }();
 
