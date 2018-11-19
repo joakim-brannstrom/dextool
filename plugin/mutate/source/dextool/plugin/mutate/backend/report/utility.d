@@ -21,7 +21,8 @@ import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
 
-public import dextool.plugin.mutate.backend.utility : MakeMutationTextResult, makeMutationText;
+public import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
+    makeMutationText;
 
 // 5 because it covers all the operators and true/false
 immutable windowSize = 5;

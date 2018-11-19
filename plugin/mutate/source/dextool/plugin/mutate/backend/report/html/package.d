@@ -116,7 +116,7 @@ struct FileIndex {
     }
 
     override void fileMutantEvent(const ref FileMutantRow fr) {
-        import dextool.plugin.mutate.backend.utility : makeMutationText;
+        import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         // TODO unnecessary to create the mutation text here.
         // Move it to endFileEvent. This is inefficient.

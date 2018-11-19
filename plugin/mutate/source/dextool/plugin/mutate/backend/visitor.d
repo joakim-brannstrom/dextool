@@ -31,11 +31,9 @@ import dextool.type : AbsolutePath, Path, FileName, DirName;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-import dextool.plugin.mutate.backend.database : MutationPointEntry,
-    MutationPointEntry2;
+import dextool.plugin.mutate.backend.database : MutationPointEntry, MutationPointEntry2;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc,
-    OpTypeInfo;
+import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc, OpTypeInfo;
 import dextool.plugin.mutate.backend.type : Language;
 
 /// Contain a visitor and the data.
@@ -72,9 +70,8 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     rval.visitor = new BaseVisitor(rval.transf, rval.enum_cache);
 
     import dextool.clang_extensions : OpKind;
-    import dextool.plugin.mutate.backend.utility : stmtDelMutations,
-        absMutations, uoiLvalueMutations, uoiRvalueMutations, isDcc,
-        dccBranchMutations, dccCaseMutations, dcrCaseMutations;
+    import dextool.plugin.mutate.backend.utility : stmtDelMutations, absMutations, uoiLvalueMutations,
+        uoiRvalueMutations, isDcc, dccBranchMutations, dccCaseMutations, dcrCaseMutations;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
@@ -97,10 +94,9 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     import std.algorithm : map;
     import std.array : array;
     import dextool.plugin.mutate.backend.type : Mutation;
-    import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations, isAor,
-        aorMutations, isAorAssign, aorAssignMutations, isRor, rorMutations,
-        isCor, corOpMutations, corExprMutations, isLcrb, isLcrbAssign,
-        lcrbMutations, lcrbAssignMutations;
+    import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations, isAor, aorMutations, isAorAssign,
+        aorAssignMutations, isRor, rorMutations, isCor, corOpMutations,
+        corExprMutations, isLcrb, isLcrbAssign, lcrbMutations, lcrbAssignMutations;
 
     // TODO refactor so array() can be removed. It is an unnecessary allocation
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
@@ -915,9 +911,9 @@ class AnalyzeResult {
     }
 
     void put(MutationPointEntry a) {
+        import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
         import dextool.plugin.mutate.backend.type : MutationIdFactory;
-        import dextool.plugin.mutate.backend.utility : makeMutationText,
-            checksum;
+        import dextool.plugin.mutate.backend.utility : checksum;
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
