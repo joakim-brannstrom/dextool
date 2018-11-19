@@ -19,8 +19,6 @@ public import dextool.plugin.mutate.backend.mutation_type;
 public import dextool.clang_extensions : OpKind;
 public import dextool.plugin.mutate.backend.interface_ : SafeInput;
 
-immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
-
 @safe:
 
 Path trustedRelativePath(string p, AbsolutePath root) @trusted {
@@ -63,51 +61,4 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
     }();
 
     Thread.sleep(min_ + t_span);
-}
-
-struct MakeMutationTextResult {
-    import std.utf : validate;
-
-    const(ubyte)[] rawOriginal = cast(const(ubyte)[]) originalIsCorrupt;
-    const(ubyte)[] rawMutation;
-
-    const(char)[] original() const {
-        auto r = cast(const(char)[]) rawOriginal;
-        validate(r);
-        return r;
-    }
-
-    const(char)[] mutation() const {
-        auto r = cast(const(char)[]) rawMutation;
-        validate(r);
-        return r;
-    }
-
-    size_t toHash() nothrow @safe const {
-        import dextool.hash;
-
-        BuildChecksum128 hash;
-        hash.put(rawOriginal);
-        hash.put(rawMutation);
-        return hash.toChecksum128.toHash;
-    }
-
-    bool opEquals(const typeof(this) o) const nothrow @safe {
-        return rawOriginal == o.rawOriginal && rawMutation == o.rawMutation;
-    }
-}
-
-auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) {
-    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-
-    MakeMutationTextResult rval;
-
-    if (offs.end < file_.read.length) {
-        rval.rawOriginal = file_.read[offs.begin .. offs.end];
-    }
-
-    auto mut = makeMutation(kind, lang);
-    rval.rawMutation = mut.mutate(rval.rawOriginal);
-
-    return rval;
 }

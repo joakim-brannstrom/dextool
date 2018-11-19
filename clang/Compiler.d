@@ -30,7 +30,7 @@ static this() {
  * Imported into the binary during compilation time.
  */
 struct Compiler {
-    import std.algorithm : any, map;
+    import std.algorithm : any, map, joiner;
     import std.path : buildPath;
     import std.meta : staticMap;
 
@@ -51,7 +51,7 @@ struct Compiler {
         import std.algorithm;
         import std.array;
 
-        return [extraIncludePath].map!(x => "-I" ~ x).array;
+        return [extraIncludePath].map!(x => ["-isystem", x]).joiner.array;
     }
 
 private:

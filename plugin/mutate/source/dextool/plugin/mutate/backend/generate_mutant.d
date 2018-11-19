@@ -19,11 +19,9 @@ import std.typecons : Nullable;
 import std.utf : validate;
 
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
-import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    MutationId, spinSqlQuery;
+import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSqlQuery;
 import dextool.plugin.mutate.backend.type : Language;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput,
-    ValidateLoc;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc, SafeInput;
 import dextool.plugin.mutate.type : MutationKind;
 
 enum GenerateMutantStatus {
@@ -377,6 +375,55 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     }
 
     return m;
+}
+
+@safe struct MakeMutationTextResult {
+    import std.utf : validate;
+
+    static immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
+
+    const(ubyte)[] rawOriginal = cast(const(ubyte)[]) originalIsCorrupt;
+    const(ubyte)[] rawMutation;
+
+    const(char)[] original() const {
+        auto r = cast(const(char)[]) rawOriginal;
+        validate(r);
+        return r;
+    }
+
+    const(char)[] mutation() const {
+        auto r = cast(const(char)[]) rawMutation;
+        validate(r);
+        return r;
+    }
+
+    size_t toHash() nothrow @safe const {
+        import dextool.hash;
+
+        BuildChecksum128 hash;
+        hash.put(rawOriginal);
+        hash.put(rawMutation);
+        return hash.toChecksum128.toHash;
+    }
+
+    bool opEquals(const typeof(this) o) const nothrow @safe {
+        return rawOriginal == o.rawOriginal && rawMutation == o.rawMutation;
+    }
+}
+
+auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) @safe {
+    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
+
+    MakeMutationTextResult rval;
+
+    if (offs.end < file_.read.length) {
+        rval.rawOriginal = file_.read[offs.begin .. offs.end];
+    }
+
+    auto mut = makeMutation(kind, lang);
+    rval.rawMutation = mut.mutate(rval.rawOriginal);
+
+    return rval;
 }
 
 private:
