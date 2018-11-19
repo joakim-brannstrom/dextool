@@ -450,7 +450,8 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
             "Analyze and mutation of files will only be done on those inside this directory root");
     logger.info("  User input: ", ap.workArea.rawRoot);
     logger.info("  Real path: ", ap.workArea.outputDirectory);
-    logger.info("Further restricted to those inside these paths");
+    logger.info(ap.workArea.rawRestrict.length != 0,
+            "Further restricted to those inside these paths");
 
     assert(ap.workArea.rawRestrict.length == ap.workArea.restrictDir.length);
     foreach (idx; 0 .. ap.workArea.rawRestrict.length) {

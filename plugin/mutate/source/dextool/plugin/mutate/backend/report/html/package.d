@@ -223,7 +223,8 @@ struct FileIndex {
         files.data.toIndex(indexh, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
-        File(user_f, "w").write(makeUserReport(db, conf, humanReadableKinds, kinds, diff));
+        File(user_f, "w").write(makeUserReport(db, conf, humanReadableKinds,
+                kinds, diff, fio.getOutputDir));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(indexh);
     }
 

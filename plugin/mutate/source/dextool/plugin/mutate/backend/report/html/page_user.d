@@ -26,11 +26,13 @@ import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
+import dextool.type : AbsolutePath;
 
 @safe:
 
 auto makeUserReport(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds, ref Diff diff) {
+        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
+        ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.report.html.tmpl : addStateTableCss;
 
     auto root = defaultHtml(format("Mutation Testing Report %(%s %) %s",
@@ -40,7 +42,7 @@ auto makeUserReport(ref Database db, ref const ConfigReport conf,
 
     root.body_.n("h2".Tag).put("User Report");
 
-    toHtml(reportDiff(db, kinds, diff), root.body_);
+    toHtml(reportDiff(db, kinds, diff, workdir), root.body_);
 
     return root;
 }

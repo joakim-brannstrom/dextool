@@ -679,7 +679,8 @@ class DiffReport {
     }
 }
 
-DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds, ref Diff diff) {
+DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
+        ref Diff diff, AbsolutePath workdir) {
     import std.algorithm : map;
     import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
         MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
@@ -688,10 +689,10 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds, ref Diff di
 
     auto rval = new DiffReport;
 
-    foreach (kv; diff.byKeyValue) {
+    foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
         if (fid.isNull) {
-            logger.info("File in diff do not exist in the database: ", kv.key);
+            logger.warning("This file in the diff has not been tested thus skipping it: ", kv.key);
             continue;
         }
 
