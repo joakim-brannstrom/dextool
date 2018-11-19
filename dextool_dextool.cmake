@@ -2,7 +2,9 @@
 
 set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/dextool/clang.d
-    ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db/package.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db/system_compiler.d
+    ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db/user_filerange.d
     ${CMAKE_SOURCE_DIR}/source/dextool/from.d
     ${CMAKE_SOURCE_DIR}/source/dextool/fsm.d
     ${CMAKE_SOURCE_DIR}/source/dextool/hash.d

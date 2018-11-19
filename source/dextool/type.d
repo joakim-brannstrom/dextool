@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool.type;
 
+public import dextool.compilation_db : FilterClangFlag;
+
 @safe:
 
 enum ExitStatusType {
@@ -61,18 +63,6 @@ struct CustomHeader {
 struct RawCliArguments {
     string[] payload;
     alias payload this;
-}
-
-/// Flags to exclude from the flags passed on to the clang parser.
-struct FilterClangFlag {
-    string payload;
-    alias payload this;
-
-    enum Kind {
-        exclude
-    }
-
-    Kind kind;
 }
 
 /// Used when writing data to files on the filesystem.
@@ -150,7 +140,7 @@ struct AbsolutePath {
     }
 
     this(Path p) {
-        auto p_expand = () @trusted{ return p.expandTilde; }();
+        auto p_expand = () @trusted { return p.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
         payload = buildNormalizedPath(p_expand).asAbsNormPath.Path;
@@ -158,8 +148,8 @@ struct AbsolutePath {
 
     /// Build the normalised path from workdir.
     this(Path p, DirName workdir) {
-        auto p_expand = () @trusted{ return p.expandTilde; }();
-        auto workdir_expand = () @trusted{ return workdir.expandTilde; }();
+        auto p_expand = () @trusted { return p.expandTilde; }();
+        auto workdir_expand = () @trusted { return workdir.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
         payload = buildNormalizedPath(workdir_expand, p_expand).asAbsNormPath.Path;

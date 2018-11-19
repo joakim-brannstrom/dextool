@@ -6,17 +6,21 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
-*/
-module dextool.plugin.analyze.filerange;
 
-import dextool.compilation_db : CompileCommandFilter, CompileCommandDB, parseFlag;
+This is a handy range to interate over either all files from the user OR all
+files in a compilation database.
+*/
+module dextool.compilation_db.user_filerange;
+
+import logger = std.experimental.logger;
+
+import dextool.compilation_db : CompileCommandFilter, CompileCommandDB, parseFlag, SearchResult;
 import dextool.type : FileName, AbsolutePath;
 
 @safe:
 
-struct AnalyzeFileRange {
+struct UserFileRange {
     import std.typecons : Nullable;
-    import dextool.clang : findFlags;
     import dextool.compilation_db : SearchResult;
 
     enum RangeOver {
@@ -101,4 +105,29 @@ struct AnalyzeFileRange {
             return db.length;
         }
     }
+}
+
+private:
+
+import std.typecons : Nullable;
+
+/// Find flags for fname by searching in the compilation DB.
+Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
+        const string[] flags, ref const CompileCommandFilter flag_filter) {
+    import std.file : exists;
+    import std.path : baseName;
+    import std.string : join;
+
+    import dextool.compilation_db : appendOrError;
+
+    typeof(return) rval;
+
+    auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
+    if (!db_search_result.isNull) {
+        rval = SearchResult(db_search_result.cflags, db_search_result.absoluteFile);
+        return rval;
+    }
+
+    logger.error("Unable to find any compiler flags for: ", fname);
+    return rval;
 }
