@@ -44,14 +44,64 @@ version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue, should;
 }
 
+@safe:
+
 struct Diff {
-    import dextool.type : Path;
+    import dextool.type : AbsolutePath;
     import dextool.set;
 
     alias ChangedLines = Set!uint;
 
-    ChangedLines[Path] changes;
+    ChangedLines[AbsolutePath] changes;
     alias changes this;
+
+    /** A range over the changes by file.
+     *
+     * The paths are adjusted to be relative `workdir`.
+     */
+    auto toRange(AbsolutePath workdir) @safe {
+        return DiffRange(this, workdir);
+    }
+}
+
+struct DiffRange {
+    import dextool.type : AbsolutePath, Path;
+    import std.path : relativePath;
+    import std.array : array;
+    import dextool.set;
+
+    static struct KeyValue {
+        Path key;
+        Diff.ChangedLines value;
+    }
+
+    private {
+        Diff diff;
+        AbsolutePath workdir;
+        AbsolutePath[] keys;
+    }
+
+    this(Diff d, AbsolutePath workdir) {
+        this.diff = d;
+        this.workdir = workdir;
+        this.keys = diff.byKey.array;
+        logger.trace(workdir);
+    }
+
+    KeyValue front() @safe pure {
+        assert(!empty, "Can't get front of an empty range");
+        debug logger.trace(keys[0]);
+        return KeyValue(keys[0].relativePath(workdir).Path, diff[keys[0]]);
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        keys = keys[1 .. $];
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return keys.length == 0;
+    }
 }
 
 /** Parse a buffer in the Unified diff format and return the hunks of changes
@@ -87,7 +137,7 @@ struct UnifiedDiffParser {
         import std.meta;
         import std.traits : EnumMembers;
         import std.string : startsWith, split;
-        import dextool.type : Path;
+        import dextool.type : Path, AbsolutePath;
         import dextool.set;
 
         auto is_git_diff = !matchFirst(line, re_git_diff_hdr).empty;
@@ -182,7 +232,7 @@ struct UnifiedDiffParser {
                 return a.split('\t');
             }();
 
-            data.hdrOriginal = Path(p[0].idup);
+            data.hdrOriginal = Path(p[0].idup).AbsolutePath;
         }
 
         void saveNewAct() {
@@ -193,7 +243,7 @@ struct UnifiedDiffParser {
                 return a.split('\t');
             }();
 
-            data.hdrNew = Path(p[0].idup);
+            data.hdrNew = Path(p[0].idup).AbsolutePath;
         }
 
         void warnOriginalAct() {
@@ -252,10 +302,10 @@ struct UnifiedDiffParser {
 private:
 
 struct StateData {
-    import dextool.type : Path;
+    import dextool.type : AbsolutePath;
 
-    Path hdrOriginal;
-    Path hdrNew;
+    AbsolutePath hdrOriginal;
+    AbsolutePath hdrNew;
     uint startPos;
     uint maxCount;
     uint count;
@@ -320,9 +370,9 @@ index 0123..2345 100644
         p.process(line);
 
     // assert
-    p.result[Path("standalone2.d")].contains(33).shouldBeTrue;
-    p.result[Path("standalone2.d")].contains(48).shouldBeTrue;
-    p.result[Path("standalone2.d")].contains(51).shouldBeTrue;
+    p.result[Path("standalone2.d").AbsolutePath].contains(33).shouldBeTrue;
+    p.result[Path("standalone2.d").AbsolutePath].contains(48).shouldBeTrue;
+    p.result[Path("standalone2.d").AbsolutePath].contains(51).shouldBeTrue;
     p.result.length.should == 1;
 }
 
@@ -333,7 +383,7 @@ unittest {
 +++ plugin/mutate/testdata/report_one_ror_mutation_point2.cpp	2018-11-18 21:26:17.003691847 +0100
 @@ -3,7 +3,7 @@
  /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
- 
+
  int fun(int x) {
 -    if (x > 3) {
 +    if (x != 3) {
@@ -346,7 +396,7 @@ unittest {
         p.process(line);
 
     // assert
-    p.result[Path("plugin/mutate/testdata/report_one_ror_mutation_point2.cpp")].contains(6)
-        .shouldBeTrue;
+    p.result[Path("plugin/mutate/testdata/report_one_ror_mutation_point2.cpp")
+        .AbsolutePath].contains(6).shouldBeTrue;
     p.result.length.should == 1;
 }

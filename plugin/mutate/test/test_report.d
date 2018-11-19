@@ -335,5 +335,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .run;
 
         // Act
+        testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stdout);
+        testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stderr);
     }
 }
