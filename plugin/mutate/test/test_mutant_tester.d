@@ -780,9 +780,9 @@ class ShallUpdateMutationCounter : DatabaseFixture {
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
-                Mutation.Status.killed);
-        hardest.isNull.shouldBeFalse;
-        auto hr = hardest.get;
+                Mutation.Status.killed, 1);
+        hardest.length.should == 1;
+        auto hr = hardest[0];
         mst_id.should == hr.statusId;
     }
 }
@@ -810,9 +810,9 @@ class ShallResetMutationCounter : DatabaseFixture {
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
-                Mutation.Status.killed);
-        hardest.isNull.shouldBeFalse;
-        auto hr = hardest.get;
+                Mutation.Status.killed, 1);
+        hardest.length.should == 1;
+        auto hr = hardest[0];
         mst_id.should.not == hr.statusId;
     }
 }

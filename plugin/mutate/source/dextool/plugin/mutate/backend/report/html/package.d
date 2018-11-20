@@ -209,22 +209,30 @@ struct FileIndex {
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
+        import dextool.plugin.mutate.backend.report.html.page_long_term_view;
+        import dextool.plugin.mutate.backend.report.html.page_short_term_view;
         import dextool.plugin.mutate.backend.report.html.page_stats;
-        import dextool.plugin.mutate.backend.report.html.page_user;
+        import dextool.plugin.mutate.backend.report.html.page_test_groups;
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
-        const user_f = buildPath(logDir, "user" ~ htmlExt);
+        const short_f = buildPath(logDir, "short_term_view" ~ htmlExt);
+        const long_f = buildPath(logDir, "long_term_view" ~ htmlExt);
+        const test_groups_f = buildPath(logDir, "test_groups" ~ htmlExt);
 
         auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
-        indexh.body_.n("p".Tag).put(aHref(user_f.baseName, "Developer (code changes)"));
+        indexh.body_.n("p".Tag).put(aHref(short_f.baseName, "Short Term View"));
+        indexh.body_.n("p".Tag).put(aHref(long_f.baseName, "Long Term View"));
+        indexh.body_.n("p".Tag).put(aHref(test_groups_f.baseName, "Test Groups"));
 
         files.data.toIndex(indexh, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
-        File(user_f, "w").write(makeUserReport(db, conf, humanReadableKinds,
-                kinds, diff, fio.getOutputDir));
+        File(short_f, "w").write(makeShortTermView(db, conf,
+                humanReadableKinds, kinds, diff, fio.getOutputDir));
+        File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
+        File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(indexh);
     }
 
