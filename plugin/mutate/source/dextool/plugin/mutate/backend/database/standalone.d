@@ -382,31 +382,9 @@ struct Database {
         return app.data;
     }
 
-    /// Returns: the `nr` mutants that had there status last updated to the specified status.
-    MutationStatusTime[] getLatestMutants(const(Mutation.Kind)[] kinds,
+    /// Returns: the `nr` mutant with the highest count that has not been killed and existed in the system the longest.
+    MutationStatus[] getHardestToKillMutant(const(Mutation.Kind)[] kinds,
             const Mutation.Status status, long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
-                    WHERE
-                    t0.update_ts IS NOT NULL AND
-                    t0.status = :status AND
-                    t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%))
-                    ORDER BY t0.update_ts DESC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
-        auto stmt = db.prepare(sql);
-        stmt.bind(":status", cast(long) status);
-        stmt.bind(":limit", nr);
-
-        auto app = appender!(MutationStatusTime[])();
-        foreach (res; stmt.execute)
-            app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
-                    res.peek!string(1).fromSqLiteDateTime));
-        return app.data;
-    }
-
-    /// Returns: the mutant with the highest count that has not been killed and existed in the system the longest.
-    Nullable!MutationStatus getHardestToKillMutant(const(Mutation.Kind)[] kinds,
-            const Mutation.Status status) @trusted {
         const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts FROM %s t0, %s t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
@@ -415,13 +393,15 @@ struct Database {
                     t1.kind IN (%(%s,%))
                     ORDER BY
                     t0.test_cnt DESC,
-                    t0.added_ts ASC
-                    LIMIT 1",
+                    t0.added_ts ASC,
+                    t0.update_ts ASC
+                    LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":status", cast(long) status);
+        stmt.bind(":limit", nr);
 
-        typeof(return) rval;
+        auto app = appender!(MutationStatus[])();
         foreach (res; stmt.execute) {
             auto added = () {
                 auto raw = res.peek!string(4);
@@ -431,16 +411,17 @@ struct Database {
             }();
 
             // dfmt off
-            rval = MutationStatus(
+            app.put(MutationStatus(
                 MutationStatusId(res.peek!long(0)),
                 res.peek!long(1).to!(Mutation.Status),
                 res.peek!long(2).MutantTestCount,
                 res.peek!string(3).fromSqLiteDateTime,
                 added,
-            );
+            ));
             // dfmt on
         }
-        return rval;
+
+        return app.data;
     }
 
     /** Remove all mutations of kinds.

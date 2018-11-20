@@ -613,11 +613,11 @@ class MutantSample {
 
     MutationEntry[MutationStatusId] mutants;
 
+    /// The mutant that had its status updated the furthest back in time.
     MutationStatusTime[] oldest;
 
     /// The mutant that has survived the longest in the system.
-    Nullable!MutationStatus hardestToKillStatus;
-    Nullable!MutationEntry hardestToKillMutant;
+    MutationStatus[] hardestToKill;
 
     /// The latest mutants that where added and survived.
     MutationStatusTime[] latest;
@@ -628,22 +628,15 @@ MutantSample reportSelectedAliveMutants(ref Database db,
         const(Mutation.Kind)[] kinds, long history_nr) {
     auto rval = new typeof(return);
 
-    rval.hardestToKillStatus = db.getHardestToKillMutant(kinds, Mutation.Status.alive);
-    if (!rval.hardestToKillStatus.isNull) {
-        auto ids = db.getMutationIds(kinds, [rval.hardestToKillStatus.statusId]);
+    rval.hardestToKill = db.getHardestToKillMutant(kinds, Mutation.Status.alive, history_nr);
+    foreach (const mutst; rval.hardestToKill) {
+        auto ids = db.getMutationIds(kinds, [mutst.statusId]);
         if (ids.length != 0)
-            rval.hardestToKillMutant = db.getMutation(ids[0]);
+            rval.mutants[mutst.statusId] = db.getMutation(ids[0]);
     }
 
     rval.oldest = db.getOldestMutants(kinds, history_nr);
     foreach (const mutst; rval.oldest) {
-        auto ids = db.getMutationIds(kinds, [mutst.id]);
-        if (ids.length != 0)
-            rval.mutants[mutst.id] = db.getMutation(ids[0]);
-    }
-
-    rval.latest = db.getLatestMutants(kinds, Mutation.Status.alive, history_nr);
-    foreach (const mutst; rval.latest) {
         auto ids = db.getMutationIds(kinds, [mutst.id]);
         if (ids.length != 0)
             rval.mutants[mutst.id] = db.getMutation(ids[0]);

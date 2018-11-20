@@ -42,7 +42,6 @@ auto makeStats(ref Database db, ref const ConfigReport conf,
     addStateTableCss(s);
 
     overallStat(reportStatistics(db, kinds), statsh.body_);
-    selectedMutants(reportSelectedAliveMutants(db, kinds, 5), statsh.body_);
     if (ReportSection.tc_killed_no_mutants in sections)
         deadTestCase(reportDeadTestCases(db), statsh.body_);
     if (ReportSection.tc_full_overlap in sections
@@ -83,69 +82,6 @@ void overallStat(const MutationStat s, HtmlNode n) {
         auto r = tbl.newRow;
         r.td.put(d[0]);
         r.td.put(d[1].to!string);
-    }
-}
-
-void selectedMutants(const MutantSample mut_sample, HtmlNode n) {
-    import std.path : buildPath;
-
-    n.n("h2".Tag).put("High Interest Mutants");
-
-    if (mut_sample.oldest.length != 0) {
-        with (n.n("p".Tag)) {
-            put("The mutant with the oldest status where last updated ");
-            put(mut_sample.oldest[0].updated.toString);
-        }
-
-        const mut = mut_sample.mutants[mut_sample.oldest[0].id];
-        n.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(mut.file)),
-                format("%s:%s", mut.file, mut.sloc.line), mut.id.to!string));
-    }
-
-    if (!mut_sample.hardestToKillStatus.isNull && !mut_sample.hardestToKillMutant.isNull) {
-        auto mut_st = mut_sample.hardestToKillStatus.get;
-        auto mut = mut_sample.hardestToKillMutant.get;
-
-        n.n("h3".Tag).put("Longest Surviving Mutant");
-        n.n("p".Tag)
-            .put(
-                    "This mutant has survived countless test runs. Slay it and be the hero of the team.");
-        n.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(mut.file)),
-                format("%s:%s", mut.file, mut.sloc.line), mut.id.to!string));
-
-        auto tbl = HtmlTable.make;
-        n.put(tbl.root);
-        tbl.root.putAttr("class", "overlap_tbl");
-        tbl.root.putAttr("class", "stat_tbl");
-        foreach (c; ["Information", ""])
-            tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
-        foreach (const d; [tuple("Last Updated", mut_st.updated.toString),
-                tuple("Discovered", mut_st.added.isNull ? "unknown" : mut_st.added.get.toString),
-                tuple("Survived", format("%s times", mut_st.testCnt))]) {
-            auto r = tbl.newRow;
-            r.td.put(d[0]);
-            r.td.put(d[1].to!string);
-        }
-    }
-
-    if (mut_sample.latest.length != 0) {
-        n.n("h3".Tag).put("Latest Surviving Mutants");
-        n.n("p".Tag)
-            .put(
-                    "This mutants where newly tested and survived. It is a high probability that they are relevant to you.");
-
-        auto tbl = HtmlTable.make;
-        n.put(tbl.root);
-        tbl.root.putAttr("class", "overlap_tbl");
-        foreach (c; ["Link", "Date"])
-            tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
-        foreach (const mutst; mut_sample.latest) {
-            const mut = mut_sample.mutants[mutst.id];
-            auto r = tbl.newRow;
-            r.td.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(mut.file)),
-                    format("%s:%s", mut.file, mut.sloc.line), mut.id.to!string));
-            r.td.put(mutst.updated.toString);
-        }
     }
 }
 

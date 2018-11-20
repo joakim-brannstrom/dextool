@@ -40,8 +40,6 @@ auto makeShortTermView(ref Database db, ref const ConfigReport conf,
     auto s = root.preambleBody.n("style".Tag);
     addStateTableCss(s);
 
-    root.body_.n("h2".Tag).put("Report of Code Changes");
-
     toHtml(reportDiff(db, kinds, diff, workdir), root.body_);
 
     return root;
@@ -55,7 +53,8 @@ void toHtml(DiffReport report, HtmlNode root) {
     import std.range : enumerate;
     import dextool.plugin.mutate.backend.mutation_type : toUser;
 
-    root.n("h3".Tag).put("Code Change Mutants");
+    root.n("h2".Tag).put("Code Changes");
+
     root.n("p".Tag)
         .put("This are the mutants on the lines that where changed in the supplied diff.");
 
