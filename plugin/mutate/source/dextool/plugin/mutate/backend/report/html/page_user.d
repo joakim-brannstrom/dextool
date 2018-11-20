@@ -35,12 +35,12 @@ auto makeUserReport(ref Database db, ref const ConfigReport conf,
         ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.report.html.tmpl : addStateTableCss;
 
-    auto root = defaultHtml(format("Mutation Testing Report %(%s %) %s",
+    auto root = defaultHtml(format("Report of Code Changes %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     auto s = root.preambleBody.n("style".Tag);
     addStateTableCss(s);
 
-    root.body_.n("h2".Tag).put("User Report");
+    root.body_.n("h2".Tag).put("Report");
 
     toHtml(reportDiff(db, kinds, diff, workdir), root.body_);
 
@@ -91,5 +91,17 @@ void toHtml(DiffReport report, HtmlNode root) {
                 killed_ids.put(" ");
             }
         }
+    }
+
+    root.n("p".Tag).put("This are the test cases that killed mutants in the code changes.")
+        .put(format("%s test case(s) affected by the change", report.testCases.length));
+
+    auto tc_tbl = HtmlTable.make;
+    root.put(tc_tbl.root);
+    tc_tbl.root.putAttr("class", "overlap_tbl");
+    tc_tbl.putColumn("Test Case").putAttr("class", tableColumnHdrStyle);
+    foreach (tc; report.testCases) {
+        auto r = tc_tbl.newRow;
+        r.td.put(tc.name);
     }
 }

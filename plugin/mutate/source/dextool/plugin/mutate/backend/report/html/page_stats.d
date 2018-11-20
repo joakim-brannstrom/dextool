@@ -270,7 +270,7 @@ void testGroups(const TestGroupStat test_g, HtmlNode n) {
     auto tc_tbl = HtmlTable.make;
     n.put(tc_tbl.root);
     tc_tbl.root.putAttr("class", "overlap_tbl");
-    tc_tbl.putColumn("Test Cases").putAttr("class", tableColumnHdrStyle);
+    tc_tbl.putColumn("Test Case").putAttr("class", tableColumnHdrStyle);
     foreach (tc; test_g.testCases) {
         auto r = tc_tbl.newRow;
         r.td.put(tc.name);
