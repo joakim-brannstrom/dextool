@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.mutate.backend.report.html.page_user;
+module dextool.plugin.mutate.backend.report.html.page_short_term_view;
 
 import logger = std.experimental.logger;
 import std.algorithm : sort, map, filter, count;
@@ -30,17 +30,17 @@ import dextool.type : AbsolutePath;
 
 @safe:
 
-auto makeUserReport(ref Database db, ref const ConfigReport conf,
+auto makeShortTermView(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.report.html.tmpl : addStateTableCss;
 
-    auto root = defaultHtml(format("Report of Code Changes %(%s %) %s",
+    auto root = defaultHtml(format("Short Term View %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     auto s = root.preambleBody.n("style".Tag);
     addStateTableCss(s);
 
-    root.body_.n("h2".Tag).put("Report");
+    root.body_.n("h2".Tag).put("Report of Code Changes");
 
     toHtml(reportDiff(db, kinds, diff, workdir), root.body_);
 

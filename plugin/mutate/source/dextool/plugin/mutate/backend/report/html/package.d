@@ -210,7 +210,7 @@ struct FileIndex {
         import std.format : format;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_stats;
-        import dextool.plugin.mutate.backend.report.html.page_user;
+        import dextool.plugin.mutate.backend.report.html.page_short_term_view;
 
         const stats_f = buildPath(logDir, "stats" ~ htmlExt);
         const user_f = buildPath(logDir, "user" ~ htmlExt);
@@ -223,7 +223,7 @@ struct FileIndex {
         files.data.toIndex(indexh, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
-        File(user_f, "w").write(makeUserReport(db, conf, humanReadableKinds,
+        File(user_f, "w").write(makeShortTermView(db, conf, humanReadableKinds,
                 kinds, diff, fio.getOutputDir));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(indexh);
     }
