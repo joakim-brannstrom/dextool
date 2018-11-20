@@ -401,6 +401,17 @@ partof: REQ-report
 
 TODO: write requirements.
 
+The plugin shall report the test cases that killed mutants in the diff when generating the report.
+
+**Rationale**: It is useful information when trying to deduce how a code change (bugfix/new feature etc)
+
+ * Affects requirements and thus which ones *may* be affected and need an update.
+ * What manual tests *should* be performed because the change affects those.
+ * Improve the time it takes to do a cost estimate of the formal/informal activities that need to be performed for the change.
+   The plugin gives a report of the affected TCs, **automatically**.
+   The user check the trace data (TC->"verification case specification"->"SW req."->"System req.").
+   The tracing is used as input to the cost estimation for what formal documents are affected and to what magnitude.
+
 ## Background
 See [@googleMutationTesting2018]. The paper coin the term *productive mutant*.
 

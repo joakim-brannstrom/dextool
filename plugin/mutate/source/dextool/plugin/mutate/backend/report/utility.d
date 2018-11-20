@@ -653,12 +653,16 @@ MutantSample reportSelectedAliveMutants(ref Database db,
 }
 
 class DiffReport {
-    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
-        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+    import dextool.plugin.mutate.backend.database : FileId, MutantInfo;
 
+    /// Lookup for converting a id to a filename
     Path[FileId] files;
+    /// Mutants alive in a file.
     MutantInfo[][FileId] alive;
+    /// Mutants killed in a file.
     MutantInfo[][FileId] killed;
+    /// Test cases that killed mutants.
+    TestCase[] testCases;
 
     override string toString() @safe const {
         import std.algorithm : map;
@@ -676,19 +680,25 @@ class DiffReport {
                 formattedWrite(w, "  %s\n", mut);
         }
 
+        formattedWrite(w, "Test Cases killing mutants");
+        foreach (tc; testCases)
+            formattedWrite(w, "  %s", tc);
+
         return w.data;
     }
 }
 
 DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
-    import std.algorithm : map;
-    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
-        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+    import std.array : array;
+    import std.algorithm : map, joiner, sort;
+    import dextool.plugin.mutate.backend.database : MutationId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
     import dextool.set;
 
     auto rval = new DiffReport;
+
+    Set!MutationId killing_mutants;
 
     foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
@@ -705,14 +715,24 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
                 has_mutants = true;
                 if (m.status == Mutation.Status.alive)
                     rval.alive[fid] ~= m;
-                else
+                else {
                     rval.killed[fid] ~= m;
+                    killing_mutants.add(m.id);
+                }
             }
         }
 
         if (has_mutants)
             rval.files[fid] = kv.key;
     }
+
+    Set!TestCase test_cases;
+    foreach (tc; killing_mutants.setToRange!MutationId
+            .map!(a => db.getTestCases(a))
+            .joiner)
+        test_cases.add(tc);
+
+    rval.testCases = test_cases.setToList!TestCase.sort.array;
 
     return rval;
 }

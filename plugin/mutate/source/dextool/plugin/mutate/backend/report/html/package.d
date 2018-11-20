@@ -218,7 +218,7 @@ struct FileIndex {
         auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime));
         indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
-        indexh.body_.n("p".Tag).put(aHref(user_f.baseName, "User"));
+        indexh.body_.n("p".Tag).put(aHref(user_f.baseName, "Developer (code changes)"));
 
         files.data.toIndex(indexh, htmlFileDir);
 
