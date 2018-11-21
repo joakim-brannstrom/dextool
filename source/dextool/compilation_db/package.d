@@ -575,6 +575,8 @@ struct ParseFlags {
 
 /** Filter and normalize the compiler flags.
  *
+ * TODO: remove the logic for keep_first_arg. It is not needed anymore.
+ *
  *  - Sanitize the compiler command by removing flags matching the filter.
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
@@ -733,10 +735,12 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         return SystemIncludePath[].init;
     }();
 
+    pargs = ParseFlags(pargs.includes, sysincls, pargs.cflags);
+
     logger.tracef("Compiler: %s flags: %-(%s %)", cmd.command.length != 0
             ? cmd.command[0] : null, pargs.completeFlags);
 
-    return ParseFlags(pargs.includes, sysincls, pargs.cflags);
+    return pargs;
 }
 
 CompileCommandDB fromArgCompileDb(AbsolutePath[] paths) @safe {
