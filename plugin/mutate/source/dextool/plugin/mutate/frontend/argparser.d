@@ -108,6 +108,8 @@ struct ArgParser {
         app.put("[compiler]");
         app.put("# extra flags to pass on to the compiler such as the C++ standard");
         app.put(format(`# extra_flags = [%(%s, %)]`, compiler.extraFlags));
+        app.put("# toggle this to force system include paths to use -I instead of -isystem");
+        app.put("# force_system_includes = true");
         app.put(null);
 
         app.put("[compile_commands]");
@@ -126,12 +128,12 @@ struct ArgParser {
         app.put("# (required) program used to run the test suite");
         app.put(`test_cmd = "test.sh"`);
         app.put("# timeout to use for the test suite (msecs)");
-        app.put("# test_cmd_timeout =");
+        app.put("# test_cmd_timeout = 1000");
         app.put("# (required) program used to build the application");
         app.put(`build_cmd = "build.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
-        app.put("# analyze_cmd =");
+        app.put(`# analyze_cmd = "analyze.sh"`);
         app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
@@ -523,6 +525,9 @@ void loadConfig(ref ArgParser rval) @trusted {
 
     callbacks["compiler.extra_flags"] = (ref ArgParser c, ref TOMLValue v) {
         c.compiler.extraFlags = v.array.map!(a => a.str).array;
+    };
+    callbacks["compiler.force_system_includes"] = (ref ArgParser c, ref TOMLValue v) {
+        c.compiler.forceSystemIncludes = v == true;
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {

@@ -21,14 +21,11 @@ import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db : CompileCommandDB;
-import dextool.type : AbsolutePath, CustomHeader, DextoolVersion,
-    ExitStatusType, FileName, InFiles, MainFileName, MainName, MainNs,
-    WriteStrategy;
+import dextool.type : AbsolutePath, CustomHeader, DextoolVersion, ExitStatusType,
+    FileName, InFiles, MainFileName, MainName, MainNs, WriteStrategy;
 
-import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products,
-    Transform;
-import dextool.plugin.cpptestdouble.frontend.raw_args : Config_YesNo,
-    RawConfiguration, XmlConfig;
+import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products, Transform;
+import dextool.plugin.cpptestdouble.frontend.raw_args : Config_YesNo, RawConfiguration, XmlConfig;
 
 struct FileData {
     import dextool.type : WriteStrategy;
@@ -50,8 +47,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : StubPrefix, FileName, MainInterface, DirName;
     import dextool.utility;
-    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
-        LocationType;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp;
 
     private {
@@ -395,7 +391,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
             }
             pdata = tmp.get;
         } else {
-            pdata.cflags = user_cflags.dup;
+            pdata.flags.prependCflags(user_cflags.dup);
             pdata.absoluteFile = AbsolutePath(FileName(in_file));
         }
 

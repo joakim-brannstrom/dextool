@@ -17,8 +17,7 @@ import dextool.compilation_db;
 import dextool.type;
 
 import dextool.plugin.types;
-import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters,
-    Products;
+import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters, Products;
 import dextool.plugin.ctestdouble.frontend.types;
 import dextool.plugin.ctestdouble.frontend.xml;
 
@@ -240,8 +239,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import std.typecons : Flag;
     import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : StubPrefix, FileName, DirName;
-    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
-        LocationType;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
 
     private {
@@ -627,8 +625,8 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.c);
-    const auto total_files = in_files.length;
+    const user_cflags = prependDefaultFlags(in_cflags, PreferLang.c);
+    const total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto generator = Generator(variant, variant, variant);
@@ -646,7 +644,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             }
             pdata = tmp.get;
         } else {
-            pdata.cflags = user_cflags.dup;
+            pdata.flags.prependCflags(user_cflags.dup);
             pdata.absoluteFile = AbsolutePath(FileName(in_file));
         }
 
