@@ -647,6 +647,13 @@ MutantSample reportSelectedAliveMutants(ref Database db,
 
 class DiffReport {
     import dextool.plugin.mutate.backend.database : FileId, MutantInfo;
+    import dextool.plugin.mutate.backend.diff_parser : Diff;
+
+    /// The mutation score.
+    double score;
+
+    /// The raw diff for a file
+    Diff.Line[][FileId] rawDiff;
 
     /// Lookup for converting a id to a filename
     Path[FileId] files;
@@ -715,8 +722,10 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
             }
         }
 
-        if (has_mutants)
+        if (has_mutants) {
             rval.files[fid] = kv.key;
+            rval.rawDiff[fid] = diff.rawDiff[kv.absPath];
+        }
     }
 
     Set!TestCase test_cases;
@@ -726,6 +735,12 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         test_cases.add(tc);
 
     rval.testCases = test_cases.setToList!TestCase.sort.array;
+
+    if (rval.killed.length == 0) {
+        rval.score = 1.0;
+    } else {
+        rval.score = 1.0 - cast(double) rval.alive.length / cast(double) rval.killed.length;
+    }
 
     return rval;
 }
