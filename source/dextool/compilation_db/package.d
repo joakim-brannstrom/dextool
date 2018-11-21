@@ -412,8 +412,23 @@ body {
 }
 
 struct SearchResult {
-    string[] cflags;
+    ParseFlags flags;
     AbsolutePath absoluteFile;
+
+    this(ParseFlags flags, AbsolutePath p) {
+        this.flags = flags;
+        this.absoluteFile = p;
+    }
+
+    // TODO: consider deprecating.
+    this(string[] flags, AbsolutePath p) {
+        this(ParseFlags(null, null, flags), p);
+    }
+
+    // TODO: consider deprecating.
+    string[] cflags() @safe pure nothrow const {
+        return flags.completeFlags;
+    }
 }
 
 /** Append the compiler flags if a match is found in the DB or error out.
@@ -428,7 +443,7 @@ Nullable!(SearchResult) appendOrError(ref CompileCommandDB compilation_db,
  *
  * TODO: consider using exceptions instead of Nullable.
  */
-Nullable!(SearchResult) appendOrError(ref CompileCommandDB compilation_db,
+Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db,
         const string[] cflags, const string input_file, const CompileCommandFilter flag_filter) @safe {
 
     auto compile_commands = compilation_db.find(input_file.idup);
@@ -448,7 +463,8 @@ Nullable!(SearchResult) appendOrError(ref CompileCommandDB compilation_db,
         return rval;
     } else {
         rval = SearchResult.init;
-        rval.cflags = cflags ~ compile_commands[0].parseFlag(flag_filter);
+        auto p = compile_commands[0].parseFlag(flag_filter);
+        rval.flags = ParseFlags(p.includes, p.systemIncludes, cflags ~ p.cflags);
         rval.absoluteFile = compile_commands[0].absoluteFile;
     }
 
@@ -527,13 +543,16 @@ struct CompileCommandFilter {
 
 /// Parsed compiler flags.
 struct ParseFlags {
-    /// The includes used in the compile command
     static struct Include {
         string payload;
         alias payload this;
     }
 
-    ///
+    private {
+        bool forceSystemIncludes_;
+    }
+
+    /// The includes used in the compile command.
     Include[] includes;
 
     /// System include paths extracted from the compiler used for the file.
@@ -542,8 +561,19 @@ struct ParseFlags {
     /// Specific flags for the file as parsed from the DB.
     string[] cflags;
 
+    void prependCflags(string[] v) {
+        this.cflags = v ~ this.cflags;
+    }
+
+    void appendCflags(string[] v) {
+        this.cflags ~= v;
+    }
+
     /// Set to true to use -I instead of -isystem for system includes.
-    bool forceSystemIncludes;
+    auto forceSystemIncludes(bool v) {
+        this.forceSystemIncludes_ = v;
+        return this;
+    }
 
     bool hasSystemIncludes() @safe pure nothrow const @nogc {
         return systemIncludes.length != 0;
@@ -560,7 +590,7 @@ struct ParseFlags {
         import std.algorithm : map, joiner;
         import std.array : array;
 
-        auto incl_param = forceSystemIncludes ? "-I" : "-isystem";
+        auto incl_param = forceSystemIncludes_ ? "-I" : "-isystem";
 
         return cflags.idup ~ systemIncludes.map!(a => [incl_param, a.value]).joiner.array;
     }

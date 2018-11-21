@@ -21,7 +21,7 @@ import dextool.type : FileName, AbsolutePath;
 
 struct UserFileRange {
     import std.typecons : Nullable;
-    import dextool.compilation_db : SearchResult;
+    import dextool.compilation_db : SearchResult, ParseFlags;
 
     enum RangeOver {
         inFiles,
@@ -51,7 +51,7 @@ struct UserFileRange {
     Nullable!SearchResult front() {
         assert(!empty, "Can't get front of an empty range");
 
-        Nullable!SearchResult curr;
+        typeof(return) curr;
 
         final switch (kind) {
         case RangeOver.inFiles:
@@ -62,13 +62,9 @@ struct UserFileRange {
             }
             break;
         case RangeOver.database:
-            import std.array : appender;
-
-            auto tmp = db.payload[0];
-            auto flags = appender!(string[])();
-            flags.put(cflags);
-            flags.put(tmp.parseFlag(ccFilter).completeFlags);
-            curr = SearchResult(flags.data, tmp.absoluteFile);
+            curr = SearchResult(db.payload[0].parseFlag(ccFilter),
+                    db.payload[0].absoluteFile);
+            curr.flags.cflags = cflags ~ curr.flags.cflags;
             break;
         }
 
@@ -114,20 +110,9 @@ import std.typecons : Nullable;
 /// Find flags for fname by searching in the compilation DB.
 Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
         const string[] flags, ref const CompileCommandFilter flag_filter) {
-    import std.file : exists;
-    import std.path : baseName;
-    import std.string : join;
-
     import dextool.compilation_db : appendOrError;
 
-    typeof(return) rval;
-
-    auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
-    if (!db_search_result.isNull) {
-        rval = SearchResult(db_search_result.cflags, db_search_result.absoluteFile);
-        return rval;
-    }
-
-    logger.error("Unable to find any compiler flags for: ", fname);
+    auto rval = compdb.appendOrError(flags, fname, flag_filter);
+    logger.error(rval.isNull, "Unable to find any compiler flags for: ", fname);
     return rval;
 }

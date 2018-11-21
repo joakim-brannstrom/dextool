@@ -45,13 +45,16 @@ import dextool.type : ExitStatusType, FileName, AbsolutePath;
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
 
-immutable(SearchResult) idup(SearchResult v) @safe {
+immutable(SearchResult) immDup(SearchResult v) @trusted {
     import std.algorithm : map;
     import std.array : array;
+    import dextool.compilation_db : SystemIncludePath;
 
-    immutable(string)[] flags = v.cflags.map!(a => a.dup).array();
+    auto f = v.flags;
+    f.cflags = f.cflags.map!"a.idup".array;
+    f.systemIncludes = f.systemIncludes.map!(a => SystemIncludePath(a.value.idup)).array;
 
-    return immutable SearchResult(flags, immutable AbsolutePath(v.absoluteFile));
+    return cast(immutable) SearchResult(f, AbsolutePath(v.absoluteFile));
 }
 
 ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults analyze_results, string[] in_cflags,
@@ -66,7 +69,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
         import std.concurrency : setMaxMailboxSize, OnCrowding, thisTid;
 
         // safe in newer versions than 2.071.1
-        () @trusted{ setMaxMailboxSize(thisTid, 1024, OnCrowding.block); }();
+        () @trusted { setMaxMailboxSize(thisTid, 1024, OnCrowding.block); }();
     }
 
     const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
@@ -131,7 +134,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
                     logger.warning(
                             "Skipping file because it is not possible to determine the compiler flags");
                 } else if (!pool.run(&analyzeWorker, analyze_builder, files.front.index,
-                        total_files, files.front.value.get.idup, restrictDir)) {
+                        total_files, files.front.value.get.immDup, restrictDir)) {
                     // reached CPU limit
                     break;
                 }
@@ -144,7 +147,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
                 files.popFront;
             } else {
                 if (pool.run(&analyzeWorker, analyze_builder, files.front.index,
-                        total_files, files.front.value.get.idup, restrictDir)) {
+                        total_files, files.front.value.get.immDup, restrictDir)) {
                     // successfully spawned a worker
                     files.popFront;
                 }
@@ -195,7 +198,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
     foreach (f; analyzers.mcCabeResult.functions[]) {
         try {
             // assuming send is correctly implemented.
-            () @trusted{ owner.send(f); }();
+            () @trusted { owner.send(f); }();
         } catch (Exception e) {
             collectException(logger.error("Unable to send to owner thread '%s': %s", owner, e.msg));
         }
@@ -273,7 +276,7 @@ class Pool {
 
         if (pool.length < workerThreads) {
             // assuming that spawnLinked is of high quality. Assuming func is @safe.
-            rval = () @trusted{ return spawnLinked(func, thisTid, args); }();
+            rval = () @trusted { return spawnLinked(func, thisTid, args); }();
             pool ~= rval;
         }
 
@@ -326,7 +329,7 @@ struct AnalyzeCollection {
         // remove this in newer versions than 2.071.1 where nullableRef is implemented.
         //import std.typecons : nullableRef;
         //this.mcCabe = McCabe(nullableRef(&this.mcCabeResult));
-        () @trusted{
+        () @trusted {
             import std.typecons : NullableRef;
 
             this.mcCabe = McCabe(NullableRef!McCabeResult(&this.mcCabeResult));
