@@ -35,7 +35,7 @@ ExitStatusType runMutate(ArgParser conf) {
     modes[ToolMode.admin] = &modeAdmin;
 
     if (auto f = conf.toolMode in modes) {
-        return () @trusted{
+        return () @trusted {
             auto dacc = DataAccess.make(conf);
             scope (exit)
                 dacc.io.release;
@@ -137,7 +137,7 @@ final class FrontendIO : FilesysIO {
     override File getStdin() {
         static import std.stdio;
 
-        return () @trusted{ return std.stdio.stdin; }();
+        return () @trusted { return std.stdio.stdin; }();
     }
 
     override AbsolutePath getOutputDir() @safe pure nothrow @nogc {
@@ -227,7 +227,7 @@ final class FrontendValidateLoc : ValidateLoc {
 ExitStatusType modeDumpFullConfig(ref ArgParser conf) @safe {
     import std.stdio : writeln, stderr;
 
-    () @trusted{
+    () @trusted {
         // make it easy for a user to pipe the output to the config file
         stderr.writeln("Dumping the configuration used. The format is TOML (.toml)");
         stderr.writeln("If you want to use it put it in your '.dextool_mutate.toml'");
@@ -264,7 +264,7 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(dacc.db, dacc.frange, dacc.validateLoc, dacc.io);
+    return runAnalyzer(dacc.db, conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {

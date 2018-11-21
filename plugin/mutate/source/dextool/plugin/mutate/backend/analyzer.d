@@ -24,12 +24,13 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
+import dextool.plugin.mutate.config : ConfigCompiler;
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, ref UserFileRange frange,
-        ValidateLoc val_loc, FilesysIO fio) @safe {
-    auto analyzer = Analyzer(db, val_loc, fio);
+ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
+        ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
+    auto analyzer = Analyzer(db, val_loc, fio, conf);
 
     foreach (in_file; frange)
         analyzer.process(in_file);
@@ -61,9 +62,10 @@ struct Analyzer {
 
         ValidateLoc val_loc;
         FilesysIO fio;
+        ConfigCompiler conf;
     }
 
-    this(ref Database db, ValidateLoc val_loc, FilesysIO fio) @trusted {
+    this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
         this.db = &db;
         this.before_files = db.getFiles.setFromList;
         this.val_loc = val_loc;
@@ -75,6 +77,9 @@ struct Analyzer {
     void process(Nullable!SearchResult in_file) @safe {
         if (in_file.isNull)
             return;
+
+        // TODO: this should be generic for deXtool.
+        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         // find the file and flags to analyze
         Exists!AbsolutePath checked_in_file;
