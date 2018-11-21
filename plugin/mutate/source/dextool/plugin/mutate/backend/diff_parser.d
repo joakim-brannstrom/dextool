@@ -50,6 +50,14 @@ struct Diff {
     import dextool.type : AbsolutePath;
     import dextool.set;
 
+    static struct Line {
+        uint line;
+        string text;
+    }
+
+    /// The raw diff that where parsed.
+    Line[][AbsolutePath] rawDiff;
+
     alias ChangedLines = Set!uint;
 
     ChangedLines[AbsolutePath] changes;
@@ -73,6 +81,7 @@ struct DiffRange {
     static struct KeyValue {
         Path key;
         Diff.ChangedLines value;
+        AbsolutePath absPath;
     }
 
     private {
@@ -85,13 +94,13 @@ struct DiffRange {
         this.diff = d;
         this.workdir = workdir;
         this.keys = diff.byKey.array;
-        logger.trace(workdir);
+        debug logger.trace(workdir);
     }
 
     KeyValue front() @safe pure {
         assert(!empty, "Can't get front of an empty range");
         debug logger.trace(keys[0]);
-        return KeyValue(keys[0].relativePath(workdir).Path, diff[keys[0]]);
+        return KeyValue(keys[0].relativePath(workdir).Path, diff[keys[0]], keys[0]);
     }
 
     void popFront() @safe pure nothrow {
@@ -203,10 +212,11 @@ struct UnifiedDiffParser {
                 }
                 break;
             case State.insideHunk:
+                next[2] = [Action.saveRawDiff];
                 if (first_char == '+')
-                    next[2] = [Action.plusLine];
+                    next[2] ~= [Action.plusLine];
                 else if (first_char == ' ' || line.length == 0)
-                    next[2] = [Action.blankLine];
+                    next[2] ~= [Action.blankLine];
                 next[1] = State.checkHunkCounter;
                 next[0] = true;
                 break;
@@ -283,6 +293,10 @@ struct UnifiedDiffParser {
             isGitDiff = true;
         }
 
+        void saveRawDiffAct() {
+            result.rawDiff[data.hdrNew] ~= Diff.Line(data.startPos + data.count, line.idup);
+        }
+
         st[0] = true;
         while (st[0]) {
             st = nextState(st[1]);
@@ -333,6 +347,7 @@ enum Action {
     lineHunk,
     plusLine,
     blankLine,
+    saveRawDiff,
 }
 
 version (unittest) {
