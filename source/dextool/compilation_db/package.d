@@ -542,6 +542,9 @@ struct ParseFlags {
     /// Specific flags for the file as parsed from the DB.
     string[] cflags;
 
+    /// Set to true to use -I instead of -isystem for system includes.
+    bool forceSystemIncludes;
+
     bool hasSystemIncludes() @safe pure nothrow const @nogc {
         return systemIncludes.length != 0;
     }
@@ -557,7 +560,9 @@ struct ParseFlags {
         import std.algorithm : map, joiner;
         import std.array : array;
 
-        return cflags.idup ~ systemIncludes.map!(a => ["-isystem", a.value]).joiner.array;
+        auto incl_param = forceSystemIncludes ? "-I" : "-isystem";
+
+        return cflags.idup ~ systemIncludes.map!(a => [incl_param, a.value]).joiner.array;
     }
 
     alias completeFlags this;
