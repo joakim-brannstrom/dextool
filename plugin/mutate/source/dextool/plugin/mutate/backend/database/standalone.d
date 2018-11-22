@@ -385,17 +385,18 @@ struct Database {
     /// Returns: the `nr` mutant with the highest count that has not been killed and existed in the system the longest.
     MutationStatus[] getHardestToKillMutant(const(Mutation.Kind)[] kinds,
             const Mutation.Status status, long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts FROM %s t0, %s t1
-                    WHERE
-                    t0.update_ts IS NOT NULL AND
-                    t0.status = :status AND
-                    t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%))
-                    ORDER BY
-                    t0.test_cnt DESC,
-                    t0.added_ts ASC,
-                    t0.update_ts ASC
-                    LIMIT :limit",
+        const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts
+            FROM %s t0, %s t1
+            WHERE
+            t0.update_ts IS NOT NULL AND
+            t0.status = :status AND
+            t1.st_id = t0.id AND
+            t1.kind IN (%(%s,%))
+            ORDER BY
+            t0.test_cnt DESC,
+            t0.added_ts ASC,
+            t0.update_ts ASC
+            LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":status", cast(long) status);
@@ -761,10 +762,14 @@ struct Database {
     /** Set detected test cases.
      *
      * This will replace those that where previously stored.
+     *
+     * Returns: ID of affected mutation statuses.
      */
-    void setDetectedTestCases(const(TestCase)[] tcs) @trusted {
+    MutationStatusId[] setDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        auto mut_status_ids = appender!(MutationStatusId[])();
+
         if (tcs.length == 0)
-            return;
+            return mut_status_ids.data;
 
         db.begin;
         scope (failure)
@@ -773,12 +778,23 @@ struct Database {
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
 
+        enum mut_st_id = format("SELECT DISTINCT t1.st_id
+            FROM %s t0, %s t1
+            WHERE
+            t0.name NOT IN (SELECT name FROM %s) AND
+            t0.id = t1.id", allTestCaseTable,
+                    killedTestCaseTable, tmp_name);
+        foreach (res; db.prepare(mut_st_id).execute)
+            mut_status_ids.put(res.peek!long(0).MutationStatusId);
+
         enum remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
                     allTestCaseTable, tmp_name);
         db.run(remove_old_sql);
 
         db.run(format!"DROP TABLE %s"(tmp_name));
         db.commit;
+
+        return mut_status_ids.data;
     }
 
     /** Add test cases to those that have been detected.

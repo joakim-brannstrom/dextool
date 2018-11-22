@@ -951,7 +951,6 @@ nothrow:
         // the test cases before anything has potentially changed.
         Set!string old_tcs;
         spinSqlQuery!(() {
-            old_tcs = null;
             foreach (tc; data.db.getDetectedTestCases)
                 old_tcs.add(tc.name);
         });
@@ -961,7 +960,14 @@ nothrow:
             spinSqlQuery!(() { data.db.addDetectedTestCases(all_found_tc); });
             break;
         case remove:
-            spinSqlQuery!(() { data.db.setDetectedTestCases(all_found_tc); });
+            import dextool.plugin.mutate.backend.database : MutationStatusId;
+
+            MutationStatusId[] ids;
+            spinSqlQuery!(() { ids = data.db.setDetectedTestCases(all_found_tc); });
+            foreach (id; ids)
+                spinSqlQuery!(() {
+                    data.db.updateMutationStatus(id, Mutation.Status.unknown);
+                });
             break;
         }
 
