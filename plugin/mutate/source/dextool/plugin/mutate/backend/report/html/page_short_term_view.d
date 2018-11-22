@@ -95,7 +95,7 @@ void toHtml(DiffReport report, HtmlNode root) {
         auto tbl = HtmlTable.make;
         root.put(tbl.root);
         tbl.root.putAttr("class", "overlap_tbl");
-        foreach (c; ["File", "Alive", "Killed", "Analyzed Diff"])
+        foreach (c; ["Analyzed Diff", "Alive", "Killed"])
             tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
 
         foreach (const pkv; report.files
@@ -103,9 +103,13 @@ void toHtml(DiffReport report, HtmlNode root) {
                 .map!(a => tuple(a.key, a.value.dup))
                 .array
                 .sort!((a, b) => a[1] < b[1])) {
-            auto r = tbl.newRow;
             const path = report.files[pkv[0]];
-            r.td.putAttr("valign", "top").put(path);
+            tbl.newRow.td.putAttr("colspan", "3").putAttr("valign", "top").put(path);
+
+            auto r = tbl.newRow;
+
+            if (auto v = pkv[0] in report.rawDiff)
+                renderRawDiff(r.td, *v);
 
             auto alive_ids = r.td.putAttr("valign", "top");
             if (auto alive = pkv[0] in report.alive) {
@@ -124,9 +128,6 @@ void toHtml(DiffReport report, HtmlNode root) {
                     killed_ids.put(" ");
                 }
             }
-
-            if (auto v = pkv[0] in report.rawDiff)
-                renderRawDiff(r.td, *v);
         }
     }
 
