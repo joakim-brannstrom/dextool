@@ -344,15 +344,16 @@ struct Database {
     /// Returns: the mutants in the file at the line.
     MutationStatusId[] getMutationsOnLine(const(Mutation.Kind)[] kinds, FileId fid, SourceLoc sloc) @trusted {
         // TODO: should it also be line_end?
-        const sql = format("SELECT t0.id FROM %s t0, %s t1, %s t2
+        const sql = format("SELECT DISTINCT t0.id FROM %s t0, %s t1, %s t2
                     WHERE
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%)) AND
                     t1.mp_id = t2.id AND
                     t2.file_id = :fid AND
-                    t2.line = :line
-                    ", mutationStatusTable,
-                mutationTable, mutationPointTable, kinds.map!(a => cast(int) a));
+                    (:line BETWEEN t2.line AND t2.line_end)
+                    ",
+                mutationStatusTable, mutationTable, mutationPointTable,
+                kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":fid", cast(long) fid);
         stmt.bind(":line", sloc.line);
