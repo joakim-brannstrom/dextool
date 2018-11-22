@@ -84,7 +84,13 @@ void toHtml(DiffReport report, HtmlNode root) {
     }
 
     void renderFiles() {
-        root.n("p".Tag).put("This are the mutants for the modified lines.");
+        with (root.n("p".Tag)) {
+            put("This are the mutants for the modified lines.");
+            n("span".Tag).putAttr("class", "diff_del").put("Red");
+            n("id".Tag).put(" removed line.");
+            n("span".Tag).putAttr("class", "diff_add").put("Green");
+            n("id".Tag).put(" added line.");
+        }
 
         auto tbl = HtmlTable.make;
         root.put(tbl.root);
