@@ -449,12 +449,11 @@ shared static this() {
     preambleAbs = `
 #ifndef DEXTOOL_INJECTED_ABS_FUNCTION
 #define DEXTOOL_INJECTED_ABS_FUNCTION
-namespace {
-template<typename T>
-T abs_dextool(T v) { return v < 0 ? -v : v; }
-template<typename T>
-T fail_on_zero_dextool(T v) { if (v == 0) { *((char*)0)='x'; }; return v; }
-}
+#define abs_dextool(v) (v < 0 ? -v : v)
+#endif
+#ifndef DEXTOOL_INJECTED_FAIL_ON_ZERO_FUNCTION
+#define DEXTOOL_INJECTED_FAIL_ON_ZERO_FUNCTION
+#define fail_on_zero_dextool(v) (!v && (*((char*)0) = 'x') ? v : v)
 #endif
 `;
 }
