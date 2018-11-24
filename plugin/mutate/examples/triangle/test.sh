@@ -1,3 +1,4 @@
 #!/bin/bash
 set -e
-make test
+MAKEFILE_DIR=$(dirname "${BASH_SOURCE[0]}")
+make -f $MAKEFILE_DIR/Makefile test
