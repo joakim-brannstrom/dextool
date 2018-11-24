@@ -15,14 +15,16 @@ module dextool.plugin.mutate.backend.analyzer;
 
 import logger = std.experimental.logger;
 
-import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB;
+import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
+    CompileCommandDB;
 import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
+    Checksum;
 import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.config : ConfigCompiler;
 
@@ -32,8 +34,13 @@ ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
         ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
     auto analyzer = Analyzer(db, val_loc, fio, conf);
 
-    foreach (in_file; frange)
-        analyzer.process(in_file);
+    foreach (in_file; frange) {
+        try {
+            analyzer.process(in_file);
+        } catch (Exception e) {
+            () @trusted{ logger.trace(e); logger.warning(e.msg); }();
+        }
+    }
     analyzer.finalize;
 
     return ExitStatusType.Ok;
@@ -96,7 +103,7 @@ struct Analyzer {
         analyzed_files.add(checked_in_file);
 
         // analyze the file
-        () @trusted {
+        () @trusted{
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto root = makeRootVisitor(fio, val_loc);
             analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
