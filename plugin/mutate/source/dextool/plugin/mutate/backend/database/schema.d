@@ -238,8 +238,8 @@ immutable mutation_status_v2_tbl = "CREATE TABLE %s (
     checksum1   INTEGER,
     CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
     )";
-// update_st = when the status where last updated. Seconds at UTC+0.
-// added_ts = when the mutant where added to the system.
+// update_st = when the status where last updated. UTC+0.
+// added_ts = when the mutant where added to the system. UTC+0.
 // test_cnt = nr of times the mutant has been tested without being killed.
 immutable mutation_status_v3_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
