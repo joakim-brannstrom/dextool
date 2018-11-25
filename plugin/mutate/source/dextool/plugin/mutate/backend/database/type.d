@@ -13,6 +13,7 @@ import core.time : Duration;
 import std.datetime : SysTime;
 
 import dextool.type : AbsolutePath, Path;
+import dextool.plugin.mutate.backend.type;
 
 /// Primary key in the database
 struct Pkey(Pkeys T) {
@@ -40,8 +41,6 @@ alias FileId = Pkey!(Pkeys.fileId);
 alias TestCaseId = Pkey!(Pkeys.testCaseId);
 
 struct MutationEntry {
-    import dextool.plugin.mutate.backend.type;
-
     MutationId id;
     Path file;
     SourceLoc sloc;
@@ -52,10 +51,11 @@ struct MutationEntry {
 
 struct NextMutationEntry {
     import std.typecons : Nullable;
-    import dextool.plugin.mutate.backend.type;
 
     enum Status {
+        /// Mutant retrieved.
         ok,
+        /// All mutants tested.
         done,
     }
 
@@ -64,8 +64,6 @@ struct NextMutationEntry {
 }
 
 struct MutationPointEntry {
-    import dextool.plugin.mutate.backend.type;
-
     MutationPoint mp;
     Path file;
     /// Start of the mutation point.
@@ -76,8 +74,6 @@ struct MutationPointEntry {
 
 /// The source code mutations for a mutation point.
 struct MutationPointEntry2 {
-    import dextool.plugin.mutate.backend.type;
-
     Path file;
     Offset offset;
     /// Start of the mutation point.
@@ -91,16 +87,21 @@ struct MutationPointEntry2 {
     }
 }
 
+/// Report about mutants of a specific kind(s).
 struct MutationReportEntry {
-    import core.time : Duration;
-
+    ///
     long count;
+    /// Test time spent on the mutants.
     Duration time;
 }
 
-struct MutantInfo {
-    import dextool.plugin.mutate.backend.type;
+/// Mutants that are tagged with nomut of a specific kind(s).
+struct MetadataNoMutEntry {
+    ///
+    long count;
+}
 
+struct MutantInfo {
     MutationId id;
     Mutation.Status status;
     Mutation.Kind kind;
@@ -117,11 +118,47 @@ struct MutationStatusTime {
 struct MutationStatus {
     import std.datetime : SysTime;
     import std.typecons : Nullable;
-    import dextool.plugin.mutate.backend.type;
 
     MutationStatusId statusId;
     Mutation.Status status;
     MutantTestCount testCnt;
     SysTime updated;
     Nullable!SysTime added;
+}
+
+/// Metadata about a line in a file.
+struct LineMetadata {
+    import dextool.set;
+
+    FileId id;
+    uint line;
+    Set!LineAttr attrs;
+
+    this(FileId fid, uint line) {
+        this(fid, line, LineAttr[].init);
+    }
+
+    this(FileId fid, uint line, LineAttr attrs) {
+        this(fid, line, [attrs]);
+    }
+
+    this(FileId fid, uint line, LineAttr[] attrs) {
+        this.id = fid;
+        this.line = line;
+        this.attrs = setFromList(attrs);
+    }
+
+    void add(LineAttr v) {
+        attrs.add(v);
+    }
+
+    bool contains(LineAttr v) {
+        return attrs.contains(v);
+    }
+}
+
+/// Attributes for a line.
+enum LineAttr {
+    /// Suppress all alive mutants on the line.
+    noMut
 }

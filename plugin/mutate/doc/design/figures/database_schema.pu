@@ -3,52 +3,63 @@ hide circle
 hide methods
 
 class schema_version {
-    version INTEGER NOT NULL
+version: DB schema version
 }
 
 class killed_test_case {
     id          INTEGER PRIMARY KEY,
-    mut_id      INTEGER NOT NULL,
-    tc_id       INTEGER NOT NULL,
-    location    TEXT,
+---
+- location: optional info helping a user
+locate the mutant
 }
 killed_test_case "mut_id" --> "id" mutation
 killed_test_case "tc_id" --> "id" all_test_case
 
 class all_test_case {
     id          INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL
+---
+- name: name of the test
 }
 
 class mutation_status {
     id          INTEGER PRIMARY KEY,
-    status      INTEGER NOT NULL
-    checksum0   INTEGER,
-    checksum1   INTEGER
+---
+- status: status of the mutant
+- time: spent on testing the mutant
+- test_cnt: nr of times the mutant is tested
+- update_ts: date+time the status updated
+- added_ts: date+time the mutant where found
+- checksum: of the mutation of the src
 }
 
 class mutation {
     id      INTEGER PRIMARY KEY,
-    mp_id   INTEGER NOT NULL,
-    st_id   INTEGER NOT NULL,
-    kind    INTEGER NOT NULL,
+---
+- kind: type of mutant,
 }
 mutation "mp_id" --> "id" mutation_point
 mutation "st_id" --> "id" mutation_status
 
 class mutation_point {
     id              INTEGER PRIMARY KEY,
-    file_id         INTEGER NOT NULL,
-    offset_begin    INTEGER NOT NULL,
-    offset_end      INTEGER NOT NULL
+---
+- offset: byte range
+- line+column: in the src file
 }
 mutation_point "file_id" --> "id" files
+
+class nomut {
+id  INTEGER PRIMARY KEY,
+---
+line
+}
+nomut "file_id" --> "id" files
 
 class files {
     id          INTEGER PRIMARY KEY,
     path        TEXT NOT NULL,
-    checksum0   INTEGER NOT NULL
-    checksum1   INTEGER NOT NULL
-    lang        INTEGER
+---
+- checksum: 128bit of the file
+- lang: type of language the file is
 }
 @enduml

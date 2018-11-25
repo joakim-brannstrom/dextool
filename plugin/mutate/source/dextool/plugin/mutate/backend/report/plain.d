@@ -17,18 +17,16 @@ import std.typecons : Yes, No;
 
 import dextool.type;
 
-import dextool.plugin.mutate.backend.database : Database, IterateMutantRow,
-    MutationId;
+import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel,
-    ReportSection;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, Table, reportMutationSubtypeStats, reportStatistics,
-    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
-    toSections;
+    makeMutationText, Table, reportMutationSubtypeStats,
+    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap,
+    MutationRepr, toSections;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
@@ -83,8 +81,9 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 logger.warning(e.msg);
             }
 
-            logger.infof("%s %s from '%s' to '%s' in %s:%s:%s", r.id, r.mutation.status,
-                    mut_txt.original, mut_txt.mutation, abs_path, r.sloc.line, r.sloc.column);
+            logger.infof("%s %s from '%s' to '%s' in %s:%s:%s [%(%s, %)]", r.id,
+                    r.mutation.status, mut_txt.original, mut_txt.mutation,
+                    abs_path, r.sloc.line, r.sloc.column, r.attrs.toRange);
         }
 
         void updateMutationStat() {
@@ -219,8 +218,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
         import dextool.plugin.mutate.backend.report.utility : reportTestCaseFullOverlap,
-            reportTestCaseStats, reportMutationTestCaseSuggestion,
-            reportDeadTestCases, toTable;
+            reportTestCaseStats, reportMutationTestCaseSuggestion, reportDeadTestCases, toTable;
 
         auto stdout_ = () @trusted { return stdout; }();
 

@@ -78,8 +78,8 @@ test -e $1 && echo 'Failed 42'
 }
 
 class SimpleAnalyzeFixture : TestCase {
-    void precondition(ref TestEnv testEnv) {
-        makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
+    auto precondition(ref TestEnv testEnv) {
+        return makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
     }
 
     string programFile() {

@@ -72,7 +72,7 @@ struct SourceLoc {
     uint column;
 }
 
-/// A possible mutation and its status.
+/// A possible mutation.
 struct Mutation {
     /// States what kind of mutations that can be performed on this mutation point.
     // ONLY ADD NEW ITEMS TO THE END
@@ -151,6 +151,7 @@ struct Mutation {
         lcrbOrAssign,
     }
 
+    /// The status of a mutant.
     enum Status {
         /// the mutation isn't tested
         unknown,
@@ -166,6 +167,39 @@ struct Mutation {
 
     Kind kind;
     Status status;
+}
+
+/// Attributes of a mutant.
+enum Attr {
+    /// Suppress the mutant when reporting the score.
+    noMut,
+}
+
+struct Attrs {
+    import dextool.set;
+
+    Set!Attr value;
+    alias value this;
+
+    void add(Attr v) {
+        value.add(v);
+    }
+
+    auto toRange() {
+        return setToRange!Attr(value);
+    }
+
+    auto toRange() const {
+        return setToRange!Attr(value);
+    }
+}
+
+/// A mutant with attached attributes
+struct MutationAttrs {
+    Mutation mut;
+    alias mut this;
+
+    Attrs attrs;
 }
 
 /** The checksum that uniquely identify the mutation done in the source code.

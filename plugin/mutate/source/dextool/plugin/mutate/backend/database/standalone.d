@@ -84,15 +84,14 @@ struct Database {
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
-        auto stmt = db.prepare("SELECT id FROM files WHERE path=:path");
+        enum sql = format("SELECT id FROM %s WHERE path=:path", filesTable);
+        auto stmt = db.prepare(sql);
         stmt.bind(":path", cast(string) p);
         auto res = stmt.execute;
 
         typeof(return) rval;
-        if (!res.empty) {
+        if (!res.empty)
             rval = FileId(res.oneValue!long);
-        }
-
         return rval;
     }
 
@@ -364,6 +363,24 @@ struct Database {
         return app.data;
     }
 
+    LineMetadata getLineMetadata(FileId fid, SourceLoc sloc) @trusted {
+        enum sql = format("SELECT nomut FROM %s
+            WHERE
+            file_id = :fid AND
+            line = :line", rawSrcMetadataTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":fid", cast(long) fid);
+        stmt.bind(":line", sloc.line);
+
+        auto rval = typeof(return)(fid, sloc.line);
+        foreach (res; stmt.execute) {
+            if (res.peek!long(0) != 0)
+                rval.add(LineAttr.noMut);
+        }
+
+        return rval;
+    }
+
     /// Returns: the `nr` mutants that where the longst since they where tested.
     MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, long nr) @trusted {
         const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
@@ -469,7 +486,14 @@ struct Database {
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
     alias killedByCompilerSrcMutants = countMutants!([Mutation.Status.killedByCompiler], true);
 
-    /// Count the distinct mutants
+    /** Count the mutants with the nomut metadata.
+     *
+     * Params:
+     *  status = status the mutants must be in to be counted.
+     *  distinc = count based on unique source code changes.
+     *  kinds = the kind of mutants to count.
+     *  file = file to count mutants in.
+     */
     private MutationReportEntry countMutants(int[] status, bool distinct)(
             const Mutation.Kind[] kinds, string file = null) @trusted {
         import core.time : dur;
@@ -515,6 +539,62 @@ struct Database {
                     res.front.peek!long(1).dur!"msecs");
         return rval;
     }
+
+    /** Count the mutants with the nomut metadata.
+     *
+     * Params:
+     *  status = status the mutants must be in to be counted.
+     *  distinc = count based on unique source code changes.
+     *  kinds = the kind of mutants to count.
+     *  file = file to count mutants in.
+     */
+    private MetadataNoMutEntry countNoMutMutants(int[] status, bool distinct)(
+            const Mutation.Kind[] kinds, string file = null) @trusted {
+        static if (distinct) {
+            auto sql_base = "
+                SELECT count(*)
+                FROM (
+                SELECT count(*)
+                FROM %s t0, %s t1,%s t4%s
+                WHERE
+                %s
+                t0.st_id = t1.id AND
+                t0.st_id = t4.st_id AND
+                t1.status IN (%(%s,%)) AND
+                t0.kind IN (%(%s,%))
+                GROUP BY t1.id)";
+        } else {
+            auto sql_base = "
+                SELECT count(*)
+                FROM %s t0, %s t1,%s t4%s
+                WHERE
+                %s
+                t0.st_id = t1.id AND
+                t0.st_id = t4.st_id AND
+                t1.status IN (%(%s,%)) AND
+                t0.kind IN (%(%s,%))";
+        }
+        const query = () {
+            auto fq = file.length == 0 ? null
+                : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
+            auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
+                    mutationPointTable, filesTable);
+            return format(sql_base, mutationTable, mutationStatusTable,
+                    srcMetadataTable, fq_from, fq, status, kinds.map!(a => cast(int) a));
+        }();
+
+        typeof(return) rval;
+        auto stmt = db.prepare(query);
+        if (file.length != 0)
+            stmt.bind(":path", file);
+        auto res = stmt.execute;
+        if (!res.empty)
+            rval = MetadataNoMutEntry(res.front.peek!long(0));
+        return rval;
+    }
+
+    /// ditto.
+    alias aliveNoMutSrcMutants = countNoMutMutants!([Mutation.Status.alive], true);
 
     /// Returns: mutants killed by the test case.
     MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, TestCase tc) @trusted {
@@ -591,12 +671,38 @@ struct Database {
     }
 
     void put(const Path p, Checksum cs, const Language lang) @trusted {
-        auto stmt = db.prepare("INSERT OR IGNORE INTO files (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)");
+        enum sql = format("INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)",
+                    filesTable);
+        auto stmt = db.prepare(sql);
         stmt.bind(":path", cast(string) p);
         stmt.bind(":checksum0", cast(long) cs.c0);
         stmt.bind(":checksum1", cast(long) cs.c1);
         stmt.bind(":lang", cast(long) lang);
         stmt.execute;
+    }
+
+    /** Save line metadata to the database which is used to associate line
+     * metadata with mutants.
+     */
+    void put(const LineMetadata[] mdata) {
+        import dextool.set;
+
+        enum sql = format("INSERT OR IGNORE INTO %s
+            (file_id, line, nomut)
+            VALUES(:fid, :line, :nomut)", rawSrcMetadataTable);
+
+        db.begin;
+        scope (failure)
+            db.rollback;
+
+        auto stmt = db.prepare(sql);
+        foreach (meta; mdata) {
+            stmt.bindAll(cast(long) meta.id, meta.line, meta.attrs.contains(LineAttr.noMut));
+            stmt.execute;
+            stmt.reset;
+        }
+
+        db.commit;
     }
 
     /// Store all found mutants.
@@ -1053,4 +1159,17 @@ string toSqliteDateTime(SysTime ts) {
     return format("%04s-%02s-%02sT%02s:%02s:%02s.%s", ts.year,
             cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
             ts.fracSecs.total!"msecs");
+}
+
+/// Cache database queries to avoid hitting the database.
+struct Cache(K, V, alias Query) {
+    V[K] data;
+
+    auto opCall(K k) {
+        if (auto v = k in data)
+            return *v;
+        auto v = Query(k);
+        data[k] = v;
+        return v;
+    }
 }

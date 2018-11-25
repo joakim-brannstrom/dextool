@@ -64,6 +64,9 @@ void overallStat(const MutationStat s, HtmlNode n) {
     }
 
     n.n("p".Tag).put(format("Execution time %s", s.totalTime));
+    if (s.aliveNoMut != 0)
+        n.n("p".Tag).put(format("Suppressed (nomut) %s (%.3s of total)",
+                s.aliveNoMut, s.suppressedOfTotal).encode);
 
     auto tbl = HtmlTable.make;
     n.put(tbl.root);
@@ -73,7 +76,7 @@ void overallStat(const MutationStat s, HtmlNode n) {
 
     foreach (const d; [tuple("Alive", s.alive), tuple("Killed", s.killed),
             tuple("Timeout", s.timeout), tuple("Total", s.total), tuple("Untested",
-                s.untested), tuple("Killed by compiler", s.killedByCompiler)]) {
+                s.untested), tuple("Killed by compiler", s.killedByCompiler),]) {
         auto r = tbl.newRow;
         r.td.put(d[0]);
         r.td.put(d[1].to!string);

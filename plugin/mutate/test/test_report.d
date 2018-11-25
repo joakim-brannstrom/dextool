@@ -10,11 +10,12 @@ TODO the full test specification is not implemented.
 module dextool_test.test_report;
 
 import core.time : dur;
-import std.path : buildPath;
+import std.path : buildPath, buildNormalizedPath, absolutePath;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type;
 import dextool.plugin.mutate.backend.type;
+static import dextool.type;
 
 import dextool_test.utility;
 import dextool_test.fixtures;
@@ -37,6 +38,7 @@ unittest {
         "# Mutation Type",
         "## Summary",
         "Untested:",
+        "Score:",
         "Alive:",
         "Killed:",
         "Timeout:",
@@ -336,5 +338,77 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         // Act
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stdout);
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stderr);
+    }
+}
+
+class LinesWithNoMut : SimpleAnalyzeFixture {
+    override string programFile() {
+        return (testData ~ "report_nomut1.cpp").toString;
+    }
+}
+
+class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        // assert
+        const file1 = dextool.type.Path(relativePath(programFile, workDir));
+        const file2 = dextool.type.Path(relativePath(programFile.setExtension("hpp"), workDir));
+        auto fid = db.getFileId(file1);
+        auto fid2 = db.getFileId(file2);
+        fid.isNull.shouldBeFalse;
+        fid2.isNull.shouldBeFalse;
+        foreach (line; [11,12,14,18])
+            db.getLineMetadata(fid, SourceLoc(line,0)).shouldEqual(LineMetadata(fid, line, LineAttr.noMut));
+        foreach (line; [8,9])
+            db.getLineMetadata(fid, SourceLoc(line,0)).contains(LineAttr.noMut).shouldBeFalse;
+    }
+}
+
+class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        foreach (i; 0 .. 10)
+            db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
+        foreach (i; 10 .. 30)
+            db.updateMutation(MutationId(i), Mutation.Status.killed, 5.dur!"msecs", null);
+
+        auto plain = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "summary"])
+            .addArg(["--style", "plain"])
+            .run;
+
+        auto markdown = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "summary"])
+            .addArg(["--style", "markdown"])
+            .run;
+
+        // assert
+        testConsecutiveSparseOrder!SubStr([
+            "Score:   1",
+            "Alive:   7",
+            "Killed:  19",
+            "Timeout: 0",
+            "Total:   26",
+            "Killed by compiler: 0",
+            "Suppressed (nomut): 7 (0.269",
+        ]).shouldBeIn(plain.stdout);
+
+        testConsecutiveSparseOrder!SubStr([
+            "Score:   1",
+            "Alive:   7",
+            "Killed:  19",
+            "Timeout: 0",
+            "Total:   26",
+            "Killed by compiler: 0",
+            "Suppressed (nomut): 7 (0.269",
+        ]).shouldBeIn(markdown.stdout);
     }
 }
