@@ -15,8 +15,9 @@ created at the "lowest supported" and upgraded to the latest.
 # How to add schema change
 
 1. add an upgrade function, upgradeVX.
-2. add the upgrade function to the upgrade functions tbl.
-3. increment the latest schema counter, `latestSchemaVersion`.
+
+The function makeUpgradeTable will then automatically find it and use it. X
+ **must** be the version upgrading FROM.
 
 # Style
 A database schema upgrade path shall have a comment stating what date it was added.
@@ -56,7 +57,6 @@ import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable latestSchemaVersion = 10;
 immutable schemaVersionTable = "schema_version";
 immutable filesTable = "files";
 immutable mutationPointTable = "mutation_point";
@@ -329,18 +329,7 @@ void upgrade(ref sqlDatabase db) nothrow {
     import d2sqlite3;
 
     alias upgradeFunc = void function(ref sqlDatabase db);
-    upgradeFunc[long] tbl;
-
-    tbl[0] = &upgradeV0;
-    tbl[1] = &upgradeV1;
-    tbl[2] = &upgradeV2;
-    tbl[3] = &upgradeV3;
-    tbl[4] = &upgradeV4;
-    tbl[5] = &upgradeV5;
-    tbl[6] = &upgradeV6;
-    tbl[7] = &upgradeV7;
-    tbl[8] = &upgradeV8;
-    tbl[9] = &upgradeV9;
+    enum tbl = makeUpgradeTable;
 
     while (true) {
         long version_ = 0;
@@ -351,7 +340,7 @@ void upgrade(ref sqlDatabase db) nothrow {
             logger.trace(e.msg).collectException;
         }
 
-        if (version_ == latestSchemaVersion)
+        if (version_ == tbl.latestSchemaVersion)
             return;
 
         logger.infof("Upgrading database from %s", version_).collectException;
@@ -561,4 +550,45 @@ void upgradeV9(ref sqlDatabase db) {
 void replaceTbl(ref sqlDatabase db, string src, string dst) {
     db.run(format("DROP TABLE %s", dst));
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
+}
+
+struct UpgradeTable {
+    alias UpgradeFunc = void function(ref sqlDatabase db);
+    UpgradeFunc[long] tbl;
+    alias tbl this;
+
+    immutable long latestSchemaVersion;
+}
+
+/** Inspects a module for functions starting with upgradeV to create a table of
+ * functions that can be used to upgrade a database.
+ */
+UpgradeTable makeUpgradeTable() {
+    import std.algorithm : sort, startsWith;
+    import std.conv : to;
+    import std.typecons : Tuple;
+
+    immutable prefix = "upgradeV";
+
+    alias Module = dextool.plugin.mutate.backend.database.schema;
+
+    // the second parameter is the database version to upgrade FROM.
+    alias UpgradeFx = Tuple!(UpgradeTable.UpgradeFunc, long);
+
+    UpgradeFx[] upgradeFx;
+    long last_from;
+
+    static foreach (member; __traits(allMembers, Module)) {
+        static if (member.startsWith(prefix))
+            upgradeFx ~= UpgradeFx(&__traits(getMember, Module, member),
+                    member[prefix.length .. $].to!long);
+    }
+
+    typeof(UpgradeTable.tbl) tbl;
+    foreach (fn; upgradeFx.sort!((a, b) => a[1] < b[1])) {
+        last_from = fn[1];
+        tbl[last_from] = fn[0];
+    }
+
+    return UpgradeTable(tbl, last_from + 1);
 }
