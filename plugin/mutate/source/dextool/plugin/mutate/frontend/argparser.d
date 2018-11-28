@@ -543,25 +543,16 @@ void loadConfig(ref ArgParser rval) @trusted {
         c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;
     };
     callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
-        try {
-            c.mutationTest.mutationTestCaseBuiltin = v.array.map!(
-                    a => a.str.to!TestCaseAnalyzeBuiltin).array;
-        } catch (Exception e) {
-            logger.error(e.msg).collectException;
-        }
+        c.mutationTest.mutationTestCaseBuiltin = v.array.map!(
+                a => a.str.to!TestCaseAnalyzeBuiltin).array;
     };
     callbacks["mutant_test.order"] = (ref ArgParser c, ref TOMLValue v) {
-        try {
-            c.mutationTest.mutationOrder = v.str.to!MutationOrder;
-        } catch (Exception e) {
-            logger.error(e.msg).collectException;
-        }
+        c.mutationTest.mutationOrder = v.str.to!MutationOrder;
     };
     callbacks["mutant_test.detected_new_test_case"] = (ref ArgParser c, ref TOMLValue v) {
         try {
             c.mutationTest.onNewTestCases = v.str.to!(ConfigMutationTest.NewTestCases);
         } catch (Exception e) {
-            logger.error(e.msg).collectException;
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.NewTestCases)]);
         }
@@ -570,7 +561,6 @@ void loadConfig(ref ArgParser rval) @trusted {
         try {
             c.mutationTest.onRemovedTestCases = v.str.to!(ConfigMutationTest.RemovedTestCases);
         } catch (Exception e) {
-            logger.error(e.msg).collectException;
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.RemovedTestCases)]);
         }
@@ -579,33 +569,29 @@ void loadConfig(ref ArgParser rval) @trusted {
         try {
             c.mutationTest.onOldMutants = v.str.to!(ConfigMutationTest.OldMutant);
         } catch (Exception e) {
-            logger.error(e.msg).collectException;
             logger.info("Available alternatives: ", [EnumMembers!(ConfigMutationTest.OldMutant)]);
         }
     };
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
-        try {
-            c.mutationTest.oldMutantsNr = v.integer;
-        } catch (Exception e) {
-            logger.error(e.msg);
-        }
+        c.mutationTest.oldMutantsNr = v.integer;
     };
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
-        try {
-            c.report.reportKind = v.str.to!ReportKind;
-        } catch (Exception e) {
-            logger.error(e.msg).collectException;
-        }
+        c.report.reportKind = v.str.to!ReportKind;
     };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
             // specific configuration from section members
             foreach (k, v; *section) {
-                if (auto cb = (sectionName ~ "." ~ k) in callbacks)
-                    (*cb)(c, v);
-                else
+                if (auto cb = (sectionName ~ "." ~ k) in callbacks) {
+                    try {
+                        (*cb)(c, v);
+                    } catch (Exception e) {
+                        logger.error(e.msg).collectException;
+                    }
+                } else {
                     logger.infof("Unknown key '%s' in configuration section '%s'", k, sectionName);
+                }
             }
         }
     }
