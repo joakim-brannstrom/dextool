@@ -25,3 +25,14 @@ struct Mutation {
     Language lang;
     int id;
 }
+
+import clang.Cursor;
+
+struct EntryFunction{
+    string function_name;
+    string[] function_params;
+    bool isFunctionVoid;
+    Cursor[] semanticParentList;
+};
+
+const string NAME_PREFIX = "m_";
