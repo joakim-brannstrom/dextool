@@ -27,7 +27,8 @@ void writeToFile(string text, FileName filename) {
 
     import std.path : buildPath;
     string path = buildPath(dir, filename);
-
-    auto file = File(path, "w");
-    file.write(text);
+    if(text.length != 0){
+        auto file = File(path, "w");
+        file.write(text);
+    }
 }
