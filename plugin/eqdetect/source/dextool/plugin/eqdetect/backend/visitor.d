@@ -12,9 +12,6 @@ and the AST imported from clang. It searches the current visiting node for the m
 and if found (in the interval of the current cursor) it extracts the code using SnippetFinder
 and generates code in the form of text by using the dsrcgen library.
 
-TODO:
-- Utilize more of the visited statements and declaration for finding all mutants.
-- Track dependencies and use SnippetFinder for extracting them.
 */
 
 module dextool.plugin.eqdetect.backend.visitor;
@@ -26,9 +23,11 @@ import dextool.plugin.mutate.backend.type : Offset;
 @safe:
 
 final class TUVisitor : Visitor {
+    import dextool.plugin.eqdetect.backend : Mutation, EntryFunction;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.c : CModule;
+    import cpptooling.analyzer.clang.include_visitor;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -38,17 +37,18 @@ final class TUVisitor : Visitor {
     CModule generatedMutationHeader;
 
     bool generated = false;
-    string function_name;
-    string[] function_params;
-    bool isFunctionVoid;
-    Cursor[] semanticParentList;
+
+    EntryFunction entryFunction;
+
     string[] types;
+
+    string headerPath;
 
     Offset includeOffset;
     Offset[] offsets;
     Offset[] headerOffsets;
 
-    import dextool.plugin.eqdetect.backend : Mutation;
+
 
     Mutation mutation;
 
@@ -62,19 +62,18 @@ final class TUVisitor : Visitor {
         this.includeOffset.end = -1;
     }
 
-    override void visit(const(TranslationUnit) v) {
+    @trusted override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
         import std.path : extension;
-        import dextool.plugin.eqdetect.backend : SnippetFinder;
+        import dextool.plugin.eqdetect.backend;
         if(extension(v.cursor.extent.path) == ".cpp"){
-            auto s = SnippetFinder.generateSource(v.cursor, this.mutation);
+            auto s = generateSource(v.cursor, this.mutation);
             generatedSource.text(s);
         }
         else if(extension(v.cursor.extent.path) == ".hpp"){
-            auto s = SnippetFinder.generateSource(v.cursor, this.mutation);
+            auto s = generateSource(v.cursor, this.mutation);
             generatedSourceHeader.text(s);
         }
-
         v.accept(this);
     }
 
@@ -91,7 +90,6 @@ final class TUVisitor : Visitor {
 
     override void visit(const(DeclRefExpr) v) {
         mixin(mixinNodeLog!());
-
         checkTypes(v.cursor);
         v.accept(this);
     }
@@ -104,6 +102,13 @@ final class TUVisitor : Visitor {
 
     override void visit(const(ParmDecl) v) {
         mixin(mixinNodeLog!());
+        checkTypes(v.cursor);
+        v.accept(this);
+    }
+
+    override void visit(const(EnumDecl) v) {
+        mixin(mixinNodeLog!());
+        saveTypes(v.cursor);
         checkTypes(v.cursor);
         v.accept(this);
     }
@@ -124,8 +129,15 @@ final class TUVisitor : Visitor {
 
     override void visit(const(FunctionDecl) v) {
         mixin(mixinNodeLog!());
-        checkTypes(v.cursor);
+        if(isSameBaseName(v.cursor.definition.extent.path, mutation.path)){
+            checkTypes(v.cursor);
+        }
+
         saveMutationInformation(v.cursor);
+        import std.path : extension;
+        if(isSameBaseName(v.cursor.extent.path, mutation.path) && extension(v.cursor.extent.path) == ".hpp"){
+            headerPath = v.cursor.extent.path;
+        }
         v.accept(this);
     }
 
@@ -183,8 +195,9 @@ final class TUVisitor : Visitor {
     override void visit(const(Preprocessor) v) {
         mixin(mixinNodeLog!());
         import std.path : stripExtension;
-        if(stripExtension(v.cursor.extent.path) == stripExtension(mutation.path)){
-            checkTypes(v.cursor);
+        import std.stdio;
+        if(isSameBaseName(v.cursor.extent.path, mutation.path)){
+            saveOffsets(v.cursor);
         }
         v.accept(this);
     }
@@ -198,8 +211,6 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
-
-
 
     override void visit(const(Namespace) v) {
         mixin(mixinNodeLog!());
@@ -217,7 +228,7 @@ final class TUVisitor : Visitor {
 
     void saveTypes(Cursor c){
         import std.path : buildNormalizedPath, stripExtension;
-        if(stripExtension(c.extent.path) == stripExtension(mutation.path)){
+        if(isSameBaseName(c.extent.path, mutation.path)){
             types ~= c.spelling;
         }
     }
@@ -227,10 +238,10 @@ final class TUVisitor : Visitor {
             import std.algorithm: canFind;
 
             if (types.canFind(t.spelling)) {
-                saveOffsets(c, t.spelling);
+                checkOffsets(c, t.spelling);
             }
         }
-        saveOffsets(c);
+        checkOffsets(c);
     }
 
     @trusted Offset findOffset(Cursor c, string name){
@@ -254,31 +265,39 @@ final class TUVisitor : Visitor {
         return offset;
     }
 
+    bool isDefined(Cursor c){
+        return isSameBaseName(c.extent.path, c.definition.extent.path);
+    }
+
+    void checkOffsets(Cursor c, string name = ""){
+        if(isSameBaseName(c.extent.path, mutation.path) && isDefined(c)){
+            saveOffsets(c, name);
+        }
+    }
+
     void saveOffsets(Cursor c, string name = "") {
         import std.path: extension;
 
         if (name == ""){name = c.spelling;}
 
-        if (isSameBaseName(c.extent.path, mutation.path)){
-            Offset offset = findOffset(c, name);
+        Offset offset = findOffset(c, name);
 
-            if(offset.begin != -1 && offset.end != -1){
-                import std.algorithm: canFind;
-                import std.path : extension;
-                import clang.c.Index;
+        if(offset.begin != -1 && offset.end != -1){
+            import std.algorithm: canFind;
+            import std.path : extension;
+            import clang.c.Index;
 
-                if(c.kind == CXCursorKind.inclusionDirective){
-                    includeOffset = offset;
+            if(c.kind == CXCursorKind.inclusionDirective){
+                includeOffset = offset;
+            }
+            else if(extension(c.extent.path) == ".cpp"){
+                if (!offsets.canFind(offset)) {
+                    offsets ~= offset;
                 }
-                else if(extension(c.extent.path) == ".cpp"){
-                    if (!offsets.canFind(offset)) {
-                        offsets ~= offset;
-                    }
-                }
-                else if(extension(c.extent.path) == ".hpp"){
-                    if (!headerOffsets.canFind(offset)) {
-                        headerOffsets ~= offset;
-                    }
+            }
+            else if(extension(c.extent.path) == ".hpp"){
+                if (!headerOffsets.canFind(offset)) {
+                    headerOffsets ~= offset;
                 }
             }
         }
@@ -287,7 +306,7 @@ final class TUVisitor : Visitor {
     void findSemanticParents(Cursor c){
         import std.path: isAbsolute;
         if(!isAbsolute(c.semanticParent.spelling)){
-            semanticParentList ~= c.semanticParent;
+            entryFunction.semanticParentList ~= c.semanticParent;
 
             findSemanticParents(c.semanticParent);
         }
@@ -307,9 +326,9 @@ final class TUVisitor : Visitor {
     @trusted void getFunctionDecl(Cursor c) {
         import clang.c.Index;
 
-        function_name = c.spelling;
+        entryFunction.function_name = c.spelling;
         import std.stdio;
-        isFunctionVoid = (c.FunctionCursor.resultType.spelling == "void");
+        entryFunction.isFunctionVoid = (c.FunctionCursor.resultType.spelling == "void");
         foreach (child; c.children) {
             if (child.kind == CXCursorKind.parmDecl) {
                 string tmp = "";
@@ -318,7 +337,7 @@ final class TUVisitor : Visitor {
                 } else {
                     tmp = child.tokens[0].spelling;
                 }
-                function_params = function_params ~ tmp;
+                entryFunction.function_params = entryFunction.function_params ~ tmp;
             }
         }
     }
