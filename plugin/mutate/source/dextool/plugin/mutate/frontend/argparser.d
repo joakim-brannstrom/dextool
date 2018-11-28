@@ -24,7 +24,7 @@ public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.utility;
-import dextool.type : AbsolutePath, Path, ExitStatusType;
+import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand;
 
 @safe:
 
@@ -254,9 +254,9 @@ struct ArgParser {
             // dfmt on
 
             if (mutationTester.length != 0)
-                mutationTest.mutationTester = Path(mutationTester).AbsolutePath;
+                mutationTest.mutationTester = ShellCommand(mutationTester);
             if (mutationCompile.length != 0)
-                mutationTest.mutationCompile = Path(mutationCompile).AbsolutePath;
+                mutationTest.mutationCompile = ShellCommand(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
                 mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
             if (mutationTesterRuntime != 0)
@@ -531,13 +531,13 @@ void loadConfig(ref ArgParser rval) @trusted {
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTester = Path(v.str).AbsolutePath;
+        c.mutationTest.mutationTester = ShellCommand(v.str);
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
     };
     callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationCompile = Path(v.str).AbsolutePath;
+        c.mutationTest.mutationCompile = ShellCommand(v.str);
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;

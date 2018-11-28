@@ -48,8 +48,8 @@ $(MUTATION_DB): $(SOURCE) $(TEST)
 			--in $(SOURCE) \
 			-- $(CFLAGS)
 	$(DEXTOOL) mutate test $(MFLAGS) \
-			--build-cmd $(MAKEFILE_DIR)/build.sh \
-			--test-cmd $(MAKEFILE_DIR)/test.sh \
+			--build-cmd "/usr/bin/make -f $(MAKEFILE_PATH) test_triangle" \
+			--test-cmd  "/usr/bin/make -f $(MAKEFILE_PATH) test" \
 			--test-timeout 1000
 
 clean:

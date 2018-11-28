@@ -23,7 +23,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
-import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
+import dextool.type : AbsolutePath, ShellCommand, ExitStatusType, FileName, DirName;
 
 @safe:
 
@@ -119,7 +119,7 @@ struct DriverData {
  *  p = ?
  *  timeout = timeout threshold.
  */
-Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester_p,
+Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester_p,
         AbsolutePath test_output_dir, WatchdogT watchdog, FilesysIO fio) nothrow {
     import std.algorithm : among;
     import std.datetime.stopwatch : StopWatch;
@@ -131,7 +131,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester
     Mutation.Status rval;
 
     try {
-        auto p = spawnSession([cast(string) compile_p]);
+        auto p = spawnSession(compile_p.program ~ compile_p.arguments);
         auto res = p.wait;
         if (res.terminated && res.status != 0)
             return Mutation.Status.killedByCompiler;
@@ -154,7 +154,7 @@ Mutation.Status runTester(WatchdogT)(AbsolutePath compile_p, AbsolutePath tester
     }
 
     try {
-        auto p = spawnSession([cast(string) tester_p], stdout_p, stderr_p);
+        auto p = spawnSession(tester_p.program ~ tester_p.arguments, stdout_p, stderr_p);
         // trusted: killing the process started in this scope
         void cleanup() @safe nothrow {
             import core.sys.posix.signal : SIGKILL;
@@ -205,8 +205,8 @@ struct MeasureTestDurationResult {
  * Params:
  *  p = ?
  */
-MeasureTestDurationResult measureTesterDuration(AbsolutePath p) nothrow {
-    if (p.length == 0) {
+MeasureTestDurationResult measureTesterDuration(ShellCommand cmd) nothrow {
+    if (cmd.program.length == 0) {
         collectException(logger.error("No test suite runner specified (--mutant-tester)"));
         return MeasureTestDurationResult(ExitStatusType.Errors);
     }
@@ -216,7 +216,7 @@ MeasureTestDurationResult measureTesterDuration(AbsolutePath p) nothrow {
     void fun() {
         import std.process : execute;
 
-        auto res = execute([cast(string) p]);
+        auto res = execute(cmd.program ~ cmd.arguments);
         if (res.status != 0)
             any_failure = ExitStatusType.Errors;
     }
@@ -404,8 +404,8 @@ nothrow:
     const(Mutation.Kind)[] mut_kind;
     const TestCaseAnalyzeBuiltin[] tc_analyze_builtin;
 
-    AbsolutePath compile_cmd;
-    AbsolutePath test_cmd;
+    ShellCommand compile_cmd;
+    ShellCommand test_cmd;
     AbsolutePath test_case_cmd;
     Duration tester_runtime;
 
@@ -419,8 +419,8 @@ nothrow:
     AutoCleanup auto_cleanup;
 
     this(FilesysIO fio, NullableRef!Database db, AutoCleanup auto_cleanup,
-            Mutation.Kind[] mut_kind, AbsolutePath compile_cmd,
-            AbsolutePath test_cmd, AbsolutePath test_case_cmd,
+            Mutation.Kind[] mut_kind, ShellCommand compile_cmd,
+            ShellCommand test_cmd, AbsolutePath test_case_cmd,
             TestCaseAnalyzeBuiltin[] tc_analyze_builtin, Duration tester_runtime) {
         this.fio = fio;
         this.db = db;
@@ -1034,8 +1034,7 @@ nothrow:
 
         try {
             import std.process : execute;
-
-            const comp_res = execute([cast(string) data.conf.mutationCompile]);
+            const comp_res = execute(data.conf.mutationCompile.program ~ data.conf.mutationCompile.arguments);
 
             if (comp_res.status == 0) {
                 driver_sig = TestDriverSignal.next;

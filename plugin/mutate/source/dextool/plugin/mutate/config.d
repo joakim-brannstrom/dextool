@@ -13,7 +13,7 @@ import core.time : Duration;
 import std.typecons : Nullable;
 
 import dextool.plugin.mutate.type;
-import dextool.type : AbsolutePath, Path;
+import dextool.type : AbsolutePath, Path, ShellCommand;
 public import dextool.plugin.mutate.backend : Mutation, TestGroup;
 
 /// The mode the tool is operating in
@@ -81,8 +81,8 @@ struct ConfigCompiler {
 
 /// Settings for mutation testing
 struct ConfigMutationTest {
-    AbsolutePath mutationTester;
-    AbsolutePath mutationCompile;
+    ShellCommand mutationTester;
+    ShellCommand mutationCompile;
     AbsolutePath mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
     Nullable!Duration mutationTesterRuntime;
