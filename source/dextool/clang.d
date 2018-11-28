@@ -45,8 +45,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
     import std.path : baseName;
     import std.typecons : Yes;
 
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
-        logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.analyzer.clang.include_visitor : hasInclude;
 
@@ -89,7 +88,6 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
         const string[] flags, ref const CompileCommandFilter flag_filter) {
     import std.file : exists;
     import std.path : baseName;
-    import std.string : join;
 
     import dextool.compilation_db : appendOrError;
 
@@ -97,8 +95,8 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
 
     auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
     if (!db_search_result.isNull) {
-        rval = SearchResult(db_search_result.cflags, db_search_result.absoluteFile);
-        logger.trace("Compiler flags: ", rval.cflags.join(" "));
+        rval = SearchResult(db_search_result.flags, db_search_result.absoluteFile);
+        logger.trace(rval.flags);
         return rval;
     }
 
@@ -127,7 +125,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
 
     rval = SearchResult(flags ~ sres.derived.parseFlag(flag_filter), p);
     // the user may want to see the flags but usually uninterested
-    logger.trace("Compiler flags: ", rval.cflags.join(" "));
+    logger.trace(rval.flags);
 
     return rval;
 }

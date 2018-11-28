@@ -42,11 +42,13 @@ struct UserFileRange {
         }
     }
 
-    const RangeOver kind;
-    CompileCommandDB db;
-    string[] inFiles;
-    string[] cflags;
-    const CompileCommandFilter ccFilter;
+    private {
+        const RangeOver kind;
+        CompileCommandDB db;
+        string[] inFiles;
+        string[] cflags;
+        const CompileCommandFilter ccFilter;
+    }
 
     Nullable!SearchResult front() {
         assert(!empty, "Can't get front of an empty range");
@@ -67,6 +69,8 @@ struct UserFileRange {
             curr.flags.cflags = cflags ~ curr.flags.cflags;
             break;
         }
+
+        logger.trace(!curr.isNull, curr.flags);
 
         return curr;
     }

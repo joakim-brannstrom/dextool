@@ -422,7 +422,7 @@ struct SearchResult {
 
     // TODO: consider deprecating.
     this(string[] flags, AbsolutePath p) {
-        this(ParseFlags(null, null, flags), p);
+        this(ParseFlags(null, null, flags, null), p);
     }
 
     // TODO: consider deprecating.
@@ -464,7 +464,8 @@ Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db,
     } else {
         rval = SearchResult.init;
         auto p = compile_commands[0].parseFlag(flag_filter);
-        rval.flags = ParseFlags(p.includes, p.systemIncludes, cflags ~ p.cflags);
+        p.prependCflags(cflags.dup);
+        rval.flags = p;
         rval.absoluteFile = compile_commands[0].absoluteFile;
     }
 
@@ -561,6 +562,9 @@ struct ParseFlags {
     /// Specific flags for the file as parsed from the DB.
     string[] cflags;
 
+    /// Compiler used.
+    string[] compiler;
+
     void prependCflags(string[] v) {
         this.cflags = v ~ this.cflags;
     }
@@ -577,6 +581,12 @@ struct ParseFlags {
 
     bool hasSystemIncludes() @safe pure nothrow const @nogc {
         return systemIncludes.length != 0;
+    }
+
+    string toString() @safe pure const {
+        import std.format : format;
+
+        return format("Compiler: %-(%s %) flags: %-(%s %)", compiler, completeFlags);
     }
 
     /** Easy to use method that has the complete flags ready to use with a GCC
@@ -598,13 +608,14 @@ struct ParseFlags {
     alias completeFlags this;
 
     this(Include[] incls, string[] flags) {
-        this(incls, null, flags);
+        this(incls, null, flags, null);
     }
 
-    this(Include[] incls, SystemIncludePath[] sysincls, string[] flags) {
+    this(Include[] incls, SystemIncludePath[] sysincls, string[] flags, string[] compiler) {
         this.includes = incls;
         this.systemIncludes = sysincls;
         this.cflags = flags;
+        this.compiler = compiler;
     }
 }
 
@@ -747,12 +758,17 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
 
     import std.algorithm : filter, splitter, min;
 
+    string[] compiler;
+
     string[] skipArgs = () @safe {
         string[] args;
         if (cmd.command.hasValue)
             args = cmd.command.payload.dup;
-        if (args.length > flag_filter.skipCompilerArgs && flag_filter.skipCompilerArgs != 0)
-            args = args[min(flag_filter.skipCompilerArgs, args.length) .. $];
+        if (args.length > flag_filter.skipCompilerArgs && flag_filter.skipCompilerArgs != 0) {
+            const start = min(flag_filter.skipCompilerArgs, args.length);
+            compiler = args[0 .. start];
+            args = args[start .. $];
+        }
         return args;
     }();
 
@@ -770,10 +786,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         return SystemIncludePath[].init;
     }();
 
-    pargs = ParseFlags(pargs.includes, sysincls, pargs.cflags);
-
-    logger.tracef("Compiler: %s flags: %-(%s %)", cmd.command.length != 0
-            ? cmd.command[0] : null, pargs.completeFlags);
+    pargs = ParseFlags(pargs.includes, sysincls, pargs.cflags, compiler);
 
     return pargs;
 }
