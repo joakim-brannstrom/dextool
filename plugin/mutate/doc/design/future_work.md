@@ -126,6 +126,8 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * add exclude to config file.
+ * fix indent in diff report.
  * impl SDL for assignment operators. This is crucial because during code review it was found out that "this" specific mutation would have resulted in test cases failing.
  * present "shared" and "core" to the user.
      * calculate the difference between test groups to find the "core".
