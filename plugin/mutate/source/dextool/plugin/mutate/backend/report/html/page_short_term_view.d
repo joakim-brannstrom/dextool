@@ -52,11 +52,13 @@ private:
 void toHtml(DiffReport report, HtmlNode root) {
     import std.array : array;
     import std.path : buildPath;
-    import std.range : enumerate;
+    import std.range : enumerate, repeat;
     import dextool.plugin.mutate.backend.mutation_type : toUser;
 
     void renderRawDiff(HtmlNode root, Diff.Line[] lines) {
-        import std.string : stripRight;
+        import std.algorithm : countUntil, max;
+        import std.string : strip;
+        import std.uni : isWhite;
 
         auto hunk = root.n("p".Tag);
         uint prev = lines.length != 0 ? lines[0].line : 0;
@@ -67,16 +69,25 @@ void toHtml(DiffReport report, HtmlNode root) {
             }
 
             auto s = hunk.n("span".Tag);
-            switch (line.text.length != 0 ? line.text[0] : ' ') {
+            auto begin = 0;
+            const first_ch = line.text.length != 0 ? line.text[0] : typeof(line.text[0]).init;
+            switch (first_ch) {
             case '+':
                 s.putAttr("class", "diff_add");
+                begin = 1;
                 break;
             case '-':
                 s.putAttr("class", "diff_del");
+                begin = 1;
                 break;
             default:
             }
-            s.put(format("%s:%s", line.line, line.text.stripRight.encode));
+
+            auto txt = line.text[begin .. $];
+            const spaces = max(0, txt.countUntil!(a => !a.isWhite) - begin);
+            txt = format("%s:%s%-(%s%)%s", line.line, first_ch,
+                    "&nbsp;".repeat(spaces), txt.strip.encode);
+            s.put(txt);
             s.put("<br>");
 
             prev = line.line;
