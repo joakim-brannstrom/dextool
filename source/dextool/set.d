@@ -118,6 +118,6 @@ auto setToList(T)(ref Set!T set) {
 }
 
 /// Specify the template type or it doesn't work.
-auto setToRange(T)(ref Set!T set) {
+auto setToRange(T)(ref inout Set!T set) {
     return set.byKey;
 }
