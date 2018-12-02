@@ -18,7 +18,7 @@ import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
-import dextool.plugin.mutate.utility;
+import dextool.utility : asAbsNormPath;
 
 @safe:
 
@@ -175,7 +175,7 @@ private:
         import std.format : format;
         import std.string : startsWith;
 
-        auto realp = p.toRealPath;
+        auto realp = p.asAbsNormPath;
 
         if (!dry_run && !realp.startsWith((cast(string) root))) {
             logger.tracef("Path '%s' escaping output directory (--out) '%s'", realp, root);
@@ -206,7 +206,7 @@ final class FrontendValidateLoc : ValidateLoc {
         import std.algorithm : any;
         import std.string : startsWith;
 
-        auto realp = p.toRealPath;
+        auto realp = p.asAbsNormPath;
 
         bool res = any!(a => realp.startsWith(a))(restrict_dir);
         logger.tracef(!res, "Path '%s' do not match any of [%(%s, %)]", realp, restrict_dir);
@@ -216,9 +216,9 @@ final class FrontendValidateLoc : ValidateLoc {
     override bool shouldMutate(AbsolutePath p) {
         import std.string : startsWith;
 
-        auto realp = p.toRealPath;
+        auto realp = p.asAbsNormPath;
 
-        bool res = realp.toRealPath.startsWith(output_dir);
+        bool res = realp.startsWith(output_dir);
         logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", realp, output_dir);
         return res;
     }

@@ -7,6 +7,8 @@ module dextool.type;
 
 public import dextool.compilation_db : FilterClangFlag;
 
+import dextool.utility : asAbsNormPath;
+
 @safe:
 
 enum ExitStatusType {
@@ -196,14 +198,13 @@ struct ShellCommand {
 
     this(string cmd) {
         import std.uni : isWhite;
-        import std.array: split;
+        import std.array : split;
 
         string[] argv = cmd.split!isWhite;
         program = Path(argv[0]).AbsolutePath;
-        arguments = argv[1..$];
+        arguments = argv[1 .. $];
     }
 }
-
 
 /** During construction checks that the file exists on the filesystem.
  *
@@ -263,13 +264,4 @@ nothrow unittest {
         auto p = makeExists(AbsolutePath(FileName("foo")));
     } catch (Exception e) {
     }
-}
-
-private:
-
-string asAbsNormPath(string path) @trusted {
-    import std.path;
-    import std.conv : to;
-
-    return to!string(path.asAbsolutePath.asNormalizedPath);
 }
