@@ -23,7 +23,7 @@ import toml : TOMLDocument;
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.plugin.mutate.utility;
+import dextool.utility : asAbsNormPath;
 import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand;
 
 @safe:
@@ -293,7 +293,7 @@ struct ArgParser {
 
             if (logDir.empty)
                 logDir = ".";
-            report.logDir = logDir.toRealPath.Path.AbsolutePath;
+            report.logDir = logDir.Path.AbsolutePath;
 
             updateCompileDb(compileDb, compile_dbs);
         }
@@ -371,15 +371,14 @@ struct ArgParser {
             data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
 
         if (workArea.rawRoot.length != 0)
-            workArea.outputDirectory = AbsolutePath(Path(workArea.rawRoot.toRealPath));
+            workArea.outputDirectory = AbsolutePath(Path(workArea.rawRoot.asAbsNormPath));
         else if (workArea.outputDirectory.length == 0) {
             workArea.rawRoot = ".";
-            workArea.outputDirectory = workArea.rawRoot.toRealPath.Path.AbsolutePath;
+            workArea.outputDirectory = workArea.rawRoot.Path.AbsolutePath;
         }
 
         if (workArea.rawRestrict.length != 0)
-            workArea.restrictDir = workArea.rawRestrict.map!(
-                    a => AbsolutePath(FileName(a.toRealPath))).array;
+            workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(FileName(a))).array;
         else if (workArea.restrictDir.length == 0) {
             workArea.rawRestrict = [workArea.rawRoot];
             workArea.restrictDir = [workArea.outputDirectory];

@@ -7,8 +7,7 @@ module dextool.utility;
 
 import logger = std.experimental.logger;
 
-import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb,
-    fromFiles;
+import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb, fromFiles;
 
 public import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 
@@ -66,8 +65,7 @@ ExitStatusType analyzeFile(VisitorT, ClangContextT)(const AbsolutePath input_fil
     import std.file : exists;
 
     import cpptooling.analyzer.clang.ast : ClangAST;
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
-        logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
     if (!exists(input_file)) {
         logger.errorf("File '%s' do not exist", input_file);
@@ -98,3 +96,14 @@ import std.string : strip;
 enum dextoolVersion = DextoolVersion(import("version.txt").strip);
 
 static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");
+
+/** Convert a string to the "real path" by converting to an absolute, normalized path.
+ * TODO: optimize
+ * This function is very inefficient. It creates a lot of GC garbage.
+ */
+string asAbsNormPath(string path) @trusted {
+    import std.path;
+    import std.conv : to;
+
+    return to!string(path.asAbsolutePath.asNormalizedPath);
+}
