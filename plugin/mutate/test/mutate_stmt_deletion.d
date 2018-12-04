@@ -8,10 +8,33 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool_test.mutate_stmt_deletion;
 
 import dextool_test.utility;
+import dextool_test.fixtures;
+
+@(testId ~ "shall delete the body of functions returning void")
+class ShallDeleteBodyOfFuncsReturningVoid : MutantFixture {
+    override string programFile() {
+        return "sdl_func_body_del.cpp";
+    }
+
+    override string op() {
+        return "sdl";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+        testAnyOrder!SubStr([`from ' f1Global = 2.2; ' to '/* f1Global = 2.2; */'`,
+                `from ' z = 1.2; ' to '/* z = 1.2; */'`,
+                `from ' method1 = 2.2; ' to '/* method1 = 2.2; */'`]).shouldBeIn(r.stdout);
+
+        testAnyOrder!SubStr([`from ' return static_cast<int>(w);`, `from ' return method2`]).shouldNotBeIn(
+                r.stdout);
+    }
+}
 
 // dfmt off
 
-@("shall successfully run the ABS mutator (no validation of the result)")
+@(testId ~ "shall successfully run the ABS mutator (no validation of the result)")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
@@ -24,7 +47,7 @@ unittest {
         .run;
 }
 
-@("shall delete function calls")
+@(testId ~ "shall delete function calls")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
@@ -37,7 +60,7 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "'gun()' to '/*gun()*/'",
+       "'gun()' to '/*gun()*/'",
         "'wun(5)' to '/*wun(5)*/'",
         "'calc(6)' to '/*calc(6)*/'",
         "'wun(calc(6))' to '/*wun(calc(6))*/'",

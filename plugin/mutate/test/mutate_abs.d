@@ -49,7 +49,7 @@ unittest {
         .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["generate"])
-        .addArg(["--id", "5"])
+        .addArg(["--id", "6"])
         .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
         .run;
 

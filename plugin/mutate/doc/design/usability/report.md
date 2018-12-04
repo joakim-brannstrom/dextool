@@ -395,15 +395,23 @@ most of the time it can be further reasoned that there is a correlation between
 this *group mutation score* and the *test quality* of the test suite in
 relation to the use case.
 
-# REQ-report_individual_view
+# REQ-report_short_term_view
 partof: REQ-report
 ###
 
-TODO: write requirements.
-
 The plugin shall report the test cases that killed mutants in the diff when generating the report.
 
-**Rationale**: It is useful information when trying to deduce how a code change (bugfix/new feature etc)
+## Purpose
+
+The purpose of this view is to show to an individual/few developers how mutation testing relate to *their* code changes.
+It is important that the view isn't too much information that the developer feel overwhelmed.
+
+ * the developers have the changes fresh in memory.
+ * a developer that has *changed* a part of a code *probably* feel like he/she owns it. A developer that feel that he/she own something are more likely to take action to improve the quality.
+
+## Cost Estimate
+
+It is useful information when trying to deduce how a code change (bugfix/new feature etc)
 
  * Affects requirements and thus which ones *may* be affected and need an update.
  * What manual tests *should* be performed because the change affects those.
@@ -417,7 +425,7 @@ See [@googleMutationTesting2018]. The paper coin the term *productive mutant*.
 
 **Assumption 1**: A developer feels that they *own* a part of code if they recently made changes to that part.
 
-# REQ-report_team_view
+# REQ-report_long_term_view
 partof: REQ-report
 ###
 
