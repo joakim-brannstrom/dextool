@@ -411,9 +411,27 @@ partof: SPC-mutations_statement_del
 
 The plugin shall remove the specific function call.
 
-Note: How it is removed depend on where it is in the AST.
+**Note**: How it is removed depend on where it is in the AST.
 A function call that is terminated with a `;` should remove the trailing `;`.
 In contrast with the initialization list where it should remove the trailing `,`.
+
+# SPC-mutations_statement_del-void_func_body
+partof: SPC-mutations_statement_del
+###
+
+The plugin shall remove the content of the specified void function body.
+
+## Rationale
+
+This is useful to force a test case to demonstrate that a function has
+observable and testable side effects. It is a *high probability* that when the
+body is deleted and test cases do not kill the mutant that the function is
+*unused* or *dead code*.
+
+## To Prove
+
+This type of mutation is *probably* more useful for C++ object oriented code
+because it forces tests to kill methods that have a void return type.
 
 # SPC-lcrb
 partof: REQ-mutations
