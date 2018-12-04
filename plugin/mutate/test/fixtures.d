@@ -86,3 +86,23 @@ class SimpleAnalyzeFixture : TestCase {
         return (testData ~ "report_one_ror_mutation_point.cpp").toString;
     }
 }
+
+/// Run the mutation analyze + test the mutants.
+class MutantFixture : TestCase {
+    /// Override with the file to mutate.
+    string programFile() {
+        return null;
+    }
+
+    /// Override with the operator to use.
+    string op() {
+        return null;
+    }
+
+    auto precondition(ref TestEnv testEnv) {
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ programFile).run;
+
+        auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", op]).run;
+        return r;
+    }
+}

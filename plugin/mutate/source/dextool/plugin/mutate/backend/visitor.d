@@ -75,6 +75,7 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
+    rval.transf.voidFuncBodyCallback ~= () => stmtDelMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
     rval.transf.binaryOpExprCallback ~= (OpKind k) => absMutations;
@@ -241,8 +242,35 @@ class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const(FunctionDecl) v) {
+        import clang.c.Index : CXTypeKind;
+
         mixin(mixinNodeLog!());
-        v.accept(this);
+
+        // this is a bit dumb but works for now because we only delete function
+        // bodies that return void.
+        auto rtype = v.cursor.func.resultType;
+        if (rtype.isValid && rtype.kind == CXTypeKind.void_) {
+            mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+            v.accept(this);
+        } else {
+            v.accept(this);
+        }
+    }
+
+    override void visit(const(CxxMethod) v) {
+        import clang.c.Index : CXTypeKind;
+
+        mixin(mixinNodeLog!());
+
+        // this is a bit dumb but works for now because we only delete function
+        // bodies that return void.
+        auto rtype = v.cursor.func.resultType;
+        if (rtype.isValid && rtype.kind == CXTypeKind.void_) {
+            mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+            v.accept(this);
+        } else {
+            v.accept(this);
+        }
     }
 
     override void visit(const(Directive) v) {
@@ -318,8 +346,20 @@ class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const(CompoundStmt) v) {
+        mixin(mixinNodeLog!());
+
+        if (!kind_stack.hasValue(CXCursorKind.functionDecl).isNull
+                || !kind_stack.hasValue(CXCursorKind.cxxMethod).isNull) {
+            // a function/method body start at the first compound statement {...}
+            transf.voidFuncBody(v.cursor);
+        }
+
+        v.accept(this);
+    }
+
     // trusted: the scope allocated visitor do not escape the method
-    override void visit(const IfStmt v) @trusted {
+    override void visit(const(IfStmt) v) @trusted {
         mixin(mixinNodeLog!());
         import std.typecons : scoped;
 
@@ -328,7 +368,7 @@ class BaseVisitor : ExtendedVisitor {
         accept(v, cast(IfStmtVisitor) ifstmt);
     }
 
-    override void visit(const CaseStmt v) {
+    override void visit(const(CaseStmt) v) {
         mixin(mixinNodeLog!());
         transf.caseStmt(v.cursor);
         v.accept(this);
@@ -357,6 +397,7 @@ struct Stack(T) {
     import std.container : Array;
 
     Array!T arr;
+    alias arr this;
 
     // trusted: as long as arr do not escape the instance
     void put(T a) @trusted {
@@ -409,8 +450,10 @@ class Transform {
     /// Any statement
     alias StatementEvent = Mutation.Kind[]delegate();
     alias FunctionCallEvent = Mutation.Kind[]delegate();
+    alias FunctionBodyEvent = Mutation.Kind[]delegate();
     StatementEvent[] stmtCallback;
-    FunctionCallEvent[] funcCallCallback;
+    StatementEvent[] funcCallCallback;
+    StatementEvent[] voidFuncBodyCallback;
 
     /// Any statement that should have a unary operator inserted before/after
     alias UnaryInjectEvent = Mutation.Kind[]delegate(ValueKind);
@@ -488,6 +531,30 @@ class Transform {
 
     void funcCall(const Cursor c) {
         noArgCallback(c, funcCallCallback);
+    }
+
+    void voidFuncBody(const Cursor c) {
+        // because of how a compound statement for a function body is it has to
+        // be adjusted with +1 and -1 to "exclude" the {}
+        if (!c.isValid)
+            return;
+
+        mixin(makeAndCheckLocation("c"));
+        mixin(mixinPath);
+
+        auto sr = c.extent;
+        auto offs = Offset(sr.start.offset + 1, sr.end.offset - 1);
+
+        // sanity check. This shouldn't happen but I do not fully trust the extends from the clang AST.
+        if (offs.begin >= offs.end)
+            return;
+
+        auto p = MutationPointEntry(MutationPoint(offs, null), path,
+                SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
+        foreach (cb; voidFuncBodyCallback)
+            p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
+
+        result.put(p);
     }
 
     void unaryInject(const(Cursor) c) {
