@@ -318,7 +318,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case stmtDel:
         /// #SPC-mutations_statement_del
         // delete by commenting out the code block
-        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
         /// Conditional Operator Replacement (reduced set)
         /// #SPC-mutation_cor
