@@ -23,9 +23,8 @@ class ShallDeleteBodyOfFuncsReturningVoid : MutantFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
-        testAnyOrder!SubStr([`from ' f1Global = 2.2; ' to '/* f1Global = 2.2; */'`,
-                `from ' z = 1.2; ' to '/* z = 1.2; */'`,
-                `from ' method1 = 2.2; ' to '/* method1 = 2.2; */'`]).shouldBeIn(r.stdout);
+        testAnyOrder!SubStr([`from ' f1Global = 2.2; ' to ''`,
+                `from ' z = 1.2; ' to ''`, `from ' method1 = 2.2; ' to ''`]).shouldBeIn(r.stdout);
 
         testAnyOrder!SubStr([`from ' return static_cast<int>(w);`, `from ' return method2`]).shouldNotBeIn(
                 r.stdout);
@@ -60,13 +59,13 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-       "'gun()' to '/*gun()*/'",
-        "'wun(5)' to '/*wun(5)*/'",
-        "'calc(6)' to '/*calc(6)*/'",
-        "'wun(calc(6))' to '/*wun(calc(6))*/'",
-        "'calc(7)' to '/*calc(7)*/'",
-        "'calc(8)' to '/*calc(8)*/'",
-        "'calc(10)' to '/*calc(10)*/'",
-        "'calc(11)' to '/*calc(11)*/'",
+       "'gun()' to ''",
+        "'wun(5)' to ''",
+        "'calc(6)' to ''",
+        "'wun(calc(6))' to ''",
+        "'calc(7)' to ''",
+        "'calc(8)' to ''",
+        "'calc(10)' to ''",
+        "'calc(11)' to ''",
     ]).shouldBeIn(r.stdout);
 }

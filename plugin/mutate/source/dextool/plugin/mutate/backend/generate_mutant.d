@@ -297,18 +297,18 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(ubyte)[] expr) { return toB("!") ~ expr; };
         break;
     case uoiSizeof_:
-        m.mutate = (const(ubyte)[] expr) { return toB("sizeof(") ~ expr ~ toB(")");  };
-            break;
-            /// Absolute value replacement
-            /// #SPC-mutation_abs
+        m.mutate = (const(ubyte)[] expr) { return toB("sizeof(") ~ expr ~ toB(")"); };
+        break;
+        /// Absolute value replacement
+        /// #SPC-mutation_abs
     case absPos:
         m.top = () { return toB(preambleAbs); };
-        m.mutate = (const(ubyte)[] b) { return toB("abs_dextool(") ~ b ~ toB(")");  };
-            break;
+        m.mutate = (const(ubyte)[] b) { return toB("abs_dextool(") ~ b ~ toB(")"); };
+        break;
     case absNeg:
         m.top = () { return toB(preambleAbs); };
-        m.mutate = (const(ubyte)[] b) { return toB("-abs_dextool(") ~ b ~ toB(")");  };
-            break;
+        m.mutate = (const(ubyte)[] b) { return toB("-abs_dextool(") ~ b ~ toB(")"); };
+        break;
     case absZero:
         m.top = () { return toB(preambleAbs); };
         m.mutate = (const(ubyte)[] b) {
@@ -330,12 +330,10 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = &clangFalse;
         break;
     case corLhs:
-        // delete by commenting out
-        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
     case corRhs:
-        // delete by commenting out
-        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
     case corEQ:
         m.mutate = (const(ubyte)[] expr) { return toB("=="); };
@@ -357,8 +355,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(ubyte)[] expr) { return toB(`*((char*)0)='x';break;`); };
         break;
     case dcrCaseDel:
-        // delete by commenting out
-        m.mutate = (const(ubyte)[] expr) { return toB("/*") ~ expr ~ toB("*/"); };
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
     case lcrbAnd:
         m.mutate = (const(ubyte)[] expr) { return toB("&"); };

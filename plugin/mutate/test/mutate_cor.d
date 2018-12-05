@@ -32,16 +32,16 @@ void verifyCor(const(string)[] txt) {
     // &&
     testAnyOrder!SubStr([
         "'a && b' to 'false'",
-        "'&& b' to '/*&& b*/'",
-        "'a &&' to '/*a &&*/'",
+        "'&& b' to ''",
+        "'a &&' to ''",
         "'&&' to '=='",
     ]).shouldBeIn(txt);
 
     // ||
     testAnyOrder!SubStr([
         "'||' to '!='",
-        "'a ||' to '/*a ||*/'",
-        "'|| b' to '/*|| b*/'",
+        "'a ||' to ''",
+        "'|| b' to ''",
         "'a || b' to 'true'",
     ]).shouldBeIn(txt);
 }
