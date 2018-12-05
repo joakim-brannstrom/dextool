@@ -168,8 +168,7 @@ unittest {
         `"8","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
         `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
         `"27","dcr","'case 2:`,
-        `        return true;' to '/*case 2:`,
-        `        return true;*/'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
+        `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
 

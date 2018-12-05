@@ -145,18 +145,15 @@ unittest {
         .run;
     testConsecutiveSparseOrder!SubStr([
         "from 'case 0:",
-        "return -1 ;' to '/*case 0:",
-        "return -1 ;*/'",
+        "return -1 ;' to ''",
 
         "from 'case 1:",
-        "return 1;' to '/*case 1:",
-        "return 1;*/'",
+        "return 1;' to ''",
 
         "from 'case 3:",
-        "break;' to '/*case 3:",
-        "break;*/'",
+        "break;' to ''",
 
-        "from 'case 4:' to '/*case 4:*/'",
+        "from 'case 4:' to ''",
     ]).shouldBeIn(r.stdout);
 }
 
