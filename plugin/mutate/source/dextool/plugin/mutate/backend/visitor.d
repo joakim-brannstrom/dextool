@@ -74,6 +74,7 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
         uoiRvalueMutations, isDcc, dccBranchMutations, dccCaseMutations, dcrCaseMutations;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
+    rval.transf.assignStmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
     rval.transf.voidFuncBodyCallback ~= () => stmtDelMutations;
 
@@ -227,7 +228,7 @@ class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const EnumDecl v) @trusted {
+    override void visit(const(EnumDecl) v) @trusted {
         mixin(mixinNodeLog!());
         import std.typecons : scoped;
 
@@ -287,12 +288,12 @@ class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         // block UOI injection when inside an assignment
-        if (kind_stack.hasValue(CXCursorKind.compoundAssignOperator).isNull)
+        if (!kind_stack.hasValue(CXCursorKind.compoundAssignOperator))
             transf.unaryInject(v.cursor);
         v.accept(this);
     }
 
-    override void visit(const IntegerLiteral v) {
+    override void visit(const(IntegerLiteral) v) {
         mixin(mixinNodeLog!());
         //transf.unaryInject(v.cursor);
         v.accept(this);
@@ -313,6 +314,13 @@ class BaseVisitor : ExtendedVisitor {
     override void visit(const(BinaryOperator) v) {
         mixin(mixinNodeLog!());
         transf.binaryOp(v.cursor, enum_cache);
+
+        // by only removing when inside a {} it should limit generation of
+        // useless mutants.
+        // TODO: would it be useful to remove initialization of globals?
+        if (kind_stack.hasValue(CXCursorKind.compoundStmt))
+            transf.assignStmt(v.cursor);
+
         v.accept(this);
     }
 
@@ -348,9 +356,10 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CompoundStmt) v) {
         mixin(mixinNodeLog!());
+        mixin(pushPopStack("kind_stack", "v.cursor.kind"));
 
-        if (!kind_stack.hasValue(CXCursorKind.functionDecl).isNull
-                || !kind_stack.hasValue(CXCursorKind.cxxMethod).isNull) {
+        if (kind_stack.hasValue(CXCursorKind.functionDecl)
+                || kind_stack.hasValue(CXCursorKind.cxxMethod)) {
             // a function/method body start at the first compound statement {...}
             transf.voidFuncBody(v.cursor);
         }
@@ -414,15 +423,13 @@ struct Stack(T) {
      * trusted: the slice never escape the method and v never affects the
      * slicing thus the memory.
      */
-    Nullable!size_t hasValue(T v) @trusted {
-        import std.range : retro, enumerate;
-
-        foreach (idx, a; arr[].retro.enumerate) {
+    bool hasValue(T v) @trusted {
+        foreach (a; arr[]) {
             if (a == v)
-                return typeof(return)(idx);
+                return true;
         }
 
-        return typeof(return)();
+        return false;
     }
 }
 
@@ -454,6 +461,7 @@ class Transform {
     StatementEvent[] stmtCallback;
     StatementEvent[] funcCallCallback;
     StatementEvent[] voidFuncBodyCallback;
+    StatementEvent[] assignStmtCallback;
 
     /// Any statement that should have a unary operator inserted before/after
     alias UnaryInjectEvent = Mutation.Kind[]delegate(ValueKind);
@@ -606,6 +614,10 @@ class Transform {
             mp.rhs.mp.mutations ~= cb(mp.rawOp.kind, mp.typeInfo).map!(a => Mutation(a)).array();
         foreach (cb; binaryOpExprCallback)
             mp.expr.mp.mutations ~= cb(mp.rawOp.kind).map!(a => Mutation(a)).array();
+    }
+
+    void assignStmt(const Cursor c) {
+        noArgCallback(c, assignStmtCallback);
     }
 
     void assignOp(const Cursor c, const EnumCache ec) {
