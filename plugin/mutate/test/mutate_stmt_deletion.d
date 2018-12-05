@@ -31,6 +31,25 @@ class ShallDeleteBodyOfFuncsReturningVoid : MutantFixture {
     }
 }
 
+class ShallDeleteAssignment : MutantFixture {
+    override string programFile() {
+        return "sdl_assignment.cpp";
+    }
+
+    override string op() {
+        return "sdl";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+        testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.stdout);
+
+        testAnyOrder!SubStr([`from 'int x = 2' to ''`,
+                `from 'bool y = true' to ''`, `from 'int w = 3' to ''`,]).shouldNotBeIn(r.stdout);
+    }
+}
+
 // dfmt off
 
 @(testId ~ "shall successfully run the ABS mutator (no validation of the result)")
