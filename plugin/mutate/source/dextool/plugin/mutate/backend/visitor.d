@@ -89,6 +89,7 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         return k in isDcc ? dccBranchMutations : null;
     };
+    rval.transf.returnBoolFuncCallback ~= () => dccBranchMutations;
 
     rval.transf.caseSubStmtCallback ~= () => dccCaseMutations;
     rval.transf.caseStmtCallback ~= () => dcrCaseMutations;
@@ -189,7 +190,7 @@ private:
  *  - track assignments to avoid generating unary insert operators for the LHS.
  */
 class BaseVisitor : ExtendedVisitor {
-    import clang.c.Index : CXCursorKind;
+    import clang.c.Index : CXCursorKind, CXTypeKind;
     import cpptooling.analyzer.clang.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
 
@@ -200,8 +201,10 @@ class BaseVisitor : ExtendedVisitor {
     private Transform transf;
     private EnumCache enum_cache;
 
-    /// Track the visited nodes
+    /// Track the visited nodes.
     private Stack!CXCursorKind kind_stack;
+    /// Track the return type of the function.
+    private Stack!CXTypeKind return_type_func;
 
     /**
      * Params:
@@ -243,15 +246,12 @@ class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const(FunctionDecl) v) {
-        import clang.c.Index : CXTypeKind;
-
         mixin(mixinNodeLog!());
 
-        // this is a bit dumb but works for now because we only delete function
-        // bodies that return void.
         auto rtype = v.cursor.func.resultType;
-        if (rtype.isValid && rtype.kind == CXTypeKind.void_) {
+        if (rtype.isValid) {
             mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+            mixin(pushPopStack("return_type_func", "rtype.kind"));
             v.accept(this);
         } else {
             v.accept(this);
@@ -259,15 +259,13 @@ class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const(CxxMethod) v) {
-        import clang.c.Index : CXTypeKind;
-
         mixin(mixinNodeLog!());
+        // same logic in FunctionDecl
 
-        // this is a bit dumb but works for now because we only delete function
-        // bodies that return void.
         auto rtype = v.cursor.func.resultType;
-        if (rtype.isValid && rtype.kind == CXTypeKind.void_) {
+        if (rtype.isValid) {
             mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+            mixin(pushPopStack("return_type_func", "rtype.kind"));
             v.accept(this);
         } else {
             v.accept(this);
@@ -301,8 +299,21 @@ class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        transf.binaryOp(v.cursor, enum_cache);
-        transf.funcCall(v.cursor);
+
+        const is_inside_func = kind_stack.hasValue(CXCursorKind.functionDecl)
+            || kind_stack.hasValue(CXCursorKind.cxxMethod);
+        const is_return_stmt = kind_stack.hasValue(CXCursorKind.returnStmt);
+        const is_bool_func = return_type_func.hasValue(CXTypeKind.bool_);
+
+        if (is_inside_func && is_return_stmt && is_bool_func) {
+            transf.returnBoolFunc(v.cursor);
+        } else if (is_inside_func && is_return_stmt) {
+            // do nothing
+        } else {
+            transf.binaryOp(v.cursor, enum_cache);
+            transf.funcCall(v.cursor);
+        }
+
         v.accept(this);
     }
 
@@ -354,13 +365,22 @@ class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const(ReturnStmt) v) {
+        mixin(mixinNodeLog!());
+        mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+
+        v.accept(this);
+    }
+
     override void visit(const(CompoundStmt) v) {
         mixin(mixinNodeLog!());
         mixin(pushPopStack("kind_stack", "v.cursor.kind"));
 
-        if (kind_stack.hasValue(CXCursorKind.functionDecl)
-                || kind_stack.hasValue(CXCursorKind.cxxMethod)) {
-            // a function/method body start at the first compound statement {...}
+        const is_inside_func = kind_stack.hasValue(CXCursorKind.functionDecl)
+            || kind_stack.hasValue(CXCursorKind.cxxMethod);
+
+        // a function/method body start at the first compound statement {...}
+        if (is_inside_func && return_type_func.hasValue(CXTypeKind.void_)) {
             transf.voidFuncBody(v.cursor);
         }
 
@@ -461,6 +481,7 @@ class Transform {
     StatementEvent[] stmtCallback;
     StatementEvent[] funcCallCallback;
     StatementEvent[] voidFuncBodyCallback;
+    StatementEvent[] returnBoolFuncCallback;
     StatementEvent[] assignStmtCallback;
 
     /// Any statement that should have a unary operator inserted before/after
@@ -541,9 +562,15 @@ class Transform {
         noArgCallback(c, funcCallCallback);
     }
 
+    void returnBoolFunc(const Cursor c) {
+        noArgCallback(c, returnBoolFuncCallback);
+    }
+
     void voidFuncBody(const Cursor c) {
-        // because of how a compound statement for a function body is it has to
-        // be adjusted with +1 and -1 to "exclude" the {}
+        funcBody(c, voidFuncBodyCallback);
+    }
+
+    private void funcBody(T)(const Cursor c, T[] callbacks) {
         if (!c.isValid)
             return;
 
@@ -551,6 +578,8 @@ class Transform {
         mixin(mixinPath);
 
         auto sr = c.extent;
+        // because of how a compound statement for a function body is it has to
+        // be adjusted with +1 and -1 to "exclude" the {}
         auto offs = Offset(sr.start.offset + 1, sr.end.offset - 1);
 
         // sanity check. This shouldn't happen but I do not fully trust the extends from the clang AST.
@@ -559,7 +588,7 @@ class Transform {
 
         auto p = MutationPointEntry(MutationPoint(offs, null), path,
                 SourceLoc(loc.line, loc.column), SourceLoc(loc_end.line, loc_end.column));
-        foreach (cb; voidFuncBodyCallback)
+        foreach (cb; callbacks)
             p.mp.mutations ~= cb().map!(a => Mutation(a)).array();
 
         result.put(p);

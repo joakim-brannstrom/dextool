@@ -395,6 +395,18 @@ The branch is deleted.
 
 Thus `false` is equivalent to statement deletion of the branch content.
 
+# SPC-mutation_dcr_bool_func
+partof: SPC-mutation_dcr
+###
+
+TODO: add req.
+
+## Why?
+
+The intention of DCR is to test that the test suite verify logical expressions.
+It is assumed that a function that returns bool is used in logical expressions in *some* way.
+This use should be verified by the test suite.
+
 # SPC-mutations_statement_del
 partof: REQ-mutations
 ###

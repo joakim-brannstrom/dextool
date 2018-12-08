@@ -11,7 +11,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall produce 2 predicate mutations")
+@(testId ~ "shall produce 2 predicate mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -27,7 +27,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 4 predicate mutations")
+@(testId ~ "shall produce 4 predicate mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -43,7 +43,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 4 predicate mutations")
+@(testId ~ "shall produce 4 predicate mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -61,7 +61,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 2 predicate mutations for an expression of multiple clauses")
+@(testId ~ "shall produce 2 predicate mutations for an expression of multiple clauses")
 @Values("dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
@@ -81,7 +81,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 6 clause mutations")
+@(testId ~ "shall produce 6 clause mutations")
 @Values("dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
@@ -115,7 +115,7 @@ unittest {
     r.stdout.joiner.count("'x > 2'").shouldEqual(2);
 }
 
-@("shall produce 4 switch bomb mutations")
+@(testId ~ "shall produce 4 switch bomb mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -133,7 +133,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 4 switch deletion mutations")
+@(testId ~ "shall produce 4 switch deletion mutations")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -157,7 +157,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 1 DCC mutant in C when the input is a C file")
+@(testId ~ "shall produce 1 DCC mutant in C when the input is a C file")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -173,7 +173,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 6 predicate and 8 clause mutations for an expression of multiple clauses of C code")
+@(testId ~ "shall produce 6 predicate and 8 clause mutations for an expression of multiple clauses of C code")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
@@ -203,4 +203,21 @@ unittest {
         "from 'x == TRUE' to '1'",
         "from 'x == TRUE' to '0'",
     ]).shouldBeIn(r.stdout);
+}
+
+@("shall produce 2 predicate mutants for the bool function")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "dcr_bool_func.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "dcr"])
+        .run;
+    testAnyOrder!SubStr([
+    "from 'fun(x)' to 'true'",
+    "from 'fun(x)' to 'false'",
+                        ]).shouldBeIn(r.stdout);
 }
