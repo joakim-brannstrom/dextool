@@ -84,7 +84,9 @@ unittest {
         "'wun(calc(6))' to ''",
         "'calc(7)' to ''",
         "'calc(8)' to ''",
-        "'calc(10)' to ''",
-        "'calc(11)' to ''",
     ]).shouldBeIn(r.stdout);
+    //TODO: maybe these should be deletable too? But it would require forward
+    //looking.
+        //"'calc(10)' to ''",
+        //"'calc(11)' to ''",
 }
