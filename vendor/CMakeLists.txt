@@ -2,6 +2,7 @@ if(BUILD_TEST)
     include(dextool_unit_threaded.cmake)
 endif()
 
+include(dextool_arsd.cmake)
 include(dextool_colorlog.cmake)
 include(dextool_d2sqlite3.cmake)
 include(dextool_gtest.cmake)
