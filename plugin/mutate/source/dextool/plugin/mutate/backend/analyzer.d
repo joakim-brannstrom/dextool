@@ -15,16 +15,14 @@ module dextool.plugin.mutate.backend.analyzer;
 
 import logger = std.experimental.logger;
 
-import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
-    CompileCommandDB;
+import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB;
 import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
-    Checksum;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.config : ConfigCompiler;
 
@@ -38,7 +36,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
         try {
             analyzer.process(in_file);
         } catch (Exception e) {
-            () @trusted{ logger.trace(e); logger.warning(e.msg); }();
+            () @trusted { logger.trace(e); logger.warning(e.msg); }();
         }
     }
     analyzer.finalize;
@@ -102,33 +100,89 @@ struct Analyzer {
 
         analyzed_files.add(checked_in_file);
 
-        // analyze the file
-        () @trusted{
+        () @trusted {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-            auto root = makeRootVisitor(fio, val_loc);
-            analyzeFile(checked_in_file, in_file.cflags, root.visitor, ctx);
 
-            foreach (a; root.mutationPointFiles) {
-                auto abs_path = AbsolutePath(a.path.FileName);
-                analyzed_files.add(abs_path);
-                files_with_mutations.add(abs_path);
+            auto files = analyzeForMutants(in_file, checked_in_file, ctx);
+            foreach (f; files)
+                analyzeForComments(f, ctx);
+        }();
+    }
 
-                auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
+    Path[] analyzeForMutants(SearchResult in_file,
+            Exists!AbsolutePath checked_in_file, ref ClangContext ctx) @safe {
+        import std.algorithm : map;
+        import std.array : array;
 
-                try {
-                    auto f_status = isFileChanged(db, relp, a.cs);
-                    if (f_status == FileStatus.changed) {
-                        logger.infof("Updating analyze of '%s'", a);
-                    }
+        auto root = makeRootVisitor(fio, val_loc);
+        analyzeFile(checked_in_file, in_file.flags.completeFlags, root.visitor, ctx);
 
-                    db.put(Path(relp), a.cs, a.lang);
-                } catch (Exception e) {
-                    logger.warning(e.msg);
+        foreach (a; root.mutationPointFiles) {
+            auto abs_path = AbsolutePath(a.path.FileName);
+            analyzed_files.add(abs_path);
+            files_with_mutations.add(abs_path);
+
+            auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
+
+            try {
+                auto f_status = isFileChanged(db, relp, a.cs);
+                if (f_status == FileStatus.changed) {
+                    logger.infof("Updating analyze of '%s'", a);
                 }
+
+                db.put(Path(relp), a.cs, a.lang);
+            } catch (Exception e) {
+                logger.warning(e.msg);
+            }
+        }
+
+        db.put(root.mutationPoints, fio.getOutputDir);
+        return root.mutationPointFiles.map!(a => a.path).array;
+    }
+
+    void analyzeForComments(Path file, ref ClangContext ctx) @trusted {
+        import std.algorithm : filter, countUntil, among, startsWith;
+        import std.array : appender;
+        import std.string : stripLeft;
+        import std.utf : byCodeUnit;
+        import clang.c.Index : CXTokenKind;
+        import dextool.plugin.mutate.backend.database : LineMetadata, Cache, FileId, LineAttr;
+
+        Cache!(string, Nullable!FileId,
+                a => db.getFileId(trustedRelativePath(a, fio.getOutputDir).Path)) getFileId;
+
+        auto tu = ctx.makeTranslationUnit(file);
+
+        auto mdata = appender!(LineMetadata[])();
+        bool print_found = true;
+        foreach (t; tu.cursor.tokens.filter!(a => a.kind == CXTokenKind.comment)) {
+            auto txt = t.spelling.stripLeft;
+            const index = txt.byCodeUnit.countUntil!(a => !a.among('/', '*'));
+            if (index >= txt.length || !txt[0 .. index].among("//", "/*"))
+                continue;
+
+            txt = txt[index .. $].stripLeft;
+
+            if (!txt.startsWith("NOMUT"))
+                continue;
+
+            const fname = t.location.file.name;
+            auto fid = getFileId(fname);
+            auto ext = t.extent;
+            auto start = ext.start;
+
+            if (fid.isNull) {
+                logger.tracef("File with suppressed mutants (// NOMUT) not in the DB: %s:%s",
+                        fname, start);
+                continue;
             }
 
-            db.put(root.mutationPoints, fio.getOutputDir);
-        }();
+            mdata.put(LineMetadata(fid, start.line, LineAttr.noMut));
+            logger.trace(print_found, "// NOMUT found in ", file);
+            print_found = false;
+        }
+
+        db.put(mdata.data);
     }
 
     void finalize() @safe {

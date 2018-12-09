@@ -13,9 +13,6 @@ public import unit_threaded;
 public import dextool_test;
 public import dextool_test.config;
 
-immutable defaultDb = "database.sqlite3";
-immutable workDir = "../../..";
-
 auto makeDextoolAnalyze(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)

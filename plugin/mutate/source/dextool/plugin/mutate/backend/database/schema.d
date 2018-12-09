@@ -57,13 +57,15 @@ import std.format : format;
 
 import d2sqlite3 : sqlDatabase = Database;
 
-immutable schemaVersionTable = "schema_version";
-immutable filesTable = "files";
-immutable mutationPointTable = "mutation_point";
-immutable mutationTable = "mutation";
-immutable killedTestCaseTable = "killed_test_case";
 immutable allTestCaseTable = "all_test_case";
+immutable filesTable = "files";
+immutable killedTestCaseTable = "killed_test_case";
+immutable mutationPointTable = "mutation_point";
 immutable mutationStatusTable = "mutation_status";
+immutable mutationTable = "mutation";
+immutable srcMetadataTable = "src_metadata";
+immutable rawSrcMetadataTable = "raw_src_metadata";
+immutable schemaVersionTable = "schema_version";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -179,6 +181,44 @@ immutable mutation_point_v2_tbl = "CREATE TABLE %s (
     CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
     )";
 
+// metadata about mutants that occur on a line extracted from the source code.
+// It is intended to further refined.
+// nomut = if the line should ignore mutants.
+immutable raw_src_metadata_v1_tbl = "CREATE TABLE %s (
+    id              INTEGER PRIMARY KEY,
+    file_id         INTEGER NOT NULL,
+    line            INTEGER,
+    nomut           INTEGER,
+    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
+    CONSTRAINT unique_line_in_file UNIQUE (file_id, line)
+    )";
+
+// Associate metadata from lines with the mutation status.
+// in_t0 = mutationPointTable
+// in_t1 = rawSrcMetadataTable
+// t0 = mutationTable
+// t1 = mutationStatusTable
+// t2 = mutationPointTable
+// t3 = filesTable
+immutable src_metadata_v1_tbl = "CREATE VIEW %s
+    AS
+    SELECT
+    t0.id AS mut_id,
+    t1.id AS st_id,
+    t2.id AS mp_id,
+    t3.id AS file_id,
+    (SELECT count(*) FROM %s in_t0, %s in_t1
+        WHERE
+        in_t0.file_id = in_t1.file_id AND
+        in_t0.line = in_t1.line AND
+        t2.line = in_t1.line) AS nomut
+    FROM %s t0, %s t1, %s t2, %s t3
+    WHERE
+    t0.mp_id = t2.id AND
+    t0.st_id = t1.id AND
+    t2.file_id = t3.id
+    ";
+
 // time in ms spent on verifying the mutant
 immutable mutation_v1_tbl = "CREATE TABLE %s (
     id      INTEGER PRIMARY KEY,
@@ -238,8 +278,8 @@ immutable mutation_status_v2_tbl = "CREATE TABLE %s (
     checksum1   INTEGER,
     CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
     )";
-// update_st = when the status where last updated. Seconds at UTC+0.
-// added_ts = when the mutant where added to the system.
+// update_st = when the status where last updated. UTC+0.
+// added_ts = when the mutant where added to the system. UTC+0.
 // test_cnt = nr of times the mutant has been tested without being killed.
 immutable mutation_status_v3_tbl = "CREATE TABLE %s (
     id          INTEGER PRIMARY KEY,
@@ -545,6 +585,15 @@ void upgradeV9(ref sqlDatabase db) {
 
     replaceTbl(db, new_tbl, mutationStatusTable);
     updateSchemaVersion(db, 10);
+}
+
+/// 2018-11-25
+void upgradeV10(ref sqlDatabase db) {
+    db.run(format(raw_src_metadata_v1_tbl, rawSrcMetadataTable));
+    db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable,
+            rawSrcMetadataTable, mutationTable, mutationStatusTable,
+            mutationPointTable, filesTable));
+    updateSchemaVersion(db, 11);
 }
 
 void replaceTbl(ref sqlDatabase db, string src, string dst) {

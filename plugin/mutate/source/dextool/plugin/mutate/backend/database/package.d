@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
 public import dextool.plugin.mutate.backend.database.type;
-public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery;
+public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery, Cache;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
@@ -82,7 +82,7 @@ struct Database {
 
         auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
 
-        auto prep_str = format("SELECT
+        immutable sql = format("SELECT
                                t0.id,
                                t0.kind,
                                t3.time,
@@ -100,9 +100,7 @@ struct Database {
                                t1.file_id == t2.id AND
                                t0.kind IN (%(%s,%)) %s LIMIT 1", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, kinds.map!(a => cast(int) a), order);
-        auto stmt = db.prepare(prep_str);
-        // TODO this should work. why doesn't it?
-        //stmt.bind(":kinds", format("%(%s,%)", kinds.map!(a => cast(int) a)));
+        auto stmt = db.prepare(sql);
         auto res = stmt.execute;
         if (res.empty) {
             rval.st = NextMutationEntry.Status.done;
@@ -141,15 +139,17 @@ struct Database {
             t2.path,
             t2.checksum0,
             t2.checksum1,
-            t2.lang
-            FROM %s t0,%s t1,%s t2, %s t3
+            t2.lang,
+            t4.nomut
+            FROM %s t0,%s t1,%s t2, %s t3, %s t4
             WHERE
             t0.kind IN (%(%s,%)) AND
             t0.st_id = t3.id AND
             t0.mp_id = t1.id AND
-            t1.file_id = t2.id
+            t1.file_id = t2.id AND
+            t0.id = t4.mut_id
             ORDER BY t3.status", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+                filesTable, mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
 
         try {
             auto res = db.prepare(all_mutants).execute;
@@ -167,6 +167,9 @@ struct Database {
                 d.lang = r.peek!long(13).to!Language;
 
                 d.testCases = db.getTestCases(d.id);
+
+                if (r.peek!long(14))
+                    d.attrs.add(Attr.noMut);
 
                 dg(d);
             }
@@ -255,6 +258,7 @@ struct IterateMutantRow {
     SourceLoc slocEnd;
     TestCase[] testCases;
     Language lang;
+    Attrs attrs;
 }
 
 struct FileRow {

@@ -293,8 +293,9 @@ struct MutationStat {
     import core.time : Duration;
     import std.range : isOutputRange;
 
-    // TODO: use MutationScore instead
     long alive;
+    // Nr of mutants that are alive but tagged with nomut.
+    long aliveNoMut;
     long killed;
     long timeout;
     long untested;
@@ -305,10 +306,18 @@ struct MutationStat {
     Duration killedByCompilerTime;
     Duration predictedDone;
 
+    /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
         if (total > 0)
-            return cast(double)(killed + timeout) / cast(double) total;
+            return cast(double)(killed + timeout + aliveNoMut) / cast(double) total;
         return 1.0;
+    }
+
+    /// Suppressed mutants of the total mutants.
+    double suppressedOfTotal() @safe pure nothrow const @nogc {
+        if (total > 0)
+            return (cast(double)(aliveNoMut) / cast(double) total);
+        return 0.0;
     }
 
     string toString() @safe const {
@@ -342,12 +351,15 @@ struct MutationStat {
         // mutation score and details
         if (untested > 0)
             formattedWrite(w, "Untested: %s\n", untested);
+        formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
         formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
-        formattedWrite(w, "%-*s %s\n", align_, "Score:", score);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
+        if (aliveNoMut != 0)
+            formattedWrite(w, "%-*s %s (%.3s)\n", align_,
+                    "Suppressed (nomut):", aliveNoMut, suppressedOfTotal);
     }
 }
 
@@ -358,6 +370,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds) @saf
     import dextool.plugin.mutate.backend.utility;
 
     const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds); });
+    const alive_nomut = spinSqlQuery!(() { return db.aliveNoMutSrcMutants(kinds); });
     const killed = spinSqlQuery!(() { return db.killedSrcMutants(kinds); });
     const timeout = spinSqlQuery!(() { return db.timeoutSrcMutants(kinds); });
     const untested = spinSqlQuery!(() { return db.unknownSrcMutants(kinds); });
@@ -368,6 +381,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds) @saf
 
     MutationStat st;
     st.alive = alive.count;
+    st.aliveNoMut = alive_nomut.count;
     st.killed = only(killed, timeout).map!(a => a.count).sum;
     st.timeout = timeout.count;
     st.untested = untested.count;
