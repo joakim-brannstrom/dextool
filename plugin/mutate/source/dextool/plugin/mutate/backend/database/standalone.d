@@ -363,7 +363,7 @@ struct Database {
         return app.data;
     }
 
-    LineMetadata getLineMetadata(FileId fid, SourceLoc sloc) @trusted {
+    LineMetadata getLineMetadata(const FileId fid, const SourceLoc sloc) @trusted {
         enum sql = format("SELECT nomut FROM %s
             WHERE
             file_id = :fid AND
@@ -382,7 +382,7 @@ struct Database {
     }
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
-    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, long nr) @trusted {
+    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, const long nr) @trusted {
         const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
@@ -402,20 +402,21 @@ struct Database {
 
     /// Returns: the `nr` mutant with the highest count that has not been killed and existed in the system the longest.
     MutationStatus[] getHardestToKillMutant(const(Mutation.Kind)[] kinds,
-            const Mutation.Status status, long nr) @trusted {
+            const Mutation.Status status, const long nr) @trusted {
         const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts
             FROM %s t0, %s t1
             WHERE
             t0.update_ts IS NOT NULL AND
             t0.status = :status AND
             t1.st_id = t0.id AND
-            t1.kind IN (%(%s,%))
+            t1.kind IN (%(%s,%)) AND
+            t1.st_id NOT IN (SELECT st_id FROM %s)
             ORDER BY
             t0.test_cnt DESC,
             t0.added_ts ASC,
             t0.update_ts ASC
             LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.bind(":status", cast(long) status);
         stmt.bind(":limit", nr);
