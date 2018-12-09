@@ -56,7 +56,7 @@ private:
 void overallStat(const MutationStat s, HtmlNode n) {
     n.n("h2".Tag).put("Summary");
 
-    n.n("p".Tag).put(format("Mutation Score %s", s.score));
+    n.n("p".Tag).put(format("Mutation Score %.3s", s.score));
 
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         n.n("p".Tag).put(format("Predicted time until mutation testing is done %s (%s)",
