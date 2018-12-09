@@ -410,7 +410,7 @@ struct Database {
             t0.status = :status AND
             t1.st_id = t0.id AND
             t1.kind IN (%(%s,%)) AND
-            t1.st_id NOT IN (SELECT st_id FROM %s)
+            t1.st_id NOT IN (SELECT st_id FROM %s WHERE nomut != 0)
             ORDER BY
             t0.test_cnt DESC,
             t0.added_ts ASC,
@@ -561,6 +561,7 @@ struct Database {
                 %s
                 t0.st_id = t1.id AND
                 t0.st_id = t4.st_id AND
+                t4.nomut != 0 AND
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))
                 GROUP BY t1.id)";
@@ -572,6 +573,7 @@ struct Database {
                 %s
                 t0.st_id = t1.id AND
                 t0.st_id = t4.st_id AND
+                t4.nomut != 0 AND
                 t1.status IN (%(%s,%)) AND
                 t0.kind IN (%(%s,%))";
         }

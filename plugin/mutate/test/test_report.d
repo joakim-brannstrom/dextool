@@ -375,10 +375,10 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
-        foreach (i; 0 .. 10)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
-        foreach (i; 10 .. 30)
+        foreach (i; 0 .. 15)
             db.updateMutation(MutationId(i), Mutation.Status.killed, 5.dur!"msecs", null);
+        foreach (i; 15 .. 30)
+            db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
         auto plain = makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--section", "summary"])
@@ -392,23 +392,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:   1",
-            "Alive:   7",
-            "Killed:  19",
+            "Score:   0.8",
+            "Alive:   15",
+            "Killed:  11",
             "Timeout: 0",
             "Total:   26",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 7 (0.269",
+            "Suppressed (nomut): 10 (0.38",
         ]).shouldBeIn(plain.stdout);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:   1",
-            "Alive:   7",
-            "Killed:  19",
+            "Score:   0.8",
+            "Alive:   15",
+            "Killed:  11",
             "Timeout: 0",
             "Total:   26",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 7 (0.269",
+            "Suppressed (nomut): 10 (0.38",
         ]).shouldBeIn(markdown.stdout);
     }
 }
