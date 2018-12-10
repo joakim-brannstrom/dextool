@@ -165,7 +165,8 @@ Html defaultHtml(string title) {
     h.head.put(`<head>`);
     h.head.put(`<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">`);
     h.head.put(format(`<title>%s</title>`, title.encode));
-    h.preambleBody.put(`<style>body {font-family: monospace; font-size: 14px;}</style>`);
+    h.preambleBody.put(
+            `<style type="text/css">body {font-family: monospace; font-size: 14px;}</style>`);
     h.body_.put(`<body>`);
 
     return h;
