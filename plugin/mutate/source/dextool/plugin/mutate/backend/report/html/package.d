@@ -217,7 +217,7 @@ struct FileIndex {
                     muts.data.map!(a => a.mut.status.to!string))));
         }
 
-        ctx.out_.write(ctx.doc.toPrettyString);
+        ctx.out_.write(ctx.doc.toString);
     }
 
     override void postProcessEvent(ref Database db) @trusted {
