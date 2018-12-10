@@ -167,20 +167,18 @@ ExitStatusType runPlugin(CLIResult cli, string[] args) {
 }
 
 int rmain(string[] args) nothrow {
-    import std.conv : text;
     import std.exception : collectException;
     import colorlog : confLogger;
 
-    ExitStatusType exit_status = ExitStatusType.Errors;
+    auto exit_status = ExitStatusType.Errors;
 
     try {
         auto parsed = parseMainCLI(args);
         confLogger(parsed.confLog);
-        logger.trace(parsed);
 
         exit_status = runPlugin(parsed, args);
     } catch (Exception ex) {
-        collectException(logger.trace(text(ex)));
+        logger.trace(ex).collectException;
         exit_status = ExitStatusType.Errors;
     }
 
