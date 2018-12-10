@@ -173,9 +173,6 @@ struct BuildDextoolRun {
     }
 
     auto run() {
-        import std.array : join;
-        import std.algorithm : min;
-
         string[] cmd;
         cmd ~= dextool;
         cmd ~= args_.dup;
@@ -238,8 +235,12 @@ struct BuildDextoolRun {
         }
 
         if (throw_on_exit_status && exit_.status != 0) {
-            auto l = min(10, stderr_.data.length);
-            throw new ErrorLevelException(exit_.status, stderr_.data[0 .. l].join(newline));
+            import std.algorithm : joiner;
+            import std.array : join;
+            import std.range : only;
+
+            throw new ErrorLevelException(exit_.status, only(stdout_.data,
+                    stderr_.data).joiner.join(newline));
         } else {
             return rval;
         }
