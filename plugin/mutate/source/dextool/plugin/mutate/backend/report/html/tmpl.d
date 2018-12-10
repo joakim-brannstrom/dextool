@@ -14,6 +14,89 @@ import dextool.plugin.mutate.backend.report.html.nodes;
 
 @safe:
 
+immutable tmplIndexStyle = `
+.mutant {display:none; background-color: yellow;}
+.status_alive {background-color: lightpink;}
+.status_killed {background-color: lightgreen;}
+.status_killedByCompiler {background-color: mediumseagreen;}
+.status_timeout {background-color: limegreen;}
+.status_unknown {background-color: mistyrose;}
+.hover_alive {color: lightpink;}
+.hover_killed {color: lightgreen;}
+.hover_killedByCompiler {color: mediumseagreen;}
+.hover_timeout {color: limegreen;}
+.hover_unknown {color: mistyrose;}
+.literal {color: darkred;}
+.keyword {color: blue;}
+.comment {color: grey;}
+#mousehover {
+    background: grey;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    padding: 5px;
+    display: none;
+    position: absolute;
+    background: #2e3639;
+    color: #fff;
+}
+span.xx_label {
+    font-weight: bold;
+}
+#info_wrapper {
+    position: absolute;
+    width: 99%;
+}
+#info {
+    position: absolute;
+    top: 0;
+    width: 400px;
+    background: grey;
+    border-radius: 10px;
+    -moz-border-radius: 10px;
+    padding: 5px;
+    border: 1px solid;
+    opacity:0.9;
+
+    background: #2e3639;
+}
+#info.fixed {
+    position: fixed;
+}
+#info span {
+    font-size: 80%;
+    color: #fff;
+    font-family: sans-serif;
+}
+#info select {
+    width: 250px;
+}
+`;
+
+immutable tmplIndexBody = `<div id="mousehover"></div>
+<div id="info_wrapper">
+<div id="info" class="fixed">
+<table>
+  <tr>
+    <td><a href="../index.html" style="color: white">Back</a></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Status: </span></td>
+    <td><span id="current_mutant_status"></span></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Mutant: </span></td>
+    <td>
+      <select id="current_mutant">
+        <option value="-1">Original</option>
+      </select>
+    </td>
+    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
+  </tr>
+</table>
+</div>
+</div>
+`;
+
 immutable htmlBegin = `<!DOCTYPE html>
 <html>
 <head>

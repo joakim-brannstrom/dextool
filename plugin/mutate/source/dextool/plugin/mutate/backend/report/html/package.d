@@ -12,6 +12,8 @@ module dextool.plugin.mutate.backend.report.html;
 import std.stdio : File;
 import logger = std.experimental.logger;
 
+import arsd.dom : Document, Element, require, Table, RawSource;
+
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -24,7 +26,6 @@ import dextool.type : AbsolutePath, Path, DirName;
 
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.js;
-import dextool.plugin.mutate.backend.report.html.nodes;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 
 version (unittest) {
@@ -104,13 +105,10 @@ struct FileIndex {
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
-        ctx = FileCtx.init;
+        ctx = FileCtx.make(original);
         ctx.processFile = fr.file;
         ctx.out_ = File(out_path, "w");
         ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
-
-        ctx.out_.writefln(htmlBegin, encode(original));
-        ctx.out_.writeln(htmlBegin2);
 
         return this;
     }
@@ -138,7 +136,7 @@ struct FileIndex {
                 cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
     }
 
-    override void endFileEvent(ref Database db) {
+    override void endFileEvent(ref Database db) @trusted {
         import std.algorithm : max, each, map, min, canFind;
         import std.array : appender;
         import std.conv : to;
@@ -162,18 +160,29 @@ struct FileIndex {
         int line = 1;
         int column = 1;
 
+        auto root = ctx.doc.mainBody;
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > line)
                 column = 1;
 
             auto meta = MetaSpan(s.muts);
 
-            "<br>".repeat(max(0, s.tok.loc.line - line)).each!(a => ctx.out_.writeln(a));
+            foreach (_; 0 .. max(0, s.tok.loc.line - line))
+                root.addChild("br");
             const spaces = max(0, s.tok.loc.column - column);
-            "&nbsp;".repeat(spaces).each!(a => ctx.out_.write(a));
-            ctx.out_.writef(`<div style="display: inline;"><span class="original %s %s %(mutid%s %)" %s>%s</span>`,
-                    s.tok.toName, meta.status.toVisible,
-                    s.muts.map!(a => a.id), meta.onClick, encode(s.tok.spelling));
+            root.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
+
+            auto d0 = root.addChild("div").setAttribute("style", "display: inline;");
+            with (d0.addChild("span", s.tok.spelling)) {
+                addClass("original");
+                addClass(s.tok.toName);
+                if (auto v = meta.status.toVisible)
+                    addClass(v);
+                if (s.muts.length != 0)
+                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+                if (meta.onClick2.length != 0)
+                    setAttribute("onclick", meta.onClick2);
+            }
 
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
@@ -182,30 +191,36 @@ struct FileIndex {
                     const inside_fly = format(`%-(%s %)`, s.muts.map!(a => styleHover(m.id, a)))
                         .toJson;
                     const fly = format(`fly(event, %s)`, inside_fly);
-                    ctx.out_.writef(`<span id="%s" onmouseenter='%-s' onmouseleave='%-s' class="mutant %s">%s</span>`,
-                            m.id, fly, fly, s.tok.toName, m.mutation.encode);
-                    ctx.out_.writef(`<a href="#%s"></a>`, m.id);
+                    with (d0.addChild("span", m.mutation)) {
+                        addClass("mutant");
+                        addClass(s.tok.toName);
+                        setAttribute("id", m.id.to!string);
+                        setAttribute("onmouseenter", fly);
+                        setAttribute("onmouseleave", fly);
+                    }
+                    d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
                 }
             }
-            ctx.out_.write(`</div>`);
 
             line = s.tok.locEnd.line;
             column = s.tok.locEnd.column;
         }
 
-        ctx.out_.writeln("<script>");
-        ctx.out_.writefln("var g_mutids = [%(%s,%)];", muts.data.map!(a => a.id));
-        ctx.out_.writefln("var g_muts_orgs = [%(%s,%)];",
-                muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]));
-        ctx.out_.writefln("var g_muts_muts = [%(%s,%)];",
-                muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]));
-        ctx.out_.writefln("var g_muts_st = [%(%s,%)];",
-                muts.data.map!(a => a.mut.status.to!string));
-        ctx.out_.writeln("</script>");
-        ctx.out_.writefln(htmlEnd, js_file);
+        with (root.addChild("script")) {
+            addChild(new RawSource(ctx.doc, format("var g_mutids = [%(%s,%)];",
+                    muts.data.map!(a => a.id))));
+            addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
+                    muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]))));
+            addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
+                    muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]))));
+            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
+                    muts.data.map!(a => a.mut.status.to!string))));
+        }
+
+        ctx.out_.write(ctx.doc.toPrettyString);
     }
 
-    override void postProcessEvent(ref Database db) {
+    override void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.format : format;
         import std.path : buildPath, baseName;
@@ -219,21 +234,22 @@ struct FileIndex {
         const long_f = buildPath(logDir, "long_term_view" ~ htmlExt);
         const test_groups_f = buildPath(logDir, "test_groups" ~ htmlExt);
 
-        auto indexh = makeHtmlIndex(format("Mutation Testing Report %(%s %) %s",
-                humanReadableKinds, Clock.currTime));
-        indexh.body_.n("p".Tag).put(aHref(stats_f.baseName, "Statistics"));
-        indexh.body_.n("p".Tag).put(aHref(short_f.baseName, "Short Term View"));
-        indexh.body_.n("p".Tag).put(aHref(long_f.baseName, "Long Term View"));
-        indexh.body_.n("p".Tag).put(aHref(test_groups_f.baseName, "Test Groups"));
+        auto index = tmplBasicPage;
+        index.title = format("Mutation Testing Report %(%s %) %s",
+                humanReadableKinds, Clock.currTime);
+        index.mainBody.addChild("p").addChild("a", "Statistics").href = stats_f.baseName;
+        index.mainBody.addChild("p").addChild("a", "Short Term View").href = short_f.baseName;
+        index.mainBody.addChild("p").addChild("a", "Long Term View").href = long_f.baseName;
+        index.mainBody.addChild("p").addChild("a", "Test Groups").href = test_groups_f.baseName;
 
-        files.data.toIndex(indexh, htmlFileDir);
+        files.data.toIndex(index.mainBody, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
         File(short_f, "w").write(makeShortTermView(db, conf,
                 humanReadableKinds, kinds, diff, fio.getOutputDir));
         File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
         File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
-        File(buildPath(logDir, "index" ~ htmlExt), "w").write(indexh);
+        File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
     }
 
     override void endEvent(ref Database) {
@@ -256,6 +272,30 @@ struct FileCtx {
     File out_;
 
     Spanner span;
+
+    Document doc;
+
+    static FileCtx make(string title) @trusted {
+        import dextool.plugin.mutate.backend.report.html.js;
+        import dextool.plugin.mutate.backend.report.html.tmpl;
+
+        auto r = FileCtx.init;
+        r.doc = tmplBasicPage;
+        r.doc.title = title;
+        r.doc.mainBody.setAttribute("onload", "javascript:init();");
+
+        auto s = r.doc.root.childElements("head")[0].addSibling("style");
+        s.type = "text/css";
+        s.addChild(new RawSource(r.doc, tmplIndexStyle));
+
+        s = r.doc.root.childElements("head")[$ - 1].addSibling("script");
+        s.type = "text/javascript";
+        s.addChild(new RawSource(r.doc, js_file));
+
+        r.doc.mainBody.appendHtml(tmplIndexBody);
+
+        return r;
+    }
 }
 
 struct Token {
@@ -602,42 +642,24 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, ref Html h, string htmlFileDir) {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.algorithm : sort;
     import std.conv : to;
     import std.path : buildPath;
 
-    auto tbl = HtmlTable.make;
-    tbl.root.putAttr("class", "files");
-    tbl.putColumn("Path").putAttr("class", "tg-g59y");
-    tbl.putColumn("Score").putAttr("class", "tg-g59y");
-    tbl.putColumn("Alive").putAttr("class", "tg-g59y");
-    tbl.putColumn("Total").putAttr("class", "tg-g59y");
+    auto tbl = tmplDefaultTable(root, ["Path", "Score", "Alive", "Total"]);
 
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
-        auto r = tbl.newRow;
-        r.td.put(aHref(buildPath(htmlFileDir, f.path), f.display)).putAttr("class", "tg-0lax");
-        r.td.put(f.totalMutants == 0 ? "1.0"
-                : (cast(double) f.killedMutants / cast(double) f.totalMutants).to!string).putAttr("class",
-                "tg-0lax");
-        r.td.put(f.aliveMutants.to!string).putAttr("class", "tg-0lax");
-        r.td.put(f.totalMutants.to!string).putAttr("class", "tg-0lax");
+        auto r = tbl.addChild("tr");
+        r.addChild("td", f.display).href = buildPath(htmlFileDir, f.path);
+        if (f.totalMutants == 0)
+            r.addChild("td", "1.0");
+        else
+            r.addChild("td", (cast(double) f.killedMutants / cast(double) f.totalMutants)
+                    .to!string);
+        r.addChild("td", f.aliveMutants.to!string);
+        r.addChild("td", f.totalMutants.to!string);
     }
-
-    h.put(tbl.root);
-}
-
-Html makeHtmlIndex(string title) {
-    auto r = defaultHtml(title);
-    auto s = r.preambleBody.n("style".Tag);
-    s.putAttr("type", "text/css");
-    s.put(`.files  {border-collapse:collapse;border-spacing:0;}`);
-    s.put(`.files td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.files th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.files .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
-    s.put(`.files .tg-0lax{text-align:left;vertical-align:top}`);
-
-    return r;
 }
 
 /// Metadata about the span to be used to e.g. color it.
@@ -654,21 +676,27 @@ struct MetaSpan {
 
     StatusColor status;
     string onClick;
+    string onClick2;
 
     this(const(FileMutant)[] muts) {
         import std.format : format;
 
         immutable click_fmt = "onclick='ui_set_mut(%s)'";
+        immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
 
         foreach (ref const m; muts) {
             status = pickColor(m, status);
-            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive)
+            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
                 onClick = format(click_fmt, m.id);
+                onClick2 = format(click_fmt2, m.id);
+            }
         }
 
-        if (onClick.length == 0 && muts.length != 0)
+        if (onClick.length == 0 && muts.length != 0) {
             onClick = format(click_fmt, muts[0].id);
+            onClick2 = format(click_fmt2, muts[0].id);
+        }
     }
 }
 
