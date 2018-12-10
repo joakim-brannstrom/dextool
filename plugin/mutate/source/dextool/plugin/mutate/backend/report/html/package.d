@@ -651,7 +651,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         auto r = tbl.addChild("tr");
-        r.addChild("td", f.display).href = buildPath(htmlFileDir, f.path);
+        r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
         if (f.totalMutants == 0)
             r.addChild("td", "1.0");
         else
