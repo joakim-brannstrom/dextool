@@ -306,7 +306,7 @@ struct MutationTestDriver(ImplT) {
     }
 
     void execute() {
-        import dextool.fsm : generateActions;
+        import dextool.fsm : makeCallbacks;
 
         const auto signal = impl.signal;
 
@@ -316,7 +316,7 @@ struct MutationTestDriver(ImplT) {
 
         debug logger.trace(old_st, "->", st, ":", signal).collectException;
 
-        mixin(generateActions!(State, "st", "impl"));
+        mixin(makeCallbacks!State().switchOn("st").callbackOn("impl").finalize);
     }
 
     private static State nextState(immutable State current, immutable MutationDriverSignal signal) @safe pure nothrow @nogc {
@@ -720,7 +720,7 @@ struct TestDriver(ImplT) {
     }
 
     void execute() {
-        import dextool.fsm : generateActions;
+        import dextool.fsm : makeCallbacks;
 
         const auto signal = impl.signal;
 
@@ -730,7 +730,7 @@ struct TestDriver(ImplT) {
 
         debug logger.trace(old_st, "->", st, ":", signal).collectException;
 
-        mixin(generateActions!(State, "st", "impl"));
+        mixin(makeCallbacks!State().switchOn("st").callbackOn("impl").finalize);
     }
 
     private static State nextState(const State current, const TestDriverSignal signal) {
@@ -1034,7 +1034,9 @@ nothrow:
 
         try {
             import std.process : execute;
-            const comp_res = execute(data.conf.mutationCompile.program ~ data.conf.mutationCompile.arguments);
+
+            const comp_res = execute(
+                    data.conf.mutationCompile.program ~ data.conf.mutationCompile.arguments);
 
             if (comp_res.status == 0) {
                 driver_sig = TestDriverSignal.next;
