@@ -233,6 +233,12 @@ unittest {
         .addArg(["--style", "plain"])
         .run;
 
+    makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section", "tc_full_overlap"])
+        .addArg(["--style", "html"])
+        .addArg(["--logdir", testEnv.outdir.toString])
+        .run;
+
     testConsecutiveSparseOrder!SubStr([
         "2/4 = 0.5 test cases",
         "| TestCase |",
@@ -290,6 +296,12 @@ class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
         auto r = makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--section", "tc_killed_no_mutants"])
             .addArg(["--style", "plain"])
+            .run;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "tc_killed_no_mutants"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
         testConsecutiveSparseOrder!SubStr([

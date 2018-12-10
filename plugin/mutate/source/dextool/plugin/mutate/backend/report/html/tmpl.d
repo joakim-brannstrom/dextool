@@ -9,23 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.tmpl;
 
-import dextool.plugin.mutate.backend.report.html.nodes;
+import arsd.dom : Document, Element, require, Table;
 
 @safe:
 
-immutable htmlBegin = `<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-<title>%s</title>
-</head>
-`;
-
-immutable htmlBegin2 = `
-<body onload="javascript:init();">
-<div id="mousehover"></div>
-<style>
-body {font-family: monospace; font-size: 14px;}
+immutable tmplIndexStyle = `
 .mutant {display:none; background-color: yellow;}
 .status_alive {background-color: lightpink;}
 .status_killed {background-color: lightgreen;}
@@ -78,11 +66,12 @@ span.xx_label {
     color: #fff;
     font-family: sans-serif;
 }
-
 #info select {
     width: 250px;
 }
-</style>
+`;
+
+immutable tmplIndexBody = `<div id="mousehover"></div>
 <div id="info_wrapper">
 <div id="info" class="fixed">
 <table>
@@ -107,21 +96,50 @@ span.xx_label {
 </div>
 `;
 
-immutable htmlEnd = `<script>%s</script>
-</body>
+Document tmplBasicPage() @trusted {
+    auto doc = new Document(`<html>
+<head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"></head>
+<body></body>
 </html>
-`;
+`);
+    tmplDefaultCss(doc);
+    return doc;
+}
 
-void addStateTableCss(HtmlNode s) {
-    s.putAttr("type", "text/css");
-    s.put(
-            `.stat_tbl {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}`);
-    s.put(`.stat_tbl td{border-style: none;}`);
-    s.put(`.overlap_tbl  {border-collapse:collapse;border-spacing:0;}`);
-    s.put(`.overlap_tbl td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.overlap_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}`);
-    s.put(`.overlap_tbl .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}`);
-    s.put(`.overlap_tbl .tg-0lax{text-align:left;vertical-align:top}`);
-    s.put(
-            `.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}`);
+/// Add the CSS style after the head element.
+void tmplDefaultCss(Document doc) @trusted {
+    auto s = doc.root.childElements("head")[0].addSibling("style");
+    s.type = "text/css";
+    s.appendText(`
+body {font-family: monospace; font-size: 14px;}
+.stat_tbl      {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}
+.stat_tbl    td{border-style: none;}
+.overlap_tbl   {border-collapse:collapse;border-spacing:0;}
+.overlap_tbl td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
+.overlap_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
+.overlap_tbl .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}
+.overlap_tbl .tg-0lax{text-align:left;vertical-align:top}
+.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}
+
+.diff_del {background-color: lightpink;}
+.diff_add {background-color: lightgreen;}`);
+}
+
+Table tmplDefaultTable(Element n, string[] header) @trusted {
+    import std.algorithm : map;
+    import std.array : array;
+    import dextool.plugin.mutate.backend.report.html.constants;
+
+    auto tbl = n.addChild("table").require!Table;
+    tbl.addClass(tableStyle);
+
+    auto tr = n.parentDocument.createElement("tr");
+    foreach (h; header) {
+        auto th = tr.addChild("th", h);
+        th.addClass(tableColumnHdrStyle);
+    }
+
+    tbl.addChild("thead").appendChild(tr);
+
+    return tbl;
 }

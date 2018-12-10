@@ -14,6 +14,7 @@ immutable htmlDir = "html";
 immutable htmlFileDir = "files";
 
 // CSS style
+immutable tableStat = "stat_tbl";
 immutable tableStyle = "overlap_tbl";
 immutable tableColumnHdrStyle = "tg-g59y";
 immutable tableRowStyle = "tg-0lax";

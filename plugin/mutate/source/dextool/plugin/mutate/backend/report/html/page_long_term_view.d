@@ -10,87 +10,72 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html.page_long_term_view;
 
 import logger = std.experimental.logger;
-import std.algorithm : sort, map, filter, count;
-import std.conv : to;
-import std.datetime : Clock, dur;
 import std.format : format;
-import std.typecons : tuple;
-import std.xml : encode;
+
+import arsd.dom : Document, Element, require, Table;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.nodes;
-import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 import dextool.type : AbsolutePath;
 
-@safe:
-
 auto makeLongTermView(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) {
-    import dextool.plugin.mutate.backend.report.html.tmpl : addStateTableCss;
+        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
+    import std.datetime : Clock;
 
-    auto root = defaultHtml(format("Long Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
-    auto s = root.preambleBody.n("style".Tag);
-    addStateTableCss(s);
+    auto doc = tmplBasicPage;
+    doc.title(format("Long Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
 
-    toHtml(reportSelectedAliveMutants(db, kinds, 10), root.body_);
+    toHtml(reportSelectedAliveMutants(db, kinds, 10), doc.mainBody);
 
-    return root;
+    return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(const MutantSample mut_sample, HtmlNode root) {
+void toHtml(const MutantSample mut_sample, Element root) {
     import std.path : buildPath;
+    import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
-    root.n("h2".Tag).put("High Interest Mutants");
+    root.addChild("h2", "High Interest Mutants");
 
     if (mut_sample.hardestToKill.length != 0) {
-        root.n("h3".Tag).put("Longest Surviving Mutant");
-        root.n("p".Tag)
-            .put(
-                    "This mutants has survived countless test runs. Slay one or more of them to be the hero of the team.");
+        root.addChild("h3", "Longest Surviving Mutant");
+        root.addChild("p",
+                "This mutants has survived countless test runs. Slay one or more of them to be the hero of the team.");
 
-        auto tbl = HtmlTable.make;
-        root.put(tbl.root);
-        tbl.root.putAttr("class", "overlap_tbl");
-        tbl.root.putAttr("class", "stat_tbl");
-        foreach (c; ["Link", "Discovered", "Last Updated", "Survived"])
-            tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
+        auto tbl = tmplDefaultTable(root, ["Link", "Discovered", "Last Updated", "Survived"]);
 
         foreach (const mutst; mut_sample.hardestToKill) {
             const mut = mut_sample.mutants[mutst.statusId];
-            auto r = tbl.newRow;
-
-            r.td.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(mut.file)),
-                    format("%s:%s", mut.file, mut.sloc.line), mut.id.to!string));
-            r.td.put(mutst.added.isNull ? "unknown" : mutst.added.get.toString);
-            r.td.put(mutst.updated.toString);
-            r.td.put(format("%s times", mutst.testCnt));
+            auto r = tbl.addChild("tr");
+            r.addChild("td").addChild("a", format("%s:%s", mut.file,
+                    mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
+                    pathToHtmlLink(mut.file)), mut.id);
+            r.addChild("td", mutst.added.isNull ? "unknown" : mutst.added.get.toString);
+            r.addChild("td", mutst.updated.toString);
+            r.addChild("td", format("%s times", mutst.testCnt));
         }
     }
 
     if (mut_sample.oldest.length != 0) {
-        root.n("p".Tag).put(format("This is a list of the %s oldest mutants containing when they where last tested and thus had their status updated.",
+        root.addChild("p", format("This is a list of the %s oldest mutants containing when they where last tested and thus had their status updated.",
                 mut_sample.oldest.length));
 
-        auto tbl = HtmlTable.make;
-        root.put(tbl.root);
-        tbl.root.putAttr("class", "overlap_tbl");
-        foreach (c; ["Link", "Updated"])
-            tbl.putColumn(c).putAttr("class", tableColumnHdrStyle);
+        auto tbl = tmplDefaultTable(root, ["Link", "Updated"]);
 
         foreach (const mutst; mut_sample.oldest) {
             auto mut = mut_sample.mutants[mutst.id];
-            auto r = tbl.newRow;
-            r.td.put(aHref(buildPath(htmlFileDir, pathToHtmlLink(mut.file)),
-                    format("%s:%s", mut.file, mut.sloc.line), mut.id.to!string));
-            r.td.put(mutst.updated.toString);
+            auto r = tbl.addChild("tr");
+            r.addChild("td").addChild("a", format("%s:%s", mut.file,
+                    mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
+                    pathToHtmlLink(mut.file)), mut.id);
+            r.addChild("td", mutst.updated.toString);
         }
     }
 }
