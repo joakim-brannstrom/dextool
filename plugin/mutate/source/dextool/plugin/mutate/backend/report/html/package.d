@@ -217,7 +217,7 @@ struct FileIndex {
                     muts.data.map!(a => a.mut.status.to!string))));
         }
 
-        ctx.out_.write(ctx.doc.toPrettyString);
+        ctx.out_.write(ctx.doc.toString);
     }
 
     override void postProcessEvent(ref Database db) @trusted {
@@ -651,7 +651,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         auto r = tbl.addChild("tr");
-        r.addChild("td", f.display).href = buildPath(htmlFileDir, f.path);
+        r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
         if (f.totalMutants == 0)
             r.addChild("td", "1.0");
         else
