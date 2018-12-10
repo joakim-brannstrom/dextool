@@ -150,7 +150,10 @@ body {font-family: monospace; font-size: 14px;}
 .overlap_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
 .overlap_tbl .tg-g59y{font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top}
 .overlap_tbl .tg-0lax{text-align:left;vertical-align:top}
-.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}`);
+.overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}
+
+.diff_del {background-color: lightpink;}
+.diff_add {background-color: lightgreen;}`);
 }
 
 Table tmplDefaultTable(Element n, string[] header) @trusted {
