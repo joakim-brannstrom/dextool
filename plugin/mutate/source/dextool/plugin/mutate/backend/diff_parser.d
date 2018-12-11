@@ -63,6 +63,10 @@ struct Diff {
     ChangedLines[AbsolutePath] changes;
     alias changes this;
 
+    bool empty() @safe pure nothrow const @nogc {
+        return changes.length == 0;
+    }
+
     /** A range over the changes by file.
      *
      * The paths are adjusted to be relative `workdir`.

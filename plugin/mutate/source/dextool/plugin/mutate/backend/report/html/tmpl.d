@@ -78,10 +78,13 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
 <table>
   <tr>
     <td><a href="../index.html" style="color: white">Back</a></td>
+    <td></td>
+    <td></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
     <td><span id="current_mutant_status"></span></td>
+    <td></td>
   </tr>
   <tr>
     <td><span class="xx_label">Mutant: </span></td>
@@ -90,7 +93,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
         <option value="-1">Original</option>
       </select>
     </td>
-    <td><input id="show_mutant" type="checkbox" checked=true onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
+    <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
   </tr>
 </table>
 </div>
@@ -98,7 +101,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
 `;
 
 Document tmplBasicPage() @trusted {
-    auto doc = new Document(`<html>
+    auto doc = new Document(`<html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"></head>
 <body></body>
 </html>
@@ -109,8 +112,7 @@ Document tmplBasicPage() @trusted {
 
 /// Add the CSS style after the head element.
 void tmplDefaultCss(Document doc) @trusted {
-    auto s = doc.root.childElements("head")[0].addSibling("style");
-    s.type = "text/css";
+    auto s = doc.root.childElements("head")[0].addChild("style");
     s.appendText(`
 body {font-family: monospace; font-size: 14px;}
 .stat_tbl      {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}

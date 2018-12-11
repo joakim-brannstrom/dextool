@@ -93,10 +93,12 @@ void toHtml(DiffReport report, Element root) {
 
         with (root.addChild("p")) {
             appendText("This are the mutants for the modified lines.");
+            appendText(" ");
             addChild("span", "Red").addClass("diff_del");
-            addChild("id", " removed line.");
+            appendText(" removed line.");
+            appendText(" ");
             addChild("span", "Green").addClass("diff_add");
-            addChild("id", " added line.");
+            appendText(" added line.");
         }
 
         auto tbl = tmplDefaultTable(root, ["Analyzed Diff", "Alive", "Killed"]);
@@ -107,7 +109,8 @@ void toHtml(DiffReport report, Element root) {
                 .array
                 .sort!((a, b) => a[1] < b[1])) {
             const path = report.files[pkv[0]];
-            tbl.appendRow(tbl.td(path).setAttribute("colspan", "3").setAttribute("valign", "top"));
+            tbl.appendRow(tbl.td(path).setAttribute("colspan", "3")
+                    .setAttribute("style", "vertical-align:top"));
 
             auto r = tbl.addChild("tr");
 
@@ -116,7 +119,7 @@ void toHtml(DiffReport report, Element root) {
             else
                 continue;
 
-            auto alive_ids = r.addChild("td").setAttribute("valign", "top");
+            auto alive_ids = r.addChild("td").setAttribute("style", "vertical-align:top");
             if (auto alive = pkv[0] in report.alive) {
                 foreach (a; (*alive).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                     auto link = alive_ids.addChild("a", format("%s:%s",
@@ -127,7 +130,7 @@ void toHtml(DiffReport report, Element root) {
                 }
             }
 
-            auto killed_ids = r.addChild("td").setAttribute("valign", "top");
+            auto killed_ids = r.addChild("td").setAttribute("style", "vertical-align:top");
             if (auto killed = pkv[0] in report.killed) {
                 foreach (a; (*killed).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                     auto link = killed_ids.addChild("a", format("%s:%s",
