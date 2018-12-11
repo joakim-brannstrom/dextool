@@ -126,6 +126,7 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * calculate the checksum for a mutant based on all tokens in a file excluding comment tokens.
  * add exclude to config file.
  * fix indent in diff report.
  * impl SDL for assignment operators. This is crucial because during code review it was found out that "this" specific mutation would have resulted in test cases failing.
