@@ -28,6 +28,7 @@ immutable tmplIndexStyle = `
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
+.line_nr {color: grey;}
 #mousehover {
     background: grey;
     border-radius: 8px;

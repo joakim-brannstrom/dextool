@@ -158,18 +158,21 @@ struct FileIndex {
 
         Set!MutationId ids;
         auto muts = appender!(MData[])();
-        int line = 1;
-        int column = 1;
+        uint line = 1;
+        uint column = 1;
 
         auto root = ctx.doc.mainBody;
+        root.addChild("span", "1:").addClass("line_nr");
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > line)
                 column = 1;
 
             auto meta = MetaSpan(s.muts);
 
-            foreach (_; 0 .. max(0, s.tok.loc.line - line))
+            foreach (const i; 0 .. max(0, s.tok.loc.line - line)) {
                 root.addChild("br");
+                root.addChild("span", format("%s:", line + i + 1)).addClass("line_nr");
+            }
             const spaces = max(0, s.tok.loc.column - column);
             root.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
 
@@ -292,12 +295,10 @@ struct FileCtx {
         r.doc.title = title;
         r.doc.mainBody.setAttribute("onload", "javascript:init();");
 
-        auto s = r.doc.root.childElements("head")[0].addSibling("style");
-        s.type = "text/css";
+        auto s = r.doc.root.childElements("head")[0].addChild("style");
         s.addChild(new RawSource(r.doc, tmplIndexStyle));
 
-        s = r.doc.root.childElements("head")[$ - 1].addSibling("script");
-        s.type = "text/javascript";
+        s = r.doc.root.childElements("head")[0].addChild("script");
         s.addChild(new RawSource(r.doc, js_file));
 
         r.doc.mainBody.appendHtml(tmplIndexBody);
