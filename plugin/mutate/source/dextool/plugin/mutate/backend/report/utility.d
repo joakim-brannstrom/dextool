@@ -32,14 +32,19 @@ immutable invalidFile = "Dextool: Invalid UTF-8 content";
 @safe:
 
 /// Create a range from `a` that has at most maxlen+3 letters in it.
-auto window(T)(T a, size_t maxlen) {
-    import std.algorithm : filter, among, joiner;
-    import std.range : take, only, chain;
+string window(T)(T a, size_t maxlen = windowSize) {
+    import std.algorithm : filter, among;
+    import std.conv : text;
+    import std.range : take, chain;
+    import std.uni : byGrapheme, byCodePoint;
 
-    // dfmt off
-    return chain(a.take(maxlen).filter!(a => !a.among('\n')),
-                 only(a.length > maxlen ? "..." : null).joiner);
-    // dfmt on
+    try {
+        return chain(a.byGrapheme.take(maxlen)
+                .byCodePoint.filter!(a => !a.among('\n')).text, a.length > maxlen ? "..." : null)
+            .text;
+    } catch (Exception e) {
+        return "[invalid utf8]";
+    }
 }
 
 ReportSection[] toSections(const ReportLevel l) {

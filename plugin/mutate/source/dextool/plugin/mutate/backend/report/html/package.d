@@ -9,8 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html;
 
-import std.stdio : File;
 import logger = std.experimental.logger;
+import std.exception : collectException;
+import std.stdio : File;
 
 import arsd.dom : Document, Element, require, Table, RawSource;
 
@@ -207,17 +208,24 @@ struct FileIndex {
         }
 
         with (root.addChild("script")) {
+            import dextool.plugin.mutate.backend.report.utility : window;
+
             addChild(new RawSource(ctx.doc, format("var g_mutids = [%(%s,%)];",
                     muts.data.map!(a => a.id))));
             addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
-                    muts.data.map!(a => a.txt.original[0 .. min(5, a.txt.original.length)]))));
+                    muts.data.map!(a => window(a.txt.original)))));
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
-                    muts.data.map!(a => a.txt.mutation[0 .. min(5, a.txt.mutation.length)]))));
+                    muts.data.map!(a => window(a.txt.mutation)))));
             addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
                     muts.data.map!(a => a.mut.status.to!string))));
         }
 
-        ctx.out_.write(ctx.doc.toString);
+        try {
+            ctx.out_.write(ctx.doc.toString);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.error("Unable to generate a HTML report for ", ctx.processFile).collectException;
+        }
     }
 
     override void postProcessEvent(ref Database db) @trusted {
@@ -298,6 +306,11 @@ struct FileCtx {
     }
 }
 
+/**
+ *
+ * The source can contain invalid UTF-8 chars therefor every token has to be
+ * validated. Otherwise it isn't possible to generate a report.
+ */
 struct Token {
     import clang.c.Index : CXTokenKind;
 
@@ -306,6 +319,22 @@ struct Token {
     SourceLoc loc;
     SourceLoc locEnd;
     string spelling;
+
+    this(CXTokenKind kind, Offset offset, SourceLoc loc, SourceLoc locEnd, string spelling) {
+        this.kind = kind;
+        this.offset = offset;
+        this.loc = loc;
+        this.locEnd = locEnd;
+
+        try {
+            import std.utf : validate;
+
+            validate(spelling);
+            this.spelling = spelling;
+        } catch (Exception e) {
+            this.spelling = "[invalid utf8]";
+        }
+    }
 
     string toId() @safe const {
         import std.format : format;
