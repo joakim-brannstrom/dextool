@@ -249,15 +249,18 @@ struct FileIndex {
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
         index.mainBody.addChild("p").addChild("a", "Statistics").href = stats_f.baseName;
-        index.mainBody.addChild("p").addChild("a", "Short Term View").href = short_f.baseName;
+
+        if (!diff.empty) {
+            index.mainBody.addChild("p").addChild("a", "Short Term View").href = short_f.baseName;
+            File(short_f, "w").write(makeShortTermView(db, conf,
+                    humanReadableKinds, kinds, diff, fio.getOutputDir));
+        }
         index.mainBody.addChild("p").addChild("a", "Long Term View").href = long_f.baseName;
         index.mainBody.addChild("p").addChild("a", "Test Groups").href = test_groups_f.baseName;
 
         files.data.toIndex(index.mainBody, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
-        File(short_f, "w").write(makeShortTermView(db, conf,
-                humanReadableKinds, kinds, diff, fio.getOutputDir));
         File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
         File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
