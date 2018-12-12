@@ -687,14 +687,30 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         auto r = tbl.addChild("tr");
         r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
-        if (f.totalMutants == 0)
-            r.addChild("td", "1.0");
-        else
-            r.addChild("td", format("%.3s",
-                    cast(double) f.killedMutants / cast(double) f.totalMutants));
-        r.addChild("td", f.aliveMutants.to!string);
-        r.addChild("td", f.aliveNoMut.to!string);
-        r.addChild("td", f.totalMutants.to!string);
+
+        const score = () {
+            if (f.totalMutants == 0)
+                return 1.0;
+            return cast(double) f.killedMutants / cast(double) f.totalMutants;
+        }();
+        const style = () {
+            if (f.killedMutants == f.totalMutants)
+                return "background-color: green";
+            if (score < 0.3)
+                return "background-color: red";
+            if (score < 0.5)
+                return "background-color: salmon";
+            if (score < 0.8)
+                return "background-color: lightyellow";
+            if (score < 1.0)
+                return "background-color: lightgreen";
+            return null;
+        }();
+
+        r.addChild("td", format("%.3s", score)).style = style;
+        r.addChild("td", f.aliveMutants.to!string).style = style;
+        r.addChild("td", f.aliveNoMut.to!string).style = style;
+        r.addChild("td", f.totalMutants.to!string).style = style;
 
         has_suppressed = has_suppressed || f.aliveNoMut != 0;
     }
