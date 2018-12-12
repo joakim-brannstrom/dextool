@@ -46,27 +46,33 @@ string makeStats(ref Database db, ref const ConfigReport conf,
 private:
 
 void overallStat(const MutationStat s, Element n) {
+    import std.conv : to;
     import std.typecons : tuple;
 
     n.addChild("h2", "Summary");
-    n.addChild("p", format("Mutation Score %.3s", s.score));
+    n.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
+    n.addChild("p", format("Execution time %s", s.totalTime));
 
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         n.addChild("p", format("Predicted time until mutation testing is done %s (%s)",
                 s.predictedDone, Clock.currTime + s.predictedDone));
     }
 
-    n.addChild("p", format("Execution time %s", s.totalTime));
-    if (s.aliveNoMut != 0) {
-        n.addChild("p", format("Suppressed (nomut) %s (%.3s of total)",
-                s.aliveNoMut, s.suppressedOfTotal));
-    }
-
-    auto tbl = tmplDefaultTable(n, ["Status", "Count"]);
+    auto tbl = tmplDefaultTable(n, ["Type", "Value"]);
     foreach (const d; [tuple("Alive", s.alive), tuple("Killed", s.killed),
             tuple("Timeout", s.timeout), tuple("Total", s.total), tuple("Untested",
                 s.untested), tuple("Killed by compiler", s.killedByCompiler),]) {
         tbl.appendRow(d[0], d[1]);
+    }
+
+    if (s.aliveNoMut != 0) {
+        tbl.appendRow("Suppressed (nomut)", s.aliveNoMut.to!string);
+        tbl.appendRow("Suppressed/total", s.suppressedOfTotal.to!string);
+
+        n.addChild("p", "Suppressed is the number of mutants that are alive but ignored. ")
+            .appendText("This result in those mutants positivly affecting the mutation score. ")
+            .appendText("The suppressed/total is how much it has influeced the mutation score. ")
+            .appendHtml("You <b>should</b> react if it is too high.");
     }
 }
 
