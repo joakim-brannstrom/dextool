@@ -10,8 +10,14 @@ module dextool_test.mutate_stmt_deletion;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-@(testId ~ "shall delete the body of functions returning void")
-class ShallDeleteBodyOfFuncsReturningVoid : MutantFixture {
+class SdlFixture : MutantFixture {
+    override string op() {
+        return "sdl";
+    }
+}
+
+// shall delete the body of functions returning void.
+class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
     override string programFile() {
         return "sdl_func_body_del.cpp";
     }
@@ -31,13 +37,44 @@ class ShallDeleteBodyOfFuncsReturningVoid : MutantFixture {
     }
 }
 
-class ShallDeleteAssignment : MutantFixture {
+class ShallDeleteFuncCalls : SdlFixture {
     override string programFile() {
-        return "sdl_assignment.cpp";
+        return "sdl_func_call.cpp";
     }
 
-    override string op() {
-        return "sdl";
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+        testAnyOrder!SubStr(["'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
+                "'wun(calc(6))' to ''", "'calc(7)' to ''", "'calc(8)' to ''",]).shouldBeIn(
+                r.stdout);
+        //TODO: maybe these should be deletable too? But it would require forward
+        //looking.
+        //"'calc(10)' to ''",
+        //"'calc(11)' to ''",
+    }
+}
+
+class ShallDeleteThrowStmt : SdlFixture {
+    override string programFile() {
+        return "sdl_throw.cpp";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+
+        testAnyOrder!SubStr([`from 'throw Foo()' to ''`]).shouldBeIn(r.stdout);
+
+        // this would result in "throw ;" which is totally junk. This is the
+        // old behavior before the introduced fix of being throw aware.
+        testAnyOrder!SubStr([`from 'Foo()' to ''`]).shouldNotBeIn(r.stdout);
+    }
+}
+
+class ShallDeleteAssignment : SdlFixture {
+    override string programFile() {
+        return "sdl_assignment.cpp";
     }
 
     override void test() {
@@ -48,45 +85,4 @@ class ShallDeleteAssignment : MutantFixture {
         testAnyOrder!SubStr([`from 'int x = 2' to ''`,
                 `from 'bool y = true' to ''`, `from 'int w = 3' to ''`,]).shouldNotBeIn(r.stdout);
     }
-}
-
-// dfmt off
-
-@(testId ~ "shall successfully run the ABS mutator (no validation of the result)")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "statement_deletion.cpp")
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "sdl"])
-        .run;
-}
-
-@(testId ~ "shall delete function calls")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "sdl_func_call.cpp")
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "sdl"])
-        .run;
-
-    testAnyOrder!SubStr([
-       "'gun()' to ''",
-        "'wun(5)' to ''",
-        "'calc(6)' to ''",
-        "'wun(calc(6))' to ''",
-        "'calc(7)' to ''",
-        "'calc(8)' to ''",
-    ]).shouldBeIn(r.stdout);
-    //TODO: maybe these should be deletable too? But it would require forward
-    //looking.
-        //"'calc(10)' to ''",
-        //"'calc(11)' to ''",
 }
