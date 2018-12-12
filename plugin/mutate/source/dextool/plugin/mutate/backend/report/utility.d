@@ -389,7 +389,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     MutationStat st;
     st.alive = alive.count;
     st.aliveNoMut = alive_nomut.count;
-    st.killed = only(killed, timeout).map!(a => a.count).sum;
+    st.killed = killed.count;
     st.timeout = timeout.count;
     st.untested = untested.count;
     st.total = total.count;
