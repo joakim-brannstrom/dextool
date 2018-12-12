@@ -721,6 +721,9 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
     Set!MutationId killing_mutants;
 
+    long total;
+    long killed;
+
     foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
         if (fid.isNull) {
@@ -739,7 +742,9 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
                 else {
                     rval.killed[fid] ~= m;
                     killing_mutants.add(m.id);
+                    ++killed;
                 }
+                ++total;
             }
         }
 
@@ -759,10 +764,10 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
     rval.testCases = test_cases.setToList!TestCase.sort.array;
 
-    if (rval.killed.length == 0) {
+    if (total == 0) {
         rval.score = 1.0;
     } else {
-        rval.score = 1.0 - cast(double) rval.alive.length / cast(double) rval.killed.length;
+        rval.score = cast(double) killed / cast(double) total;
     }
 
     return rval;

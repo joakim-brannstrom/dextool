@@ -154,7 +154,7 @@ void toHtml(DiffReport report, Element root) {
     }
 
     root.addChild("h2", "Short Term View");
-    root.addChild("p", "Mutation Score: ").appendText(report.score.to!string);
+    root.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", report.score));
 
     root.addChild("h3", "File(s) Report");
     renderFiles();
