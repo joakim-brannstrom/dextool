@@ -77,6 +77,7 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     rval.transf.assignStmtCallback ~= () => stmtDelMutations;
     rval.transf.funcCallCallback ~= () => stmtDelMutations;
     rval.transf.voidFuncBodyCallback ~= () => stmtDelMutations;
+    rval.transf.throwStmtCallback ~= () => stmtDelMutations;
 
     rval.transf.unaryInjectCallback ~= (ValueKind k) => absMutations;
     rval.transf.binaryOpExprCallback ~= (OpKind k) => absMutations;
@@ -297,18 +298,29 @@ class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const(CxxThrowExpr) v) {
+        mixin(mixinNodeLog!());
+        mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+        transf.throwStmt(v.cursor);
+        v.accept(this);
+    }
+
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
 
-        const is_inside_func = kind_stack.hasValue(CXCursorKind.functionDecl)
+        const is_func = kind_stack.hasValue(CXCursorKind.functionDecl)
             || kind_stack.hasValue(CXCursorKind.cxxMethod);
+        const is_bool_func = is_func && return_type_func.hasValue(CXTypeKind.bool_);
         const is_return_stmt = kind_stack.hasValue(CXCursorKind.returnStmt);
-        const is_bool_func = return_type_func.hasValue(CXTypeKind.bool_);
 
-        if (is_inside_func && is_return_stmt && is_bool_func) {
+        if (is_bool_func && is_return_stmt) {
             transf.returnBoolFunc(v.cursor);
-        } else if (is_inside_func && is_return_stmt) {
-            // do nothing
+        } else if (is_return_stmt) {
+            // a function that should return a value but is mutated to exit
+            // without a "return" statement introduce UB.
+        } else if (kind_stack.hasValue(CXCursorKind.cxxThrowExpr)) {
+            // mutating to from "throw exception();" to "throw ;" is just
+            // stupid.
         } else {
             transf.binaryOp(v.cursor, enum_cache);
             transf.funcCall(v.cursor);
@@ -476,13 +488,12 @@ class Transform {
 
     /// Any statement
     alias StatementEvent = Mutation.Kind[]delegate();
-    alias FunctionCallEvent = Mutation.Kind[]delegate();
-    alias FunctionBodyEvent = Mutation.Kind[]delegate();
     StatementEvent[] stmtCallback;
     StatementEvent[] funcCallCallback;
     StatementEvent[] voidFuncBodyCallback;
     StatementEvent[] returnBoolFuncCallback;
     StatementEvent[] assignStmtCallback;
+    StatementEvent[] throwStmtCallback;
 
     /// Any statement that should have a unary operator inserted before/after
     alias UnaryInjectEvent = Mutation.Kind[]delegate(ValueKind);
@@ -564,6 +575,10 @@ class Transform {
 
     void returnBoolFunc(const Cursor c) {
         noArgCallback(c, returnBoolFuncCallback);
+    }
+
+    void throwStmt(const Cursor c) {
+        noArgCallback(c, throwStmtCallback);
     }
 
     void voidFuncBody(const Cursor c) {
