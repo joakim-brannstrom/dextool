@@ -368,21 +368,23 @@ struct MutationStat {
     }
 }
 
-MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
+MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     import core.time : dur;
     import std.algorithm : map, sum;
     import std.range : only;
     import dextool.plugin.mutate.backend.utility;
 
-    const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds); });
-    const alive_nomut = spinSqlQuery!(() { return db.aliveNoMutSrcMutants(kinds); });
-    const killed = spinSqlQuery!(() { return db.killedSrcMutants(kinds); });
-    const timeout = spinSqlQuery!(() { return db.timeoutSrcMutants(kinds); });
-    const untested = spinSqlQuery!(() { return db.unknownSrcMutants(kinds); });
-    const killed_by_compiler = spinSqlQuery!(() {
-        return db.killedByCompilerSrcMutants(kinds);
+    const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds, file); });
+    const alive_nomut = spinSqlQuery!(() {
+        return db.aliveNoMutSrcMutants(kinds, file);
     });
-    const total = spinSqlQuery!(() { return db.totalSrcMutants(kinds); });
+    const killed = spinSqlQuery!(() { return db.killedSrcMutants(kinds, file); });
+    const timeout = spinSqlQuery!(() { return db.timeoutSrcMutants(kinds, file); });
+    const untested = spinSqlQuery!(() { return db.unknownSrcMutants(kinds, file); });
+    const killed_by_compiler = spinSqlQuery!(() {
+        return db.killedByCompilerSrcMutants(kinds, file);
+    });
+    const total = spinSqlQuery!(() { return db.totalSrcMutants(kinds, file); });
 
     MutationStat st;
     st.alive = alive.count;

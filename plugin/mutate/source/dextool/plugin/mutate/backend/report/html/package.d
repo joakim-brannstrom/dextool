@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.report.html;
 
 import logger = std.experimental.logger;
 import std.exception : collectException;
+import std.format : format;
 import std.stdio : File;
 
 import arsd.dom : Document, Element, require, Table, RawSource;
@@ -40,6 +41,8 @@ struct FileIndex {
     long aliveMutants;
     long killedMutants;
     long totalMutants;
+    // Nr of mutants that are alive but tagged with nomut.
+    long aliveNoMut;
 }
 
 @safe final class ReportHtml : FileReport, FilesReporter {
@@ -97,12 +100,15 @@ struct FileIndex {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.html.page_files;
+        import dextool.plugin.mutate.backend.report.utility : reportStatistics;
 
         const original = fr.file.dup.pathToHtml;
         const report = (original ~ htmlExt).Path;
-        files.put(FileIndex(report, fr.file, db.aliveSrcMutants(kinds, fr.file)
-                .count, db.killedSrcMutants(kinds, fr.file).count,
-                db.totalSrcMutants(kinds, fr.file).count));
+
+        auto stat = reportStatistics(db, kinds, fr.file);
+
+        files.put(FileIndex(report, fr.file, stat.alive,
+                stat.killed + stat.timeout + stat.aliveNoMut, stat.total, stat.aliveNoMut));
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
@@ -141,7 +147,6 @@ struct FileIndex {
         import std.algorithm : max, each, map, min, canFind;
         import std.array : appender;
         import std.conv : to;
-        import std.format : format;
         import std.range : repeat;
 
         static struct MData {
@@ -233,7 +238,6 @@ struct FileIndex {
 
     override void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
-        import std.format : format;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_short_term_view;
@@ -274,7 +278,7 @@ struct FileIndex {
 private:
 
 string toJson(string s) {
-    import std.json;
+    import std.json : JSONValue;
 
     return JSONValue(s).toString;
 }
@@ -341,8 +345,6 @@ struct Token {
     }
 
     string toId() @safe const {
-        import std.format : format;
-
         return format("%s-%s", offset.begin, offset.end);
     }
 
@@ -619,7 +621,6 @@ struct Span {
 
     string toString() @safe pure const {
         import std.array : appender;
-        import std.format : FormatSpec;
 
         auto buf = appender!string;
         toString(buf);
@@ -680,19 +681,26 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.conv : to;
     import std.path : buildPath;
 
-    auto tbl = tmplDefaultTable(root, ["Path", "Score", "Alive", "Total"]);
+    auto tbl = tmplDefaultTable(root, ["Path", "Score", "Alive", "NoMut", "Total"]);
 
+    bool has_suppressed;
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         auto r = tbl.addChild("tr");
         r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
         if (f.totalMutants == 0)
             r.addChild("td", "1.0");
         else
-            r.addChild("td", (cast(double) f.killedMutants / cast(double) f.totalMutants)
-                    .to!string);
+            r.addChild("td", format("%.3s",
+                    cast(double) f.killedMutants / cast(double) f.totalMutants));
         r.addChild("td", f.aliveMutants.to!string);
+        r.addChild("td", f.aliveNoMut.to!string);
         r.addChild("td", f.totalMutants.to!string);
+
+        has_suppressed = has_suppressed || f.aliveNoMut != 0;
     }
+
+    root.addChild("p", "NoMut is the number of alive mutants in the file that are ignored.")
+        .appendText(" This increases the score.");
 }
 
 /// Metadata about the span to be used to e.g. color it.
@@ -712,8 +720,6 @@ struct MetaSpan {
     string onClick2;
 
     this(const(FileMutant)[] muts) {
-        import std.format : format;
-
         immutable click_fmt = "onclick='ui_set_mut(%s)'";
         immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
@@ -760,16 +766,12 @@ MetaSpan.StatusColor pickColor(const FileMutant m,
 }
 
 string toVisible(MetaSpan.StatusColor s) {
-    import std.format : format;
-
     if (s == MetaSpan.StatusColor.none)
         return null;
     return format("status_%s", s);
 }
 
 string toHover(MetaSpan.StatusColor s) {
-    import std.format : format;
-
     if (s == MetaSpan.StatusColor.none)
         return null;
     return format("hover_%s", s);

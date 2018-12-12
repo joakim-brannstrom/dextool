@@ -66,13 +66,14 @@ void overallStat(const MutationStat s, Element n) {
     }
 
     if (s.aliveNoMut != 0) {
-        tbl.appendRow("Suppressed (nomut)", s.aliveNoMut.to!string);
-        tbl.appendRow("Suppressed/total", s.suppressedOfTotal.to!string);
+        tbl.appendRow("NoMut", s.aliveNoMut.to!string);
+        tbl.appendRow("NoMut/total", s.suppressedOfTotal.to!string);
 
-        n.addChild("p", "Suppressed is the number of mutants that are alive but ignored. ")
-            .appendText("This result in those mutants positivly affecting the mutation score. ")
-            .appendText("The suppressed/total is how much it has influeced the mutation score. ")
-            .appendHtml("You <b>should</b> react if it is too high.");
+        n.addChild("p", "NoMut is the number of mutants that are alive but ignored.")
+            .appendHtml(" They are <i>suppressed</i>.")
+            .appendText(" This result in those mutants increasing the mutation score.")
+            .appendText(" The suppressed/total is how much it has increased.")
+            .appendHtml(" You <b>should</b> react if it is high.");
     }
 }
 
