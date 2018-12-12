@@ -402,6 +402,13 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             .addArg(["--style", "markdown"])
             .run;
 
+        // TODO how to verify this? arsd.dom?
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "summary"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
         // assert
         testConsecutiveSparseOrder!SubStr([
             "Score:   0.8",
