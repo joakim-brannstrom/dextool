@@ -319,8 +319,7 @@ class BaseVisitor : ExtendedVisitor {
             // a function that should return a value but is mutated to exit
             // without a "return" statement introduce UB.
         } else if (kind_stack.hasValue(CXCursorKind.cxxThrowExpr)) {
-            // mutating to from "throw exception();" to "throw ;" is just
-            // stupid.
+            // mutating from "throw exception();" to "throw ;" is just stupid.
         } else {
             transf.binaryOp(v.cursor, enum_cache);
             transf.funcCall(v.cursor);
