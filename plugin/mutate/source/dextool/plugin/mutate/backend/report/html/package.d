@@ -418,8 +418,13 @@ struct FileMutant {
         this.id = id;
         this.offset = offset;
         this.txt.original = original;
-        this.txt.mutation = mutation;
         this.mut = mut;
+
+        // users prefer being able to see what has been removed.
+        if (mutation.length == 0)
+            this.txt.mutation = "/* " ~ this.txt.original ~ " */";
+        else
+            this.txt.mutation = mutation;
     }
 
     this(MutationId id, Offset offset, string original) {
