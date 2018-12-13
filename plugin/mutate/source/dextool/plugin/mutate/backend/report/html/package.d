@@ -682,14 +682,18 @@ struct Span {
 }
 
 void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
-    import std.algorithm : sort;
+    import std.algorithm : sort, filter;
     import std.conv : to;
     import std.path : buildPath;
 
     auto tbl = tmplDefaultTable(root, ["Path", "Score", "Alive", "NoMut", "Total"]);
 
+    // Users are not interested that files that contains zero mutants are shown
+    // in the list. It is especially annoying when they are marked with dark
+    // green.
     bool has_suppressed;
-    foreach (f; files.sort!((a, b) => a.path < b.path)) {
+    foreach (f; files.sort!((a, b) => a.path < b.path)
+            .filter!(a => a.totalMutants != 0)) {
         auto r = tbl.addChild("tr");
         r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
 
