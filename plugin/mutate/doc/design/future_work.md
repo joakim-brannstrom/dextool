@@ -126,6 +126,8 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * allow the limits for the colors in the html report for files to be configurable.
+    * The user may have either looser or stricter requirements than those that are hard coded atm.
  * calculate the checksum for a mutant based on all tokens in a file excluding comment tokens.
  * add exclude to config file.
  * fix indent in diff report.
