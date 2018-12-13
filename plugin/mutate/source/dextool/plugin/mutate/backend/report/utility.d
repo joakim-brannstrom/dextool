@@ -315,6 +315,8 @@ struct MutationStat {
     double score() @safe pure nothrow const @nogc {
         if (total > 0)
             return cast(double)(killed + timeout + aliveNoMut) / cast(double) total;
+        if (untested > 0)
+            return 0.0;
         return 1.0;
     }
 
