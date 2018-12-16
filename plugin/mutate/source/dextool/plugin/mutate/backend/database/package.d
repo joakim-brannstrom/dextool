@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
 public import dextool.plugin.mutate.backend.database.type;
-public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery, Cache;
+public import dextool.plugin.mutate.backend.database.standalone : spinSqlQuery;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
