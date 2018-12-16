@@ -31,10 +31,11 @@ import dextool.type : AbsolutePath, Path, FileName, DirName;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import dextool.plugin.mutate.backend.analyze.internal;
 import dextool.plugin.mutate.backend.database : MutationPointEntry, MutationPointEntry2;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc, OpTypeInfo;
 import dextool.plugin.mutate.backend.type : Language;
+import dextool.plugin.mutate.backend.type : MutationPoint, SourceLoc, OpTypeInfo;
 
 /// Contain a visitor and the data.
 struct VisitorResult {
@@ -61,10 +62,10 @@ private:
  *  val_loc_ = queried by the visitor with paths for the AST nodes to determine
  *      if they should be analyzed.
  */
-VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
+VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, Cache cache) {
     typeof(return) rval;
     rval.validateLoc = val_loc_;
-    rval.result = new AnalyzeResult(fio);
+    rval.result = new AnalyzeResult(fio, cache);
     rval.transf = new Transform(rval.result, val_loc_);
     rval.enum_cache = new EnumCache;
     rval.visitor = new BaseVisitor(rval.transf, rval.enum_cache);
@@ -996,8 +997,9 @@ class AnalyzeResult {
     }
 
     FilesysIO fio;
-    Appender!(MutationPointEntry2[]) entries;
+    Cache cache;
 
+    Appender!(MutationPointEntry2[]) entries;
     Appender!(FileResult[]) files;
     Set!Path file_index;
     Checksum[AbsolutePath] fileChecksum;
@@ -1005,8 +1007,9 @@ class AnalyzeResult {
     /// The source code language of the current file that is producing mutants.
     Language lang;
 
-    this(FilesysIO fio) {
+    this(FilesysIO fio, Cache cache) {
         this.fio = fio;
+        this.cache = cache;
     }
 
     void put(MutationPointEntry a) {
@@ -1022,12 +1025,7 @@ class AnalyzeResult {
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
         auto fin = fio.makeInput(p);
 
-        Checksum cs;
-        if (auto v = p in fileChecksum) {
-            cs = *v;
-        } else {
-            fileChecksum[p] = checksum(fin.read);
-        }
+        auto cs = cache.getFileChecksum(p, fin.read);
 
         auto id_factory = MutationIdFactory(a.file, a.mp.offset, cs);
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);

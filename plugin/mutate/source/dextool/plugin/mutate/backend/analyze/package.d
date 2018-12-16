@@ -20,6 +20,7 @@ import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
 
+import dextool.plugin.mutate.backend.analyze.internal : Cache;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
@@ -68,6 +69,8 @@ struct Analyzer {
         ValidateLoc val_loc;
         FilesysIO fio;
         ConfigCompiler conf;
+
+        Cache cache;
     }
 
     this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
@@ -75,6 +78,7 @@ struct Analyzer {
         this.before_files = db.getFiles.setFromList;
         this.val_loc = val_loc;
         this.fio = fio;
+        this.cache = new Cache;
 
         db.removeAllFiles;
     }
@@ -114,7 +118,7 @@ struct Analyzer {
         import std.algorithm : map;
         import std.array : array;
 
-        auto root = makeRootVisitor(fio, val_loc);
+        auto root = makeRootVisitor(fio, val_loc, cache);
         analyzeFile(checked_in_file, in_file.flags.completeFlags, root.visitor, ctx);
 
         foreach (a; root.mutationPointFiles) {
