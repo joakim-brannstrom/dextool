@@ -11,7 +11,7 @@ one at http://mozilla.org/MPL/2.0/.
 
 TODO cache the checksums. They are *heavy*.
 */
-module dextool.plugin.mutate.backend.analyzer;
+module dextool.plugin.mutate.backend.analyze;
 
 import logger = std.experimental.logger;
 
