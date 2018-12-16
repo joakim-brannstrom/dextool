@@ -69,7 +69,7 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  * This is a bit slow, I think. Optimize by reducing the created strings.
  * trusted: none of the unsafe accessed data escape this function.
  */
-auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, AbsolutePath file) @trusted {
+auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
     import std.array : appender;
     import clang.Index;
     import clang.TranslationUnit;
@@ -86,4 +86,24 @@ auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Abs
     }
 
     return toks.data;
+}
+
+struct TokenRange {
+    private {
+        Token[] tokens;
+    }
+
+    Token front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return tokens[0];
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        tokens = tokens[1 .. $];
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return tokens.length == 0;
+    }
 }

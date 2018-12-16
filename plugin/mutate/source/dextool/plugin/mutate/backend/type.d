@@ -33,41 +33,6 @@ struct MutationPoint {
     }
 }
 
-/// Create mutation ID's from source code mutations.
-struct MutationIdFactory {
-    import dextool.type : Path;
-
-    /// Filename containing the mutants.
-    Path file;
-    /// Mutation point offset [start, stop).
-    Offset offset;
-    /// Checksum of the file.
-    Checksum cs;
-
-    /// Calculate the unique ID for a specific mutation at this point.
-    Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
-
-        BuildChecksum128 h;
-        h.put(cast(const(ubyte)[]) file);
-        h.put(cs.c0.toBytes);
-        h.put(cs.c1.toBytes);
-        h.put(offset.begin.toBytes);
-        h.put(offset.end.toBytes);
-        // TODO: the only unique between mutants is this part. The rest should
-        // be reused to speedup.
-        h.put(mut);
-        return toChecksum128(h);
-    }
-
-    /// Create a mutant at this mutation point.
-    CodeMutant makeMutant(Mutation m, const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
-        auto id = makeId(mut);
-        return CodeMutant(CodeChecksum(id), m);
-    }
-}
-
 /// Offset range. It is a `[)` (closed->open).
 struct Offset {
     uint begin;
@@ -375,6 +340,8 @@ struct Token {
     import std.format : format;
     import clang.c.Index : CXTokenKind;
 
+    // TODO: this should be a language agnostic type when more languages are
+    // added in the future.
     CXTokenKind kind;
     Offset offset;
     SourceLoc loc;

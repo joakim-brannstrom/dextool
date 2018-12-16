@@ -15,7 +15,7 @@ The flow of information is:
  * AnalyzeResult. Gets the mutants and files that contains mutants.
  * MutantResult. Takes a AnalyzeResult and transform into code mutations.
 */
-module dextool.plugin.mutate.backend.visitor;
+module dextool.plugin.mutate.backend.analyze.visitor;
 
 @safe:
 
@@ -62,10 +62,10 @@ private:
  *  val_loc_ = queried by the visitor with paths for the AST nodes to determine
  *      if they should be analyzed.
  */
-VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, Cache cache) {
+VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, TokenStream tstream, Cache cache) {
     typeof(return) rval;
     rval.validateLoc = val_loc_;
-    rval.result = new AnalyzeResult(fio, cache);
+    rval.result = new AnalyzeResult(fio, tstream, cache);
     rval.transf = new Transform(rval.result, val_loc_);
     rval.enum_cache = new EnumCache;
     rval.visitor = new BaseVisitor(rval.transf, rval.enum_cache);
@@ -997,6 +997,7 @@ class AnalyzeResult {
     }
 
     FilesysIO fio;
+    TokenStream tstream;
     Cache cache;
 
     Appender!(MutationPointEntry2[]) entries;
@@ -1009,28 +1010,55 @@ class AnalyzeResult {
     /// The source code language of the current file that is producing mutants.
     Language lang;
 
-    this(FilesysIO fio, Cache cache) {
+    this(FilesysIO fio, TokenStream tstream, Cache cache) {
         this.fio = fio;
+        this.tstream = tstream;
         this.cache = cache;
     }
 
     void put(MutationPointEntry a) {
+        import std.algorithm : countUntil, filter;
+        import std.array : array;
+        import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
-        import dextool.plugin.mutate.backend.type : MutationIdFactory;
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
             return;
         }
 
-        auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
-        auto fin = fio.makeInput(p);
+        // the filter on this line is the magic. By skipping tokens the
+        // checksum become stable to commentchanges.
+        auto toks = cache.getTokens(a.file, tstream)
+            .filter!(a => a.kind != CXTokenKind.comment).array;
+        // create two set of tokens. one with those before the mutantand one
+        // with after.
+        const pre_idx = toks.countUntil!((a, b) => a.offset.begin > b.offset.begin)(a.mp);
+        Token[] pre_tokens = () {
+            if (pre_idx == -1 || pre_idx == toks.length)
+                return toks;
+            return toks[0 .. pre_idx];
+        }();
+        // TODO: optimize by starting count from pre_idx. beware if pre_idx is
+        // -1.
+        const post_idx = toks.countUntil!((a, b) => a.offset.end > b.offset.end)(a.mp);
+        Token[] post_tokens = () {
+            if (post_idx == -1 || post_idx == pre_tokens.length)
+                return null;
+            return toks[post_idx .. $];
+        }();
+        // these generate too much debug info to be active all the time
+        //debug logger.trace("mutation point: ", a.mp);
+        //debug logger.trace("pre_tokens: ", pre_tokens);
+        //debug logger.trace("post_tokens: ", post_tokens);
 
-        auto cs = cache.getFileChecksum(p, fin.read);
-
-        auto id_factory = MutationIdFactory(a.file, a.mp.offset, cs);
+        auto id_factory = MutationIdFactory(a.file, pre_tokens, post_tokens);
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
+        auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
+        // the file should already be in the store of files to save to the DB.
+        assert(p in file_index);
+        auto fin = fio.makeInput(p);
         foreach (m; a.mp.mutations) {
             auto txt = makeMutationText(fin, mpe.offset, m.kind, lang);
             auto cm = id_factory.makeMutant(m, txt.rawMutation);
@@ -1289,6 +1317,59 @@ final class EnumVisitor : Visitor {
         }
 
         v.accept(this);
+    }
+}
+
+/// Create mutation ID's from source code mutations.
+struct MutationIdFactory {
+    import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+    import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
+    import dextool.type : Path;
+
+    /// Filename containing the mutants.
+    Path file;
+    /// Checksum of the tokens before the mutant.
+    Checksum preMutant;
+    /// Checksum of the tokens after the mutant.
+    Checksum postMutant;
+
+    this(Path file, Token[] preMutant, Token[] postMutant) {
+        this.file = file;
+
+        BuildChecksum128 pre;
+        foreach (t; preMutant) {
+            pre.put(cast(const(ubyte)[]) t.spelling);
+        }
+        this.preMutant = toChecksum128(pre);
+
+        BuildChecksum128 post;
+        foreach (t; postMutant) {
+            post.put(cast(const(ubyte)[]) t.spelling);
+        }
+        this.postMutant = toChecksum128(post);
+    }
+
+    /// Calculate the unique ID for a specific mutation at this point.
+    Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
+        assert(file.length != 0);
+
+        BuildChecksum128 h;
+        h.put(cast(const(ubyte)[]) file);
+        h.put(preMutant.c0.toBytes);
+        h.put(preMutant.c1.toBytes);
+
+        h.put(mut);
+
+        h.put(postMutant.c0.toBytes);
+        h.put(postMutant.c1.toBytes);
+        return toChecksum128(h);
+    }
+
+    /// Create a mutant at this mutation point.
+    CodeMutant makeMutant(Mutation m, const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
+        assert(file.length != 0);
+        auto id = makeId(mut);
+        return CodeMutant(CodeChecksum(id), m);
     }
 }
 
