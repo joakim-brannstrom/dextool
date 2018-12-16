@@ -29,6 +29,38 @@ The analyzer shall calculate and save two checksum for each file:
    Flags can have a semantic effect on the code such as `#define`.
  - the content of the file.
 
+## Style Stable Mutation Checksum
+
+Change how the checksums are calculated to make it possible to format a file
+without requiring a re-analyze -> test.
+
+Current checksum structure:
+
+ * file path
+ * file content checksum
+ * offset begin
+ * offset end
+ * source code mutation
+
+Change to this:
+
+ * file path
+ * checksum of all tokens before those the mutant modify
+ * source code mutation
+ * checksum of all tokens after the last token the mutant modify
+
+By removing the offset in the file the mutant become stable to style changes in
+the source code. It is still guaranteed to be unique because the stream of
+tokens are modified depending on what is changed in the file. This *encodes*
+the offset via the injection of the source code mutant in the stream of tokens
+when calculating the checksum.
+
+### TODO
+
+Include the compiler flags in the checksum. Be wary of absolute paths. They may
+make it hard to reuse databases between environments. Such as downloading the
+database from the CI server to analyze and use locally.
+
 # SPC-analyzer-reanalyze_files
 partof: SPC-analyzer
 ###
