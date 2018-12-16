@@ -69,6 +69,14 @@ Generate a database of all mutation points:
 dextool mutate analyze
 ```
 
+Create a file `build.sh` that will build the subject under test when invoked:
+```sh
+#!/bin/bash
+set -e
+cd build
+make -j4
+```
+
 Create a file `test.sh` that will run the entire test suite when invoked:
 ```sh
 #!/bin/bash
@@ -87,8 +95,7 @@ make -j$(nproc)
 
 Make the files executable so they can be used by dextool:
 ```sh
-chmod 755 test.sh
-chmod 755 compile.sh
+chmod 755 build.sh test.sh compile.sh
 ```
 
 Run the mutation testing on the LCR mutants:
