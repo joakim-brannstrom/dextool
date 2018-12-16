@@ -314,31 +314,15 @@ struct FileCtx {
     }
 }
 
-// This is a bit slow, I think. Optimize by reducing the created strings.
-// trusted: none of the unsafe accessed data escape this function.
 auto tokenize(AbsolutePath base_dir, Path f) @trusted {
-    import std.array : appender;
     import std.path : buildPath;
     import std.typecons : Yes;
-    import clang.Index;
-    import clang.TranslationUnit;
     import cpptooling.analyzer.clang.context;
+    static import dextool.plugin.mutate.backend.utility;
 
-    const fpath = buildPath(base_dir, f);
-
+    const fpath = buildPath(base_dir, f).Path.AbsolutePath;
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    auto tu = ctx.makeTranslationUnit(fpath);
-
-    auto toks = appender!(Token[])();
-    foreach (ref t; tu.cursor.tokens) {
-        auto ext = t.extent;
-        auto start = ext.start;
-        auto end = ext.end;
-        toks.put(Token(t.kind, Offset(start.offset, end.offset),
-                SourceLoc(start.line, start.column), SourceLoc(end.line, end.column), t.spelling));
-    }
-
-    return toks.data;
+    return dextool.plugin.mutate.backend.utility.tokenize(ctx, fpath);
 }
 
 struct FileMutant {
