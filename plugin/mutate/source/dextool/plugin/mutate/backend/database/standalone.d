@@ -1163,16 +1163,3 @@ string toSqliteDateTime(SysTime ts) {
             cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
             ts.fracSecs.total!"msecs");
 }
-
-/// Cache database queries to avoid hitting the database.
-struct Cache(K, V, alias Query) {
-    V[K] data;
-
-    auto opCall(K k) {
-        if (auto v = k in data)
-            return *v;
-        auto v = Query(k);
-        data[k] = v;
-        return v;
-    }
-}

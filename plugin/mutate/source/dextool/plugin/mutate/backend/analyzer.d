@@ -145,11 +145,15 @@ struct Analyzer {
         import std.array : appender;
         import std.string : stripLeft;
         import std.utf : byCodeUnit;
+        import std.functional : memoize;
         import clang.c.Index : CXTokenKind;
-        import dextool.plugin.mutate.backend.database : LineMetadata, Cache, FileId, LineAttr;
+        import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr;
 
-        Cache!(string, Nullable!FileId,
-                a => db.getFileId(trustedRelativePath(a, fio.getOutputDir).Path)) getFileId;
+        Nullable!FileId getFileIdImpl(string path) {
+            return db.getFileId(trustedRelativePath(path, fio.getOutputDir).Path);
+        }
+
+        alias getFileId = memoize!getFileIdImpl;
 
         auto tu = ctx.makeTranslationUnit(file);
 
