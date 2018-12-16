@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.report.utility : toSections;
-import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 import dextool.type : AbsolutePath, Path, DirName;
@@ -314,66 +314,6 @@ struct FileCtx {
 
         return r;
     }
-}
-
-/**
- *
- * The source can contain invalid UTF-8 chars therefor every token has to be
- * validated. Otherwise it isn't possible to generate a report.
- */
-struct Token {
-    import clang.c.Index : CXTokenKind;
-
-    CXTokenKind kind;
-    Offset offset;
-    SourceLoc loc;
-    SourceLoc locEnd;
-    string spelling;
-
-    this(CXTokenKind kind, Offset offset, SourceLoc loc, SourceLoc locEnd, string spelling) {
-        this.kind = kind;
-        this.offset = offset;
-        this.loc = loc;
-        this.locEnd = locEnd;
-
-        try {
-            import std.utf : validate;
-
-            validate(spelling);
-            this.spelling = spelling;
-        } catch (Exception e) {
-            this.spelling = invalidUtf8;
-        }
-    }
-
-    string toId() @safe const {
-        return format("%s-%s", offset.begin, offset.end);
-    }
-
-    string toName() @safe const {
-        import std.conv : to;
-
-        return kind.to!string;
-    }
-
-    int opCmp(ref const typeof(this) s) const @safe {
-        if (offset.begin > s.offset.begin)
-            return 1;
-        if (offset.begin < s.offset.begin)
-            return -1;
-        if (offset.end > s.offset.end)
-            return 1;
-        if (offset.end < s.offset.end)
-            return -1;
-        return 0;
-    }
-}
-
-@("shall be possible to construct in @safe")
-@safe unittest {
-    import clang.c.Index : CXTokenKind;
-
-    auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
 }
 
 // This is a bit slow, I think. Optimize by reducing the created strings.
