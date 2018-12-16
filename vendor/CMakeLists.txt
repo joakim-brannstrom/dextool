@@ -3,6 +3,7 @@ if(BUILD_TEST)
 endif()
 
 include(dextool_arsd.cmake)
+include(dextool_cachetools.cmake)
 include(dextool_colorlog.cmake)
 include(dextool_d2sqlite3.cmake)
 include(dextool_gtest.cmake)
