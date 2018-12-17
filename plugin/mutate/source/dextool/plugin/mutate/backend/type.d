@@ -34,8 +34,11 @@ struct MutationPoint {
 struct MutationIdFactory {
     import dextool.type : Path;
 
+    /// Filename containing the mutants.
     Path file;
+    /// Mutation point offset [start, stop).
     Offset offset;
+    /// Checksum of the file.
     Checksum cs;
 
     /// Calculate the unique ID for a specific mutation at this point.
