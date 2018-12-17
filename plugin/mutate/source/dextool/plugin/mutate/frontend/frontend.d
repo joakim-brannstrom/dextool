@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.frontend.frontend;
 
 import logger = std.experimental.logger;
+import std.exception : collectException;
 
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
@@ -33,6 +34,8 @@ ExitStatusType runMutate(ArgParser conf) {
     modes[ToolMode.test_mutants] = &modeTestMutants;
     modes[ToolMode.report] = &modeReport;
     modes[ToolMode.admin] = &modeAdmin;
+
+    logger.info("Using ", conf.db);
 
     if (auto f = conf.toolMode in modes) {
         return () @trusted {
