@@ -25,10 +25,17 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "lcr"])
         .run;
-    verifyLcr(r.stdout);
-}
 
-void verifyLcr(const(string)[] txt) {
-    txt.sliceContains("from '&&' to '||'").shouldBeTrue;
-    txt.sliceContains("from '||' to '&&'").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "from '&&' to '||'",
+        "from 'a && b' to 'true'",
+        "from 'a && b' to 'false'",
+        "from '&& b' to ''",
+        "from 'a &&' to ''",
+        "from '||' to '&&'",
+        "from 'a || b' to 'true'",
+        "from 'a || b' to 'false'",
+        "from '|| b' to ''",
+        "from 'a ||' to ''",
+    ]).shouldBeIn(r.stdout);
 }

@@ -70,8 +70,7 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     rval.visitor = new BaseVisitor(rval.transf, rval.enum_cache);
 
     import dextool.clang_extensions : OpKind;
-    import dextool.plugin.mutate.backend.utility : stmtDelMutations, absMutations, uoiLvalueMutations,
-        uoiRvalueMutations, isDcc, dccBranchMutations, dccCaseMutations, dcrCaseMutations;
+    import dextool.plugin.mutate.backend.mutation_type;
 
     //rval.transf.stmtCallback ~= () => stmtDelMutations;
     rval.transf.assignStmtCallback ~= () => stmtDelMutations;
@@ -98,17 +97,13 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     import std.algorithm : map;
     import std.array : array;
     import dextool.plugin.mutate.backend.type : Mutation;
-    import dextool.plugin.mutate.backend.utility : isLcr, lcrMutations, isAor, aorMutations, isAorAssign,
-        aorAssignMutations, isRor, rorMutations, isCor, corOpMutations,
-        corExprMutations, isLcrb, isLcrbAssign, lcrbMutations, lcrbAssignMutations;
 
-    // TODO refactor so array() can be removed. It is an unnecessary allocation
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
-        if (auto v = k in isLcr)
-            return lcrMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
+        return lcrMutations(k).op;
     };
+    rval.transf.binaryOpExprCallback ~= (OpKind k) { return lcrMutations(k).expr; };
+    rval.transf.binaryOpRhsCallback ~= (OpKind, OpTypeInfo) => lcrRhsMutations;
+    rval.transf.binaryOpLhsCallback ~= (OpKind, OpTypeInfo) => lcrLhsMutations;
 
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isLcrb) {

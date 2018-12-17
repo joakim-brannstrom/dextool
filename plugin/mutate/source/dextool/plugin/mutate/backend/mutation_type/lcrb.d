@@ -48,7 +48,7 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        lcrbMutationsAll = [lcrbAnd, lcrbOr];
+        lcrbMutationsAll = [lcrbAnd, lcrbOr, lcrbLhs, lcrbRhs];
         lcrbAssignMutationsAll = [lcrbOrAssign, lcrbAndAssign];
     }
 }

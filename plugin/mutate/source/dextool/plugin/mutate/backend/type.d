@@ -152,6 +152,13 @@ struct Mutation {
         lcrbOr,
         lcrbAndAssign,
         lcrbOrAssign,
+        lcrbLhs,
+        lcrbRhs,
+        /// Logical connector replacement
+        lcrLhs,
+        lcrRhs,
+        lcrTrue,
+        lcrFalse,
     }
 
     /// The status of a mutant.
