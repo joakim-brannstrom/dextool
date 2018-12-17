@@ -60,9 +60,9 @@ amplification of infeasible mutants.
 
 ### RORG
 
-In [@improvingLogicBasedTesting] showed that out of the seven possible mutations only
-three are required to be generated to guarantee detection of the remaining
-four.
+In [@improvingLogicBasedTesting] showed that out of the seven possible
+mutations only three are required to be generated to guarantee detection of the
+remaining four.
 
 Mutation subsuming table from [@thesis1]:
 
@@ -205,11 +205,17 @@ partof: REQ-mutations
 TODO: add requirement.
 
 ## Logical Connector Replacement (LCR)
-Replace a single operand with another operand.
-The operands are:
-```cpp
-||,&&
-```
+
+Replace a logical operand with the inverse.
+
+| Original | 1        | 2        | 3        | 4   | 5   |
+|----------|----------|----------|----------|-----|-----|
+| `x && y` | `x || y` | `true`   | `false`  | `x` | `y` |
+| `x || y` | `x && y` | `true`   | `false`  | `x` | `y` |
+
+### Note
+
+Column 2-5 where added after studying [@googleStateOfMutationTesting2018] p.4.
 
 # SPC-mutation_uoi
 partof: REQ-mutations
