@@ -17,12 +17,12 @@ immutable tmplIndexStyle = `
 .mutant {display:none; background-color: yellow;}
 .status_alive {background-color: lightpink;}
 .status_killed {background-color: lightgreen;}
-.status_killedByCompiler {background-color: mediumseagreen;}
+.status_killedByCompiler {background-color: #eeeeee;}
 .status_timeout {background-color: limegreen;}
 .status_unknown {background-color: mistyrose;}
 .hover_alive {color: lightpink;}
 .hover_killed {color: lightgreen;}
-.hover_killedByCompiler {color: mediumseagreen;}
+.hover_killedByCompiler {color: #eeeeee;}
 .hover_timeout {color: limegreen;}
 .hover_unknown {color: mistyrose;}
 .literal {color: darkred;}
