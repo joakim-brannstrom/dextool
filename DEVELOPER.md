@@ -1,9 +1,9 @@
 # vim: filetype=markdown
 
-This file contains information useful to a developer of deXtool.
+This file contains information useful to a developer of Dextool.
 
 # Setup
-Compared to a normal installation of deXtool a developer have additional needs
+Compared to a normal installation of Dextool a developer have additional needs
 such as compiling a full debug build (contracts activated) and compiling the
 tests.
 
@@ -28,7 +28,7 @@ make check_integration
 
 # API Documentation
 
-This describe how to build the API documentation for deXtool (all plugins and the support libraries).
+This describe how to build the API documentation for Dextool (all plugins and the support libraries).
 
 Re-configure cmake with the documentation directive on:
 ```sh

@@ -37,7 +37,7 @@ enum Status {
 }
 
 auto sourcePath() {
-    // those that are supported by the developer of deXtool
+    // those that are supported by the developer of Dextool
 
     // dfmt off
     return only(

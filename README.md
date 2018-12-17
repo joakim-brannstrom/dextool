@@ -1,9 +1,9 @@
 # dextool [![Build Status](https://travis-ci.org/joakim-brannstrom/dextool.svg?branch=master)](https://travis-ci.org/joakim-brannstrom/dextool) [![codecov](https://codecov.io/gh/joakim-brannstrom/dextool/branch/master/graph/badge.svg)](https://codecov.io/gh/joakim-brannstrom/dextool)
 
-**deXtool** is a framework for writing plugins using libclang. The main focus
+**Dextool** is a framework for writing plugins using libclang. The main focus
 is tools for testing and analyze.
 
-The plugins in a standard installation of deXtool are:
+The plugins in a standard installation of Dextool are:
  - Analyze. Analyze C/C++ code to generate complexity numbers such as McCabe.
  - C TestDouble. Analyze C code to generate a test double implementation.
  - C++ TestDouble. Analyze C++ code to generate a test double implementation.
@@ -24,14 +24,14 @@ The plugins in a standard installation of deXtool are:
 
 # Getting Started
 
-deXtool depends on the following software packages:
+Dextool depends on the following software packages:
 
  * [llvm](http://releases.llvm.org/download.html) (4.0+, both libclang and LLVM is needed)
  * [cmake](https://cmake.org/download) (3.5+)
  * [D compiler](https://dlang.org/download.html) (dmd 2.076.1+, ldc 1.8.0+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
 
-deXtool has been tested with libclang [4.0, 5.0].
+Dextool has been tested with libclang [4.0, 5.0].
 
 For people running Ubuntu two of the dependencies can be installed via apt-get.
 The version of clang and llvm depend on your ubuntu version.
@@ -65,7 +65,7 @@ libclang_interop.hpp:13:10: fatal error: clang/Analysis/CFG.h: No such file or d
  #include <clang/Analysis/CFG.h>
 ```
 
-It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the version that deXtool detected.
+It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the version that Dextool detected.
 
 # Usage
 
@@ -74,4 +74,4 @@ See the usage examples in respective plugin directory:
 
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
-this code base. Without DStep deXTool wouldn't exist.
+this code base. Without DStep Dextool wouldn't exist.

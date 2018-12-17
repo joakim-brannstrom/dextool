@@ -9,9 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 
 This module contains functionality to calculate hashes for use as e.g.
 checksums. The intention is to have the *same* algorithm being used for the
-same *things* in deXtool.
+same *things* in Dextool.
 
-This is to make it easier to integrate with deXtool produced data.
+This is to make it easier to integrate with Dextool produced data.
 
 **Prefer** the 128-bit hash.
 
@@ -143,11 +143,11 @@ Crc64Iso toCrc64Iso(ref BuildChecksum64 h) @trusted pure nothrow @nogc {
 
 /** 64-bit checksum.
  *
- * It is intended to be generically used in deXtool when such a checksum is needed.
+ * It is intended to be generically used in Dextool when such a checksum is needed.
  *
  * CRC64 ISO is used because there exist implementations in other languages
  * which makes it possible to calculate the checksum in e.g. python and compare
- * with the one from deXtool.
+ * with the one from Dextool.
  *
  * TODO: check if python have a 64ISO or 64ECMA implementation.
  */

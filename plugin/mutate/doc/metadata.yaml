@@ -1,5 +1,5 @@
 ---
-title: Requirements, Design and Test for deXtool Mutation Plugin
+title: Requirements, Design and Test for Dextool Mutation Plugin
 author: Joakim Brännström
 tags: [srs, sdd, svc, mutation testing, llvm, clang]
 description: fun times

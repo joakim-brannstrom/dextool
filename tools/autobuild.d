@@ -6,7 +6,7 @@
 import std.process;
 
 int main(string[] args) {
-    // run the script from the root of the deXtool repo
+    // run the script from the root of the Dextool repo
     const AUTOBUILD_TOOL = "tools/autobuild";
     const AUTOBUILD_BIN = "autobuild.bin";
 

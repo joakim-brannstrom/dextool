@@ -98,7 +98,7 @@ for the purpose of:
  * scale-out: single threaded code can easily be made highly concurrent with
    the D standard library
  * building blocks: the building blocks for mutation testing can reuse those
-   that already exist in deXtool which reduces development time.
+   that already exist in Dextool which reduces development time.
  * fun: D is a fun and productive language to write in.
 
 Exception: For interoperability with the clang AST and LLVM backend certain

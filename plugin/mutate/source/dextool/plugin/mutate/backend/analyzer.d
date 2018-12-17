@@ -83,7 +83,7 @@ struct Analyzer {
         if (in_file.isNull)
             return;
 
-        // TODO: this should be generic for deXtool.
+        // TODO: this should be generic for Dextool.
         in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         // find the file and flags to analyze
