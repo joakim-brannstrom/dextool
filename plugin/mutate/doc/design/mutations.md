@@ -217,6 +217,31 @@ Replace a logical operand with the inverse.
 
 Column 2-5 where added after studying [@googleStateOfMutationTesting2018] p.4.
 
+# SPC-lcrb
+partof: REQ-mutations
+###
+
+The plugin shall mutate the bitwise operators `|` and `&`.
+
+## Logical Connector Replacement Bit-wise (LCRB)
+
+These two bitwise operators correlate well with the LCR operator. Coverage tools have a general problem with bitwise operators. This mutation operator can replace the manual coverage inspection activity when bitwise operators are used.
+
+| Original Expression | Mutant 1 |
+| ------------------- | -------- |
+| `x | y`             | `x & y`  |
+| `x & y`             | `x | y`  |
+
+| Original | 1       | 2   | 3   |
+|----------|---------|-----|-----|
+| `x & y`  | `x | y` | `x` | `y` |
+| `x | y`  | `x & y` | `x` | `y` |
+
+### Note
+
+Column 2-3 where added after studying [@googleStateOfMutationTesting2018] p.4
+and concluding that if LCR is updated then LCRb should also be updated.
+
 # SPC-mutation_uoi
 partof: REQ-mutations
 ###
@@ -450,21 +475,6 @@ body is deleted and test cases do not kill the mutant that the function is
 
 This type of mutation is *probably* more useful for C++ object oriented code
 because it forces tests to kill methods that have a void return type.
-
-# SPC-lcrb
-partof: REQ-mutations
-###
-
-The plugin shall mutate the bitwise operators `|` and `&`.
-
-## Logical Connector Replacement Bit-wise (LCRB)
-
-These two bitwise operators correlate well with the LCR operator. Coverage tools have a general problem with bitwise operators. This mutation operator can replace the manual coverage inspection activity when bitwise operators are used.
-
-| Original Expression | Mutant 1 |
-| ------------------- | -------- |
-| `x | y`             | `x & y`  |
-| `x & y`             | `x | y`  |
 
 # TST-statement_del_call_expression
 partof: SPC-mutations_statement_del-call_expression
