@@ -7,8 +7,8 @@
 /// (LLVMFuzzerTestOneInput) with AFL using AFL's persistent (in-process) mode.
 /// The content of the file is divided in two parts, separated by:
 ///  - ### LLVM ###
-///  - ### deXtool ###
-/// The code in LLVM is under the LLVM license, the one under deXtool is Boost.
+///  - ### Dextool ###
+/// The code in LLVM is under the LLVM license, the one under Dextool is Boost.
 #include "dextool/dextool.hpp"
 
 // ### LLVM ###
@@ -250,7 +250,7 @@ extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize) {
     return 0;
 }
 
-// ### deXtool ###
+// ### Dextool ###
 
 namespace dextool {
 

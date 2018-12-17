@@ -24,7 +24,7 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design 
 
 This section explains how to use Dextool Mutate to analyze a C++ project that uses the CMake build system.
 
-Note though that the deXtool work with any build system that is able to generate a JSON compilation database.
+Note though that the Dextool work with any build system that is able to generate a JSON compilation database.
 It is just that CMake conveniently has builtin support to generate those.
 For other build systems there exists the excellent [BEAR](https://github.com/rizsotto/Bear) tool that can spy on the build process to generate such a database.
 

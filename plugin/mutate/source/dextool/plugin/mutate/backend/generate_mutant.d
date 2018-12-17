@@ -377,7 +377,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
 @safe struct MakeMutationTextResult {
     import std.utf : validate;
 
-    static immutable originalIsCorrupt = "deXtool: unable to open the file or it has changed since mutation where performed";
+    static immutable originalIsCorrupt = "Dextool: unable to open the file or it has changed since mutation where performed";
 
     const(ubyte)[] rawOriginal = cast(const(ubyte)[]) originalIsCorrupt;
     const(ubyte)[] rawMutation;

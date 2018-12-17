@@ -80,7 +80,7 @@ A draft of a workflow and architecture would be.
  * The user rerun the analyzer.
      The analyzer repopulates the internal database with new mutations for the changed files.
  * The user run the mutant tester. The mutant tester only test those mutations that are in the changed files.
- * The user import the previous analysis from file X into deXtool.
+ * The user import the previous analysis from file X into Dextool.
  * The user export a mutation result report to file Y (same fileformat as X).
  * The user only has to go through and determine equivalence for the new mutations.
 

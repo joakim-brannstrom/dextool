@@ -3,7 +3,7 @@
     name "pandoc"
 +/
 /** This script produces a PDF of the requirements, design and test
- * documentation for the deXtool mutation testing plugin.
+ * documentation for the Dextool mutation testing plugin.
  *
  * Dependent on the following packages (Ubuntu):
  * `sudo apt install texlive-bibtex-extra biber pandoc pandoc-citeproc`

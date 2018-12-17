@@ -4,7 +4,7 @@
 set(CPACK_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
 set(CPACK_PACKAGE_VERSION ${DEXTOOL_EMBEDDED_VERSION_PATH})
 set(CPACK_PACKAGE_CONTACT "joakim.brannstrom.public@gmx.com")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "deXtool: C/C++ tooling for test and analysis")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Dextool: C/C++ tooling for test and analysis")
 
 #
 # Debian specifics
