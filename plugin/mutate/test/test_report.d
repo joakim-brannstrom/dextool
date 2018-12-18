@@ -65,13 +65,13 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Mutants",
-        "| From | To   | File Line:Column                                                           | ID | Status |",
-        "|------|------|----------------------------------------------------------------------------|----|--------|",
-        "| `>`  | `>=` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
+        "| From  | To | File Line:Column                                                          | ID | Status |",
+        "|-------|----|---------------------------------------------------------------------------|----|--------|",
+        "| `x >` | `` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:9 | 1  | alive  |",
         "## Alive Mutation Statistics",
-        "| Percentage | Count | From | To   |",
-        "|------------|-------|------|------|",
-        "| 100        | 2     | `>`  | `>=` |",
+        "| Percentage | Count | From  | To |",
+        "|------------|-------|-------|----|",
+        "| 100        | 2     | `x >` | `` |",
         "## Summary",
         "Mutation execution time:",
         "Untested:",
@@ -167,9 +167,9 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
         `"ID","Kind","Description","Location","Comment"`,
-        `"8","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"27","dcr","'case 2:`,
+        `"12","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"13","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"31","dcr","'case 2:`,
         `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
@@ -185,10 +185,12 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    // the mutation ID's are chosen in such a way that 1 and 2 is the same.
+    // The mutation ID's are chosen in such a way that 1 and 2 is the same.
     // This mean that the second updateMutation will overwrite whatever 1 was set to.
-    // by setting mutant 3 to killed it automatically propagate to mutant 4
+    //
+    // By setting mutant 3 to killed it automatically propagate to mutant 4
     // because they are the same source code change.
+    //
     // Then tc_1 is added to mutant 3 because that one is distinct from 1 and 2.
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
     db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
@@ -204,9 +206,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase | Location |",
         "|------------|-------|----------|----------|",
-        "| 80         | 4     | tc_2     |          |",
-        "| 40         | 2     | tc_3     |          |",
-        "| 40         | 2     | tc_1     |          |",
+        "| 66.6667    | 4     | tc_2     |          |",
+        "| 33.3333    | 2     | tc_3     |          |",
+        "| 33.3333    | 2     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -274,8 +276,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 40         | 2     | tc_1     |",
-        "| 40         | 2     | tc_3     |",
+        "| 33.3333    | 2     | tc_1     |",
+        "| 33.3333    | 2     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -411,23 +413,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.8",
+            "Score:   0.625",
             "Alive:   15",
-            "Killed:  11",
+            "Killed:  9",
             "Timeout: 0",
-            "Total:   26",
+            "Total:   24",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 10 (0.38",
+            "Suppressed (nomut): 6 (0.25",
         ]).shouldBeIn(plain.stdout);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.8",
+            "Score:   0.625",
             "Alive:   15",
-            "Killed:  11",
+            "Killed:  9",
             "Timeout: 0",
-            "Total:   26",
+            "Total:   24",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 10 (0.38",
+            "Suppressed (nomut): 6 (0.25",
         ]).shouldBeIn(markdown.stdout);
     }
 }

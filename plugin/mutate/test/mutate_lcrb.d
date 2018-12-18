@@ -9,7 +9,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall produce all lcrb mutations for primitive types")
+@(testId ~ "shall produce all lcrb mutations for primitive types")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
