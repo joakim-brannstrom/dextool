@@ -39,6 +39,14 @@ void verifyAor(const(string)[] txt) {
             auto expected = format("from '%s' to '%s'", op, mut);
             dextoolYap("Testing: " ~ expected);
             txt.sliceContains(expected).shouldBeTrue;
+
+            auto rhs = format("from 'a %s' to ''", op);
+            dextoolYap("Testing: " ~ rhs);
+            txt.sliceContains(rhs).shouldBeTrue;
+
+            auto lhs = format("from 'b %s' to ''", op);
+            dextoolYap("Testing: " ~ lhs);
+            txt.sliceContains(lhs).shouldBeTrue;
         }
     }
 }

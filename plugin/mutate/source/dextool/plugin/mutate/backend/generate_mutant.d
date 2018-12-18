@@ -274,6 +274,11 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case aorSubAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("-="); };
         break;
+    case aorLhs:
+        goto case;
+    case aorRhs:
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
+        break;
         /// Unary operator insert on an lvalue
         /// #SPC-mutation_uoi
     case uoiPostInc:

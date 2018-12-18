@@ -9,17 +9,37 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.aor;
 
-import std.algorithm : filter;
+import std.algorithm : filter, among;
+import std.array : array;
+import std.typecons : Tuple;
 
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
 
-auto aorMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return aorMutationsAll.filter!(a => a != is_a);
+Mutation.Kind[] aorMutations(OpKind k) @safe pure nothrow {
+    auto v = k in isAor;
+    if (v is null)
+        return null;
+
+    return aorMutationsAll.dup.filter!(a => !a.among(*v,
+            Mutation.Kind.aorRhs, Mutation.Kind.aorLhs)).array;
 }
 
-auto aorAssignMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return aorAssignMutationsAll.filter!(a => a != is_a);
+Mutation.Kind[] aorAssignMutations(OpKind k) @safe pure nothrow {
+    auto v = k in isAorAssign;
+    if (v is null)
+        return null;
+
+    return aorAssignMutationsAll.dup.filter!(a => !a.among(*v,
+            Mutation.Kind.aorRhs, Mutation.Kind.aorLhs)).array;
+}
+
+auto aorLhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.aorRhs];
+}
+
+auto aorRhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.aorLhs];
 }
 
 immutable Mutation.Kind[OpKind] isAor;
@@ -61,8 +81,8 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub,];
+        aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub, aorLhs, aorRhs];
         aorAssignMutationsAll = [aorMulAssign, aorDivAssign, aorRemAssign,
-            aorAddAssign, aorSubAssign,];
+            aorAddAssign, aorSubAssign];
     }
 }

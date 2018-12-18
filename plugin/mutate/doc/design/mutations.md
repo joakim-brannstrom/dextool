@@ -192,11 +192,18 @@ partof: REQ-mutations
 TODO: add requirement.
 
 ## Arithmetic Operator Replacement (AOR)
+
 Replace a single arithmetic operator with another operand.
-The operators are:
-```cpp
-+,-,*,/,%
-```
+
+| Original | 1   | 2   | 3       | 4       | 5       | 6       |
+|----------|-----|-----|---------|---------|---------|---------|
+| `x + y`  | `x` | `y` | `x - y` | `x * y` | `x / y` | `x % y` |
+| `x - y`  | `x` | `y` | `x + y` | `x * y` | `x / y` | `x % y` |
+| `x * y`  | `x` | `y` | `x - y` | `x + y` | `x / y` | `x % y` |
+| `x / y`  | `x` | `y` | `x - y` | `x * y` | `x + y` | `x % y` |
+| `x % y`  | `x` | `y` | `x - y` | `x * y` | `x / y` | `x + y` |
+
+Column 1-2 where added after studying [@googleStateOfMutationTesting2018] p.4.
 
 # SPC-mutation_lcr
 partof: REQ-mutations
