@@ -723,7 +723,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
                 5.dur!"msecs", [TestCase("tc_1")]);
         // verify pre-condition that test cases exist in the DB
         auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
+        testConsecutiveSparseOrder!SubStr(["| 100        | 3     | tc_1     |"]).shouldBeIn(
                 r0.stdout);
 
         // Act
@@ -731,7 +731,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
 
         // Assert that the test cases are still their
         auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
+        testConsecutiveSparseOrder!SubStr(["| 100        | 3     | tc_1     |"]).shouldBeIn(
                 r1.stdout);
     }
 }

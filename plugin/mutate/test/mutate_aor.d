@@ -11,7 +11,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall produce all AOR mutations")
+@(testId ~ "shall produce all AOR mutations")
 @Values("aor_primitive.cpp", "aor_object_overload.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
@@ -44,7 +44,7 @@ void verifyAor(const(string)[] txt) {
             dextoolYap("Testing: " ~ rhs);
             txt.sliceContains(rhs).shouldBeTrue;
 
-            auto lhs = format("from 'b %s' to ''", op);
+            auto lhs = format("from '%s b' to ''", op);
             dextoolYap("Testing: " ~ lhs);
             txt.sliceContains(lhs).shouldBeTrue;
         }

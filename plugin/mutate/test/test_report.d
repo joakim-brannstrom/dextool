@@ -71,7 +71,7 @@ unittest {
         "## Alive Mutation Statistics",
         "| Percentage | Count | From  | To |",
         "|------------|-------|-------|----|",
-        "| 100        | 2     | `x >` | `` |",
+        "| 100        | 3     | `x >` | `` |",
         "## Summary",
         "Mutation execution time:",
         "Untested:",
@@ -167,9 +167,9 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
         `"ID","Kind","Description","Location","Comment"`,
-        `"12","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"13","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"31","dcr","'case 2:`,
+        `"14","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"15","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"33","dcr","'case 2:`,
         `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
@@ -185,17 +185,21 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    // The mutation ID's are chosen in such a way that 1 and 2 is the same.
-    // This mean that the second updateMutation will overwrite whatever 1 was set to.
+    // Updating this test case requires manually inspecting the database.
     //
-    // By setting mutant 3 to killed it automatically propagate to mutant 4
+    // The mutation ID's are chosen in such a way that 1 and 2 is the same.
+    // This mean that the second updateMutation will overwrite whatever 1 was
+    // set to.
+    //
+    // By setting mutant 4 to killed it automatically propagate to mutant 5
     // because they are the same source code change.
     //
-    // Then tc_1 is added to mutant 3 because that one is distinct from 1 and 2.
+    // Then tc_1 is added to mutant 4 because it makes the score of the test
+    // suite sto be different when it is based on the distinct mutants killed.
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
     db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(5), Mutation.Status.alive, 10.dur!"msecs", null);
+    db.updateMutation(MutationId(4), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(7), Mutation.Status.alive, 10.dur!"msecs", null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -206,9 +210,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase | Location |",
         "|------------|-------|----------|----------|",
-        "| 66.6667    | 4     | tc_2     |          |",
-        "| 33.3333    | 2     | tc_3     |          |",
-        "| 33.3333    | 2     | tc_1     |          |",
+        "| 75         | 6     | tc_2     |          |",
+        "| 37.5       | 3     | tc_3     |          |",
+        "| 37.5       | 3     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -227,7 +231,8 @@ unittest {
     db.setDetectedTestCases([TestCase("tc_4")]);
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
     db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(3), Mutation.Status.alive, 10.dur!"msecs", [TestCase("tc_3")]);
+    // make tc_3 unique
+    db.updateMutation(MutationId(4), Mutation.Status.alive, 10.dur!"msecs", [TestCase("tc_3")]);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -262,8 +267,8 @@ unittest {
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
     db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(3), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(5), Mutation.Status.alive, 10.dur!"msecs", null);
+    db.updateMutation(MutationId(4), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(7), Mutation.Status.alive, 10.dur!"msecs", null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -276,8 +281,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 33.3333    | 2     | tc_1     |",
-        "| 33.3333    | 2     | tc_3     |",
+        "| 37.5       | 3     | tc_1     |",
+        "| 37.5       | 3     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -413,23 +418,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.625",
-            "Alive:   15",
-            "Killed:  9",
+            "Score:   0.545",
+            "Alive:   14",
+            "Killed:  8",
             "Timeout: 0",
-            "Total:   24",
+            "Total:   22",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 6 (0.25",
+            "Suppressed (nomut): 4 (0.182",
         ]).shouldBeIn(plain.stdout);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.625",
-            "Alive:   15",
-            "Killed:  9",
+            "Score:   0.545",
+            "Alive:   14",
+            "Killed:  8",
             "Timeout: 0",
-            "Total:   24",
+            "Total:   22",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 6 (0.25",
+            "Suppressed (nomut): 4 (0.182",
         ]).shouldBeIn(markdown.stdout);
     }
 }
