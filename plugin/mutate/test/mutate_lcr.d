@@ -11,7 +11,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall produce all LCR mutations for primitive types")
+@(testId ~ "shall produce all LCR mutations for primitive types")
 @Values("lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
@@ -25,10 +25,17 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "lcr"])
         .run;
-    verifyLcr(r.stdout);
-}
 
-void verifyLcr(const(string)[] txt) {
-    txt.sliceContains("from '&&' to '||'").shouldBeTrue;
-    txt.sliceContains("from '||' to '&&'").shouldBeTrue;
+    testAnyOrder!SubStr([
+        "from '&&' to '||'",
+        "from 'a && b' to 'true'",
+        "from 'a && b' to 'false'",
+        "from '&& b' to ''",
+        "from 'a &&' to ''",
+        "from '||' to '&&'",
+        "from 'a || b' to 'true'",
+        "from 'a || b' to 'false'",
+        "from '|| b' to ''",
+        "from 'a ||' to ''",
+    ]).shouldBeIn(r.stdout);
 }

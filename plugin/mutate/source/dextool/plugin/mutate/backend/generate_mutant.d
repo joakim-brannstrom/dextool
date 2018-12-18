@@ -231,6 +231,17 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case lcrOr:
         m.mutate = (const(ubyte)[] expr) { return toB("||"); };
         break;
+    case lcrLhs:
+        goto case;
+    case lcrRhs:
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
+        break;
+    case lcrTrue:
+        m.mutate = &clangTrue;
+        break;
+    case lcrFalse:
+        m.mutate = &clangFalse;
+        break;
         /// Arithmetic operator replacement
         /// #SPC-mutation_aor
     case aorMul:
@@ -368,6 +379,11 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         break;
     case lcrbOrAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("|="); };
+        break;
+    case lcrbLhs:
+        goto case;
+    case lcrbRhs:
+        m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
     }
 

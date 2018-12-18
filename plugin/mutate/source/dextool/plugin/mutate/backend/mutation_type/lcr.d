@@ -9,13 +9,35 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.lcr;
 
-import std.algorithm : filter;
-
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
 
-auto lcrMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return lcrMutationsAll.filter!(a => a != is_a);
+auto lcrMutations(OpKind k) @safe pure nothrow {
+    import std.typecons : Tuple;
+
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr");
+
+    auto v = k in isLcr;
+    if (v is null)
+        return Rval();
+
+    auto rval = Rval(null, [Mutation.Kind.lcrTrue, Mutation.Kind.lcrFalse]);
+
+    if (*v == Mutation.Kind.lcrAnd) {
+        rval.op = [Mutation.Kind.lcrOr];
+    } else if (*v == Mutation.Kind.lcrOr) {
+        rval.op = [Mutation.Kind.lcrAnd];
+    }
+
+    return rval;
+}
+
+auto lcrLhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.lcrRhs];
+}
+
+auto lcrRhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.lcrLhs];
 }
 
 immutable Mutation.Kind[OpKind] isLcr;
@@ -35,6 +57,6 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        lcrMutationsAll = [lcrAnd, lcrOr,];
+        lcrMutationsAll = [lcrAnd, lcrOr, lcrLhs, lcrRhs, lcrTrue, lcrFalse];
     }
 }

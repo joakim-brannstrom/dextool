@@ -9,17 +9,39 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.lcrb;
 
-import std.algorithm : filter;
-
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
 
-auto lcrbMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return lcrbMutationsAll.filter!(a => a != is_a);
+auto lcrbMutations(OpKind k) @safe pure nothrow {
+    auto v = k in isLcrb;
+    if (v is null)
+        return null;
+
+    if (*v == Mutation.Kind.lcrbAnd)
+        return [Mutation.Kind.lcrbOr];
+    else if (*v == Mutation.Kind.lcrbOr)
+        return [Mutation.Kind.lcrbAnd];
+    return null;
 }
 
-auto lcrbAssignMutations(Mutation.Kind is_a) @safe pure nothrow {
-    return lcrbAssignMutationsAll.filter!(a => a != is_a);
+auto lcrbLhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.lcrbRhs];
+}
+
+auto lcrbRhsMutations() @safe pure nothrow {
+    return [Mutation.Kind.lcrbLhs];
+}
+
+auto lcrbAssignMutations(OpKind k) @safe pure nothrow {
+    auto v = k in isLcrbAssign;
+    if (v is null)
+        return null;
+
+    if (*v == Mutation.Kind.lcrbAndAssign)
+        return [Mutation.Kind.lcrbOrAssign];
+    else if (*v == Mutation.Kind.lcrbOrAssign)
+        return [Mutation.Kind.lcrbAndAssign];
+    return null;
 }
 
 immutable Mutation.Kind[OpKind] isLcrb;
@@ -48,7 +70,7 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        lcrbMutationsAll = [lcrbAnd, lcrbOr];
+        lcrbMutationsAll = [lcrbAnd, lcrbOr, lcrbLhs, lcrbRhs];
         lcrbAssignMutationsAll = [lcrbOrAssign, lcrbAndAssign];
     }
 }

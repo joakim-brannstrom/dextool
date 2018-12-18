@@ -9,7 +9,7 @@ import dextool_test.utility;
 
 // dfmt off
 
-@("shall produce all lcrb mutations for primitive types")
+@(testId ~ "shall produce all lcrb mutations for primitive types")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
@@ -23,6 +23,10 @@ unittest {
 
     testAnyOrder!SubStr([
         "from '&' to '|'",
-        "from '|' to '&'"
+        "from 'a &' to ''",
+        "from '& b' to ''",
+        "from '|' to '&'",
+        "from 'a |' to ''",
+        "from '| b' to ''",
     ]).shouldBeIn(r.stdout);
 }
