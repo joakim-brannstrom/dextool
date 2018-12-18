@@ -159,6 +159,9 @@ struct Mutation {
         lcrRhs,
         lcrTrue,
         lcrFalse,
+        /// Arithmetic operator replacement
+        aorLhs,
+        aorRhs,
     }
 
     /// The status of a mutant.

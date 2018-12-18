@@ -24,7 +24,7 @@ unittest {
         .setWorkdir(workDir)
         .args(["mutate"])
         .addArg(["generate"])
-        .addArg(["--id", "10"])
+        .addArg(["--id", "12"])
         .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
         .run;
 

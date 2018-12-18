@@ -112,25 +112,13 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_) {
     rval.transf.binaryOpRhsCallback ~= (OpKind, OpTypeInfo) => lcrbRhsMutations;
     rval.transf.binaryOpLhsCallback ~= (OpKind, OpTypeInfo) => lcrbLhsMutations;
 
-    rval.transf.assignOpOpCallback ~= (OpKind k) {
-        if (auto v = k in isAorAssign)
-            return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
-    };
-
+    rval.transf.assignOpOpCallback ~= (OpKind k) { return aorAssignMutations(k); };
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
-        if (auto v = k in isAor)
-            return aorMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
+        return aorMutations(k);
     };
-    rval.transf.assignOpOpCallback ~= (OpKind k) {
-        if (auto v = k in isAorAssign)
-            return aorAssignMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
-    };
+    rval.transf.assignOpOpCallback ~= (OpKind k) { return aorAssignMutations(k); };
+    rval.transf.binaryOpRhsCallback ~= (OpKind, OpTypeInfo) => aorRhsMutations;
+    rval.transf.binaryOpLhsCallback ~= (OpKind, OpTypeInfo) => aorLhsMutations;
 
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo tyi) {
         if (k in isRor)
