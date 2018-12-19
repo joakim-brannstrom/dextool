@@ -24,12 +24,12 @@ auto lcrbMutations(OpKind k) @safe pure nothrow {
     return null;
 }
 
-auto lcrbLhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.lcrbRhs];
+auto lcrbLhsMutations(OpKind k) @safe pure nothrow {
+    return k in isLcrb ? [Mutation.Kind.lcrbLhs] : null;
 }
 
-auto lcrbRhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.lcrbLhs];
+auto lcrbRhsMutations(OpKind k) @safe pure nothrow {
+    return k in isLcrb ? [Mutation.Kind.lcrbRhs] : null;
 }
 
 auto lcrbAssignMutations(OpKind k) @safe pure nothrow {

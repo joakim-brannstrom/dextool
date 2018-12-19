@@ -29,6 +29,6 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "-abs_dextool(x > 3)",
+        "-abs_dextool(x)",
     ]).shouldBeIn(readOutput(testEnv, "report_one_ror_mutation_point.cpp"));
 }
