@@ -104,3 +104,54 @@ Do not underestimate this point and the frustration it creates for an user. It l
 Users have complained that they do not understand what e.g. LCR/ROR mean. They want it spelled out.
 The goal should be to provide enough information for the user to easier understand the report.
 They shouldn't need to look up a wiki or other things. The tool should help them understand.
+
+# REQ-uc_characteristics_of_good_tests
+partof:
+###
+
+Good test cases satisfy the following criterias [@rieson178C]:
+
+1. “It has a reasonable probability of catching an error.” Tests are designed to find errors - not merely to prove functionality. When writing a test one must consider how the program might fail.
+2. “It is not redundant.” Redundant tests offer little value. If two tests are looking for the same error, why run both?
+3. “It is the best of its breed.” Tests that are most likely to find errors are most effective.
+4. “It is neither too simple nor too complex.” Overly-complex tests are difficult to maintain and to identify the error. Overly-simple tests are often ineffective and add little value.
+
+## Discussions
+
+How can mutation testing be used to help provide help to the developer for the test case criterias?
+
+The first that needs to be done is to track what test cases killed what mutants. This gives a rich, deep information about the relationship between the source code and test cases.
+
+### Criteria 1
+
+Report how many mutants a test case kill.
+
+### Criteria 2
+
+The most obvious is to find test cases that kill exactly the same mutants.  These are the *obviously* redundant test cases.
+
+Another interesting report is to calculate a minimal set of test cases that would result in the correct mutation score. This would find test cases that do not fully overlap but still do not contribute to the overall verification effort.
+
+#### Note
+
+Experience from using this technique has show that parameterized test cases [@googleTest] that are used to test the boundary values have a high probability of not being unique *enough* and thus end up in a report of overlapping test cases. No further studies have been done on this subject.
+
+An interesting study would be to see if these test cases are redundant and thus is an indication of an erroneous boundary value analysis.  I do not believe so but it should be shown with data that such is the case.
+
+Be careful on this subject because it must be remembered that mutation testing is done on the source code. Just because it at one moment in the project mean that the source code and thus the test cases overlap do not mean it will be that case in the future.
+
+Experience have further shown that 100% overlap between test case rarely happen besides the above noted case.
+
+What has been noted is that after a certain level of mutation score have been reached when doing requirement based testing new test cases stop contributing to the mutation score. In other words that test cases that are added do not add to the verification.
+
+### Criteria 3
+
+This is harder to interpret what [@rieson178C] mean. My interpretation is that a test case that kill many mutants at a limited source code location is the *best* test case.
+
+In contrary a test case that kill many mutants but spread out in the application is a fragile test case. Most changes to the source code will lead to that particular test case failing but with no clear meaning why it failed.
+
+### Criteria 4
+
+The simple part is most probably covered by reporting test cases that kill few mutants.  A test case that kill 1-2 mutants are *most probably* far too simplistic in its nature.
+
+I do not think that the complex part can be automatically covered. This is best handled by a pull request work flow with continuous reviews.
