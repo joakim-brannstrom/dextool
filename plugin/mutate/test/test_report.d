@@ -65,13 +65,13 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Mutants",
-        "| From  | To | File Line:Column                                                          | ID | Status |",
-        "|-------|----|---------------------------------------------------------------------------|----|--------|",
-        "| `x >` | `` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:9 | 1  | alive  |",
+        "| From | To   | File Line:Column                                                           | ID | Status |",
+        "|------|------|----------------------------------------------------------------------------|----|--------|",
+        "| `>`  | `>=` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
         "## Alive Mutation Statistics",
-        "| Percentage | Count | From  | To |",
-        "|------------|-------|-------|----|",
-        "| 100        | 3     | `x >` | `` |",
+        "| Percentage | Count | From | To   |",
+        "|------------|-------|------|------|",
+        "| 100        | 2     | `>`  | `>=` |",
         "## Summary",
         "Mutation execution time:",
         "Untested:",
@@ -167,9 +167,9 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
         `"ID","Kind","Description","Location","Comment"`,
-        `"14","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"15","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"33","dcr","'case 2:`,
+        `"8","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"27","dcr","'case 2:`,
         `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.stdout);
 }
@@ -210,9 +210,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase | Location |",
         "|------------|-------|----------|----------|",
-        "| 75         | 6     | tc_2     |          |",
-        "| 37.5       | 3     | tc_3     |          |",
-        "| 37.5       | 3     | tc_1     |          |",
+        "| 80         | 4     | tc_2     |          |",
+        "| 40         | 2     | tc_3     |          |",
+        "| 40         | 2     | tc_1     |          |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -281,8 +281,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 37.5       | 3     | tc_1     |",
-        "| 37.5       | 3     | tc_3     |",
+        "| 40         | 2     | tc_1     |",
+        "| 40         | 2     | tc_3     |",
     ]).shouldBeIn(r.stdout);
 }
 
@@ -418,23 +418,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.545",
-            "Alive:   14",
-            "Killed:  8",
+            "Score:   0.808",
+            "Alive:   15",
+            "Killed:  11",
             "Timeout: 0",
-            "Total:   22",
+            "Total:   26",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 4 (0.182",
+            "Suppressed (nomut): 10 (0.385",
         ]).shouldBeIn(plain.stdout);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.545",
-            "Alive:   14",
-            "Killed:  8",
+            "Score:   0.808",
+            "Alive:   15",
+            "Killed:  11",
             "Timeout: 0",
-            "Total:   22",
+            "Total:   26",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 4 (0.182",
+            "Suppressed (nomut): 10 (0.385",
         ]).shouldBeIn(markdown.stdout);
     }
 }

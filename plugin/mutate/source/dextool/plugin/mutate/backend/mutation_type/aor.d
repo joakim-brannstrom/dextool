@@ -34,12 +34,12 @@ Mutation.Kind[] aorAssignMutations(OpKind k) @safe pure nothrow {
             Mutation.Kind.aorRhs, Mutation.Kind.aorLhs)).array;
 }
 
-auto aorLhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.aorRhs];
+auto aorLhsMutations(OpKind k) @safe pure nothrow {
+    return k in isAor ? [Mutation.Kind.aorLhs] : null;
 }
 
-auto aorRhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.aorLhs];
+auto aorRhsMutations(OpKind k) @safe pure nothrow {
+    return k in isAor ? [Mutation.Kind.aorRhs] : null;
 }
 
 immutable Mutation.Kind[OpKind] isAor;

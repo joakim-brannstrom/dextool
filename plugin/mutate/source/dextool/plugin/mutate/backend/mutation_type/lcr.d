@@ -32,12 +32,12 @@ auto lcrMutations(OpKind k) @safe pure nothrow {
     return rval;
 }
 
-auto lcrLhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.lcrRhs];
+auto lcrLhsMutations(OpKind k) @safe pure nothrow {
+    return k in isLcr ? [Mutation.Kind.lcrLhs] : null;
 }
 
-auto lcrRhsMutations() @safe pure nothrow {
-    return [Mutation.Kind.lcrLhs];
+auto lcrRhsMutations(OpKind k) @safe pure nothrow {
+    return k in isLcr ? [Mutation.Kind.lcrRhs] : null;
 }
 
 immutable Mutation.Kind[OpKind] isLcr;
