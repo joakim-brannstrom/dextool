@@ -129,10 +129,10 @@ struct FileIndex {
         // the mutation text has been found to contain '\0' characters when the
         // mutant span multiple lines. These null characters render badly in
         // the html report.
-        static string cleanup(const(char)[] raw) {
+        static string cleanup(const(char)[] raw) @safe nothrow {
             import std.algorithm : filter;
             import std.array : array;
-            import std.utf;
+            import std.utf : byChar;
 
             return raw.byChar.filter!(a => a != '\0').array.idup;
         }
@@ -277,6 +277,8 @@ struct FileIndex {
 @safe:
 private:
 
+immutable invalidUtf8 = "[invalid utf8]";
+
 string toJson(string s) {
     import std.json : JSONValue;
 
@@ -340,7 +342,7 @@ struct Token {
             validate(spelling);
             this.spelling = spelling;
         } catch (Exception e) {
-            this.spelling = "[invalid utf8]";
+            this.spelling = invalidUtf8;
         }
     }
 
@@ -402,6 +404,8 @@ auto tokenize(AbsolutePath base_dir, Path f) @trusted {
 }
 
 struct FileMutant {
+nothrow:
+
     static struct Text {
         /// the original text that covers the offset.
         string original;
@@ -415,16 +419,29 @@ struct FileMutant {
     Mutation mut;
 
     this(MutationId id, Offset offset, string original, string mutation, Mutation mut) {
+        import std.utf : validate;
+
         this.id = id;
         this.offset = offset;
-        this.txt.original = original;
         this.mut = mut;
 
-        // users prefer being able to see what has been removed.
-        if (mutation.length == 0)
-            this.txt.mutation = "/* " ~ this.txt.original ~ " */";
-        else
-            this.txt.mutation = mutation;
+        try {
+            validate(original);
+            this.txt.original = original;
+        } catch (Exception e) {
+            this.txt.original = invalidUtf8;
+        }
+
+        try {
+            validate(mutation);
+            // users prefer being able to see what has been removed.
+            if (mutation.length == 0)
+                this.txt.mutation = "/* " ~ this.txt.original ~ " */";
+            else
+                this.txt.mutation = mutation;
+        } catch (Exception e) {
+            this.txt.mutation = invalidUtf8;
+        }
     }
 
     this(MutationId id, Offset offset, string original) {
