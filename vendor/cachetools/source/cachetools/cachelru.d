@@ -73,11 +73,11 @@ class CacheLRU(K, V, Allocator = Mallocator) {
             swap(__events, events);
         }
 
-        bool empty() const nothrow pure {
+        bool empty() const nothrow {
             return __events.empty();
         }
 
-        void popFront() pure nothrow {
+        void popFront() nothrow {
             __events.popFront();
         }
 
