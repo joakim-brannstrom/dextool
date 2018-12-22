@@ -15,6 +15,9 @@ import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
 
 alias Checksum = Checksum128;
 
+/// Used to replace invalid UTF-8 characters.
+immutable invalidUtf8 = "[invalid utf8]";
+
 /** A mutation point for a specific file.
  *
  * TODO: shouldn't this have the file ID?
@@ -390,7 +393,7 @@ struct Token {
             validate(spelling);
             this.spelling = spelling;
         } catch (Exception e) {
-            this.spelling = "[invalid utf8]";
+            this.spelling = invalidUtf8;
         }
     }
 

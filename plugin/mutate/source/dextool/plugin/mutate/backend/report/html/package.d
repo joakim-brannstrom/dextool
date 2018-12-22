@@ -277,8 +277,6 @@ struct FileIndex {
 @safe:
 private:
 
-immutable invalidUtf8 = "[invalid utf8]";
-
 string toJson(string s) {
     import std.json : JSONValue;
 
@@ -360,6 +358,7 @@ nothrow:
 
     this(MutationId id, Offset offset, string original, string mutation, Mutation mut) {
         import std.utf : validate;
+        import dextool.plugin.mutate.backend.type : invalidUtf8;
 
         this.id = id;
         this.offset = offset;
