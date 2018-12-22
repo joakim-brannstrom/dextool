@@ -1000,9 +1000,11 @@ class AnalyzeResult {
     Cache cache;
 
     Appender!(MutationPointEntry2[]) entries;
+
+    /// Files that has been analyzed.
     Appender!(FileResult[]) files;
+    /// Ensure that `files` do not contain duplicates.
     Set!Path file_index;
-    Checksum[AbsolutePath] fileChecksum;
 
     /// The source code language of the current file that is producing mutants.
     Language lang;
@@ -1015,7 +1017,6 @@ class AnalyzeResult {
     void put(MutationPointEntry a) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
         import dextool.plugin.mutate.backend.type : MutationIdFactory;
-        import dextool.plugin.mutate.backend.utility : checksum;
 
         if (a.file.length == 0) {
             // TODO: this is a workaround. There should never be mutation points without a valid path.
@@ -1045,8 +1046,7 @@ class AnalyzeResult {
         if (!file_index.contains(a)) {
             auto p = AbsolutePath(a, DirName(fio.getOutputDir));
             auto fin = fio.makeInput(p);
-            auto cs = checksum(fin.read);
-            fileChecksum[p] = cs;
+            auto cs = cache.getFileChecksum(p, fin.read);
 
             file_index.add(a);
             files.put(FileResult(a, cs, lang));
