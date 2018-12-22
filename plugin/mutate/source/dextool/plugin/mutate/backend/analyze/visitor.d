@@ -1041,18 +1041,17 @@ class AnalyzeResult {
     }
 
     void put(Path a, Language lang) {
-        import dextool.plugin.mutate.backend.utility : checksum;
-
-        if (!file_index.contains(a)) {
-            auto p = AbsolutePath(a, DirName(fio.getOutputDir));
-            auto fin = fio.makeInput(p);
-            auto cs = cache.getFileChecksum(p, fin.read);
-
-            file_index.add(a);
-            files.put(FileResult(a, cs, lang));
-        }
-
         this.lang = lang;
+
+        if (file_index.contains(a))
+            return;
+
+        auto p = AbsolutePath(a, DirName(fio.getOutputDir));
+        auto fin = fio.makeInput(p);
+        auto cs = cache.getFileChecksum(p, fin.read);
+
+        file_index.add(a);
+        files.put(FileResult(a, cs, lang));
     }
 }
 
