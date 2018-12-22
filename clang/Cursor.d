@@ -345,7 +345,7 @@ import clang.Visitor;
      * Trusted: the API usage follows the LLVM manual. The potential problem
      * would be if clang_tokenize write back invalid addresses.
      *
-     * Returns: A RefCounted TokenGroup.
+     * Returns: A range over the tokens.
      */
     @property auto tokens() const @trusted {
         import std.algorithm.mutation : stripRight;
@@ -367,7 +367,7 @@ import clang.Visitor;
         return FunctionCursor(this);
     }
 
-    @property EnumCursor enum_() @trusted {
+    @property EnumCursor enum_() const {
         return EnumCursor(this);
     }
 

@@ -1,15 +1,15 @@
 // Written in the D programming language.
 /**
- * Copyright: Copyright (c) 2015, Joakim Brännström. All rights reserved.
+ * Copyright: Copyright (c) 2015-2018, Joakim Brännström. All rights reserved.
  * Author: Joakim Brännström (joakim.brannstrom@gmx.com)
- *
- * Only kept utility functionality and comments of the original implementation.
- * The rest is synchronized with Token.d in DStep.
  *
  * Copyright: Copyright (c) 2016 Wojciech Szęszoł. All rights reserved.
  * Authors: Wojciech Szęszoł
  * Version: Initial created: Feb 14, 2016
  * License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
+ *
+ * Only kept utility functionality and comments of the original implementation.
+ * The rest is synchronized with Token.d in DStep.
  */
 module clang.Token;
 
@@ -50,36 +50,25 @@ import clang.Visitor;
  *
  * Tokens are obtained from parsed TranslationUnit instances. You currently
  * can't create tokens manually.
+ *
+ * To keep the tokens efficient they are pointers into the range of tokens
+ * derived from clang. This mean that the lifetime of a token is coupled to the
+ * range.
  */
 struct Token {
-    private struct Container {
+    private {
         CXTranslationUnit translationUnit;
-        CXToken* tokens;
-        ulong numTokens;
-
-        ~this() {
-            if (tokens != null) {
-                clang_disposeTokens(translationUnit, tokens, to!uint(numTokens));
-            }
-        }
+        CXToken* ctok;
     }
 
-    private const RefCounted!Container container;
-    size_t index;
-
-    @property private Container* containerPtr() return const {
-        return cast(Container*)&(container.refCountedPayload());
-    }
-
-    @property static Cursor empty() {
-        //TODO why is this function needed, remove?
-        auto r = clang_getNullCursor();
-        return Cursor(r);
+    this(ref const CXTranslationUnit tu, ref const CXToken t) {
+        this.translationUnit = cast(CXTranslationUnit)(tu);
+        this.ctok = cast(CXToken*)(&t);
     }
 
     /// Obtain the TokenKind of the current token.
     @property CXTokenKind kind() const {
-        return clang_getTokenKind(containerPtr.tokens[index]);
+        return clang_getTokenKind(cast(CXToken)(*ctok));
     }
 
     /** The spelling of this token.
@@ -87,52 +76,66 @@ struct Token {
      * This is the textual representation of the token in source.
      */
     @property string spelling() const {
-        auto r = clang_getTokenSpelling(containerPtr.translationUnit, containerPtr.tokens[index]);
+        auto r = clang_getTokenSpelling(cast(CXTranslationUnit)(translationUnit),
+                cast(CXToken)(*ctok));
         return toD(r);
     }
 
     /// The SourceLocation this Token occurs at.
     @property SourceLocation location() const {
-        auto r = clang_getTokenLocation(containerPtr.translationUnit, containerPtr.tokens[index]);
+        auto r = clang_getTokenLocation(cast(CXTranslationUnit)(translationUnit),
+                cast(CXToken)(*ctok));
         return SourceLocation(r);
     }
 
     /// The SourceRange this Token occupies.
     @property SourceRange extent() const {
-        auto r = clang_getTokenExtent(containerPtr.translationUnit, containerPtr.tokens[index]);
+        auto r = clang_getTokenExtent(cast(CXTranslationUnit)(translationUnit),
+                cast(CXToken)(*ctok));
         return SourceRange(r);
     }
 
     /// The Cursor this Token corresponds to.
     @property Cursor cursor() {
-        Cursor c = empty;
-        clang_annotateTokens(containerPtr.translationUnit, &containerPtr.tokens[index], 1, &c.cx);
-
+        auto c = Cursor.empty;
+        clang_annotateTokens(translationUnit, ctok, 1, &c.cx);
         return c;
     }
 }
 
 struct TokenRange {
-    private const RefCounted!(Token.Container) container;
+    private static struct Container {
+        CXTranslationUnit translationUnit;
+        CXToken* tokens;
+        uint numTokens;
+
+        ~this() {
+            if (tokens != null) {
+                clang_disposeTokens(translationUnit, tokens, numTokens);
+            }
+        }
+    }
+
+    private const RefCounted!(Container) container;
     private size_t begin;
     private size_t end;
 
-    private static RefCounted!(Token.Container) makeContainer(
-            CXTranslationUnit translationUnit, CXToken* tokens, ulong numTokens) {
-        RefCounted!(Token.Container) result;
+    private static RefCounted!(Container) makeContainer(
+            CXTranslationUnit translationUnit, CXToken* tokens, uint numTokens) {
+        RefCounted!(Container) result;
         result.translationUnit = translationUnit;
         result.tokens = tokens;
         result.numTokens = numTokens;
         return result;
     }
 
-    private this(const RefCounted!(Token.Container) container, size_t begin, size_t end) {
+    private this(const RefCounted!(Container) container, size_t begin, size_t end) {
         this.container = container;
         this.begin = begin;
         this.end = end;
     }
 
-    this(CXTranslationUnit translationUnit, CXToken* tokens, ulong numTokens) {
+    this(CXTranslationUnit translationUnit, CXToken* tokens, uint numTokens) {
         container = makeContainer(translationUnit, tokens, numTokens);
         begin = 0;
         end = numTokens;
@@ -143,11 +146,11 @@ struct TokenRange {
     }
 
     @property Token front() const {
-        return Token(container, begin);
+        return Token(container.translationUnit, container.tokens[begin]);
     }
 
     @property Token back() const {
-        return Token(container, end - 1);
+        return Token(container.translationUnit, container.tokens[end - 1]);
     }
 
     @property void popFront() {
@@ -163,14 +166,18 @@ struct TokenRange {
     }
 
     @property size_t length() const {
+        assert(begin <= end);
         return end - begin;
     }
 
     Token opIndex(size_t index) const {
-        return Token(container, begin + index);
+        assert(begin + index < end);
+        return Token(container.translationUnit, container.tokens[begin + index]);
     }
 
     TokenRange opSlice(size_t begin, size_t end) const {
+        assert(this.begin + begin <= this.end);
+        assert(this.begin + end <= this.end);
         return TokenRange(container, this.begin + begin, this.begin + end);
     }
 
