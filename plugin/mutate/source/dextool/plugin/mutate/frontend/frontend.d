@@ -137,10 +137,10 @@ final class FrontendIO : FilesysIO {
         return File("/dev/null", "w");
     }
 
-    override File getStdin() {
+    override File getStdin() @trusted {
         static import std.stdio;
 
-        return () @trusted { return std.stdio.stdin; }();
+        return std.stdio.stdin;
     }
 
     override Path toRelativeRoot(Path p) @trusted {
