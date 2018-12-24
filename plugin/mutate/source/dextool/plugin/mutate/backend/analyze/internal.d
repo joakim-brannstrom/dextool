@@ -28,11 +28,13 @@ class Cache {
 
     private {
         CacheLRU!(Path, Checksum) file_;
+        CacheLRU!(Path, Checksum) path_;
         CacheLRU!(Path, Token[]) fileToken_;
     }
 
     this() {
         this.file_ = new typeof(file_);
+        this.path_ = new typeof(path_);
 
         this.fileToken_ = new typeof(fileToken_);
         // guessing that 30s and keeping the last 64 is "good enough".
@@ -49,6 +51,20 @@ class Cache {
         if (query.isNull) {
             rval = checksum(data);
             file_.put(p, rval);
+        } else {
+            rval = query.get;
+        }
+        return rval;
+    }
+
+    /** Calculate the checksum of the file path.
+     */
+    Checksum getPathChecksum(Path p) {
+        typeof(return) rval;
+        auto query = path_.get(p);
+        if (query.isNull) {
+            rval = checksum(cast(const(ubyte)[]) p);
+            path_.put(p, rval);
         } else {
             rval = query.get;
         }

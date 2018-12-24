@@ -1066,7 +1066,7 @@ class AnalyzeResult {
         //debug logger.trace("pre_tokens: ", split.pre);
         //debug logger.trace("post_tokens: ", split.post);
 
-        auto id_factory = MutationIdFactory(a.file, split.pre, split.post);
+        auto id_factory = MutationIdFactory(cache.getPathChecksum(a.file), split.pre, split.post);
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
@@ -1340,14 +1340,14 @@ struct MutationIdFactory {
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
     import dextool.type : Path;
 
-    /// Filename containing the mutants.
-    Path file;
+    /// Checksum of the filename containing the mutants.
+    Checksum file;
     /// Checksum of the tokens before the mutant.
     Checksum preMutant;
     /// Checksum of the tokens after the mutant.
     Checksum postMutant;
 
-    this(Path file, Token[] preMutant, Token[] postMutant) {
+    this(Checksum file, Token[] preMutant, Token[] postMutant) {
         this.file = file;
 
         BuildChecksum128 pre;
@@ -1365,10 +1365,10 @@ struct MutationIdFactory {
 
     /// Calculate the unique ID for a specific mutation at this point.
     Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
-
         BuildChecksum128 h;
-        h.put(cast(const(ubyte)[]) file);
+        h.put(file.c0.toBytes);
+        h.put(file.c1.toBytes);
+
         h.put(preMutant.c0.toBytes);
         h.put(preMutant.c1.toBytes);
 
@@ -1381,7 +1381,6 @@ struct MutationIdFactory {
 
     /// Create a mutant at this mutation point.
     CodeMutant makeMutant(Mutation m, const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
         auto id = makeId(mut);
         return CodeMutant(CodeChecksum(id), m);
     }
