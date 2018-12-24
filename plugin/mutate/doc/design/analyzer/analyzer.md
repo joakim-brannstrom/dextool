@@ -44,7 +44,7 @@ Current checksum structure:
 
 Change to this:
 
- * file path
+ * checksum of the relative file path
  * checksum of all tokens before those the mutant modify
  * source code mutation
  * checksum of all tokens after the last token the mutant modify
@@ -54,6 +54,10 @@ the source code. It is still guaranteed to be unique because the stream of
 tokens are modified depending on what is changed in the file. This *encodes*
 the offset via the injection of the source code mutant in the stream of tokens
 when calculating the checksum.
+
+**Note**: The path should be relative to make it possible to easier reuse the
+database between parties. Such a reuse could be to download it from a CI server
+to use locally by a user.
 
 ### TODO
 
