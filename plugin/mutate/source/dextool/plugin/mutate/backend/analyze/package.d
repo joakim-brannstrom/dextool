@@ -20,10 +20,11 @@ import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
 
+import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
+import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
-import dextool.plugin.mutate.backend.visitor : makeRootVisitor;
 import dextool.plugin.mutate.config : ConfigCompiler;
 
 /** Analyze the files in `frange` for mutations.
@@ -68,6 +69,8 @@ struct Analyzer {
         ValidateLoc val_loc;
         FilesysIO fio;
         ConfigCompiler conf;
+
+        Cache cache;
     }
 
     this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
@@ -75,6 +78,7 @@ struct Analyzer {
         this.before_files = db.getFiles.setFromList;
         this.val_loc = val_loc;
         this.fio = fio;
+        this.cache = new Cache;
 
         db.removeAllFiles;
     }
@@ -102,19 +106,21 @@ struct Analyzer {
 
         () @trusted {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto tstream = new TokenStreamImpl(ctx);
 
-            auto files = analyzeForMutants(in_file, checked_in_file, ctx);
+            auto files = analyzeForMutants(in_file, checked_in_file, ctx, tstream);
+            // TODO: filter files so they are only analyzed once for comments
             foreach (f; files)
-                analyzeForComments(f, ctx);
+                analyzeForComments(f, tstream);
         }();
     }
 
     Path[] analyzeForMutants(SearchResult in_file,
-            Exists!AbsolutePath checked_in_file, ref ClangContext ctx) @safe {
+            Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
         import std.algorithm : map;
         import std.array : array;
 
-        auto root = makeRootVisitor(fio, val_loc);
+        auto root = makeRootVisitor(fio, val_loc, tstream, cache);
         analyzeFile(checked_in_file, in_file.flags.completeFlags, root.visitor, ctx);
 
         foreach (a; root.mutationPointFiles) {
@@ -140,26 +146,27 @@ struct Analyzer {
         return root.mutationPointFiles.map!(a => a.path).array;
     }
 
-    void analyzeForComments(Path file, ref ClangContext ctx) @trusted {
+    /**
+     * Tokens are always from the same file.
+     */
+    void analyzeForComments(Path file, TokenStream tstream) @trusted {
         import std.algorithm : filter, countUntil, among, startsWith;
         import std.array : appender;
         import std.string : stripLeft;
         import std.utf : byCodeUnit;
-        import std.functional : memoize;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr;
 
-        Nullable!FileId getFileIdImpl(string path) {
-            return db.getFileId(trustedRelativePath(path, fio.getOutputDir).Path);
+        const fid = db.getFileId(fio.toRelativeRoot(file));
+        if (fid.isNull) {
+            logger.warningf("File with suppressed mutants (// NOMUT) not in the DB: %s. Skipping...",
+                    file);
+            return;
         }
-
-        alias getFileId = memoize!getFileIdImpl;
-
-        auto tu = ctx.makeTranslationUnit(file);
 
         auto mdata = appender!(LineMetadata[])();
         bool print_found = true;
-        foreach (t; tu.cursor.tokens.filter!(a => a.kind == CXTokenKind.comment)) {
+        foreach (t; cache.getTokens(file, tstream).filter!(a => a.kind == CXTokenKind.comment)) {
             auto txt = t.spelling.stripLeft;
             const index = txt.byCodeUnit.countUntil!(a => !a.among('/', '*'));
             if (index >= txt.length || !txt[0 .. index].among("//", "/*"))
@@ -170,18 +177,7 @@ struct Analyzer {
             if (!txt.startsWith("NOMUT"))
                 continue;
 
-            const fname = t.location.file.name;
-            auto fid = getFileId(fname);
-            auto ext = t.extent;
-            auto start = ext.start;
-
-            if (fid.isNull) {
-                logger.tracef("File with suppressed mutants (// NOMUT) not in the DB: %s:%s",
-                        fname, start);
-                continue;
-            }
-
-            mdata.put(LineMetadata(fid, start.line, LineAttr.noMut));
+            mdata.put(LineMetadata(fid, t.loc.line, LineAttr.noMut));
             logger.trace(print_found, "// NOMUT found in ", file);
             print_found = false;
         }
@@ -192,6 +188,25 @@ struct Analyzer {
     void finalize() @safe {
         db.removeOrphanedMutants;
         printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
+    }
+}
+
+class TokenStreamImpl : TokenStream {
+    import std.typecons : NullableRef, nullableRef;
+    import cpptooling.analyzer.clang.context : ClangContext;
+    import dextool.plugin.mutate.backend.type : Token;
+
+    NullableRef!ClangContext ctx;
+
+    /// The context must outlive any instance of this class.
+    this(ref ClangContext ctx) {
+        this.ctx = nullableRef(&ctx);
+    }
+
+    Token[] getTokens(Path p) {
+        import dextool.plugin.mutate.backend.utility : tokenize;
+
+        return tokenize(ctx, p);
     }
 }
 

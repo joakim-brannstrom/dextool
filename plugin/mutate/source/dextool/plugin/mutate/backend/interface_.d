@@ -45,12 +45,16 @@ interface ValidateLoc {
  * filesystem output is created.
  */
 interface FilesysIO {
+    import dextool.type : Path;
     import std.stdio : File;
 
     // these are here so backend do not need to import std.stdio which makes it
     // easier to review.
     File getDevNull();
     File getStdin();
+
+    /// Convert a path to be relative to the root of the filesystem.
+    Path toRelativeRoot(Path p);
 
     /// File output is restricted to this directory
     AbsolutePath getOutputDir() nothrow;

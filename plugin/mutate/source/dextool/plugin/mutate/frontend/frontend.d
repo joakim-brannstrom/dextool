@@ -113,7 +113,7 @@ struct DataAccess {
 final class FrontendIO : FilesysIO {
     import std.exception : collectException;
     import std.stdio : File;
-    import dextool.type : AbsolutePath;
+    import dextool.type : AbsolutePath, Path;
     import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
     import dextool.vfs : VirtualFileSystem, VfsFile;
 
@@ -137,10 +137,16 @@ final class FrontendIO : FilesysIO {
         return File("/dev/null", "w");
     }
 
-    override File getStdin() {
+    override File getStdin() @trusted {
         static import std.stdio;
 
-        return () @trusted { return std.stdio.stdin; }();
+        return std.stdio.stdin;
+    }
+
+    override Path toRelativeRoot(Path p) @trusted {
+        import std.path : relativePath;
+
+        return relativePath(p, output_dir).Path;
     }
 
     override AbsolutePath getOutputDir() @safe pure nothrow @nogc {

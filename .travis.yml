@@ -9,9 +9,9 @@ matrix:
           env: DEXTOOL_BUILD="DebugCov"
         - d: dmd
           env: DEXTOOL_BUILD="Release" BUILD_DOC="ON"
-        - d: dmd-2.079.0
+        - d: dmd-2.080.1
           env: DEXTOOL_BUILD="Debug"
-        - d: ldc-1.8.0
+        - d: ldc-1.10.0
           env: DEXTOOL_BUILD="Release"
         - d: ldc
           env: DEXTOOL_BUILD="Release"

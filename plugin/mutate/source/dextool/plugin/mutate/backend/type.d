@@ -15,6 +15,9 @@ import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
 
 alias Checksum = Checksum128;
 
+/// Used to replace invalid UTF-8 characters.
+immutable invalidUtf8 = "[invalid utf8]";
+
 /** A mutation point for a specific file.
  *
  * TODO: shouldn't this have the file ID?
@@ -27,39 +30,6 @@ struct MutationPoint {
 
     bool opEquals()(auto ref const S s) const {
         return offset == s.offset && mutations == s.mutations;
-    }
-}
-
-/// Create mutation ID's from source code mutations.
-struct MutationIdFactory {
-    import dextool.type : Path;
-
-    /// Filename containing the mutants.
-    Path file;
-    /// Mutation point offset [start, stop).
-    Offset offset;
-    /// Checksum of the file.
-    Checksum cs;
-
-    /// Calculate the unique ID for a specific mutation at this point.
-    Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
-
-        BuildChecksum128 h;
-        h.put(cast(const(ubyte)[]) file);
-        h.put(cs.c0.toBytes);
-        h.put(cs.c1.toBytes);
-        h.put(offset.begin.toBytes);
-        h.put(offset.end.toBytes);
-        h.put(mut);
-        return toChecksum128(h);
-    }
-
-    /// Create a mutant at this mutation point.
-    CodeMutant makeMutant(Mutation m, const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        assert(file.length != 0);
-        auto id = makeId(mut);
-        return CodeMutant(CodeChecksum(id), m);
     }
 }
 
@@ -359,4 +329,67 @@ struct TestGroup {
 struct MutantTestCount {
     long value;
     alias value this;
+}
+
+/** A source code token.
+ *
+ * The source can contain invalid UTF-8 chars therefor every token has to be
+ * validated. Otherwise it isn't possible to generate a report.
+ */
+struct Token {
+    import std.format : format;
+    import clang.c.Index : CXTokenKind;
+
+    // TODO: this should be a language agnostic type when more languages are
+    // added in the future.
+    CXTokenKind kind;
+    Offset offset;
+    SourceLoc loc;
+    SourceLoc locEnd;
+    string spelling;
+
+    this(CXTokenKind kind, Offset offset, SourceLoc loc, SourceLoc locEnd, string spelling) {
+        this.kind = kind;
+        this.offset = offset;
+        this.loc = loc;
+        this.locEnd = locEnd;
+
+        try {
+            import std.utf : validate;
+
+            validate(spelling);
+            this.spelling = spelling;
+        } catch (Exception e) {
+            this.spelling = invalidUtf8;
+        }
+    }
+
+    string toId() @safe const {
+        return format("%s-%s", offset.begin, offset.end);
+    }
+
+    string toName() @safe const {
+        import std.conv : to;
+
+        return kind.to!string;
+    }
+
+    int opCmp(ref const typeof(this) s) const @safe {
+        if (offset.begin > s.offset.begin)
+            return 1;
+        if (offset.begin < s.offset.begin)
+            return -1;
+        if (offset.end > s.offset.end)
+            return 1;
+        if (offset.end < s.offset.end)
+            return -1;
+        return 0;
+    }
+}
+
+@("shall be possible to construct in @safe")
+@safe unittest {
+    import clang.c.Index : CXTokenKind;
+
+    auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
 }

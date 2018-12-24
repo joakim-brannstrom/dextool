@@ -13,6 +13,7 @@ import core.time : Duration;
 import std.algorithm : filter;
 
 import dextool.type : Path, AbsolutePath;
+import dextool.from;
 
 public import dextool.plugin.mutate.backend.type;
 public import dextool.plugin.mutate.backend.mutation_type;
@@ -61,4 +62,48 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
     }();
 
     Thread.sleep(min_ + t_span);
+}
+
+/** Returns: the file content as an array of tokens.
+ *
+ * This is a bit slow, I think. Optimize by reducing the created strings.
+ * trusted: none of the unsafe accessed data escape this function.
+ */
+auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
+    import std.array : appender;
+    import clang.Index;
+    import clang.TranslationUnit;
+
+    auto tu = ctx.makeTranslationUnit(file);
+
+    auto toks = appender!(Token[])();
+    foreach (ref t; tu.cursor.tokens) {
+        auto ext = t.extent;
+        auto start = ext.start;
+        auto end = ext.end;
+        toks.put(Token(t.kind, Offset(start.offset, end.offset),
+                SourceLoc(start.line, start.column), SourceLoc(end.line, end.column), t.spelling));
+    }
+
+    return toks.data;
+}
+
+struct TokenRange {
+    private {
+        Token[] tokens;
+    }
+
+    Token front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return tokens[0];
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        tokens = tokens[1 .. $];
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return tokens.length == 0;
+    }
 }

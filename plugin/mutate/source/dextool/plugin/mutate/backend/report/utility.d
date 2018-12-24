@@ -37,13 +37,14 @@ string window(T)(T a, size_t maxlen = windowSize) {
     import std.conv : text;
     import std.range : take, chain;
     import std.uni : byGrapheme, byCodePoint;
+    import dextool.plugin.mutate.backend.type : invalidUtf8;
 
     try {
         return chain(a.byGrapheme.take(maxlen)
                 .byCodePoint.filter!(a => !a.among('\n')).text, a.length > maxlen ? "..." : null)
             .text;
     } catch (Exception e) {
-        return "[invalid utf8]";
+        return invalidUtf8;
     }
 }
 
