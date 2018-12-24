@@ -1016,10 +1016,40 @@ class AnalyzeResult {
         this.cache = cache;
     }
 
-    void put(MutationPointEntry a) {
-        import std.algorithm : countUntil, filter;
-        import std.array : array;
+    /// Filter a stream of tokens for those that should affect the checksum.
+    private static auto checksumFilter(Token[] toks) {
         import clang.c.Index : CXTokenKind;
+        import std.algorithm : filter;
+
+        return toks.filter!(a => a.kind != CXTokenKind.comment);
+    }
+
+    /// Returns: a tuple of two elements. The tokens before and after the mutation point.
+    private static auto splitByMutationPoint(Token[] toks, MutationPoint mp) {
+        import std.algorithm : countUntil;
+        import std.typecons : Tuple;
+
+        Tuple!(Token[], "pre", Token[], "post") rval;
+
+        const pre_idx = toks.countUntil!((a, b) => a.offset.begin > b.offset.begin)(mp);
+        if (pre_idx == -1) {
+            rval.pre = toks;
+            return rval;
+        }
+
+        rval.pre = toks[0 .. pre_idx];
+        toks = toks[pre_idx .. $];
+
+        const post_idx = toks.countUntil!((a, b) => a.offset.end > b.offset.end)(mp);
+        if (post_idx != -1) {
+            rval.post = toks[post_idx .. $];
+        }
+
+        return rval;
+    }
+
+    void put(MutationPointEntry a) {
+        import std.array : array;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         if (a.file.length == 0) {
@@ -1029,30 +1059,14 @@ class AnalyzeResult {
 
         // the filter on this line is the magic. By skipping tokens the
         // checksum become stable to commentchanges.
-        auto toks = cache.getTokens(a.file, tstream)
-            .filter!(a => a.kind != CXTokenKind.comment).array;
-        // create two set of tokens. one with those before the mutantand one
-        // with after.
-        const pre_idx = toks.countUntil!((a, b) => a.offset.begin > b.offset.begin)(a.mp);
-        Token[] pre_tokens = () {
-            if (pre_idx == -1 || pre_idx == toks.length)
-                return toks;
-            return toks[0 .. pre_idx];
-        }();
-        // TODO: optimize by starting count from pre_idx. beware if pre_idx is
-        // -1.
-        const post_idx = toks.countUntil!((a, b) => a.offset.end > b.offset.end)(a.mp);
-        Token[] post_tokens = () {
-            if (post_idx == -1 || post_idx == pre_tokens.length)
-                return null;
-            return toks[post_idx .. $];
-        }();
+        auto toks = checksumFilter(cache.getTokens(a.file, tstream)).array;
+        auto split = splitByMutationPoint(toks, a.mp);
         // these generate too much debug info to be active all the time
         //debug logger.trace("mutation point: ", a.mp);
-        //debug logger.trace("pre_tokens: ", pre_tokens);
-        //debug logger.trace("post_tokens: ", post_tokens);
+        //debug logger.trace("pre_tokens: ", split.pre);
+        //debug logger.trace("post_tokens: ", split.post);
 
-        auto id_factory = MutationIdFactory(a.file, pre_tokens, post_tokens);
+        auto id_factory = MutationIdFactory(a.file, split.pre, split.post);
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
