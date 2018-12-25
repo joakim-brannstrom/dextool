@@ -37,13 +37,17 @@ ExitStatusType runMutate(ArgParser conf) {
 
     logger.info("Using ", conf.db);
 
-    if (auto f = conf.toolMode in modes) {
-        return () @trusted {
-            auto dacc = DataAccess.make(conf);
-            scope (exit)
-                dacc.io.release;
-            return (*f)(conf, dacc);
-        }();
+    try
+        if (auto f = conf.toolMode in modes) {
+            return () @trusted {
+                auto dacc = DataAccess.make(conf);
+                scope (exit)
+                    dacc.io.release;
+                return (*f)(conf, dacc);
+            }();
+        } catch (Exception e) {
+        logger.error(e.msg);
+        return ExitStatusType.Errors;
     }
 
     switch (conf.toolMode) {
@@ -80,12 +84,7 @@ struct DataAccess {
     static auto make(ref ArgParser conf) @trusted {
         CompileCommandDB fusedCompileDb;
         if (conf.compileDb.dbs.length != 0) {
-            try {
-                fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
-            } catch (Exception e) {
-                logger.error(e.msg);
-                throw new Exception("Unable to open compile commands database(s)");
-            }
+            fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
         }
 
         auto fe_io = new FrontendIO(conf.workArea.restrictDir,
