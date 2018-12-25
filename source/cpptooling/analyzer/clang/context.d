@@ -109,6 +109,7 @@ struct ClangContext {
             }
         }
 
+        debug logger.trace(sourceFilename);
         debug logger.trace("Compiler flags: ", commandLineArgs.join(" "));
 
         string[] args = prependDefaultFlags(commandLineArgs ~ internal_header_arg);

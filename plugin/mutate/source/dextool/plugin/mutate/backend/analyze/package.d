@@ -166,7 +166,8 @@ struct Analyzer {
 
         auto mdata = appender!(LineMetadata[])();
         bool print_found = true;
-        foreach (t; cache.getTokens(file, tstream).filter!(a => a.kind == CXTokenKind.comment)) {
+        foreach (t; cache.getTokens(AbsolutePath(file), tstream)
+                .filter!(a => a.kind == CXTokenKind.comment)) {
             auto txt = t.spelling.stripLeft;
             const index = txt.byCodeUnit.countUntil!(a => !a.among('/', '*'));
             if (index >= txt.length || !txt[0 .. index].among("//", "/*"))

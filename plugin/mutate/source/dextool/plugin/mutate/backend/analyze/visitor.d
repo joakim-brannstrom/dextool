@@ -1059,7 +1059,7 @@ class AnalyzeResult {
 
         // the filter on this line is the magic. By skipping tokens the
         // checksum become stable to commentchanges.
-        auto toks = checksumFilter(cache.getTokens(a.file, tstream)).array;
+        auto toks = checksumFilter(cache.getTokens(AbsolutePath(a.file), tstream)).array;
         auto split = splitByMutationPoint(toks, a.mp);
         // these generate too much debug info to be active all the time
         //debug logger.trace("mutation point: ", a.mp);
