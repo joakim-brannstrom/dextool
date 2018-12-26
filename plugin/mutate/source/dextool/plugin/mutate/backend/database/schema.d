@@ -55,7 +55,7 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.format : format;
 
-import d2sqlite3 : sqlDatabase = Database;
+import d2sqlite3 : SqlDatabase = Database;
 
 immutable allTestCaseTable = "all_test_case";
 immutable filesTable = "files";
@@ -76,17 +76,17 @@ private immutable testCaseTableV1 = "test_case";
  *
  * Returns: an open sqlite3 database object.
  */
-sqlDatabase initializeDB(const string p) @trusted
+SqlDatabase initializeDB(const string p) @trusted
 in {
     assert(p.length != 0);
 }
 do {
     import d2sqlite3;
 
-    sqlDatabase db;
+    SqlDatabase db;
     bool is_initialized;
 
-    void setPragmas(ref sqlDatabase db) {
+    void setPragmas(ref SqlDatabase db) {
         // dfmt off
         auto pragmas = [
             // required for foreign keys with cascade to work
@@ -103,7 +103,7 @@ do {
     }
 
     try {
-        db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
+        db = SqlDatabase(p, SQLITE_OPEN_READWRITE);
         is_initialized = true;
     } catch (Exception e) {
         logger.trace(e.msg);
@@ -111,7 +111,7 @@ do {
     }
 
     if (!is_initialized) {
-        db = sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+        db = SqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
         initializeTables(db);
     }
 
@@ -337,13 +337,13 @@ immutable all_test_case_tbl = "CREATE TABLE %s (
     name        TEXT NOT NULL
     )";
 
-void initializeTables(ref sqlDatabase db) {
+void initializeTables(ref SqlDatabase db) {
     db.run(format(files_tbl, filesTable));
     db.run(format(mutation_point_v1_tbl, mutationPointTable));
     db.run(format(mutation_v1_tbl, mutationTable));
 }
 
-void updateSchemaVersion(ref sqlDatabase db, long ver) {
+void updateSchemaVersion(ref SqlDatabase db, long ver) {
     try {
         auto stmt = db.prepare(format("DELETE FROM %s", schemaVersionTable));
         stmt.execute;
@@ -356,7 +356,7 @@ void updateSchemaVersion(ref sqlDatabase db, long ver) {
     }
 }
 
-long getSchemaVersion(ref sqlDatabase db) {
+long getSchemaVersion(ref SqlDatabase db) {
     enum version_q = "SELECT version FROM " ~ schemaVersionTable;
     auto stmt = db.prepare(version_q);
     auto res = stmt.execute;
@@ -365,10 +365,10 @@ long getSchemaVersion(ref sqlDatabase db) {
     return 0;
 }
 
-void upgrade(ref sqlDatabase db) nothrow {
+void upgrade(ref SqlDatabase db) nothrow {
     import d2sqlite3;
 
-    alias upgradeFunc = void function(ref sqlDatabase db);
+    alias upgradeFunc = void function(ref SqlDatabase db);
     enum tbl = makeUpgradeTable;
 
     while (true) {
@@ -410,19 +410,19 @@ void upgrade(ref sqlDatabase db) nothrow {
 }
 
 /// 2018-04-07
-void upgradeV0(ref sqlDatabase db) {
+void upgradeV0(ref SqlDatabase db) {
     db.run(format(version_tbl, schemaVersionTable));
     updateSchemaVersion(db, 1);
 }
 
 /// 2018-04-08
-void upgradeV1(ref sqlDatabase db) {
+void upgradeV1(ref SqlDatabase db) {
     db.run(format(test_case_killed_v1_tbl, testCaseTableV1));
     updateSchemaVersion(db, 2);
 }
 
 /// 2018-04-22
-void upgradeV2(ref sqlDatabase db) {
+void upgradeV2(ref SqlDatabase db) {
     immutable new_tbl = "new_" ~ filesTable;
     db.run(format(files3_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
@@ -434,7 +434,7 @@ void upgradeV2(ref sqlDatabase db) {
 }
 
 /// 2018-09-01
-void upgradeV3(ref sqlDatabase db) {
+void upgradeV3(ref SqlDatabase db) {
     immutable new_tbl = "new_" ~ testCaseTableV1;
     db.run(format(test_case_killed_v2_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s", new_tbl, testCaseTableV1));
@@ -447,7 +447,7 @@ void upgradeV3(ref sqlDatabase db) {
 }
 
 /// 2018-09-24
-void upgradeV4(ref sqlDatabase db) {
+void upgradeV4(ref SqlDatabase db) {
     immutable new_tbl = "new_" ~ killedTestCaseTable;
     db.run(format(test_case_killed_v3_tbl, new_tbl));
 
@@ -487,7 +487,7 @@ void upgradeV4(ref sqlDatabase db) {
  *
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
-void upgradeV5(ref sqlDatabase db) {
+void upgradeV5(ref SqlDatabase db) {
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
@@ -510,7 +510,7 @@ void upgradeV5(ref sqlDatabase db) {
 }
 
 /// 2018-10-11
-void upgradeV6(ref sqlDatabase db) {
+void upgradeV6(ref SqlDatabase db) {
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
@@ -533,7 +533,7 @@ void upgradeV6(ref sqlDatabase db) {
 }
 
 /// 2018-10-15
-void upgradeV7(ref sqlDatabase db) {
+void upgradeV7(ref SqlDatabase db) {
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
@@ -554,7 +554,7 @@ void upgradeV7(ref sqlDatabase db) {
 }
 
 /// 2018-10-20
-void upgradeV8(ref sqlDatabase db) {
+void upgradeV8(ref SqlDatabase db) {
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
@@ -571,7 +571,7 @@ void upgradeV8(ref sqlDatabase db) {
 }
 
 /// 2018-11-10
-void upgradeV9(ref sqlDatabase db) {
+void upgradeV9(ref SqlDatabase db) {
     db.run("PRAGMA foreign_keys=OFF;");
     scope (exit)
         db.run("PRAGMA foreign_keys=ON;");
@@ -588,7 +588,7 @@ void upgradeV9(ref sqlDatabase db) {
 }
 
 /// 2018-11-25
-void upgradeV10(ref sqlDatabase db) {
+void upgradeV10(ref SqlDatabase db) {
     db.run(format(raw_src_metadata_v1_tbl, rawSrcMetadataTable));
     db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable,
             rawSrcMetadataTable, mutationTable, mutationStatusTable,
@@ -596,13 +596,13 @@ void upgradeV10(ref sqlDatabase db) {
     updateSchemaVersion(db, 11);
 }
 
-void replaceTbl(ref sqlDatabase db, string src, string dst) {
+void replaceTbl(ref SqlDatabase db, string src, string dst) {
     db.run(format("DROP TABLE %s", dst));
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
 }
 
 struct UpgradeTable {
-    alias UpgradeFunc = void function(ref sqlDatabase db);
+    alias UpgradeFunc = void function(ref SqlDatabase db);
     UpgradeFunc[long] tbl;
     alias tbl this;
 
