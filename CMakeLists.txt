@@ -117,6 +117,7 @@ set(DEXTOOL_MAIN_EXE_FULL ${PROJECT_BINARY_DIR}/${DEXTOOL_MAIN_EXE})
 add_subdirectory(vendor)
 
 # base libraries used by binaries
+add_subdirectory(libs)
 include(dextool_clang.cmake)
 include(dextool_cpptooling.cmake)
 include(dextool_dextool.cmake)

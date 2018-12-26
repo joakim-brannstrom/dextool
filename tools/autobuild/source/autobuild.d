@@ -180,10 +180,8 @@ void playSound(Flag!"Positive" positive) nothrow {
             a ~= "/usr/share/sounds/KDE-Sys-App-Negative.ogg";
 
         last_pid = spawnProcess(a, std.stdio.stdin, devnull, devnull);
-    }
-    catch (ProcessException ex) {
-    }
-    catch (Exception ex) {
+    } catch (ProcessException ex) {
+    } catch (Exception ex) {
     }
 }
 
@@ -667,17 +665,18 @@ int main(string[] args) {
 
     // dfmt off
     auto inotify_paths = only(
-                              "source",
-                              "plugin",
                               "clang",
                               "dextool_clang_extensions",
-                              "libclang",
-                              "dub.sdl",
                               "dsrcgen/source",
+                              "dub.sdl",
+                              "libclang",
+                              "libs",
                               "llvm_hiwrap",
+                              "plugin",
+                              "source",
+                              "test/source",
                               "test/testdata",
                               "vendor",
-                              "test/source"
         )
         .map!(a => thisExePath.dirName ~ a)
         .array;
