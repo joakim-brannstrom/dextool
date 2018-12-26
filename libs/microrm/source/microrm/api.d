@@ -138,7 +138,6 @@ struct Microrm {
     }
 
     void run(T)(Delete!T v) {
-        logger.trace(v.toSql.toString);
         db.run(v.toSql.toString);
     }
 
