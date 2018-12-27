@@ -2,12 +2,23 @@ module microrm.schema;
 
 import microrm.util;
 
-/++ Create SQL for creating tables if not exists
-    Params:
-    Types = types of structs which will be a tables
-            name of struct -> name of table
-            name of field -> name of column
- +/
+struct TableName {
+    string value;
+}
+
+/** Create SQL for creating tables if not exists
+ *
+ * Params:
+ * Types = types of structs which will be a tables
+ *         name of struct -> name of table
+ *         name of field -> name of column
+ *
+ * To change the name of the table:
+ * ---
+ * @TableName("my_name")
+ * struct Foo {}
+ * ---
+ */
 auto buildSchema(Types...)() {
     import std.array : appender;
     import std.algorithm : joiner;

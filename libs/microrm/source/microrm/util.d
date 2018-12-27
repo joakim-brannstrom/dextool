@@ -7,7 +7,17 @@ enum IDNAME = "id";
 enum SEPARATOR = ".";
 
 string tableName(T)() {
-    return T.stringof;
+    import std.traits : getUDAs;
+    import microrm.schema : TableName;
+
+    enum nameAttrs = getUDAs!(T, TableName);
+    static assert(nameAttrs.length == 0 || nameAttrs.length == 1,
+            "Found multiple Name UDAs on unittest");
+    enum hasName = nameAttrs.length;
+    static if (hasName) {
+        return nameAttrs[0].value;
+    } else
+        return T.stringof;
 }
 
 string[] fieldToCol(string name, T)(string prefix = "") {

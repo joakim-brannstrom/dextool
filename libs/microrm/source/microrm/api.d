@@ -19,12 +19,17 @@ struct Microrm {
 
     ///
     Database db;
-    alias db this;
+
+    ref Database getUnderlyingDb() {
+        return getUnderlyingDb;
+    }
+
+    alias getUnderlyingDb this;
 
     ///
     this(Database db, size_t queryBufferInitReserve = 512) {
         this.db = db;
-        buf.reserve(queryBufferInitReserve);
+        this.buf.reserve(queryBufferInitReserve);
     }
 
     ///
