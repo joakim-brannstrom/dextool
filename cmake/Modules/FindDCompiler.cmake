@@ -17,8 +17,9 @@ if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     # prefer DMD for debug builds because they are faster and normmally used by developers
     set(COMMON_D_COMPILERS "dmd" "ldmd2" "gdmd")
 endif()
-
-set(COMMON_D_COMPILER_PATHS "/usr/bin" "/usr/local/bin" "C:\\d\\dmd2\\windows\\bin")
+string(REPLACE ":" " " ENV_PATHS "$ENV{PATH}")
+# prefer compilers from the users PATH before system installs
+set(COMMON_D_COMPILER_PATHS ${ENV_PATHS} "/usr/bin" "/usr/local/bin" "C:\\d\\dmd2\\windows\\bin")
 
 if (D_COMPILER)
     get_filename_component(D_COMPILER ${D_COMPILER} PROGRAM PROGRAM_ARGS D_COMPILER_FLAGS_ENV_INIT)
