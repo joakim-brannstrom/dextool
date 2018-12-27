@@ -23,52 +23,57 @@ string tableName(T)() {
 string[] fieldToCol(string name, T)(string prefix = "") {
     enum isFieldUDA(alias T) = is(typeof(T) == FieldParam);
 
-    static if (name == IDNAME)
-        return ["'" ~ IDNAME ~ "' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL"];
-    else static if (is(T == struct)) {
-        T t;
-        string[] ret;
-        foreach (i, f; t.tupleof) {
-            enum fname = __traits(identifier, t.tupleof[i]);
-            alias F = typeof(f);
-            auto np = prefix ~ (name.length ? name ~ SEPARATOR : "");
-
-            enum udas = Filter!(isFieldUDA, getUDAs!(t.tupleof[i], FieldParam));
-            ret ~= fieldToColInternal!(fname, F, udas)(np);
-        }
-        return ret;
-    } else {
+    static if (!is(T == struct))
         static assert("Building a schema from type is not supported: " ~ T.stringof);
+
+    T t;
+    string[] ret;
+    foreach (i, f; t.tupleof) {
+        enum fname = __traits(identifier, t.tupleof[i]);
+        alias F = typeof(f);
+        auto np = prefix ~ (name.length ? name ~ SEPARATOR : "");
+
+        enum udas = Filter!(isFieldUDA, getUDAs!(t.tupleof[i], FieldParam));
+
+        static if (is(F == struct))
+            ret ~= fieldToCol!(fname, F)(np);
+        else
+            ret ~= fieldToColInternal!(fname, F, udas)(np);
     }
+    return ret;
 }
 
 private string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
     enum bool isFieldParam(alias T) = is(typeof(T) == FieldParam);
 
-    string type, param;
+    static if (name == IDNAME)
+        return ["'" ~ IDNAME ~ "' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL"];
+    else {
+        string type, param;
 
-    enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
-    static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
-            "Found multiple FieldParam UDAs on " ~ T.stringof);
-    enum hasParam = paramAttrs.length;
-    static if (hasParam)
-        param = paramAttrs[0].value;
+        enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
+        static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
+                "Found multiple FieldParam UDAs on " ~ T.stringof);
+        enum hasParam = paramAttrs.length;
+        static if (hasParam)
+            param = paramAttrs[0].value;
 
-    enum NOTNULL = " NOT NULL";
-    static if (isFloatingPoint!T)
-        type = "REAL";
-    else static if (isNumeric!T || is(T == bool)) {
-        type = "INTEGER";
-        static if (!hasParam)
-            param = NOTNULL;
-    } else static if (isSomeString!T)
-        type = "TEXT";
-    else static if (isArray!T)
-        type = "BLOB";
-    else
-        static assert(0, "unsupported type: " ~ T.stringof);
+        enum NOTNULL = " NOT NULL";
+        static if (isFloatingPoint!T)
+            type = "REAL";
+        else static if (isNumeric!T || is(T == bool)) {
+            type = "INTEGER";
+            static if (!hasParam)
+                param = NOTNULL;
+        } else static if (isSomeString!T)
+            type = "TEXT";
+        else static if (isArray!T)
+            type = "BLOB";
+        else
+            static assert(0, "unsupported type: " ~ T.stringof);
 
-    return [format("'%s%s' %s%s", prefix, name, type, param)];
+        return [format("'%s%s' %s%s", prefix, name, type, param)];
+    }
 }
 
 unittest {
