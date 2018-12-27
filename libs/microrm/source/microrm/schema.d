@@ -2,7 +2,13 @@ module microrm.schema;
 
 import microrm.util;
 
+/// UDA controlling the name of the table.
 struct TableName {
+    string value;
+}
+
+/// UDA controlling extra attributes for a field.
+struct FieldParam {
     string value;
 }
 

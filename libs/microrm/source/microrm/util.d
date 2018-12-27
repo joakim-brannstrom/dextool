@@ -1,18 +1,18 @@
 module microrm.util;
 
-import std.traits;
 import std.format : format, formattedWrite;
+import std.traits;
+import std.meta : Filter;
+
+import microrm.schema : FieldParam, TableName;
 
 enum IDNAME = "id";
 enum SEPARATOR = ".";
 
 string tableName(T)() {
-    import std.traits : getUDAs;
-    import microrm.schema : TableName;
-
     enum nameAttrs = getUDAs!(T, TableName);
     static assert(nameAttrs.length == 0 || nameAttrs.length == 1,
-            "Found multiple Name UDAs on unittest");
+            "Found multiple TableName UDAs on " ~ T.stringof);
     enum hasName = nameAttrs.length;
     static if (hasName) {
         return nameAttrs[0].value;
@@ -21,6 +21,8 @@ string tableName(T)() {
 }
 
 string[] fieldToCol(string name, T)(string prefix = "") {
+    enum isFieldUDA(alias T) = is(typeof(T) == FieldParam);
+
     static if (name == IDNAME)
         return ["'" ~ IDNAME ~ "' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL"];
     else static if (is(T == struct)) {
@@ -30,26 +32,43 @@ string[] fieldToCol(string name, T)(string prefix = "") {
             enum fname = __traits(identifier, t.tupleof[i]);
             alias F = typeof(f);
             auto np = prefix ~ (name.length ? name ~ SEPARATOR : "");
-            ret ~= fieldToCol!(fname, F)(np);
+
+            enum udas = Filter!(isFieldUDA, getUDAs!(t.tupleof[i], FieldParam));
+            ret ~= fieldToColInternal!(fname, F, udas)(np);
         }
         return ret;
     } else {
-        enum NOTNULL = " NOT NULL";
-        string type, param;
-        static if (isFloatingPoint!T)
-            type = "REAL";
-        else static if (isNumeric!T || is(T == bool)) {
-            type = "INTEGER";
-            param = NOTNULL;
-        } else static if (isSomeString!T)
-            type = "TEXT";
-        else static if (isArray!T)
-            type = "BLOB";
-        else
-            static assert(0, "unsupported type: " ~ T.stringof);
-
-        return [format("'%s%s' %s%s", prefix, name, type, param)];
+        static assert("Building a schema from type is not supported: " ~ T.stringof);
     }
+}
+
+private string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
+    enum bool isFieldParam(alias T) = is(typeof(T) == FieldParam);
+
+    string type, param;
+
+    enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
+    static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
+            "Found multiple FieldParam UDAs on " ~ T.stringof);
+    enum hasParam = paramAttrs.length;
+    static if (hasParam)
+        param = paramAttrs[0].value;
+
+    enum NOTNULL = " NOT NULL";
+    static if (isFloatingPoint!T)
+        type = "REAL";
+    else static if (isNumeric!T || is(T == bool)) {
+        type = "INTEGER";
+        static if (!hasParam)
+            param = NOTNULL;
+    } else static if (isSomeString!T)
+        type = "TEXT";
+    else static if (isArray!T)
+        type = "BLOB";
+    else
+        static assert(0, "unsupported type: " ~ T.stringof);
+
+    return [format("'%s%s' %s%s", prefix, name, type, param)];
 }
 
 unittest {
