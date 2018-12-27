@@ -7,3 +7,8 @@ file(GLOB_RECURSE SRC_FILES
 set(flags "-I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source")
 
 compile_d_static_lib(dextool_microrm "${SRC_FILES}" "${flags}" "" "dextool_d2sqlite3")
+
+list(APPEND SRC_FILES
+    ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
+)
+compile_d_unittest(microrm "${SRC_FILES}" "${flags}" "" "dextool_microrm;dextool_d2sqlite3")
