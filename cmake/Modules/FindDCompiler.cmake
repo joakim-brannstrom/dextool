@@ -10,10 +10,14 @@
 #  D_COMPILER_VERSION_STRING    - String containing the compiler version, e.g. "DMD64 D Compiler v2.070.2"
 #  D_COMPILER_DMD_COMPAT        - true if the D compiler cmdline interface is compatible with DMD
 
-
 set(D_COMPILER_FOUND "FALSE")
 
-set(COMMON_D_COMPILERS "ldmd2" "dmd" "gdmd")
+set(COMMON_D_COMPILERS "ldmd2" "gdmd" "dmd")
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    # prefer DMD for debug builds because they are faster and normmally used by developers
+    set(COMMON_D_COMPILERS "dmd" "ldmd2" "gdmd")
+endif()
+
 set(COMMON_D_COMPILER_PATHS "/usr/bin" "/usr/local/bin" "C:\\d\\dmd2\\windows\\bin")
 
 if (D_COMPILER)
