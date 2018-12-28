@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module microrm.api;
 
+import logger = std.experimental.logger;
+
 import std.array : Appender;
 import std.range;
 
@@ -13,12 +15,12 @@ import microrm.exception;
 
 import d2sqlite3;
 
-debug (microrm) import std.stdio : stderr;
-
 ///
 struct Microrm {
     private Statement[string] cachedStmt;
     private Appender!(char[]) buf;
+    /// True means that all queries are logged.
+    private bool log_;
 
     ///
     Database db;
@@ -44,6 +46,16 @@ struct Microrm {
 
     ~this() {
         cleanupCache;
+    }
+
+    /// Toggle logging.
+    void log(bool v) {
+        this.log_ = v;
+    }
+
+    /// Returns: True if logging is activated
+    private bool isLog() {
+        return log_;
     }
 
     private void cleanupCache() {
@@ -115,8 +127,8 @@ struct Microrm {
 
         auto sql = buf.data.idup;
 
-        debug (microrm)
-            stderr.writeln(sql);
+        if (isLog)
+            logger.trace(sql);
 
         if (sql !in cachedStmt)
             cachedStmt[sql] = db.prepare(sql);
