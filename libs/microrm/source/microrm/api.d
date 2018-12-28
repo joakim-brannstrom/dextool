@@ -1,4 +1,8 @@
-///
+/**
+Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+License: MIT
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+*/
 module microrm.api;
 
 import std.array : Appender;
@@ -75,27 +79,32 @@ struct Microrm {
         return Count!(T, typeof(buf))(&db, &buf);
     }
 
-    ///
-    void insert(bool all = false, T)(T[] arr...) if (!isInputRange!T) {
+    /**
+     *
+     * Params:
+     */
+    void insert(AggregateInsert all = AggregateInsert.no, T)(T[] arr...)
+            if (!isInputRange!T) {
         procInsert!all(false, arr);
     }
     ///
-    void insertOrReplace(bool all = false, T)(T[] arr...) if (!isInputRange!T) {
+    void insertOrReplace(AggregateInsert all = AggregateInsert.no, T)(T[] arr...)
+            if (!isInputRange!T) {
         procInsert!all(true, arr);
     }
 
     ///
-    void insert(bool all = false, R)(R rng)
+    void insert(AggregateInsert all = AggregateInsert.no, R)(R rng)
             if (isInputRange!R && ((all && hasLength!R) || !all)) {
         procInsert!all(false, rng);
     }
     ///
-    void insertOrReplace(bool all = false, R)(R rng)
+    void insertOrReplace(AggregateInsert all = AggregateInsert.no, R)(R rng)
             if (isInputRange!R && ((all && hasLength!R) || !all)) {
         procInsert!all(true, rng);
     }
 
-    private auto procInsert(bool all = false, R)(bool replace, R rng)
+    private auto procInsert(AggregateInsert all = AggregateInsert.no, R)(bool replace, R rng)
             if ((all && hasLength!R) || !all) {
         buf.clear;
         alias T = ElementType!R;
@@ -114,7 +123,7 @@ struct Microrm {
         auto stmt = cachedStmt[sql];
 
         int n;
-        static if (all) {
+        static if (all == AggregateInsert.yes) {
             foreach (v; rng)
                 bindStruct(stmt, v, replace, n);
             stmt.execute();
@@ -151,6 +160,25 @@ struct Microrm {
         }
         return n;
     }
+}
+
+/** Wheter one aggregated insert or multiple should be generated.
+ *
+ * no:
+ * ---
+ * INSERT INTO foo ('v0') VALUES (?)
+ * INSERT INTO foo ('v0') VALUES (?)
+ * INSERT INTO foo ('v0') VALUES (?)
+ * ---
+ *
+ * yes:
+ * ---
+ * INSERT INTO foo ('v0') VALUES (?) (?) (?)
+ * ---
+ */
+enum AggregateInsert {
+    no,
+    yes
 }
 
 version (unittest) {
@@ -216,7 +244,7 @@ unittest {
     db.run(buildSchema!One);
 
     assert(db.count!One.run == 0);
-    db.insert!true(iota(0, 10).map!(i => One(i * 100, "hello" ~ text(i))));
+    db.insert!(AggregateInsert.yes)(iota(0, 10).map!(i => One(i * 100, "hello" ~ text(i))));
     assert(db.count!One.run == 10);
 
     auto ones = db.select!One.run.array;
@@ -228,7 +256,8 @@ unittest {
     import std.datetime;
     import std.conv : to;
 
-    db.insertOrReplace!true(iota(0, 499).map!(i => One((i + 1) * 100, "hello" ~ text(i))));
+    db.insertOrReplace!(AggregateInsert.yes)(iota(0, 499)
+            .map!(i => One((i + 1) * 100, "hello" ~ text(i))));
     assert(ones.length == 10);
     ones = db.select!One.run.array;
     assert(ones.length == 499);
