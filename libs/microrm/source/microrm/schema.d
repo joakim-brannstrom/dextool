@@ -5,6 +5,11 @@ struct TableName {
     string value;
 }
 
+/// UDA controlling constraints of a table.
+struct TableConstraint {
+    string value;
+}
+
 /// UDA controlling extra attributes for a field.
 struct FieldParam {
     string value;
@@ -24,8 +29,9 @@ struct FieldParam {
  * ---
  */
 auto buildSchema(Types...)() {
-    import std.array : appender;
     import std.algorithm : joiner;
+    import std.array : appender;
+    import std.range : only;
 
     auto ret = appender!string;
     foreach (T; Types) {
@@ -33,7 +39,7 @@ auto buildSchema(Types...)() {
             ret.put("CREATE TABLE IF NOT EXISTS ");
             ret.put(tableName!T);
             ret.put(" (\n");
-            ret.put(fieldToCol!("", T)().joiner(",\n"));
+            ret.put(only(fieldToCol!("", T)(), tableConstraints!T()).joiner.joiner(",\n"));
             ret.put(");\n");
         } else
             static assert(0, "not supported non-struct type");
@@ -91,6 +97,21 @@ unittest {
 `);
 }
 
+@("shall create a schema with constraints from UDAs")
+unittest {
+    @TableConstraint("u UNIQUE p")
+    static struct Foo {
+        ulong id;
+        ulong p;
+    }
+
+    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'p' INTEGER NOT NULL,
+CONSTRAINT u UNIQUE p);
+`, buildSchema!(Foo));
+}
+
 import std.format : format, formattedWrite;
 import std.traits;
 import std.meta : Filter;
@@ -111,6 +132,18 @@ string tableName(T)() {
         return T.stringof;
 }
 
+string[] tableConstraints(T)() {
+    enum constraintAttrs = getUDAs!(T, TableConstraint);
+    enum hasConstraints = constraintAttrs.length;
+
+    string[] rval;
+    static if (hasConstraints) {
+        static foreach (const c; constraintAttrs)
+            rval ~= "CONSTRAINT " ~ c.value;
+    }
+    return rval;
+}
+
 string[] fieldNames(string name, T)(string prefix = "") {
     static if (is(T == struct)) {
         T t;
@@ -126,6 +159,7 @@ string[] fieldNames(string name, T)(string prefix = "") {
         return ["'" ~ prefix ~ name ~ "'"];
 }
 
+@("shall derive the field names from the inspected struct")
 unittest {
     struct Foo {
         ulong id;
@@ -168,7 +202,7 @@ string[] fieldToCol(string name, T)(string prefix = "") {
     return ret;
 }
 
-private string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
+string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
     enum bool isFieldParam(alias T) = is(typeof(T) == FieldParam);
 
     static if (name == IDNAME)
