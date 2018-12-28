@@ -7,3 +7,4 @@ TODO.txt
 docs.json
 docs
 sqlite3.o
+lib/*/*.lib

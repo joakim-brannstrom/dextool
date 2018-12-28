@@ -1,11 +1,11 @@
 /++
-This module is part of d2sqlite3.
+Managing SQLite3 database connections.
 
 Authors:
     Nicolas Sicard (biozic) and other contributors at $(LINK https://github.com/biozic/d2sqlite3)
 
 Copyright:
-    Copyright 2011-17 Nicolas Sicard.
+    Copyright 2011-18 Nicolas Sicard.
 
 License:
     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
@@ -24,15 +24,16 @@ import std.string : format, toStringz;
 import std.typecons : Nullable;
 
 /// Set _UnlockNotify version if compiled with SqliteEnableUnlockNotify or SqliteFakeUnlockNotify
-version (SqliteEnableUnlockNotify) version = _UnlockNotify;
-else version (SqliteFakeUnlockNotify) version = _UnlockNotify;
+version (SqliteEnableUnlockNotify)
+    version = _UnlockNotify;
+else version (SqliteFakeUnlockNotify)
+    version = _UnlockNotify;
 
 /// Type for the internal representation of blobs
 alias Blob = immutable(ubyte)[];
 
 /// SQLite type codes
-enum SqliteType
-{
+enum SqliteType {
     INTEGER = SQLITE_INTEGER, ///
     FLOAT = SQLITE_FLOAT, ///
     TEXT = SQLITE3_TEXT, ///
@@ -43,8 +44,7 @@ enum SqliteType
 /++
 A caracteristic of user-defined functions or aggregates.
 +/
-enum Deterministic
-{
+enum Deterministic {
     /++
     The returned value is the same if the function is called with the same parameters.
     +/
@@ -61,14 +61,12 @@ An database connection.
 
 This struct is a reference-counted wrapper around a `sqlite3*` pointer.
 +/
-struct Database
-{
+struct Database {
     import std.traits : isFunctionPointer, isDelegate;
     import std.typecons : RefCounted, RefCountedAutoInitialize;
 
 private:
-    struct Payload
-    {
+    struct Payload {
         sqlite3* handle;
         void* updateHook;
         void* commitHook;
@@ -79,39 +77,29 @@ private:
         version (_UnlockNotify) IUnlockNotifyHandler unlockNotifyHandler;
         debug string filename;
 
-        this(sqlite3* handle)
-        {
+        this(sqlite3* handle) nothrow {
             this.handle = handle;
         }
 
-        ~this()
-        {
+        ~this() nothrow {
             debug ensureNotInGC!Database(filename);
-            close();
-        }
-
-        void close()
-        {
-            if (!handle)
-                return;
-
-            sqlite3_progress_handler(handle, 0, null, null);
-            auto result = sqlite3_close(handle);
-            //enforce(result == SQLITE_OK, new SqliteException(errmsg(handle), result));
-            handle = null;
             ptrFree(updateHook);
             ptrFree(commitHook);
             ptrFree(rollbackHook);
             ptrFree(progressHandler);
             ptrFree(traceCallback);
             ptrFree(profileCallback);
+
+            if (!handle)
+                return;
+            sqlite3_progress_handler(handle, 0, null, null);
+            sqlite3_close(handle);
         }
     }
 
     RefCounted!(Payload, RefCountedAutoInitialize.no) p;
 
-    void check(int result)
-    {
+    void check(int result) {
         enforce(result == SQLITE_OK, new SqliteException(errmsg(p.handle), result));
     }
 
@@ -128,11 +116,11 @@ public:
     See_Also: $(LINK http://www.sqlite.org/c3ref/open.html) to know how to use the flags
     parameter or to use path as a file URI if the current configuration allows it.
     +/
-    this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
-    {
+    this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
         sqlite3* hdl;
         auto result = sqlite3_open_v2(path.toStringz, &hdl, flags, null);
-        enforce(result == SQLITE_OK, new SqliteException(hdl ? errmsg(hdl) : "Error opening the database", result));
+        enforce(result == SQLITE_OK, new SqliteException(hdl ? errmsg(hdl)
+                : "Error opening the database", result));
         p = Payload(hdl);
         debug p.filename = path;
     }
@@ -140,20 +128,19 @@ public:
     /++
     Explicitly closes the database connection.
 
-    After a call to `close()`, using the database connection or one of its prepared statement
-    is an error. The `Database` object is destroyed and cannot be used any more.
+    After a successful call to `close()`, using the database connection or one of its prepared
+    statement is an error. The `Database` object is destroyed and cannot be used any more.
     +/
-    void close()
-    {
-        p.close();
+    void close() {
+        auto result = sqlite3_close(p.handle);
+        enforce(result == SQLITE_OK, new SqliteException(errmsg(handle), result));
         destroy(p);
     }
 
     /++
     Gets the SQLite internal _handle of the database connection.
     +/
-    sqlite3* handle() @property nothrow
-    {
+    sqlite3* handle() @property nothrow {
         return p.handle;
     }
 
@@ -167,8 +154,7 @@ public:
         If there is no attached database, or if database is a temporary or
         in-memory database, then null is returned.
     +/
-    string attachedFilePath(string database = "main")
-    {
+    string attachedFilePath(string database = "main") {
         assert(p.handle);
         return sqlite3_db_filename(p.handle, database.toStringz).to!string;
     }
@@ -179,8 +165,8 @@ public:
     Params:
         database = The name of an attached database.
     +/
-    bool isReadOnly(string database = "main")
-    {
+    bool isReadOnly(string database = "main") {
+        assert(p.handle);
         immutable ret = sqlite3_db_readonly(p.handle, database.toStringz);
         enforce(ret >= 0, new SqliteException("Database not found: %s".format(database)));
         return ret == 1;
@@ -198,13 +184,14 @@ public:
         are searched for the table using the same algorithm used by the database engine
         to resolve unqualified table references.
     +/
-    TableColumnMetadata tableColumnMetadata(string table, string column, string database = "main")
-    {
+    TableColumnMetadata tableColumnMetadata(string table, string column, string database = "main") {
         TableColumnMetadata data;
         char* pzDataType, pzCollSeq;
         int notNull, primaryKey, autoIncrement;
+        assert(p.handle);
         check(sqlite3_table_column_metadata(p.handle, database.toStringz, table.toStringz,
-            column.toStringz, &pzDataType, &pzCollSeq, &notNull, &primaryKey, &autoIncrement));
+                column.toStringz, &pzDataType, &pzCollSeq, &notNull,
+                &primaryKey, &autoIncrement));
         data.declaredTypeName = pzDataType.to!string;
         data.collationSequenceName = pzCollSeq.to!string;
         data.isNotNull = cast(bool) notNull;
@@ -230,15 +217,14 @@ public:
         sql = The code of the SQL statement.
         args = Optional arguments to bind to the SQL statement.
     +/
-    ResultRange execute(Args...)(string sql, Args args)
-    {
+    ResultRange execute(Args...)(string sql, Args args) {
         auto stm = prepare(sql);
-        static if (Args.length) stm.bindAll(args);
+        static if (Args.length)
+            stm.bindAll(args);
         return stm.execute();
     }
     ///
-    unittest
-    {
+    unittest {
         auto db = Database(":memory:");
         db.execute("CREATE TABLE test (val INTEGER)");
         db.execute("INSERT INTO test (val) VALUES (:v)", 1);
@@ -255,10 +241,8 @@ public:
         ResultRange will be empty if a statement doesn't return rows. If the delegate
         return false, the execution is aborted.
     +/
-    void run(string script, bool delegate(ResultRange) dg = null)
-    {
-        foreach (sql; script.byStatement)
-        {
+    void run(string script, bool delegate(ResultRange) dg = null) {
+        foreach (sql; script.byStatement) {
             auto stmt = prepare(sql);
             auto results = stmt.execute();
             if (dg && !dg(results))
@@ -266,8 +250,7 @@ public:
         }
     }
     ///
-    unittest
-    {
+    unittest {
         auto db = Database(":memory:");
         db.run(`CREATE TABLE test1 (val INTEGER);
                 CREATE TABLE test2 (val FLOAT);
@@ -281,23 +264,27 @@ public:
 
     The statement becomes invalid if the Database goes out of scope and is destroyed.
     +/
-    Statement prepare(string sql)
-    {
+    Statement prepare(string sql) {
         return Statement(this, sql);
     }
 
     /// Convenience functions equivalent to an SQL statement.
-    void begin() { execute("BEGIN"); }
+    void begin() {
+        execute("BEGIN");
+    }
     /// Ditto
-    void commit() { execute("COMMIT"); }
+    void commit() {
+        execute("COMMIT");
+    }
     /// Ditto
-    void rollback() { execute("ROLLBACK"); }
+    void rollback() {
+        execute("ROLLBACK");
+    }
 
     /++
     Returns the rowid of the last INSERT statement.
     +/
-    long lastInsertRowid()
-    {
+    long lastInsertRowid() {
         assert(p.handle);
         return sqlite3_last_insert_rowid(p.handle);
     }
@@ -306,8 +293,7 @@ public:
     Gets the number of database rows that were changed, inserted or deleted by the most
     recently executed SQL statement.
     +/
-    int changes() @property nothrow
-    {
+    int changes() @property nothrow {
         assert(p.handle);
         return sqlite3_changes(p.handle);
     }
@@ -316,8 +302,7 @@ public:
     Gets the number of database rows that were changed, inserted or deleted since the
     database was opened.
     +/
-    int totalChanges() @property nothrow
-    {
+    int totalChanges() @property nothrow {
         assert(p.handle);
         return sqlite3_total_changes(p.handle);
     }
@@ -325,8 +310,7 @@ public:
     /++
     Gets the SQLite error code of the last operation.
     +/
-    int errorCode() @property nothrow
-    {
+    int errorCode() @property nothrow {
         return p.handle ? sqlite3_errcode(p.handle) : 0;
     }
 
@@ -337,8 +321,7 @@ public:
 
     See_also: $(LINK http://www.sqlite.org/c3ref/interrupt.html).
     +/
-    void interrupt()
-    {
+    void interrupt() {
         assert(p.handle);
         sqlite3_interrupt(p.handle);
     }
@@ -348,19 +331,20 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/db_config.html).
     +/
-    void config(Args...)(int code, Args args)
-    {
+    void config(Args...)(int code, Args args) {
+        assert(p.handle);
         auto result = sqlite3_db_config(p.handle, code, args);
-        enforce(result == SQLITE_OK, new SqliteException("Database configuration: error %s".format(result)));
+        enforce(result == SQLITE_OK,
+                new SqliteException("Database configuration: error %s".format(result)));
     }
 
     /++
     Enables or disables loading extensions.
     +/
-    void enableLoadExtensions(bool enable = true)
-    {
+    void enableLoadExtensions(bool enable = true) {
+        assert(p.handle);
         enforce(sqlite3_enable_load_extension(p.handle, enable) == SQLITE_OK,
-            new SqliteException("Could not enable loading extensions."));
+                new SqliteException("Could not enable loading extensions."));
     }
 
     /++
@@ -372,11 +356,12 @@ public:
         entryPoint = The name of the entry point function. If null is passed, SQLite
         uses the name of the extension file as the entry point.
     +/
-    void loadExtension(string path, string entryPoint = null)
-    {
-        immutable ret = sqlite3_load_extension(p.handle, path.toStringz, entryPoint.toStringz, null);
-        enforce(ret == SQLITE_OK, new SqliteException(
-                "Could not load extension: %s:%s".format(entryPoint, path)));
+    void loadExtension(string path, string entryPoint = null) {
+        assert(p.handle);
+        immutable ret = sqlite3_load_extension(p.handle, path.toStringz,
+                entryPoint.toStringz, null);
+        enforce(ret == SQLITE_OK,
+                new SqliteException("Could not load extension: %s:%s".format(entryPoint, path)));
     }
 
     /++
@@ -417,53 +402,48 @@ public:
     See_Also: $(LINK http://www.sqlite.org/c3ref/create_function.html).
     +/
     void createFunction(T)(string name, T fun, Deterministic det = Deterministic.yes)
-        if (isFunctionPointer!T || isDelegate!T)
-    {
+            if (isFunctionPointer!T || isDelegate!T) {
         import std.meta : AliasSeq, staticMap, EraseAll;
         import std.traits : variadicFunctionStyle, Variadic, ParameterTypeTuple,
             ParameterDefaultValueTuple, ReturnType, Unqual;
 
         static assert(variadicFunctionStyle!(fun) == Variadic.no
-            || is(ParameterTypeTuple!fun == AliasSeq!(ColumnData[])),
-            "only type-safe variadic functions with ColumnData arguments are supported");
+                || is(ParameterTypeTuple!fun == AliasSeq!(ColumnData[])),
+                "only type-safe variadic functions with ColumnData arguments are supported");
 
-        static if (is(ParameterTypeTuple!fun == AliasSeq!(ColumnData[])))
-        {
-            extern(C) static nothrow
-            void x_func(sqlite3_context* context, int argc, sqlite3_value** argv)
-            {
+        static if (is(ParameterTypeTuple!fun == AliasSeq!(ColumnData[]))) {
+            extern (C) static nothrow void x_func(sqlite3_context* context,
+                    int argc, sqlite3_value** argv) {
                 string name;
-                try
-                {
+                try {
                     import std.array : appender;
+
                     auto args = appender!(ColumnData[]);
 
-                    foreach (i; 0 .. argc)
-                    {
+                    foreach (i; 0 .. argc) {
                         auto value = argv[i];
                         immutable type = sqlite3_value_type(value);
 
-                        final switch (type)
-                        {
-                            case SqliteType.INTEGER:
-                                args.put(ColumnData(getValue!long(value)));
-                                break;
+                        final switch (type) {
+                        case SqliteType.INTEGER:
+                            args.put(ColumnData(getValue!long(value)));
+                            break;
 
-                            case SqliteType.FLOAT:
-                                args.put(ColumnData(getValue!double(value)));
-                                break;
+                        case SqliteType.FLOAT:
+                            args.put(ColumnData(getValue!double(value)));
+                            break;
 
-                            case SqliteType.TEXT:
-                                args.put(ColumnData(getValue!string(value)));
-                                break;
+                        case SqliteType.TEXT:
+                            args.put(ColumnData(getValue!string(value)));
+                            break;
 
-                            case SqliteType.BLOB:
-                                args.put(ColumnData(getValue!Blob(value)));
-                                break;
+                        case SqliteType.BLOB:
+                            args.put(ColumnData(getValue!Blob(value)));
+                            break;
 
-                            case SqliteType.NULL:
-                                args.put(ColumnData(null));
-                                break;
+                        case SqliteType.NULL:
+                            args.put(ColumnData(null));
+                            break;
                         }
                     }
 
@@ -473,27 +453,21 @@ public:
                     auto dlg = wrappedDelegate.dlg;
                     name = wrappedDelegate.name;
                     setResult(context, dlg(args.data));
-                }
-                catch (Exception e)
-                {
-                    sqlite3_result_error(context, "error in function %s(): %s"
-                        .nothrowFormat(name, e.msg).toStringz, -1);
+                } catch (Exception e) {
+                    sqlite3_result_error(context,
+                            "error in function %s(): %s".nothrowFormat(name, e.msg).toStringz, -1);
                 }
             }
-        }
-        else
-        {
+        } else {
             static assert(!is(ReturnType!fun == void), "function must not return void");
 
             alias PT = staticMap!(Unqual, ParameterTypeTuple!fun);
             alias PD = ParameterDefaultValueTuple!fun;
 
-            extern (C) static nothrow
-            void x_func(sqlite3_context* context, int argc, sqlite3_value** argv)
-            {
+            extern (C) static nothrow void x_func(sqlite3_context* context,
+                    int argc, sqlite3_value** argv) {
                 string name;
-                try
-                {
+                try {
                     // Get the deledate and its name
                     auto ptr = sqlite3_user_data(context);
                     auto wrappedDelegate = delegateUnwrap!T(ptr);
@@ -503,36 +477,27 @@ public:
                     enum maxArgc = PT.length;
                     enum minArgc = PT.length - EraseAll!(void, PD).length;
 
-                    if (argc > maxArgc)
-                    {
-                        auto txt = ("too many arguments in function %s(), expecting at most %s"
-                            ).format(name, maxArgc);
+                    if (argc > maxArgc) {
+                        auto txt = ("too many arguments in function %s(), expecting at most %s").format(name,
+                                maxArgc);
                         sqlite3_result_error(context, txt.toStringz, -1);
-                    }
-                    else if (argc < minArgc)
-                    {
-                        auto txt = ("too few arguments in function %s(), expecting at least %s"
-                            ).format(name, minArgc);
+                    } else if (argc < minArgc) {
+                        auto txt = ("too few arguments in function %s(), expecting at least %s").format(name,
+                                minArgc);
                         sqlite3_result_error(context, txt.toStringz, -1);
-                    }
-                    else
-                    {
+                    } else {
                         PT args;
-                        foreach (i, type; PT)
-                        {
+                        foreach (i, type; PT) {
                             if (i < argc)
                                 args[i] = getValue!type(argv[i]);
-                            else
-                                static if (is(typeof(PD[i])))
-                                    args[i] = PD[i];
+                            else static if (is(typeof(PD[i])))
+                                args[i] = PD[i];
                         }
                         setResult(context, dlg(args));
                     }
-                }
-                catch (Exception e)
-                {
-                    sqlite3_result_error(context, "error in function %s(): %s"
-                        .nothrowFormat(name, e.msg).toStringz, -1);
+                } catch (Exception e) {
+                    sqlite3_result_error(context,
+                            "error in function %s(): %s".nothrowFormat(name, e.msg).toStringz, -1);
                 }
             }
         }
@@ -544,13 +509,11 @@ public:
 
         assert(p.handle);
         check(sqlite3_create_function_v2(p.handle, name.toStringz, -1,
-              SQLITE_UTF8 | det, delegateWrap(fun, name), &x_func, null, null, &ptrFree));
+                SQLITE_UTF8 | det, delegateWrap(fun, name), &x_func, null, null, &ptrFree));
     }
     ///
-    unittest
-    {
-        string star(int count, string starSymbol = "*")
-        {
+    unittest {
+        string star(int count, string starSymbol = "*") {
             import std.range : repeat;
             import std.array : join;
 
@@ -563,17 +526,14 @@ public:
         assert(db.execute("SELECT star(3, '♥')").oneValue!string == "♥♥♥");
     }
     ///
-    unittest
-    {
+    unittest {
         // The implementation of the new function
-        string myList(ColumnData[] args)
-        {
+        string myList(ColumnData[] args) {
             import std.array : appender;
             import std.string : format, join;
 
             auto app = appender!(string[]);
-            foreach (arg; args)
-            {
+            foreach (arg; args) {
                 if (arg.type == SqliteType.TEXT)
                     app.put(`"%s"`.format(arg));
                 else
@@ -589,13 +549,11 @@ public:
     }
 
     /// Ditto
-    void createFunction(T)(string name, T fun = null)
-        if (is(T == typeof(null)))
-    {
+    void createFunction(T)(string name, T fun = null) if (is(T == typeof(null))) {
         assert(name.length, "function has an empty name");
         assert(p.handle);
-        check(sqlite3_create_function_v2(p.handle, name.toStringz, -1, SQLITE_UTF8,
-                null, fun, null, null, null));
+        check(sqlite3_create_function_v2(p.handle, name.toStringz, -1,
+                SQLITE_UTF8, null, fun, null, null, null));
     }
 
     /++
@@ -616,80 +574,68 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/create_function.html).
     +/
-    void createAggregate(T)(string name, T agg, Deterministic det = Deterministic.yes)
-    {
+    void createAggregate(T)(string name, T agg, Deterministic det = Deterministic.yes) {
         import std.meta : staticMap;
-        import std.traits : isAggregateType, ReturnType, variadicFunctionStyle, Variadic,
-            Unqual, ParameterTypeTuple;
+        import std.traits : isAggregateType, ReturnType, variadicFunctionStyle,
+            Variadic, Unqual, ParameterTypeTuple;
         import core.stdc.stdlib : malloc;
 
-        static assert(isAggregateType!T,
-            T.stringof ~ " should be an aggregate type");
+        static assert(isAggregateType!T, T.stringof ~ " should be an aggregate type");
         static assert(is(typeof(T.accumulate) == function),
-            T.stringof ~ " should have a method named accumulate");
+                T.stringof ~ " should have a method named accumulate");
         static assert(is(typeof(T.result) == function),
-            T.stringof ~ " should have a method named result");
+                T.stringof ~ " should have a method named result");
         static assert(is(typeof({
-                alias RT = ReturnType!(T.result);
-                setResult!RT(null, RT.init);
-            })), T.stringof ~ ".result should return an SQLite-compatible type");
+                    alias RT = ReturnType!(T.result);
+                    setResult!RT(null, RT.init);
+                })), T.stringof ~ ".result should return an SQLite-compatible type");
         static assert(variadicFunctionStyle!(T.accumulate) == Variadic.no,
-            "variadic functions are not supported");
+                "variadic functions are not supported");
         static assert(variadicFunctionStyle!(T.result) == Variadic.no,
-            "variadic functions are not supported");
+                "variadic functions are not supported");
 
         alias PT = staticMap!(Unqual, ParameterTypeTuple!(T.accumulate));
         alias RT = ReturnType!(T.result);
 
-        static struct Context
-        {
+        static struct Context {
             T aggregate;
             string functionName;
         }
 
-        extern(C) static nothrow
-        void x_step(sqlite3_context* context, int /* argc */, sqlite3_value** argv)
-        {
+        extern (C) static nothrow void x_step(sqlite3_context* context, int /* argc */ ,
+                sqlite3_value** argv) {
             auto ctx = cast(Context*) sqlite3_user_data(context);
-            if (!ctx)
-            {
+            if (!ctx) {
                 sqlite3_result_error_nomem(context);
                 return;
             }
 
             PT args;
-            try
-            {
+            try {
                 foreach (i, type; PT)
                     args[i] = getValue!type(argv[i]);
 
                 ctx.aggregate.accumulate(args);
-            }
-            catch (Exception e)
-            {
-                sqlite3_result_error(context, "error in aggregate function %s(): %s"
-                    .nothrowFormat(ctx.functionName, e.msg).toStringz, -1);
+            } catch (Exception e) {
+                sqlite3_result_error(context,
+                        "error in aggregate function %s(): %s".nothrowFormat(ctx.functionName,
+                            e.msg).toStringz, -1);
             }
         }
 
-        extern(C) static nothrow
-        void x_final(sqlite3_context* context)
-        {
+        extern (C) static nothrow void x_final(sqlite3_context* context) {
             auto ctx = cast(Context*) sqlite3_user_data(context);
-            if (!ctx)
-            {
+            if (!ctx) {
                 sqlite3_result_error_nomem(context);
                 return;
             }
 
-            try
-            {
+            try {
                 setResult(context, ctx.aggregate.result());
-            }
-            catch (Exception e)
-            {
-                sqlite3_result_error(context, "error in aggregate function %s(): %s"
-                    .nothrowFormat(ctx.functionName, e.msg).toStringz, -1);
+            } catch (Exception e) {
+                sqlite3_result_error(context,
+                        "error in aggregate function %s(): %s".nothrowFormat(ctx.functionName,
+                            e.msg).toStringz, -1);
             }
         }
 
@@ -701,35 +647,30 @@ public:
         ctx.functionName = name;
 
         assert(p.handle);
-        check(sqlite3_create_function_v2(p.handle, name.toStringz, PT.length, SQLITE_UTF8 | det,
-            cast(void*) ctx, null, &x_step, &x_final, &ptrFree));
+        check(sqlite3_create_function_v2(p.handle, name.toStringz, PT.length,
+                SQLITE_UTF8 | det, cast(void*) ctx, null, &x_step, &x_final, &ptrFree));
     }
     ///
-    unittest // Aggregate creation
+    unittest  // Aggregate creation
     {
         import std.array : Appender, join;
 
         // The implementation of the aggregate function
-        struct Joiner
-        {
-            private
-            {
+        struct Joiner {
+            private {
                 Appender!(string[]) stringList;
                 string separator;
             }
 
-            this(string separator)
-            {
+            this(string separator) {
                 this.separator = separator;
             }
 
-            void accumulate(string word)
-            {
+            void accumulate(string word) {
                 stringList.put(word);
             }
 
-            string result()
-            {
+            string result() {
                 return stringList.data.join(separator);
             }
         }
@@ -771,33 +712,30 @@ public:
     See_Also: $(LINK http://www.sqlite.org/lang_aggfunc.html)
     +/
     void createCollation(T)(string name, T fun)
-        if (isFunctionPointer!T || isDelegate!T)
-    {
-        import std.traits : isImplicitlyConvertible, functionAttributes, FunctionAttribute,
-            ParameterTypeTuple, isSomeString, ReturnType;
+            if (isFunctionPointer!T || isDelegate!T) {
+        import std.traits : isImplicitlyConvertible, functionAttributes,
+            FunctionAttribute, ParameterTypeTuple, isSomeString, ReturnType;
 
         static assert(isImplicitlyConvertible!(typeof(fun("a", "b")), int),
-            "the collation function has a wrong signature");
+                "the collation function has a wrong signature");
 
         static assert(functionAttributes!(T) & FunctionAttribute.nothrow_,
-            "only nothrow functions are allowed as collations");
+                "only nothrow functions are allowed as collations");
 
         alias PT = ParameterTypeTuple!fun;
         static assert(isSomeString!(PT[0]),
-            "the first argument of function " ~ name ~ " should be a string");
+                "the first argument of function " ~ name ~ " should be a string");
         static assert(isSomeString!(PT[1]),
-            "the second argument of function " ~ name ~ " should be a string");
+                "the second argument of function " ~ name ~ " should be a string");
         static assert(isImplicitlyConvertible!(ReturnType!fun, int),
-            "function " ~ name ~ " should return a value convertible to an int");
+                "function " ~ name ~ " should return a value convertible to an int");
 
-        extern (C) static nothrow
-        int x_compare(void* ptr, int n1, const(void)* str1, int n2, const(void)* str2)
-        {
-            static string slice(const(void)* str, int n) nothrow
-            {
+        extern (C) static nothrow int x_compare(void* ptr, int n1,
+                const(void)* str1, int n2, const(void)* str2) {
+            static string slice(const(void)* str, int n) nothrow {
                 // The string data is owned by SQLite, so it should be safe
                 // to take a slice of it.
-                return str ? (cast(immutable) (cast(const(char)*) str)[0 .. n]) : null;
+                return str ? (cast(immutable)(cast(const(char)*) str)[0 .. n]) : null;
             }
 
             return delegateUnwrap!T(ptr).dlg(slice(str1, n1), slice(str2, n2));
@@ -805,20 +743,18 @@ public:
 
         assert(p.handle);
         auto dgw = delegateWrap(fun, name);
-        auto result = sqlite3_create_collation_v2(p.handle, name.toStringz, SQLITE_UTF8,
-            delegateWrap(fun, name), &x_compare, &ptrFree);
-        if (result != SQLITE_OK)
-        {
+        auto result = sqlite3_create_collation_v2(p.handle, name.toStringz,
+                SQLITE_UTF8, delegateWrap(fun, name), &x_compare, &ptrFree);
+        if (result != SQLITE_OK) {
             ptrFree(dgw);
             throw new SqliteException(errmsg(p.handle), result);
         }
     }
     ///
-    unittest // Collation creation
+    unittest  // Collation creation
     {
         // The implementation of the collation
-        int my_collation(string s1, string s2) nothrow
-        {
+        int my_collation(string s1, string s2) nothrow {
             import std.uni : icmp;
             import std.exception : assumeWontThrow;
 
@@ -832,7 +768,7 @@ public:
                 INSERT INTO test (word) VALUES ('strasses');");
 
         auto word = db.execute("SELECT word FROM test ORDER BY word COLLATE my_coll")
-                      .oneValue!string;
+            .oneValue!string;
         assert(word == "straße");
     }
 
@@ -843,11 +779,9 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/commit_hook.html).
     +/
-    void setUpdateHook(UpdateHookDelegate updateHook)
-    {
-        extern(C) static nothrow
-        void callback(void* ptr, int type, const(char)* dbName, const(char)* tableName, long rowid)
-        {
+    void setUpdateHook(UpdateHookDelegate updateHook) {
+        extern (C) static nothrow void callback(void* ptr, int type,
+                const(char)* dbName, const(char)* tableName, long rowid) {
             WrappedDelegate!UpdateHookDelegate* dg;
             dg = delegateUnwrap!UpdateHookDelegate(ptr);
             dg.dlg(type, dbName.to!string, tableName.to!string, rowid);
@@ -855,6 +789,7 @@ public:
 
         ptrFree(p.updateHook);
         p.updateHook = delegateWrap(updateHook);
+        assert(p.handle);
         sqlite3_update_hook(p.handle, &callback, p.updateHook);
     }
 
@@ -869,17 +804,15 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/commit_hook.html).
     +/
-    void setCommitHook(CommitHookDelegate commitHook)
-    {
-        extern(C) static nothrow
-        int callback(void* ptr)
-        {
+    void setCommitHook(CommitHookDelegate commitHook) {
+        extern (C) static nothrow int callback(void* ptr) {
             auto dlg = delegateUnwrap!CommitHookDelegate(ptr).dlg;
             return dlg();
         }
 
         ptrFree(p.commitHook);
         p.commitHook = delegateWrap(commitHook);
+        assert(p.handle);
         sqlite3_commit_hook(p.handle, &callback, p.commitHook);
     }
 
@@ -891,17 +824,15 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/commit_hook.html).
     +/
-    void setRollbackHook(RoolbackHookDelegate rollbackHook)
-    {
-        extern(C) static nothrow
-        void callback(void* ptr)
-        {
+    void setRollbackHook(RoolbackHookDelegate rollbackHook) {
+        extern (C) static nothrow void callback(void* ptr) {
             auto dlg = delegateUnwrap!RoolbackHookDelegate(ptr).dlg;
             dlg();
         }
 
         ptrFree(p.rollbackHook);
         p.rollbackHook = delegateWrap(rollbackHook);
+        assert(p.handle);
         sqlite3_rollback_hook(p.handle, &callback, p.rollbackHook);
     }
 
@@ -920,17 +851,15 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/progress_handler.html).
     +/
-    void setProgressHandler(int pace, ProgressHandlerDelegate progressHandler)
-    {
-        extern(C) static nothrow
-        int callback(void* ptr)
-        {
+    void setProgressHandler(int pace, ProgressHandlerDelegate progressHandler) {
+        extern (C) static nothrow int callback(void* ptr) {
             auto dlg = delegateUnwrap!ProgressHandlerDelegate(ptr).dlg;
             return dlg();
         }
 
         ptrFree(p.progressHandler);
         p.progressHandler = delegateWrap(progressHandler);
+        assert(p.handle);
         sqlite3_progress_handler(p.handle, pace, &callback, p.progressHandler);
     }
 
@@ -945,17 +874,15 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/profile.html).
     +/
-    void setTraceCallback(TraceCallbackDelegate traceCallback)
-    {
-        extern(C) static nothrow
-        void callback(void* ptr, const(char)* str)
-        {
+    void setTraceCallback(TraceCallbackDelegate traceCallback) {
+        extern (C) static nothrow void callback(void* ptr, const(char)* str) {
             auto dlg = delegateUnwrap!TraceCallbackDelegate(ptr).dlg;
             dlg(str.to!string);
         }
 
         ptrFree(p.traceCallback);
         p.traceCallback = delegateWrap(traceCallback);
+        assert(p.handle);
         sqlite3_trace(p.handle, &callback, p.traceCallback);
     }
 
@@ -971,22 +898,19 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/profile.html).
     +/
-    void setProfileCallback(ProfileCallbackDelegate profileCallback)
-    {
-        extern(C) static nothrow
-        void callback(void* ptr, const(char)* str, sqlite3_uint64 time)
-        {
+    void setProfileCallback(ProfileCallbackDelegate profileCallback) {
+        extern (C) static nothrow void callback(void* ptr, const(char)* str, sqlite3_uint64 time) {
             auto dlg = delegateUnwrap!ProfileCallbackDelegate(ptr).dlg;
             dlg(str.to!string, time);
         }
 
         ptrFree(p.profileCallback);
         p.profileCallback = delegateWrap(profileCallback);
+        assert(p.handle);
         sqlite3_profile(p.handle, &callback, p.profileCallback);
     }
 
-    version (_UnlockNotify)
-    {
+    version (_UnlockNotify) {
         /++
         Registers a `IUnlockNotifyHandler` used to handle database locks.
 
@@ -1003,30 +927,25 @@ public:
         Parameters:
             unlockNotifyHandler - custom handler used to control the unlocking mechanism
         +/
-        void setUnlockNotifyHandler(IUnlockNotifyHandler unlockNotifyHandler)
-        {
+        void setUnlockNotifyHandler(IUnlockNotifyHandler unlockNotifyHandler) {
             p.unlockNotifyHandler = unlockNotifyHandler;
         }
 
         /// Setup and waits for unlock notify using the provided `IUnlockNotifyHandler`
-        package (d2sqlite3) auto waitForUnlockNotify()
-        {
-            if (p.unlockNotifyHandler is null) return SQLITE_LOCKED;
+        package(d2sqlite3) auto waitForUnlockNotify() {
+            if (p.unlockNotifyHandler is null)
+                return SQLITE_LOCKED;
 
-            version (SqliteEnableUnlockNotify)
-            {
-                extern(C) static nothrow
-                void callback(void** ntfPtr, int nPtr)
-                {
-                    for (int i=0; i<nPtr; i++)
-                    {
-                        auto handler = cast(IUnlockNotifyHandler*)ntfPtr[i];
+            version (SqliteEnableUnlockNotify) {
+                extern (C) static nothrow void callback(void** ntfPtr, int nPtr) {
+                    for (int i = 0; i < nPtr; i++) {
+                        auto handler = cast(IUnlockNotifyHandler*) ntfPtr[i];
                         handler.emit(SQLITE_OK);
                     }
                 }
 
                 int rc = sqlite3_unlock_notify(p.handle, &callback, &p.unlockNotifyHandler);
-                assert(rc==SQLITE_LOCKED || rc==SQLITE_OK);
+                assert(rc == SQLITE_LOCKED || rc == SQLITE_OK);
 
                 /+ The call to sqlite3_unlock_notify() always returns either SQLITE_LOCKED or SQLITE_OK.
 
@@ -1034,19 +953,18 @@ public:
                 needs to return SQLITE_LOCKED to the caller so that the current transaction can be rolled
                 back. Otherwise, block until the unlock-notify callback is invoked, then return SQLITE_OK.
                 +/
-                if(rc == SQLITE_OK)
-                {
+                if (rc == SQLITE_OK) {
                     p.unlockNotifyHandler.wait();
-                    scope (exit) p.unlockNotifyHandler.reset();
+                    scope (exit)
+                        p.unlockNotifyHandler.reset();
                     return p.unlockNotifyHandler.result;
                 }
                 return rc;
-            }
-            else
-            {
+            } else {
                 p.unlockNotifyHandler.waitOne();
                 auto res = p.unlockNotifyHandler.result;
-                if (res != SQLITE_OK) p.unlockNotifyHandler.reset();
+                if (res != SQLITE_OK)
+                    p.unlockNotifyHandler.reset();
                 return res;
             }
         }
@@ -1067,8 +985,7 @@ alias TraceCallbackDelegate = void delegate(string sql) nothrow;
 alias ProfileCallbackDelegate = void delegate(string sql, ulong time) nothrow;
 
 /// Information about a table column.
-struct TableColumnMetadata
-{
+struct TableColumnMetadata {
     string declaredTypeName; ///
     string collationSequenceName; ///
     bool isNotNull; ///
@@ -1076,8 +993,7 @@ struct TableColumnMetadata
     bool isAutoIncrement; ///
 }
 
-version (_UnlockNotify)
-{
+version (_UnlockNotify) {
     /++
     UnlockNotifyHandler interface to be used for custom implementations of UnlockNotify pattern with SQLite.
 
@@ -1091,10 +1007,8 @@ version (_UnlockNotify)
     See_Also: $(LINK http://sqlite.org/c3ref/unlock_notify.html).
     See_Also: $(LINK http://www.sqlite.org/unlock_notify.html).
     +/
-    interface IUnlockNotifyHandler
-    {
-        version (SqliteEnableUnlockNotify)
-        {
+    interface IUnlockNotifyHandler {
+        version (SqliteEnableUnlockNotify) {
             /// Blocks until emit is called
             void wait();
 
@@ -1103,12 +1017,10 @@ version (_UnlockNotify)
             This is called from registered callback from SQLite.
 
             Params:
-                state - Value to set as a handler result. It can be SQLITE_LOCKED or SQLITE_OK.
+                state = Value to set as a handler result. It can be SQLITE_LOCKED or SQLITE_OK.
             +/
             void emit(int state) nothrow;
-        }
-        else
-        {
+        } else {
             /++
             This is used as an alternative when SQLite is not compiled with SQLITE_ENABLE_UNLOCK_NOTIFY, and
             when the library is built with `-version=SqliteFakeUnlockNotify`.
@@ -1126,25 +1038,22 @@ version (_UnlockNotify)
         @property int result() const;
     }
 
-    version (SqliteEnableUnlockNotify)
-    {
+    version (SqliteEnableUnlockNotify) {
         /++
         UnlockNotifyHandler used when SQLite is compiled with SQLITE_ENABLE_UNLOCK_NOTIFY, and
-        when the library is built with `-version=SqliteEnableUnlockNotify`. 
+        when the library is built with `-version=SqliteEnableUnlockNotify`.
         It is implemented using the standard `core.sync` package.
-        
+
         Use setUnlockNotifyHandler method to handle the database lock.
 
         See_Also: $(LINK http://sqlite.org/c3ref/unlock_notify.html).
         See_Also: $(LINK http://www.sqlite.org/unlock_notify.html).
         +/
-        final class UnlockNotifyHandler : IUnlockNotifyHandler
-        {
+        final class UnlockNotifyHandler : IUnlockNotifyHandler {
             import core.sync.condition : Condition;
             import core.sync.mutex : Mutex;
 
-            private
-            {
+            private {
                 __gshared Mutex mtx;
                 __gshared Condition cond;
                 __gshared int res;
@@ -1152,70 +1061,66 @@ version (_UnlockNotify)
             }
 
             /// Constructor
-            this()
-            {
+            this() {
                 mtx = new Mutex();
                 cond = new Condition(mtx);
             }
 
             /// Blocks until emit is called
-            void wait()
-            {
-                synchronized (mtx)
-                {
-                    if (!fired) cond.wait();
+            void wait() {
+                synchronized (mtx) {
+                    if (!fired)
+                        cond.wait();
                 }
             }
 
             /// Unlocks the handler, state is one of SQLITE_LOCKED or SQLITE_OK
             void emit(int res) nothrow
-            in { assert(res == SQLITE_LOCKED || res == SQLITE_OK); }
-            body
-            {
-                try
-                {
-                    synchronized (mtx)
-                    {
+            in {
+                assert(res == SQLITE_LOCKED || res == SQLITE_OK);
+            }
+            body {
+                try {
+                    synchronized (mtx) {
                         this.res = res;
                         fired = true;
                         cond.notify();
                     }
+                } catch (Exception) {
                 }
-                catch (Exception) {}
             }
 
             /// Resets the handler for the next use
-            void reset()
-            {
+            void reset() {
                 res = SQLITE_LOCKED;
                 fired = false;
             }
 
             /// Result after wait is finished
             @property int result() const
-            out (result) { assert(result == SQLITE_OK || result == SQLITE_LOCKED); }
-            body { return res; }
+            out (result) {
+                assert(result == SQLITE_OK || result == SQLITE_LOCKED);
+            }
+            body {
+                return res;
+            }
         }
-    }
-    else
-    {
+    } else {
         /++
         UnlockNotifyHandler that can be used when SQLite is not compiled with SQLITE_ENABLE_UNLOCK_NOTIFY,
         and when the library is built with `-version=SqliteFakeUnlockNotify`..
         It retries the statement execution for the provided amount of time before the SQLITE_LOCKED is returned.
-        
+
         Use setUnlockNotifyHandler method to handle the database lock.
 
         See_Also: $(LINK http://sqlite.org/c3ref/unlock_notify.html).
         See_Also: $(LINK http://www.sqlite.org/unlock_notify.html).
         +/
-        final class UnlockNotifyHandler : IUnlockNotifyHandler
-        {
+        final class UnlockNotifyHandler : IUnlockNotifyHandler {
             import core.time : Duration, msecs;
             import std.datetime.stopwatch : StopWatch;
 
-            private
-            {
+            private {
                 int res;
                 Duration maxDuration;
                 StopWatch sw;
@@ -1223,49 +1128,48 @@ version (_UnlockNotify)
 
             /// Constructor
             this(Duration max = 1000.msecs)
-            in { assert(max > Duration.zero); }
-            body
-            {
+            in {
+                assert(max > Duration.zero);
+            }
+            body {
                 maxDuration = max;
             }
 
             /// Blocks for some time to retry the statement
-            void waitOne()
-            {
+            void waitOne() {
                 import core.thread : Thread;
                 import std.random : uniform;
 
-                if (!sw.running) sw.start;
+                if (!sw.running)
+                    sw.start;
 
                 Thread.sleep(uniform(50, 100).msecs);
 
-                if (sw.peek > maxDuration)
-                {
+                if (sw.peek > maxDuration) {
                     sw.stop;
                     res = SQLITE_LOCKED;
-                }
-                else res = SQLITE_OK;
+                } else
+                    res = SQLITE_OK;
             }
 
             /// Resets the handler for the next use
-            void reset()
-            {
+            void reset() {
                 res = SQLITE_LOCKED;
                 sw.reset();
             }
 
             /// Result after wait is finished
             @property int result() const
-            out (result) { assert(result == SQLITE_OK || result == SQLITE_LOCKED); }
-            body
-            {
+            out (result) {
+                assert(result == SQLITE_OK || result == SQLITE_LOCKED);
+            }
+            body {
                 return res;
             }
         }
     }
 
-    unittest
-    {
+    unittest {
         import core.time : Duration, msecs;
 
         /++
@@ -1274,15 +1178,15 @@ version (_UnlockNotify)
             delay - time to wait in the transaction to block the other one
             expected - expected result (can be used to test timeout when fake unlock notify is used)
         +/
-        void testUnlockNotify(Duration delay = 500.msecs, int expected = 3)
-        {
+        void testUnlockNotify(Duration delay = 500.msecs, int expected = 3) {
             import core.thread : Thread;
             import core.time : msecs, seconds;
             import std.concurrency : spawn;
 
-            static void test(int n, Duration delay)
-            {
-                auto db = Database("file::memory:?cache=shared", SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI | SQLITE_OPEN_MEMORY);
+            static void test(int n, Duration delay) {
+                auto db = Database("file::memory:?cache=shared",
+                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
+                        | SQLITE_OPEN_URI | SQLITE_OPEN_MEMORY);
                 db.setUnlockNotifyHandler = new UnlockNotifyHandler();
                 db.execute("BEGIN IMMEDIATE");
                 Thread.sleep(delay);
@@ -1290,26 +1194,30 @@ version (_UnlockNotify)
                 db.commit();
             }
 
-            auto db = Database("file::memory:?cache=shared", SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI | SQLITE_OPEN_MEMORY);
+            auto db = Database("file::memory:?cache=shared",
+                    SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI
+                    | SQLITE_OPEN_MEMORY);
             db.execute(`CREATE TABLE foo (bar INTEGER);`);
 
             spawn(&test, 1, delay);
             Thread.sleep(100.msecs);
             spawn(&test, 2, delay);
-            Thread.sleep(2*delay + 100.msecs);
-            assert(db.execute("SELECT sum(bar) FROM foo").oneValue!int == expected, format!"%s != %s"(db.execute("SELECT sum(bar) FROM foo").oneValue!int, expected));
+            Thread.sleep(2 * delay + 100.msecs);
+            assert(db.execute("SELECT sum(bar) FROM foo").oneValue!int == expected,
+                    format!"%s != %s"(db.execute("SELECT sum(bar) FROM foo")
+                        .oneValue!int, expected));
         }
 
         testUnlockNotify();
-        version (SqliteFakeUnlockNotify) testUnlockNotify(1500.msecs, 1); //timeout test
+        version (SqliteFakeUnlockNotify)
+            testUnlockNotify(1500.msecs, 1); //timeout test
     }
 }
 
 /++
 Exception thrown when SQLite functions return an error.
 +/
-class SqliteException : Exception
-{
+class SqliteException : Exception {
     /++
     The _code of the error that raised the exception, or 0 if this _code is not known.
     +/
@@ -1320,24 +1228,21 @@ class SqliteException : Exception
     +/
     string sql;
 
-    private this(string msg, string sql, int code,
-                 string file = __FILE__, size_t line = __LINE__, Throwable next = null)
-    {
+    private this(string msg, string sql, int code, string file = __FILE__,
+            size_t line = __LINE__, Throwable next = null) {
         this.sql = sql;
         this.code = code;
         super(msg, file, line, next);
     }
 
 package(d2sqlite3):
-    this(string msg, int code, string sql = null,
-         string file = __FILE__, size_t line = __LINE__, Throwable next = null)
-    {
+    this(string msg, int code, string sql = null, string file = __FILE__,
+            size_t line = __LINE__, Throwable next = null) {
         this("error %d: %s".format(code, msg), sql, code, file, line, next);
     }
 
-    this(string msg, string sql = null,
-         string file = __FILE__, size_t line = __LINE__, Throwable next = null)
-    {
+    this(string msg, string sql = null, string file = __FILE__,
+            size_t line = __LINE__, Throwable next = null) {
         this(msg, sql, 0, file, line, next);
     }
 }
