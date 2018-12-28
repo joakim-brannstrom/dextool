@@ -66,3 +66,29 @@ CREATE TABLE IF NOT EXISTS Bar (
 'ts' INTEGER NOT NULL);
 `);
 }
+
+@("shall create a schema with a table name derived from the UDA")
+unittest {
+    @TableName("my_table")
+    static struct Foo {
+        ulong id;
+    }
+
+    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS my_table (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL);
+`);
+}
+
+@("shall create a schema with an integer column that may be NULL")
+unittest {
+    static struct Foo {
+        ulong id;
+        @FieldParam("")
+        ulong int_;
+    }
+
+    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'int_' INTEGER);
+`);
+}
