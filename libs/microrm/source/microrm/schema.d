@@ -26,7 +26,12 @@ struct KeyParam {
 }
 
 /// UDA controlling extra attributes for a field.
-struct FieldParam {
+struct ColumnParam {
+    string value;
+}
+
+/// UDA to control the column name that a field end up as.
+struct ColumnName {
     string value;
 }
 
@@ -103,7 +108,7 @@ unittest {
 unittest {
     static struct Foo {
         ulong id;
-        @FieldParam("")
+        @ColumnParam("")
         ulong int_;
     }
 
@@ -140,6 +145,20 @@ unittest {
 'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 'p' INTEGER NOT NULL,
 FOREIGN KEY(p) REFERENCES bar(id) ON DELETE CASCADE);
+`, buildSchema!(Foo));
+}
+
+@("shall create a schema with a name from UDA")
+unittest {
+    static struct Foo {
+        ulong id;
+        @ColumnName("version")
+        ulong version_;
+    }
+
+    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'version' INTEGER NOT NULL);
 `, buildSchema!(Foo));
 }
 
@@ -225,10 +244,12 @@ unittest {
 private:
 
 string[] fieldToCol(string name, T)(string prefix = "") {
-    enum isFieldUDA(alias T) = is(typeof(T) == FieldParam);
+    import std.meta : AliasSeq;
 
     static if (!is(T == struct))
-        static assert("Building a schema from type is not supported: " ~ T.stringof);
+        static assert(
+                "Building a schema from a type is only supported for struct's. This type is not supported: "
+                ~ T.stringof);
 
     T t;
     string[] ret;
@@ -237,7 +258,8 @@ string[] fieldToCol(string name, T)(string prefix = "") {
         alias F = typeof(f);
         auto np = prefix ~ (name.length ? name ~ SEPARATOR : "");
 
-        enum udas = Filter!(isFieldUDA, getUDAs!(t.tupleof[i], FieldParam));
+        enum udas = AliasSeq!(getUDAs!(t.tupleof[i], ColumnParam),
+                    getUDAs!(t.tupleof[i], ColumnName));
 
         static if (is(F == struct))
             ret ~= fieldToCol!(fname, F)(np);
@@ -248,7 +270,8 @@ string[] fieldToCol(string name, T)(string prefix = "") {
 }
 
 string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
-    enum bool isFieldParam(alias T) = is(typeof(T) == FieldParam);
+    enum bool isFieldParam(alias T) = is(typeof(T) == ColumnParam);
+    enum bool isFieldName(alias T) = is(typeof(T) == ColumnName);
 
     static if (name == IDNAME)
         return ["'" ~ IDNAME ~ "' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL"];
@@ -257,7 +280,7 @@ string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
 
         enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
         static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
-                "Found multiple FieldParam UDAs on " ~ T.stringof);
+                "Found multiple ColumnParam UDAs on " ~ T.stringof);
         enum hasParam = paramAttrs.length;
         static if (hasParam)
             param = paramAttrs[0].value;
@@ -276,7 +299,15 @@ string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
         else
             static assert(0, "unsupported type: " ~ T.stringof);
 
-        return [format("'%s%s' %s%s", prefix, name, type, param)];
+        string columnName = name;
+
+        enum nameAttr = Filter!(isFieldName, FieldUDAs);
+        static assert(nameAttr.length == 0 || nameAttr.length == 1,
+                "Found multiple ColumnName UDAs on " ~ T.stringof);
+        static if (nameAttr.length)
+            columnName = nameAttr[0].value;
+
+        return [format("'%s%s' %s%s", prefix, columnName, type, param)];
     }
 }
 
