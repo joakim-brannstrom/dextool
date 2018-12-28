@@ -2,7 +2,7 @@ name        "d2sqlite3"
 description "A thin wrapper around SQLite 3"
 homepage    "https://github.com/biozic/d2sqlite3"
 authors     "Nicolas Sicard" "Other contributors: see Github repo"
-copyright   "Copyright 2011-17 Nicolas Sicard"
+copyright   "Copyright 2011-18 Nicolas Sicard"
 license     "BSL-1.0"
 targetType  "library"
 configuration "with-lib" {
@@ -15,8 +15,8 @@ configuration "without-lib" {
 }
 configuration "all-included" {
     libs "sqlite3" platform="windows"
-    copyFiles "lib/win32/sqlite3.dll" platform="win32"
-    copyFiles "lib/win64/sqlite3.dll" platform="win64"
+    copyFiles "lib/win32/sqlite3.dll" "lib/win32/sqlite3.lib" platform="windows-x86"
+    copyFiles "lib/win64/sqlite3.dll" "lib/win64/sqlite3.lib" platform="windows-x86_64"
     preBuildCommands "make -C $PACKAGE_DIR -f sqlite3.mak" platform="posix"
     sourceFiles "sqlite3.o" platform="posix"
     libs "dl" platform="linux-gdc"
