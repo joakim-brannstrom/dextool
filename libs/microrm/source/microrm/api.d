@@ -5,7 +5,6 @@ import std.array : Appender;
 import std.range;
 
 import microrm.queries;
-import microrm.util;
 import microrm.exception;
 
 import d2sqlite3;

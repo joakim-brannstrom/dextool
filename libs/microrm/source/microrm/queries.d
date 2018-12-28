@@ -6,7 +6,7 @@ import std.string : join;
 
 import d2sqlite3;
 
-import microrm.util;
+import microrm.schema : tableName, IDNAME, fieldNames;
 import microrm.exception;
 
 debug (microrm) import std.stdio : stderr;
@@ -302,4 +302,93 @@ unittest {
     auto test = Count!(Foo, typeof(buf))(null, &buf);
     test.where("text =", "privet").and("ts >", 123);
     assert(test.query.data == "SELECT Count(*) FROM Foo WHERE text = 'privet' AND ts > '123'");
+}
+
+private:
+
+mixin template whereCondition() {
+    import std.format : formattedWrite;
+    import std.conv : text;
+    import std.range : isOutputRange;
+
+    static assert(isOutputRange!(typeof(this.query), char));
+
+    ref where(V)(string field, V val) {
+        query.put(" WHERE ");
+        query.put(field);
+        query.put(" '");
+        version (LDC)
+            query.put(text(val));
+        else
+            query.formattedWrite("%s", val);
+        query.put("'");
+        return this;
+    }
+
+    ref whereQ(string field, string cmd) {
+        query.put(" WHERE ");
+        query.put(field);
+        query.put(" ");
+        query.put(cmd);
+        return this;
+    }
+
+    ref and(V)(string field, V val) {
+        query.put(" AND ");
+        query.put(field);
+        query.put(" '");
+        version (LDC)
+            query.put(text(val));
+        else
+            query.formattedWrite("%s", val);
+        query.put("'");
+        return this;
+    }
+
+    ref andQ(string field, string cmd) {
+        query.put(" AND ");
+        query.put(field);
+        query.put(" ");
+        query.put(cmd);
+        return this;
+    }
+
+    ref limit(int limit) {
+        query.put(" LIMIT '");
+        version (LDC)
+            query.put(text(limit));
+        else
+            query.formattedWrite("%s", limit);
+        query.put("'");
+        return this;
+    }
+}
+
+mixin template baseQueryData(string SQLTempl) {
+    import std.array : Appender, appender;
+    import std.format : formattedWrite, format;
+
+    enum initialSQL = format(SQLTempl, tableName!T);
+
+    alias Buffer = BUF;
+
+    Database* db;
+    Buffer* buf;
+
+    @disable this();
+
+    private ref Buffer query() @property {
+        return (*buf);
+    }
+
+    this(Database* db, Buffer* buf) {
+        this.db = db;
+        this.buf = buf;
+        query.put(initialSQL);
+    }
+
+    void reset() {
+        query.clear();
+        query.put(initialSQL);
+    }
 }

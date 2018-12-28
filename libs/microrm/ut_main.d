@@ -13,7 +13,6 @@ int main(string[] args) {
                           "microrm.api",
                           "microrm.queries",
                           "microrm.schema",
-                          "microrm.util",
                           );
     //dfmt on
 }
