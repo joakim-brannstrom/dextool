@@ -10,6 +10,21 @@ struct TableConstraint {
     string value;
 }
 
+/// UDA for foreign keys on a table.
+struct TableForeignKey {
+    string foreignKey;
+    KeyRef r;
+    KeyParam p;
+}
+
+struct KeyRef {
+    string value;
+}
+
+struct KeyParam {
+    string value;
+}
+
 /// UDA controlling extra attributes for a field.
 struct FieldParam {
     string value;
@@ -39,7 +54,8 @@ auto buildSchema(Types...)() {
             ret.put("CREATE TABLE IF NOT EXISTS ");
             ret.put(tableName!T);
             ret.put(" (\n");
-            ret.put(only(fieldToCol!("", T)(), tableConstraints!T()).joiner.joiner(",\n"));
+            ret.put(only(fieldToCol!("", T)(), tableConstraints!T(),
+                    tableForeinKeys!T()).joiner.joiner(",\n"));
             ret.put(");\n");
         } else
             static assert(0, "not supported non-struct type");
@@ -112,6 +128,21 @@ CONSTRAINT u UNIQUE p);
 `, buildSchema!(Foo));
 }
 
+@("shall create a schema with a foregin key from UDAs")
+unittest {
+    @TableForeignKey("p", KeyRef("bar(id)"), KeyParam("ON DELETE CASCADE"))
+    static struct Foo {
+        ulong id;
+        ulong p;
+    }
+
+    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'p' INTEGER NOT NULL,
+FOREIGN KEY(p) REFERENCES bar(id) ON DELETE CASCADE);
+`, buildSchema!(Foo));
+}
+
 import std.format : format, formattedWrite;
 import std.traits;
 import std.meta : Filter;
@@ -141,6 +172,20 @@ string[] tableConstraints(T)() {
         static foreach (const c; constraintAttrs)
             rval ~= "CONSTRAINT " ~ c.value;
     }
+    return rval;
+}
+
+string[] tableForeinKeys(T)() {
+    enum foreignKeyAttrs = getUDAs!(T, TableForeignKey);
+    enum hasForeignKeys = foreignKeyAttrs.length;
+
+    string[] rval;
+    static if (hasForeignKeys) {
+        static foreach (a; foreignKeyAttrs)
+            rval ~= "FOREIGN KEY(" ~ a.foreignKey ~ ") REFERENCES " ~ a.r.value ~ (
+                    (a.p.value.length == 0) ? null : " " ~ a.p.value);
+    }
+
     return rval;
 }
 
