@@ -488,10 +488,6 @@ void upgradeV4(ref SqlDatabase db) {
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
 void upgradeV5(ref SqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
     db.run(format(mutation_status_v1_tbl, mutationStatusTable));
 
     immutable new_mut_tbl = "new_" ~ mutationTable;
@@ -511,10 +507,6 @@ void upgradeV5(ref SqlDatabase db) {
 
 /// 2018-10-11
 void upgradeV6(ref SqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
     enum new_mut_tbl = "new_" ~ mutationTable;
     db.run(format(mutation_v3_tbl, new_mut_tbl));
     db.run(format("INSERT INTO %s (id,mp_id,st_id,kind) SELECT id,mp_id,st_id,kind FROM %s",
@@ -534,10 +526,6 @@ void upgradeV6(ref SqlDatabase db) {
 
 /// 2018-10-15
 void upgradeV7(ref SqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
     enum new_tbl = "new_" ~ killedTestCaseTable;
     db.run(format(test_case_killed_v4_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,st_id,tc_id,location)
@@ -555,10 +543,6 @@ void upgradeV7(ref SqlDatabase db) {
 
 /// 2018-10-20
 void upgradeV8(ref SqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
     enum new_tbl = "new_" ~ mutationPointTable;
     db.run(format(mutation_point_v2_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
@@ -572,10 +556,6 @@ void upgradeV8(ref SqlDatabase db) {
 
 /// 2018-11-10
 void upgradeV9(ref SqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
     enum new_tbl = "new_" ~ mutationStatusTable;
     db.run(format(mutation_status_v3_tbl, new_tbl));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
