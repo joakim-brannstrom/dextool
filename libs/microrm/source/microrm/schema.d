@@ -53,6 +53,7 @@ struct ColumnName {
  * Types = types of structs which will be a tables
  *         name of struct -> name of table
  *         name of field -> name of column
+ * prefix = prefix to use for the tables that are created.
  *
  * To change the name of the table:
  * ---
@@ -60,7 +61,7 @@ struct ColumnName {
  * struct Foo {}
  * ---
  */
-auto buildSchema(Types...)() {
+auto buildSchema(Types...)(string prefix = null) {
     import std.algorithm : joiner, map;
     import std.array : appender, array;
     import std.range : only;
@@ -69,6 +70,7 @@ auto buildSchema(Types...)() {
     foreach (T; Types) {
         static if (is(T == struct)) {
             ret.put("CREATE TABLE IF NOT EXISTS ");
+            ret.put(prefix);
             ret.put(tableName!T);
             ret.put(" (\n");
             ret.put(only(fieldToCol!("", T)().map!"a.toColumn".array,
@@ -172,6 +174,18 @@ unittest {
 'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 'version' INTEGER NOT NULL);
 `, buildSchema!(Foo));
+}
+
+@("shall create a schema with a table name derived from the UDA with specified prefix")
+unittest {
+    @TableName("my_table")
+    static struct Foo {
+        ulong id;
+    }
+
+    buildSchema!Foo("new_").shouldEqual(`CREATE TABLE IF NOT EXISTS new_my_table (
+'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL);
+`);
 }
 
 import std.format : format, formattedWrite;
