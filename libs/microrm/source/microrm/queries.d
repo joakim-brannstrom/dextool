@@ -56,7 +56,7 @@ struct Select(T, BUF) {
             T ret;
             static string rr() {
                 string[] res;
-                res ~= "import std.traits : isStaticArray;";
+                res ~= "import std.traits : isStaticArray, OriginalType;";
                 foreach (i, a; fieldToCol!("", T)()) {
                     res ~= `{`;
                     res ~= q{alias ET = typeof(ret.%s);}.format(a.identifier);
@@ -70,6 +70,8 @@ struct Select(T, BUF) {
                             ret.%1$s[0..ln] = etval[0..ln];
                         }
                         `.format(a.identifier, i);
+                    res ~= q{else static if (is(ET == enum))};
+                    res ~= format(q{ret.%1$s = cast(ET) e.peek!ET(%2$d);}, a.identifier, i);
                     res ~= q{else};
                     res ~= format(q{ret.%1$s = e.peek!ET(%2$d);}, a.identifier, i);
                     res ~= `}`;
@@ -99,6 +101,27 @@ unittest {
     auto test = Select!(Foo, typeof(buf))(null, &buf);
     test.where("text =", "privet").and("ts >", 123);
     assert(test.query.data == "SELECT * FROM Foo WHERE text = 'privet' AND ts > '123'");
+}
+
+@("shall be possible to have a member of enum type")
+unittest {
+    static struct Foo {
+        enum MyEnum : string {
+            foo = "batman",
+            bar = "robin",
+        }
+
+        ulong id;
+        MyEnum enum_;
+    }
+
+    import std.array : Appender;
+
+    Appender!(char[]) buf;
+
+    auto test = Select!(Foo, typeof(buf))(null, &buf);
+    test.where("enum_ =", "robin");
+    test.query.data.shouldEqual("SELECT * FROM Foo WHERE enum_ = 'robin'");
 }
 
 void buildInsertOrReplace(T, W)(ref W buf, bool replace, size_t valCount = 1) {

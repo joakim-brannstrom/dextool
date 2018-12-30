@@ -318,6 +318,8 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
  *  depth = A primary key can only be at the outer most struct. Any other "id" fields are normal integers.
  */
 FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(string prefix) {
+    import std.traits : OriginalType;
+
     enum bool isFieldParam(alias T) = is(typeof(T) == ColumnParam);
     enum bool isFieldName(alias T) = is(typeof(T) == ColumnName);
 
@@ -334,16 +336,21 @@ FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(stri
         static if (hasParam)
             param = paramAttrs[0].value;
 
+        static if (is(T == enum))
+            alias originalT = OriginalType!T;
+        else
+            alias originalT = T;
+
         enum NOTNULL = " NOT NULL";
-        static if (isFloatingPoint!T)
+        static if (isFloatingPoint!originalT)
             type = "REAL";
-        else static if (isNumeric!T || is(T == bool)) {
+        else static if (isNumeric!originalT || is(originalT == bool)) {
             type = "INTEGER";
             static if (!hasParam)
                 param = NOTNULL;
-        } else static if (isSomeString!T)
+        } else static if (isSomeString!originalT)
             type = "TEXT";
-        else static if (isArray!T)
+        else static if (isArray!originalT)
             type = "BLOB";
         else
             static assert(0, "unsupported type: " ~ T.stringof);

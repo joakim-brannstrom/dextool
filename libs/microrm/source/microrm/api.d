@@ -204,6 +204,8 @@ version (unittest) {
     import std.datetime;
     import std.array;
     import std.stdio;
+
+    import unit_threaded.assertions;
 }
 
 @("shall operate on a database allocted in std.experimental.allocators without any errors")
@@ -277,6 +279,28 @@ unittest {
     assert(ones.length == 499);
     assert(ones.all!(a => a.id >= 100));
     assert(db.lastInsertRowid == ones[$ - 1].id);
+}
+
+@("shall convert the database type to the enum when retrieving via select")
+unittest {
+    static struct Foo {
+        enum MyEnum : string {
+            foo = "batman",
+            bar = "robin",
+        }
+
+        ulong id;
+        MyEnum enum_;
+    }
+
+    auto db = Microrm(":memory:");
+    db.run(buildSchema!Foo);
+
+    db.insert(Foo(0, Foo.MyEnum.bar));
+    auto res = db.select!Foo.run.array;
+
+    res.length.shouldEqual(1);
+    res[0].enum_.shouldEqual(Foo.MyEnum.bar);
 }
 
 unittest {
