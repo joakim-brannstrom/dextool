@@ -1,6 +1,6 @@
 # Definitions
 
-Definitions for the mutate plugin.
+Definitions for the mutate plugin that are used in multiple requirements or other type of texts.
 
 ## Assertions
 (copied from the Artifact git repo)
