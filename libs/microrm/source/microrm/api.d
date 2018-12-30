@@ -10,8 +10,8 @@ import logger = std.experimental.logger;
 import std.array : Appender;
 import std.range;
 
-import microrm.queries;
 import microrm.exception;
+import microrm.queries;
 
 import d2sqlite3;
 
@@ -158,6 +158,8 @@ struct Microrm {
     }
 
     private static int bindStruct(T)(ref Statement stmt, T v, bool replace, ref int n) {
+        import microrm.schema : IDNAME;
+
         foreach (i, f; v.tupleof) {
             enum name = __traits(identifier, v.tupleof[i]);
             alias F = typeof(f);
