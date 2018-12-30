@@ -1,15 +1,19 @@
 module microrm.queries;
 
+import std.algorithm : joiner, map;
 import std.exception : enforce;
-import std.algorithm : joiner;
 import std.string : join;
 
 import d2sqlite3;
 
-import microrm.schema : tableName, IDNAME, fieldNames;
+import microrm.schema : tableName, IDNAME, fieldToCol, fieldToCol, ColumnName;
 import microrm.exception;
 
 debug (microrm) import std.stdio : stderr;
+
+version (unittest) {
+    import unit_threaded.assertions;
+}
 
 enum BASEQUERYLENGTH = 512;
 
@@ -49,14 +53,13 @@ struct Select(T, BUF) {
         auto result = (*db).executeCheck(q);
 
         static T qconv(typeof(result.front) e) {
-            enum names = fieldNames!("", T)();
             T ret;
             static string rr() {
                 string[] res;
                 res ~= "import std.traits : isStaticArray;";
-                foreach (i, a; fieldNames!("", T)()) {
+                foreach (i, a; fieldToCol!("", T)()) {
                     res ~= `{`;
-                    res ~= q{alias ET = typeof(ret.%s);}.format(a[1 .. $ - 1]);
+                    res ~= q{alias ET = typeof(ret.%s);}.format(a.identifier);
                     res ~= q{static if (isStaticArray!ET)};
                     res ~= `
                         {
@@ -66,9 +69,9 @@ struct Select(T, BUF) {
                             auto ln = min(ret.%1$s.length, etval.length);
                             ret.%1$s[0..ln] = etval[0..ln];
                         }
-                        `.format(a[1 .. $ - 1], i);
+                        `.format(a.identifier, i);
                     res ~= q{else};
-                    res ~= format(q{ret.%1$s = e.peek!ET(%2$d);}, a[1 .. $ - 1], i);
+                    res ~= format(q{ret.%1$s = e.peek!ET(%2$d);}, a.identifier, i);
                     res ~= `}`;
                 }
                 return res.join("\n");
@@ -106,39 +109,23 @@ void buildInsertOrReplace(T, W)(ref W buf, bool replace, size_t valCount = 1) {
     buf.put(tableName!T);
     buf.put(" (");
 
-    bool isInsertId = true;
+    enum fields = fieldToCol!("", T)();
 
-    auto tt = T.init;
-    foreach (i, f; tt.tupleof) {
-        alias F = typeof(f);
-        enum name = __traits(identifier, tt.tupleof[i]);
-
-        static if (is(F == struct))
-            enum tmp = fieldNames!(name, F)().join(",");
-        else {
-            if (name == IDNAME && !replace)
-                continue;
-            enum tmp = "'" ~ name ~ "'";
-        }
-
-        buf.put(tmp);
-        static if (i + 1 != tt.tupleof.length)
+    foreach (i, f; fields) {
+        if (f.isPrimaryKey && !replace)
+            continue;
+        buf.put(f.quoteColumnName);
+        if (i + 1 != fields.length)
             buf.put(",");
     }
     buf.put(") VALUES (");
 
     foreach (n; 0 .. valCount) {
-        foreach (i, f; tt.tupleof) {
-            enum name = __traits(identifier, tt.tupleof[i]);
-            alias F = typeof(f);
-            static if (is(F == struct))
-                buf.fmtValues!F;
-            else {
-                if (name == IDNAME && !replace)
-                    continue;
-                buf.put("?");
-            }
-            static if (i + 1 != tt.tupleof.length)
+        foreach (i, f; fields) {
+            if (f.isPrimaryKey && !replace)
+                continue;
+            buf.put("?");
+            if (i + 1 != fields.length)
                 buf.put(",");
         }
         if (n + 1 != valCount)
@@ -147,25 +134,15 @@ void buildInsertOrReplace(T, W)(ref W buf, bool replace, size_t valCount = 1) {
     buf.put(");");
 }
 
-void fmtValues(T, W)(ref W buf) {
-    auto tt = T.init;
-    foreach (i, f; tt.tupleof) {
-        alias F = typeof(f);
-        static if (is(F == struct))
-            buf.fmtValues!F;
-        else
-            buf.put("?");
-        static if (i + 1 != tt.tupleof.length)
-            buf.put(",");
-    }
-}
-
 unittest {
     static struct Foo {
         ulong id;
         string text;
         float val;
         ulong ts;
+
+        @ColumnName("version")
+        string version_;
     }
 
     import std.array : appender;
@@ -174,11 +151,13 @@ unittest {
 
     buf.buildInsertOrReplace!Foo(true);
     auto q = buf.data;
-    assert(q == "INSERT OR REPLACE INTO Foo " ~ "('id','text','val','ts') VALUES " ~ "(?,?,?,?);");
+    q.shouldEqual(
+            "INSERT OR REPLACE INTO Foo "
+            ~ "('id','text','val','ts','version') VALUES " ~ "(?,?,?,?,?);");
     buf.clear();
     buf.buildInsertOrReplace!Foo(false);
     q = buf.data;
-    assert(q == "INSERT INTO Foo " ~ "('text','val','ts') VALUES " ~ "(?,?,?);");
+    q.shouldEqual("INSERT INTO Foo " ~ "('text','val','ts','version') VALUES " ~ "(?,?,?,?);");
 }
 
 unittest {
@@ -201,18 +180,18 @@ unittest {
 
     buf.buildInsertOrReplace!Bar(true);
     auto q = buf.data;
-    assert(q == "INSERT OR REPLACE INTO Bar "
-            ~ "('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES " ~ "(?,?,?,?,?,?);");
+    q.shouldEqual(
+            "INSERT OR REPLACE INTO Bar ('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?,?);");
     buf.clear();
     buf.buildInsertOrReplace!Bar(false);
     q = buf.data;
-    assert(q == "INSERT INTO Bar "
-            ~ "('value','foo.id','foo.text','foo.val','foo.ts') VALUES " ~ "(?,?,?,?,?);");
+    q.shouldEqual(
+            "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?);");
     buf.clear();
     buf.buildInsertOrReplace!Bar(false, 3);
     q = buf.data;
-    assert(q == "INSERT INTO Bar " ~ "('value','foo.id','foo.text','foo.val','foo.ts') VALUES "
-            ~ "(?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?);");
+    q.shouldEqual(
+            "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?);");
 }
 
 unittest {
@@ -240,8 +219,9 @@ unittest {
 
     buf.buildInsertOrReplace!Baz(true);
     auto q = buf.data;
-    assert(q == "INSERT OR REPLACE INTO Baz " ~ "('id','v','xyz.v',"
-            ~ "'xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES " ~ "(?,?,?,?," ~ "?,?,?);");
+    q.shouldEqual("INSERT OR REPLACE INTO Baz "
+            ~ "('id','v','xyz.v','xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES (?,?,?,?,"
+            ~ "?,?,?);");
 }
 
 struct Delete(T, BUF) {
@@ -272,7 +252,7 @@ unittest {
 
     auto test = Delete!(Foo, typeof(buf))(null, &buf);
     test.where("text =", "privet").and("ts >", 123);
-    assert(test.query.data == "DELETE FROM Foo WHERE text = 'privet' AND ts > '123'");
+    test.query.data.shouldEqual("DELETE FROM Foo WHERE text = 'privet' AND ts > '123'");
 }
 
 struct Count(T, BUF) {
@@ -301,7 +281,7 @@ unittest {
 
     auto test = Count!(Foo, typeof(buf))(null, &buf);
     test.where("text =", "privet").and("ts >", 123);
-    assert(test.query.data == "SELECT Count(*) FROM Foo WHERE text = 'privet' AND ts > '123'");
+    test.query.data.shouldEqual("SELECT Count(*) FROM Foo WHERE text = 'privet' AND ts > '123'");
 }
 
 private:
