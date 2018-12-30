@@ -1,4 +1,16 @@
+/**
+Copyright: Copyright (c) 2017, Oleg Butko. All rights reserved.
+Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+License: MIT
+Author: Oleg Butko (deviator)
+Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+*/
 module microrm.schema;
+
+version (unittest) {
+    import std.algorithm : map;
+    import unit_threaded.assertions;
+}
 
 /// UDA controlling the name of the table.
 struct TableName {
@@ -49,8 +61,8 @@ struct ColumnName {
  * ---
  */
 auto buildSchema(Types...)() {
-    import std.algorithm : joiner;
-    import std.array : appender;
+    import std.algorithm : joiner, map;
+    import std.array : appender, array;
     import std.range : only;
 
     auto ret = appender!string;
@@ -59,8 +71,8 @@ auto buildSchema(Types...)() {
             ret.put("CREATE TABLE IF NOT EXISTS ");
             ret.put(tableName!T);
             ret.put(" (\n");
-            ret.put(only(fieldToCol!("", T)(), tableConstraints!T(),
-                    tableForeinKeys!T()).joiner.joiner(",\n"));
+            ret.put(only(fieldToCol!("", T)().map!"a.toColumn".array,
+                    tableConstraints!T(), tableForeinKeys!T()).joiner.joiner(",\n"));
             ret.put(");\n");
         } else
             static assert(0, "not supported non-struct type");
@@ -238,12 +250,44 @@ unittest {
         string baz;
     }
 
+    import std.algorithm;
+    import std.utf;
+
     assert(fieldNames!("", Bar) == ["'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"]);
+    fieldToCol!("", Bar).map!"a.quoteIdentifier".shouldEqual(["'id'", "'abc'",
+            "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"]);
+}
+
+struct FieldColumn {
+    /// Identifier in the struct.
+    string identifier;
+    /// Name of the column in the table.
+    string columnName;
+    /// Parameters for the column when creating the table.
+    string columnParam;
+    /// If the field is a primary key.
+    bool isPrimaryKey;
+
+    string quoteIdentifier() @safe pure nothrow const {
+        return "'" ~ identifier ~ "'";
+    }
+
+    string quoteColumnName() @safe pure nothrow const {
+        return "'" ~ columnName ~ "'";
+    }
+
+    string toColumn() @safe pure nothrow const {
+        return quoteColumnName ~ " " ~ columnParam;
+    }
+}
+
+FieldColumn[] fieldToCol(string name, T)(string prefix = "") {
+    return fieldToColRecurse!(name, T, 0)(prefix);
 }
 
 private:
 
-string[] fieldToCol(string name, T)(string prefix = "") {
+FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
     import std.meta : AliasSeq;
 
     static if (!is(T == struct))
@@ -252,7 +296,7 @@ string[] fieldToCol(string name, T)(string prefix = "") {
                 ~ T.stringof);
 
     T t;
-    string[] ret;
+    FieldColumn[] ret;
     foreach (i, f; t.tupleof) {
         enum fname = __traits(identifier, t.tupleof[i]);
         alias F = typeof(f);
@@ -262,19 +306,24 @@ string[] fieldToCol(string name, T)(string prefix = "") {
                     getUDAs!(t.tupleof[i], ColumnName));
 
         static if (is(F == struct))
-            ret ~= fieldToCol!(fname, F)(np);
+            ret ~= fieldToColRecurse!(fname, F, depth + 1)(np);
         else
-            ret ~= fieldToColInternal!(fname, F, udas)(np);
+            ret ~= fieldToColInternal!(fname, F, depth, udas)(np);
     }
     return ret;
 }
 
-string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
+/**
+ * Params:
+ *  depth = A primary key can only be at the outer most struct. Any other "id" fields are normal integers.
+ */
+FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(string prefix) {
     enum bool isFieldParam(alias T) = is(typeof(T) == ColumnParam);
     enum bool isFieldName(alias T) = is(typeof(T) == ColumnName);
 
-    static if (name == IDNAME)
-        return ["'" ~ IDNAME ~ "' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL"];
+    static if (name == IDNAME && depth == 0)
+        return [FieldColumn(prefix ~ name, prefix ~ IDNAME,
+                "INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", true)];
     else {
         string type, param;
 
@@ -307,7 +356,7 @@ string[] fieldToColInternal(string name, T, FieldUDAs...)(string prefix) {
         static if (nameAttr.length)
             columnName = nameAttr[0].value;
 
-        return [format("'%s%s' %s%s", prefix, columnName, type, param)];
+        return [FieldColumn(prefix ~ name, prefix ~ columnName, type ~ param)];
     }
 }
 
@@ -331,8 +380,9 @@ unittest {
         ubyte[] data;
     }
 
-    assert(fieldToCol!("", Bar)() == ["'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL",
-            "'abc' REAL", "'foo.xx' REAL", "'foo.yy' TEXT",
+    fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual(
+            ["'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", "'abc' REAL",
+            "'foo.xx' REAL", "'foo.yy' TEXT",
             "'foo.baz.a' TEXT", "'foo.baz.b' TEXT",
             "'foo.zz' INTEGER NOT NULL", "'baz' TEXT", "'data' BLOB"]);
 }
