@@ -399,12 +399,24 @@ relation to the use case.
 partof: REQ-report
 ###
 
-The plugin shall report the test cases that killed mutants in the diff when generating the report.
+The plugin shall report the test cases that killed mutants in the *externally supplied diff* when generating the report.
+
+The plugin shall support the unified diff format.
+
+## Explanation: Externally Supplied Diff
+
+The user of the plugin construct a diff in one of the supported formats. The diff is given to the plugin when it generates the report.
+
+**Note**: The current design reads it from stdin to make it easy to integrate with git. Example `git diff HEAD~|dextool mutate report --style html --diff-from-stdin`.
+
+**Note**: May be advantageous to support reading from a separate file to ease the integration for a user.
+
+TODO: reformulate this chapter into a use case and/or design requirement.
 
 ## Purpose
 
-The purpose of this view is to show to an individual/few developers how mutation testing relate to *their* code changes.
-It is important that the view isn't too much information that the developer feel overwhelmed.
+The purpose of the short term view is to show to an individual/few developers how mutation testing relate to *the developers* code changes.
+It is important that the view do not present too much information so the developer become overwhelmed and thus give up [@googleMutationTesting2018].
 
  * the developers have the changes fresh in memory.
  * a developer that has *changed* a part of a code *probably* feel like he/she owns it. A developer that feel that he/she own something are more likely to take action to improve the quality.
