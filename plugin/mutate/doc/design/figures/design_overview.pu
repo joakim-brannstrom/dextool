@@ -1,0 +1,42 @@
+@startuml
+' This diagram describe an overview of the conceptual components in the plugin
+' and how they interact with each other.
+'
+'left to right direction
+'skinparam componentStyle uml2
+'skinparam linetype polyline
+skinparam linetype ortho
+'hide circle
+hide methods
+hide members
+
+class "Mutation Engine" as mut_engine
+
+class "Correct Program" as corr_prog
+class "Mutated Program" as mut_prog
+class "Program" as prog
+class "Program Patch" as prog_patch
+class "Test Result" as test_res
+class "Mutated Program Report" as mut_prog_report
+class "Test Case Report" as tc_report
+class "Test Case" as tc
+class "Test Result" as test_res
+
+tc_report "0..1\nis assed in" -- "1\nreflect quality of" tc
+
+tc "0..*\nasses\nquality of" -- "1\nis executed by" mut_engine
+
+mut_engine "0..1" -- "1 validate test\ncase using" corr_prog
+mut_engine "1 was applied by" -- "0..* apply" prog_patch
+
+corr_prog "1\noriginate from" -- "0..*\nis mutated into" mut_prog
+(corr_prog, mut_prog) .. prog_patch
+
+test_res "*\nyield" -- "1\nis produced after\nexecuting" mut_prog
+
+mut_prog "1\nreflect\neffectiveness of" -- "0..1\nis assessed in" mut_prog_report
+
+corr_prog --|> prog
+mut_prog --|> prog
+
+@enduml
