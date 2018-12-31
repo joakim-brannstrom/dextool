@@ -394,4 +394,11 @@ mixin template baseQueryData(string SQLTempl) {
         query.clear();
         query.put(initialSQL);
     }
+
+    /// Reset the query to table `name`.
+    ref setTable(string name) {
+        query.clear;
+        query.put(format(SQLTempl, name));
+        return this;
+    }
 }
