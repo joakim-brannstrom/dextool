@@ -12,6 +12,7 @@ int main(string[] args) {
     return args.runTests!(
                           "microrm.api",
                           "microrm.queries",
+                          "microrm.query_ast",
                           "microrm.schema",
                           );
     //dfmt on
