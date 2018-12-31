@@ -1,3 +1,7 @@
+# Deprecations
+
+ * taggedalgebraic is deprecated. Use sumtype instead.
+
 # Clang API usage
 
 ## Evaluate expressions
