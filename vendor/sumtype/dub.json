@@ -1,0 +1,9 @@
+{
+	"name": "sumtype",
+	"authors": [
+		"Paul Backus"
+	],
+	"description": "A sum type with pattern matching",
+	"copyright": "Copyright © 2018, Paul Backus",
+	"license": "MIT",
+}
