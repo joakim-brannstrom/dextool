@@ -29,7 +29,8 @@ SQL         <- blank* Query (spacing / eoi)
 
 Query       <- Select
 
-Select      <- "SELECT" :blank+ ResultColumns :blank+ SelectOpt (Values :blank+)? Limit?
+# --- SELECT START ---
+Select      <- "SELECT" :blank+ ResultColumns :blank+ SelectOpt Values? Limit?
 SelectOpt   <- From? Where? GroupBy? (Window :blank+)? OrderBy?
 
 ResultColumns       <- ResultColumn ("," ResultColumn)*
@@ -44,9 +45,6 @@ Window  <- Blob
 WhereExpr   <- Expr (:blank+ WhereOp :blank+ Expr)?
 WhereOp     <- "AND" / "OR"
 
-Values  <- "VALUES" "(" Value ")" ("," "(" Value ")")*
-Value   <- Expr ("," Expr)*
-
 OrderBy         <- :blank+ "ORDER BY" :blank+ OrderingTerm ("," OrderingTerm)
 OrderingTerm    <- Expr :blank+ OrderingTermSort?
 OrderingTermSort <- "ASC" / "DESC" / ""
@@ -57,18 +55,37 @@ TableOrSubQueries       <- TableOrQuery ("," TableOrSubQuery)*
 TableOrSubQuery         <- TableOrSubQuerySelect / ("(" TableOrSubQueries ")") / (TableRef Blob*) / Blob
 TableOrSubQuerySelect   <- "(" Select ")" TableAlias?
 
+# --- SELECT END ---
+
+# --- INSERT START ---
+Insert          <- InsertOpt :blank+ "INTO" :blank+ TableRef TableAlias? InsertColumns? InsertValues
+InsertOpt       <- "INSERT" / "REPLACE" / "INSERT OR REPLACE" / "INSERT OR ROLLBACK" / "INSERT OR ABORT" / "INSERT OR FAIL" / "INSERT OR IGNORE"
+InsertColumns    <- :blank+ "(" ColumnName ("," ColumnName)* ")"
+InsertValues    <- :blank+ (Values / Select / "DEFAULT VALUES")
+ColumnName      <- identifier
+
+# --- INSERT END ---
+
+# --- DELETE START ---
+Delete          <- "DELETE FROM" :blank+ TableRef Where?
+# --- DELETE END ---
+
 # Reference an existing table
-TableRef            <- SchemaName? TableName (:blank+ TableAlias)?
+TableRef            <- SchemaName? TableName TableAlias?
+
+Values  <- :blank+ "VALUES" "(" Value ")" ("(" Value ")")*
+Value   <- Expr ("," Expr)*
+
+TableAlias  <- :blank+ "AS" :blank+ identifier
 
 Expr        <- Blob
-
-SchemaName  <- identifier "."
-TableAlias  <- :blank+ "AS" :blank+ identifier
-TableName   <- identifier
-Star        <- "*"
 # Not representable in the grammar because it can be anything without a formal
 # terminator. Its purpose is to be an injection point of user data.
 Blob        <- ""
+
+SchemaName  <- identifier "."
+TableName   <- identifier
+Star        <- "*"
 ```
 
 ## Grammar Encoding
@@ -117,7 +134,7 @@ struct Sql {
  * The differents between Sql and Query is that this may be nested in other nodes.
  */
 struct Query {
-    SumType!(Select) value;
+    SumType!(Select, Insert, Delete) value;
     alias value this;
 
     static foreach (T; TemplateArgsOf!(typeof(value))) {
@@ -129,14 +146,18 @@ struct Query {
     mixin ToStringSumType!value;
 }
 
+// #########################################################################
+/// # Select START
+// #########################################################################
+
 /// A Select statement.
 struct Select {
-    ResultColumn columns;
+    ResultColumns columns;
     /// Optional parts of the statement. At least one must in the end be active.
     SelectOpt opts;
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        // TODO: add an assert that at least one of opts is not None.
+        // TODO: add an assert that at least one of opts is not None?
         put(w, "SELECT ");
         columns.toString(w);
         put(w, " ");
@@ -165,11 +186,13 @@ struct ResultColumns {
 struct ResultColumn {
     SumType!(Star, ResultColumnExpr) value;
     mixin ToStringSumType!(value);
+    mixin(makeCtor!(typeof(value))("value"));
 }
 
 struct ResultColumnExpr {
     SumType!(Blob, Query*) value;
     mixin ToStringSumType!value;
+    mixin(makeCtor!(typeof(value))("value"));
 }
 
 struct SelectOpt {
@@ -269,36 +292,6 @@ struct TableOrQuery {
     }
 }
 
-/// Reference to a table with options to reference another schema and/or create an alias.
-struct TableRef {
-    SumType!(None, SchemaName) schemaName;
-    string tableName;
-    SumType!(None, TableAlias) tableAlias;
-
-    this(SchemaName schema, string name, TableAlias alias_) {
-        schemaName = schema;
-        tableName = name;
-        tableAlias = alias_;
-    }
-
-    /// A ref to a table that rename it via an "AS" to `alias_`.
-    this(string name, TableAlias alias_) {
-        tableName = name;
-        tableAlias = alias_;
-    }
-
-    /// A simple ref to a table.
-    this(string tableName) {
-        this.tableName = tableName;
-    }
-
-    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        schemaName.match!((auto ref v) => v.toString(w));
-        put(w, tableName);
-        tableAlias.match!((auto ref v) => v.toString(w));
-    }
-}
-
 struct TableOrSubQuerySelect {
     Select select;
     TableAlias alias_;
@@ -308,18 +301,6 @@ struct TableOrSubQuerySelect {
         select.toString(w);
         put(w, ")");
         alias_.toString(w);
-    }
-}
-
-struct TableAlias {
-    string value;
-    alias value this;
-
-    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        if (value.empty)
-            return;
-        put(w, " AS ");
-        put(w, value);
     }
 }
 
@@ -364,6 +345,222 @@ struct OrderingTerm {
 enum OrderingTermSort {
     ASC,
     DESC,
+}
+
+// #########################################################################
+/// # Select END
+// #########################################################################
+
+// #########################################################################
+/// # Insert START
+// #########################################################################
+
+struct Insert {
+    /// Type of operation to perform.
+    InsertOpt opt;
+    /// Table to operate on.
+    TableRef table;
+    TableAlias alias_;
+    ///
+    InsertColumns columns;
+    ///
+    InsertValues values;
+
+    ///
+    this(InsertOpt opt, TableRef tbl) @safe pure nothrow @nogc {
+        this.opt = opt;
+        this.table = tbl;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        final switch (opt) with (InsertOpt) {
+        case Insert:
+            put(w, "INSERT");
+            break;
+        case Replace:
+            put(w, "REPLACE");
+            break;
+        case InsertOrReplace:
+            put(w, "INSERT OR REPLACE");
+            break;
+        case InsertOrRollback:
+            put(w, "INSERT OR ROLLBACK");
+            break;
+        case InsertOrAbort:
+            put(w, "INSERT OR ABORT");
+            break;
+        case InsertOrFail:
+            put(w, "INSERT OR FAIL");
+            break;
+        case InsertOrIgnore:
+            put(w, "INSERT OR IGNORE");
+            break;
+        }
+        put(w, " INTO ");
+        table.toString(w);
+        alias_.toString(w);
+        columns.toString(w);
+        values.toString(w);
+    }
+}
+
+struct InsertColumns {
+    SumType!(None, ColumnNames) value;
+    mixin(makeCtor!(typeof(value))("value"));
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        value.match!((None v) {}, (ColumnNames v) => v.toString(w));
+    }
+}
+
+struct ColumnNames {
+    ColumnName required;
+    ColumnName[] optional;
+
+    this(ColumnName r, ColumnName[] o = null) {
+        required = r;
+        optional = o;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        put(w, " ('");
+        required.toString(w);
+        foreach (v; optional) {
+            put(w, "','");
+            v.toString(w);
+        }
+        put(w, "')");
+    }
+}
+
+alias ColumnName = Blob;
+
+struct InsertValues {
+    SumType!(None, Select, Values, InsertDefaultValue) value;
+    mixin(makeCtor!(typeof(value))("value"));
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        value.match!((None v) {}, (Select v) { put(w, " "); v.toString(w); }, (Values v) {
+            v.toString(w);
+        }, (InsertDefaultValue v) { put(w, " "); v.toString(w); });
+    }
+}
+
+struct Values {
+    Value required;
+    Value[] optional;
+
+    this(Value r, Value[] o = null) {
+        required = r;
+        optional = o;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        put(w, " VALUES (");
+        required.toString(w);
+        put(w, ")");
+        foreach (v; optional) {
+            put(w, ",(");
+            v.toString(w);
+            put(w, ")");
+        }
+    }
+}
+
+struct Value {
+    Expr required;
+    Expr[] optional;
+
+    this(Expr r, Expr[] o = null) {
+        required = r;
+        optional = o;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        required.toString(w);
+        foreach (v; optional) {
+            put(w, ",");
+            v.toString(w);
+        }
+    }
+}
+
+alias InsertDefaultValue = Constant!"DEFAULT VALUES";
+
+/// Based on those that are valid in SQLite.
+enum InsertOpt {
+    Insert,
+    Replace,
+    InsertOrReplace,
+    InsertOrRollback,
+    InsertOrAbort,
+    InsertOrFail,
+    InsertOrIgnore,
+}
+
+// #########################################################################
+/// # Insert END
+// #########################################################################
+
+// #########################################################################
+/// # Delete START
+// #########################################################################
+
+struct Delete {
+    TableRef table;
+    SumType!(None, Where) where;
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        put(w, "DELETE FROM ");
+        table.toString(w);
+        where.match!((None v) {}, (Where v) { v.toString(w); });
+    }
+}
+
+// #########################################################################
+/// # Delete END
+// #########################################################################
+
+struct TableAlias {
+    string value;
+    alias value this;
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        if (value.empty)
+            return;
+        put(w, " AS ");
+        put(w, value);
+    }
+}
+
+/// Reference to a table with options to reference another schema and/or create an alias.
+struct TableRef {
+    SumType!(None, SchemaName) schemaName;
+    string tableName;
+    SumType!(None, TableAlias) tableAlias;
+
+    this(SchemaName schema, string name, TableAlias alias_) {
+        schemaName = schema;
+        tableName = name;
+        tableAlias = alias_;
+    }
+
+    /// A ref to a table that rename it via an "AS" to `alias_`.
+    this(string name, TableAlias alias_) {
+        tableName = name;
+        tableAlias = alias_;
+    }
+
+    /// A simple ref to a table.
+    this(string tableName) {
+        this.tableName = tableName;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        schemaName.match!((auto ref v) => v.toString(w));
+        put(w, tableName);
+        tableAlias.match!((auto ref v) => v.toString(w));
+    }
 }
 
 struct SchemaName {
@@ -520,4 +717,33 @@ unittest {
             Expr("batman NOT NULL"))]).Where;
     // assert
     q.Query.Sql.toString.shouldEqual("SELECT * FROM foo WHERE foo = bar OR batman NOT NULL;");
+}
+
+@("shall convert an Insert using default values to SQL")
+unittest {
+    // act
+    auto q = Insert(InsertOpt.Insert, TableRef("foo"));
+    q.values = InsertValues(InsertDefaultValue.init);
+    // assert
+    q.Query.Sql.toString.shouldEqual("INSERT INTO foo DEFAULT VALUES;");
+}
+
+@("shall convert an Insert using specific values to SQL")
+unittest {
+    // act
+    auto q = Insert(InsertOpt.Insert, TableRef("foo"));
+    q.values = InsertValues(Values(Value(Expr("1"), [Expr("2")]), [Value(Expr("4"), [Expr("5")])]));
+    // assert
+    q.Query.Sql.toString.shouldEqual("INSERT INTO foo VALUES (1,2),(4,5);");
+}
+
+@("shall convert an Insert using select stmt to SQL")
+unittest {
+    // act
+    Select s;
+    s.opts.from = Blob("bar").From;
+    auto q = Insert(InsertOpt.Insert, TableRef("foo"));
+    q.values = InsertValues(s);
+    // assert
+    q.Query.Sql.toString.shouldEqual("INSERT INTO foo SELECT * FROM bar;");
 }

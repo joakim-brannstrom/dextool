@@ -7,6 +7,7 @@ Author: Oleg Butko (deviator)
 */
 module microrm;
 
-public import microrm.api;
-public import microrm.schema;
 public import d2sqlite3;
+public import microrm.api;
+public import microrm.queries;
+public import microrm.schema;

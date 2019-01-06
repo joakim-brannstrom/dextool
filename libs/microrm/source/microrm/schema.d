@@ -95,13 +95,13 @@ unittest {
         ulong ts;
     }
 
-    assert(buildSchema!(Foo, Bar) == `CREATE TABLE IF NOT EXISTS Foo (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-'value' REAL,
+    buildSchema!(Foo, Bar).shouldEqual(`CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY,
+'value' REAL NOT NULL,
 'ts' INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS Bar (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-'text' TEXT,
+'id' INTEGER PRIMARY KEY,
+'text' TEXT NOT NULL,
 'ts' INTEGER NOT NULL);
 `);
 }
@@ -114,7 +114,7 @@ unittest {
     }
 
     assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS my_table (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL);
+'id' INTEGER PRIMARY KEY);
 `);
 }
 
@@ -126,8 +126,8 @@ unittest {
         ulong int_;
     }
 
-    assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    buildSchema!(Foo).shouldEqual(`CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY,
 'int_' INTEGER);
 `);
 }
@@ -141,7 +141,7 @@ unittest {
     }
 
     assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'id' INTEGER PRIMARY KEY,
 'p' INTEGER NOT NULL,
 CONSTRAINT u UNIQUE p);
 `, buildSchema!(Foo));
@@ -156,7 +156,7 @@ unittest {
     }
 
     assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'id' INTEGER PRIMARY KEY,
 'p' INTEGER NOT NULL,
 FOREIGN KEY(p) REFERENCES bar(id) ON DELETE CASCADE);
 `, buildSchema!(Foo));
@@ -171,7 +171,7 @@ unittest {
     }
 
     assert(buildSchema!(Foo) == `CREATE TABLE IF NOT EXISTS Foo (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+'id' INTEGER PRIMARY KEY,
 'version' INTEGER NOT NULL);
 `, buildSchema!(Foo));
 }
@@ -184,7 +184,22 @@ unittest {
     }
 
     buildSchema!Foo("new_").shouldEqual(`CREATE TABLE IF NOT EXISTS new_my_table (
-'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL);
+'id' INTEGER PRIMARY KEY);
+`);
+}
+
+@("shall create a schema with a column of type DATETIME")
+unittest {
+    import std.datetime : SysTime;
+
+    static struct Foo {
+        ulong id;
+        SysTime timestamp;
+    }
+
+    buildSchema!Foo.shouldEqual(`CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER PRIMARY KEY,
+'timestamp' DATETIME NOT NULL);
 `);
 }
 
@@ -277,6 +292,8 @@ struct FieldColumn {
     string identifier;
     /// Name of the column in the table.
     string columnName;
+    /// The type is user defined
+    string columnType;
     /// Parameters for the column when creating the table.
     string columnParam;
     /// If the field is a primary key.
@@ -291,7 +308,7 @@ struct FieldColumn {
     }
 
     string toColumn() @safe pure nothrow const {
-        return quoteColumnName ~ " " ~ columnParam;
+        return quoteColumnName ~ " " ~ columnType ~ columnParam;
     }
 }
 
@@ -302,6 +319,7 @@ FieldColumn[] fieldToCol(string name, T)(string prefix = "") {
 private:
 
 FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
+    import std.datetime : SysTime;
     import std.meta : AliasSeq;
 
     static if (!is(T == struct))
@@ -319,7 +337,9 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
         enum udas = AliasSeq!(getUDAs!(t.tupleof[i], ColumnParam),
                     getUDAs!(t.tupleof[i], ColumnName));
 
-        static if (is(F == struct))
+        static if (is(F == SysTime))
+            ret ~= fieldToColInternal!(fname, F, depth, udas)(np);
+        else static if (is(F == struct))
             ret ~= fieldToColRecurse!(fname, F, depth + 1)(np);
         else
             ret ~= fieldToColInternal!(fname, F, depth, udas)(np);
@@ -332,14 +352,14 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
  *  depth = A primary key can only be at the outer most struct. Any other "id" fields are normal integers.
  */
 FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(string prefix) {
+    import std.datetime : SysTime;
     import std.traits : OriginalType;
 
     enum bool isFieldParam(alias T) = is(typeof(T) == ColumnParam);
     enum bool isFieldName(alias T) = is(typeof(T) == ColumnName);
 
     static if (name == IDNAME && depth == 0)
-        return [FieldColumn(prefix ~ name, prefix ~ IDNAME,
-                "INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", true)];
+        return [FieldColumn(prefix ~ name, prefix ~ IDNAME, "INTEGER", " PRIMARY KEY", true)];
     else {
         string type, param;
 
@@ -347,26 +367,30 @@ FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(stri
         static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
                 "Found multiple ColumnParam UDAs on " ~ T.stringof);
         enum hasParam = paramAttrs.length;
-        static if (hasParam)
-            param = paramAttrs[0].value;
+        static if (hasParam) {
+            static if (paramAttrs[0].value.length == 0)
+                param = "";
+            else
+                param = " " ~ paramAttrs[0].value;
+        } else
+            param = " NOT NULL";
 
         static if (is(T == enum))
             alias originalT = OriginalType!T;
         else
             alias originalT = T;
 
-        enum NOTNULL = " NOT NULL";
         static if (isFloatingPoint!originalT)
             type = "REAL";
         else static if (isNumeric!originalT || is(originalT == bool)) {
             type = "INTEGER";
-            static if (!hasParam)
-                param = NOTNULL;
         } else static if (isSomeString!originalT)
             type = "TEXT";
         else static if (isArray!originalT)
             type = "BLOB";
-        else
+        else static if (is(originalT == SysTime)) {
+            type = "DATETIME";
+        } else
             static assert(0, "unsupported type: " ~ T.stringof);
 
         string columnName = name;
@@ -377,7 +401,7 @@ FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(stri
         static if (nameAttr.length)
             columnName = nameAttr[0].value;
 
-        return [FieldColumn(prefix ~ name, prefix ~ columnName, type ~ param)];
+        return [FieldColumn(prefix ~ name, prefix ~ columnName, type, param)];
     }
 }
 
@@ -403,87 +427,8 @@ unittest {
 
     enum shouldWorkAtCompileTime = fieldToCol!("", Bar);
 
-    fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual(
-            ["'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", "'abc' REAL",
-            "'foo.xx' REAL", "'foo.yy' TEXT",
-            "'foo.baz.a' TEXT", "'foo.baz.b' TEXT",
-            "'foo.zz' INTEGER NOT NULL", "'baz' TEXT", "'data' BLOB"]);
-}
-
-void valueToCol(T, Writer)(ref Writer w, T x) {
-    void fmtwrt(string fmt, T val) {
-        // LDC, WTF? https://github.com/ldc-developers/ldc/issues/2355
-        version (LDC)
-            w.put(format(fmt, val));
-        else
-            w.formattedWrite(fmt, val);
-    }
-
-    static if (is(T == struct)) {
-        foreach (i, v; x.tupleof) {
-            valueToCol(w, v);
-            static if (i + 1 != x.tupleof.length)
-                w.put(",");
-        }
-    } else static if (is(T == bool))
-        fmtwrt("%d", cast(int) x);
-    else static if (isFloatingPoint!T) {
-        if (x == x)
-            fmtwrt("%e", x);
-        else
-            w.put("null");
-    } else static if (isNumeric!T)
-        fmtwrt("%d", x);
-    else static if (isSomeString!T) {
-        w.put('\'');
-        w.put(x);
-        w.put('\'');
-    } else static if (isDynamicArray!T) {
-        if (x.length == 0)
-            w.put("null");
-        else {
-            static if (is(T == ubyte[]))
-                auto dd = x;
-            else
-                auto dd = cast(ubyte[])(cast(void[]) x);
-            fmtwrt("x'%-(%02x%)'", dd);
-        }
-    } else
-        static assert(0, "unsupported type: " ~ T.stringof);
-}
-
-unittest {
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-    valueToCol(buf, 3);
-    assert(buf.data == "3");
-    buf.clear;
-    valueToCol(buf, "hello");
-    assert(buf.data == "'hello'");
-    buf.clear;
-}
-
-unittest {
-    struct Foo {
-        int xx;
-        string yy;
-    }
-
-    struct Bar {
-        ulong id;
-        int abc;
-        string baz;
-        Foo foo;
-    }
-
-    Bar val = {id:
-    12, abc : 32, baz : "hello", foo : {xx:
-    45, yy : "ok"}};
-
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-    valueToCol(buf, val);
-    assert(buf.data == "12,32,'hello',45,'ok'");
+    fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual(["'id' INTEGER PRIMARY KEY",
+            "'abc' REAL NOT NULL", "'foo.xx' REAL NOT NULL", "'foo.yy' TEXT NOT NULL",
+            "'foo.baz.a' TEXT NOT NULL", "'foo.baz.b' TEXT NOT NULL",
+            "'foo.zz' INTEGER NOT NULL", "'baz' TEXT NOT NULL", "'data' BLOB NOT NULL"]);
 }

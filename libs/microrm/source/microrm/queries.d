@@ -5,9 +5,13 @@ import std.exception : enforce;
 import std.string : join;
 
 import d2sqlite3;
+import sumtype;
 
-import microrm.schema : tableName, IDNAME, fieldToCol, fieldToCol, ColumnName;
+import microrm.api : Microrm;
 import microrm.exception;
+import microrm.schema : tableName, fieldToCol, fieldToCol, ColumnName;
+
+public import microrm.query_ast : OrderingTermSort, InsertOpt;
 
 debug (microrm) import std.stdio : stderr;
 
@@ -15,75 +19,83 @@ version (unittest) {
     import unit_threaded.assertions;
 }
 
-enum BASEQUERYLENGTH = 512;
+auto select(T)() {
+    return Select!T(tableName!T);
+}
 
-struct Select(T, BUF) {
-    import std.range : InputRange;
+struct Select(T) {
+    import microrm.query_ast;
 
-    mixin baseQueryData!("SELECT * FROM %s");
-    mixin whereCondition;
+    microrm.query_ast.Select query;
 
-    private ref orderBy(string[] fields, string orderType) {
-        assert(orderType == "ASC" || orderType == "DESC");
-        query.put(" ORDER BY ");
-        query.put(fields.joiner(", "));
-        query.put(" ");
-        query.put(orderType);
-        return this;
+    this(microrm.query_ast.Select q) {
+        this.query = q;
     }
 
-    ref ascOrderBy(string[] fields...) {
-        return orderBy(fields, "ASC");
+    this(string from) {
+        this.query.opts.from = Blob(from).From;
     }
 
-    ref descOrderBy(string[] fields...) {
-        return orderBy(fields, "DESC");
+    /// Convert to a SQL statement that can e.g. be pretty printed.
+    Sql toSql() {
+        return query.Query.Sql;
     }
 
-    auto run() @property {
-        import std.range : inputRangeObject;
-        import std.algorithm : map;
+    /// Count the number of matching rows.
+    auto count() @safe pure {
+        microrm.query_ast.Select rval = query;
+        rval.columns.required = ResultColumn(ResultColumnExpr(Blob("count(*)")));
+        return Select!T(rval);
+    }
 
-        enforce(db, "database is null");
+    /// Order the result by `s` in the order the fields are defined in `T`.
+    auto orderBy(OrderingTermSort s) @safe pure {
+        enum fields = fieldToCol!("", T);
 
-        query.put(';');
-        auto q = query.data.idup;
-        debug (microrm)
-            stderr.writeln(q);
-        auto result = (*db).executeCheck(q);
-
-        static T qconv(typeof(result.front) e) {
-            T ret;
-            static string rr() {
-                string[] res;
-                res ~= "import std.traits : isStaticArray, OriginalType;";
-                foreach (i, a; fieldToCol!("", T)()) {
-                    res ~= `{`;
-                    res ~= q{alias ET = typeof(ret.%s);}.format(a.identifier);
-                    res ~= q{static if (isStaticArray!ET)};
-                    res ~= `
-                        {
-                            import std.algorithm : min;
-                            auto ubval = e[%2$d].as!(ubyte[]);
-                            auto etval = cast(typeof(ET.init[]))ubval;
-                            auto ln = min(ret.%1$s.length, etval.length);
-                            ret.%1$s[0..ln] = etval[0..ln];
-                        }
-                        `.format(a.identifier, i);
-                    res ~= q{else static if (is(ET == enum))};
-                    res ~= format(q{ret.%1$s = cast(ET) e.peek!ET(%2$d);}, a.identifier, i);
-                    res ~= q{else};
-                    res ~= format(q{ret.%1$s = e.peek!ET(%2$d);}, a.identifier, i);
-                    res ~= `}`;
-                }
-                return res.join("\n");
-            }
-
-            mixin(rr());
-            return ret;
+        OrderingTerm[] optional;
+        static foreach (i, field; fields) {
+            static if (i == 0)
+                auto required = OrderingTerm(Blob(field.columnName), s);
+            else
+                optional ~= OrderingTerm(Blob(field.columnName), s);
         }
 
-        return result.map!qconv;
+        microrm.query_ast.Select rval = query;
+        rval.opts.orderBy = OrderBy(required, optional);
+        return Select!T(rval);
+    }
+
+    /// Add a WHERE condition.
+    auto where(string condition) @safe pure {
+        static struct WhereOptional {
+            Select!T value;
+            alias value this;
+
+            private auto where(string condition, WhereOp op) @safe pure {
+                import sumtype;
+
+                Select!T rval = value;
+
+                Where w = value.query.opts.where.tryMatch!((Where v) => v);
+                WhereExpr we = w.tryMatch!((WhereExpr v) => v);
+                we.optional ~= WhereExpr.Opt(op, Expr(condition));
+                rval.query.opts.where = Where(we);
+                return WhereOptional(rval);
+            }
+
+            WhereOptional and(string condition) @safe pure {
+                return where(condition, WhereOp.AND);
+            }
+
+            WhereOptional or(string condition) @safe pure {
+                return where(condition, WhereOp.OR);
+            }
+        }
+
+        microrm.query_ast.Select rval = query;
+        rval.opts.where = WhereExpr(Expr(condition)).Where;
+
+        return WhereOptional(typeof(this)(rval));
     }
 }
 
@@ -94,13 +106,9 @@ unittest {
         ulong ts;
     }
 
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-
-    auto test = Select!(Foo, typeof(buf))(null, &buf);
-    test.where("text =", "privet").and("ts >", 123);
-    assert(test.query.data == "SELECT * FROM Foo WHERE text = 'privet' AND ts > '123'");
+    select!Foo.where("foo = bar").or("batman IS NULL").and("batman = hero")
+        .toSql.toString.shouldEqual(
+                "SELECT * FROM Foo WHERE foo = bar OR batman IS NULL AND batman = hero;");
 }
 
 @("shall be possible to have a member of enum type")
@@ -115,46 +123,108 @@ unittest {
         MyEnum enum_;
     }
 
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-
-    auto test = Select!(Foo, typeof(buf))(null, &buf);
-    test.where("enum_ =", "robin");
-    test.query.data.shouldEqual("SELECT * FROM Foo WHERE enum_ = 'robin'");
+    select!Foo.where("enum_ = 'robin'")
+        .toSql.toString.shouldEqual("SELECT * FROM Foo WHERE enum_ = 'robin';");
 }
 
-void buildInsertOrReplace(T, W)(ref W buf, bool replace, size_t valCount = 1) {
-    if (!replace)
-        buf.put("INSERT INTO ");
-    else
-        buf.put("INSERT OR REPLACE INTO ");
-    buf.put(tableName!T);
-    buf.put(" (");
+auto insert(T)() {
+    return Insert!T(tableName!T);
+}
 
-    enum fields = fieldToCol!("", T)();
+struct Insert(T) {
+    import microrm.query_ast;
 
-    foreach (i, f; fields) {
-        if (f.isPrimaryKey && !replace)
-            continue;
-        buf.put(f.quoteColumnName);
-        if (i + 1 != fields.length)
-            buf.put(",");
+    microrm.query_ast.Insert query;
+
+    this(microrm.query_ast.Insert q) {
+        this.query = q;
     }
-    buf.put(") VALUES (");
 
-    foreach (n; 0 .. valCount) {
-        foreach (i, f; fields) {
-            if (f.isPrimaryKey && !replace)
-                continue;
-            buf.put("?");
-            if (i + 1 != fields.length)
-                buf.put(",");
+    this(string tableName) {
+        this.query.table = TableRef(tableName);
+    }
+
+    /// Convert to a SQL statement that can e.g. be pretty printed.
+    Sql toSql() {
+        return query.Query.Sql;
+    }
+
+    void run(ref Microrm db) {
+        db.run(toSql.toString);
+    }
+
+    auto op(InsertOpt o) @safe pure nothrow const @nogc {
+        microrm.query_ast.Insert rval = query;
+        rval.opt = o;
+        return Insert!T(rval);
+    }
+
+    /// Returns: number of values that the query is sized for.
+    size_t getValues() {
+        return query.values.value.match!((Values v) => 1 + v.optional.length, _ => 0);
+    }
+
+    /// Returns: number of columns to insert per value.
+    size_t getColumns() {
+        return query.columns.value.match!((ColumnNames v) => 1 + v.optional.length, (None v) => 0);
+    }
+
+    /// Number of values the user wants to insert.
+    auto values(size_t cnt)
+    in(cnt >= 1, "values must be >=1") {
+        import std.array : array;
+        import std.range : repeat;
+
+        Value val;
+        val.required = Expr("?");
+        val.optional = query.columns.value.match!((ColumnNames v) => Expr("?")
+                .repeat(v.optional.length).array, (None v) => null);
+
+        Values values;
+        foreach (i; 0 .. cnt) {
+            if (i == 0)
+                values.required = val;
+            else
+                values.optional ~= val;
         }
-        if (n + 1 != valCount)
-            buf.put("),(");
+
+        microrm.query_ast.Insert rval = query;
+        rval.values = InsertValues(values);
+        return Insert!T(rval);
     }
-    buf.put(");");
+
+    /// Insert a new row.
+    auto insert() @safe pure nothrow const {
+        return op(InsertOpt.Insert).setColumns(true);
+    }
+
+    /// Replace an existing row.
+    auto replace() @safe pure nothrow const {
+        return op(InsertOpt.InsertOrReplace).setColumns(false);
+    }
+
+    // TODO the name is bad.
+    /// Specify columns to insert/replace values in.
+    private auto setColumns(bool insert_) @safe pure const {
+        enum fields = fieldToCol!("", T);
+
+        ColumnNames columns;
+        bool addRequired = true;
+        foreach (field; fields) {
+            if (field.isPrimaryKey && insert_)
+                continue;
+
+            if (addRequired) {
+                columns.required = microrm.query_ast.ColumnName(field.columnName);
+                addRequired = false;
+            } else
+                columns.optional ~= microrm.query_ast.ColumnName(field.columnName);
+        }
+
+        microrm.query_ast.Insert rval = query;
+        rval.columns = InsertColumns(columns);
+        return Insert!T(rval);
+    }
 }
 
 unittest {
@@ -168,19 +238,16 @@ unittest {
         string version_;
     }
 
-    import std.array : appender;
+    insert!Foo.replace.values(1).toSql.toString.shouldEqual(
+            "INSERT OR REPLACE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?);");
+    insert!Foo.insert.values(1).toSql.toString.shouldEqual(
+            "INSERT INTO Foo ('text','val','ts','version') VALUES (?,?,?,?);");
 
-    auto buf = appender!(char[]);
+    insert!Foo.replace.values(2).toSql.toString.shouldEqual(
+            "INSERT OR REPLACE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?),(?,?,?,?,?);");
 
-    buf.buildInsertOrReplace!Foo(true);
-    auto q = buf.data;
-    q.shouldEqual(
-            "INSERT OR REPLACE INTO Foo "
-            ~ "('id','text','val','ts','version') VALUES " ~ "(?,?,?,?,?);");
-    buf.clear();
-    buf.buildInsertOrReplace!Foo(false);
-    q = buf.data;
-    q.shouldEqual("INSERT INTO Foo " ~ "('text','val','ts','version') VALUES " ~ "(?,?,?,?);");
+    insert!Foo.insert.values(2).toSql.toString.shouldEqual(
+            "INSERT INTO Foo ('text','val','ts','version') VALUES (?,?,?,?),(?,?,?,?);");
 }
 
 unittest {
@@ -197,23 +264,11 @@ unittest {
         Foo foo;
     }
 
-    import std.array : appender;
-
-    auto buf = appender!(char[]);
-
-    buf.buildInsertOrReplace!Bar(true);
-    auto q = buf.data;
-    q.shouldEqual(
+    insert!Bar.replace.values(1).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Bar ('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?,?);");
-    buf.clear();
-    buf.buildInsertOrReplace!Bar(false);
-    q = buf.data;
-    q.shouldEqual(
+    insert!Bar.insert.values(1).toSql.toString.shouldEqual(
             "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?);");
-    buf.clear();
-    buf.buildInsertOrReplace!Bar(false, 3);
-    q = buf.data;
-    q.shouldEqual(
+    insert!Bar.insert.values(3).toSql.toString.shouldEqual(
             "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?);");
 }
 
@@ -236,29 +291,68 @@ unittest {
         float w;
     }
 
-    import std.array : appender;
-
-    auto buf = appender!(char[]);
-
-    buf.buildInsertOrReplace!Baz(true);
-    auto q = buf.data;
-    q.shouldEqual("INSERT OR REPLACE INTO Baz "
-            ~ "('id','v','xyz.v','xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES (?,?,?,?,"
-            ~ "?,?,?);");
+    insert!Baz.replace.values(1).toSql.toString.shouldEqual("INSERT OR REPLACE INTO Baz ('id','v','xyz.v','xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES (?,?,?,?,?,?,?);");
 }
 
-struct Delete(T, BUF) {
-    mixin baseQueryData!("DELETE FROM %s");
-    mixin whereCondition;
+auto delete_(T)() {
+    return Delete!T(tableName!T);
+}
 
-    auto run() @property {
-        enforce(db, "database is null");
+struct Delete(T) {
+    import microrm.query_ast;
 
-        query.put(';');
-        auto q = query.data.idup;
-        debug (microrm)
-            stderr.writeln(q);
-        return (*db).executeCheck(q);
+    microrm.query_ast.Delete query;
+
+    this(microrm.query_ast.Delete q) {
+        this.query = q;
+    }
+
+    this(string tableName) {
+        this.query.table = TableRef(tableName);
+    }
+
+    /// Convert to a SQL statement that can e.g. be pretty printed.
+    Sql toSql() {
+        return query.Query.Sql;
+    }
+
+    void run(ref Microrm db) {
+        db.run(toSql.toString);
+    }
+
+    /// Add or replace a WHERE condition.
+    auto where(string condition) @safe pure {
+        static struct WhereOptional {
+            Delete!T value;
+            alias value this;
+
+            private auto where(string condition, WhereOp op) @safe pure {
+                import sumtype;
+
+                Delete!T rval = value;
+
+                // there should always be a Where in the sumtype because that
+                // is what is initialized to.
+                Where w = value.query.where.tryMatch!((Where v) => v);
+                WhereExpr we = w.tryMatch!((WhereExpr v) => v);
+                we.optional ~= WhereExpr.Opt(op, Expr(condition));
+                rval.query.where = Where(we);
+                return WhereOptional(rval);
+            }
+
+            WhereOptional and(string condition) @safe pure {
+                return where(condition, WhereOp.AND);
+            }
+
+            WhereOptional or(string condition) @safe pure {
+                return where(condition, WhereOp.OR);
+            }
+        }
+
+        microrm.query_ast.Delete rval = query;
+        rval.where = WhereExpr(Expr(condition)).Where;
+
+        return WhereOptional(typeof(this)(rval));
     }
 }
 
@@ -269,25 +363,59 @@ unittest {
         ulong ts;
     }
 
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-
-    auto test = Delete!(Foo, typeof(buf))(null, &buf);
-    test.where("text =", "privet").and("ts >", 123);
-    test.query.data.shouldEqual("DELETE FROM Foo WHERE text = 'privet' AND ts > '123'");
+    delete_!Foo.where("text = privet").and("ts > 123")
+        .toSql.toString.shouldEqual("DELETE FROM Foo WHERE text = privet AND ts > 123;");
 }
 
-struct Count(T, BUF) {
-    mixin baseQueryData!("SELECT Count(*) FROM %s");
-    mixin whereCondition;
+auto count(T)() {
+    return Count!T(tableName!T);
+}
 
-    size_t run() @property {
-        enforce(db, "database is null");
-        auto q = query.data.idup;
-        debug (microrm)
-            stderr.writeln(q);
-        return (*db).executeCheck(q).front.front.as!size_t;
+struct Count(T) {
+    Select!T query;
+    alias query this;
+
+    this(microrm.query_ast.Select q) {
+        this.query = Select!T(q);
+    }
+
+    this(string from) {
+        this.query = Select!T(from).count;
+    }
+
+    /// Add a WHERE condition.
+    auto where(string condition) @safe pure {
+        import microrm.query_ast;
+
+        static struct WhereOptional {
+            Count!T value;
+            alias value this;
+
+            private auto where(string condition, WhereOp op) @safe pure {
+                import sumtype;
+
+                Count!T rval = value;
+
+                Where w = value.query.query.opts.where.tryMatch!((Where v) => v);
+                WhereExpr we = w.tryMatch!((WhereExpr v) => v);
+                we.optional ~= WhereExpr.Opt(op, Expr(condition));
+                rval.query.query.opts.where = Where(we);
+                return WhereOptional(rval);
+            }
+
+            WhereOptional and(string condition) @safe pure {
+                return where(condition, WhereOp.AND);
+            }
+
+            WhereOptional or(string condition) @safe pure {
+                return where(condition, WhereOp.OR);
+            }
+        }
+
+        microrm.query_ast.Select rval = query.query;
+        rval.opts.where = WhereExpr(Expr(condition)).Where;
+
+        return WhereOptional(typeof(this)(rval));
     }
 }
 
@@ -298,107 +426,6 @@ unittest {
         ulong ts;
     }
 
-    import std.array : Appender;
-
-    Appender!(char[]) buf;
-
-    auto test = Count!(Foo, typeof(buf))(null, &buf);
-    test.where("text =", "privet").and("ts >", 123);
-    test.query.data.shouldEqual("SELECT Count(*) FROM Foo WHERE text = 'privet' AND ts > '123'");
-}
-
-private:
-
-mixin template whereCondition() {
-    import std.format : formattedWrite;
-    import std.conv : text;
-    import std.range : isOutputRange;
-
-    static assert(isOutputRange!(typeof(this.query), char));
-
-    ref where(V)(string field, V val) {
-        query.put(" WHERE ");
-        query.put(field);
-        query.put(" '");
-        version (LDC)
-            query.put(text(val));
-        else
-            query.formattedWrite("%s", val);
-        query.put("'");
-        return this;
-    }
-
-    ref whereQ(string field, string cmd) {
-        query.put(" WHERE ");
-        query.put(field);
-        query.put(" ");
-        query.put(cmd);
-        return this;
-    }
-
-    ref and(V)(string field, V val) {
-        query.put(" AND ");
-        query.put(field);
-        query.put(" '");
-        version (LDC)
-            query.put(text(val));
-        else
-            query.formattedWrite("%s", val);
-        query.put("'");
-        return this;
-    }
-
-    ref andQ(string field, string cmd) {
-        query.put(" AND ");
-        query.put(field);
-        query.put(" ");
-        query.put(cmd);
-        return this;
-    }
-
-    ref limit(int limit) {
-        query.put(" LIMIT '");
-        version (LDC)
-            query.put(text(limit));
-        else
-            query.formattedWrite("%s", limit);
-        query.put("'");
-        return this;
-    }
-}
-
-mixin template baseQueryData(string SQLTempl) {
-    import std.array : Appender, appender;
-    import std.format : formattedWrite, format;
-
-    enum initialSQL = format(SQLTempl, tableName!T);
-
-    alias Buffer = BUF;
-
-    Database* db;
-    Buffer* buf;
-
-    @disable this();
-
-    private ref Buffer query() @property {
-        return (*buf);
-    }
-
-    this(Database* db, Buffer* buf) {
-        this.db = db;
-        this.buf = buf;
-        query.put(initialSQL);
-    }
-
-    void reset() {
-        query.clear();
-        query.put(initialSQL);
-    }
-
-    /// Reset the query to table `name`.
-    ref setTable(string name) {
-        query.clear;
-        query.put(format(SQLTempl, name));
-        return this;
-    }
+    count!Foo.where("text = privet").and("ts > 123").toSql.toString.shouldEqual(
+            "SELECT count(*) FROM Foo WHERE text = privet AND ts > 123;");
 }
