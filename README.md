@@ -36,7 +36,7 @@ Dextool has been tested with libclang [4.0, 5.0].
 For people running Ubuntu two of the dependencies can be installed via apt-get.
 The version of clang and llvm depend on your ubuntu version.
 ```sh
-sudo apt install cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev ldc dub
+sudo apt install build-essential cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev ldc dub
 ```
 
 Once the dependencies are installed it is time to download the source code and
