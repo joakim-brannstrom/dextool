@@ -401,6 +401,8 @@ unittest {
         ubyte[] data;
     }
 
+    enum shouldWorkAtCompileTime = fieldToCol!("", Bar);
+
     fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual(
             ["'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL", "'abc' REAL",
             "'foo.xx' REAL", "'foo.yy' TEXT",
