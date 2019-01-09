@@ -8,7 +8,7 @@
 module taggedalgebraic;
 
 import std.typetuple;
-import std.traits : isInstanceOf;
+import std.traits : Unqual, isInstanceOf;
 
 // TODO:
 //  - distinguish between @property and non@-property methods.
@@ -43,7 +43,8 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 {
 	import std.algorithm : among;
 	import std.string : format;
-	import std.traits : FieldTypeTuple, FieldNameTuple, Largest, hasElaborateCopyConstructor, hasElaborateDestructor;
+	import std.traits : FieldTypeTuple, FieldNameTuple, Largest,
+		hasElaborateCopyConstructor, hasElaborateDestructor;
 
 	/// Alias of the type used for defining the possible storage types/kinds.
 	alias Union = U;
@@ -51,20 +52,28 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	private alias FieldTypes = FieldTypeTuple!U;
 	private alias fieldNames = FieldNameTuple!U;
 
-	static assert(FieldTypes.length > 0, "The TaggedAlgebraic's union type must have at least one field.");
+	static assert(FieldTypes.length > 0,
+			"The TaggedAlgebraic's union type must have at least one field.");
 	static assert(FieldTypes.length == fieldNames.length);
 
-
-	private {
-		static if (is(FieldTypes[0] == typeof(null)) || is(FieldTypes[0] == Void) || __VERSION__ < 2072) {
+	private
+	{
+		static if (is(FieldTypes[0] == typeof(null)) || is(FieldTypes[0] == Void)
+				|| __VERSION__ < 2072)
+		{
 			void[Largest!FieldTypes.sizeof] m_data;
-		} else {
-			union Dummy {
+		}
+		else
+		{
+			union Dummy
+			{
 				FieldTypes[0] initField;
 				void[Largest!FieldTypes.sizeof] data;
 				alias data this;
 			}
-			Dummy m_data = { initField: FieldTypes[0].init };
+
+			Dummy m_data = {initField:
+			FieldTypes[0].init};
 		}
 		Kind m_kind;
 	}
@@ -76,11 +85,13 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	deprecated("Use 'Kind' instead.") alias Type = Kind;
 
 	/// The type ID of the currently stored value.
-	@property Kind kind() const { return m_kind; }
+	@property Kind kind() const
+	{
+		return m_kind;
+	}
 
 	// Compatibility alias
-	deprecated("Use 'kind' instead.")
-	alias typeID = kind;
+	deprecated("Use 'kind' instead.") alias typeID = kind;
 
 	// constructors
 	//pragma(msg, generateConstructors!U());
@@ -101,15 +112,18 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	{
 		this(this)
 		{
-			switch (m_kind) {
-				default: break;
-				foreach (i, tname; fieldNames) {
+			switch (m_kind)
+			{
+			default:
+				break;
+				foreach (i, tname; fieldNames)
+				{
 					alias T = typeof(__traits(getMember, U, tname));
 					static if (hasElaborateCopyConstructor!T)
 					{
-						case __traits(getMember, Kind, tname):
-							typeid(T).postblit(cast(void*)&trustedGet!tname());
-							return;
+			case __traits(getMember, Kind, tname):
+						typeid(T).postblit(cast(void*)&trustedGet!tname());
+						return;
 					}
 				}
 			}
@@ -121,14 +135,17 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	{
 		~this()
 		{
-			final switch (m_kind) {
-				foreach (i, tname; fieldNames) {
+			final switch (m_kind)
+			{
+				foreach (i, tname; fieldNames)
+				{
 					alias T = typeof(__traits(getMember, U, tname));
-					case __traits(getMember, Kind, tname):
-						static if (hasElaborateDestructor!T) {
-							.destroy(trustedGet!tname);
-						}
-						return;
+			case __traits(getMember, Kind, tname):
+					static if (hasElaborateDestructor!T)
+					{
+						.destroy(trustedGet!tname);
+					}
+					return;
 				}
 			}
 		}
@@ -139,17 +156,23 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	{
 		import std.conv : to;
 
-		final switch (m_kind) {
-			foreach (i, FT; FieldTypes) {
-				case __traits(getMember, Kind, fieldNames[i]):
-					static if (is(typeof(trustedGet!(fieldNames[i])) : T))
-						return trustedGet!(fieldNames[i]);
-					else static if (is(typeof(to!T(trustedGet!(fieldNames[i]))))) {
-						return to!T(trustedGet!(fieldNames[i]));
-					} else {
-						assert(false, "Cannot cast a " ~ m_kind.to!string
-								~ " value of type " ~ FT.stringof ~ " to " ~ T.stringof);
-					}
+		final switch (m_kind)
+		{
+			foreach (i, FT; FieldTypes)
+			{
+		case __traits(getMember, Kind, fieldNames[i]):
+				static if (is(typeof(trustedGet!(fieldNames[i])) : T))
+					return trustedGet!(fieldNames[i]);
+				else static if (is(typeof(to!T(trustedGet!(fieldNames[i])))))
+				{
+					return to!T(trustedGet!(fieldNames[i]));
+				}
+				else
+				{
+					assert(false,
+							"Cannot cast a " ~ fieldNames[i] ~ " value of type "
+							~ FT.stringof ~ " to " ~ T.stringof);
+				}
 			}
 		}
 		assert(false); // never reached
@@ -160,24 +183,33 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 		// this method needs to be duplicated because inout doesn't work with to!()
 		import std.conv : to;
 
-		final switch (m_kind) {
-			foreach (i, FT; FieldTypes) {
-				case __traits(getMember, Kind, fieldNames[i]):
-					static if (is(typeof(trustedGet!(fieldNames[i])) : T))
-						return trustedGet!(fieldNames[i]);
-					else static if (is(typeof(to!T(trustedGet!(fieldNames[i]))))) {
-						return to!T(trustedGet!(fieldNames[i]));
-					} else {
-						assert(false, "Cannot cast a " ~ m_kind.to!string
-								~ " value of type" ~ FT.stringof ~ " to " ~ T.stringof);
-					}
+		final switch (m_kind)
+		{
+			foreach (i, FT; FieldTypes)
+			{
+		case __traits(getMember, Kind, fieldNames[i]):
+				static if (is(typeof(trustedGet!(fieldNames[i])) : T))
+					return trustedGet!(fieldNames[i]);
+				else static if (is(typeof(to!T(trustedGet!(fieldNames[i])))))
+				{
+					return to!T(trustedGet!(fieldNames[i]));
+				}
+				else
+				{
+					assert(false,
+							"Cannot cast a " ~ fieldNames[i] ~ " value of type"
+							~ FT.stringof ~ " to " ~ T.stringof);
+				}
 			}
 		}
 		assert(false); // never reached
 	}
 
 	/// Uses `cast(string)`/`to!string` to return a string representation of the enclosed value.
-	string toString() const { return cast(string)this; }
+	string toString() const
+	{
+		return cast(string) this;
+	}
 
 	// NOTE: "this TA" is used here as the functional equivalent of inout,
 	//       just that it generates one template instantiation per modifier
@@ -185,54 +217,106 @@ struct TaggedAlgebraic(U) if (is(U == union) || is(U == struct))
 	//       case.
 
 	/// Enables the invocation of methods of the stored value.
-	auto opDispatch(string name, this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.method, name, ARGS)) { return implementOp!(OpKind.method, name)(this, args); }
+	auto opDispatch(string name, this TA, ARGS...)(auto ref ARGS args)
+			if (hasOp!(TA, OpKind.method, name, ARGS))
+	{
+		return implementOp!(OpKind.method, name)(this, args);
+	}
 	/// Enables accessing properties/fields of the stored value.
-	@property auto opDispatch(string name, this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.field, name, ARGS) && !hasOp!(TA, OpKind.method, name, ARGS)) { return implementOp!(OpKind.field, name)(this, args); }
+	@property auto opDispatch(string name, this TA, ARGS...)(auto ref ARGS args)
+			if (hasOp!(TA, OpKind.field, name, ARGS) && !hasOp!(TA, OpKind.method, name, ARGS))
+	{
+		return implementOp!(OpKind.field, name)(this, args);
+	}
 	/// Enables equality comparison with the stored value.
 	auto opEquals(T, this TA)(auto ref T other)
-		if (is(Unqual!T == TaggedAlgebraic) || hasOp!(TA, OpKind.binary, "==", T))
+			if (is(Unqual!T == TaggedAlgebraic) || hasOp!(TA, OpKind.binary, "==", T))
 	{
-		static if (is(Unqual!T == TaggedAlgebraic)) {
-			if (this.kind != other.kind) return false;
-			final switch (this.kind)
-				foreach (i, fname; fieldNames)
-					case __traits(getMember, Kind, fname):
-						return trustedGet!fname == other.trustedGet!fname;
+		static if (is(Unqual!T == TaggedAlgebraic))
+		{
+			if (this.kind != other.kind)
+				return false;
+			final switch (this.kind) foreach (i, fname; fieldNames)
+			case __traits(getMember, Kind, fname):
+					return trustedGet!fname == other.trustedGet!fname;
 			assert(false); // never reached
-		} else return implementOp!(OpKind.binary, "==")(this, other);
+		}
+		else
+			return implementOp!(OpKind.binary, "==")(this, other);
 	}
 	/// Enables relational comparisons with the stored value.
-	auto opCmp(T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, "<", T)) { assert(false, "TODO!"); }
+	auto opCmp(T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, "<", T))
+	{
+		assert(false, "TODO!");
+	}
 	/// Enables the use of unary operators with the stored value.
-	auto opUnary(string op, this TA)() if (hasOp!(TA, OpKind.unary, op)) { return implementOp!(OpKind.unary, op)(this); }
+	auto opUnary(string op, this TA)() if (hasOp!(TA, OpKind.unary, op))
+	{
+		return implementOp!(OpKind.unary, op)(this);
+	}
 	/// Enables the use of binary operators with the stored value.
-	auto opBinary(string op, T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, op, T)) { return implementOp!(OpKind.binary, op)(this, other); }
+	auto opBinary(string op, T, this TA)(auto ref T other)
+			if (hasOp!(TA, OpKind.binary, op, T))
+	{
+		return implementOp!(OpKind.binary, op)(this, other);
+	}
 	/// Enables the use of binary operators with the stored value.
-	auto opBinaryRight(string op, T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binaryRight, op, T)) { return implementOp!(OpKind.binaryRight, op)(this, other); }
+	auto opBinaryRight(string op, T, this TA)(auto ref T other)
+			if (hasOp!(TA, OpKind.binaryRight, op, T))
+	{
+		return implementOp!(OpKind.binaryRight, op)(this, other);
+	}
 	/// Enables operator assignments on the stored value.
-	auto opOpAssign(string op, T, this TA)(auto ref T other) if (hasOp!(TA, OpKind.binary, op~"=", T)) { return implementOp!(OpKind.binary, op~"=")(this, other); }
+	auto opOpAssign(string op, T, this TA)(auto ref T other)
+			if (hasOp!(TA, OpKind.binary, op ~ "=", T))
+	{
+		return implementOp!(OpKind.binary, op ~ "=")(this, other);
+	}
 	/// Enables indexing operations on the stored value.
-	auto opIndex(this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.index, null, ARGS)) { return implementOp!(OpKind.index, null)(this, args); }
+	auto opIndex(this TA, ARGS...)(auto ref ARGS args)
+			if (hasOp!(TA, OpKind.index, null, ARGS))
+	{
+		return implementOp!(OpKind.index, null)(this, args);
+	}
 	/// Enables index assignments on the stored value.
-	auto opIndexAssign(this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.indexAssign, null, ARGS)) { return implementOp!(OpKind.indexAssign, null)(this, args); }
+	auto opIndexAssign(this TA, ARGS...)(auto ref ARGS args)
+			if (hasOp!(TA, OpKind.indexAssign, null, ARGS))
+	{
+		return implementOp!(OpKind.indexAssign, null)(this, args);
+	}
 	/// Enables call syntax operations on the stored value.
-	auto opCall(this TA, ARGS...)(auto ref ARGS args) if (hasOp!(TA, OpKind.call, null, ARGS)) { return implementOp!(OpKind.call, null)(this, args); }
+	auto opCall(this TA, ARGS...)(auto ref ARGS args)
+			if (hasOp!(TA, OpKind.call, null, ARGS))
+	{
+		return implementOp!(OpKind.call, null)(this, args);
+	}
 
-	private @trusted @property ref inout(typeof(__traits(getMember, U, f))) trustedGet(string f)() inout { return trustedGet!(inout(typeof(__traits(getMember, U, f)))); }
-	private @trusted @property ref inout(T) trustedGet(T)() inout { return *cast(inout(T)*)m_data.ptr; }
+	private @trusted @property ref inout(typeof(__traits(getMember, U, f))) trustedGet(string f)() inout
+	{
+		return trustedGet!(inout(typeof(__traits(getMember, U, f))));
+	}
+
+	private @trusted @property ref inout(T) trustedGet(T)() inout
+	{
+		return *cast(inout(T)*) m_data.ptr;
+	}
 }
 
 ///
-unittest
+@safe unittest
 {
 	import taggedalgebraic;
 
-	struct Foo {
+	struct Foo
+	{
 		string name;
-		void bar() {}
+		void bar() @safe
+		{
+		}
 	}
 
-	union Base {
+	union Base
+	{
 		int i;
 		string str;
 		Foo foo;
@@ -263,38 +347,45 @@ unittest
 	//taggedString.bar(); // AssertError: Not a Foo!
 
 	// Convert back by casting
-	auto i   = cast(int)    taggedInt;
+	auto i = cast(int) taggedInt;
 	auto str = cast(string) taggedString;
-	auto foo = cast(Foo)    taggedFoo;
+	auto foo = cast(Foo) taggedFoo;
 	if (taggedAny.kind == Tagged.Kind.foo) // Make sure to check type first!
 		auto foo2 = cast(Foo) taggedAny;
 	//cast(Foo) taggedString; // AssertError!
 
 	// Kind is an enum, so final switch is supported:
-	final switch (taggedAny.kind) {
-		case Tagged.Kind.i:
-			// It's "int i"
-			break;
+	final switch (taggedAny.kind)
+	{
+	case Tagged.Kind.i:
+		// It's "int i"
+		break;
 
-		case Tagged.Kind.str:
-			// It's "string str"
-			break;
+	case Tagged.Kind.str:
+		// It's "string str"
+		break;
 
-		case Tagged.Kind.foo:
-			// It's "Foo foo"
-			break;
+	case Tagged.Kind.foo:
+		// It's "Foo foo"
+		break;
 	}
 }
 
 /** Operators and methods of the contained type can be used transparently.
 */
-@safe unittest {
-	static struct S {
+@safe unittest
+{
+	static struct S
+	{
 		int v;
-		int test() { return v / 2; }
+		int test()
+		{
+			return v / 2;
+		}
 	}
 
-	static union Test {
+	static union Test
+	{
 		typeof(null) null_;
 		int integer;
 		string text;
@@ -310,9 +401,9 @@ unittest
 	ta = 12;
 	assert(ta.kind == TA.Kind.integer);
 	assert(ta == 12);
-	assert(cast(int)ta == 12);
-	assert(cast(long)ta == 12);
-	assert(cast(short)ta == 12);
+	assert(cast(int) ta == 12);
+	assert(cast(long) ta == 12);
+	assert(cast(short) ta == 12);
 
 	ta += 12;
 	assert(ta == 24);
@@ -329,15 +420,21 @@ unittest
 	assert(ta.test() == 4);
 }
 
-unittest { // std.conv integration
+unittest
+{ // std.conv integration
 	import std.conv : to;
 
-	static struct S {
+	static struct S
+	{
 		int v;
-		int test() { return v / 2; }
+		int test()
+		{
+			return v / 2;
+		}
 	}
 
-	static union Test {
+	static union Test
+	{
 		typeof(null) null_;
 		int number;
 		string text;
@@ -356,8 +453,10 @@ unittest { // std.conv integration
 /** Multiple fields are allowed to have the same type, in which case the type
 	ID enum is used to disambiguate.
 */
-@safe unittest {
-	static union Test {
+@safe unittest
+{
+	static union Test
+	{
 		typeof(null) null_;
 		int count;
 		int difference;
@@ -373,8 +472,10 @@ unittest { // std.conv integration
 	assert(ta.kind == TA.Kind.null_);
 }
 
-@safe unittest { // comparison of whole TAs
-	static union Test {
+@safe unittest
+{ // comparison of whole TAs
+	static union Test
+	{
 		typeof(null) a;
 		typeof(null) b;
 		Void c;
@@ -382,6 +483,7 @@ unittest { // std.conv integration
 		int e;
 		int f;
 	}
+
 	alias TA = TaggedAlgebraic!Test;
 
 	assert(TA(null, TA.Kind.a) == TA(null, TA.Kind.a));
@@ -395,42 +497,60 @@ unittest { // std.conv integration
 	assert(TA(1, TA.Kind.e) != TA(1, TA.Kind.f));
 }
 
-unittest {
+unittest
+{
 	// test proper type modifier support
-	static struct  S {
-		void test() {}
-		void testI() immutable {}
-		void testC() const {}
-		void testS() shared {}
-		void testSC() shared const {}
+	static struct S
+	{
+		void test()
+		{
+		}
+
+		void testI() immutable
+		{
+		}
+
+		void testC() const
+		{
+		}
+
+		void testS() shared
+		{
+		}
+
+		void testSC() shared const
+		{
+		}
 	}
-	static union U {
+
+	static union U
+	{
 		S s;
 	}
 
 	auto u = TaggedAlgebraic!U(S.init);
 	const uc = u;
-	immutable ui = cast(immutable)u;
+	immutable ui = cast(immutable) u;
 	//const shared usc = cast(shared)u;
 	//shared us = cast(shared)u;
 
-	static assert( is(typeof(u.test())));
+	static assert(is(typeof(u.test())));
 	static assert(!is(typeof(u.testI())));
-	static assert( is(typeof(u.testC())));
+	static assert(is(typeof(u.testC())));
 	static assert(!is(typeof(u.testS())));
 	static assert(!is(typeof(u.testSC())));
 
 	static assert(!is(typeof(uc.test())));
 	static assert(!is(typeof(uc.testI())));
-	static assert( is(typeof(uc.testC())));
+	static assert(is(typeof(uc.testC())));
 	static assert(!is(typeof(uc.testS())));
 	static assert(!is(typeof(uc.testSC())));
 
 	static assert(!is(typeof(ui.test())));
-	static assert( is(typeof(ui.testI())));
-	static assert( is(typeof(ui.testC())));
+	static assert(is(typeof(ui.testI())));
+	static assert(is(typeof(ui.testC())));
 	static assert(!is(typeof(ui.testS())));
-	static assert( is(typeof(ui.testSC())));
+	static assert(is(typeof(ui.testSC())));
 
 	/*static assert(!is(typeof(us.test())));
 	static assert(!is(typeof(us.testI())));
@@ -445,36 +565,55 @@ unittest {
 	static assert( is(typeof(usc.testSC())));*/
 }
 
-unittest {
+unittest
+{
 	// test attributes on contained values
 	import std.typecons : Rebindable, rebindable;
 
-	class C {
-		void test() {}
-		void testC() const {}
-		void testI() immutable {}
+	class C
+	{
+		void test()
+		{
+		}
+
+		void testC() const
+		{
+		}
+
+		void testI() immutable
+		{
+		}
 	}
-	union U {
+
+	union U
+	{
 		Rebindable!(immutable(C)) c;
 	}
 
 	auto ta = TaggedAlgebraic!U(rebindable(new immutable C));
 	static assert(!is(typeof(ta.test())));
-	static assert( is(typeof(ta.testC())));
-	static assert( is(typeof(ta.testI())));
+	static assert(is(typeof(ta.testC())));
+	static assert(is(typeof(ta.testI())));
 }
 
 // test recursive definition using a wrapper dummy struct
 // (needed to avoid "no size yet for forward reference" errors)
-unittest {
-	static struct TA {
-		union U {
+unittest
+{
+	static struct TA
+	{
+		union U
+		{
 			TA[] children;
 			int value;
 		}
+
 		TaggedAlgebraic!U u;
 		alias u this;
-		this(ARGS...)(ARGS args) { u = TaggedAlgebraic!U(args); }
+		this(ARGS...)(ARGS args)
+		{
+			u = TaggedAlgebraic!U(args);
+		}
 	}
 
 	auto ta = TA(null);
@@ -486,19 +625,37 @@ unittest {
 	assert(ta[2][0] == 2);
 }
 
-unittest { // postblit/destructor test
-	static struct S {
+unittest
+{ // postblit/destructor test
+	static struct S
+	{
 		static int i = 0;
 		bool initialized = false;
-		this(bool) { initialized = true; i++; }
-		this(this) { if (initialized) i++; }
-		~this() { if (initialized) i--; }
+		this(bool)
+		{
+			initialized = true;
+			i++;
+		}
+
+		this(this)
+		{
+			if (initialized)
+				i++;
+		}
+
+		~this()
+		{
+			if (initialized)
+				i--;
+		}
 	}
 
-	static struct U {
+	static struct U
+	{
 		S s;
 		int t;
 	}
+
 	alias TA = TaggedAlgebraic!U;
 	{
 		assert(S.i == 0);
@@ -518,10 +675,12 @@ unittest { // postblit/destructor test
 	}
 	assert(S.i == 0);
 
-	static struct U2 {
+	static struct U2
+	{
 		S a;
 		S b;
 	}
+
 	alias TA2 = TaggedAlgebraic!U2;
 	{
 		auto ta2 = TA2(S(true), TA2.Kind.a);
@@ -530,26 +689,34 @@ unittest { // postblit/destructor test
 	assert(S.i == 0);
 }
 
-unittest {
-	static struct S {
-		union U {
+unittest
+{
+	static struct S
+	{
+		union U
+		{
 			int i;
 			string s;
 			U[] a;
 		}
+
 		alias TA = TaggedAlgebraic!U;
 		TA p;
 		alias p this;
 	}
+
 	S s = S(S.TA("hello"));
-	assert(cast(string)s == "hello");
+	assert(cast(string) s == "hello");
 }
 
-unittest { // multiple operator choices
-	union U {
+unittest
+{ // multiple operator choices
+	union U
+	{
 		int i;
 		double d;
 	}
+
 	alias TA = TaggedAlgebraic!U;
 	TA ta = 12;
 	static assert(is(typeof(ta + 10) == TA)); // ambiguous, could be int or double
@@ -559,8 +726,13 @@ unittest { // multiple operator choices
 	assert(ta + 10.5 == 22.5);
 }
 
-unittest { // Binary op between two TaggedAlgebraic values
-	union U { int i; }
+unittest
+{ // Binary op between two TaggedAlgebraic values
+	union U
+	{
+		int i;
+	}
+
 	alias TA = TaggedAlgebraic!U;
 
 	TA a = 1, b = 2;
@@ -568,8 +740,14 @@ unittest { // Binary op between two TaggedAlgebraic values
 	assert(a + b == 3);
 }
 
-unittest { // Ambiguous binary op between two TaggedAlgebraic values
-	union U { int i; double d; }
+unittest
+{ // Ambiguous binary op between two TaggedAlgebraic values
+	union U
+	{
+		int i;
+		double d;
+	}
+
 	alias TA = TaggedAlgebraic!U;
 
 	TA a = 1, b = 2;
@@ -578,20 +756,24 @@ unittest { // Ambiguous binary op between two TaggedAlgebraic values
 	assert(a + b == 3);
 }
 
-unittest {
-	struct S {
-		union U {
+unittest
+{
+	struct S
+	{
+		union U
+		{
 			@disableIndex string str;
 			S[] array;
 			S[string] object;
 		}
+
 		alias TA = TaggedAlgebraic!U;
 		TA payload;
 		alias payload this;
 	}
 
 	S a = S(S.TA("hello"));
-	S b = S(S.TA(["foo": a]));
+	S b = S(S.TA(["foo" : a]));
 	S c = S(S.TA([a]));
 	assert(b["foo"] == a);
 	assert(b["foo"] == "hello");
@@ -599,45 +781,65 @@ unittest {
 	assert(c[0] == "hello");
 }
 
-static if (__VERSION__ >= 2072) unittest { // default initialization
-	struct S {
-		int i = 42;
+static if (__VERSION__ >= 2072)
+	unittest
+	{ // default initialization
+		struct S
+		{
+			int i = 42;
+		}
+
+		union U
+		{
+			S s;
+			int j;
+		}
+
+		TaggedAlgebraic!U ta;
+		assert(ta.i == 42);
 	}
-
-	union U { S s; int j; }
-
-	TaggedAlgebraic!U ta;
-	assert(ta.i == 42);
-}
 
 unittest
 {
 	import std.meta : AliasSeq;
 
-	union U { int[int] a; }
+	union U
+	{
+		int[int] a;
+	}
 
 	foreach (TA; AliasSeq!(TaggedAlgebraic!U, const(TaggedAlgebraic!U)))
 	{
 		TA ta = [1 : 2];
-		assert(cast(int[int])ta == [1 : 2]);
+		assert(cast(int[int]) ta == [1 : 2]);
 	}
 }
 
-static if (__VERSION__ >= 2072) {
-	unittest { // issue #8
-		static struct Result(T,E)
+static if (__VERSION__ >= 2072)
+{
+	unittest
+	{ // issue #8
+		static struct Result(T, E)
 		{
 			static union U
 			{
 				T ok;
 				E err;
 			}
+
 			alias TA = TaggedAlgebraic!U;
 			TA payload;
 			alias payload this;
 
-			this(T ok) { payload = ok; }
-			this(E err) { payload = err; }
+			this(T ok)
+			{
+				payload = ok;
+			}
+
+			this(E err)
+			{
+				payload = err;
+			}
 		}
 
 		static struct Option(T)
@@ -647,12 +849,20 @@ static if (__VERSION__ >= 2072) {
 				T some;
 				typeof(null) none;
 			}
+
 			alias TA = TaggedAlgebraic!U;
 			TA payload;
 			alias payload this;
 
-			this(T some) { payload = some; }
-			this(typeof(null) none) { payload = null; }
+			this(T some)
+			{
+				payload = some;
+			}
+
+			this(typeof(null) none)
+			{
+				payload = null;
+			}
 		}
 
 		Result!(Option!size_t, int) foo()
@@ -664,15 +874,37 @@ static if (__VERSION__ >= 2072) {
 	}
 }
 
-unittest { // issue #13
-	struct S1 { Void dummy; int foo; }
-	struct S {
-		struct T { TaggedAlgebraic!S1 foo() { return TaggedAlgebraic!S1(42); } }
-		struct U { string foo() { return "foo"; } }
+unittest
+{ // issue #13
+	struct S1
+	{
+		Void dummy;
+		int foo;
+	}
+
+	struct S
+	{
+		struct T
+		{
+			TaggedAlgebraic!S1 foo()
+			{
+				return TaggedAlgebraic!S1(42);
+			}
+		}
+
+		struct U
+		{
+			string foo()
+			{
+				return "foo";
+			}
+		}
+
 		Void dummy;
 		T t;
 		U u;
 	}
+
 	alias TA = TaggedAlgebraic!S;
 	auto ta = TA(S.T.init);
 	assert(ta.foo().get!(TaggedAlgebraic!S1) == 42);
@@ -681,19 +913,21 @@ unittest { // issue #13
 	assert(ta.foo() == "foo");
 }
 
-
 /** Tests if the algebraic type stores a value of a certain data type.
 */
 bool hasType(T, U)(in ref TaggedAlgebraic!U ta)
 {
 	alias Fields = Filter!(fieldMatchesType!(U, T), ta.fieldNames);
-	static assert(Fields.length > 0, "Type "~T.stringof~" cannot be stored in a "~(TaggedAlgebraic!U).stringof~".");
+	static assert(Fields.length > 0,
+			"Type " ~ T.stringof ~ " cannot be stored in a " ~ (TaggedAlgebraic!U).stringof ~ ".");
 
-	switch (ta.kind) {
-		default: return false;
+	switch (ta.kind)
+	{
+	default:
+		return false;
 		foreach (i, fname; Fields)
-			case __traits(getMember, ta.Kind, fname):
-				return true;
+	case __traits(getMember, ta.Kind, fname):
+			return true;
 	}
 	assert(false); // never reached
 }
@@ -704,8 +938,10 @@ bool hasType(T, U)(in TaggedAlgebraic!U ta)
 }
 
 ///
-unittest {
-	union Fields {
+unittest
+{
+	union Fields
+	{
 		int number;
 		string text;
 	}
@@ -720,11 +956,14 @@ unittest {
 	assert(!ta.hasType!string);
 }
 
-unittest { // issue #1
-	union U {
+unittest
+{ // issue #1
+	union U
+	{
 		int a;
 		int b;
 	}
+
 	alias TA = TaggedAlgebraic!U;
 
 	TA ta = TA(0, TA.Kind.b);
@@ -732,38 +971,48 @@ unittest { // issue #1
 	assert(ta.hasType!int);
 }
 
-unittest {
-	union U {
+unittest
+{
+	union U
+	{
 		int a;
 		float b;
 	}
+
 	alias TA = TaggedAlgebraic!U;
 
-	const(TA) test() { return TA(12); }
+	const(TA) test()
+	{
+		return TA(12);
+	}
+
 	assert(test().hasType!int);
 }
 
-
-static if (__VERSION__ >= 2072) {
+static if (__VERSION__ >= 2072)
+{
 	/** Maps a kind enumeration value to the corresponding field type.
 
 		`kind` must be a value of the `TaggedAlgebraic!T.Kind` enumeration.
 	*/
-	template TypeOf(alias kind)
-		if (isInstanceOf!(TypeEnum, typeof(kind)))
+	template TypeOf(alias kind) if (isInstanceOf!(TypeEnum, typeof(kind)))
 	{
 		import std.traits : FieldTypeTuple, TemplateArgsOf;
+
 		alias U = TemplateArgsOf!(typeof(kind));
 		alias TypeOf = FieldTypeTuple!U[kind];
 	}
 
 	///
-	unittest {
-		static struct S {
+	unittest
+	{
+		static struct S
+		{
 			int a;
 			string b;
 			string c;
 		}
+
 		alias TA = TaggedAlgebraic!S;
 
 		static assert(is(TypeOf!(TA.Kind.a) == int));
@@ -772,23 +1021,40 @@ static if (__VERSION__ >= 2072) {
 	}
 }
 
-
 /** Gets the value stored in an algebraic type based on its data type.
 */
 ref inout(T) get(T, U)(ref inout(TaggedAlgebraic!U) ta)
 {
 	import std.format : format;
-	assert(hasType!(T, U)(ta), () { scope (failure) assert(false); return format("Trying to get %s but have %s.", T.stringof, ta.kind); } ());
+
+	assert(hasType!(T, U)(ta), "Type mismatch!");
 	return ta.trustedGet!T;
 }
 /// ditto
 inout(T) get(T, U)(inout(TaggedAlgebraic!U) ta)
 {
 	import std.format : format;
-	assert(hasType!(T, U)(ta), () { scope (failure) assert(false); return format("Trying to get %s but have %s.", T.stringof, ta.kind); } ());
+
+	assert(hasType!(T, U)(ta), "Type mismatch!");
 	return ta.trustedGet!T;
 }
 
+@nogc @safe nothrow unittest
+{
+	struct Fields
+	{
+		int a;
+		float b;
+	}
+
+	alias TA = TaggedAlgebraic!Fields;
+	auto ta = TA(1);
+	assert(ta.get!int == 1);
+	ta.get!int = 2;
+	assert(ta.get!int == 2);
+	ta = TA(1.0);
+	assert(ta.get!float == 1.0);
+}
 
 /** Calls a the given callback with the static type of the contained value.
 
@@ -800,83 +1066,115 @@ inout(T) get(T, U)(inout(TaggedAlgebraic!U) ta)
 		If `handler` has a non-void return value, its return value gets
 		forwarded to the caller.
 */
-auto apply(alias handler, TA)(TA ta)
-	if (isInstanceOf!(TaggedAlgebraic, TA))
+auto apply(alias handler, TA)(TA ta) if (isInstanceOf!(TaggedAlgebraic, TA))
 {
-	final switch (ta.kind) {
-		foreach (i, fn; TA.fieldNames) {
-			case __traits(getMember, ta.Kind, fn):
-				return handler(get!(TA.FieldTypes[i])(ta));
+	final switch (ta.kind)
+	{
+		foreach (i, fn; TA.fieldNames)
+		{
+	case __traits(getMember, ta.Kind, fn):
+			return handler(get!(TA.FieldTypes[i])(ta));
 		}
 	}
-	static if (__VERSION__ <= 2068) assert(false);
+	static if (__VERSION__ <= 2068)
+		assert(false);
 }
 /// ditto
-auto apply(alias handler, T)(T value)
-	if (!isInstanceOf!(TaggedAlgebraic, T))
+auto apply(alias handler, T)(T value) if (!isInstanceOf!(TaggedAlgebraic, T))
 {
 	return handler(value);
 }
 
 ///
-unittest {
-	union U {
+unittest
+{
+	union U
+	{
 		int i;
 		string s;
 	}
+
 	alias TA = TaggedAlgebraic!U;
 
 	assert(TA(12).apply!((v) {
-		static if (is(typeof(v) == int)) {
-			assert(v == 12);
-			return 1;
-		} else {
-			return 0;
-		}
-	}) == 1);
+			static if (is(typeof(v) == int))
+			{
+				assert(v == 12);
+				return 1;
+			}
+			else
+			{
+				return 0;
+			}
+		}) == 1);
 
 	assert(TA("foo").apply!((v) {
-		static if (is(typeof(v) == string)) {
-			assert(v == "foo");
-			return 2;
-		} else {
-			return 0;
-		}
-	}) == 2);
+			static if (is(typeof(v) == string))
+			{
+				assert(v == "foo");
+				return 2;
+			}
+			else
+			{
+				return 0;
+			}
+		}) == 2);
 
-	"baz".apply!((v) {
-		assert(v == "baz");
-	});
+	"baz".apply!((v) { assert(v == "baz"); });
 }
 
-
 /// Convenience type that can be used for union fields that have no value (`void` is not allowed).
-struct Void {}
+struct Void
+{
+}
 
 /// User-defined attibute to disable `opIndex` forwarding for a particular tagged union member.
-@property auto disableIndex() { assert(__ctfe, "disableIndex must only be used as an attribute."); return DisableOpAttribute(OpKind.index, null); }
+@property auto disableIndex()
+{
+	assert(__ctfe, "disableIndex must only be used as an attribute.");
+	return DisableOpAttribute(OpKind.index, null);
+}
 
-private struct DisableOpAttribute {
+private struct DisableOpAttribute
+{
 	OpKind kind;
 	string name;
 }
 
-
 private template hasOp(TA, OpKind kind, string name, ARGS...)
 {
 	import std.traits : CopyTypeQualifiers;
+
 	alias UQ = CopyTypeQualifiers!(TA, TA.Union);
 	enum hasOp = TypeTuple!(OpInfo!(UQ, kind, name, ARGS).fields).length > 0;
 }
 
-unittest {
-	static struct S {
-		void m(int i) {}
-		bool opEquals(int i) { return true; }
-		bool opEquals(S s) { return true; }
+unittest
+{
+	static struct S
+	{
+		void m(int i)
+		{
+		}
+
+		bool opEquals(int i)
+		{
+			return true;
+		}
+
+		bool opEquals(S s)
+		{
+			return true;
+		}
 	}
 
-	static union U { int i; string s; S st; }
+	static union U
+	{
+		int i;
+		string s;
+		S st;
+	}
+
 	alias TA = TaggedAlgebraic!U;
 
 	static assert(hasOp!(TA, OpKind.binary, "+", int));
@@ -895,29 +1193,37 @@ unittest {
 	static assert(!hasOp!(const(TA), OpKind.method, "m", int));
 }
 
-unittest {
-	struct S {
-		union U {
+unittest
+{
+	struct S
+	{
+		union U
+		{
 			string s;
 			S[] arr;
 			S[string] obj;
 		}
+
 		alias TA = TaggedAlgebraic!(S.U);
 		TA payload;
 		alias payload this;
 	}
+
 	static assert(hasOp!(S.TA, OpKind.index, null, size_t));
 	static assert(hasOp!(S.TA, OpKind.index, null, int));
 	static assert(hasOp!(S.TA, OpKind.index, null, string));
 	static assert(hasOp!(S.TA, OpKind.field, "length"));
 }
 
-unittest { // "in" operator
-	union U {
+unittest
+{ // "in" operator
+	union U
+	{
 		string[string] dict;
 	}
+
 	alias TA = TaggedAlgebraic!U;
-	auto ta = TA(["foo": "bar"]);
+	auto ta = TA(["foo" : "bar"]);
 	assert("foo" in ta);
 	assert(*("foo" in ta) == "bar");
 }
@@ -927,57 +1233,74 @@ private static auto implementOp(OpKind kind, string name, T, ARGS...)(ref T self
 	import std.array : join;
 	import std.traits : CopyTypeQualifiers;
 	import std.variant : Algebraic, Variant;
+
 	alias UQ = CopyTypeQualifiers!(T, T.Union);
 
 	alias info = OpInfo!(UQ, kind, name, ARGS);
 
 	static assert(hasOp!(T, kind, name, ARGS));
 
-	static assert(info.fields.length > 0, "Implementing operator that has no valid implementation for any supported type.");
+	static assert(info.fields.length > 0,
+			"Implementing operator that has no valid implementation for any supported type.");
 
 	//pragma(msg, "Fields for "~kind.stringof~" "~name~", "~T.stringof~": "~info.fields.stringof);
 	//pragma(msg, "Return types for "~kind.stringof~" "~name~", "~T.stringof~": "~info.ReturnTypes.stringof);
 	//pragma(msg, typeof(T.Union.tupleof));
 	//import std.meta : staticMap; pragma(msg, staticMap!(isMatchingUniqueType!(T.Union), info.ReturnTypes));
 
-	switch (self.m_kind) {
-		default: assert(false, "Operator "~name~" ("~kind.stringof~") can only be used on values of the following types: "~[info.fields].join(", "));
-		foreach (i, f; info.fields) {
+	switch (self.m_kind)
+	{
+		enum assert_msg = "Operator " ~ name ~ " (" ~ kind.stringof
+			~ ") can only be used on values of the following types: " ~ [info.fields].join(", ");
+	default:
+		assert(false, assert_msg);
+		foreach (i, f; info.fields)
+		{
 			alias FT = typeof(__traits(getMember, T.Union, f));
-			case __traits(getMember, T.Kind, f):
-				static if (NoDuplicates!(info.ReturnTypes).length == 1)
-					return info.perform(self.trustedGet!FT, args);
-				else static if (allSatisfy!(isMatchingUniqueType!(T.Union), info.ReturnTypes))
-					return TaggedAlgebraic!(T.Union)(info.perform(self.trustedGet!FT, args));
-				else static if (allSatisfy!(isNoVariant, info.ReturnTypes)) {
-					alias Alg = Algebraic!(NoDuplicates!(info.ReturnTypes));
-					info.ReturnTypes[i] ret = info.perform(self.trustedGet!FT, args);
-					import std.traits : isInstanceOf;
-					return Alg(ret);
-				}
-				else static if (is(FT == Variant))
-					return info.perform(self.trustedGet!FT, args);
-				else
-					return Variant(info.perform(self.trustedGet!FT, args));
+	case __traits(getMember, T.Kind, f):
+			static if (NoDuplicates!(info.ReturnTypes).length == 1)
+				return info.perform(self.trustedGet!FT, args);
+			else static if (allSatisfy!(isMatchingUniqueType!(T.Union), info.ReturnTypes))
+				return TaggedAlgebraic!(T.Union)(info.perform(self.trustedGet!FT, args));
+			else static if (allSatisfy!(isNoVariant, info.ReturnTypes))
+			{
+				alias Alg = Algebraic!(NoDuplicates!(info.ReturnTypes));
+				info.ReturnTypes[i] ret = info.perform(self.trustedGet!FT, args);
+				import std.traits : isInstanceOf;
+
+				return Alg(ret);
+			}
+			else static if (is(FT == Variant))
+				return info.perform(self.trustedGet!FT, args);
+			else
+				return Variant(info.perform(self.trustedGet!FT, args));
 		}
 	}
 
 	assert(false); // never reached
 }
 
-unittest { // opIndex on recursive TA with closed return value set
-	static struct S {
-		union U {
+unittest
+{ // opIndex on recursive TA with closed return value set
+	static struct S
+	{
+		union U
+		{
 			char ch;
 			string str;
 			S[] arr;
 		}
+
 		alias TA = TaggedAlgebraic!U;
 		TA payload;
 		alias payload this;
 
-		this(T)(T t) { this.payload = t; }
+		this(T)(T t)
+		{
+			this.payload = t;
+		}
 	}
+
 	S a = S("foo");
 	S s = S([a]);
 
@@ -986,18 +1309,26 @@ unittest { // opIndex on recursive TA with closed return value set
 	assert(implementOp!(OpKind.index, null)(s.payload, 0) == "foo");
 }
 
-unittest { // opIndex on recursive TA with closed return value set using @disableIndex
-	static struct S {
-		union U {
+unittest
+{ // opIndex on recursive TA with closed return value set using @disableIndex
+	static struct S
+	{
+		union U
+		{
 			@disableIndex string str;
 			S[] arr;
 		}
+
 		alias TA = TaggedAlgebraic!U;
 		TA payload;
 		alias payload this;
 
-		this(T)(T t) { this.payload = t; }
+		this(T)(T t)
+		{
+			this.payload = t;
+		}
 	}
+
 	S a = S("foo");
 	S s = S([a]);
 
@@ -1006,70 +1337,125 @@ unittest { // opIndex on recursive TA with closed return value set using @disabl
 	assert(implementOp!(OpKind.index, null)(s.payload, 0) == "foo");
 }
 
-
 private auto performOpRaw(U, OpKind kind, string name, T, ARGS...)(ref T value, /*auto ref*/ ARGS args)
 {
-	static if (kind == OpKind.binary) return mixin("value "~name~" args[0]");
-	else static if (kind == OpKind.binaryRight) return mixin("args[0] "~name~" value");
-	else static if (kind == OpKind.unary) return mixin("name "~value);
-	else static if (kind == OpKind.method) return __traits(getMember, value, name)(args);
-	else static if (kind == OpKind.field) return __traits(getMember, value, name);
-	else static if (kind == OpKind.index) return value[args];
-	else static if (kind == OpKind.indexAssign) return value[args[1 .. $]] = args[0];
-	else static if (kind == OpKind.call) return value(args);
-	else static assert(false, "Unsupported kind of operator: "~kind.stringof);
+	static if (kind == OpKind.binary)
+		return mixin("value " ~ name ~ " args[0]");
+	else static if (kind == OpKind.binaryRight)
+		return mixin("args[0] " ~ name ~ " value");
+	else static if (kind == OpKind.unary)
+		return mixin("name " ~ value);
+	else static if (kind == OpKind.method)
+		return __traits(getMember, value, name)(args);
+	else static if (kind == OpKind.field)
+		return __traits(getMember, value, name);
+	else static if (kind == OpKind.index)
+		return value[args];
+	else static if (kind == OpKind.indexAssign)
+		return value[args[1 .. $]] = args[0];
+	else static if (kind == OpKind.call)
+		return value(args);
+	else
+		static assert(false, "Unsupported kind of operator: " ~ kind.stringof);
 }
 
-unittest {
-	union U { int i; string s; }
+unittest
+{
+	union U
+	{
+		int i;
+		string s;
+	}
 
-	{ int v = 1; assert(performOpRaw!(U, OpKind.binary, "+")(v, 3) == 4); }
-	{ string v = "foo"; assert(performOpRaw!(U, OpKind.binary, "~")(v, "bar") == "foobar"); }
+	{
+		int v = 1;
+		assert(performOpRaw!(U, OpKind.binary, "+")(v, 3) == 4);
+	}
+	{
+		string v = "foo";
+		assert(performOpRaw!(U, OpKind.binary, "~")(v, "bar") == "foobar");
+	}
 }
-
 
 private auto performOp(U, OpKind kind, string name, T, ARGS...)(ref T value, /*auto ref*/ ARGS args)
 {
 	import std.traits : isInstanceOf;
-	static if (ARGS.length > 0 && isInstanceOf!(TaggedAlgebraic, ARGS[0])) {
-		static if (is(typeof(performOpRaw!(U, kind, name, T, ARGS)(value, args)))) {
+
+	static if (ARGS.length > 0 && isInstanceOf!(TaggedAlgebraic, ARGS[0]))
+	{
+		static if (is(typeof(performOpRaw!(U, kind, name, T, ARGS)(value, args))))
+		{
 			return performOpRaw!(U, kind, name, T, ARGS)(value, args);
-		} else {
+		}
+		else
+		{
 			alias TA = ARGS[0];
-			template MTypesImpl(size_t i) {
-				static if (i < TA.FieldTypes.length) {
+			template MTypesImpl(size_t i)
+			{
+				static if (i < TA.FieldTypes.length)
+				{
 					alias FT = TA.FieldTypes[i];
 					static if (is(typeof(&performOpRaw!(U, kind, name, T, FT, ARGS[1 .. $]))))
-						alias MTypesImpl = TypeTuple!(FT, MTypesImpl!(i+1));
-					else alias MTypesImpl = TypeTuple!(MTypesImpl!(i+1));
-				} else alias MTypesImpl = TypeTuple!();
+						alias MTypesImpl = TypeTuple!(FT, MTypesImpl!(i + 1));
+					else
+						alias MTypesImpl = TypeTuple!(MTypesImpl!(i + 1));
+				}
+				else
+					alias MTypesImpl = TypeTuple!();
 			}
+
 			alias MTypes = NoDuplicates!(MTypesImpl!0);
-			static assert(MTypes.length > 0, "No type of the TaggedAlgebraic parameter matches any function declaration.");
-			static if (MTypes.length == 1) {
+			static assert(MTypes.length > 0,
+					"No type of the TaggedAlgebraic parameter matches any function declaration.");
+			static if (MTypes.length == 1)
+			{
 				if (args[0].hasType!(MTypes[0]))
-					return performOpRaw!(U, kind, name)(value, args[0].get!(MTypes[0]), args[1 .. $]);
-			} else {
+					return performOpRaw!(U, kind, name)(value,
+							args[0].get!(MTypes[0]), args[1 .. $]);
+			}
+			else
+			{
 				// TODO: allow all return types (fall back to Algebraic or Variant)
-				foreach (FT; MTypes) {
+				foreach (FT; MTypes)
+				{
 					if (args[0].hasType!FT)
-						return ARGS[0](performOpRaw!(U, kind, name)(value, args[0].get!FT, args[1 .. $]));
+						return ARGS[0](performOpRaw!(U, kind, name)(value,
+								args[0].get!FT, args[1 .. $]));
 				}
 			}
-			throw new /*InvalidAgument*/Exception("Algebraic parameter type mismatch");
+			throw new  /*InvalidAgument*/ Exception("Algebraic parameter type mismatch");
 		}
-	} else return performOpRaw!(U, kind, name, T, ARGS)(value, args);
+	}
+	else
+		return performOpRaw!(U, kind, name, T, ARGS)(value, args);
 }
 
-unittest {
-	union U { int i; double d; string s; }
+unittest
+{
+	union U
+	{
+		int i;
+		double d;
+		string s;
+	}
 
-	{ int v = 1; assert(performOp!(U, OpKind.binary, "+")(v, 3) == 4); }
-	{ string v = "foo"; assert(performOp!(U, OpKind.binary, "~")(v, "bar") == "foobar"); }
-	{ string v = "foo"; assert(performOp!(U, OpKind.binary, "~")(v, TaggedAlgebraic!U("bar")) == "foobar"); }
-	{ int v = 1; assert(performOp!(U, OpKind.binary, "+")(v, TaggedAlgebraic!U(3)) == 4); }
+	{
+		int v = 1;
+		assert(performOp!(U, OpKind.binary, "+")(v, 3) == 4);
+	}
+	{
+		string v = "foo";
+		assert(performOp!(U, OpKind.binary, "~")(v, "bar") == "foobar");
+	}
+	{
+		string v = "foo";
+		assert(performOp!(U, OpKind.binary, "~")(v, TaggedAlgebraic!U("bar")) == "foobar");
+	}
+	{
+		int v = 1;
+		assert(performOp!(U, OpKind.binary, "+")(v, TaggedAlgebraic!U(3)) == 4);
+	}
 }
-
 
 private template OpInfo(U, OpKind kind, string name, ARGS...)
 {
@@ -1081,50 +1467,87 @@ private template OpInfo(U, OpKind kind, string name, ARGS...)
 	private template isOpEnabled(string field)
 	{
 		alias attribs = TypeTuple!(__traits(getAttributes, __traits(getMember, U, field)));
-		template impl(size_t i) {
-			static if (i < attribs.length) {
-				static if (is(typeof(attribs[i]) == DisableOpAttribute)) {
+		template impl(size_t i)
+		{
+			static if (i < attribs.length)
+			{
+				static if (is(typeof(attribs[i]) == DisableOpAttribute))
+				{
 					static if (kind == attribs[i].kind && name == attribs[i].name)
 						enum impl = false;
-					else enum impl = impl!(i+1);
-				} else enum impl = impl!(i+1);
-			} else enum impl = true;
+					else
+						enum impl = impl!(i + 1);
+				}
+				else
+					enum impl = impl!(i + 1);
+			}
+			else
+				enum impl = true;
 		}
+
 		enum isOpEnabled = impl!0;
 	}
 
 	template fieldsImpl(size_t i)
 	{
-		static if (i < FieldTypes.length) {
-			static if (isOpEnabled!(fieldNames[i]) && is(typeof(&performOp!(U, kind, name, FieldTypes[i], ARGS)))) {
-				alias fieldsImpl = TypeTuple!(fieldNames[i], fieldsImpl!(i+1));
-			} else alias fieldsImpl = fieldsImpl!(i+1);
-		} else alias fieldsImpl = TypeTuple!();
+		static if (i < FieldTypes.length)
+		{
+			static if (isOpEnabled!(fieldNames[i])
+					&& is(typeof(&performOp!(U, kind, name, FieldTypes[i], ARGS))))
+			{
+				alias fieldsImpl = TypeTuple!(fieldNames[i], fieldsImpl!(i + 1));
+			}
+			else
+				alias fieldsImpl = fieldsImpl!(i + 1);
+		}
+		else
+			alias fieldsImpl = TypeTuple!();
 	}
+
 	alias fields = fieldsImpl!0;
 
-	template ReturnTypesImpl(size_t i) {
-		static if (i < fields.length) {
+	template ReturnTypesImpl(size_t i)
+	{
+		static if (i < fields.length)
+		{
 			alias FT = CopyTypeQualifiers!(U, typeof(__traits(getMember, U, fields[i])));
-			alias ReturnTypesImpl = TypeTuple!(ReturnType!(performOp!(U, kind, name, FT, ARGS)), ReturnTypesImpl!(i+1));
-		} else alias ReturnTypesImpl = TypeTuple!();
+			alias ReturnTypesImpl = TypeTuple!(ReturnType!(performOp!(U,
+					kind, name, FT, ARGS)), ReturnTypesImpl!(i + 1));
+		}
+		else
+			alias ReturnTypesImpl = TypeTuple!();
 	}
+
 	alias ReturnTypes = ReturnTypesImpl!0;
 
-	static auto perform(T)(ref T value, auto ref ARGS args) { return performOp!(U, kind, name)(value, args); }
-}
-
-private template ImplicitUnqual(T) {
-	import std.traits : Unqual, hasAliasing;
-	static if (is(T == void)) alias ImplicitUnqual = void;
-	else {
-		private static struct S { T t; }
-		static if (hasAliasing!S) alias ImplicitUnqual = T;
-		else alias ImplicitUnqual = Unqual!T;
+	static auto perform(T)(ref T value, auto ref ARGS args)
+	{
+		return performOp!(U, kind, name)(value, args);
 	}
 }
 
-private enum OpKind {
+private template ImplicitUnqual(T)
+{
+	import std.traits : Unqual, hasAliasing;
+
+	static if (is(T == void))
+		alias ImplicitUnqual = void;
+	else
+	{
+		private static struct S
+		{
+			T t;
+		}
+
+		static if (hasAliasing!S)
+			alias ImplicitUnqual = T;
+		else
+			alias ImplicitUnqual = Unqual!T;
+	}
+}
+
+private enum OpKind
+{
 	binary,
 	binaryRight,
 	unary,
@@ -1139,6 +1562,7 @@ private template TypeEnum(U)
 {
 	import std.array : join;
 	import std.traits : FieldNameTuple;
+
 	mixin("enum TypeEnum { " ~ [FieldNameTuple!U].join(", ") ~ " }");
 }
 
@@ -1151,7 +1575,8 @@ private string generateConstructors(U)()
 
 	string ret;
 
-	static if (__VERSION__ < 2072) {
+	static if (__VERSION__ < 2072)
+	{
 		// disable default construction if first type is not a null/Void type
 		static if (!is(FieldTypeTuple!U[0] == typeof(null)) && !is(FieldTypeTuple!U[0] == Void))
 		{
@@ -1193,90 +1618,124 @@ private string generateConstructors(U)()
 				m_data.rawEmplace(value);
 				m_kind = type;
 			}
-		}.format(tname, [SameTypeFields!(U, tname)].map!(f => "Kind."~f).join(", "), tname);
+		}.format(tname, [SameTypeFields!(U,
+				tname)].map!(f => "Kind." ~ f).join(", "), tname);
 
 	return ret;
 }
 
-private template UniqueTypeFields(U) {
+private template UniqueTypeFields(U)
+{
 	import std.traits : FieldTypeTuple, FieldNameTuple;
 
 	alias Types = FieldTypeTuple!U;
 
-	template impl(size_t i) {
-		static if (i < Types.length) {
+	template impl(size_t i)
+	{
+		static if (i < Types.length)
+		{
 			enum name = FieldNameTuple!U[i];
 			alias T = Types[i];
-			static if (staticIndexOf!(T, Types) == i && staticIndexOf!(T, Types[i+1 .. $]) < 0)
-				alias impl = TypeTuple!(name, impl!(i+1));
-			else alias impl = TypeTuple!(impl!(i+1));
-		} else alias impl = TypeTuple!();
+			static if (staticIndexOf!(T, Types) == i && staticIndexOf!(T, Types[i + 1 .. $]) < 0)
+				alias impl = TypeTuple!(name, impl!(i + 1));
+			else
+				alias impl = TypeTuple!(impl!(i + 1));
+		}
+		else
+			alias impl = TypeTuple!();
 	}
+
 	alias UniqueTypeFields = impl!0;
 }
 
-private template AmbiguousTypeFields(U) {
+private template AmbiguousTypeFields(U)
+{
 	import std.traits : FieldTypeTuple, FieldNameTuple;
 
 	alias Types = FieldTypeTuple!U;
 
-	template impl(size_t i) {
-		static if (i < Types.length) {
+	template impl(size_t i)
+	{
+		static if (i < Types.length)
+		{
 			enum name = FieldNameTuple!U[i];
 			alias T = Types[i];
-			static if (staticIndexOf!(T, Types) == i && staticIndexOf!(T, Types[i+1 .. $]) >= 0)
-				alias impl = TypeTuple!(name, impl!(i+1));
-			else alias impl = impl!(i+1);
-		} else alias impl = TypeTuple!();
+			static if (staticIndexOf!(T, Types) == i && staticIndexOf!(T, Types[i + 1 .. $]) >= 0)
+				alias impl = TypeTuple!(name, impl!(i + 1));
+			else
+				alias impl = impl!(i + 1);
+		}
+		else
+			alias impl = TypeTuple!();
 	}
+
 	alias AmbiguousTypeFields = impl!0;
 }
 
-unittest {
-	union U {
+unittest
+{
+	union U
+	{
 		int a;
 		string b;
 		int c;
 		double d;
 	}
+
 	static assert([UniqueTypeFields!U] == ["b", "d"]);
 	static assert([AmbiguousTypeFields!U] == ["a"]);
 }
 
-private template SameTypeFields(U, string field) {
+private template SameTypeFields(U, string field)
+{
 	import std.traits : FieldTypeTuple, FieldNameTuple;
 
 	alias Types = FieldTypeTuple!U;
 
 	alias T = typeof(__traits(getMember, U, field));
-	template impl(size_t i) {
-		static if (i < Types.length) {
+	template impl(size_t i)
+	{
+		static if (i < Types.length)
+		{
 			enum name = FieldNameTuple!U[i];
 			static if (is(Types[i] == T))
-				alias impl = TypeTuple!(name, impl!(i+1));
-			else alias impl = TypeTuple!(impl!(i+1));
-		} else alias impl = TypeTuple!();
+				alias impl = TypeTuple!(name, impl!(i + 1));
+			else
+				alias impl = TypeTuple!(impl!(i + 1));
+		}
+		else
+			alias impl = TypeTuple!();
 	}
+
 	alias SameTypeFields = impl!0;
 }
 
-private template MemberType(U) {
-	template MemberType(string name) {
+private template MemberType(U)
+{
+	template MemberType(string name)
+	{
 		alias MemberType = typeof(__traits(getMember, U, name));
 	}
 }
 
-private template isMatchingType(U) {
+private template isMatchingType(U)
+{
 	import std.traits : FieldTypeTuple;
+
 	enum isMatchingType(T) = staticIndexOf!(T, FieldTypeTuple!U) >= 0;
 }
 
-private template isMatchingUniqueType(U) {
+private template isMatchingUniqueType(U)
+{
 	import std.traits : staticMap;
+
 	alias UniqueTypes = staticMap!(FieldTypeOf!U, UniqueTypeFields!U);
-	template isMatchingUniqueType(T) {
-		static if (is(T : TaggedAlgebraic!U)) enum isMatchingUniqueType = true;
-		else enum isMatchingUniqueType = staticIndexOfImplicit!(T, UniqueTypes) >= 0;
+	template isMatchingUniqueType(T)
+	{
+		static if (is(T : TaggedAlgebraic!U))
+			enum isMatchingUniqueType = true;
+		else
+			enum isMatchingUniqueType = staticIndexOfImplicit!(T, UniqueTypes) >= 0;
 	}
 }
 
@@ -1285,23 +1744,34 @@ private template fieldMatchesType(U, T)
 	enum fieldMatchesType(string field) = is(typeof(__traits(getMember, U, field)) == T);
 }
 
-private template FieldTypeOf(U) {
-	template FieldTypeOf(string name) {
+private template FieldTypeOf(U)
+{
+	template FieldTypeOf(string name)
+	{
 		alias FieldTypeOf = typeof(__traits(getMember, U, name));
 	}
 }
 
-private template staticIndexOfImplicit(T, Types...) {
-	template impl(size_t i) {
-		static if (i < Types.length) {
-			static if (is(T : Types[i])) enum impl = i;
-			else enum impl = impl!(i+1);
-		} else enum impl = -1;
+private template staticIndexOfImplicit(T, Types...)
+{
+	template impl(size_t i)
+	{
+		static if (i < Types.length)
+		{
+			static if (is(T : Types[i]))
+				enum impl = i;
+			else
+				enum impl = impl!(i + 1);
+		}
+		else
+			enum impl = -1;
 	}
+
 	enum staticIndexOfImplicit = impl!0;
 }
 
-unittest {
+unittest
+{
 	static assert(staticIndexOfImplicit!(immutable(char), char) == 0);
 	static assert(staticIndexOfImplicit!(int, long) == 0);
 	static assert(staticIndexOfImplicit!(long, int) < 0);
@@ -1309,19 +1779,24 @@ unittest {
 	static assert(staticIndexOfImplicit!(double, int, double) == 1);
 }
 
-
-private template isNoVariant(T) {
+private template isNoVariant(T)
+{
 	import std.variant : Variant;
+
 	enum isNoVariant = !is(T == Variant);
 }
 
 private void rawEmplace(T)(void[] dst, ref T src)
 {
-	T[] tdst = () @trusted { return cast(T[])dst[0 .. T.sizeof]; } ();
-	static if (is(T == class)) {
+	T[] tdst = () @trusted { return cast(T[]) dst[0 .. T.sizeof]; }();
+	static if (is(T == class))
+	{
 		tdst[0] = src;
-	} else {
+	}
+	else
+	{
 		import std.conv : emplace;
+
 		emplace!T(&tdst[0]);
 		tdst[0] = src;
 	}
@@ -1331,8 +1806,8 @@ private void rawEmplace(T)(void[] dst, ref T src)
 // internal errors in hasElaborateAssign!T/isAssignable!T. This is probably
 // caused by cyclic dependencies. However, there is no reason to do these
 // checks in this context, so we just directly move the raw memory.
-private void rawSwap(T)(ref T a, ref T b)
-@trusted {
+private void rawSwap(T)(ref T a, ref T b) @trusted
+{
 	void[T.sizeof] tmp = void;
 	void[] ab = (cast(void*)&a)[0 .. T.sizeof];
 	void[] bb = (cast(void*)&b)[0 .. T.sizeof];
@@ -1341,9 +1816,13 @@ private void rawSwap(T)(ref T a, ref T b)
 	bb[] = tmp[];
 }
 
+unittest
+{
+	struct TU
+	{
+		int i;
+	}
 
-unittest {
-	struct TU { int i; }
 	alias TA = TaggedAlgebraic!TU;
 
 	auto ta = TA(12);
