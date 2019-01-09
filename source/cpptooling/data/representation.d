@@ -192,6 +192,16 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
         return this.id_ == rhs.id();
     }
 
+    static if (__VERSION__ < 2084) {
+        size_t toHash() @trusted pure nothrow const scope {
+            return id_.hashOf;
+        }
+    } else {
+        size_t toHash() @safe pure nothrow const @nogc scope {
+            return id_.hashOf;
+        }
+    }
+
     void unsafeForceID(IDType id) {
         this.id_ = id;
     }
