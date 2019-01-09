@@ -192,6 +192,16 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
         return this.id_ == rhs.id();
     }
 
+    static if (__VERSION__ < 2084) {
+        size_t toHash() @trusted pure nothrow const scope {
+            return id_.hashOf;
+        }
+    } else {
+        size_t toHash() @safe pure nothrow const @nogc scope {
+            return id_.hashOf;
+        }
+    }
+
     void unsafeForceID(IDType id) {
         this.id_ = id;
     }
@@ -1198,10 +1208,10 @@ struct CppClass {
             if (is(Unqual!T == CppMethod) || is(Unqual!T == CppCtor)
                 || is(Unqual!T == CppDtor) || is(Unqual!T == CppMethodOp)) {
         static if (is(Unqual!T == T)) {
-            auto f = () @trusted{ return CppFunc(func); }();
+            auto f = () @trusted { return CppFunc(func); }();
         } else {
             // TODO remove this hack. It is unsafe.
-            auto f = () @trusted{
+            auto f = () @trusted {
                 Unqual!T tmp;
                 tmp = cast(Unqual!T) func;
                 return CppFunc(tmp);
@@ -1259,7 +1269,7 @@ struct CppClass {
         }
     }
 
-    void put(T)(T member_, AccessType accessType) @trusted 
+    void put(T)(T member_, AccessType accessType) @trusted
             if (is(T == TypeKindVariable)) {
         final switch (accessType) {
         case AccessType.Public:
@@ -1468,7 +1478,7 @@ enum MergeMode {
             this.name_ = stack[$ - 1];
 
             try {
-                ubyte[4] hash = () @trusted{
+                ubyte[4] hash = () @trusted {
                     return this.stack.joiner.byChar.crc32Of();
                 }();
                 this.id_ = ((hash[0] << 24) | (hash[1] << 16) | (hash[2] << 8) | hash[3]);

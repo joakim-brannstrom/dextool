@@ -103,7 +103,7 @@ class Cache {
         typeof(return) rval;
         auto query = path_.get(p);
         if (query.isNull) {
-            rval = checksum(cast(const(ubyte)[]) p);
+            rval = checksum(cast(const(ubyte)[]) p.payload);
             path_.put(p, rval);
         } else {
             rval = query.get;
