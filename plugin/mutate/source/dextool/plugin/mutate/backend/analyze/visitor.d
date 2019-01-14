@@ -1010,18 +1010,13 @@ class AnalyzeResult {
     /// The source code language of the current file that is producing mutants.
     Language lang;
 
+    /// The factory used for IDs. Re-initialized for each file.
+    MutationIdFactory id_factory;
+
     this(FilesysIO fio, TokenStream tstream, Cache cache) {
         this.fio = fio;
         this.tstream = tstream;
         this.cache = cache;
-    }
-
-    /// Filter a stream of tokens for those that should affect the checksum.
-    private static auto checksumFilter(Token[] toks) {
-        import clang.c.Index : CXTokenKind;
-        import std.algorithm : filter;
-
-        return toks.filter!(a => a.kind != CXTokenKind.comment);
     }
 
     /// Returns: a tuple of two elements. The tokens before and after the mutation point.
@@ -1049,7 +1044,6 @@ class AnalyzeResult {
     }
 
     void put(MutationPointEntry a) {
-        import std.array : array;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         if (a.file.length == 0) {
@@ -1057,16 +1051,22 @@ class AnalyzeResult {
             return;
         }
 
-        // the filter on this line is the magic. By skipping tokens the
-        // checksum become stable to commentchanges.
-        auto toks = checksumFilter(cache.getTokens(AbsolutePath(a.file), tstream)).array;
+        if (a.file != id_factory.fileName) {
+            id_factory = MutationIdFactory(a.file, cache.getPathChecksum(a.file));
+        }
+
+        // the filter on this line is the magic. By skipping comment tokens the
+        // checksum become stable to changes in these comments.
+        auto toks = cache.getFilteredTokens(AbsolutePath(a.file), tstream);
         auto split = splitByMutationPoint(toks, a.mp);
         // these generate too much debug info to be active all the time
         //debug logger.trace("mutation point: ", a.mp);
         //debug logger.trace("pre_tokens: ", split.pre);
         //debug logger.trace("post_tokens: ", split.post);
 
-        auto id_factory = MutationIdFactory(cache.getPathChecksum(a.file), split.pre, split.post);
+        id_factory.updatePre(split.pre);
+        id_factory.updatePost(split.post);
+
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
@@ -1340,6 +1340,9 @@ struct MutationIdFactory {
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
     import dextool.type : Path;
 
+    /// An instance is related to a filename.
+    Path fileName;
+
     /// Checksum of the filename containing the mutants.
     Checksum file;
     /// Checksum of the tokens before the mutant.
@@ -1347,20 +1350,47 @@ struct MutationIdFactory {
     /// Checksum of the tokens after the mutant.
     Checksum postMutant;
 
-    this(Checksum file, Token[] preMutant, Token[] postMutant) {
-        this.file = file;
-
+    private {
         BuildChecksum128 pre;
-        foreach (t; preMutant) {
+        /// Where in the token stream the preMutant calculation is.
+        size_t preIdx;
+        /// Where in the post tokens the postMutant is.
+        size_t postIdx;
+    }
+
+    this(Path fileName, Checksum file) {
+        this.fileName = fileName;
+        this.file = file;
+    }
+
+    /// Update the checksum of the preMutant part by adding the delta between
+    /// the new tokens and previous.
+    void updatePre(Token[] tokens) {
+        // tokens are not guaranteed to be increasing so may have to reset it.
+        // this implemente just happend to be optimized for the case that it is
+        // increasing.
+        if (preIdx > tokens.length)
+            preIdx = 0;
+
+        foreach (t; tokens[preIdx .. $]) {
             pre.put(cast(const(ubyte)[]) t.spelling);
         }
         this.preMutant = toChecksum128(pre);
+        this.preIdx = tokens.length;
+    }
+
+    /// Update the checksum of the preMutant part by adding the delta between
+    /// the new tokens and previous.
+    void updatePost(Token[] tokens) {
+        if (postIdx != 0 && postIdx == tokens.length)
+            return;
 
         BuildChecksum128 post;
-        foreach (t; postMutant) {
+        foreach (t; tokens[0 .. $]) {
             post.put(cast(const(ubyte)[]) t.spelling);
         }
         this.postMutant = toChecksum128(post);
+        this.postIdx = tokens.length;
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
