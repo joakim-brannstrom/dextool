@@ -429,12 +429,13 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     }
 }
 
+/// Returns: a snippet of the mutation if it is OK otherwise an empty snippet.
 auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) @safe {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
     MakeMutationTextResult rval;
 
-    if (offs.end < file_.read.length) {
+    if (offs.begin < offs.end && offs.end < file_.read.length) {
         rval.rawOriginal = file_.read[offs.begin .. offs.end];
     }
 
