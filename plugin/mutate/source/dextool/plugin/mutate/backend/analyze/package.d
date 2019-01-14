@@ -192,6 +192,7 @@ struct Analyzer {
     }
 }
 
+/// Stream of tokens excluding comment tokens.
 class TokenStreamImpl : TokenStream {
     import std.typecons : NullableRef, nullableRef;
     import cpptooling.analyzer.clang.context : ClangContext;
@@ -208,6 +209,16 @@ class TokenStreamImpl : TokenStream {
         import dextool.plugin.mutate.backend.utility : tokenize;
 
         return tokenize(ctx, p);
+    }
+
+    Token[] getFilteredTokens(Path p) {
+        import std.array : array;
+        import std.algorithm : filter;
+        import clang.c.Index : CXTokenKind;
+        import dextool.plugin.mutate.backend.utility : tokenize;
+
+        // Filter a stream of tokens for those that should affect the checksum.
+        return tokenize(ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
     }
 }
 

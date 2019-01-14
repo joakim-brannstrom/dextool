@@ -20,7 +20,11 @@ public import dextool.plugin.mutate.backend.type : Token;
 
 /// Presents an interface that returns the tokens in the file.
 interface TokenStream {
+    /// All tokens.
     Token[] getTokens(Path p);
+
+    /// All tokens except comments.
+    Token[] getFilteredTokens(Path p);
 }
 
 /** Cache computation expensive operations that are reusable between analyze of
@@ -36,6 +40,7 @@ class Cache {
         CacheLRU!(string, Checksum) file_;
         CacheLRU!(string, Checksum) path_;
         CacheLRU!(string, Token[]) fileToken_;
+        CacheLRU!(string, Token[]) fileFilteredToken_;
         bool enableLog_;
     }
 
@@ -48,6 +53,10 @@ class Cache {
         // TODO: gather metrics or make it configurable.
         this.fileToken_.size = 64;
         this.fileToken_.ttl = 30;
+
+        this.fileFilteredToken_ = new typeof(fileFilteredToken_);
+        this.fileFilteredToken_.size = 64;
+        this.fileFilteredToken_.ttl = 30;
     }
 
     /// Activate logging of cache events.
@@ -122,6 +131,23 @@ class Cache {
         if (query.isNull) {
             rval = tstream.getTokens(p);
             fileToken_.put(p, rval);
+        } else {
+            rval = query.get;
+        }
+
+        debug logEvents;
+
+        return rval;
+    }
+
+    /** Returns: the files content converted to tokens.
+     */
+    Token[] getFilteredTokens(AbsolutePath p, TokenStream tstream) {
+        typeof(return) rval;
+        auto query = fileFilteredToken_.get(p);
+        if (query.isNull) {
+            rval = tstream.getFilteredTokens(p);
+            fileFilteredToken_.put(p, rval);
         } else {
             rval = query.get;
         }

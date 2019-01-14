@@ -1019,14 +1019,6 @@ class AnalyzeResult {
         this.cache = cache;
     }
 
-    /// Filter a stream of tokens for those that should affect the checksum.
-    private static auto checksumFilter(Token[] toks) {
-        import clang.c.Index : CXTokenKind;
-        import std.algorithm : filter;
-
-        return toks.filter!(a => a.kind != CXTokenKind.comment);
-    }
-
     /// Returns: a tuple of two elements. The tokens before and after the mutation point.
     private static auto splitByMutationPoint(Token[] toks, MutationPoint mp) {
         import std.algorithm : countUntil;
@@ -1052,7 +1044,6 @@ class AnalyzeResult {
     }
 
     void put(MutationPointEntry a) {
-        import std.array : array;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         if (a.file.length == 0) {
@@ -1066,7 +1057,7 @@ class AnalyzeResult {
 
         // the filter on this line is the magic. By skipping comment tokens the
         // checksum become stable to changes in these comments.
-        auto toks = checksumFilter(cache.getTokens(AbsolutePath(a.file), tstream)).array;
+        auto toks = cache.getFilteredTokens(AbsolutePath(a.file), tstream);
         auto split = splitByMutationPoint(toks, a.mp);
         // these generate too much debug info to be active all the time
         //debug logger.trace("mutation point: ", a.mp);
