@@ -1024,20 +1024,20 @@ class AnalyzeResult {
         import std.algorithm : countUntil;
         import std.typecons : Tuple;
 
-        Tuple!(Token[], "pre", Token[], "post") rval;
+        Tuple!(size_t, "pre", size_t, "post") rval;
 
         const pre_idx = toks.countUntil!((a, b) => a.offset.begin > b.offset.begin)(mp);
         if (pre_idx == -1) {
-            rval.pre = toks;
+            rval.pre = toks.length;
             return rval;
         }
 
-        rval.pre = toks[0 .. pre_idx];
+        rval.pre = pre_idx;
         toks = toks[pre_idx .. $];
 
         const post_idx = toks.countUntil!((a, b) => a.offset.end > b.offset.end)(mp);
         if (post_idx != -1) {
-            rval.post = toks[post_idx .. $];
+            rval.post = toks.length - post_idx;
         }
 
         return rval;
@@ -1051,21 +1051,19 @@ class AnalyzeResult {
             return;
         }
 
+        auto toks = cache.getFilteredTokens(AbsolutePath(a.file), tstream);
+
         if (a.file != id_factory.fileName) {
-            id_factory = MutationIdFactory(a.file, cache.getPathChecksum(a.file));
+            id_factory = MutationIdFactory(a.file, cache.getPathChecksum(a.file), toks);
         }
 
-        // the filter on this line is the magic. By skipping comment tokens the
-        // checksum become stable to changes in these comments.
-        auto toks = cache.getFilteredTokens(AbsolutePath(a.file), tstream);
         auto split = splitByMutationPoint(toks, a.mp);
         // these generate too much debug info to be active all the time
         //debug logger.trace("mutation point: ", a.mp);
         //debug logger.trace("pre_tokens: ", split.pre);
         //debug logger.trace("post_tokens: ", split.post);
 
-        id_factory.updatePre(split.pre);
-        id_factory.updatePost(split.post);
+        id_factory.updatePosition(split.pre, split.post);
 
         auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
 
@@ -1345,59 +1343,65 @@ struct MutationIdFactory {
 
     /// Checksum of the filename containing the mutants.
     Checksum file;
-    /// Checksum of the tokens before the mutant.
-    Checksum preMutant;
-    /// Checksum of the tokens after the mutant.
-    Checksum postMutant;
+    /// Checksum of all tokens content.
+    Checksum content;
 
     private {
-        BuildChecksum128 pre;
         /// Where in the token stream the preMutant calculation is.
         size_t preIdx;
+        Checksum preMutant;
         /// Where in the post tokens the postMutant is.
         size_t postIdx;
+        Checksum postMutant;
     }
 
-    this(Path fileName, Checksum file) {
+    /**
+     * Params:
+     * filename = the file that the factory is for
+     * file = checksum of the filename.
+     * tokens = all tokens from the file.
+     */
+    this(Path fileName, Checksum file, Token[] tokens) {
         this.fileName = fileName;
         this.file = file;
-    }
 
-    /// Update the checksum of the preMutant part by adding the delta between
-    /// the new tokens and previous.
-    void updatePre(Token[] tokens) {
-        // tokens are not guaranteed to be increasing so may have to reset it.
-        // this implemente just happend to be optimized for the case that it is
-        // increasing.
-        if (preIdx > tokens.length)
-            preIdx = 0;
-
-        foreach (t; tokens[preIdx .. $]) {
-            pre.put(cast(const(ubyte)[]) t.spelling);
+        BuildChecksum128 bc;
+        foreach (t; tokens) {
+            bc.put(cast(const(ubyte)[]) t.spelling);
         }
-        this.preMutant = toChecksum128(pre);
-        this.preIdx = tokens.length;
+        this.content = toChecksum128(bc);
     }
 
-    /// Update the checksum of the preMutant part by adding the delta between
-    /// the new tokens and previous.
-    void updatePost(Token[] tokens) {
-        if (postIdx != 0 && postIdx == tokens.length)
+    /// Update the number of tokens that are before and after the mutant.
+    void updatePosition(const size_t preCnt, const size_t postCnt) {
+        // only do it if the position changes
+        if (preCnt == preIdx && postCnt == postIdx)
             return;
 
-        BuildChecksum128 post;
-        foreach (t; tokens[0 .. $]) {
-            post.put(cast(const(ubyte)[]) t.spelling);
+        preIdx = preCnt;
+        postIdx = postCnt;
+
+        {
+            BuildChecksum128 bc;
+            bc.put(preIdx.toBytes);
+            preMutant = toChecksum128(bc);
         }
-        this.postMutant = toChecksum128(post);
-        this.postIdx = tokens.length;
+        {
+            BuildChecksum128 bc;
+            bc.put(postIdx.toBytes);
+            postMutant = toChecksum128(bc);
+        }
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
     Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
+        // # SPC-analyzer-checksum
         BuildChecksum128 h;
         h.put(file.c0.toBytes);
         h.put(file.c1.toBytes);
+
+        h.put(content.c0.toBytes);
+        h.put(content.c1.toBytes);
 
         h.put(preMutant.c0.toBytes);
         h.put(preMutant.c1.toBytes);
