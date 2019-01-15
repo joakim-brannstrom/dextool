@@ -45,9 +45,10 @@ Current checksum structure:
 Change to this:
 
  * checksum of the relative file path
- * checksum of all tokens before those the mutant modify
+ * checksum of all **relevant** tokens (e.g. remove comment tokens)
+ * checksum of the number of tokens before the first token the mutant modify
  * source code mutation
- * checksum of all tokens after the last token the mutant modify
+ * checksum of the number of tokens after the last token the mutant modify
 
 By removing the offset in the file the mutant become stable to style changes in
 the source code. It is still guaranteed to be unique because the stream of
