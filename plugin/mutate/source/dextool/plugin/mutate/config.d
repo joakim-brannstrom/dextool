@@ -72,11 +72,18 @@ struct ConfigCompileDb {
 
 /// Settings for the compiler
 struct ConfigCompiler {
+    import dextool.compilation_db : SystemCompiler = Compiler;
+
     /// Additional flags the user wants to add besides those that are in the compile_commands.json.
     string[] extraFlags;
 
     /// True requires system includes to be passed on to the compiler via -I
     bool forceSystemIncludes;
+
+    /// Deduce compiler flags from this compiler and not the one in the
+    /// supplied compilation database.  / This is needed when the one specified
+    /// in the DB has e.g. a c++ stdlib that is not compatible with clang.
+    SystemCompiler useCompilerSystemIncludes;
 }
 
 /// Settings for mutation testing

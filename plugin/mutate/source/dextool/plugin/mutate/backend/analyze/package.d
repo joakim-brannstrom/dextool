@@ -78,6 +78,7 @@ struct Analyzer {
         this.before_files = db.getFiles.setFromList;
         this.val_loc = val_loc;
         this.fio = fio;
+        this.conf = conf;
         this.cache = new Cache;
 
         db.removeAllFiles;

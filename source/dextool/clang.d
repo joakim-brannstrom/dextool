@@ -15,7 +15,7 @@ import std.typecons : Nullable;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db : SearchResult, CompileCommandDB,
-    CompileCommandFilter, CompileCommand, parseFlag;
+    CompileCommandFilter, CompileCommand, parseFlag, DbCompiler = Compiler;
 import dextool.type : FileName, AbsolutePath;
 
 @safe:
@@ -38,8 +38,9 @@ private struct IncludeResult {
  *
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
-Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb,
-        FileName fname, ref const CompileCommandFilter flag_filter, const string[] extra_flags) @trusted {
+Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb, FileName fname,
+        ref const CompileCommandFilter flag_filter, const string[] extra_flags,
+        const DbCompiler user_compiler = DbCompiler.init) @trusted {
     import std.algorithm : filter;
     import std.file : exists;
     import std.path : baseName;
@@ -60,7 +61,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
     Nullable!IncludeResult r;
 
     foreach (entry; compdb.filter!(a => exists(a.absoluteFile))) {
-        auto flags = extra_flags ~ entry.parseFlag(flag_filter);
+        auto flags = extra_flags ~ entry.parseFlag(flag_filter, user_compiler);
         auto translation_unit = ctx.makeTranslationUnit(entry.absoluteFile, flags);
 
         if (translation_unit.hasParseErrors) {
@@ -84,8 +85,9 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
 }
 
 /// Find flags for fname by searching in the compilation DB.
-Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
-        const string[] flags, ref const CompileCommandFilter flag_filter) {
+Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, const string[] flags,
+        ref const CompileCommandFilter flag_filter, const DbCompiler user_compiler = DbCompiler
+        .init) {
     import std.file : exists;
     import std.path : baseName;
 
@@ -123,7 +125,7 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
     logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
             sres.original.absoluteFile, sres.derived.absoluteFile);
 
-    rval = SearchResult(flags ~ sres.derived.parseFlag(flag_filter), p);
+    rval = SearchResult(flags ~ sres.derived.parseFlag(flag_filter, user_compiler), p);
     // the user may want to see the flags but usually uninterested
     logger.trace(rval.flags);
 

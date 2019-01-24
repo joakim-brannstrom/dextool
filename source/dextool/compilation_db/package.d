@@ -27,10 +27,11 @@ import std.exception : collectException;
 import std.json : JSONValue;
 import std.typecons : Nullable;
 
-import dextool.type : AbsolutePath;
+import dextool.type : AbsolutePath, Path;
 
 public import dextool.compilation_db.user_filerange;
-public import dextool.compilation_db.system_compiler : deduceSystemIncludes, SystemIncludePath;
+public import dextool.compilation_db.system_compiler : deduceSystemIncludes,
+    SystemIncludePath, Compiler;
 
 version (unittest) {
     import std.path : buildPath;
@@ -422,7 +423,7 @@ struct SearchResult {
 
     // TODO: consider deprecating.
     this(string[] flags, AbsolutePath p) {
-        this(ParseFlags(null, null, flags, null), p);
+        this(ParseFlags(null, flags), p);
     }
 
     // TODO: consider deprecating.
@@ -434,17 +435,18 @@ struct SearchResult {
 /** Append the compiler flags if a match is found in the DB or error out.
  */
 Nullable!(SearchResult) appendOrError(ref CompileCommandDB compilation_db,
-        const string[] cflags, const string input_file) @safe {
+        const string[] cflags, const string input_file, const Compiler user_compiler = Compiler
+        .init) @safe {
 
-    return appendOrError(compilation_db, cflags, input_file, defaultCompilerFilter);
+    return appendOrError(compilation_db, cflags, input_file, defaultCompilerFilter, user_compiler);
 }
 
 /** Append the compiler flags if a match is found in the DB or error out.
  *
  * TODO: consider using exceptions instead of Nullable.
  */
-Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db,
-        const string[] cflags, const string input_file, const CompileCommandFilter flag_filter) @safe {
+Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db, const string[] cflags, const string input_file,
+        const CompileCommandFilter flag_filter, const Compiler user_compiler = Compiler.init) @safe {
 
     auto compile_commands = compilation_db.find(input_file.idup);
     debug {
@@ -463,7 +465,7 @@ Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db,
         return rval;
     } else {
         rval = SearchResult.init;
-        auto p = compile_commands[0].parseFlag(flag_filter);
+        auto p = compile_commands[0].parseFlag(flag_filter, user_compiler);
         p.prependCflags(cflags.dup);
         rval.flags = p;
         rval.absoluteFile = compile_commands[0].absoluteFile;
@@ -503,7 +505,7 @@ string toString(CompileCommandSearch search) @safe pure {
     return toString(search.payload);
 }
 
-const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
 
 /// Returns: array of default flags to exclude.
 auto defaultCompilerFlagFilter() @safe {
@@ -539,11 +541,12 @@ auto defaultCompilerFlagFilter() @safe {
 
 struct CompileCommandFilter {
     FilterClangFlag[] filter;
-    int skipCompilerArgs = 1;
+    int skipCompilerArgs = 0;
 }
 
 /// Parsed compiler flags.
 struct ParseFlags {
+    /// The includes used in the compile command
     static struct Include {
         string payload;
         alias payload this;
@@ -562,8 +565,8 @@ struct ParseFlags {
     /// Specific flags for the file as parsed from the DB.
     string[] cflags;
 
-    /// Compiler used.
-    string[] compiler;
+    /// Compiler used to compile the item.
+    Compiler compiler;
 
     void prependCflags(string[] v) {
         this.cflags = v ~ this.cflags;
@@ -608,26 +611,29 @@ struct ParseFlags {
     alias completeFlags this;
 
     this(Include[] incls, string[] flags) {
-        this(incls, null, flags, null);
+        this(Compiler.init, incls, SystemIncludePath[].init, flags);
     }
 
-    this(Include[] incls, SystemIncludePath[] sysincls, string[] flags, string[] compiler) {
+    this(Compiler compiler, Include[] incls, string[] flags) {
+        this(compiler, incls, null, flags);
+    }
+
+    this(Compiler compiler, Include[] incls, SystemIncludePath[] sysincls, string[] flags) {
+        this.compiler = compiler;
         this.includes = incls;
         this.systemIncludes = sysincls;
         this.cflags = flags;
-        this.compiler = compiler;
     }
 }
 
 /** Filter and normalize the compiler flags.
  *
- * TODO: remove the logic for keep_first_arg. It is not needed anymore.
- *
  *  - Sanitize the compiler command by removing flags matching the filter.
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
+        const Compiler user_compiler = Compiler.init) @safe {
     import std.algorithm : among, map;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
@@ -674,8 +680,8 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
     /// to an absolute path.
     static bool isFlagAndPath(string flag) @safe {
         // list derived from clang --help
-        return 0 != flag.among("-I", "-idirafter", "-iframework", "-imacros",
-                "-include-pch", "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem");
+        return 0 != flag.among("-I", "-idirafter", "-iframework", "-imacros", "-include-pch",
+                "-include", "-iquote", "-isysroot", "-isystem-after", "-isystem", "--sysroot");
     }
 
     /// Flags that take an argument that is NOT a path.
@@ -683,11 +689,9 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         return 0 != flag.among("-D");
     }
 
-    static ParseFlags filterPair(T)(ref T r, CompileCommand.AbsoluteDirectory workdir,
-            const FilterClangFlag[] flag_filter, bool keepFirstArg) @safe {
+    static ParseFlags filterPair(string[] r,
+            CompileCommand.AbsoluteDirectory workdir, const FilterClangFlag[] flag_filter) @safe {
         enum State {
-            /// first argument is kept even though it isn't a flag because it is the command
-            firstArg,
             /// keep the next flag IF none of the other transitions happens
             keep,
             /// forcefully keep the next argument as raw data
@@ -704,9 +708,10 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
         import std.array : appender, array;
         import std.range : ElementType;
 
-        auto st = keepFirstArg ? State.firstArg : State.keep;
+        auto st = State.keep;
         auto rval = appender!(string[]);
         auto includes = appender!(string[]);
+        auto compiler = Compiler(r.length == 0 ? null : r[0]);
 
         foreach (arg; r) {
             // First states and how to handle those.
@@ -716,11 +721,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
             // conditions after the states. It is to give the user the ability
             // to filter out any flag.
 
-            if (st == State.firstArg) {
-                // keep it, it is the command
-                rval.put(arg);
-                st = State.keep;
-            } else if (st == State.skip) {
+            if (st == State.skip) {
                 st = State.keep;
             } else if (st == State.skipIfNotFlag && isNotAFlag(arg)) {
                 st = State.keep;
@@ -753,42 +754,49 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter)
             }
         }
 
-        return ParseFlags(includes.data.map!(a => ParseFlags.Include(a)).array, rval.data);
+        return ParseFlags(compiler, includes.data.map!(a => ParseFlags.Include(a)).array, rval.data);
     }
 
     import std.algorithm : filter, splitter, min;
-
-    string[] compiler;
 
     string[] skipArgs = () @safe {
         string[] args;
         if (cmd.command.hasValue)
             args = cmd.command.payload.dup;
-        if (args.length > flag_filter.skipCompilerArgs && flag_filter.skipCompilerArgs != 0) {
-            const start = min(flag_filter.skipCompilerArgs, args.length);
-            compiler = args[0 .. start];
-            args = args[start .. $];
-        }
+        if (args.length > flag_filter.skipCompilerArgs && flag_filter.skipCompilerArgs != 0)
+            args = args[min(flag_filter.skipCompilerArgs, args.length) .. $];
         return args;
     }();
 
-    const bool keep_first_arg = flag_filter.skipCompilerArgs == 0;
-    auto pargs = filterPair(skipArgs, cmd.directory, flag_filter.filter, keep_first_arg);
+    auto pargs = filterPair(skipArgs, cmd.directory, flag_filter.filter);
+    auto compiler = user_compiler.length == 0 ? pargs.compiler : user_compiler;
 
     auto sysincls = () {
         try {
             import dextool.compilation_db.system_compiler : deduceSystemIncludes;
 
-            return deduceSystemIncludes(cmd);
+            return deduceSystemIncludes(cmd, compiler);
         } catch (Exception e) {
             logger.info(e.msg);
         }
         return SystemIncludePath[].init;
     }();
 
-    pargs = ParseFlags(pargs.includes, sysincls, pargs.cflags, compiler);
+    return ParseFlags(compiler, pargs.includes, sysincls, pargs.cflags);
+}
 
-    return pargs;
+/** Convert the string to a CompileCommandDB.
+ *
+ * Params:
+ * path = changes relative paths to be relative this parameter
+ * data = input to convert
+ */
+CompileCommandDB toCompileCommandDB(string data, Path path) @safe {
+    import std.array : appender;
+
+    auto app = appender!(CompileCommand[])();
+    data.parseCommands(CompileDbFile(cast(string) path), app);
+    return CompileCommandDB(app.data);
 }
 
 CompileCommandDB fromArgCompileDb(AbsolutePath[] paths) @safe {
@@ -824,7 +832,7 @@ struct FilterClangFlag {
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I",
             "bar", "-Igun", "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null);
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -834,7 +842,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-MD", "-lfoo.a", "-l",
             "bar.a", "-I", "bar", "-Igun"], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -845,7 +853,7 @@ unittest {
             "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c", "a_filename.c"],
             AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -855,7 +863,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-fmany-fooo", "-I", "bar", "-fno-fooo", "-Igun",
             "-flolol", "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -865,7 +873,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-std=c++11",
             "-c", "a_filename.c"], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-std=c++11"]);
 }
 
@@ -874,7 +882,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
             "b"], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter);
+    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-Da", "-D", "b"]);
 }
 
@@ -1104,8 +1112,8 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
 
-    found[0].parseFlag(defaultCompilerFilter).cflags.shouldEqual(["-I",
-            buildPath(abs_path, "dir2", "dir1")]);
+    found[0].parseFlag(defaultCompilerFilter, Compiler.init)
+        .cflags.shouldEqual(["-I", buildPath(abs_path, "dir2", "dir1")]);
 }
 
 @("shall find the entry based on an output match")

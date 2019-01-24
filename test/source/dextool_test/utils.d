@@ -87,8 +87,7 @@ void syncMkdirRecurse(string p) nothrow {
     synchronized {
         try {
             mkdirRecurse(p);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
         }
     }
 }
@@ -107,8 +106,7 @@ struct TestEnv {
     Path outdir() const nothrow {
         try {
             return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix).absolutePath;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix);
         }
     }
@@ -159,9 +157,10 @@ struct TestEnv {
         string[] files;
 
         try {
-            files = dirEntries(d, SpanMode.depth).filter!(a => a.isFile).map!(a => a.name).array();
-        }
-        catch (Exception e) {
+            files = dirEntries(d, SpanMode.depth).filter!(a => a.isFile)
+                .map!(a => a.name)
+                .array();
+        } catch (Exception e) {
         }
 
         foreach (a; files) {
@@ -169,8 +168,7 @@ struct TestEnv {
             // parallel.
             try {
                 tryRemove(Path(a));
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
             }
         }
     }
@@ -185,8 +183,7 @@ struct TestEnv {
         File logfile;
         try {
             logfile = File(stdout_path.toString, "w");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.trace(e.msg);
             return;
         }
@@ -276,8 +273,7 @@ deprecated("to be removed") void compare(in Path gold, in Path result,
     try {
         goldf = File(gold.escapePath);
         resultf = File(result.escapePath);
-    }
-    catch (ErrnoException ex) {
+    } catch (ErrnoException ex) {
         throw new ErrorLevelException(-1, ex.msg);
     }
 
@@ -424,8 +420,7 @@ bool stdoutContains(in Path gold) {
 
     try {
         goldf = File(gold.escapePath);
-    }
-    catch (ErrnoException ex) {
+    } catch (ErrnoException ex) {
         yap(ex.msg);
         return false;
     }
@@ -560,4 +555,23 @@ auto recursiveFilesWithExtension(Path dir, string ext) {
         .filter!(a => extension(a.name) == ext)
         .map!(a => Path(a));
     // dfmt on
+}
+
+/// Shallow copy the content while keeping the executable bit from `src` to `dst`.
+void dirContentCopy(string src, string dst) {
+    import std.algorithm;
+    import std.file;
+    import std.path;
+    import core.sys.posix.sys.stat;
+
+    assert(src.isDir);
+    assert(dst.isDir);
+
+    foreach (f; dirEntries(src, SpanMode.shallow).filter!"a.isFile") {
+        auto dst_f = buildPath(dst, f.name.baseName);
+        copy(f.name, dst_f);
+        auto attrs = getAttributes(f.name);
+        if (attrs & S_IXUSR)
+            setAttributes(dst_f, attrs | S_IXUSR);
+    }
 }

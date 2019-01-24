@@ -91,8 +91,8 @@ struct DataAccess {
                 conf.workArea.outputDirectory, conf.mutationTest.dryRun);
         auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
                 conf.workArea.outputDirectory);
-        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles,
-                conf.compiler.extraFlags, conf.compileDb.flagFilter);
+        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles, conf.compiler.extraFlags,
+                conf.compileDb.flagFilter, conf.compiler.useCompilerSystemIncludes);
 
         return DataAccess(Database.make(conf.db, conf.mutationTest.mutationOrder),
                 fe_io, fe_validate, frange, fusedCompileDb);
