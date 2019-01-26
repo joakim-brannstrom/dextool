@@ -14,7 +14,8 @@ module dextool.compilation_db.user_filerange;
 
 import logger = std.experimental.logger;
 
-import dextool.compilation_db : CompileCommandFilter, CompileCommandDB, parseFlag, SearchResult;
+import dextool.compilation_db : CompileCommandFilter, CompileCommandDB,
+    parseFlag, SearchResult, DbCompiler = Compiler;
 import dextool.type : FileName, AbsolutePath;
 
 @safe:
@@ -29,11 +30,12 @@ struct UserFileRange {
     }
 
     this(CompileCommandDB db, string[] in_files, string[] cflags,
-            const CompileCommandFilter ccFilter) {
+            const CompileCommandFilter ccFilter, const DbCompiler userCompiler = DbCompiler.init) {
         this.db = db;
         this.cflags = cflags;
         this.ccFilter = ccFilter;
         this.inFiles = in_files;
+        this.userCompiler = userCompiler;
 
         if (in_files.length == 0) {
             kind = RangeOver.database;
@@ -48,6 +50,7 @@ struct UserFileRange {
         string[] inFiles;
         string[] cflags;
         const CompileCommandFilter ccFilter;
+        const DbCompiler userCompiler;
     }
 
     Nullable!SearchResult front() {
@@ -58,19 +61,17 @@ struct UserFileRange {
         final switch (kind) {
         case RangeOver.inFiles:
             if (db.length > 0) {
-                curr = db.findFlags(FileName(inFiles[0]), cflags, ccFilter);
+                curr = db.findFlags(FileName(inFiles[0]), cflags, ccFilter, userCompiler);
             } else {
                 curr = SearchResult(cflags.dup, AbsolutePath(FileName(inFiles[0])));
             }
             break;
         case RangeOver.database:
-            curr = SearchResult(db.payload[0].parseFlag(ccFilter),
-                    db.payload[0].absoluteFile);
+            curr = SearchResult(db.payload[0].parseFlag(ccFilter,
+                    userCompiler), db.payload[0].absoluteFile);
             curr.flags.cflags = cflags ~ curr.flags.cflags;
             break;
         }
-
-        logger.trace(!curr.isNull, curr.flags);
 
         return curr;
     }
@@ -112,8 +113,8 @@ private:
 import std.typecons : Nullable;
 
 /// Find flags for fname by searching in the compilation DB.
-Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname,
-        const string[] flags, ref const CompileCommandFilter flag_filter) {
+Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, const string[] flags,
+        ref const CompileCommandFilter flag_filter, DbCompiler userCompiler = DbCompiler.init) {
     import dextool.compilation_db : appendOrError;
 
     auto rval = compdb.appendOrError(flags, fname, flag_filter);

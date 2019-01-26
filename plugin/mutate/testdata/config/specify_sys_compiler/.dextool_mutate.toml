@@ -1,0 +1,18 @@
+[workarea]
+root = "."
+restrict = []
+
+[database]
+db = "dextool_mutate.sqlite3"
+
+[compile_commands]
+search_paths = ["./compile_commands.json"]
+
+[mutant_test]
+test_cmd = "test.sh"
+test_cmd_timeout = 1000
+build_cmd = "compile.sh"
+
+[compiler]
+extra_flags = [ "-xc++" ]
+

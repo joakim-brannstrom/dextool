@@ -73,7 +73,7 @@ struct ArgParser {
         import dextool.compilation_db : defaultCompilerFlagFilter, CompileCommandFilter;
 
         ArgParser r;
-        r.compileDb.flagFilter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+        r.compileDb.flagFilter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
         return r;
     }
 
@@ -122,6 +122,10 @@ struct ArgParser {
         app.put(format("# filter = [%(%s, %)]", compileDb.flagFilter.filter));
         app.put("# compiler arguments to skip from the beginning. Needed when the first argument is NOT a compiler but rather a wrapper");
         app.put(format("# skip_compiler_args = %s", compileDb.flagFilter.skipCompilerArgs));
+        app.put(
+                "# use this compilers system includes instead of the one used in the compile_commands.json");
+        app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
+                ? "/path/to/c++" : compiler.useCompilerSystemIncludes.value));
         app.put(null);
 
         app.put("[mutant_test]");
@@ -445,7 +449,7 @@ void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
  * It must be enough information that the user can adjust `--out` and `--restrict`.
  */
 void printFileAnalyzeHelp(ref ArgParser ap) @safe {
-    logger.infof("Reading compilation database:\n%(%s\n%)", ap.compileDb.dbs);
+    logger.infof("Reading compilation database:\n%-(%s\n%)", ap.compileDb.dbs);
 
     logger.info(
             "Analyze and mutation of files will only be done on those inside this directory root");
@@ -527,6 +531,9 @@ void loadConfig(ref ArgParser rval) @trusted {
     };
     callbacks["compiler.force_system_includes"] = (ref ArgParser c, ref TOMLValue v) {
         c.compiler.forceSystemIncludes = v == true;
+    };
+    callbacks["compiler.use_compiler_system_includes"] = (ref ArgParser c, ref TOMLValue v) {
+        c.compiler.useCompilerSystemIncludes = v.str;
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {

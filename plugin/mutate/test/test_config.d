@@ -53,3 +53,20 @@ unittest {
     testConsecutiveSparseOrder!SubStr(["uc3, Resetting Mocks, VerifyAndClear.*"]).shouldBeIn(
             r.stdout);
 }
+
+@("shall use the user specified compiler to determine system includes")
+unittest {
+    import std.path : buildPath;
+
+    mixin(EnvSetup(globalTestdir));
+    dirContentCopy(buildPath(testData.toString, "config",
+            "specify_sys_compiler"), testEnv.outdir.toString);
+    File((testEnv.outdir ~ ".dextool_mutate.toml").toString, "a").writefln(
+            `use_compiler_system_includes = "%s/fake_cc.d"`, testEnv.outdir.toString);
+
+    auto r = makeDextoolAnalyze(testEnv).addArg(["-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString])
+        .addArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString]).run;
+
+    testConsecutiveSparseOrder!SubStr(["trace: Compiler flags: -xc++ -isystem /foo/bar"]).shouldBeIn(
+            r.stdout);
+}

@@ -33,6 +33,11 @@ version (unittest) {
 
 @safe:
 
+struct Compiler {
+    string value;
+    alias value this;
+}
+
 struct SystemIncludePath {
     string value;
     alias value this;
@@ -42,13 +47,11 @@ struct SystemIncludePath {
  *
  * Note that how the compilers are inspected is hard coded.
  */
-SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd) {
+SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd, const Compiler compiler) {
     import std.process : execute;
 
-    if (cmd.command.length == 0)
+    if (cmd.command.length == 0 || compiler.length == 0)
         return null;
-
-    auto compiler = Compiler(cmd.command[0]);
 
     if (auto v = compiler in cacheSysIncludes) {
         return *v;
@@ -71,10 +74,13 @@ SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd) {
 
 private:
 
-string[] systemCompilerArg(ref CompileCommand cmd, Compiler compiler) {
+string[] systemCompilerArg(ref CompileCommand cmd, const Compiler compiler) {
     string[] args = ["-v", "/dev/null", "-fsyntax-only"];
     if (auto v = language(compiler, cmd.command)) {
         args = [v] ~ args;
+    }
+    if (auto v = sysroot(cmd.command)) {
+        args ~= v;
     }
     return [compiler.value] ~ args;
 }
@@ -95,12 +101,24 @@ SystemIncludePath[] parseCompilerOutput(T)(T output) {
     return incls;
 }
 
-struct Compiler {
-    string value;
-    alias value this;
-}
-
 SystemIncludePath[][Compiler] cacheSysIncludes;
+
+// assumes that compilers adher to the gcc and llvm commands use of --sysroot / -isysroot.
+// depends on the fact that CompileCommand.Command always splits e.g. a --isysroot=foo to ["--sysroot", "foo"].
+string[] sysroot(ref CompileCommand.Command cmd) {
+    import std.algorithm : countUntil;
+    import std.string : startsWith;
+
+    auto index = cmd.countUntil!(a => a.startsWith("--sysroot")) + 1;
+    if (index > 0 && (index + 1) < cmd.length)
+        return cmd[index .. index + 1];
+
+    index = cmd.countUntil!(a => a.startsWith("-isysroot")) + 1;
+    if (index > 0 && (index + 1) < cmd.length)
+        return cmd[index .. index + 1];
+
+    return null;
+}
 
 // assumes that compilers adher to the gcc and llvm commands of using -xLANG
 string language(Compiler compiler, ref CompileCommand.Command cmd) {
