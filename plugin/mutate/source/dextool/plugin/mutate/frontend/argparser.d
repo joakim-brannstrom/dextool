@@ -110,6 +110,10 @@ struct ArgParser {
         app.put(format(`# extra_flags = [%(%s, %)]`, compiler.extraFlags));
         app.put("# toggle this to force system include paths to use -I instead of -isystem");
         app.put("# force_system_includes = true");
+        app.put(
+                "# use this compilers system includes instead of the one used in the compile_commands.json");
+        app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
+                ? "/path/to/c++" : compiler.useCompilerSystemIncludes.value));
         app.put(null);
 
         app.put("[compile_commands]");
@@ -122,10 +126,6 @@ struct ArgParser {
         app.put(format("# filter = [%(%s, %)]", compileDb.flagFilter.filter));
         app.put("# compiler arguments to skip from the beginning. Needed when the first argument is NOT a compiler but rather a wrapper");
         app.put(format("# skip_compiler_args = %s", compileDb.flagFilter.skipCompilerArgs));
-        app.put(
-                "# use this compilers system includes instead of the one used in the compile_commands.json");
-        app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
-                ? "/path/to/c++" : compiler.useCompilerSystemIncludes.value));
         app.put(null);
 
         app.put("[mutant_test]");
