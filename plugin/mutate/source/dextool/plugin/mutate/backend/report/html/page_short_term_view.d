@@ -112,7 +112,7 @@ void toHtml(DiffReport report, Element root) {
             tbl.appendRow(tbl.td(path).setAttribute("colspan", "3")
                     .setAttribute("style", "vertical-align:top"));
 
-            auto r = tbl.addChild("tr");
+            auto r = tbl.appendRow();
 
             if (auto v = pkv[0] in report.rawDiff)
                 renderRawDiff(r.addChild("td"), *v);

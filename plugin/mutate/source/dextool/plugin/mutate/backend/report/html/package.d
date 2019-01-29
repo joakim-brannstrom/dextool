@@ -634,7 +634,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     bool has_suppressed;
     foreach (f; files.sort!((a, b) => a.path < b.path)
             .filter!(a => a.totalMutants != 0)) {
-        auto r = tbl.addChild("tr");
+        auto r = tbl.appendRow();
         r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
 
         const score = () {

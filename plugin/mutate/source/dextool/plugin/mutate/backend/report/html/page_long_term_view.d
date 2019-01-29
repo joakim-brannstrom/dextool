@@ -53,7 +53,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
 
         foreach (const mutst; mut_sample.hardestToKill) {
             const mut = mut_sample.mutants[mutst.statusId];
-            auto r = tbl.addChild("tr");
+            auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
                     pathToHtmlLink(mut.file)), mut.id);
@@ -71,7 +71,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
 
         foreach (const mutst; mut_sample.oldest) {
             auto mut = mut_sample.mutants[mutst.id];
-            auto r = tbl.addChild("tr");
+            auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
                     pathToHtmlLink(mut.file)), mut.id);
