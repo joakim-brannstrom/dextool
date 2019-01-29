@@ -118,7 +118,7 @@ void overlapTestCase(const TestCaseOverlapStat s, Element n) {
 
         // TODO this is a bit slow. use a DB row iterator instead.
         foreach (name; tcs.value.value.map!(id => s.name_tc[id].idup).array.sort) {
-            auto r = tbl.addChild("tr");
+            auto r = tbl.appendRow();
             if (first) {
                 r.addChild("td", name).addClass(cls);
                 r.addChild("td", s.mutid_mut[tcs.value.key].length.to!string).addClass(cls);

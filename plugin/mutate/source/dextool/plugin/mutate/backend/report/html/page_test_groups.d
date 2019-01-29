@@ -56,7 +56,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
     foreach (const d; [tuple("Mutation Score", test_g.stats.score.to!string),
             tuple("Alive", test_g.stats.alive.to!string), tuple("Total",
                 test_g.stats.total.to!string)]) {
-        auto r = stat_tbl.addChild("tr");
+        auto r = stat_tbl.appendRow();
         r.addChild("td", d[0]);
         r.addChild("td", d[1]);
     }
@@ -74,7 +74,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
             .map!(a => tuple(a.key, a.value.dup))
             .array
             .sort!((a, b) => a[1] < b[1])) {
-        auto r = file_tbl.addChild("tr");
+        auto r = file_tbl.appendRow();
 
         const path = test_g.files[pkv[0]];
         r.addChild("td", path);
