@@ -52,7 +52,7 @@ ReportSection[] toSections(const ReportLevel l) {
     ReportSection[] secs;
     final switch (l) with (ReportSection) {
     case ReportLevel.summary:
-        secs = [summary, mut_stat];
+        secs = [summary];
         break;
     case ReportLevel.alive:
         secs = [summary, mut_stat, tc_killed_no_mutants, tc_full_overlap, alive];
