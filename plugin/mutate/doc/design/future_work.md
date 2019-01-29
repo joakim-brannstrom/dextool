@@ -126,6 +126,7 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * show nr of mutants that the test case kill of those that are in the test group
  * speedup retesting of timeout mutants by only resetting those that are "newly" found.
    This must handle the case where the instance is restarted.
  * inactivate unused parts of UOI.
