@@ -262,8 +262,8 @@ struct TranslationUnit {
 
         Entry[][string] map;
 
-        foreach (uint index, location; locations)
-            map[location.path] ~= Entry(index, location);
+        foreach (size_t index, location; locations)
+            map[location.path] ~= Entry(cast(uint) index, location);
 
         uint findIndex(SourceLocation a) {
             auto entries = map[a.path];
