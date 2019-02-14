@@ -32,8 +32,6 @@ import std.array : Appender, appender, array;
 import std.datetime : SysTime;
 import std.format : format;
 
-import d2sqlite3 : sqlDatabase = Database;
-
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.database.schema;
@@ -46,9 +44,10 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable, Flag, No;
+    import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
-    sqlDatabase db;
+    SqlDatabase db;
     alias db this;
 
     /** Create a database by either opening an existing or initializing a new.

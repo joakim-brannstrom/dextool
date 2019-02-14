@@ -1,0 +1,32 @@
+language: d
+
+sudo: false
+
+branches:
+  only:
+    - master
+
+d:
+  - dmd
+  - ldc
+
+jobs:
+  include:
+    - stage: deploy
+      script:
+        - wget https://github.com/adamdruppe/adrdox/archive/master.zip
+        - unzip master.zip
+        - pushd adrdox-master && make && popd
+        - export PATH=$PATH:$PWD/adrdox-master
+        - doc2 --genSearchIndex --genSource -o generated-docs src
+      deploy: &pages
+        provider: pages
+        skip_cleanup: true
+        local_dir: generated-docs
+        github_token: $GH_REPO_TOKEN
+        on:
+          branch: master
+
+env:
+  global:
+    secure: PEg2Wc/nqQKuIxXpNqzGrB2IMXm8W40mbLsOovROT3sA21HTrkMtw7uwfOQnlsUsCAuAkAnwjzYXoNbZF872y/aOD2kAlk8al2mrne+d9qSQtpIjAt51HSHzPnUgAc/mWcIO9MerBx2KxwCw+KiI9u6t1cd1XPKHsCajSYi52ph2LUbziB/BgU1UrUnX9DV+kcv/4/HlZ4scYDTUUdOAeE+lOppXD6Do8olkCHb6dlIeOxRoYSB1RMs30cutiZrGT01rDo80cFnWJqzjEnY/yDA+QUeN3czDVll7+lDPlHKd/a4z+S2llXsUnUUth+6+JjVNEPnD/jbfm94DPMPwibF5C2SGS7XilzPLdX4ZZdelRPyKAYCIfdXdwkOeU56vwYeEMjffy9zmPtL82CM8Xua+somxBa17oKGzVjRyVEScUuWgcyqthDHkctFwFwAsSyjn8c2V5Et0gVD89tNfsNl1LfsS5tPGYxJxeUnJZLRyAGYWuqwju3uWz+4/MT2o5UGrC1s0unGY73/O0dzL0ceQTBKKKbSV9kJY75I0h+hpMNU/i4+f1OTSxXI3a50tDjRvIRB4q8RpjEzlY1hqCzOcMDGhH7d/zAYSnkFaM8ugT2xw3LOguesVSsKNX+ivrHf3UZBU+V89K3e7B+FMc12KQMd4aSlPJgYYRSJb92s=

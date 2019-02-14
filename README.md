@@ -28,7 +28,7 @@ Dextool depends on the following software packages:
 
  * [llvm](http://releases.llvm.org/download.html) (4.0+, both libclang and LLVM is needed)
  * [cmake](https://cmake.org/download) (3.5+)
- * [D compiler](https://dlang.org/download.html) (dmd 2.076.1+, ldc 1.8.0+)
+ * [D compiler](https://dlang.org/download.html) (dmd 2.081.2+, ldc 1.11.0+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
 
 Dextool has been tested with libclang [4.0, 5.0].
@@ -36,7 +36,7 @@ Dextool has been tested with libclang [4.0, 5.0].
 For people running Ubuntu two of the dependencies can be installed via apt-get.
 The version of clang and llvm depend on your ubuntu version.
 ```sh
-sudo apt install cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev ldc dub
+sudo apt install build-essential cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev ldc dub
 ```
 
 Once the dependencies are installed it is time to download the source code and

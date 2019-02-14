@@ -52,10 +52,17 @@ interchangeably.
 module dextool.plugin.mutate.backend.database.schema;
 
 import logger = std.experimental.logger;
+import std.array : array;
+import std.datetime : SysTime;
 import std.exception : collectException;
 import std.format : format;
+import std.range : takeOne;
 
-import d2sqlite3 : sqlDatabase = Database;
+import dextool.plugin.mutate.backend.type : Language;
+
+import d2sqlite3 : SqlDatabase = Database;
+import microrm : Microrm, TableName, buildSchema, ColumnParam, TableForeignKey,
+    TableConstraint, KeyRef, KeyParam, ColumnName, delete_, insert, select;
 
 immutable allTestCaseTable = "all_test_case";
 immutable filesTable = "files";
@@ -76,17 +83,14 @@ private immutable testCaseTableV1 = "test_case";
  *
  * Returns: an open sqlite3 database object.
  */
-sqlDatabase initializeDB(const string p) @trusted
+SqlDatabase initializeDB(const string p) @trusted
 in {
     assert(p.length != 0);
 }
 do {
-    import d2sqlite3;
+    import d2sqlite3 : SQLITE_OPEN_CREATE, SQLITE_OPEN_READWRITE;
 
-    sqlDatabase db;
-    bool is_initialized;
-
-    void setPragmas(ref sqlDatabase db) {
+    static void setPragmas(ref SqlDatabase db) {
         // dfmt off
         auto pragmas = [
             // required for foreign keys with cascade to work
@@ -102,96 +106,46 @@ do {
         }
     }
 
+    SqlDatabase sqliteDb;
+
     try {
-        db = sqlDatabase(p, SQLITE_OPEN_READWRITE);
-        is_initialized = true;
+        sqliteDb = SqlDatabase(p, SQLITE_OPEN_READWRITE);
     } catch (Exception e) {
         logger.trace(e.msg);
         logger.trace("Initializing a new sqlite3 database");
+        sqliteDb = SqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
     }
 
-    if (!is_initialized) {
-        db = sqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-        initializeTables(db);
-    }
+    auto db = Microrm(sqliteDb);
 
+    // TODO: remove all key off in upgrade schemas.
     db.run("PRAGMA foreign_keys=OFF;");
     upgrade(db);
-    setPragmas(db);
+    setPragmas(sqliteDb);
 
-    return db;
+    return sqliteDb;
 }
 
 private:
 
-immutable version_tbl = "CREATE TABLE %s (
-    version     INTEGER NOT NULL
-    )";
-
-// checksum is 128bit. Using a integer to better represent and search for them
-// in queries.
-immutable files_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    path        TEXT NOT NULL,
-    checksum0   INTEGER NOT NULL,
-    checksum1   INTEGER NOT NULL
-    )";
-
-/// upgraded table with support for the language
-immutable files3_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    path        TEXT NOT NULL,
-    checksum0   INTEGER NOT NULL,
-    checksum1   INTEGER NOT NULL,
-    lang        INTEGER
-    )";
-
-immutable files4_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    path        TEXT NOT NULL,
-    checksum0   INTEGER NOT NULL,
-    checksum1   INTEGER NOT NULL,
-    lang        INTEGER,
-    CONSTRAINT  unique_ UNIQUE (path)
-    )";
-
-// line start from zero
-// there shall never exist two mutations points for the same file+offset.
-immutable mutation_point_v1_tbl = "CREATE TABLE %s (
-    id              INTEGER PRIMARY KEY,
-    file_id         INTEGER NOT NULL,
-    offset_begin    INTEGER NOT NULL,
-    offset_end      INTEGER NOT NULL,
-    line            INTEGER,
-    column          INTEGER,
-    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
-    CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
-    )";
-
-immutable mutation_point_v2_tbl = "CREATE TABLE %s (
-    id              INTEGER PRIMARY KEY,
-    file_id         INTEGER NOT NULL,
-    offset_begin    INTEGER NOT NULL,
-    offset_end      INTEGER NOT NULL,
-    line            INTEGER,
-    column          INTEGER,
-    line_end        INTEGER,
-    column_end      INTEGER,
-    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
-    CONSTRAINT file_offset UNIQUE (file_id, offset_begin, offset_end)
-    )";
-
 // metadata about mutants that occur on a line extracted from the source code.
 // It is intended to further refined.
 // nomut = if the line should ignore mutants.
-immutable raw_src_metadata_v1_tbl = "CREATE TABLE %s (
-    id              INTEGER PRIMARY KEY,
-    file_id         INTEGER NOT NULL,
-    line            INTEGER,
-    nomut           INTEGER,
-    FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE,
-    CONSTRAINT unique_line_in_file UNIQUE (file_id, line)
-    )";
+@TableName(rawSrcMetadataTable)
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
+struct RawSrcMetadata {
+    ulong id;
+
+    @ColumnName("file_id")
+    ulong fileId;
+
+    @ColumnParam("")
+    uint line;
+
+    @ColumnParam("")
+    ulong nomut;
+}
 
 // Associate metadata from lines with the mutation status.
 // in_t0 = mutationPointTable
@@ -200,175 +154,185 @@ immutable raw_src_metadata_v1_tbl = "CREATE TABLE %s (
 // t1 = mutationStatusTable
 // t2 = mutationPointTable
 // t3 = filesTable
-immutable src_metadata_v1_tbl = "CREATE VIEW %s
-    AS
-    SELECT
-    t0.id AS mut_id,
-    t1.id AS st_id,
-    t2.id AS mp_id,
-    t3.id AS file_id,
-    (SELECT count(*) FROM %s in_t0, %s in_t1
+void makeSrcMetadataView(ref Microrm db) {
+    immutable src_metadata_v1_tbl = "CREATE VIEW %s
+        AS
+        SELECT
+        t0.id AS mut_id,
+        t1.id AS st_id,
+        t2.id AS mp_id,
+        t3.id AS file_id,
+        (SELECT count(*) FROM %s in_t0, %s in_t1
+            WHERE
+            in_t0.file_id = in_t1.file_id AND
+            in_t0.line = in_t1.line AND
+            t2.line = in_t1.line) AS nomut
+        FROM %s t0, %s t1, %s t2, %s t3
         WHERE
-        in_t0.file_id = in_t1.file_id AND
-        in_t0.line = in_t1.line AND
-        t2.line = in_t1.line) AS nomut
-    FROM %s t0, %s t1, %s t2, %s t3
-    WHERE
-    t0.mp_id = t2.id AND
-    t0.st_id = t1.id AND
-    t2.file_id = t3.id
-    ";
+        t0.mp_id = t2.id AND
+        t0.st_id = t1.id AND
+        t2.file_id = t3.id
+        ";
 
-// time in ms spent on verifying the mutant
-immutable mutation_v1_tbl = "CREATE TABLE %s (
-    id      INTEGER PRIMARY KEY,
-    mp_id   INTEGER NOT NULL,
-    kind    INTEGER NOT NULL,
-    status  INTEGER NOT NULL,
-    time    INTEGER,
-    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE
-    )";
-
-// status is deprecated. to be removed in when upgradeV5 is removed.
-immutable mutation_v2_tbl = "CREATE TABLE %s (
-    id      INTEGER PRIMARY KEY,
-    mp_id   INTEGER NOT NULL,
-    st_id   INTEGER,
-    kind    INTEGER NOT NULL,
-    status  INTEGER,
-    time    INTEGER,
-    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE,
-    FOREIGN KEY(st_id) REFERENCES mutation_status(id),
-    CONSTRAINT unique_ UNIQUE (mp_id, kind)
-    )";
-
-immutable mutation_v3_tbl = "CREATE TABLE %s (
-    id      INTEGER PRIMARY KEY,
-    mp_id   INTEGER NOT NULL,
-    st_id   INTEGER,
-    kind    INTEGER NOT NULL,
-    FOREIGN KEY(mp_id) REFERENCES mutation_point(id) ON DELETE CASCADE,
-    FOREIGN KEY(st_id) REFERENCES mutation_status(id),
-    CONSTRAINT unique_ UNIQUE (mp_id, kind)
-    )";
-
-// the status of a mutant. if it is killed or otherwise.
-// multiple mutation operators can result in the same change of the source
-// code. By coupling the mutant status to the checksum of the source code
-// change it means that two mutations that have the same checksum will
-// "cooperate".
-// TODO: change the checksum to being NOT NULL in the future. Can't for now
-// when migrating to schema version 5->6.
-immutable mutation_status_v1_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    status      INTEGER NOT NULL,
-    checksum0   INTEGER,
-    checksum1   INTEGER,
-    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
-    )";
-
-// time = ms spent on verifying the mutant
-// timestamp = is when the status where last updated. Seconds at UTC+0.
-immutable mutation_status_v2_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    status      INTEGER NOT NULL,
-    time        INTEGER,
-    timestamp   DATETIME,
-    checksum0   INTEGER,
-    checksum1   INTEGER,
-    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
-    )";
-// update_st = when the status where last updated. UTC+0.
-// added_ts = when the mutant where added to the system. UTC+0.
-// test_cnt = nr of times the mutant has been tested without being killed.
-immutable mutation_status_v3_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    status      INTEGER NOT NULL,
-    time        INTEGER,
-    test_cnt    INTEGER NOT NULL,
-    update_ts   DATETIME,
-    added_ts    DATETIME,
-    checksum0   INTEGER,
-    checksum1   INTEGER,
-    CONSTRAINT  checksum UNIQUE (checksum0, checksum1)
-    )";
-
-// test_case is whatever identifier the user choose.
-// this could use an intermediate adapter table to normalise the test_case data
-// but I chose not to do that because it makes it harder to add test cases and
-// do a cleanup.
-immutable test_case_killed_v1_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    mut_id      INTEGER NOT NULL,
-    test_case   TEXT NOT NULL,
-    FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
-    )";
-// location is a filesystem location or other suitable helper for a user to locate the test.
-immutable test_case_killed_v2_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    mut_id      INTEGER NOT NULL,
-    name        TEXT NOT NULL,
-    location    TEXT,
-    FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE
-    )";
-immutable test_case_killed_v3_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    mut_id      INTEGER NOT NULL,
-    tc_id       INTEGER NOT NULL,
-    location    TEXT,
-    FOREIGN KEY(mut_id) REFERENCES mutation(id) ON DELETE CASCADE,
-    FOREIGN KEY(tc_id) REFERENCES all_test_case(id) ON DELETE CASCADE
-    )";
-immutable test_case_killed_v4_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    st_id       INTEGER NOT NULL,
-    tc_id       INTEGER NOT NULL,
-    location    TEXT,
-    FOREIGN KEY(st_id) REFERENCES mutation_status(id) ON DELETE CASCADE,
-    FOREIGN KEY(tc_id) REFERENCES all_test_case(id) ON DELETE CASCADE
-    )";
-
-// Track all test cases that has been found by the test suite output analyzer.
-// Useful to find test cases that has never killed any mutant.
-// name should match test_case_killed_v2_tbl
-// TODO: name should be the primary key. on a conflict a counter should be updated.
-immutable all_test_case_tbl = "CREATE TABLE %s (
-    id          INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL
-    )";
-
-void initializeTables(ref sqlDatabase db) {
-    db.run(format(files_tbl, filesTable));
-    db.run(format(mutation_point_v1_tbl, mutationPointTable));
-    db.run(format(mutation_v1_tbl, mutationTable));
+    db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable,
+            rawSrcMetadataTable, mutationTable, mutationStatusTable,
+            mutationPointTable, filesTable));
 }
 
-void updateSchemaVersion(ref sqlDatabase db, long ver) {
-    try {
-        auto stmt = db.prepare(format("DELETE FROM %s", schemaVersionTable));
-        stmt.execute;
+@TableName(schemaVersionTable)
+struct VersionTbl {
+    @ColumnName("version")
+    ulong version_;
+}
 
-        stmt = db.prepare(format("INSERT INTO %s (version) VALUES(:ver)", schemaVersionTable));
-        stmt.bind(":ver", ver);
-        stmt.execute;
+/// checksum is 128bit. Using a integer to better represent and search for them
+/// in queries.
+@TableName(filesTable)
+@TableConstraint("unique_ UNIQUE (path)")
+struct FilesTbl {
+    ulong id;
+
+    @ColumnParam("")
+    string path;
+
+    ulong checksum0;
+    ulong checksum1;
+    Language lang;
+}
+
+/// there shall never exist two mutations points for the same file+offset.
+@TableName(mutationPointTable)
+@TableConstraint("file_offset UNIQUE (file_id, offset_begin, offset_end)")
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+struct MutationPointTbl {
+    ulong id;
+    ulong file_id;
+    uint offset_begin;
+    uint offset_end;
+
+    /// line start from zero
+    @ColumnParam("")
+    uint line;
+    @ColumnParam("")
+    uint column;
+
+    @ColumnParam("")
+    uint line_end;
+
+    @ColumnParam("")
+    uint column_end;
+}
+
+@TableName(mutationTable)
+@TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"))
+@TableConstraint("unique_ UNIQUE (mp_id, kind)")
+struct MutationTbl {
+    ulong id;
+
+    ulong mp_id;
+
+    @ColumnParam("")
+    ulong st_id;
+
+    ulong kind;
+}
+
+/**
+ * This could use an intermediate adapter table to normalise the test_case data
+ * but I chose not to do that because it makes it harder to add test cases and
+ * do a cleanup.
+ */
+@TableName(killedTestCaseTable)
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
+struct TestCaseKilledTbl {
+    ulong id;
+
+    @ColumnName("st_id")
+    ulong mutationStatusId;
+    @ColumnName("tc_id")
+    ulong testCaseId;
+
+    // location is a filesystem location or other suitable helper for a user to
+    // locate the test.
+    @ColumnParam("")
+    string location;
+}
+
+/**
+ * Track all test cases that has been found by the test suite output analyzer.
+ * Useful to find test cases that has never killed any mutant.
+ * name should match test_case_killed_v2_tbl
+ * TODO: name should be the primary key. on a conflict a counter should be updated.
+ */
+@TableName(allTestCaseTable)
+struct AllTestCaseTbl {
+    ulong id;
+
+    @ColumnParam("")
+    string name;
+}
+
+/**
+ * the status of a mutant. if it is killed or otherwise.
+ * multiple mutation operators can result in the same change of the source
+ * code. By coupling the mutant status to the checksum of the source code
+ * change it means that two mutations that have the same checksum will
+ * "cooperate".
+ * TODO: change the checksum to being NOT NULL in the future. Can't for now
+ * when migrating to schema version 5->6.
+ * time = ms spent on verifying the mutant
+ * timestamp = is when the status where last updated. Seconds at UTC+0.
+ * added_ts = when the mutant where added to the system. UTC+0.
+ * test_cnt = nr of times the mutant has been tested without being killed.
+ */
+@TableName(mutationStatusTable)
+@TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+struct MutationStatusTbl {
+    ulong id;
+    ulong status;
+
+    @ColumnParam("")
+    ulong time;
+
+    @ColumnName("test_cnt")
+    ulong testCnt;
+
+    @ColumnParam("")
+    @ColumnName("update_ts")
+    SysTime updated;
+
+    @ColumnParam("")
+    @ColumnName("added_ts")
+    SysTime added;
+
+    ulong checksum0;
+    ulong checksum1;
+}
+
+void updateSchemaVersion(ref Microrm db, long ver) nothrow {
+    try {
+        db.run(delete_!VersionTbl);
+        db.run(insert!VersionTbl.insert, VersionTbl(ver));
     } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
 }
 
-long getSchemaVersion(ref sqlDatabase db) {
-    enum version_q = "SELECT version FROM " ~ schemaVersionTable;
-    auto stmt = db.prepare(version_q);
-    auto res = stmt.execute;
-    if (!res.empty)
-        return res.oneValue!long;
+long getSchemaVersion(ref Microrm db) nothrow {
+    try {
+        auto v = db.run(select!VersionTbl).takeOne;
+        return v.empty ? 0 : v.front.version_;
+    } catch (Exception e) {
+    }
     return 0;
 }
 
-void upgrade(ref sqlDatabase db) nothrow {
+void upgrade(ref Microrm db) nothrow {
     import d2sqlite3;
 
-    alias upgradeFunc = void function(ref sqlDatabase db);
+    alias upgradeFunc = void function(ref Microrm db);
     enum tbl = makeUpgradeTable;
 
     while (true) {
@@ -409,47 +373,114 @@ void upgrade(ref sqlDatabase db) nothrow {
     }
 }
 
-/// 2018-04-07
-void upgradeV0(ref sqlDatabase db) {
-    db.run(format(version_tbl, schemaVersionTable));
-    updateSchemaVersion(db, 1);
+/** If the database start it version 0, not initialized, then initialize to the
+ * latest schema version.
+ */
+void upgradeV0(ref Microrm db) {
+    enum tbl = makeUpgradeTable;
+
+    db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl,
+            MutationTbl, TestCaseKilledTbl, AllTestCaseTbl, MutationStatusTbl));
+
+    makeSrcMetadataView(db);
+
+    updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
 
 /// 2018-04-08
-void upgradeV1(ref sqlDatabase db) {
-    db.run(format(test_case_killed_v1_tbl, testCaseTableV1));
+void upgradeV1(ref Microrm db) {
+    @TableName(testCaseTableV1)
+    @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+    static struct TestCaseKilledTblV1 {
+        ulong id;
+
+        @ColumnName("mut_id")
+        ulong mutantId;
+
+        /// test_case is whatever identifier the user choose.
+        @ColumnName("test_case")
+        string testCase;
+    }
+
+    db.run(buildSchema!TestCaseKilledTblV1);
     updateSchemaVersion(db, 2);
 }
 
 /// 2018-04-22
-void upgradeV2(ref sqlDatabase db) {
+void upgradeV2(ref Microrm db) {
+    @TableName(filesTable)
+    static struct FilesTbl {
+        ulong id;
+
+        @ColumnParam("")
+        string path;
+
+        ulong checksum0;
+        ulong checksum1;
+        Language lang;
+    }
+
     immutable new_tbl = "new_" ~ filesTable;
-    db.run(format(files3_tbl, new_tbl));
+
+    db.run(buildSchema!FilesTbl("new_"));
     db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
             new_tbl, filesTable));
-    db.run(format("DROP TABLE %s", filesTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, filesTable));
+    db.replaceTbl(new_tbl, filesTable);
 
     updateSchemaVersion(db, 3);
 }
 
 /// 2018-09-01
-void upgradeV3(ref sqlDatabase db) {
-    immutable new_tbl = "new_" ~ testCaseTableV1;
-    db.run(format(test_case_killed_v2_tbl, new_tbl));
-    db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s", new_tbl, testCaseTableV1));
-    db.run(format("DROP TABLE %s", testCaseTableV1));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
+void upgradeV3(ref Microrm db) {
+    @TableName(killedTestCaseTable)
+    @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+    struct TestCaseKilledTblV2 {
+        ulong id;
 
-    db.run(format(all_test_case_tbl, allTestCaseTable));
+        @ColumnName("mut_id")
+        ulong mutantId;
+
+        @ColumnParam("")
+        string name;
+
+        // location is a filesystem location or other suitable helper for a user to
+        // locate the test.
+        @ColumnParam("")
+        string location;
+    }
+
+    db.run(buildSchema!TestCaseKilledTblV2);
+    db.run(format("INSERT INTO %s (id,mut_id,name) SELECT * FROM %s",
+            killedTestCaseTable, testCaseTableV1));
+    db.run(format("DROP TABLE %s", testCaseTableV1));
+
+    db.run(buildSchema!AllTestCaseTbl);
 
     updateSchemaVersion(db, 4);
 }
 
 /// 2018-09-24
-void upgradeV4(ref sqlDatabase db) {
+void upgradeV4(ref Microrm db) {
+    @TableName(killedTestCaseTable)
+    @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
+    static struct TestCaseKilledTblV3 {
+        ulong id;
+
+        @ColumnName("mut_id")
+        ulong mutantId;
+        @ColumnName("tc_id")
+        ulong testCaseId;
+
+        // location is a filesystem location or other suitable helper for a user to
+        // locate the test.
+        @ColumnParam("")
+        string location;
+    }
+
     immutable new_tbl = "new_" ~ killedTestCaseTable;
-    db.run(format(test_case_killed_v3_tbl, new_tbl));
+
+    db.run(buildSchema!TestCaseKilledTblV3("new_"));
 
     // add all missing test cases to all_test_case
     db.run(format("INSERT INTO %s (name) SELECT DISTINCT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL",
@@ -474,8 +505,7 @@ void upgradeV4(ref sqlDatabase db) {
     //db.run(format("INSERT INTO %s (id,mut_id,tc_id,location) SELECT t1.id,t1.mut_id,t2.id,t1.location FROM %s t1 INNER JOIN %s t2 ON t1.name = t2.name",
     //        new_tbl, killedTestCaseTable, allTestCaseTable));
 
-    db.run(format("DROP TABLE %s", killedTestCaseTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
+    db.replaceTbl(new_tbl, killedTestCaseTable);
 
     updateSchemaVersion(db, 5);
 }
@@ -487,59 +517,89 @@ void upgradeV4(ref sqlDatabase db) {
  *
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
-void upgradeV5(ref sqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
+void upgradeV5(ref Microrm db) {
+    @TableName(mutationTable)
+    @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
+    @TableConstraint("unique_ UNIQUE (mp_id, kind)")
+    static struct MutationTbl {
+        ulong id;
 
-    db.run(format(mutation_status_v1_tbl, mutationStatusTable));
+        ulong mp_id;
+
+        @ColumnParam("")
+        ulong st_id;
+
+        ulong kind;
+
+        @ColumnParam("")
+        ulong status;
+
+        /// time in ms spent on verifying the mutant
+        @ColumnParam("")
+        ulong time;
+    }
+
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+    static struct MutationStatusTbl {
+        ulong id;
+        ulong status;
+        ulong checksum0;
+        ulong checksum1;
+    }
 
     immutable new_mut_tbl = "new_" ~ mutationTable;
+    db.run(buildSchema!MutationStatusTbl);
 
     db.run(format("DROP TABLE %s", mutationTable));
-    db.run(format(mutation_v2_tbl, mutationTable));
+    db.run(buildSchema!MutationTbl);
 
     immutable new_files_tbl = "new_" ~ filesTable;
-    db.run(format(files4_tbl, new_files_tbl));
+    db.run(buildSchema!FilesTbl("new_"));
     db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang) SELECT * FROM %s",
             new_files_tbl, filesTable));
-    db.run(format("DROP TABLE %s", filesTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_files_tbl, filesTable));
+    db.replaceTbl(new_files_tbl, filesTable);
 
     updateSchemaVersion(db, 6);
 }
 
 /// 2018-10-11
-void upgradeV6(ref sqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
+void upgradeV6(ref Microrm db) {
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+    static struct MutationStatusTbl {
+        ulong id;
+        ulong status;
+        ulong time;
+        SysTime timestamp;
+        ulong checksum0;
+        ulong checksum1;
+    }
 
-    enum new_mut_tbl = "new_" ~ mutationTable;
-    db.run(format(mutation_v3_tbl, new_mut_tbl));
+    immutable new_mut_tbl = "new_" ~ mutationTable;
+
+    db.run(buildSchema!MutationTbl("new_"));
+
     db.run(format("INSERT INTO %s (id,mp_id,st_id,kind) SELECT id,mp_id,st_id,kind FROM %s",
             new_mut_tbl, mutationTable));
-    db.run(format("DROP TABLE %s", mutationTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_mut_tbl, mutationTable));
+    db.replaceTbl(new_mut_tbl, mutationTable);
 
-    enum new_muts_tbl = "new_" ~ mutationStatusTable;
-    db.run(format(mutation_status_v2_tbl, new_muts_tbl));
+    immutable new_muts_tbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,checksum0,checksum1) SELECT id,status,checksum0,checksum1 FROM %s",
             new_muts_tbl, mutationStatusTable));
-    db.run(format("DROP TABLE %s", mutationStatusTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_muts_tbl, mutationStatusTable));
+    db.replaceTbl(new_muts_tbl, mutationStatusTable);
 
     updateSchemaVersion(db, 7);
 }
 
 /// 2018-10-15
-void upgradeV7(ref sqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
+void upgradeV7(ref Microrm db) {
+    immutable new_tbl = "new_" ~ killedTestCaseTable;
 
-    enum new_tbl = "new_" ~ killedTestCaseTable;
-    db.run(format(test_case_killed_v4_tbl, new_tbl));
+    db.run(buildSchema!TestCaseKilledTbl("new_"));
+
     db.run(format("INSERT INTO %s (id,st_id,tc_id,location)
         SELECT t0.id,t1.st_id,t0.tc_id,t0.location
         FROM %s t0, %s t1
@@ -547,37 +607,28 @@ void upgradeV7(ref sqlDatabase db) {
         t0.mut_id = t1.id", new_tbl,
             killedTestCaseTable, mutationTable));
 
-    db.run(format("DROP TABLE %s", killedTestCaseTable));
-    db.run(format("ALTER TABLE %s RENAME TO %s", new_tbl, killedTestCaseTable));
+    db.replaceTbl(new_tbl, killedTestCaseTable);
 
     updateSchemaVersion(db, 8);
 }
 
 /// 2018-10-20
-void upgradeV8(ref sqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
-    enum new_tbl = "new_" ~ mutationPointTable;
-    db.run(format(mutation_point_v2_tbl, new_tbl));
+void upgradeV8(ref Microrm db) {
+    immutable new_tbl = "new_" ~ mutationPointTable;
+    db.run(buildSchema!MutationPointTbl("new_"));
     db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
         SELECT t0.id,t0.file_id,t0.offset_begin,t0.offset_end,t0.line,t0.column
         FROM %s t0",
             new_tbl, mutationPointTable));
 
-    replaceTbl(db, new_tbl, mutationPointTable);
+    db.replaceTbl(new_tbl, mutationPointTable);
     updateSchemaVersion(db, 9);
 }
 
 /// 2018-11-10
-void upgradeV9(ref sqlDatabase db) {
-    db.run("PRAGMA foreign_keys=OFF;");
-    scope (exit)
-        db.run("PRAGMA foreign_keys=ON;");
-
-    enum new_tbl = "new_" ~ mutationStatusTable;
-    db.run(format(mutation_status_v3_tbl, new_tbl));
+void upgradeV9(ref Microrm db) {
+    immutable new_tbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
         SELECT t0.id,t0.status,t0.time,0,t0.timestamp,t0.checksum0,t0.checksum1
         FROM %s t0",
@@ -588,21 +639,19 @@ void upgradeV9(ref sqlDatabase db) {
 }
 
 /// 2018-11-25
-void upgradeV10(ref sqlDatabase db) {
-    db.run(format(raw_src_metadata_v1_tbl, rawSrcMetadataTable));
-    db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable,
-            rawSrcMetadataTable, mutationTable, mutationStatusTable,
-            mutationPointTable, filesTable));
+void upgradeV10(ref Microrm db) {
+    db.run(buildSchema!RawSrcMetadata);
+    makeSrcMetadataView(db);
     updateSchemaVersion(db, 11);
 }
 
-void replaceTbl(ref sqlDatabase db, string src, string dst) {
+void replaceTbl(ref Microrm db, string src, string dst) {
     db.run(format("DROP TABLE %s", dst));
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
 }
 
 struct UpgradeTable {
-    alias UpgradeFunc = void function(ref sqlDatabase db);
+    alias UpgradeFunc = void function(ref Microrm db);
     UpgradeFunc[long] tbl;
     alias tbl this;
 

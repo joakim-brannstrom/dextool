@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+sumtype.so
+sumtype.dylib
+sumtype.dll
+sumtype.a
+sumtype.lib
+sumtype-test-*
+*.exe
+*.o
+*.obj
+*.lst
+*.a
+skeleton.html
+generated-docs/
