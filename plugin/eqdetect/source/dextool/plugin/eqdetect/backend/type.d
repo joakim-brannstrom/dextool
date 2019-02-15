@@ -27,12 +27,20 @@ struct Mutation {
 }
 
 import clang.Cursor;
+import clang.Type;
 
 struct EntryFunction{
     string function_name;
-    string[] function_params;
-    bool isFunctionVoid;
-    Cursor[] semanticParentList;
+    Parameter[] function_params;
+    Type returnType;
+    string semanticIdentifier;
 };
+
+struct Parameter{
+    string semanticIdentifier;
+    //string prefixedSemanticIdentifier;
+    string type;
+    string name;
+}
 
 const string NAME_PREFIX = "m_";

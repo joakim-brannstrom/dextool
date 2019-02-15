@@ -19,11 +19,13 @@ module dextool.plugin.eqdetect.backend.visitor;
 import clang.Cursor;
 import cpptooling.analyzer.clang.ast : Visitor;
 import dextool.plugin.mutate.backend.type : Offset;
+import std.stdio;
+import clang.c.Index;
 
 @safe:
 
 final class TUVisitor : Visitor {
-    import dextool.plugin.eqdetect.backend : Mutation, EntryFunction;
+    import dextool.plugin.eqdetect.backend : Mutation, EntryFunction, Parameter, NAME_PREFIX;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.c : CModule;
@@ -41,6 +43,7 @@ final class TUVisitor : Visitor {
     EntryFunction entryFunction;
 
     string[] types;
+    Parameter[][string] structFields;
 
     string headerPath;
 
@@ -66,11 +69,11 @@ final class TUVisitor : Visitor {
         mixin(mixinNodeLog!());
         import std.path : extension;
         import dextool.plugin.eqdetect.backend;
-        if(extension(v.cursor.extent.path) == ".cpp"){
+        if(extension(v.cursor.extent.path) == ".cpp" || extension(v.cursor.extent.path) == ".cc"){
             auto s = generateSource(v.cursor, this.mutation);
             generatedSource.text(s);
         }
-        else if(extension(v.cursor.extent.path) == ".hpp"){
+        else if(extension(v.cursor.extent.path) == ".hpp" || extension(v.cursor.extent.path) == ".h"){
             auto s = generateSource(v.cursor, this.mutation);
             generatedSourceHeader.text(s);
         }
@@ -154,10 +157,63 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(StructDecl) v) {
+    @trusted Parameter createParameter(Cursor c){
+        string lastIdentifier, typeIdentifier, semanticIdentifier;
+        string[] semanticIdentifierList;
+        bool isPointer = false;
+        int length = 0;
+        Parameter param;
+
+        foreach(token; c.tokens){
+            if (token.kind == CXTokenKind.comment) {continue;}
+            if (token.spelling == "*"){
+                isPointer = true;
+                continue;
+            }
+            if(token.spelling == "&"){
+                continue;
+            }
+            //semanticIdentifierList ~= token.spelling;
+
+            if (token.kind == CXTokenKind.keyword){
+                semanticIdentifierList ~= token.spelling ~ " ";
+                typeIdentifier = token.spelling;
+            } else if (token.kind == CXTokenKind.identifier) {
+                semanticIdentifierList ~= token.spelling;
+                if (lastIdentifier != "") {
+                    typeIdentifier = lastIdentifier;
+                }
+                lastIdentifier = token.spelling;
+            } else{
+                semanticIdentifierList ~= token.spelling;
+            }
+            length++;
+        }
+        for (int i = 0; i < length - 2; i++) {
+            semanticIdentifier ~= semanticIdentifierList[i];
+        }
+        param.semanticIdentifier = semanticIdentifier;
+        param.type = typeIdentifier;
+        if (isPointer) {param.type ~= "*";}
+        param.name = lastIdentifier;
+        return param;
+    }
+
+    @trusted override void visit(const(StructDecl) v) {
+        import std.algorithm : canFind;
+
         mixin(mixinNodeLog!());
-        saveTypes(v.cursor);
+
+        if(!structFields.keys.canFind(v.cursor.spelling)){
+            foreach(child ; v.cursor.children){
+                if(child.kind == CXCursorKind.fieldDecl){
+                    structFields[v.cursor.spelling] ~= createParameter(child);
+                }
+            }
+            saveTypes(v.cursor);
+        }
         checkTypes(v.cursor);
+
         v.accept(this);
     }
 
@@ -228,8 +284,11 @@ final class TUVisitor : Visitor {
 
     void saveTypes(Cursor c){
         import std.path : buildNormalizedPath, stripExtension;
+        import std.algorithm: canFind;
         if(isSameBaseName(c.extent.path, mutation.path)){
-            types ~= c.spelling;
+            if(!types.canFind(c.spelling)){
+                types ~= c.spelling;
+            }
         }
     }
 
@@ -290,12 +349,12 @@ final class TUVisitor : Visitor {
             if(c.kind == CXCursorKind.inclusionDirective){
                 includeOffset = offset;
             }
-            else if(extension(c.extent.path) == ".cpp"){
+            else if(extension(c.extent.path) == ".cpp" || extension(c.extent.path) == ".cc"){
                 if (!offsets.canFind(offset)) {
                     offsets ~= offset;
                 }
             }
-            else if(extension(c.extent.path) == ".hpp"){
+            else if(extension(c.extent.path) == ".hpp" || extension(c.extent.path) == ".h"){
                 if (!headerOffsets.canFind(offset)) {
                     headerOffsets ~= offset;
                 }
@@ -303,11 +362,17 @@ final class TUVisitor : Visitor {
         }
     }
 
-    void findSemanticParents(Cursor c){
+    @trusted void findSemanticParents(Cursor c){
         import std.path: isAbsolute;
-        if(!isAbsolute(c.semanticParent.spelling)){
-            entryFunction.semanticParentList ~= c.semanticParent;
+        import std.algorithm : canFind;
+        string identifier = "";
 
+        if(!isAbsolute(c.semanticParent.spelling)){
+            if (canFind(types, c.semanticParent.spelling)) {
+                entryFunction.semanticIdentifier = NAME_PREFIX ~ c.semanticParent.spelling ~ "::" ~ entryFunction.semanticIdentifier;
+            } else {
+                entryFunction.semanticIdentifier = c.semanticParent.spelling ~ "::" ~ entryFunction.semanticIdentifier;
+            }
             findSemanticParents(c.semanticParent);
         }
     }
@@ -324,20 +389,13 @@ final class TUVisitor : Visitor {
     }
 
     @trusted void getFunctionDecl(Cursor c) {
+        Parameter param;
         import clang.c.Index;
-
         entryFunction.function_name = c.spelling;
-        import std.stdio;
-        entryFunction.isFunctionVoid = (c.FunctionCursor.resultType.spelling == "void");
+        entryFunction.returnType = c.FunctionCursor.resultType;
         foreach (child; c.children) {
             if (child.kind == CXCursorKind.parmDecl) {
-                string tmp = "";
-                if (child.tokens[1].spelling == "*") {
-                    tmp = child.tokens[0].spelling ~ "*";
-                } else {
-                    tmp = child.tokens[0].spelling;
-                }
-                entryFunction.function_params = entryFunction.function_params ~ tmp;
+                entryFunction.function_params ~= createParameter(child);
             }
         }
     }

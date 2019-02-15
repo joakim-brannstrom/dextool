@@ -59,19 +59,18 @@ ExitStatusType runPlugin(string[] args) {
 
     import dextool.utility : analyzeFile;
 
-    string s;
-
+    string includePath;
     foreach (m; mutations) {
         visitor = new TUVisitor(m);
-        s = findInclude(m);
-        import std.stdio;
-        import std.path : stripExtension, baseName;
+        includePath = findInclude(m);
 
-        if(s != "ERROR"){
-            exit_status = analyzeFile(AbsolutePath(FileName(s)), cflags, visitor, ctx);
+        if(includePath != "ERROR"){
+            exit_status = analyzeFile(AbsolutePath(FileName(includePath)), cflags, visitor, ctx);
+        }
+        else{
+            //exit_status = analyzeFile(AbsolutePath(FileName("~/Desktop/sommarjobb/googletest/googlemock/include/gmock/gmock.h")), cflags, visitor, ctx);
         }
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
-
         if (exit_status != ExitStatusType.Ok) {
             logger.info("Could not analyze file: " ~ m.path);
 
@@ -82,8 +81,8 @@ ExitStatusType runPlugin(string[] args) {
             // separate the output
             writeln("---------------------------------------");
         }
+        //break;
     }
-
     return exit_status;
 }
 

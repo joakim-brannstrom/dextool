@@ -41,6 +41,8 @@ static ErrorResult errorTextParser(string filepath) {
             foreach (data; s.splitter("data: ").dropOne) { //first element does not contain data
                 errorResult.inputdata = errorResult.inputdata ~ data.split(" ")[0];
             }
+            import std.stdio;
+            writeln(errorResult.inputdata);
         }
         return errorResult;
     } catch (Exception e) {

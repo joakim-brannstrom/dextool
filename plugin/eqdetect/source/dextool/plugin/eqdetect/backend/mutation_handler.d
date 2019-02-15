@@ -26,6 +26,9 @@ const string KLEE_TYPE = "_klee_";
 string muttext;
 string sourcetext;
 
+// temp variables
+//string mutationName;
+
 void handleMutation(TUVisitor visitor, Mutation mutation, const string[] cflags) {
     // change names in the mutantfile
     mutationEnhancer(visitor, mutation);
@@ -65,6 +68,7 @@ void mutationEnhancer(TUVisitor visitor, Mutation mutation) {
     string text = visitor.generatedSource.render;
 
     if(visitor.includeOffset.begin != -1){
+        //writeln(text);
         int headerDiff = to!int(("\"" ~ source_path ~ "\"").length) - (visitor.includeOffset.end - visitor.includeOffset.begin);
         text = visitor.generatedSource.render[0 .. visitor.includeOffset.begin] ~ "\"" ~
         stripExtension(source_path)~".hpp" ~ "\"" ~ visitor.generatedSource.render[visitor.includeOffset.end .. $];
@@ -94,6 +98,9 @@ void mutationEnhancer(TUVisitor visitor, Mutation mutation) {
 }
 
 string nameReplacer(string text, Offset offset) {
+    import std.stdio;
+    //writeln(offset.begin);
+    //writeln(text.length);
     text = text[0 .. offset.begin] ~ NAME_PREFIX ~ text[offset.begin .. $];
     return text;
 }
@@ -126,9 +133,12 @@ void createSourceFiles(TUVisitor visitor) {
 
     writeToFile(sourcetext, source_path);
     writeToFile(muttext, mutant_path);
+    //mutationName = mutant_path;
+    //writeToFile(sourcetext, FileName("source.cpp"));
+    //writeToFile(muttext, FileName("mutant.cpp"));
 
-    auto s = generateKlee(visitor.entryFunction, source_path, mutant_path);
-
+    auto s = generateKlee(visitor, source_path, mutant_path);
+    import std.stdio;
     writeToFile(s, createFilename(visitor, KLEE_TYPE, extension(visitor.mutation.path)));
 
     string headerExtension = extension(visitor.mutation.path).replace("c", "h");
@@ -150,7 +160,6 @@ void runKLEE(const string[] cflags) {
 
     logger.info("KLEE execution started");
 
-    //TODO: get rid of klee.sh
     import std.string;
     string incPath = cflags[2].strip("-I");
     logger.info(executeShell("./klee.sh " ~ incPath).output);
