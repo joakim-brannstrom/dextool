@@ -1,19 +1,60 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# See https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
+
+variables:
+  HOST_LDC_VERSION: 1.14.0
 
 trigger:
-- master
+  - master
 
-pool:
-  vmImage: 'Ubuntu-16.04'
+jobs:
+- job: Linux
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: linux
+    DC: ldc2
+  strategy:
+    matrix:
+      test:
+        DEXTOOL_BUILD: Debug
+      release:
+        DEXTOOL_BUILD: Release
+      coverage:
+        DEXTOOL_BUILD: DebugCov
+      testMin:
+        DEXTOOL_BUILD: Debug
+        HOST_LDC_VERSION: 1.11.0
+  steps:
+    - template: .azure-pipelines/posix.yml
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+# This should work but I'm unable to keep output from Linux_prepare to go into
+# Linux. Specifically the host-ldc directory.
+# - job: Linux_prepare
+#   timeoutInMinutes: 120
+#   pool:
+#     vmImage: 'ubuntu-16.04'
+#   variables:
+#     CI_OS: linux
+#     DC: ldc2
+#   steps:
+#     - template: .azure-pipelines/posix_prepare.yml
+# - job: Linux
+#   dependsOn: Linux_prepare
+#   timeoutInMinutes: 120
+#   pool:
+#     vmImage: 'ubuntu-16.04'
+#   variables:
+#     CI_OS: linux
+#     DC: ldc2
+#     DC_PATH: $[ dependencies.Linux_prepare.outputs['d_compiler.DC_PATH'] ]
+#   strategy:
+#     matrix:
+#       debug:
+#         DEXTOOL_BUILD: Debug
+#       release:
+#         DEXTOOL_BUILD: Release
+#       coverage:
+#         DEXTOOL_BUILD: DebugCov
+#   steps:
+#     - template: .azure-pipelines/posix_build_test.yml
