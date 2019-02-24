@@ -1,0 +1,60 @@
+# Each step starts in the checked-out source directory,
+# environment variables aren't persisted across steps.
+
+steps:
+- checkout: self
+  submodules: false
+  fetchDepth: 2
+- script: |
+    set -ex
+    cd ..
+    export DEBIAN_FRONTEND=noninteractive
+    sudo dpkg --add-architecture i386
+    sudo apt-get -q update
+  displayName: Install prerequisites part 1
+- script: |
+    set -ex
+    cd ..
+    export DEBIAN_FRONTEND=noninteractive
+    sudo apt-get -yq install git-core cmake g++-multilib libcurl3 libcurl3:i386 libcurl4-openssl-dev curl gdb tzdata unzip zip
+  displayName: Install prerequisites part 2
+- script: |
+    set -ex
+    cd ..
+    if [[ "$DC" == "ldc2" ]]; then
+        # Download & extract host LDC
+        curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+        mkdir host-ldc
+        tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+        export DC_PATH="$PWD/host-ldc/bin"
+        $DC_PATH/ldc2 --version
+    else
+        sudo wget http://master.dl.sourceforge.net/project/d-apt/files/d-apt.list -O /etc/apt/sources.list.d/d-apt.list
+        sudo apt-get update
+        sudo apt-get -y --allow-unauthenticated install --reinstall d-apt-keyring
+        sudo apt-get update
+        sudo apt-get install dmd-compiler dub
+        dub test --compiler=dmd
+    fi
+
+    echo "##vso[task.setvariable variable=DC_PATH]$DC_PATH"
+  displayName: Install prerequisites part 3
+- script: |
+    set -ex
+    export PATH="$DC_PATH:$PATH"
+    ./tools/azure_fixup_deps.d
+  displayName: Install prerequisites part 4
+- script: |
+    set -ex
+    export PATH="$DC_PATH:$PATH"
+    export DEXTOOL_JOB="build"
+    ./tools/azure.d
+  displayName: Build dextool
+  condition: succeededOrFailed()
+- script: |
+    set -ex
+    export PATH="$DC_PATH:$PATH"
+    export DEXTOOL_JOB="test"
+    ./tools/azure.d
+  displayName: Build Test dextool
+  condition: succeededOrFailed()
