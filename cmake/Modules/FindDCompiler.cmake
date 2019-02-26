@@ -13,7 +13,7 @@
 set(D_COMPILER_FOUND "FALSE")
 
 set(COMMON_D_COMPILERS "ldmd2" "gdmd" "dmd")
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     # prefer DMD for debug builds because they are faster and normmally used by developers
     set(COMMON_D_COMPILERS "dmd" "ldmd2" "gdmd")
 endif()
