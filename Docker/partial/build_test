@@ -1,0 +1,7 @@
+
+RUN ["/bin/bash", "-c", "echo ${PATH}"]
+
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON $BUILD_COV
+RUN cd build && make -j$(nproc) all
+RUN cd build && make -j$(nproc) check
+RUN cd build && make -j$(nproc) check_integration

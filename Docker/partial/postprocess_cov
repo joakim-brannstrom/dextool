@@ -1,0 +1,2 @@
+RUN cd build && cp -- coverage/*.lst .
+RUN curl -fsS https://codecov.io/bash | bash -s
