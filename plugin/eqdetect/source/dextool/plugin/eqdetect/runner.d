@@ -67,9 +67,6 @@ ExitStatusType runPlugin(string[] args) {
         if(includePath != "ERROR"){
             exit_status = analyzeFile(AbsolutePath(FileName(includePath)), cflags, visitor, ctx);
         }
-        else{
-            //exit_status = analyzeFile(AbsolutePath(FileName("~/Desktop/sommarjobb/googletest/googlemock/include/gmock/gmock.h")), cflags, visitor, ctx);
-        }
         exit_status = analyzeFile(AbsolutePath(FileName(m.path)), cflags, visitor, ctx);
         if (exit_status != ExitStatusType.Ok) {
             logger.info("Could not analyze file: " ~ m.path);
@@ -81,7 +78,6 @@ ExitStatusType runPlugin(string[] args) {
             // separate the output
             writeln("---------------------------------------");
         }
-        //break;
     }
     return exit_status;
 }

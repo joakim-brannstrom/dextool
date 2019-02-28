@@ -30,13 +30,6 @@ import std.stdio : writeln;
 import clang.Cursor;
 import std.format : format;
 
-/*struct EntryPoint {
-    string namespace;
-    string mutationNamespace;
-    string object;
-    string mutationObject;
-}*/
-
 int returnIndex;
 
 struct Symbolic{
@@ -84,9 +77,7 @@ auto generateMut(string content, Mutation mutation) {
         generateVariables(_(), visitor);
         generateSymbolics(_());
         generateAssumes(_());
-        //if(visitor.entryFunction.returnType.typeKindSpelling == "Elaborated" || visitor.entryFunction.returnType.spelling == "void"){
         if(canFind(visitor.structFields.keys, visitor.entryFunction.returnType.spelling) || visitor.entryFunction.returnType.spelling == "void"){
-
             generateFuncCall(_(), visitor, visitor.entryFunction.returnType.spelling );
         }
         generateIf(_(), visitor);
@@ -157,7 +148,7 @@ void generateFuncCall(CModule code, TUVisitor visitor, string returnType){
     string paramString = parmVarsAsString(false);
     string mutParamString = parmVarsAsString(true);
     bool isNameChanged = canFind(visitor.types, returnType);
-    string notVoid = (returnType != "void") ? format(`%s var%s = `, returnType, varIndex) : ""; //TODO: Niklas får komma på bra namn
+    string notVoid = (returnType != "void") ? format(`%s var%s = `, returnType, varIndex) : "";
     string mutNotVoid = (returnType != "void") ? format(`%s%s %svar%s = `, isNameChanged ? NAME_PREFIX : "", returnType, NAME_PREFIX, varIndex) : "";
     returnIndex = varIndex;
     code.stmt(format(`%s%s%s(%s)`, notVoid, visitor.entryFunction.semanticIdentifier, visitor.entryFunction.function_name, paramString));
@@ -170,11 +161,10 @@ void generateFuncCall(CModule code, TUVisitor visitor, string returnType){
     string mutParamString = parmVarsAsString(true);
     string ifString;
 
-    //if(visitor.entryFunction.returnType.typeKindSpelling == "Elaborated"){
-    if(canFind(visitor.structFields.keys, visitor.entryFunction.returnType.spelling)){ //TODO: kan ej hitta hurvida returntype är struct eller ej (fail vid namespace)
+    if(canFind(visitor.structFields.keys, visitor.entryFunction.returnType.spelling)){
         import std.array : split;
         string structName = visitor.entryFunction.returnType.spelling.split("::").length != 1 ? visitor.entryFunction.returnType.spelling.split("::")[$-1] : visitor.entryFunction.returnType.spelling;
-        ifString = generateStructCheckString(visitor, Parameter("", structName, format(`var%s`, returnIndex))); //TODO: funkar ej
+        ifString = generateStructCheckString(visitor, Parameter("", structName, format(`var%s`, returnIndex)));
     } else if (visitor.entryFunction.returnType.spelling  != "void"){
         import std.array : replace;
         ifString = format(`%s%s(%s)`, visitor.entryFunction.semanticIdentifier.replace(NAME_PREFIX, ""), visitor.entryFunction.function_name, paramString) ~ "==" ~
@@ -260,5 +250,3 @@ void generateIncludes(ref CModule code, FileName source_name, FileName mutant_na
     code.include(source_name);
     code.include(mutant_name);
 }
-
-void generateObject(){} //returning object for entryFunction

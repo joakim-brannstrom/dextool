@@ -173,8 +173,6 @@ final class TUVisitor : Visitor {
             if(token.spelling == "&"){
                 continue;
             }
-            //semanticIdentifierList ~= token.spelling;
-
             if (token.kind == CXTokenKind.keyword){
                 semanticIdentifierList ~= token.spelling ~ " ";
                 typeIdentifier = token.spelling;

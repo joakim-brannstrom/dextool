@@ -38,7 +38,6 @@ struct EntryFunction{
 
 struct Parameter{
     string semanticIdentifier;
-    //string prefixedSemanticIdentifier;
     string type;
     string name;
 }
