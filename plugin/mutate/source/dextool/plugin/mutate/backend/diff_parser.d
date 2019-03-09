@@ -14,9 +14,9 @@ The result are which lines has changes in what files.
 https://www.gnu.org/software/diffutils/manual/html_node/Detailed-Unified.html#Detailed-Unified
 
 Example:
-```
---- a/plugin/mutate/source/dextool/plugin/mutate/backend/database/standalone.d
-+++ b/plugin/mutate/source/dextool/plugin/mutate/backend/database/standalone.d
+---
+-- a/plugin/mutate/source/dextool/plugin/mutate/backend/database/standalone.d
+++ b/plugin/mutate/source/dextool/plugin/mutate/backend/database/standalone.d
 @@ -31,7 +31,6 @@ import std.algorithm : map;
  import std.array : Appender, appender, array;
  import std.datetime : SysTime;
@@ -34,7 +34,7 @@ Example:
      import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
      sqlDatabase db;
-```
+---
 */
 module dextool.plugin.mutate.backend.diff_parser;
 
