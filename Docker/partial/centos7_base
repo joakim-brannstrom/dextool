@@ -1,0 +1,27 @@
+FROM centos:7
+MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+
+# provides cmake
+RUN yum -y install epel-release
+# provides llvm-toolset
+RUN yum -y install centos-release-scl-rh
+RUN yum -y groupinstall "Development tools"
+RUN yum -y install curl which git xz
+RUN yum -y update
+
+# toolchain
+RUN yum -y install gcc binutils gcc-c++
+
+# dextool dependencies
+RUN yum -y install make
+RUN yum -y install cmake3
+RUN yum -y install llvm-toolset-7-clang
+RUN yum -y install llvm-toolset-7-clang-devel
+RUN yum -y install devtoolset-7-llvm
+RUN yum -y install llvm5.0-devel
+
+# fixups
+RUN ln -s /usr/bin/cmake3 /usr/bin/cmake
+ENV LIBLLVM_CXX_EXTRA_FLAGS "-DLIBLLVM_CXX_EXTRA_FLAGS=-I/opt/rh/llvm-toolset-7/root/usr/include/"
+
+WORKDIR /opt

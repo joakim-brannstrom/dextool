@@ -6,11 +6,12 @@
 # version 3.1.0 use `LLVM_3_1_0`.
 #
 # The following variables are defined:
-#   LIBCLANG_LDFLAGS    - flags to use when linking
-#   LIBLLVM_LDFLAGS     - flags to use when linking
-#   LIBLLVM_CXX_FLAGS   - the required flags to build C++ code using LLVM
-#   LIBLLVM_FLAGS       - the required flags by llvm-d such as version
-#   LIBLLVM_LIBS        - the required libraries for linking LLVM
+#   LIBCLANG_LDFLAGS        - flags to use when linking
+#   LIBLLVM_LDFLAGS         - flags to use when linking
+#   LIBLLVM_CXX_FLAGS       - the required flags to build C++ code using LLVM
+#   LIBLLVM_CXX_EXTRA_FLAGS - the required flags to build C++ code using LLVM
+#   LIBLLVM_FLAGS           - the required flags by llvm-d such as version
+#   LIBLLVM_LIBS            - the required libraries for linking LLVM
 
 set(LLVM_CMD_SRC ${CMAKE_SOURCE_DIR}/cmake/introspect_llvm.d)
 set(LLVM_CMD ${CMAKE_BINARY_DIR}/cmake_introspect_llvm)
@@ -112,7 +113,7 @@ function(try_llvm_config_find)
 
     set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS}" CACHE string "Linker flags for libLLVM")
 
-    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS}" CACHE string "Compiler flags for C++ using LLVM")
+    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} ${LIBLLVM_CXX_EXTRA_FLAGS}" CACHE string "Compiler flags for C++ using LLVM")
 
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
 endfunction()

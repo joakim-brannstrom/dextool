@@ -1,0 +1,1 @@
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dextool_install $BUILD_DOC $LIBLLVM_CXX_FLAGS
