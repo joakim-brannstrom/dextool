@@ -80,6 +80,12 @@ int main(string[] args) {
                     "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
+    tests["dmd-ubuntu-bionic-test"] ~= () {
+        build(mergeFiles([
+                    "ubuntu_bionic_base", "fix_repo", "prepare_test_build_ubuntu",
+                    "build_test"
+                ]), tag.next);
+    };
     tests["dmd-centos7-test"] ~= () {
         build(mergeFiles([
                     "centos7_base", "dmd", "fix_repo",

@@ -25,5 +25,7 @@ jobs:
         TEST_GROUP: dmd-ubuntu-min-test
       dmd-ubuntu-min-release:
         TEST_GROUP: dmd-ubuntu-min-release
+      dmd-ubuntu-bionic-test:
+        TEST_GROUP: dmd-ubuntu-bionic-test
       dmd-centos7-test:
         TEST_GROUP: dmd-centos7-test
