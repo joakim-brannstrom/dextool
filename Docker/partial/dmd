@@ -1,8 +1,8 @@
 ENV DMD_VERSION 2.085.0
 ENV DC "dmd"
+RUN curl -OL http://downloads.dlang.org/releases/2.x/${DMD_VERSION}/dmd.${DMD_VERSION}.linux.tar.xz
 RUN set -ex && \
-    wget http://downloads.dlang.org/releases/2.x/${DMD_VERSION}/dmd.${DMD_VERSION}.linux.tar.xz && \
-    tar xfv dmd.${DMD_VERSION}.linux.tar.xz && \
-    rm -rf dmd.${DMD_VERSION}*.tar.xz
+    tar xf dmd.${DMD_VERSION}.linux.tar.xz && \
+    rm -f dmd.${DMD_VERSION}*.tar.xz
 ENV PATH "/opt/dmd2/linux/bin64:$PATH"
 RUN dmd --version && dub --version

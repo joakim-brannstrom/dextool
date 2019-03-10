@@ -52,12 +52,14 @@ int main(string[] args) {
     // Setup tests
     tests["ldc-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc", "fix_repo", "build_test"
+                    "ubuntu_minimal_base", "ldc", "fix_repo",
+                    "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["ldc-ubuntu-min-release"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc", "fix_repo", "build_release"
+                    "ubuntu_minimal_base", "ldc", "fix_repo",
+                    "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-coverage"] ~= () {
@@ -68,13 +70,20 @@ int main(string[] args) {
     };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd", "fix_repo", "build_test"
+                    "ubuntu_minimal_base", "dmd", "fix_repo",
+                    "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-min-release"] ~= () {
         build(mergeFiles([
                     "ubuntu_minimal_base", "dmd", "fix_repo", "set_build_doc",
-                    "build_release"
+                    "prepare_release_build_ubuntu", "build_release"
+                ]), tag.next);
+    };
+    tests["dmd-centos7-test"] ~= () {
+        build(mergeFiles([
+                    "centos7_base", "dmd", "fix_repo",
+                    "prepare_test_build_centos7", "build_test"
                 ]), tag.next);
     };
 

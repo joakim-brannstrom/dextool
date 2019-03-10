@@ -1,0 +1,1 @@
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON $BUILD_COV $LIBLLVM_CXX_EXTRA_FLAGS
