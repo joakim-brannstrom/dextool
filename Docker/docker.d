@@ -106,9 +106,10 @@ void build(string dockerFile, string tag) {
 
 /// Merge `src` into one file with the filename as the return value.
 string mergeFiles(string[] src) {
-    const dst = src.join('.');
+    const dst = "docker." ~ src.join('.');
     auto fout = File(dst, "w");
     foreach (s; src.map!(a => buildPath(__FILE_FULL_PATH__.dirName, "partial", a))) {
+        fout.writeln("# ", s.baseName);
         fout.write(readText(s));
         fout.writeln;
     }
