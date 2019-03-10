@@ -54,7 +54,7 @@ unittest {
             r.stdout);
 }
 
-@("shall use the user specified compiler to determine system includes")
+@(testId ~ "shall use the user specified compiler to determine system includes")
 unittest {
     import std.path : buildPath;
 

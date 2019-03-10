@@ -13,14 +13,9 @@ include(BuildD)
 #
 # Tool preparation
 #
-# this is needed because running a program via dub is not multiprocess safe.
-# this ensues that the binary used for creating symlinks is only compiled once.
 execute_process(
-    # the filesystem can "lag". by copying the source to where the binary is
-    # intended to be created this problem is avoided. Using e.g. mv can result
-    # in sporadic failures
-    COMMAND cp ${CMAKE_SOURCE_DIR}/tools/symlink.d ${CMAKE_BINARY_DIR}
-    COMMAND dub build --single ${CMAKE_BINARY_DIR}/symlink.d)
+    COMMAND ${D_COMPILER} ${CMAKE_SOURCE_DIR}/tools/symlink.d -of${CMAKE_BINARY_DIR}/symlink
+)
 
 #
 # Main configuration.

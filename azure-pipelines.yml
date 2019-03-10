@@ -13,48 +13,15 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: linux
-    DC: ldc2
-  strategy:
-    matrix:
-      test:
-        DEXTOOL_BUILD: Debug
-      release:
-        DEXTOOL_BUILD: Release
-      coverage:
-        DEXTOOL_BUILD: DebugCov
-      testMin:
-        DEXTOOL_BUILD: Debug
-        HOST_LDC_VERSION: 1.11.0
   steps:
     - template: .azure-pipelines/posix.yml
-
-# This should work but I'm unable to keep output from Linux_prepare to go into
-# Linux. Specifically the host-ldc directory.
-# - job: Linux_prepare
-#   timeoutInMinutes: 120
-#   pool:
-#     vmImage: 'ubuntu-16.04'
-#   variables:
-#     CI_OS: linux
-#     DC: ldc2
-#   steps:
-#     - template: .azure-pipelines/posix_prepare.yml
-# - job: Linux
-#   dependsOn: Linux_prepare
-#   timeoutInMinutes: 120
-#   pool:
-#     vmImage: 'ubuntu-16.04'
-#   variables:
-#     CI_OS: linux
-#     DC: ldc2
-#     DC_PATH: $[ dependencies.Linux_prepare.outputs['d_compiler.DC_PATH'] ]
-#   strategy:
-#     matrix:
-#       debug:
-#         DEXTOOL_BUILD: Debug
-#       release:
-#         DEXTOOL_BUILD: Release
-#       coverage:
-#         DEXTOOL_BUILD: DebugCov
-#   steps:
-#     - template: .azure-pipelines/posix_build_test.yml
+  strategy:
+    matrix:
+      ldc-ubuntu-min-test:
+        TEST_GROUP: ldc-ubuntu-min-test
+      ldc-ubuntu-min-release:
+        TEST_GROUP: ldc-ubuntu-min-release
+      dmd-ubuntu-min-test:
+        TEST_GROUP: dmd-ubuntu-min-test
+      dmd-ubuntu-min-release:
+        TEST_GROUP: dmd-ubuntu-min-release

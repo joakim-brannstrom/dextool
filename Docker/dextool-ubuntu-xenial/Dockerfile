@@ -1,5 +1,4 @@
-FROM ubuntu:xenial
-
+FROM ubuntu:xenial AS base
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 RUN apt-get update && \
@@ -11,31 +10,28 @@ RUN echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-3.9 main" >> /et
 
 # Dependencies:
 # ca-certificates - "Problem with the SSL CA cert" when cloning dextool otherwise.
-# libz, ncurses - LLVM's dependencies.
 # sqlite3 - generates SQLite reports.
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         ca-certificates \
         git \
-        vim \
-        libz-dev sqlite3 libsqlite3-dev ncurses-dev \
+        sqlite3 libsqlite3-dev \
         make cmake ninja-build \
-        llvm-3.9 llvm-3.9-dev clang-3.9 libclang-3.9-dev
+        llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev
 
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \
         curl \
         xz-utils
 
-RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-1.7.0
+WORKDIR /opt
 
-RUN cd /opt && \
-        git clone https://github.com/joakim-brannstrom/dextool.git
+RUN git clone --depth 1 https://github.com/joakim-brannstrom/dextool.git
 
-RUN ln -s /usr/bin/llvm-config-3.9 /usr/bin/llvm-config
+ENV LDC_VERSION=1.11.0
+RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-$LDC_VERSION
+ENV PATH "~/dlang/ldc-$LDC_VERSION/bin:$PATH"
+ENV DC "ldc2"
 
-WORKDIR /opt/dextool
-RUN ["/bin/bash", "-c", "source ~/dlang/ldc-1.7.0/activate && mkdir -p build && cd build && cmake .."]
-
-WORKDIR /opt/dextool/build
-RUN make && make install
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dextool_install
+RUN cd build && make install

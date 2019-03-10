@@ -1,0 +1,4 @@
+COPY dextool_to_docker.tar.gz /opt
+RUN mkdir dextool
+RUN tar xfz dextool_to_docker.tar.gz -C dextool
+RUN rm dextool_to_docker.tar.gz
