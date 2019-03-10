@@ -74,7 +74,7 @@ int main(string[] args) {
     tests["dmd-ubuntu-min-release"] ~= () {
         build(mergeFiles([
                     "ubuntu_minimal_base", "dmd", "fix_repo", "set_build_doc",
-                    "build_test"
+                    "build_release"
                 ]), tag.next);
     };
 
