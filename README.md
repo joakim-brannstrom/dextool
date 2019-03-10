@@ -67,6 +67,19 @@ libclang_interop.hpp:13:10: fatal error: clang/Analysis/CFG.h: No such file or d
 
 It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the version that Dextool detected.
 
+### SQLite link or missing
+
+The sqlite3 library source code with a cmake build file in the vendors directory. It is intended for those old OSs that have too old versions of sqlite.
+
+To use it do something like this.
+```sh
+mkdir sqlite3
+cd sqlite3 && cmake ../vendor/sqlite && make && cd ..
+# setup dextool build to use it
+mkdir build
+cd build && cmake .. -DSQLITE3_LIB="-L/opt/sqlite -lsqlite3"
+```
+
 # Usage
 
 See the usage examples in respective plugin directory:
