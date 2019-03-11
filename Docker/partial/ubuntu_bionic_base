@@ -1,0 +1,31 @@
+FROM ubuntu:bionic
+MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+
+# Dependencies:
+# ca-certificates - "Problem with the SSL CA cert" when cloning dextool otherwise.
+# sqlite3 - generates SQLite reports.
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install \
+        ca-certificates \
+        git \
+        sqlite3 libsqlite3-dev \
+        make cmake ninja-build \
+        llvm-6.0 llvm-6.0-dev clang-6.0 libclang-6.0-dev
+
+RUN apt-get -y --no-install-recommends install \
+        gcc g++ \
+        curl \
+        xz-utils \
+        gnupg2
+
+RUN curl -L http://master.dl.sourceforge.net/project/d-apt/files/d-apt.list -o /etc/apt/sources.list.d/d-apt.list
+
+RUN apt -o Acquire::AllowInsecureRepositories=true \
+                                              -o Acquire::AllowDowngradeToInsecureRepositories=true \
+                                              update
+
+RUN apt-get -y --allow-unauthenticated install --reinstall d-apt-keyring
+RUN apt-get update
+RUN apt-get -y install dmd-compiler dub
+
+WORKDIR /opt
