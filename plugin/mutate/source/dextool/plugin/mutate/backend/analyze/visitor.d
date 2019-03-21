@@ -1044,6 +1044,7 @@ class AnalyzeResult {
     }
 
     void put(MutationPointEntry a) {
+        import std.path : buildNormalizedPath;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         if (a.file.length == 0) {
@@ -1052,9 +1053,10 @@ class AnalyzeResult {
         }
 
         auto toks = cache.getFilteredTokens(AbsolutePath(a.file), tstream);
+        const file_name = fio.toRelativeRoot(a.file).buildNormalizedPath.Path;
 
-        if (a.file != id_factory.fileName) {
-            id_factory = MutationIdFactory(a.file, cache.getPathChecksum(a.file), toks);
+        if (file_name != id_factory.fileName) {
+            id_factory = MutationIdFactory(file_name, cache.getPathChecksum(file_name), toks);
         }
 
         auto split = splitByMutationPoint(toks, a.mp);
@@ -1065,7 +1067,7 @@ class AnalyzeResult {
 
         id_factory.updatePosition(split.pre, split.post);
 
-        auto mpe = MutationPointEntry2(a.file, a.mp.offset, a.sloc, a.slocEnd);
+        auto mpe = MutationPointEntry2(file_name, a.mp.offset, a.sloc, a.slocEnd);
 
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
         // the file should already be in the store of files to save to the DB.
@@ -1315,7 +1317,9 @@ final class EnumVisitor : Visitor {
         long value = c.enum_.signedValue;
 
         if (entry.isNull) {
-            entry = EnumCache.Entry(value, [EnumCache.USR(c.usr)], value, [EnumCache.USR(c.usr)]);
+            entry = EnumCache.Entry(value, [EnumCache.USR(c.usr)], value, [
+                    EnumCache.USR(c.usr)
+                    ]);
         } else if (value < entry.minValue) {
             entry.minValue = value;
             entry.minId = [EnumCache.USR(c.usr)];
