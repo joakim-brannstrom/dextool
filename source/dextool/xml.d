@@ -87,7 +87,8 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
         plugin_name = a;
     }
 
-    auto cleaned_cli = raw_cli_flags.drop(2);
+    // dropping first argument in commandline (i.e. '/path/to/dextool/dextool-mainfname')
+    auto cleaned_cli = raw_cli_flags.drop(1);
 
     auto doc = new Document(new Tag("dextool"));
     doc.tag.attr["version"] = dextoolVersion;
