@@ -121,6 +121,7 @@ function highlight_mutant(mutid) {
         for(var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
                 document.getElementById("current_mutant_status").innerText = g_muts_st[i];
+                document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
                 break;
             }
         }

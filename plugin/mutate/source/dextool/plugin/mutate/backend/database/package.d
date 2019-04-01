@@ -182,12 +182,12 @@ struct Database {
         import std.array : appender;
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang FROM %s t0",
+        enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang, t0.id FROM %s t0",
                     filesTable);
         auto app = appender!(FileRow[])();
         foreach (ref r; db.prepare(files_q).execute) {
             auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1),
-                    r.peek!long(2)), r.peek!Language(3));
+                    r.peek!long(2)), r.peek!Language(3), r.peek!long(4).FileId);
             app.put(fr);
         }
 
@@ -265,6 +265,7 @@ struct FileRow {
     Path file;
     Checksum fileChecksum;
     Language lang;
+    FileId id;
 }
 
 struct FileMutantRow {
