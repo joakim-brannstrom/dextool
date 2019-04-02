@@ -126,6 +126,7 @@ struct MutationStatus {
     Nullable!SysTime added;
 }
 
+// TODO: rename to LineMetaData.
 /// Metadata about a line in a file.
 struct LineMetadata {
     import dextool.set;
@@ -157,8 +158,36 @@ struct LineMetadata {
     }
 }
 
+// TODO: rename this to MutationMetaData.
 /// Attributes for a line.
 enum LineAttr {
     /// Suppress all alive mutants on the line.
     noMut
+}
+
+/// Metadata about a mutant.
+struct MutantMetaData {
+    import dextool.set;
+
+    MutationId id;
+    Set!LineAttr attrs;
+
+    alias attrs this;
+
+    this(MutationId id) {
+        this(id, LineAttr[].init);
+    }
+
+    this(MutationId id, LineAttr[] attrs) {
+        this.id = id;
+        this.attrs = setFromList(attrs);
+    }
+
+    void add(LineAttr v) {
+        attrs.add(v);
+    }
+
+    bool contains(LineAttr v) {
+        return attrs.contains(v);
+    }
 }

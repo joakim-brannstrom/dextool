@@ -213,6 +213,7 @@ struct Database {
         stmt.execute;
     }
 
+    /// Returns: all mutation status IDs.
     MutationStatusId[] getAllMutationStatus() @trusted {
         enum sql = format("SELECT id FROM %s", mutationStatusTable);
 
@@ -266,6 +267,21 @@ struct Database {
         import core.time : dur;
 
         rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
+
+        return rval;
+    }
+
+    MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
+        enum sql = format!"SELECT nomut FROM %s WHERE mut_id = :mid"(srcMetadataTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":mid", cast(long) id);
+
+        auto rval = MutantMetaData(id);
+
+        foreach (res; stmt.execute) {
+            if (res.peek!long(0) != 0)
+                rval.add(LineAttr.noMut);
+        }
 
         return rval;
     }
@@ -469,22 +485,28 @@ struct Database {
     alias timeoutMutants = countMutants!([Mutation.Status.timeout], false);
 
     /// Returns: Total that should be counted when calculating the mutation score.
-    alias totalMutants = countMutants!([Mutation.Status.alive,
-            Mutation.Status.killed, Mutation.Status.timeout], false);
+    alias totalMutants = countMutants!([
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            ], false);
 
     alias unknownMutants = countMutants!([Mutation.Status.unknown], false);
-    alias killedByCompilerMutants = countMutants!([Mutation.Status.killedByCompiler], false);
+    alias killedByCompilerMutants = countMutants!([
+            Mutation.Status.killedByCompiler
+            ], false);
 
     alias aliveSrcMutants = countMutants!([Mutation.Status.alive], true);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed], true);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout], true);
 
     /// Returns: Total that should be counted when calculating the mutation score.
-    alias totalSrcMutants = countMutants!([Mutation.Status.alive,
-            Mutation.Status.killed, Mutation.Status.timeout], true);
+    alias totalSrcMutants = countMutants!([
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            ], true);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
-    alias killedByCompilerSrcMutants = countMutants!([Mutation.Status.killedByCompiler], true);
+    alias killedByCompilerSrcMutants = countMutants!([
+            Mutation.Status.killedByCompiler
+            ], true);
 
     /** Count the mutants with the nomut metadata.
      *
@@ -521,8 +543,8 @@ struct Database {
                 t0.kind IN (%(%s,%))";
         }
         const query = () {
-            auto fq = file.length == 0 ? null
-                : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
+            auto fq = file.length == 0
+                ? null : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
                     mutationPointTable, filesTable);
             return format(qq, mutationTable, mutationStatusTable, fq_from, fq,
@@ -577,8 +599,8 @@ struct Database {
                 t0.kind IN (%(%s,%))";
         }
         const query = () {
-            auto fq = file.length == 0 ? null
-                : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
+            auto fq = file.length == 0
+                ? null : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
                     mutationPointTable, filesTable);
             return format(sql_base, mutationTable, mutationStatusTable,
@@ -625,12 +647,16 @@ struct Database {
     }
 
     /// Returns: mutants at mutations points that the test case has killed mutants at.
-    alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([Mutation.Status.alive]);
+    alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([
+            Mutation.Status.alive
+            ]);
     /// ditto
     alias testCaseMutationPointTimeoutSrcMutants = testCaseCountSrcMutants!(
             [Mutation.Status.timeout]);
     /// ditto
-    alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([Mutation.Status.killed]);
+    alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([
+            Mutation.Status.killed
+            ]);
     /// ditto
     alias testCaseMutationPointUnknownSrcMutants = testCaseCountSrcMutants!(
             [Mutation.Status.unknown]);
@@ -639,7 +665,9 @@ struct Database {
             [Mutation.Status.killedByCompiler]);
     /// ditto
     alias testCaseMutationPointTotalSrcMutants = testCaseCountSrcMutants!(
-            [Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout]);
+            [
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            ]);
 
     private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
             const Mutation.Kind[] kinds, TestCase tc) @trusted {
