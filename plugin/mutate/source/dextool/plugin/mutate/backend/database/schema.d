@@ -179,6 +179,25 @@ void makeSrcMetadataView(ref Microrm db) {
             mutationPointTable, filesTable));
 }
 
+// Reconstruct the view in Microrm.
+@TableName(srcMetadataTable)
+struct SrcMetadataTbl {
+    @ColumnName("mut_id")
+    long mutationId;
+
+    @ColumnName("st_id")
+    long mutationStatusId;
+
+    @ColumnName("mp_id")
+    long mutationPointId;
+
+    @ColumnName("file_id")
+    long fileId;
+
+    @ColumnName("nomut")
+    long nomutCount;
+}
+
 @TableName(schemaVersionTable)
 struct VersionTbl {
     @ColumnName("version")
