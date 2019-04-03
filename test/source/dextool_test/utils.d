@@ -579,10 +579,10 @@ void dirContentCopy(string src, string dst) {
 /// Check if commands is present in file
 /// TODO: use 'testAnyOrder' from dextool mutate utility since it has same behavior
 bool checkCommandsInLogFile(string[] commands, string file_path) {
-    import std.algorithm;
-    import std.file;
-    import std.string;
-    import std.array;
+    import std.algorithm: filter;
+    import std.file: isFile, readText;
+    import std.string: indexOf;
+    import std.array: array;
 
     assert(isFile(file_path));
 

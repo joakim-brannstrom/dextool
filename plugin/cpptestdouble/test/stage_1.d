@@ -29,7 +29,7 @@ unittest {
         .run;
 }
 
-@(testId ~ "check _logs.xml for correct logging of flags")
+@(testId ~ "shall check _logs.xml for correct logging of flags")
 unittest {
     mixin(envSetup(globalTestdir));
     makeDextool(testEnv)
@@ -61,7 +61,7 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    string[] commands = ["--gmock",
+    auto commands = ["--gmock",
                     "--free-func",
                     "--in",
                     "dev/class_multiple.hpp",
