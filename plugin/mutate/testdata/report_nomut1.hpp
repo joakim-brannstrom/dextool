@@ -12,4 +12,6 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text); // NOMUT
 void f() { // NOMUT
 }
 
+void gun(const char*, const char*, const char*);
+
 #endif // REPORT_NOMUT1_HPP
