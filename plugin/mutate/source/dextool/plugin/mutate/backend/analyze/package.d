@@ -166,7 +166,6 @@ struct Analyzer {
         }
 
         auto mdata = appender!(LineMetadata[])();
-        bool print_found = true;
         foreach (t; cache.getTokens(AbsolutePath(file), tstream)
                 .filter!(a => a.kind == CXTokenKind.comment)) {
             auto txt = t.spelling.stripLeft;
@@ -180,8 +179,7 @@ struct Analyzer {
                 continue;
 
             mdata.put(LineMetadata(fid, t.loc.line, LineAttr.noMut));
-            logger.trace(print_found, "// NOMUT found in ", file);
-            print_found = false;
+            logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
         }
 
         db.put(mdata.data);
