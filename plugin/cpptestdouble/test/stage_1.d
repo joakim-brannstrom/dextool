@@ -9,11 +9,11 @@ category to put them in.
 module dextool_test.stage_1;
 
 import std.typecons : Flag, Yes, No;
+import std.file : isFile, readText;
+import std.algorithm : splitter;
+import std.array : array;
 
 import dextool_test.utility;
-
-private bool EXPECTED_TRUE = true;
-private bool EXPECTED_FALSE = false;
 
 // dfmt makes it hard to read the test cases.
 // dfmt off
@@ -44,11 +44,15 @@ unittest {
         .run;
 
     auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+
+    assert(isFile(file));
+
+    auto log = readText(file).splitter("\n").array();
     auto commands = ["--gmock",
                     "--in",
                     "dev/class_inherit.hpp"];
 
-    checkCommandsInLogFile(commands, file, EXPECTED_TRUE);
+    testAnyOrder!SubStr(commands).shouldBeIn(log);
 }
 
 @(testId ~ "shall check _log.xml for correct logging of flags and include-paths")
@@ -66,6 +70,10 @@ unittest {
         .run;
 
     auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+
+    assert(isFile(file));
+
+    auto log = readText(file).splitter("\n").array();
     auto commands = ["--gmock",
                     "--free-func",
                     "--in",
@@ -73,7 +81,7 @@ unittest {
                     "-I /arbitrary/include/path/",
                     "-I /another/arbitrary/include/path/"];
 
-    checkCommandsInLogFile(commands, file, EXPECTED_TRUE);
+    testAnyOrder!SubStr(commands).shouldBeIn(log);
 }
 
 @(testId ~ "shall check _log.xml for a command not executed")
@@ -88,7 +96,11 @@ unittest {
         .run;
 
     auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+
+    assert(isFile(file));
+
+    auto log = readText(file).splitter("\n").array();
     auto command = ["--free-func"]; // not added or executed in testEnv
 
-    checkCommandsInLogFile(command, file, EXPECTED_FALSE);
+    testAnyOrder!SubStr(command).shouldNotBeIn(log);
 }

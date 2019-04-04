@@ -577,21 +577,6 @@ void dirContentCopy(string src, string dst) {
     }
 }
 
-// Check if commands are logged or not in the logfile (controlled with 'expected'-parameter)
-auto checkCommandsInLogFile(string[] commands, string file, bool expected) {
-    import std.file : isFile, readText;
-    import std.algorithm : splitter, count;
-    import std.array : array;
-
-    assert(isFile(file));
-    assert(count(commands) > 0);
-
-    auto log = readText(file).splitter("\n").array();
-
-    expected ? testAnyOrder!SubStr(commands).shouldBeIn(
-            log) : testAnyOrder!SubStr(commands).shouldNotBeIn(log);
-}
-
 /// Check that the string is a substring of the one it is compared with.
 struct SubStr {
     string key;
