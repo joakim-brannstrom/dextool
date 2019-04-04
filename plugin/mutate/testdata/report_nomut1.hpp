@@ -14,4 +14,9 @@ void f() { // NOMUT
 
 void gun(const char*, const char*, const char*);
 
+class Wun {
+public:
+    void major(const char*, const char*, const char*);
+};
+
 #endif // REPORT_NOMUT1_HPP

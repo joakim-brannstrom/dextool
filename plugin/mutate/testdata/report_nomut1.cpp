@@ -23,5 +23,13 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
         "rrr",
         "bun"); // NOMUT
 
+    Wun wun;
+    wun.major(
+        "fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+        "oooooooooooooo",
+        "barrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+        "rrr",
+        "bun"); // NOMUT
+
     return "false"; //       NOMUT
 }
