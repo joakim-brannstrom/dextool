@@ -12,6 +12,9 @@ import std.typecons : Flag, Yes, No;
 
 import dextool_test.utility;
 
+private bool EXPECTED_TRUE = true;
+private bool EXPECTED_FALSE = false;
+
 // dfmt makes it hard to read the test cases.
 // dfmt off
 
@@ -40,11 +43,12 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    string[] commands = ["--gmock",
+    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+    auto commands = ["--gmock",
                     "--in",
                     "dev/class_inherit.hpp"];
 
-    assert(checkCommandsInLogFile(commands, testEnv.outdir.escapePath ~ "/test_double_log.xml"));
+    checkCommandsInLogFile(commands, file, EXPECTED_TRUE);
 }
 
 @(testId ~ "shall check _log.xml for correct logging of flags and include-paths")
@@ -61,6 +65,7 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
+    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
     auto commands = ["--gmock",
                     "--free-func",
                     "--in",
@@ -68,7 +73,7 @@ unittest {
                     "-I /arbitrary/include/path/",
                     "-I /another/arbitrary/include/path/"];
 
-    assert(checkCommandsInLogFile(commands, testEnv.outdir.escapePath ~ "/test_double_log.xml"));
+    checkCommandsInLogFile(commands, file, EXPECTED_TRUE);
 }
 
 @(testId ~ "shall check _log.xml for a command not executed")
@@ -82,13 +87,8 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    string[] commands = ["--gmock",
-                    "--in",
-                    "dev/class_multiple.hpp"];
+    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+    auto command = ["--free-func"]; // not added or executed in testEnv
 
-    // not added or executed in testEnv
-    commands ~= "--free-func";
-
-    // expected to return false
-    assert(!checkCommandsInLogFile(commands, testEnv.outdir.escapePath ~ "/test_double_log.xml"));
+    checkCommandsInLogFile(command, file, EXPECTED_FALSE);
 }
