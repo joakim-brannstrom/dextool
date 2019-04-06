@@ -6,7 +6,7 @@ A sum type for modern D.
 Features
 --------
 
-- Pattern matching, including support for structural matching
+- Pattern matching, including support for introspection-based matching
 - Self-referential types, using `This`
 - Works with `pure`, `@safe`, `@nogc`, `nothrow`, and `immutable`
 - Zero runtime overhead compared to hand-written C
