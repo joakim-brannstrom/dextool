@@ -83,7 +83,7 @@ private immutable testCaseTableV1 = "test_case";
  *
  * Returns: an open sqlite3 database object.
  */
-SqlDatabase initializeDB(const string p) @trusted
+Microrm initializeDB(const string p) @trusted
 in {
     assert(p.length != 0);
 }
@@ -123,7 +123,7 @@ do {
     upgrade(db);
     setPragmas(sqliteDb);
 
-    return sqliteDb;
+    return db;
 }
 
 private:

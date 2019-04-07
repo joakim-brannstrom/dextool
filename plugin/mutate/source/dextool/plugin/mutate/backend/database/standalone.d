@@ -44,10 +44,11 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable, Flag, No;
+    import microrm : Microrm;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
-    SqlDatabase db;
+    Microrm db;
     alias db this;
 
     /** Create a database by either opening an existing or initializing a new.
