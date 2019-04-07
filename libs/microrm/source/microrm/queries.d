@@ -24,6 +24,7 @@ auto select(T)() {
 }
 
 struct Select(T) {
+    import std.traits : isNumeric, isSomeString;
     import microrm.query_ast;
 
     microrm.query_ast.Select query;
@@ -63,6 +64,12 @@ struct Select(T) {
         microrm.query_ast.Select rval = query;
         rval.opts.orderBy = OrderBy(required, optional);
         return Select!T(rval);
+    }
+
+    auto where(T)(string lhs, T rhs) if (isNumeric!T || isSomeString!T) {
+        import std.format : format;
+
+        return this.where(format("%s %s", lhs, rhs));
     }
 
     /// Add a WHERE condition.

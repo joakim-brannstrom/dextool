@@ -92,8 +92,7 @@ struct Microrm {
         import std.format : format;
         import std.range : inputRangeObject;
 
-        const q = v.toSql.toString;
-        auto result = db.executeCheck(q);
+        auto result = db.executeCheck(v.toSql.toString);
 
         static T qconv(typeof(result.front) e) {
             import microrm.schema : fieldToCol;
