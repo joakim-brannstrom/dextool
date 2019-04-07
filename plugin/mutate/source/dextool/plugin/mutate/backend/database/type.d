@@ -135,7 +135,7 @@ struct MutationStatus {
 struct LineMetadata {
     FileId id;
     uint line;
-    private LineAttr attr;
+    LineAttr attr;
 
     this(FileId fid, uint line) {
         this(fid, line, LineAttr.init);
@@ -176,7 +176,7 @@ struct MutantMetaData {
     import std.range : isOutputRange;
 
     MutationId id;
-    private MutantAttr attr;
+    MutantAttr attr;
 
     this(MutationId id) {
         this(id, MutantAttr.init);
@@ -195,16 +195,16 @@ struct MutantMetaData {
         return attr.match!((NoMetadata a) => false, (NoMut a) => true);
     }
 
-    string toString() @safe pure const {
+    string kindToString() @safe pure const {
         import std.array : appender;
         import std.format : FormatSpec;
 
         auto buf = appender!string;
-        toString(buf);
+        kindToString(buf);
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+    void kindToString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
         import std.range : put;
 
         attr.match!((NoMetadata a) {}, (NoMut a) => put(w, "nomut"));

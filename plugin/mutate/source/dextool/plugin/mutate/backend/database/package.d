@@ -168,9 +168,8 @@ struct Database {
 
                 d.testCases = db.getTestCases(d.id);
 
-                if (r.peek!long(14))
-                    d.attrs.add(Attr.noMut);
-
+                if (r.peek!long(14) != 0)
+                    d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
                 dg(d);
             }
         } catch (Exception e) {
@@ -258,7 +257,7 @@ struct IterateMutantRow {
     SourceLoc slocEnd;
     TestCase[] testCases;
     Language lang;
-    Attrs attrs;
+    MutantMetaData attrs;
 }
 
 struct FileRow {

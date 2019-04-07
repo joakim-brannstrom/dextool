@@ -368,6 +368,9 @@ class LinesWithNoMut : SimpleAnalyzeFixture {
 
 class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
     override void test() {
+        import sumtype;
+        import dextool.plugin.mutate.backend.database.type;
+
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
@@ -380,8 +383,14 @@ class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
         auto fid2 = db.getFileId(file2);
         fid.isNull.shouldBeFalse;
         fid2.isNull.shouldBeFalse;
-        foreach (line; [11,12,14,24,32])
-            db.getLineMetadata(fid, SourceLoc(line,0)).shouldEqual(LineMetadata(fid, line, LineAttr(NoMut.init)));
+        foreach (line; [11,12,14,24,32]) {
+            auto m = db.getLineMetadata(fid, SourceLoc(line,0));
+            m.attr.match!((NoMetadata a) {shouldBeFalse(true);},
+                     (NoMut) {
+                         m.id.shouldEqual(fid);
+                         m.line.shouldEqual(line);
+            });
+        }
         foreach (line; [8,9])
             db.getLineMetadata(fid, SourceLoc(line,0)).isNoMut.shouldBeFalse;
     }

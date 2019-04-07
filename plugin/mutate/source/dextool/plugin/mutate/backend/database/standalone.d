@@ -97,11 +97,11 @@ struct Database {
 
     /// Returns: the path ID for the mutant.
     Nullable!FileId getFileId(const MutationId id) @trusted {
-        enum get_path_id_sql = format("SELECT t1.file_id
+        enum sql = format("SELECT t1.file_id
             FROM %s t0, %s t1
             WHERE t0.id = :id AND t0.mp_id = t1.id",
                     mutationTable, mutationPointTable);
-        auto stmt = db.prepare(get_path_id_sql);
+        auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
@@ -112,8 +112,8 @@ struct Database {
 
     /// Returns: the file path that the id correspond to.
     Nullable!Path getFile(const FileId id) @trusted {
-        enum get_path_id_sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
-        auto stmt = db.prepare(get_path_id_sql);
+        enum sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
+        auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
@@ -274,13 +274,17 @@ struct Database {
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
-        auto stmt = db.run(select!SrcMetadataTbl.where("mut_id =", cast(long) id));
-        foreach (res; stmt) {
-            if (res.nomutCount)
-                rval.set(NoMut.init);
+        foreach (res; db.run(select!NomutDataTable.where("mut_id =", cast(long) id))) {
+            rval.set(NoMut(res.tag, res.comment));
         }
-
         return rval;
+    }
+
+    //TODO: this is a bit inefficient. it should use a callback iterator
+    MutantMetaData[] getMutantationMetaData() @trusted {
+        return db.run(select!NomutDataTable)
+            .map!(a => MutantMetaData(MutationId(a.mutationId), MutantAttr(NoMut(a.tag, a.comment))))
+            .array;
     }
 
     Nullable!Path getPath(const MutationId id) @trusted {
@@ -713,10 +717,13 @@ struct Database {
      * metadata with mutants.
      */
     void put(const LineMetadata[] mdata) {
+        import sumtype;
+
         // TODO: convert to microrm
         enum sql = format("INSERT OR IGNORE INTO %s
-            (file_id, line, nomut)
-            VALUES(:fid, :line, :nomut)", rawSrcMetadataTable);
+            (file_id, line, nomut, tag, comment)
+            VALUES(:fid, :line, :nomut, :tag, :comment)",
+                    rawSrcMetadataTable);
 
         db.begin;
         scope (failure)
@@ -724,7 +731,8 @@ struct Database {
 
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
-            stmt.bindAll(cast(long) meta.id, meta.line, meta.isNoMut);
+            auto nomut = meta.attr.match!((NoMetadata a) => NoMut.init, (NoMut a) => a);
+            stmt.bindAll(cast(long) meta.id, meta.line, meta.isNoMut, nomut.tag, nomut.comment);
             stmt.execute;
             stmt.reset;
         }

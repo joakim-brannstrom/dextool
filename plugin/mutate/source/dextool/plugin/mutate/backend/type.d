@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.type;
 
 import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
 
 @safe:
 
@@ -150,39 +151,6 @@ struct Mutation {
 
     Kind kind;
     Status status;
-}
-
-/// Attributes of a mutant.
-enum Attr {
-    /// Suppress the mutant when reporting the score.
-    noMut,
-}
-
-struct Attrs {
-    import dextool.set;
-
-    Set!Attr value;
-    alias value this;
-
-    void add(Attr v) {
-        value.add(v);
-    }
-
-    auto toRange() {
-        return setToRange!Attr(value);
-    }
-
-    auto toRange() const {
-        return setToRange!Attr(value);
-    }
-}
-
-/// A mutant with attached attributes
-struct MutationAttrs {
-    Mutation mut;
-    alias mut this;
-
-    Attrs attrs;
 }
 
 /** The checksum that uniquely identify the mutation done in the source code.

@@ -83,7 +83,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
             logger.infof("%s %s from '%s' to '%s' in %s:%s:%s [%(%s, %)]", r.id,
                     r.mutation.status, mut_txt.original, mut_txt.mutation,
-                    abs_path, r.sloc.line, r.sloc.column, r.attrs.toRange);
+                    abs_path, r.sloc.line, r.sloc.column, r.attrs);
         }
 
         void updateMutationStat() {

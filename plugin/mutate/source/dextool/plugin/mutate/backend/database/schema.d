@@ -73,6 +73,8 @@ immutable mutationTable = "mutation";
 immutable srcMetadataTable = "src_metadata";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable schemaVersionTable = "schema_version";
+immutable nomutTable = "nomut";
+immutable nomutDataTable = "nomut_data";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -156,36 +158,51 @@ struct RawSrcMetadata {
 }
 
 // Associate metadata from lines with the mutation status.
-// in_t0 = mutationPointTable
-// in_t1 = rawSrcMetadataTable
-// t0 = mutationTable
-// t1 = mutationStatusTable
-// t2 = mutationPointTable
-// t3 = filesTable
 void makeSrcMetadataView(ref Microrm db) {
     // check if a NOMUT is on or between the start and end of a mutant.
-    immutable src_metadata_v1_tbl = "CREATE VIEW %s
-        AS
-        SELECT
-        t0.id AS mut_id,
-        t1.id AS st_id,
-        t2.id AS mp_id,
-        t3.id AS file_id,
-        (SELECT count(*) FROM %s in_t0, %s in_t1
-            WHERE
-            in_t0.file_id = in_t1.file_id AND
-            t0.mp_id = in_t0.id AND
-            (in_t1.line BETWEEN in_t0.line AND in_t0.line_end)) AS nomut
-        FROM %s t0, %s t1, %s t2, %s t3
-        WHERE
-        t0.mp_id = t2.id AND
-        t0.st_id = t1.id AND
-        t2.file_id = t3.id
-        ";
+    immutable src_metadata_tbl = "CREATE VIEW %s
+    AS
+    SELECT DISTINCT
+    t0.id AS mut_id,
+    t1.id AS st_id,
+    t2.id AS mp_id,
+    t3.id AS file_id,
+    (SELECT count(*) FROM %s WHERE nomut.mp_id = t2.id) as nomut
+    FROM %s t0, %s t1, %s t2, %s t3
+    WHERE
+    t0.mp_id = t2.id AND
+    t0.st_id = t1.id AND
+    t2.file_id = t3.id";
+    db.run(format(src_metadata_tbl, srcMetadataTable, nomutTable,
+            mutationTable, mutationStatusTable, mutationPointTable, filesTable));
 
-    db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable,
-            rawSrcMetadataTable, mutationTable, mutationStatusTable,
-            mutationPointTable, filesTable));
+    immutable nomut_tbl = "CREATE VIEW %s
+    AS
+    SELECT
+    t0.id mp_id,
+    t1.line line,
+    count(*) status
+    FROM %s t0, %s t1
+    WHERE
+    t0.file_id = t1.file_id AND
+    (t1.line BETWEEN t0.line AND t0.line_end)
+    GROUP BY
+    t0.id";
+    db.run(format(nomut_tbl, nomutTable, mutationPointTable, rawSrcMetadataTable));
+
+    immutable nomut_data_tbl = "CREATE VIEW %s
+    AS
+    SELECT
+    t0.id as mut_id,
+    t0.mp_id as mp_id,
+    t1.line as line,
+    t1.tag as tag,
+    t1.comment as comment
+    FROM %s t0, %s t1, %s t2
+    WHERE
+    t0.mp_id = t2.mp_id AND
+    t1.line = t2.line";
+    db.run(format(nomut_data_tbl, nomutDataTable, mutationTable, rawSrcMetadataTable, nomutTable));
 }
 
 // Reconstruct the view in Microrm.
@@ -205,6 +222,31 @@ struct SrcMetadataTbl {
 
     @ColumnName("nomut")
     long nomutCount;
+}
+
+// Reconstruct the nomut table in Microrm.
+@TableName(nomutTable)
+struct NomutTbl {
+    @ColumnName("mp_id")
+    long mutationPointId;
+
+    long line;
+
+    /// != 0 when a nomut is tagged on the line.
+    long status;
+}
+
+@TableName(nomutDataTable)
+struct NomutDataTable {
+    @ColumnName("mut_id")
+    long mutationId;
+
+    @ColumnName("mp_id")
+    long mutationPointId;
+
+    long line;
+    string tag;
+    string comment;
 }
 
 @TableName(schemaVersionTable)
@@ -685,7 +727,33 @@ void upgradeV10(ref Microrm db) {
     }
 
     db.run(buildSchema!RawSrcMetadata);
+    void makeSrcMetadataView(ref Microrm db) {
+        // check if a NOMUT is on or between the start and end of a mutant.
+        immutable src_metadata_v1_tbl = "CREATE VIEW %s
+            AS
+            SELECT
+            t0.id AS mut_id,
+            t1.id AS st_id,
+            t2.id AS mp_id,
+            t3.id AS file_id,
+            (SELECT count(*) FROM %s in_t0, %s in_t1
+             WHERE
+             in_t0.file_id = in_t1.file_id AND
+             t0.mp_id = in_t0.id AND
+             (in_t1.line BETWEEN in_t0.line AND in_t0.line_end)) AS nomut
+                FROM %s t0, %s t1, %s t2, %s t3
+                WHERE
+                t0.mp_id = t2.id AND
+                t0.st_id = t1.id AND
+                t2.file_id = t3.id
+                ";
+
+        db.run(format(src_metadata_v1_tbl, srcMetadataTable, mutationPointTable, rawSrcMetadataTable,
+                mutationTable, mutationStatusTable, mutationPointTable, filesTable));
+    }
+
     makeSrcMetadataView(db);
+
     updateSchemaVersion(db, 11);
 }
 
@@ -696,6 +764,10 @@ void upgradeV11(ref Microrm db) {
     db.run(format!"INSERT INTO %s (id,file_id,line,nomut) SELECT t.id,t.file_id,t.line,t.nomut FROM %s t"(new_tbl,
             rawSrcMetadataTable));
     replaceTbl(db, new_tbl, rawSrcMetadataTable);
+
+    db.run(format("DROP VIEW %s", srcMetadataTable)).collectException;
+    makeSrcMetadataView(db);
+
     updateSchemaVersion(db, 12);
 }
 
