@@ -12,6 +12,13 @@ module test.extra_should;
 import std.ascii : newline;
 import std.traits : isSomeString;
 
+// workaround for undefined symbol bug in dmd frontend 2.085.1
+auto workaround_linker_error() {
+    import std.typecons;
+
+    return typeid(std.typecons.Tuple!(int, double)).toString();
+}
+
 /** Verify in lockstep that the two values are the same.
  *
  * Useful when the values can be treated as ranges.
@@ -103,7 +110,7 @@ void shouldEqualPretty(V, E, Separator)(lazy V value, lazy E expected,
  *  line = line check is on.
  */
 void shouldEqualPretty(V, E)(lazy V value, lazy E expected, lazy string sep = newline,
-        string file = __FILE__, size_t line = __LINE__) @safe 
+        string file = __FILE__, size_t line = __LINE__) @safe
         if (isAllSomeString!(V, E)) {
     import std.algorithm : splitter;
 
