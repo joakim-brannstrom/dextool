@@ -13,7 +13,7 @@ import std.typecons : Yes;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-@("shall report the test case that killed the mutant")
+//@("shall report the test case that killed the mutant")
 class ShallReportTestCaseKilledMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -39,7 +39,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
     }
 }
 
-@("shall parse a gtest report for the test cases that killed the mutant")
+//@("shall parse a gtest report for the test cases that killed the mutant")
 class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -62,8 +62,9 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr(
-                [`killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`]).shouldBeIn(
-                r.stdout);
+                [
+                `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
+                ]).shouldBeIn(r.stdout);
     }
 
     override string scriptTest() {
@@ -131,7 +132,7 @@ exit 1
     }
 }
 
-@("shall parse a ctest report for failing test cases when a mutant is killed")
+//@("shall parse a ctest report for failing test cases when a mutant is killed")
 class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -153,8 +154,9 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr([`killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`])
-            .shouldBeIn(r.stdout);
+        testConsecutiveSparseOrder!SubStr([
+                `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
+                ]).shouldBeIn(r.stdout);
     }
 
     override string scriptTest() {
@@ -693,8 +695,9 @@ class ShallDoNothingWhenDetectDroppedTestCases : DroppedTestCases {
         precondition(testEnv);
         auto r1 = run(testEnv, null);
 
-        testConsecutiveSparseOrder!SubStr(["Detected test cases that has been removed",]).shouldNotBeIn(
-                r1.stdout);
+        testConsecutiveSparseOrder!SubStr([
+                "Detected test cases that has been removed",
+                ]).shouldNotBeIn(r1.stdout);
     }
 }
 
@@ -702,15 +705,18 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
-        auto r1 = run(testEnv, ["-c",
-                (testData ~ "config/remove_dropped_test_cases.toml").toString]);
+        auto r1 = run(testEnv, [
+                "-c", (testData ~ "config/remove_dropped_test_cases.toml").toString
+                ]);
 
-        testConsecutiveSparseOrder!SubStr(["Detected test cases that has been removed",
-                "MessageTest.StreamsDouble",]).shouldBeIn(r1.stdout);
+        testConsecutiveSparseOrder!SubStr([
+                "Detected test cases that has been removed",
+                "MessageTest.StreamsDouble",
+                ]).shouldBeIn(r1.stdout);
     }
 }
 
-@("shall keep the test case results linked to mutants when re-analyzing")
+//@("shall keep the test case results linked to mutants when re-analyzing")
 class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -722,7 +728,9 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         db.updateMutation(MutationId(1), Mutation.Status.killed,
                 5.dur!"msecs", [TestCase("tc_1")]);
         // verify pre-condition that test cases exist in the DB
-        auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
+        auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg([
+                "--section", "tc_stat"
+                ]).run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
                 r0.stdout);
 
@@ -730,13 +738,15 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
 
         // Assert that the test cases are still their
-        auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg(["--section", "tc_stat"]).run;
+        auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg([
+                "--section", "tc_stat"
+                ]).run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
                 r1.stdout);
     }
 }
 
-@("shall retrieve the oldest mutant")
+//@("shall retrieve the oldest mutant")
 class ShallResetOldestMutant : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -760,7 +770,7 @@ class ShallResetOldestMutant : DatabaseFixture {
     }
 }
 
-@("shall update the counter for the mutant when it survives by default")
+//@("shall update the counter for the mutant when it survives by default")
 class ShallUpdateMutationCounter : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -787,7 +797,7 @@ class ShallUpdateMutationCounter : DatabaseFixture {
     }
 }
 
-@("shall reset the counter for the mutant")
+//@("shall reset the counter for the mutant")
 class ShallResetMutationCounter : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.standalone;
