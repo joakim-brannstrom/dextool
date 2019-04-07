@@ -110,8 +110,11 @@ library, and `dub test` runs with the unit-threaded test runner.
 To use unit-threaded's assertions or UDA-based features, you must import the library:
 
 ```d
-version(unittest) { import unit_threaded; }
-else              { enum ShouldFail; } // so production builds compile
+// Don't use `version(unittest)` here - if anyone depends on your code and
+// doesn't depend on unit-threaded they won't be able to test their own
+// code!
+version(TestingMyCode) { import unit_threaded; }
+else                   { enum ShouldFail; }  // so production builds compile
 
 int adder(int i, int j) { return i + j; }
 
@@ -151,7 +154,7 @@ Code speaks louder than words:
     [1, 2, 3].should.not ~ [1, 2, 2];
     1.0.should ~ 1.0001;
     1.0.should.not ~ 2.0;
-    ```
+```
 
 See more in the `unit_threaded.should` module.
 
@@ -390,10 +393,10 @@ Structs that always throw:
 Command-line Parameters
 -----------------------
 
+To run in single-threaded mode, use `-s`.
+
 There is support for debug prints in the tests with the `-d` switch.
-This is only supported in single-threaded mode (`-s`). Setting `-d`
-without `-s` will trigger a warning followed by the forceful use of
-`-s`.  TestCases and test functions can print debug output with the
+TestCases and test functions can print debug output with the
 function `writelnUt` available [here](source/unit_threaded/io.d).
 
 Tests can be run in random order instead of in threads.  To do so, use

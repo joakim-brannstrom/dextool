@@ -3,7 +3,9 @@
  */
 module unit_threaded.runner.reflection;
 
+
 import unit_threaded.from;
+
 /*
    These standard library imports contain something important for the code below.
    Unfortunately I don't know what they are so they're to prevent breakage.
@@ -13,8 +15,35 @@ import std.algorithm;
 import std.array;
 
 
+/**
+   An alternative to writing test functions by hand to avoid compile-time
+   performance penalties by using -unittest.
+ */
+mixin template Test(string testName, alias Body, size_t line = __LINE__) {
+    import std.format: format;
+    import unit_threaded.runner.attrs: Name, UnitTest;
+    import unit_threaded.runner.reflection: unittestFunctionName;
+
+    enum unitTestCode = q{
+        @UnitTest
+        @Name("%s")
+        void %s() {
+
+        }
+    }.format(testName, unittestFunctionName(line));
+
+    //pragma(msg, unitTestCode);
+    mixin(unitTestCode);
+}
+
+
+string unittestFunctionName(size_t line = __LINE__) {
+    import std.conv: text;
+    return "unittest_L" ~ line.text;
+}
+
 ///
-alias void delegate() TestFunction;
+alias TestFunction = void delegate();
 
 /**
  * Common data for test functions and test classes
@@ -79,20 +108,10 @@ const(TestData)[] allTestData(MOD_STRINGS...)()
 const(TestData)[] allTestData(MOD_SYMBOLS...)()
     if(!from!"std.meta".anySatisfy!(from!"std.traits".isSomeString, typeof(MOD_SYMBOLS)))
 {
-    auto allTestsWithFunc(string expr)() pure {
-        import std.traits: ReturnType;
-        import std.meta: AliasSeq;
-        //tests is whatever type expr returns
-        ReturnType!(mixin(expr ~ q{!(MOD_SYMBOLS[0])})) tests;
-        foreach(module_; AliasSeq!MOD_SYMBOLS) {
-            tests ~= mixin(expr ~ q{!module_()}); //e.g. tests ~= moduleTestClasses!module_
-        }
-        return tests;
-    }
-
-    return allTestsWithFunc!"moduleTestClasses" ~
-           allTestsWithFunc!"moduleTestFunctions" ~
-           allTestsWithFunc!"moduleUnitTests";
+    return
+        moduleTestClasses!MOD_SYMBOLS ~
+        moduleTestFunctions!MOD_SYMBOLS ~
+        moduleUnitTests!MOD_SYMBOLS;
 }
 
 
@@ -105,70 +124,90 @@ private template Identity(T...) if(T.length > 0) {
 
 
 /**
+   Names a test function / built-in unittest based on @Name or string UDAs
+   on it. If none are found, "returns" an empty string
+ */
+template TestNameFromAttr(alias testFunction) {
+    import unit_threaded.runner.attrs: Name;
+    import std.traits: getUDAs;
+    import std.meta: Filter;
+
+    // i.e. if @("this is my name") appears
+    enum strAttrs = Filter!(isStringUDA, __traits(getAttributes, testFunction));
+
+    enum nameAttrs = getUDAs!(testFunction, Name);
+    static assert(nameAttrs.length < 2, "Only one @Name UDA allowed");
+
+    // strAttrs might be values to pass so only if the length is 1 is it a name
+    enum hasName = nameAttrs.length || strAttrs.length == 1;
+
+    static if(hasName) {
+        static if(nameAttrs.length == 1)
+            enum TestNameFromAttr = nameAttrs[0].value;
+        else
+            enum TestNameFromAttr = strAttrs[0];
+    } else
+        enum TestNameFromAttr = "";
+}
+
+/**
+ * Finds all built-in unittest blocks in the given modules.
+ * Recurses into structs, classes, and unions of the modules.
+ *
+ * @return An array of TestData structs
+ */
+TestData[] moduleUnitTests(modules...)() {
+    TestData[] ret;
+    static foreach(module_; modules) {
+        ret ~= moduleUnitTests_!module_;
+    }
+    return ret;
+}
+
+/**
  * Finds all built-in unittest blocks in the given module.
  * Recurses into structs, classes, and unions of the module.
  *
  * @return An array of TestData structs
  */
-TestData[] moduleUnitTests(alias module_)() pure nothrow {
+private TestData[] moduleUnitTests_(alias module_)() {
 
     // Return a name for a unittest block. If no @Name UDA is found a name is
     // created automatically, else the UDA is used.
     // the weird name for the first template parameter is so that it doesn't clash
     // with a package name
     string unittestName(alias _theUnitTest, int index)() @safe nothrow {
-        import std.conv: text, to;
-        import std.traits: fullyQualifiedName, getUDAs;
-        import std.meta: Filter;
+        import std.conv: text;
         import std.algorithm: startsWith, endsWith;
-        import unit_threaded.runner.attrs: Name;
+        import std.traits: fullyQualifiedName;
 
-        mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
-
-        enum nameAttrs = getUDAs!(_theUnitTest, Name);
-        static assert(nameAttrs.length == 0 || nameAttrs.length == 1,
-                      "Found multiple Name UDAs on unittest");
-
-        enum strAttrs = Filter!(isStringUDA, __traits(getAttributes, _theUnitTest));
-        enum hasName = nameAttrs.length || strAttrs.length == 1;
         enum prefix = fullyQualifiedName!(__traits(parent, _theUnitTest)) ~ ".";
+        enum nameFromAttr = TestNameFromAttr!_theUnitTest;
 
-        static if(hasName) {
-            static if(nameAttrs.length == 1)
-                return prefix ~ nameAttrs[0].value;
-            else
-                return prefix ~ strAttrs[0];
-        } else {
-
+        // Establish a unique name for a unittest with no name
+        static if(nameFromAttr == "") {
             // use the unittest name if available to allow for running unittests based
             // on location
             if(__traits(identifier, _theUnitTest).startsWith("__unittest_L")) {
                 const ret = prefix ~ __traits(identifier, _theUnitTest)[2 .. $];
                 const suffix = "_C1";
+                // simplify names for the common case where there's only one
+                // unittest per line
+
                 return ret.endsWith(suffix) ? ret[0 .. $ - suffix.length] : ret;
             }
 
             try
-                return prefix ~ "unittest" ~ index.to!string;
+                return prefix ~ "unittest" ~ index.text;
             catch(Exception)
                 assert(false, text("Error converting ", index, " to string"));
-        }
+
+        } else
+            return prefix ~ nameFromAttr;
     }
 
     void function() getUDAFunction(alias composite, alias uda)() pure nothrow {
-        import std.traits: fullyQualifiedName, moduleName, isSomeFunction, hasUDA;
-
-        // Due to:
-        // https://issues.dlang.org/show_bug.cgi?id=17441
-        // moduleName!composite might fail, so we try to import that only if
-        // if compiles, then try again with fullyQualifiedName
-        enum moduleNameStr = `import ` ~ moduleName!composite ~ `;`;
-        enum fullyQualifiedStr = `import ` ~ fullyQualifiedName!composite ~ `;`;
-
-        static if(__traits(compiles, mixin(moduleNameStr)))
-            mixin(moduleNameStr);
-        else static if(__traits(compiles, mixin(fullyQualifiedStr)))
-            mixin(fullyQualifiedStr);
+        import std.traits: isSomeFunction, hasUDA;
 
         void function()[] ret;
         foreach(memberStr; __traits(allMembers, composite)) {
@@ -190,11 +229,11 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
     void addMemberUnittests(alias composite)() pure nothrow {
 
         import unit_threaded.runner.attrs;
-        import unit_threaded.runner.traits: hasUtUDA;
         import std.traits: hasUDA;
         import std.meta: Filter, aliasSeqOf;
         import std.algorithm: map, cartesianProduct;
 
+        // weird name for hygiene reasons
         foreach(index, eLtEstO; __traits(getUnitTests, composite)) {
 
             enum dontTest = hasUDA!(eLtEstO, DontTest);
@@ -203,7 +242,7 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
 
                 enum name = unittestName!(eLtEstO, index);
                 enum hidden = hasUDA!(eLtEstO, HiddenTest);
-                enum shouldFail = hasUDA!(eLtEstO, ShouldFail) || hasUtUDA!(eLtEstO, ShouldFailWith);
+                enum shouldFail = hasUDA!(eLtEstO, ShouldFail) || hasUDA!(eLtEstO, ShouldFailWith);
                 enum singleThreaded = hasUDA!(eLtEstO, Serial);
                 enum builtin = true;
                 enum suffix = "";
@@ -284,16 +323,21 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
     bool[string] visitedMembers;
 
     void addUnitTestsRecursively(alias composite)() pure nothrow {
-        import std.traits: fullyQualifiedName;
-
-        mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
 
         if (composite.mangleof in visitedMembers)
             return;
+
         visitedMembers[composite.mangleof] = true;
         addMemberUnittests!composite();
-        foreach(member; __traits(allMembers, composite)){
-            enum notPrivate = __traits(compiles, mixin(member)); //only way I know to check if private
+
+        foreach(member; __traits(allMembers, composite)) {
+
+            // isPrivate can't be used here. I don't know why.
+            static if(__traits(compiles, __traits(getProtection, __traits(getMember, module_, member))))
+                enum notPrivate = __traits(getProtection, __traits(getMember, module_, member)) != "private";
+            else
+                enum notPrivate = false;
+
             static if (
                 notPrivate &&
                 // If visibility of the member is deprecated, the next line still returns true
@@ -309,7 +353,6 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
     }
 
     void recurse(child)() pure nothrow {
-        enum notPrivate = __traits(compiles, child.init); //only way I know to check if private
         static if (is(child == class) || is(child == struct) || is(child == union)) {
             addUnitTestsRecursively!child;
         }
@@ -320,11 +363,11 @@ TestData[] moduleUnitTests(alias module_)() pure nothrow {
 }
 
 private TypeInfo getExceptionTypeInfo(alias Test)() {
-    import unit_threaded.runner.traits: hasUtUDA, getUtUDAs;
     import unit_threaded.runner.attrs: ShouldFailWith;
+    import std.traits: hasUDA, getUDAs;
 
-    static if(hasUtUDA!(Test, ShouldFailWith)) {
-        alias uda = getUtUDAs!(Test, ShouldFailWith)[0];
+    static if(hasUDA!(Test, ShouldFailWith)) {
+        alias uda = getUDAs!(Test, ShouldFailWith)[0];
         return typeid(uda.Type);
     } else
         return null;
@@ -373,99 +416,37 @@ private template isStringUDA(alias T) {
 }
 
 private template isPrivate(alias module_, string moduleMember) {
-    import unit_threaded.runner.traits: HasTypes;
-
     alias ut_mmbr__ = Identity!(__traits(getMember, module_, moduleMember));
 
-    static if(__traits(compiles, isSomeFunction!(ut_mmbr__))) {
-        static if(__traits(compiles, &ut_mmbr__))
-            enum isPrivate = false;
-        else static if(__traits(compiles, new ut_mmbr__))
-            enum isPrivate = false;
-        else static if(__traits(compiles, HasTypes!ut_mmbr__))
-            enum isPrivate = !HasTypes!ut_mmbr__;
-        else
-            enum isPrivate = true;
-    } else {
+    static if(__traits(compiles, __traits(getProtection, ut_mmbr__)))
+        enum isPrivate = __traits(getProtection, ut_mmbr__) == "private";
+    else
         enum isPrivate = true;
-    }
 }
 
 
 // if this member is a test function or class, given the predicate
 private template PassesTestPred(alias module_, alias pred, string moduleMember) {
-    import std.traits: fullyQualifiedName;
-    import unit_threaded.runner.meta: importMember;
-    import unit_threaded.runner.traits: HasAttribute;
-    import unit_threaded.runner.attrs: DontTest;
 
-    //should be the line below instead but a compiler bug prevents it
-    //mixin(importMember!module_(moduleMember));
-    mixin("import " ~ fullyQualifiedName!module_ ~ ";");
-    alias I(T...) = T;
-    static if(!__traits(compiles, I!(__traits(getMember, module_, moduleMember)))) {
+    static if(__traits(compiles, Identity!(__traits(getMember, module_, moduleMember)))) {
+
+        import unit_threaded.runner.attrs: DontTest;
+        import std.traits: hasUDA;
+
+        alias member = Identity!(__traits(getMember, module_, moduleMember));
+
+        static if(__traits(compiles, hasUDA!(member, DontTest)))
+            enum hasDontTest = hasUDA!(member, DontTest);
+        else
+            enum hasDontTest = false;
+
+        enum PassesTestPred =
+            !isPrivate!(module_, moduleMember) &&
+            pred!(module_, moduleMember) &&
+            !hasDontTest;
+
+    } else
         enum PassesTestPred = false;
-    } else {
-        alias member = I!(__traits(getMember, module_, moduleMember));
-
-        template canCheckIfSomeFunction(T...) {
-            enum canCheckIfSomeFunction = T.length == 1 && __traits(compiles, isSomeFunction!(T[0]));
-        }
-
-        private string funcCallMixin(alias T)() {
-            import std.conv: to;
-            string[] args;
-            foreach(i, ParamType; Parameters!T) {
-                args ~= `arg` ~ i.to!string;
-            }
-
-            return moduleMember ~ `(` ~ args.join(`,`) ~ `);`;
-        }
-
-        private string argsMixin(alias T)() {
-            import std.conv: to;
-            string[] args;
-            foreach(i, ParamType; Parameters!T) {
-                args ~= ParamType.stringof ~ ` arg` ~ i.to!string ~ `;`;
-            }
-
-            return args.join("\n");
-        }
-
-        template canCallMember() {
-            void _f() {
-                mixin(argsMixin!member);
-                mixin(funcCallMixin!member);
-            }
-        }
-
-        template canInstantiate() {
-            void _f() {
-                mixin(`auto _ = new ` ~ moduleMember ~ `;`);
-            }
-        }
-
-        template isPrivate() {
-            static if(!canCheckIfSomeFunction!member) {
-                enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
-            } else {
-                static if(isSomeFunction!member) {
-                    enum isPrivate = !__traits(compiles, canCallMember!());
-                } else static if(is(member)) {
-                    static if(isAggregateType!member)
-                        enum isPrivate = !__traits(compiles, canInstantiate!());
-                    else
-                        enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
-                } else {
-                    enum isPrivate = !__traits(compiles, __traits(getMember, module_, moduleMember));
-                }
-            }
-        }
-
-        enum notPrivate = !isPrivate!();
-        enum PassesTestPred = !isPrivate!() && pred!(module_, moduleMember) &&
-            !HasAttribute!(module_, moduleMember, DontTest);
-    }
 }
 
 
@@ -473,13 +454,11 @@ private template PassesTestPred(alias module_, alias pred, string moduleMember) 
  * Finds all test classes (classes implementing a test() function)
  * in the given module
  */
-TestData[] moduleTestClasses(alias module_)() pure nothrow {
+TestData[] moduleTestClasses(modules...)() pure nothrow {
 
     template isTestClass(alias module_, string moduleMember) {
-        import unit_threaded.runner.meta: importMember;
-        import unit_threaded.runner.traits: HasAttribute;
         import unit_threaded.runner.attrs: UnitTest;
-        import std.traits: isAggregateType;
+        import std.traits: isAggregateType, hasUDA;
 
         alias member = Identity!(__traits(getMember, module_, moduleMember));
 
@@ -492,14 +471,20 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
         } else static if(!__traits(compiles, { return new member; })) {
             enum isTestClass = false; //can't new it, can't use it
         } else {
-            enum hasUnitTest = HasAttribute!(module_, moduleMember, UnitTest);
+            enum hasUnitTest = hasUDA!(member, UnitTest);
             enum hasTestMethod = __traits(hasMember, member, "test");
 
             enum isTestClass = is(member == class) && (hasTestMethod || hasUnitTest);
         }
     }
 
-    return moduleTestData!(module_, isTestClass, memberTestData);
+    TestData[] ret;
+
+    static foreach(module_; modules) {
+        ret ~= moduleTestData!(module_, isTestClass, memberTestData);
+    }
+
+    return ret;
 }
 
 
@@ -507,16 +492,12 @@ TestData[] moduleTestClasses(alias module_)() pure nothrow {
  * Finds all test functions in the given module.
  * Returns an array of TestData structs
  */
-TestData[] moduleTestFunctions(alias module_)() pure {
-
-    import unit_threaded.runner.traits: isTypesAttr;
+TestData[] moduleTestFunctions(modules...)() {
 
     template isTestFunction(alias module_, string moduleMember) {
-        import unit_threaded.runner.meta: importMember;
-        import unit_threaded.runner.attrs: UnitTest;
-        import unit_threaded.runner.traits: HasAttribute, GetTypes;
+        import unit_threaded.runner.attrs: UnitTest, Types;
         import std.meta: AliasSeq;
-        import std.traits: isSomeFunction;
+        import std.traits: isSomeFunction, hasUDA;
 
         alias member = Identity!(__traits(getMember, module_, moduleMember));
 
@@ -525,23 +506,23 @@ TestData[] moduleTestFunctions(alias module_)() pure {
         } else static if(AliasSeq!(member).length != 1) {
             enum isTestFunction = false;
         } else static if(isSomeFunction!member) {
-            enum isTestFunction = hasTestPrefix!(module_, moduleMember) ||
-                                  HasAttribute!(module_, moduleMember, UnitTest);
+            enum isTestFunction =
+                hasTestPrefix!(module_, moduleMember) ||
+                hasUDA!(member, UnitTest);
         } else static if(__traits(compiles, __traits(getAttributes, member))) {
             // in this case we handle the possibility of a template function with
             // the @Types UDA attached to it
-            alias types = GetTypes!member;
-            enum isTestFunction = hasTestPrefix!(module_, moduleMember) &&
-                                  types.length > 0;
+            enum hasTestName =
+                hasTestPrefix!(module_, moduleMember) ||
+                hasUDA!(member, UnitTest);
+            enum isTestFunction = hasTestName && hasUDA!(member, Types);
         } else {
             enum isTestFunction = false;
         }
-
     }
 
     template hasTestPrefix(alias module_, string memberName) {
         import std.uni: isUpper;
-        import unit_threaded.runner.meta: importMember;
 
         alias member = Identity!(__traits(getMember, module_, memberName));
 
@@ -557,118 +538,207 @@ TestData[] moduleTestFunctions(alias module_)() pure {
         }
     }
 
-    return moduleTestData!(module_, isTestFunction, createFuncTestData);
+    TestData[] ret;
+
+    static foreach(module_; modules) {
+        ret ~= moduleTestData!(module_, isTestFunction, createFuncTestData);
+    }
+
+    return ret;
 }
 
+
+/**
+   Get all the test functions for this module member. There might be more than one
+   when using parametrized unit tests.
+
+   Examples:
+   ------
+   void testFoo() {} // -> the array contains one element, testFoo
+   @(1, 2, 3) void testBar(int) {} // The array contains 3 elements, one for each UDA value
+   @Types!(int, float) void testBaz(T)() {} //The array contains 2 elements, one for each type
+   ------
+*/
 private TestData[] createFuncTestData(alias module_, string moduleMember)() {
-    import unit_threaded.runner.meta: importMember;
-    import unit_threaded.runner.traits: GetAttributes, HasAttribute, GetTypes, HasTypes;
     import unit_threaded.runner.attrs;
-    import std.meta: aliasSeqOf;
+    import std.meta: aliasSeqOf, Alias;
+    import std.traits: hasUDA;
 
-    mixin(importMember!module_(moduleMember));
-    /*
-      Get all the test functions for this module member. There might be more than one
-      when using parametrized unit tests.
+    alias testFunction = Alias!(__traits(getMember, module_, moduleMember));
 
-      Examples:
-      ------
-      void testFoo() {} // -> the array contains one element, testFoo
-      @(1, 2, 3) void testBar(int) {} // The array contains 3 elements, one for each UDA value
-      @Types!(int, float) void testBaz(T)() {} //The array contains 2 elements, one for each type
-      ------
-    */
-    // if the predicate returned true (which is always the case here), then it's either
-    // a regular function or a templated one. If regular we can get a pointer to it
     enum isRegularFunction = __traits(compiles, &__traits(getMember, module_, moduleMember));
 
     static if(isRegularFunction) {
 
-        enum func = &__traits(getMember, module_, moduleMember);
-        enum arity = arity!func;
+        static if(arity!testFunction == 0)
+            return createRegularFuncTestData!(module_, moduleMember);
+        else
+            return createValueParamFuncTestData!(module_, moduleMember, testFunction);
 
-        static if(arity == 0)
-            // the reason we're creating a lambda to call the function is that test functions
-            // are ordinary functions, but we're storing delegates
-            return [ memberTestData!(module_, moduleMember)(() { func(); }) ]; //simple case, just call the function
-        else {
-
-            // the function has parameters, check if it has UDAs for value parameters to be passed to it
-            alias params = Parameters!func;
-
-            import std.range: iota;
-            import std.algorithm: any;
-            import std.typecons: tuple, Tuple;
-
-            bool hasAttributesForAllParams() {
-                auto ret = true;
-                foreach(p; params) {
-                    if(tuple(GetAttributes!(module_, moduleMember, p)).length == 0) {
-                        ret = false;
-                    }
-                }
-                return ret;
-            }
-
-            static if(!hasAttributesForAllParams) {
-                import std.conv: text;
-                pragma(msg, text("Warning: ", moduleMember, " passes the criteria for a value-parameterized test function",
-                                 " but doesn't have the appropriate value UDAs.\n",
-                                 "         Consider changing its name or annotating it with @DontTest"));
-                return [];
-            } else {
-
-                static if(arity == 1) {
-                    // bind a range of tuples to prod just as cartesianProduct returns
-                    enum prod = [GetAttributes!(module_, moduleMember, params[0])].map!(a => tuple(a));
-                } else {
-                    import std.conv: text;
-
-                    mixin(`enum prod = cartesianProduct(` ~ params.length.iota.map!
-                          (a => `[GetAttributes!(module_, moduleMember, params[` ~ guaranteedToString(a) ~ `])]`).join(", ") ~ `);`);
-                }
-
-                TestData[] testData;
-                foreach(comb; aliasSeqOf!prod) {
-                    enum valuesName = valuesName(comb);
-
-                    static if(HasAttribute!(module_, moduleMember, AutoTags))
-                        enum extraTags = valuesName.split(".").array;
-                    else
-                        enum string[] extraTags = [];
-
-
-                    testData ~= memberTestData!(module_, moduleMember, extraTags)(
-                        // func(value0, value1, ...)
-                        () { func(comb.expand); },
-                        valuesName);
-                }
-
-                return testData;
-            }
-        }
-    } else static if(HasTypes!(mixin(moduleMember))) { //template function with @Types
-        alias types = GetTypes!(mixin(moduleMember));
-        TestData[] testData;
-        foreach(type; types) {
-
-            static if(HasAttribute!(module_, moduleMember, AutoTags))
-                enum extraTags = [type.stringof];
-            else
-                enum string[] extraTags = [];
-
-            alias member = Identity!(mixin(moduleMember));
-
-            testData ~= memberTestData!(module_, moduleMember, extraTags)(
-                () { member!type(); },
-                type.stringof);
-        }
-        return testData;
+    } else static if(hasUDA!(testFunction, Types)) { // template function with @Types
+        return createTypeParamFuncTestData!(module_, moduleMember, testFunction);
     } else {
         return [];
     }
 }
 
+private TestData[] createRegularFuncTestData(alias module_, string moduleMember)() {
+    import std.meta: Alias;
+
+    alias member = Alias!(__traits(getMember, module_, moduleMember));
+    enum func = &member;
+
+    // the reason we're creating a lambda to call the function is that test functions
+    // are ordinary functions, but we're storing delegates
+    return [ memberTestData!member(() { func(); }) ]; //simple case, just call the function
+}
+
+// for value parameterised tests
+private TestData[] createValueParamFuncTestData(alias module_, string moduleMember, alias testFunction)() {
+
+    import unit_threaded.runner.traits: GetAttributes;
+    import unit_threaded.runner.attrs: AutoTags;
+    import std.traits: Parameters;
+    import std.range: iota;
+    import std.algorithm: map;
+    import std.typecons: tuple;
+    import std.traits: arity, hasUDA;
+    import std.meta: aliasSeqOf, Alias;
+
+    alias params = Parameters!testFunction;
+    alias member = Alias!(__traits(getMember, module_, moduleMember));
+
+    bool hasAttributesForAllParams() {
+        auto ret = true;
+        static foreach(P; params) {
+            static if(GetAttributes!(member, P).length == 0) ret = false;
+        }
+        return ret;
+    }
+
+    static if(!hasAttributesForAllParams) {
+        import std.conv: text;
+        pragma(msg, text("Warning: ", __traits(identifier, testFunction),
+                         " passes the criteria for a value-parameterized test function",
+                         " but doesn't have the appropriate value UDAs.\n",
+                         "         Consider changing its name or annotating it with @DontTest"));
+        return [];
+    } else {
+
+        static if(arity!testFunction == 1) {
+            // bind a range of tuples to prod just as cartesianProduct returns
+            enum prod = [GetAttributes!(member, params[0])].map!(a => tuple(a));
+        } else {
+            import std.conv: text;
+
+            mixin(`enum prod = cartesianProduct(` ~ params.length.iota.map!
+                  (a => `[GetAttributes!(member, params[` ~ guaranteedToString(a) ~ `])]`).join(", ") ~ `);`);
+        }
+
+        TestData[] testData;
+        foreach(comb; aliasSeqOf!prod) {
+            enum valuesName = valuesName(comb);
+
+            static if(hasUDA!(member, AutoTags))
+                enum extraTags = valuesName.split(".").array;
+            else
+                enum string[] extraTags = [];
+
+
+            testData ~= memberTestData!member(
+                // testFunction(value0, value1, ...)
+                () { testFunction(comb.expand); },
+                valuesName,
+                extraTags,
+            );
+        }
+
+        return testData;
+    }
+}
+
+
+// template function with @Types
+private TestData[] createTypeParamFuncTestData(alias module_, string moduleMember, alias testFunction)
+                                              ()
+{
+    import unit_threaded.attrs: Types, AutoTags;
+    import std.traits: getUDAs, hasUDA;
+
+    alias typesAttrs = getUDAs!(testFunction, Types);
+    static assert(typesAttrs.length > 0);
+
+    TestData[] testData;
+
+    // To get a cartesian product of all @Types on the function, we use a mixin
+    string nestedForEachMixin() {
+        import std.array: join, array;
+        import std.range: iota, retro;
+        import std.algorithm: map;
+        import std.conv: text;
+        import std.format: format;
+
+        string[] lines;
+
+        string indentation(size_t n) {
+            string ret;
+            foreach(i; 0 .. n) ret ~= "    ";
+            return ret;
+        }
+
+        // e.g. 3 -> [type0, type1, type2]
+        string typeVars() {
+            return typesAttrs.length.iota.map!(i => text(`type`, i)).join(`, `);
+        }
+
+        // e.g. 3 -> [int, float, Foo]
+        string typeIds() {
+            return typesAttrs.length.iota.map!(i => text(`type`, i, `.stringof`)).join(` ~ "." ~ `);
+        }
+
+        // nested static foreachs, one per attribute
+        lines ~= typesAttrs
+            .length
+            .iota
+            .map!(i => indentation(i) ~ `static foreach(type%s; typesAttrs[%s].types) {`.format(i, i))
+            .array
+            ;
+
+        lines ~= q{
+            {
+                static if(hasUDA!(testFunction, AutoTags))
+                    enum extraTags = [type0.stringof]; // FIXME
+                else
+                    enum string[] extraTags = [];
+
+                testData ~= memberTestData!testFunction(
+                    () { testFunction!(%s)(); },
+                    %s,
+                    extraTags
+                );
+            }
+        }.format(typeVars, typeIds);
+
+        // close all static foreach braces
+        lines ~= typesAttrs
+            .length
+            .iota
+            .retro
+            .map!(i => indentation(i) ~ `}`)
+            .array
+            ;
+
+        return lines.join("\n");
+    }
+
+
+
+    enum mixinStr = nestedForEachMixin;
+    //pragma(msg, "\n", mixinStr, "\n");
+    mixin(mixinStr);
+
+    return testData;
+}
 
 
 // this funtion returns TestData for either classes or test functions
@@ -676,9 +746,6 @@ private TestData[] createFuncTestData(alias module_, string moduleMember)() {
 // pred determines what qualifies as a test
 // createTestData must return TestData[]
 private TestData[] moduleTestData(alias module_, alias pred, alias createTestData)() pure {
-    import std.traits: fullyQualifiedName;
-    mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
-
     TestData[] testData;
 
     foreach(moduleMember; __traits(allMembers, module_)) {
@@ -691,28 +758,45 @@ private TestData[] moduleTestData(alias module_, alias pred, alias createTestDat
 
 }
 
-// TestData for a member of a module (either a test function or test class)
-private TestData memberTestData(alias module_, string moduleMember, string[] extraTags = [])
-    (TestFunction testFunction = null, string suffix = "") {
+// Deprecated: here for backwards compatibility
+// TestData for a member of a module (either a test function or a test class)
+private TestData memberTestData
+    (alias module_, string moduleMember, string[] extraTags = [])
+    (TestFunction testFunction = null, string suffix = "")
+{
+    import std.meta: Alias;
+    alias member = Alias!(__traits(getMember, module_, moduleMember));
+    return memberTestData!member(testFunction, suffix, extraTags);
+}
 
-    import unit_threaded.runner.traits: HasAttribute, GetAttributes, hasUtUDA;
+
+// TestData for a member of a module (either a test function or a test class)
+private TestData memberTestData(alias member)
+                               (TestFunction testFunction, string suffix = "", string[] extraTags = [])
+{
     import unit_threaded.runner.attrs;
-    import std.traits: fullyQualifiedName;
+    import std.traits: hasUDA, getUDAs;
+    import std.meta: Alias;
 
-    mixin("import " ~ fullyQualifiedName!module_ ~ ";"); //so it's visible
-
-    immutable singleThreaded = HasAttribute!(module_, moduleMember, Serial);
+    enum singleThreaded = hasUDA!(member, Serial);
     enum builtin = false;
-    enum tags = tagsFromAttrs!(GetAttributes!(module_, moduleMember, Tags));
-    enum exceptionTypeInfo = getExceptionTypeInfo!(mixin(moduleMember));
-    enum shouldFail =
-        HasAttribute!(module_, moduleMember, ShouldFail) ||
-        hasUtUDA!(mixin(moduleMember), ShouldFailWith);
-    enum flakyRetries = getFlakyRetries!(mixin(moduleMember));
+    enum tags = tagsFromAttrs!(getUDAs!(member, Tags));
+    enum exceptionTypeInfo = getExceptionTypeInfo!member;
+    enum shouldFail = hasUDA!(member, ShouldFail) || hasUDA!(member, ShouldFailWith);
+    enum flakyRetries = getFlakyRetries!member;
+    // change names if explicitly asked to with a @Name UDA
+    enum nameFromAttr = TestNameFromAttr!member;
 
-    return TestData(fullyQualifiedName!module_~ "." ~ moduleMember,
+    static if(nameFromAttr == "")
+        enum name = __traits(identifier, member);
+    else
+        enum name = nameFromAttr;
+
+    alias module_ = Alias!(__traits(parent, member));
+
+    return TestData(fullyQualifiedName!module_~ "." ~ name,
                     testFunction,
-                    HasAttribute!(module_, moduleMember, HiddenTest),
+                    hasUDA!(member, HiddenTest),
                     shouldFail,
                     singleThreaded,
                     builtin,
