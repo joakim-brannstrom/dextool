@@ -238,7 +238,7 @@ struct FileIndex {
                     muts.data.map!(a => a.mut.status.to!string))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
-                    muts.data.map!(a => format("%(%s,%)", a.metaData.byKey)))));
+                    muts.data.map!(a => a.metaData.toString))));
             appendText("\n");
         }
 

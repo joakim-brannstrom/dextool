@@ -27,6 +27,10 @@ import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.config : ConfigCompiler;
 
+version (unittest) {
+    import unit_threaded.assertions;
+}
+
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
@@ -48,6 +52,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
 private:
 
 struct Analyzer {
+    import std.regex : Regex, regex, matchFirst;
     import std.typecons : NullableRef, Nullable, Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
@@ -56,6 +61,8 @@ struct Analyzer {
     import dextool.utility : analyzeFile;
 
     private {
+        static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*(?P<comment>.*)?`;
+
         // they are not by necessity the same.
         // Input could be a file that is excluded via --restrict but pull in a
         // header-only library that is allowed to be mutated.
@@ -71,6 +78,8 @@ struct Analyzer {
         ConfigCompiler conf;
 
         Cache cache;
+
+        Regex!char re_nomut;
     }
 
     this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
@@ -80,6 +89,7 @@ struct Analyzer {
         this.fio = fio;
         this.conf = conf;
         this.cache = new Cache;
+        this.re_nomut = regex(raw_re_nomut);
 
         db.removeAllFiles;
     }
@@ -156,7 +166,7 @@ struct Analyzer {
         import std.string : stripLeft;
         import std.utf : byCodeUnit;
         import clang.c.Index : CXTokenKind;
-        import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr;
+        import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
         const fid = db.getFileId(fio.toRelativeRoot(file));
         if (fid.isNull) {
@@ -168,17 +178,11 @@ struct Analyzer {
         auto mdata = appender!(LineMetadata[])();
         foreach (t; cache.getTokens(AbsolutePath(file), tstream)
                 .filter!(a => a.kind == CXTokenKind.comment)) {
-            auto txt = t.spelling.stripLeft;
-            const index = txt.byCodeUnit.countUntil!(a => !a.among('/', '*'));
-            if (index >= txt.length || !txt[0 .. index].among("//", "/*"))
+            auto m = matchFirst(t.spelling, re_nomut);
+            if (m.whichPattern == 0)
                 continue;
 
-            txt = txt[index .. $].stripLeft;
-
-            if (!txt.startsWith("NOMUT"))
-                continue;
-
-            mdata.put(LineMetadata(fid, t.loc.line, LineAttr.noMut));
+            mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
             logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
         }
 
@@ -189,6 +193,30 @@ struct Analyzer {
         db.removeOrphanedMutants;
         printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
     }
+}
+
+@(
+        "shall extract the tag and comment from the input following the pattern NOMUT with optional tag and comment")
+unittest {
+    import std.regex : regex, matchFirst;
+    import unit_threaded.runner.io : writelnUt;
+
+    auto re_nomut = regex(Analyzer.raw_re_nomut);
+    // NOMUT in other type of comments should NOT match.
+    writelnUt(matchFirst("/// NOMUT", re_nomut));
+    matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
+    matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);
+    matchFirst("/** NOMUT*/", re_nomut).whichPattern.shouldEqual(0);
+    matchFirst("/* stuff with NOMUT in it */", re_nomut).whichPattern.shouldEqual(0);
+
+    matchFirst("/*NOMUT*/", re_nomut).whichPattern.shouldEqual(1);
+    matchFirst("//NOMUT", re_nomut).whichPattern.shouldEqual(1);
+    matchFirst("// NOMUT", re_nomut).whichPattern.shouldEqual(1);
+    matchFirst("// NOMUT (arch)", re_nomut)["tag"].shouldEqual("arch");
+    matchFirst("// NOMUT smurf", re_nomut)["comment"].shouldEqual("smurf");
+    auto m = matchFirst("// NOMUT (arch) smurf", re_nomut);
+    m["tag"].shouldEqual("arch");
+    m["comment"].shouldEqual("smurf");
 }
 
 /// Stream of tokens excluding comment tokens.

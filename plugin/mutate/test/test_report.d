@@ -381,9 +381,9 @@ class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
         fid.isNull.shouldBeFalse;
         fid2.isNull.shouldBeFalse;
         foreach (line; [11,12,14,24,32])
-            db.getLineMetadata(fid, SourceLoc(line,0)).shouldEqual(LineMetadata(fid, line, LineAttr.noMut));
+            db.getLineMetadata(fid, SourceLoc(line,0)).shouldEqual(LineMetadata(fid, line, LineAttr(NoMut.init)));
         foreach (line; [8,9])
-            db.getLineMetadata(fid, SourceLoc(line,0)).contains(LineAttr.noMut).shouldBeFalse;
+            db.getLineMetadata(fid, SourceLoc(line,0)).isNoMut.shouldBeFalse;
     }
 }
 
@@ -498,7 +498,7 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            `var g_muts_meta = ["","","","","","","","","","","","","","","","","","","noMut","noMut","noMut","noMut","noMut","noMut","noMut","noMut","noMut","noMut","","","","","","","","","noMut","","","","","","","","","","noMut"]`
+            `var g_muts_meta = ["","","","","","","","","","","","","","","","","","","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","","","","","","","","","nomut","","","","","","","","","","nomut"]`
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
     }
 }

@@ -272,6 +272,7 @@ struct Database {
     }
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
+        // TODO: convert to using microrm
         enum sql = format!"SELECT nomut FROM %s WHERE mut_id = :mid"(srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.bind(":mid", cast(long) id);
@@ -280,7 +281,7 @@ struct Database {
 
         foreach (res; stmt.execute) {
             if (res.peek!long(0) != 0)
-                rval.add(LineAttr.noMut);
+                rval.set(NoMut.init);
         }
 
         return rval;
@@ -379,7 +380,8 @@ struct Database {
     }
 
     LineMetadata getLineMetadata(const FileId fid, const SourceLoc sloc) @trusted {
-        enum sql = format("SELECT nomut FROM %s
+        // TODO: change this select to using microrm
+        enum sql = format("SELECT nomut,tag,comment FROM %s
             WHERE
             file_id = :fid AND
             line = :line", rawSrcMetadataTable);
@@ -390,7 +392,7 @@ struct Database {
         auto rval = typeof(return)(fid, sloc.line);
         foreach (res; stmt.execute) {
             if (res.peek!long(0) != 0)
-                rval.add(LineAttr.noMut);
+                rval.set(NoMut(res.peek!string(1), res.peek!string(2)));
         }
 
         return rval;
@@ -715,8 +717,7 @@ struct Database {
      * metadata with mutants.
      */
     void put(const LineMetadata[] mdata) {
-        import dextool.set;
-
+        // TODO: convert to microrm
         enum sql = format("INSERT OR IGNORE INTO %s
             (file_id, line, nomut)
             VALUES(:fid, :line, :nomut)", rawSrcMetadataTable);
@@ -727,7 +728,7 @@ struct Database {
 
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
-            stmt.bindAll(cast(long) meta.id, meta.line, meta.attrs.contains(LineAttr.noMut));
+            stmt.bindAll(cast(long) meta.id, meta.line, meta.isNoMut);
             stmt.execute;
             stmt.reset;
         }

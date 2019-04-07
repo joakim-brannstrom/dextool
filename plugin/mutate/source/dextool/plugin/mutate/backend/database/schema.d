@@ -131,6 +131,8 @@ private:
 // metadata about mutants that occur on a line extracted from the source code.
 // It is intended to further refined.
 // nomut = if the line should ignore mutants.
+// tag = a user defined tag for a NOMUT.
+// comment = a user defined comment.
 @TableName(rawSrcMetadataTable)
 @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
 @TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
@@ -145,6 +147,12 @@ struct RawSrcMetadata {
 
     @ColumnParam("")
     ulong nomut;
+
+    @ColumnParam("")
+    string tag;
+
+    @ColumnParam("")
+    string comment;
 }
 
 // Associate metadata from lines with the mutation status.
@@ -660,9 +668,35 @@ void upgradeV9(ref Microrm db) {
 
 /// 2018-11-25
 void upgradeV10(ref Microrm db) {
+    @TableName(rawSrcMetadataTable)
+    @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
+    struct RawSrcMetadata {
+        ulong id;
+
+        @ColumnName("file_id")
+        ulong fileId;
+
+        @ColumnParam("")
+        uint line;
+
+        @ColumnParam("")
+        ulong nomut;
+    }
+
     db.run(buildSchema!RawSrcMetadata);
     makeSrcMetadataView(db);
     updateSchemaVersion(db, 11);
+}
+
+/// 2019-04-06
+void upgradeV11(ref Microrm db) {
+    immutable new_tbl = "new_" ~ rawSrcMetadataTable;
+    db.run(buildSchema!RawSrcMetadata("new_"));
+    db.run(format!"INSERT INTO %s (id,file_id,line,nomut) SELECT t.id,t.file_id,t.line,t.nomut FROM %s t"(new_tbl,
+            rawSrcMetadataTable));
+    replaceTbl(db, new_tbl, rawSrcMetadataTable);
+    updateSchemaVersion(db, 12);
 }
 
 void replaceTbl(ref Microrm db, string src, string dst) {
