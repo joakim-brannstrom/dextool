@@ -126,7 +126,7 @@ do {
     return db;
 }
 
-private:
+package:
 
 // metadata about mutants that occur on a line extracted from the source code.
 // It is intended to further refined.

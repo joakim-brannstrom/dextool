@@ -44,7 +44,7 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable, Flag, No;
-    import microrm : Microrm;
+    import microrm : Microrm, select, insert;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -273,15 +273,10 @@ struct Database {
     }
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
-        // TODO: convert to using microrm
-        enum sql = format!"SELECT nomut FROM %s WHERE mut_id = :mid"(srcMetadataTable);
-        auto stmt = db.prepare(sql);
-        stmt.bind(":mid", cast(long) id);
-
         auto rval = MutantMetaData(id);
-
-        foreach (res; stmt.execute) {
-            if (res.peek!long(0) != 0)
+        auto stmt = db.run(select!SrcMetadataTbl.where("mut_id =", cast(long) id));
+        foreach (res; stmt) {
+            if (res.nomutCount)
                 rval.set(NoMut.init);
         }
 
