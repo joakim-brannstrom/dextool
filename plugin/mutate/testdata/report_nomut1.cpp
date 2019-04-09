@@ -8,7 +8,7 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
     if (var1_long_text > 5) /// NOMUT (not supported)
         return "false";     /** NOMUT (not supported) */
 
-    switch (var2_long_text) { // NOMUT
+    switch (var2_long_text) { // NOMUT (group1) with comment
     case 2:                   /* NOMUT */
         return "true";
     default: // NOMUT
@@ -29,7 +29,7 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
         "oooooooooooooo",
         "barrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
         "rrr",
-        "bun"); // NOMUT (group1) with comment
+        "bun"); // NOMUT
 
     return "false"; //       NOMUT
 }

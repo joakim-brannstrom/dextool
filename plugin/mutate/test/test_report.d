@@ -511,3 +511,31 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
     }
 }
+
+class ShallReportHtmlNoMutSummary : LinesWithNoMut {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        foreach (i; 0 .. 15)
+            db.updateMutation(MutationId(i), Mutation.Status.killed, 5.dur!"msecs", null);
+        foreach (i; 15 .. 30)
+            db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "summary"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        // assert
+        testConsecutiveSparseOrder!SubStr([
+            `<h2>group1</h2>`,
+            `<a href="files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html`,
+            `<br`,
+            `with comment`
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
+    }
+}
