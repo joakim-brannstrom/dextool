@@ -473,6 +473,8 @@ The user wants to be able to disregard equivalent mutants and undesirable mutant
 
 The user wants to categories suppressed mutants when they are marked.
 
+**Note**: User feedback is that the categories should be case insensitive so a case "change" doesn't lead to the mutant being placed in a new category. Keep it simple and avoid common mistakes that can occure by forcing the sorting of suppressed mutants into categories to be case insensitive.
+
 The user wants to be able to add a comment to suppressed mutants.
 
 **Rationale**: The intention is to use these categories and comments when presenting a view of all suppressed mutants in the program to make it easier to inspect. It is to move the discussion from "Why is this mutant suppressed? I don't understand anything!" to "This mutant is of type A and has a comment explaining why it is ignored. The comment seems rationale when considering the category the mutant is part of.".
