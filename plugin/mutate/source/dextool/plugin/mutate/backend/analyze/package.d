@@ -61,7 +61,7 @@ struct Analyzer {
     import dextool.utility : analyzeFile;
 
     private {
-        static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*(?P<comment>.*)?`;
+        static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
         // they are not by necessity the same.
         // Input could be a file that is excluded via --restrict but pull in a
@@ -203,13 +203,13 @@ unittest {
 
     auto re_nomut = regex(Analyzer.raw_re_nomut);
     // NOMUT in other type of comments should NOT match.
-    writelnUt(matchFirst("/// NOMUT", re_nomut));
     matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("/** NOMUT*/", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("/* stuff with NOMUT in it */", re_nomut).whichPattern.shouldEqual(0);
 
     matchFirst("/*NOMUT*/", re_nomut).whichPattern.shouldEqual(1);
+    matchFirst("/*NOMUT*/", re_nomut)["comment"].shouldEqual("");
     matchFirst("//NOMUT", re_nomut).whichPattern.shouldEqual(1);
     matchFirst("// NOMUT", re_nomut).whichPattern.shouldEqual(1);
     matchFirst("// NOMUT (arch)", re_nomut)["tag"].shouldEqual("arch");
