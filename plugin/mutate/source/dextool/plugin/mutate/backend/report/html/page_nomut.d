@@ -32,7 +32,7 @@ auto makeNomut(ref Database db, ref const ConfigReport conf,
     doc.mainBody.addChild("p",
             "This is all the mutation suppressions that are used and affects the analysis.");
 
-    db.getMutantationMetaData.toHtml(db, doc.mainBody);
+    db.getMutantationMetaData(kinds).toHtml(db, doc.mainBody);
 
     return doc.toPrettyString;
 }
