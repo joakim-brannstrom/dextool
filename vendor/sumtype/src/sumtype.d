@@ -679,6 +679,7 @@ public:
 }
 
 // Stale pointers
+version(none) {
 @system unittest {
 	import std.array: staticArray;
 
@@ -689,6 +690,7 @@ public:
 	x = ubyte(123);
 
 	assert(*p != cast(void*) 0x12345678);
+}
 }
 
 // Exception-safe assignment
