@@ -47,6 +47,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
     import std.array : array, empty;
     import std.path : buildPath;
     import std.typecons : Tuple;
+    import std.uni : toLower;
     import sumtype;
     import dextool.plugin.mutate.backend.database : MutationId, NoMetadata, NoMut;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
@@ -56,7 +57,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
 
     foreach (x; data) {
         x.attr.match!((NoMetadata a) {}, (NoMut a) {
-            tags[a.tag] ~= IdComment(x.id, a.comment);
+            tags[a.tag.toLower] ~= IdComment(x.id, a.comment);
         });
     }
 
@@ -64,17 +65,19 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
         if (!tag.empty)
             root.addChild("h2", tag);
 
-        auto tbl = tmplDefaultTable(root, ["Comment", "File"]);
+        auto tbl = tmplDefaultTable(root, ["Mutant"]);
         foreach (m; tags[tag].array.sort!((a, b) => a.comment < b.comment)) {
             auto r = tbl.appendRow();
+
             auto file = db.getPath(m.id);
-
-            r.addChild("td", m.comment);
-
             if (file.isNull)
                 continue;
-            r.addChild("td").addChild("a", file.get).href = format("%s#%s",
+
+            auto td = r.addChild("td");
+            td.addChild("a", file.get).href = format("%s#%s",
                     buildPath(htmlFileDir, pathToHtmlLink(file.get)), m.id);
+            td.addChild("br");
+            td.appendText(m.comment);
         }
     }
 }
