@@ -378,10 +378,6 @@ unittest {
     assert(!isEqual(1.0, 1.0001));
 }
 
-@safe unittest {
-    assert(isApproxEqual(1.0, 1.0));
-    assert(isApproxEqual(1.0, 1.0001));
-}
 
 @safe unittest {
     1.0.shouldApproxEqual(1.0001);
@@ -543,7 +539,10 @@ unittest {
 }
 
 @safe unittest {
-    shouldEqual(new Object, new Object);
+    // Object.opEquals isn't scope and therefore not @safe
+    () @trusted {
+        shouldNotEqual(new Object, new Object);
+    }();
 }
 
 
@@ -579,18 +578,6 @@ unittest {
     assertFail(2.should.not.be == 2);
 }
 
-@("should.throw")
-@safe pure unittest {
-
-    void funcOk() {}
-
-    void funcThrows() {
-        throw new Exception("oops");
-    }
-
-    assertFail(funcOk.should.throw_);
-    funcThrows.should.throw_;
-}
 
 @("should.be in")
 @safe pure unittest {
@@ -618,4 +605,27 @@ unittest {
     1.0.should ~ 1.0001;
     1.0.should.not ~ 2.0;
     assertFail(2.0.should ~ 1.0001);
+}
+
+
+@("void[] vs string")
+@safe unittest {
+    auto voids = () @trusted { return cast(void[]) ['f', 'o', 'o']; }();
+    "foo".shouldEqual(voids);
+    voids.shouldEqual("foo");
+}
+
+
+@("shouldBeBetween")
+@safe pure unittest {
+    import std.datetime: seconds;
+
+    5.shouldBeBetween(4, 6);
+    assertExceptionMsg(3.shouldBeBetween(4, 6),
+                       "    tests/unit_threaded/ut/should.d:123 - 3 is not between 4 and 6\n");
+    4.shouldBeBetween(4, 6);
+    assertFail(6.shouldBeBetween(4, 6));
+
+    3.seconds.shouldBeBetween(2.seconds, 4.seconds);
+    assertFail(1.seconds.shouldBeBetween(2.seconds, 4.seconds));
 }

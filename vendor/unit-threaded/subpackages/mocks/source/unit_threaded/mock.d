@@ -74,7 +74,7 @@ string implMixinStr(T)() {
 
                         lines ~= tryIndent ~ `    calledFuncs ~= "` ~ memberName ~ `";`;
                         lines ~= tryIndent ~ `    calledValues ~= tuple` ~
-                            argNamesParens(arity!overload) ~ `.to!string;`;
+                            argNamesParens(arity!overload) ~ `.text;`;
 
                         static if(functionAttributes!overload & FunctionAttribute.nothrow_)
                             lines ~= "    } catch(Exception) {}";
@@ -98,12 +98,13 @@ private string argNamesParens(int N) @safe pure {
 }
 
 private string argNames(int N) @safe pure {
-    import std.range;
-    import std.algorithm;
-    import std.conv;
+    import std.range: iota;
+    import std.algorithm: map;
+    import std.array: join;
+    import std.conv: text;
 
     if(!__ctfe) return null;
-    return iota(N).map!(a => "arg" ~ a.to!string).join(", ");
+    return iota(N).map!(a => "arg" ~ a.text).join(", ");
 }
 
 private string typeAndArgsParens(T...)(string prefix) {
@@ -146,7 +147,8 @@ private string functionAttributesString(alias F)() {
     return parts.join(" ");
 }
 
-mixin template MockImplCommon() {
+
+private mixin template MockImplCommon() {
     bool _verified;
     string[] expectedFuncs;
     string[] calledFuncs;
@@ -154,12 +156,12 @@ mixin template MockImplCommon() {
     string[] calledValues;
 
     void expect(string funcName, V...)(auto ref V values) {
-        import std.conv: to;
+        import std.conv: text;
         import std.typecons: tuple;
 
         expectedFuncs ~= funcName;
         static if(V.length > 0)
-            expectedValues ~= tuple(values).to!string;
+            expectedValues ~= tuple(values).text;
         else
             expectedValues ~= "";
     }
@@ -172,7 +174,7 @@ mixin template MockImplCommon() {
 
     void verify(string file = __FILE__, size_t line = __LINE__) @safe pure {
         import std.range: repeat, take, join;
-        import std.conv: to;
+        import std.conv: text;
         import unit_threaded.exception: fail, UnitTestException;
 
         if(_verified)
@@ -183,11 +185,11 @@ mixin template MockImplCommon() {
         for(int i = 0; i < expectedFuncs.length; ++i) {
 
             if(i >= calledFuncs.length)
-                fail("Expected nth " ~ i.to!string ~ " call to " ~ expectedFuncs[i] ~ " did not happen", file, line);
+                fail("Expected nth " ~ i.text ~ " call to `" ~ expectedFuncs[i] ~ "` did not happen", file, line);
 
             if(expectedFuncs[i] != calledFuncs[i])
-                fail("Expected nth " ~ i.to!string ~ " call to " ~ expectedFuncs[i] ~ " but got " ~ calledFuncs[i] ~
-                     " instead",
+                fail("Expected nth " ~ i.text ~ " call to `" ~ expectedFuncs[i] ~ "` but got `" ~ calledFuncs[i] ~
+                     "` instead",
                      file, line);
 
             if(expectedValues[i] != calledValues[i] && expectedValues[i] != "")
@@ -210,11 +212,11 @@ struct Mock(T) {
     alias _impl this;
 
     class MockAbstract: T {
-        import std.conv: to;
+        // needed by implMixinStr
+        import std.conv: text;
         import std.traits: Parameters, ReturnType;
         import std.typecons: tuple;
 
-        //static if(__traits(identifier, T) == "foobarbaz")
         //pragma(msg, "\nimplMixinStr for ", T, "\n\n", implMixinStr!T, "\n\n");
         mixin(implMixinStr!T);
         mixin MockImplCommon;
@@ -261,6 +263,7 @@ struct Mock(T) {
                       "Cannot use returnValue on '" ~ funcName ~ "'");
     }
 }
+
 
 private string importsString(string module_, string[] Modules...) {
     if(!__ctfe) return null;
@@ -367,11 +370,13 @@ auto mock(T)() {
     assert(fun(m) == 0);
 }
 
-struct ReturnValues(string function_, T...) if(from!"std.meta".allSatisfy!(isValue, T)) {
+
+struct ReturnValues(string function_, T...) if(from!"std.meta".allSatisfy!(isValue, T) && T.length > 0) {
+
     alias funcName = function_;
     alias Values = T;
 
-    static auto values() {
+    static values() {
         typeof(T[0])[] ret;
         foreach(val; T) {
             ret ~= val;
@@ -390,9 +395,9 @@ enum isValue(alias T) = is(typeof(T));
    be returned one by one. The limitation is that if more than one
    function is called on the mock, they all return the same type
  */
-auto mockStruct(T...)(auto ref T returns) {
+auto mockStruct(T...)(auto ref T returns) if(!from!"std.meta".anySatisfy!(isMockReturn, T)) {
 
-    struct Mock {
+    static struct Mock {
 
         MockImpl* _impl;
         alias _impl this;
@@ -406,19 +411,26 @@ auto mockStruct(T...)(auto ref T returns) {
 
             mixin MockImplCommon;
 
-            auto opDispatch(string funcName, V...)(auto ref V values) {
+            auto opDispatch(string funcName, this This, V...)
+                           (auto ref V values)
+            {
 
-                import std.conv: to;
+                import std.conv: text;
                 import std.typecons: tuple;
 
-                calledFuncs ~= funcName;
-                calledValues ~= tuple(values).to!string;
+                enum isMutable = !is(This == const) && !is(This == immutable);
+
+                static if(isMutable) {
+                    calledFuncs ~= funcName;
+                    calledValues ~= tuple(values).text;
+                }
 
                 static if(T.length > 0) {
 
                     if(_returnValues.length == 0) return typeof(_returnValues[0]).init;
                     auto ret = _returnValues[0];
-                    _returnValues = _returnValues[1..$];
+                    static if(isMutable)
+                        _returnValues = _returnValues[1..$];
                     return ret;
                 }
             }
@@ -426,7 +438,12 @@ auto mockStruct(T...)(auto ref T returns) {
     }
 
     Mock m;
-    m._impl = new Mock.MockImpl;
+
+    // The following line is ugly, but necessary.
+    // If moved to the declaration of impl, it's constructed at compile-time
+    // and only one instance is ever used. Since structs can't have default
+    // constructors, it has to be done here
+    m._impl = new typeof(m).MockImpl;
     static if(T.length > 0) {
         foreach(r; returns)
             m._impl._returnValues ~= r;
@@ -435,6 +452,7 @@ auto mockStruct(T...)(auto ref T returns) {
     return m;
 }
 
+
 /**
    Version of mockStruct that accepts a compile-time mapping
    of function name to return values. Each template parameter
@@ -442,22 +460,31 @@ auto mockStruct(T...)(auto ref T returns) {
  */
 auto mockStruct(T...)() if(T.length > 0 && from!"std.meta".allSatisfy!(isReturnValue, T)) {
 
-    struct Mock {
+    static struct Mock {
         mixin MockImplCommon;
 
         int[string] _retIndices;
 
-        auto opDispatch(string funcName, V...)(auto ref V values) {
+        auto opDispatch(string funcName, this This, V...)
+                       (auto ref V values)
+        {
 
-            import std.conv: to;
+            import std.conv: text;
             import std.typecons: tuple;
 
-            calledFuncs ~= funcName;
-            calledValues ~= tuple(values).to!string;
+            enum isMutable = !is(This == const) && !is(This == immutable);
+
+            static if(isMutable) {
+                calledFuncs ~= funcName;
+                calledValues ~= tuple(values).text;
+            }
 
             foreach(retVal; T) {
                 static if(retVal.funcName == funcName) {
-                    return retVal.values[_retIndices[funcName]++];
+                    auto ret = retVal.values[_retIndices[funcName]];
+                    static if(isMutable)
+                        ++_retIndices[funcName];
+                    return ret;
                 }
             }
         }
@@ -584,3 +611,75 @@ auto throwStruct(E = from!"unit_threaded.should".UnitTestException, R = void)() 
     assertThrown!UnitTestException(m.foo);
     assertThrown!UnitTestException(m.bar(1, "foo"));
 }
+
+
+auto mockStruct(R...)(auto ref R returns) if(R.length > 0 && from!"std.meta".allSatisfy!(isMockReturn, R)) {
+
+    struct Mock {
+
+        mixin MockImplCommon;
+
+        int[string] _retIndices;
+
+        auto opDispatch(string funcName, this This, V...)
+                       (auto ref V values)
+        {
+
+            import std.conv: text;
+            import std.typecons: tuple;
+
+            enum isMutable = !is(This == const) && !is(This == immutable);
+
+            static if(isMutable) {
+                calledFuncs ~= funcName;
+                calledValues ~= tuple(values).text;
+            }
+
+            static foreach(i, returnType; R) {
+                static if(returnType.Name == funcName) {
+                    auto ret = returns[i].values[_retIndices[funcName]];
+
+                    static if(isMutable)
+                        ++_retIndices[funcName];
+
+                    return ret;
+                }
+            }
+
+            assert(0, "No return value for `" ~ funcName ~ "`");
+        }
+    }
+
+    Mock mock;
+
+    static foreach(returnType; R) {
+        mock._retIndices[returnType.Name] = 0;
+    }
+
+    return mock;
+
+}
+
+auto mockReturn(string name, V...)(auto ref V values) {
+    return MockReturn!(name, V[0])(values);
+}
+
+template allSameType(V...) {
+    import std.meta: allSatisfy;
+    enum isSameAsFirst(T) = is(T == V);
+    enum allSameType = allSatisfy!(isSameAsFirst, V);
+}
+
+
+private struct MockReturn(string funcName, V) {
+
+    alias Name = funcName;
+    V[] values;
+
+    this(A...)(auto ref A args) {
+        foreach(arg; args) values ~= arg;
+    }
+}
+
+enum isMockReturn(T) = is(T == MockReturn!(name, V), string name, V);
+static assert(isMockReturn!(typeof(mockReturn!"length"(42))));

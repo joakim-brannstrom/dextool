@@ -21,22 +21,39 @@ unittest {
 }
 
 unittest {
-    const expected = addModPrefix([ "testFoo", "testBar", "funcThatShouldShowUpCosOfAttr"]);
+    import std.algorithm: sorted = sort;
+
+    const expected = addModPrefix(
+        [
+            "testFoo",
+            "testBar",
+            "funcThatShouldShowUpCosOfAttr",
+            "this is my successful test name",
+            "this is my unsuccessful test name",
+        ]
+    ).sorted.array;
     const actual = moduleTestFunctions!(unit_threaded.ut.modules.module_with_tests).
-        map!(a => a.getPath).array;
+        map!(a => a.getPath).array.sorted.array;
+
     assertEqual(actual, expected);
 }
 
 
 unittest {
+    import std.algorithm: sorted = sort;
+
     const expected = addModPrefix(
         [
-            "unittest_L44", "unittest_L49", "myUnitTest",
-            "StructWithUnitTests.InStruct", "StructWithUnitTests.unittest_L66_C5"
+            "myUnitTest",
+            "StructWithUnitTests.InStruct",
+            "StructWithUnitTests.unittest_L65_C5",
+            "unittest_L43",
+            "unittest_L48",
         ]
-    );
+    ).sorted.array;
     const actual = moduleUnitTests!(unit_threaded.ut.modules.module_with_tests).
-        map!(a => a.name).array;
+        map!(a => a.name).array.sorted.array;
+
     assertEqual(actual, expected);
 }
 
@@ -98,6 +115,28 @@ unittest {
     assertPass(tests[1]);
     assertFail(tests[0]);
 }
+
+
+@("Test that parametrized type tests work with @Name")
+unittest {
+    import unit_threaded.runner.factory;
+    import unit_threaded.runner.testcase;
+    import unit_threaded.ut.modules.parametrized;
+
+    const testData = allTestData!(unit_threaded.ut.modules.parametrized).
+        filter!(a => a.name.canFind("my_name_is_test")).array;
+    const expected = addModPrefix(["my_name_is_test.float", "my_name_is_test.int"],
+                                  "unit_threaded.ut.modules.parametrized");
+    const actual = testData.map!(a => a.getPath).array;
+    assertEqual(actual, expected);
+
+    auto tests = createTestCases(testData);
+    assertEqual(tests.map!(a => a.getPath).array, expected);
+
+    assertPass(tests[1]);
+    assertFail(tests[0]);
+}
+
 
 @("Value parametrized built-in unittests")
 unittest {
@@ -258,8 +297,34 @@ unittest {
 
     assertEqual(testData.find!(a => a.getPath.canFind("2.bar")).front.tags,
                 ["2", "bar"]);
-
 }
+
+
+@("Cartesian types") unittest {
+    import unit_threaded.runner.factory;
+    import unit_threaded.runner.testcase;
+    import unit_threaded.should: shouldBeSameSetAs;
+    import unit_threaded.ut.modules.parametrized;
+    import unit_threaded.runner.attrs: getValue;
+
+    const testData = allTestData!(unit_threaded.ut.modules.parametrized).
+        filter!(a => a.name.canFind("cartesian_types")).array;
+    assertEqual(testData.length, 6);
+
+    auto tests = createTestCases(testData);
+    tests.map!(a => a.getPath).array.shouldBeSameSetAs(
+            addModPrefix(["int.string", "int.Foo", "int.Bar", "float.string", "float.Foo", "float.Bar"].
+                             map!(a => "cartesian_types." ~ a).array,
+                             "unit_threaded.ut.modules.parametrized"));
+    assertEqual(tests.length, 6);
+
+    auto intFoo = tests.find!(a => a.getPath.canFind("int.Foo")).front;
+    assertPass(intFoo);
+
+    auto floatString = tests.find!(a => a.getPath.canFind("float.string")).front;
+    assertFail(floatString);
+}
+
 
 @("module setup and shutdown")
 unittest {
@@ -387,4 +452,20 @@ unittest {
         .array
         .createTestCases[0];
     assertFail(flakyFails);
+}
+
+@("mixin") unittest {
+    import unit_threaded.runner.factory;
+    import unit_threaded.asserts;
+    import unit_threaded.ut.modules.module_with_tests;
+    import std.algorithm: canFind;
+    import std.array: array;
+
+    const testData = allTestData!"unit_threaded.ut.modules.module_with_tests";
+
+    auto failingMixinTest = testData
+        .find!(a => a.getPath.canFind("this is my unsuccessful test name"))
+        .array
+        .createTestCases[0];
+    assertFail(failingMixinTest);
 }

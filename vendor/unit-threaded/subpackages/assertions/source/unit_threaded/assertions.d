@@ -404,7 +404,7 @@ void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
     if (!threw)
         fail("Expression did not throw", file, line);
 
-    threw.throwable.msg.shouldEqual(msg, file, line);
+    threw.msg.shouldEqual(msg, file, line);
 }
 
 ///
@@ -424,6 +424,7 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     {
         bool threw;
         TypeInfo typeInfo;
+        string msg;
         immutable(T) throwable;
 
         T opCast(T)() @safe @nogc const pure if (is(T == bool))
@@ -439,7 +440,7 @@ private auto threw(T : Throwable, E)(lazy E expr) @trusted
     }
     catch (T e)
     {
-        return ThrowResult(true, typeid(e), cast(immutable)e);
+        return ThrowResult(true, typeid(e), e.msg.dup, cast(immutable)e);
     }
 
     return ThrowResult(false);
@@ -483,12 +484,12 @@ string convertToString(T)(scope auto ref T value) { // std.conv.to sometimes is 
 
 
 private string[] formatRange(T)(in string prefix, scope auto ref T value) {
-    import std.conv: to;
+    import std.conv: text;
     import std.range: ElementType;
     import std.algorithm: map, reduce, max;
 
-    //some versions of `to` are @system
-    auto defaultLines = () @trusted { return [prefix ~ value.to!string]; }();
+    //some versions of `text` are @system
+    auto defaultLines = () @trusted { return [prefix ~ value.text]; }();
 
     static if (!isInputRange!(ElementType!T))
         return defaultLines;
@@ -522,18 +523,11 @@ bool isEqual(V, E)(in V value, in E expected)
 }
 
 
-bool isApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2, double maxAbsDiff = 1e-5)
- if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
-{
-    import std.math;
-    return approxEqual(value, expected, maxRelDiff, maxAbsDiff);
-}
-
-
 void shouldApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2, double maxAbsDiff = 1e-5, string file = __FILE__, size_t line = __LINE__)
  if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
 {
-    if (!isApproxEqual(value, expected, maxRelDiff, maxAbsDiff))
+    import std.math: approxEqual;
+    if (!approxEqual(value, expected, maxRelDiff, maxAbsDiff))
     {
         const msg =
             formatValueInItsOwnLine("Expected approx: ", expected) ~
@@ -580,9 +574,9 @@ template IsField(A...) if(A.length == 1) {
 
 
 bool isEqual(V, E)(scope V value, scope E expected)
-if (isObject!V && isObject!E)
+    if (isObject!V && isObject!E)
 {
-    import std.meta: staticMap, Filter;
+    import std.meta: staticMap, Filter, staticIndexOf;
 
     static assert(is(typeof(() { string s1 = value.toString; string s2 = expected.toString;})),
                   "Cannot compare instances of " ~ V.stringof ~
@@ -592,32 +586,38 @@ if (isObject!V && isObject!E)
     if(value !is null && expected  is null) return false;
     if(value  is null && expected  is null) return true;
 
-    template IsFieldOf(T, string s) {
-        static if(__traits(compiles, IsField!(typeof(__traits(getMember, T.init, s)))))
-            enum IsFieldOf = IsField!(typeof(__traits(getMember, T.init, s)));
+    // If it has opEquals, use it
+    static if(staticIndexOf!("opEquals", __traits(derivedMembers, V)) != -1) {
+        return value.opEquals(expected);
+    } else {
+
+        template IsFieldOf(T, string s) {
+            static if(__traits(compiles, IsField!(typeof(__traits(getMember, T.init, s)))))
+                enum IsFieldOf = IsField!(typeof(__traits(getMember, T.init, s)));
+            else
+                enum IsFieldOf = false;
+        }
+
+        auto members(T)(T obj) {
+            import std.typecons: Tuple;
+
+            alias Member(string name) = typeof(__traits(getMember, T, name));
+            alias IsFieldOfT(string s) = IsFieldOf!(T, s);
+            alias FieldNames = Filter!(IsFieldOfT, __traits(allMembers, T));
+            alias FieldTypes = staticMap!(Member, FieldNames);
+
+            Tuple!FieldTypes ret;
+            foreach(i, name; FieldNames)
+                ret[i] = __traits(getMember, obj, name);
+
+            return ret;
+        }
+
+        static if(is(V == interface))
+            return false;
         else
-            enum IsFieldOf = false;
+            return members(value) == members(expected);
     }
-
-    auto members(T)(T obj) {
-        import std.typecons: Tuple;
-
-        alias Member(string name) = typeof(__traits(getMember, T, name));
-        alias IsFieldOfT(string s) = IsFieldOf!(T, s);
-        alias FieldNames = Filter!(IsFieldOfT, __traits(allMembers, T));
-        alias FieldTypes = staticMap!(Member, FieldNames);
-
-        Tuple!FieldTypes ret;
-        foreach(i, name; FieldNames)
-            ret[i] = __traits(getMember, obj, name);
-
-        return ret;
-    }
-
-    static if(is(V == interface))
-        return false;
-    else
-        return members(value) == members(expected);
 }
 
 
@@ -870,7 +870,9 @@ void shouldBeSameJsonAs(in string actual,
 
 
 
-auto should(E)(lazy E expr) {
+auto should(V)(scope auto ref V value){
+
+    import std.functional: forward;
 
     struct ShouldNot {
 
@@ -878,14 +880,14 @@ auto should(E)(lazy E expr) {
                          in string file = __FILE__,
                          in size_t line = __LINE__)
         {
-            expr.shouldNotEqual(other, file, line);
+            shouldNotEqual(forward!value, other, file, line);
             return true;
         }
 
         void opBinary(string op, R)(R range,
                                     in string file = __FILE__,
                                     in size_t line = __LINE__) const if(op == "in") {
-            shouldNotBeIn(expr, range, file, line);
+            shouldNotBeIn(forward!value, range, file, line);
         }
 
         void opBinary(string op, R)(R range,
@@ -893,21 +895,15 @@ auto should(E)(lazy E expr) {
                                     in size_t line = __LINE__) const
             if(op == "~" && isInputRange!R)
         {
-            shouldThrow!UnitTestException(shouldBeSameSetAs(expr, range), file, line);
+            shouldThrow!UnitTestException(shouldBeSameSetAs(forward!value, range), file, line);
         }
 
         void opBinary(string op, E)
                      (in E expected, string file = __FILE__, size_t line = __LINE__)
             if (isFloatingPoint!E)
         {
-            shouldThrow!UnitTestException(shouldApproxEqual(expr, expected), file, line);
+            shouldThrow!UnitTestException(shouldApproxEqual(forward!value, expected), file, line);
         }
-
-        // void opDispatch(string s, A...)(auto ref A args)
-        // {
-        //     import std.functional: forward;
-        //     mixin(`Should().` ~ string ~ `(forward!args)`);
-        // }
     }
 
     struct Should {
@@ -916,26 +912,8 @@ auto should(E)(lazy E expr) {
                          in string file = __FILE__,
                          in size_t line = __LINE__)
         {
-            expr.shouldEqual(other, file, line);
+            shouldEqual(forward!value, other, file, line);
             return true;
-        }
-
-        void throw_(T : Throwable = Exception)
-                   (in string file = __FILE__, in size_t line = __LINE__)
-        {
-            shouldThrow!T(expr, file, line);
-        }
-
-        void throwExactly(T : Throwable = Exception)
-                         (in string file = __FILE__, in size_t line = __LINE__)
-        {
-            shouldThrowExactly!T(expr, file, line);
-        }
-
-        void throwWithMessage(T : Throwable = Exception)
-                             (in string file = __FILE__, in size_t line = __LINE__)
-        {
-            shouldThrowWithMessage!T(expr, file, line);
         }
 
         void opBinary(string op, R)(R range,
@@ -943,7 +921,7 @@ auto should(E)(lazy E expr) {
                                     in size_t line = __LINE__) const
             if(op == "in")
         {
-            shouldBeIn(expr, range, file, line);
+            shouldBeIn(forward!value, range, file, line);
         }
 
         void opBinary(string op, R)(R range,
@@ -951,14 +929,14 @@ auto should(E)(lazy E expr) {
                                     in size_t line = __LINE__) const
             if(op == "~" && isInputRange!R)
         {
-            shouldBeSameSetAs(expr, range, file, line);
+            shouldBeSameSetAs(forward!value, range, file, line);
         }
 
         void opBinary(string op, E)
                      (in E expected, string file = __FILE__, size_t line = __LINE__)
             if (isFloatingPoint!E)
         {
-            shouldApproxEqual(expr, expected, 1e-2, 1e-5, file, line);
+            shouldApproxEqual(forward!value, expected, 1e-2, 1e-5, file, line);
         }
 
         auto not() {
@@ -969,16 +947,7 @@ auto should(E)(lazy E expr) {
     return Should();
 }
 
-///
-@safe pure unittest {
-    1.should == 1;
-    1.should.not == 2;
-    1.should in [1, 2, 3];
-    4.should.not in [1, 2, 3];
 
-    void funcThrows() { throw new Exception("oops"); }
-    funcThrows.should.throw_;
-}
 
 T be(T)(T sh) {
     return sh;
@@ -990,4 +959,20 @@ T be(T)(T sh) {
     1.should.not.be == 2;
     1.should.be in [1, 2, 3];
     4.should.not.be in [1, 2, 3];
+}
+
+
+/**
+   Asserts that `lowerBound` <= `actual` < `upperBound`
+ */
+void shouldBeBetween(A, L, U)
+    (auto ref A actual,
+     auto ref L lowerBound,
+     auto ref U upperBound,
+     in string file = __FILE__,
+     in size_t line = __LINE__)
+{
+    import std.conv: text;
+    if(actual < lowerBound || actual >= upperBound)
+        fail(text(actual, " is not between ", lowerBound, " and ", upperBound), file, line);
 }

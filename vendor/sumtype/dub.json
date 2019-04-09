@@ -1,9 +1,16 @@
 {
 	"name": "sumtype",
 	"authors": [
-		"Paul Backus"
+		"Paul Backus",
+		"Atila Neves"
 	],
 	"description": "A sum type with pattern matching",
 	"copyright": "Copyright © 2018, Paul Backus",
 	"license": "MIT",
+
+	"buildTypes": {
+		"unittest-opt": {
+			"buildOptions": ["unittests", "optimize", "inline"]
+		}
+	}
 }

@@ -462,3 +462,47 @@ Problems such as hidden bugs, hard to maintain etc.
 Present the 10 mutants (configurable) that has survived the longest in the system.
 
 With a link, time when they where discovered, how many times they have been tested when the last test where done etc.
+
+# REQ-suppress_mutants
+partof: REQ-report
+###
+
+The user wants to be able to disregard equivalent mutants and undesirable mutants when assessing test case quality.
+
+**Rationale**: When going through the mutation report there are some that doesn't matter (logging) or others that are *more or less* equivalent mutants. The intention then is to let the user mark these mutants such that they do not count against the score.
+
+The user wants to categories suppressed mutants when they are marked.
+
+The user wants to be able to add a comment to suppressed mutants.
+
+**Rationale**: The intention is to use these categories and comments when presenting a view of all suppressed mutants in the program to make it easier to inspect. It is to move the discussion from "Why is this mutant suppressed? I don't understand anything!" to "This mutant is of type A and has a comment explaining why it is ignored. The comment seems rationale when considering the category the mutant is part of.".
+
+The user wants to add a description to the categories so it is possible to explain what it is, when it is prudent to use, restrictions on use etc. The user then expects this description to be part of the report of the suppressed mutants.
+
+# SPC-report_suppress_mutants
+partof: REQ-suppress_mutants
+###
+
+The plugin shall produce a HTML report of the suppressed mutants.
+
+The plugin shall sort the suppress mutants in the HTML report by their category.
+
+The plugin shall use the alive color for suppressed mutants in the HTML view.
+
+**Note**: This requirement though conflicts with a usability feedback that it is not possible to *see* if a mutant is suppressed or not. As the user said:
+ * "Did I put the NOMUT at the correct place?"
+ * "Is dextool working correctly?"
+
+Thus for the requirement about the color in the HTML view an additional requirement is need:
+
+The plugin shall visualize a suppressed mutant with the "nomut" attribute.
+
+## Note
+
+There is a psychology game to play with the user here when it comes to visualizing the mutants that are marked. We do not want to encourage the user to sprinkle suppressions all over the code base. If we look at the design of clang-tidy we can see that at the end of its report it prints how many warnings where suppressed. We want to do something like that too. Let the user be able to mark mutants but discourage the behavior. Some of the tools to use to avoid this is to have an offensive color for suppressed mutants. Another tool is how the statistics are presented and help texts.
+
+# SPC-count_suppressed_mutants
+partof: REQ-suppress_mutants
+###
+
+The plugin shall count suppressed mutants as killed when calculating the mutation score.

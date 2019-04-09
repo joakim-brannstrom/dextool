@@ -15,6 +15,10 @@ import std.datetime : SysTime;
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
+import sumtype;
+
+@safe:
+
 /// Primary key in the database
 struct Pkey(Pkeys T) {
     long payload;
@@ -129,65 +133,80 @@ struct MutationStatus {
 // TODO: rename to LineMetaData.
 /// Metadata about a line in a file.
 struct LineMetadata {
-    import dextool.set;
-
     FileId id;
     uint line;
-    Set!LineAttr attrs;
+    LineAttr attr;
 
     this(FileId fid, uint line) {
-        this(fid, line, LineAttr[].init);
+        this(fid, line, LineAttr.init);
     }
 
-    this(FileId fid, uint line, LineAttr attrs) {
-        this(fid, line, [attrs]);
-    }
-
-    this(FileId fid, uint line, LineAttr[] attrs) {
+    this(FileId fid, uint line, LineAttr attr) {
         this.id = fid;
         this.line = line;
-        this.attrs = setFromList(attrs);
+        this.attr = attr;
     }
 
-    void add(LineAttr v) {
-        attrs.add(v);
+    void set(NoMut a) @safe pure nothrow @nogc {
+        attr = LineAttr(a);
     }
 
-    bool contains(LineAttr v) {
-        return attrs.contains(v);
+    bool isNoMut() @safe pure nothrow const @nogc {
+        return attr.match!((NoMetadata a) => false, (NoMut a) => true);
     }
 }
 
-// TODO: rename this to MutationMetaData.
-/// Attributes for a line.
-enum LineAttr {
-    /// Suppress all alive mutants on the line.
-    noMut
+struct NoMetadata {
 }
+
+/// A mutation suppression with optional tag and comment.
+struct NoMut {
+    string tag;
+    string comment;
+}
+
+/// Metadata attributes that may be attached to a mutant.
+alias MutantAttr = SumType!(NoMetadata, NoMut);
+
+/// Metadata attributes that may be attached to a line.
+alias LineAttr = SumType!(NoMetadata, NoMut);
 
 /// Metadata about a mutant.
 struct MutantMetaData {
-    import dextool.set;
+    import std.range : isOutputRange;
 
     MutationId id;
-    Set!LineAttr attrs;
-
-    alias attrs this;
+    MutantAttr attr;
 
     this(MutationId id) {
-        this(id, LineAttr[].init);
+        this(id, MutantAttr.init);
     }
 
-    this(MutationId id, LineAttr[] attrs) {
+    this(MutationId id, MutantAttr attr) {
         this.id = id;
-        this.attrs = setFromList(attrs);
+        this.attr = attr;
     }
 
-    void add(LineAttr v) {
-        attrs.add(v);
+    void set(NoMut a) @safe pure nothrow @nogc {
+        attr = MutantAttr(a);
     }
 
-    bool contains(LineAttr v) {
-        return attrs.contains(v);
+    bool isNoMut() @safe pure nothrow const @nogc {
+        return attr.match!((NoMetadata a) => false, (NoMut a) => true);
+    }
+
+    string kindToString() @safe pure const {
+        import std.array : appender;
+        import std.format : FormatSpec;
+
+        auto buf = appender!string;
+        kindToString(buf);
+        return buf.data;
+    }
+
+    void kindToString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.range : put;
+
+        attr.match!((NoMetadata a) {}, (NoMut a) => put(w, "nomut"));
     }
 }

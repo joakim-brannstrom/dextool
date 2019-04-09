@@ -238,7 +238,7 @@ struct FileIndex {
                     muts.data.map!(a => a.mut.status.to!string))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
-                    muts.data.map!(a => format("%(%s,%)", a.metaData.byKey)))));
+                    muts.data.map!(a => a.metaData.kindToString))));
             appendText("\n");
         }
 
@@ -254,6 +254,7 @@ struct FileIndex {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
+        import dextool.plugin.mutate.backend.report.html.page_nomut;
         import dextool.plugin.mutate.backend.report.html.page_short_term_view;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
@@ -262,6 +263,7 @@ struct FileIndex {
         const short_f = buildPath(logDir, "short_term_view" ~ htmlExt);
         const long_f = buildPath(logDir, "long_term_view" ~ htmlExt);
         const test_groups_f = buildPath(logDir, "test_groups" ~ htmlExt);
+        const nomut_f = buildPath(logDir, "nomut" ~ htmlExt);
 
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
@@ -275,12 +277,14 @@ struct FileIndex {
         }
         index.mainBody.addChild("p").addChild("a", "Long Term View").href = long_f.baseName;
         index.mainBody.addChild("p").addChild("a", "Test Groups").href = test_groups_f.baseName;
+        index.mainBody.addChild("p").addChild("a", "NoMut Details").href = nomut_f.baseName;
 
         files.data.toIndex(index.mainBody, htmlFileDir);
 
         File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
         File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
         File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
+        File(nomut_f, "w").write(makeNomut(db, conf, humanReadableKinds, kinds));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
     }
 

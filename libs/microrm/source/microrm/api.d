@@ -38,14 +38,13 @@ struct Microrm {
     alias getUnderlyingDb this;
 
     ///
-    this(Database db, size_t queryBufferInitReserve = 512) {
+    this(Database db) {
         this.db = db;
     }
 
     ///
-    this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-            size_t queryBufferInitReserve = 512) {
-        this(Database(path, flags), queryBufferInitReserve);
+    this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
+        this(Database(path, flags));
     }
 
     ~this() {
@@ -92,8 +91,7 @@ struct Microrm {
         import std.format : format;
         import std.range : inputRangeObject;
 
-        const q = v.toSql.toString;
-        auto result = db.executeCheck(q);
+        auto result = db.executeCheck(v.toSql.toString);
 
         static T qconv(typeof(result.front) e) {
             import microrm.schema : fieldToCol;

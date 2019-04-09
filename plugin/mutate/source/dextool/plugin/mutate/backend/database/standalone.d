@@ -44,10 +44,11 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable, Flag, No;
+    import microrm : Microrm, select, insert;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
-    SqlDatabase db;
+    Microrm db;
     alias db this;
 
     /** Create a database by either opening an existing or initializing a new.
@@ -96,11 +97,11 @@ struct Database {
 
     /// Returns: the path ID for the mutant.
     Nullable!FileId getFileId(const MutationId id) @trusted {
-        enum get_path_id_sql = format("SELECT t1.file_id
+        enum sql = format("SELECT t1.file_id
             FROM %s t0, %s t1
             WHERE t0.id = :id AND t0.mp_id = t1.id",
                     mutationTable, mutationPointTable);
-        auto stmt = db.prepare(get_path_id_sql);
+        auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
@@ -111,8 +112,8 @@ struct Database {
 
     /// Returns: the file path that the id correspond to.
     Nullable!Path getFile(const FileId id) @trusted {
-        enum get_path_id_sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
-        auto stmt = db.prepare(get_path_id_sql);
+        enum sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
+        auto stmt = db.prepare(sql);
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
@@ -272,18 +273,18 @@ struct Database {
     }
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
-        enum sql = format!"SELECT nomut FROM %s WHERE mut_id = :mid"(srcMetadataTable);
-        auto stmt = db.prepare(sql);
-        stmt.bind(":mid", cast(long) id);
-
         auto rval = MutantMetaData(id);
-
-        foreach (res; stmt.execute) {
-            if (res.peek!long(0) != 0)
-                rval.add(LineAttr.noMut);
+        foreach (res; db.run(select!NomutDataTable.where("mut_id =", cast(long) id))) {
+            rval.set(NoMut(res.tag, res.comment));
         }
-
         return rval;
+    }
+
+    //TODO: this is a bit inefficient. it should use a callback iterator
+    MutantMetaData[] getMutantationMetaData() @trusted {
+        return db.run(select!NomutDataTable)
+            .map!(a => MutantMetaData(MutationId(a.mutationId), MutantAttr(NoMut(a.tag, a.comment))))
+            .array;
     }
 
     Nullable!Path getPath(const MutationId id) @trusted {
@@ -379,7 +380,8 @@ struct Database {
     }
 
     LineMetadata getLineMetadata(const FileId fid, const SourceLoc sloc) @trusted {
-        enum sql = format("SELECT nomut FROM %s
+        // TODO: change this select to using microrm
+        enum sql = format("SELECT nomut,tag,comment FROM %s
             WHERE
             file_id = :fid AND
             line = :line", rawSrcMetadataTable);
@@ -390,7 +392,7 @@ struct Database {
         auto rval = typeof(return)(fid, sloc.line);
         foreach (res; stmt.execute) {
             if (res.peek!long(0) != 0)
-                rval.add(LineAttr.noMut);
+                rval.set(NoMut(res.peek!string(1), res.peek!string(2)));
         }
 
         return rval;
@@ -715,11 +717,13 @@ struct Database {
      * metadata with mutants.
      */
     void put(const LineMetadata[] mdata) {
-        import dextool.set;
+        import sumtype;
 
+        // TODO: convert to microrm
         enum sql = format("INSERT OR IGNORE INTO %s
-            (file_id, line, nomut)
-            VALUES(:fid, :line, :nomut)", rawSrcMetadataTable);
+            (file_id, line, nomut, tag, comment)
+            VALUES(:fid, :line, :nomut, :tag, :comment)",
+                    rawSrcMetadataTable);
 
         db.begin;
         scope (failure)
@@ -727,7 +731,8 @@ struct Database {
 
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
-            stmt.bindAll(cast(long) meta.id, meta.line, meta.attrs.contains(LineAttr.noMut));
+            auto nomut = meta.attr.match!((NoMetadata a) => NoMut.init, (NoMut a) => a);
+            stmt.bindAll(cast(long) meta.id, meta.line, meta.isNoMut, nomut.tag, nomut.comment);
             stmt.execute;
             stmt.reset;
         }

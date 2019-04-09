@@ -21,7 +21,7 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
         "oooooooooooooo",
         "barrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
         "rrr",
-        "bun"); // NOMUT
+        "bun"); // NOMUT (group1)
 
     Wun wun;
     wun.major(
@@ -29,7 +29,7 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
         "oooooooooooooo",
         "barrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
         "rrr",
-        "bun"); // NOMUT
+        "bun"); // NOMUT (group1) with comment
 
     return "false"; //       NOMUT
 }

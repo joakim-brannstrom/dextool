@@ -1,6 +1,9 @@
 module unit_threaded.ut.mock;
 
+
 import unit_threaded.mock;
+import unit_threaded.asserts;
+
 
 @("mock interface verify fails")
 @safe pure unittest {
@@ -44,8 +47,9 @@ import unit_threaded.mock;
 
     auto m = mock!Foo;
     m.expect!"foo";
-    m.verify.shouldThrowWithMessage("Expected nth 0 call to foo did not happen");
+    m.verify.shouldThrowWithMessage("Expected nth 0 call to `foo` did not happen");
 }
+
 
 // can't be in the unit test itself
 private class Class {
@@ -89,6 +93,7 @@ private class Class {
     m.verify;
 }
 
+
 @("mock struct negative")
 @safe pure unittest {
     import unit_threaded.asserts;
@@ -96,8 +101,7 @@ private class Class {
     auto m = mockStruct;
     m.expect!"foobar";
     assertExceptionMsg(m.verify,
-                       "    tests/unit_threaded/ut/mock.d:123 - Expected nth 0 call to foobar did not happen\n");
-
+                       "    tests/unit_threaded/ut/mock.d:123 - Expected nth 0 call to `foobar` did not happen\n");
 }
 
 @("mock struct values negative")
@@ -219,4 +223,202 @@ unittest {
     cMock.returnValue!(1, "over")("baz");
     cMock.over.shouldEqual("bar");
     cMock.over("zing").shouldEqual("baz");
+}
+
+
+///
+@("mock struct positive")
+@safe pure unittest {
+    void fun(T)(T t) {
+        t.foobar;
+    }
+    auto m = mockStruct;
+    m.expect!"foobar";
+    fun(m);
+    m.verify;
+}
+
+
+///
+@("mock struct values positive")
+@safe pure unittest {
+    void fun(T)(T t) {
+        t.foobar(2, "quux");
+    }
+
+    auto m = mockStruct;
+    m.expect!"foobar"(2, "quux");
+    fun(m);
+    m.verify;
+}
+
+
+///
+@("struct return value")
+@safe pure unittest {
+
+    int fun(T)(T f) {
+        return f.timesN(3) * 2;
+    }
+
+    auto m = mockStruct(42, 12);
+    assert(fun(m) == 84);
+    assert(fun(m) == 24);
+    assert(fun(m) == 0);
+    m.expectCalled!"timesN";
+}
+
+///
+@("struct expectCalled")
+@safe pure unittest {
+    void fun(T)(T t) {
+        t.foobar(2, "quux");
+    }
+
+    auto m = mockStruct;
+    fun(m);
+    m.expectCalled!"foobar"(2, "quux");
+}
+
+///
+@("mockStruct different return types for different functions")
+@safe pure unittest {
+    auto m = mockStruct!(ReturnValues!("length", 5),
+                         ReturnValues!("greet", "hello"));
+    assert(m.length == 5);
+    assert(m.greet("bar") == "hello");
+    m.expectCalled!"length";
+    m.expectCalled!"greet"("bar");
+}
+
+///
+@("mockStruct different return types for different functions and multiple return values")
+@safe pure unittest {
+    auto m = mockStruct!(
+        ReturnValues!("length", 5, 3),
+        ReturnValues!("greet", "hello", "g'day"),
+        ReturnValues!("list", [1, 2, 3]),
+    );
+
+    assert(m.length == 5);
+    m.expectCalled!"length";
+    assert(m.length == 3);
+    m.expectCalled!"length";
+
+    assert(m.greet("bar") == "hello");
+    m.expectCalled!"greet"("bar");
+    assert(m.greet("quux") == "g'day");
+    m.expectCalled!"greet"("quux");
+
+    assertEqual(m.list, [1, 2, 3]);
+}
+
+
+///
+@("throwStruct default")
+@safe pure unittest {
+    import std.exception: assertThrown;
+    import unit_threaded.exception: UnitTestException;
+    auto m = throwStruct;
+    assertThrown!UnitTestException(m.foo);
+    assertThrown!UnitTestException(m.bar(1, "foo"));
+}
+
+
+@("const mockStruct values")
+@safe pure unittest {
+    const m = mockStruct(42);
+    assertEqual(m.length, 42);
+    assertEqual(m.length, 42);
+}
+
+
+@("const mockStruct ReturnValues")
+@safe pure unittest {
+    const m = mockStruct!(ReturnValues!("length", 42));
+    assertEqual(m.length, 42);
+    assertEqual(m.length, 42);
+}
+
+
+@("mockReturn")
+@safe pure unittest {
+    auto m = mockStruct(
+        mockReturn!"length"(5, 3),
+        mockReturn!"greet"("hello", "g'day"),
+        mockReturn!"list"([1, 2, 3]),
+    );
+
+    assert(m.length == 5);
+    m.expectCalled!"length";
+    assertEqual(m.length, 3);
+    m.expectCalled!"length";
+
+    assertEqual(m.greet("bar"), "hello");
+    m.expectCalled!"greet"("bar");
+    assertEqual(m.greet("quux"), "g'day");
+    m.expectCalled!"greet"("quux");
+
+    assertEqual(m.list, [1, 2, 3]);
+}
+
+
+@safe pure unittest {
+
+    static struct Cursor {
+        enum Kind {
+            StructDecl,
+            FieldDecl,
+        }
+    }
+
+    static struct Type {
+        enum Kind {
+            Int,
+            Double,
+        }
+    }
+
+    const cursor = mockStruct(
+        mockReturn!"kind"(Cursor.Kind.StructDecl),
+        mockReturn!"spelling"("Foo"),
+        mockReturn!"children"(
+            [
+                mockStruct(mockReturn!("kind")(Cursor.Kind.FieldDecl),
+                           mockReturn!"spelling"("i"),
+                           mockReturn!("type")(
+                               mockStruct(
+                                   mockReturn!"kind"(Type.Kind.Int),
+                                   mockReturn!"spelling"("int"),
+                               )
+                           )
+                ),
+                mockStruct(mockReturn!("kind")(Cursor.Kind.FieldDecl),
+                           mockReturn!"spelling"("d"),
+                           mockReturn!("type")(
+                               mockStruct(
+                                   mockReturn!"kind"(Type.Kind.Double),
+                                   mockReturn!"spelling"("double"),
+                               )
+                           )
+                ),
+            ],
+        ),
+    );
+
+    assertEqual(cursor.kind, Cursor.Kind.StructDecl);
+    assertEqual(cursor.spelling, "Foo");
+    assertEqual(cursor.children.length, 2);
+
+    const i = cursor.children[0];
+    assertEqual(i.kind, Cursor.Kind.FieldDecl);
+    assertEqual(i.spelling, "i");
+    assertEqual(i.type.kind, Type.Kind.Int);
+    assertEqual(i.type.spelling, "int");
+
+    const d = cursor.children[1];
+    assertEqual(d.kind, Cursor.Kind.FieldDecl);
+    assertEqual(d.spelling, "d");
+    assertEqual(d.type.kind, Type.Kind.Double);
+    assertEqual(d.type.spelling, "double");
 }

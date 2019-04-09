@@ -44,6 +44,7 @@ auto sourcePath() {
                 "clang",
                 "dextool_clang_extensions",
                 "dsrcgen/source",
+                "libs",
                 "llvm_hiwrap/source",
                 "plugin",
                 "source",
@@ -123,12 +124,16 @@ auto consoleStaticAnalyse(R)(R lines) {
 }
 
 void print(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
+    static immutable string[] escCodes = [
+        "\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"
+    ];
     write(escCodes[c], args, escCodes[Color.cancel]);
 }
 
 void println(T...)(Color c, T args) {
-    static immutable string[] escCodes = ["\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"];
+    static immutable string[] escCodes = [
+        "\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"
+    ];
     writeln(escCodes[c], args, escCodes[Color.cancel]);
 }
 
