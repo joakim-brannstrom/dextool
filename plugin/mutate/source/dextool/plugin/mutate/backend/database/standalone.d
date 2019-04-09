@@ -281,10 +281,25 @@ struct Database {
     }
 
     //TODO: this is a bit inefficient. it should use a callback iterator
-    MutantMetaData[] getMutantationMetaData() @trusted {
-        return db.run(select!NomutDataTable)
-            .map!(a => MutantMetaData(MutationId(a.mutationId), MutantAttr(NoMut(a.tag, a.comment))))
-            .array;
+    MutantMetaData[] getMutantationMetaData(const Mutation.Kind[] kinds, const Mutation
+            .Status status) @trusted {
+        auto sql = format!"SELECT t.mut_id, t.tag, t.comment
+        FROM %s t, %s t1, %s t2
+        WHERE
+        t.mut_id = t1.id AND
+        t1.st_id = t2.id AND
+        t2.status = :status AND
+        t1.kind IN (%(%s,%))"(nomutDataTable,
+                mutationTable, mutationStatusTable, kinds.map!(a => cast(long) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":status", cast(long) status);
+
+        auto app = appender!(MutantMetaData[])();
+        foreach (res; stmt.execute) {
+            app.put(MutantMetaData(MutationId(res.peek!long(0)),
+                    MutantAttr(NoMut(res.peek!string(1), res.peek!string(2)))));
+        }
+        return app.data;
     }
 
     Nullable!Path getPath(const MutationId id) @trusted {
