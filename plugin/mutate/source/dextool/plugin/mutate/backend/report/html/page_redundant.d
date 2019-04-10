@@ -39,7 +39,8 @@ auto makeRedundantAnalyse(ref Database db, ref const ConfigReport conf,
 private:
 
 void toHtml(MinimalTestSet min_set, Element root) {
-    root.addChild("h2", "Ineffective Test Cases");
+    root.addChild("h2", format!"Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
+            min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total));
     root.addChild("p", "These test cases do not contribute towards the mutation score.");
     {
         auto tbl = tmplDefaultTable(root, ["Test Case"]);
@@ -49,7 +50,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
         }
     }
 
-    root.addChild("h2", "Minimal Set");
+    root.addChild("h2", format!"Minimal Set (%s/%s %s)"(min_set.minimalSet.length,
+            min_set.total, cast(double) min_set.minimalSet.length / cast(double) min_set.total));
     root.addChild("p", "This is the minimum set of tests that achieve the mutation score.");
     {
         auto tbl = tmplDefaultTable(root, ["Test Case"]);
