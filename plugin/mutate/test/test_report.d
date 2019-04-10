@@ -537,5 +537,13 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
             `<br`,
             `with comment`
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
+
+        // mutants should only be reported one time.
+        testConsecutiveSparseOrder!SubStr([
+            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
+            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
+            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
+            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
+        ]).shouldNotBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
     }
 }
