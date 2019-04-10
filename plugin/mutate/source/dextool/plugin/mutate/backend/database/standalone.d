@@ -283,14 +283,16 @@ struct Database {
     //TODO: this is a bit inefficient. it should use a callback iterator
     MutantMetaData[] getMutantationMetaData(const Mutation.Kind[] kinds, const Mutation
             .Status status) @trusted {
-        auto sql = format!"SELECT t.mut_id, t.tag, t.comment
+        const sql = format!"SELECT DISTINCT t.mut_id, t.tag, t.comment
         FROM %s t, %s t1, %s t2
         WHERE
         t.mut_id = t1.id AND
         t1.st_id = t2.id AND
         t2.status = :status AND
-        t1.kind IN (%(%s,%))"(nomutDataTable,
-                mutationTable, mutationStatusTable, kinds.map!(a => cast(long) a));
+        t1.kind IN (%(%s,%))
+        ORDER BY
+        t.mut_id"(nomutDataTable, mutationTable,
+                mutationStatusTable, kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
         stmt.bind(":status", cast(long) status);
 
