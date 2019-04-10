@@ -58,8 +58,10 @@ ReportSection[] toSections(const ReportLevel l) {
         secs = [summary, mut_stat, tc_killed_no_mutants, tc_full_overlap, alive];
         break;
     case ReportLevel.all:
-        secs = [summary, mut_stat, all_mut, tc_killed,
-            tc_killed_no_mutants, tc_full_overlap];
+        secs = [
+            summary, mut_stat, all_mut, tc_killed, tc_killed_no_mutants,
+            tc_full_overlap
+        ];
         break;
     }
 
@@ -151,7 +153,8 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
         try {
             auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
             typeof(tbl).Row r = [
-                percentage.to!string, v.value.to!string, v.key.name, v.key.location
+                percentage.to!string, v.value.to!string, v.key.name,
+                v.key.location
             ];
             tbl.put(r);
         } catch (Exception e) {
@@ -771,6 +774,42 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         rval.score = 1.0;
     } else {
         rval.score = cast(double) killed / cast(double) total;
+    }
+
+    return rval;
+}
+
+struct MinimalTestSet {
+    /// Minimal set that achieve the mutation test score.
+    TestCase[] minimalSet;
+    /// Test cases that do not contribute to the mutation test score.
+    TestCase[] redundant;
+}
+
+MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
+    import std.algorithm : map, filter;
+    import std.typecons : Tuple, tuple;
+    import dextool.plugin.mutate.backend.database : TestCaseId;
+    import dextool.set;
+
+    alias IdName = Tuple!(TestCase, "tc", TestCaseId, "id");
+
+    MinimalTestSet rval;
+
+    Set!MutationId killedMutants;
+
+    foreach (const val; db.getDetectedTestCases
+            .map!(a => tuple(a, db.getTestCaseId(a)))
+            .filter!(a => !a[1].isNull)
+            .map!(a => IdName(a[0], a[1]))) {
+        const killed = killedMutants.length;
+        foreach (const id; db.getTestCaseMutantKills(val.id, kinds)) {
+            killedMutants.add(id);
+        }
+        if (killedMutants.length > killed)
+            rval.minimalSet ~= val.tc;
+        else
+            rval.redundant ~= val.tc;
     }
 
     return rval;
