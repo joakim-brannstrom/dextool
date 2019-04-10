@@ -1062,6 +1062,19 @@ struct Database {
         return res.oneValue!string;
     }
 
+    /// Returns: the test case id.
+    Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
+        enum sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":name", tc.name);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            rval = TestCaseId(res.peek!long(0));
+        }
+        return rval;
+    }
+
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
         immutable sql = format!"SELECT t2.id
