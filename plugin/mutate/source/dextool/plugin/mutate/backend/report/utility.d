@@ -780,6 +780,8 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 }
 
 struct MinimalTestSet {
+    long total;
+
     /// Minimal set that achieve the mutation test score.
     TestCase[] minimalSet;
     /// Test cases that do not contribute to the mutation test score.
@@ -811,6 +813,8 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
         else
             rval.redundant ~= val.tc;
     }
+
+    rval.total = rval.minimalSet.length + rval.redundant.length;
 
     return rval;
 }

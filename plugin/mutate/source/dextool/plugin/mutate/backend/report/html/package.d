@@ -280,6 +280,8 @@ struct FileIndex {
         index.mainBody.addChild("p").addChild("a", "Long Term View").href = long_f.baseName;
         index.mainBody.addChild("p").addChild("a", "Test Groups").href = test_groups_f.baseName;
         index.mainBody.addChild("p").addChild("a", "NoMut Details").href = nomut_f.baseName;
+        index.mainBody.addChild("p").addChild("a", "Minimal Test Set").href = minimal_set_f
+            .baseName;
 
         files.data.toIndex(index.mainBody, htmlFileDir);
 
