@@ -27,7 +27,7 @@ auto makeRedundantAnalyse(ref Database db, ref const ConfigReport conf,
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
-    doc.title(format("Redundant Analyse %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title(format("Minimal Set Analyse %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.addChild("p",
             "This are the minimal set of mutants that result in the mutation score.");
 
@@ -39,25 +39,42 @@ auto makeRedundantAnalyse(ref Database db, ref const ConfigReport conf,
 private:
 
 void toHtml(MinimalTestSet min_set, Element root) {
+    import core.time : Duration;
+    import std.conv : to;
+
     root.addChild("h2", format!"Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
             min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total));
     root.addChild("p", "These test cases do not contribute towards the mutation score.");
     {
-        auto tbl = tmplDefaultTable(root, ["Test Case"]);
+        auto tbl = tmplDefaultTable(root, [
+                "Test Case", "Killed", "Sum of test time"
+                ]);
+        Duration sum;
         foreach (const tc; min_set.redundant) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
+            r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
+            r.addChild("td", min_set.testCaseTime[tc.name].time.to!string);
+            sum += min_set.testCaseTime[tc.name].time;
         }
+        root.addChild("p", format("Total test time: %s", sum));
     }
 
     root.addChild("h2", format!"Minimal Set (%s/%s %s)"(min_set.minimalSet.length,
             min_set.total, cast(double) min_set.minimalSet.length / cast(double) min_set.total));
     root.addChild("p", "This is the minimum set of tests that achieve the mutation score.");
     {
-        auto tbl = tmplDefaultTable(root, ["Test Case"]);
+        auto tbl = tmplDefaultTable(root, [
+                "Test Case", "Killed", "Sum of test time"
+                ]);
+        Duration sum;
         foreach (const tc; min_set.minimalSet) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
+            r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
+            r.addChild("td", min_set.testCaseTime[tc.name].to!string);
+            sum += min_set.testCaseTime[tc.name].time;
         }
+        root.addChild("p", format("Total test time: %s", sum));
     }
 }

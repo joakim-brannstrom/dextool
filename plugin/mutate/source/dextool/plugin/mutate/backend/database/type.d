@@ -112,6 +112,13 @@ struct MutantInfo {
     SourceLoc sloc;
 }
 
+struct TestCaseInfo {
+    /// The sum on the execution time of killing the mutants.
+    Duration time;
+    ///
+    long killedMutants;
+}
+
 struct MutationStatusTime {
     import std.datetime : SysTime;
 

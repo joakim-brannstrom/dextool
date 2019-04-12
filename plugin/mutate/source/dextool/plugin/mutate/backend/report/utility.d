@@ -780,12 +780,16 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 }
 
 struct MinimalTestSet {
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
+
     long total;
 
     /// Minimal set that achieve the mutation test score.
     TestCase[] minimalSet;
     /// Test cases that do not contribute to the mutation test score.
     TestCase[] redundant;
+    /// Map between test case name and sum of all the test time of the mutants it killed.
+    TestCaseInfo[string] testCaseTime;
 }
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
@@ -804,10 +808,15 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
             .map!(a => tuple(a, db.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
             .map!(a => IdName(a[0], a[1]))) {
+        const tc_info = db.getTestCaseInfo(val.tc, kinds);
+        if (!tc_info.isNull)
+            rval.testCaseTime[val.tc.name] = tc_info.get;
+
         const killed = killedMutants.length;
         foreach (const id; db.getTestCaseMutantKills(val.id, kinds)) {
             killedMutants.add(id);
         }
+
         if (killedMutants.length > killed)
             rval.minimalSet ~= val.tc;
         else

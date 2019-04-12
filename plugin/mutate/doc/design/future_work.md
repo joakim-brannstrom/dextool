@@ -126,6 +126,8 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * impl execution of mutants on only changed lines.
+ * rank mutants by how much they changed the source code. more tokens then higher risk? Add to high interest mutants.
  * show nr of mutants that the test case kill of those that are in the test group
  * speedup retesting of timeout mutants by only resetting those that are "newly" found.
    This must handle the case where the instance is restarted.
@@ -151,8 +153,4 @@ New items are added at the top
  * add an attribute to mutants so they can be marked as "inspected/equivalent"
  * split the total time spent on mutation testing in: compile and execute tests
  * the time spent on mutations should always be added to the existing time, not overwritten.
- * Write requirement for the automatic "reanalyze" of files that has changed
-   compared to those in the database.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
- * Fix sdl
-     It only implements function deletion. Which are "wrong" when inside a binary operator.
