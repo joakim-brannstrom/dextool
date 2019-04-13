@@ -72,7 +72,7 @@ void toHtml(MinimalTestSet min_set, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
             r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
-            r.addChild("td", min_set.testCaseTime[tc.name].to!string);
+            r.addChild("td", min_set.testCaseTime[tc.name].time.to!string);
             sum += min_set.testCaseTime[tc.name].time;
         }
         root.addChild("p", format("Total test time: %s", sum));
