@@ -255,7 +255,7 @@ struct FileIndex {
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
-        import dextool.plugin.mutate.backend.report.html.page_redundant;
+        import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_short_term_view;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
@@ -289,7 +289,7 @@ struct FileIndex {
         File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
         File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
         File(nomut_f, "w").write(makeNomut(db, conf, humanReadableKinds, kinds));
-        File(minimal_set_f, "w").write(makeRedundantAnalyse(db, conf, humanReadableKinds, kinds));
+        File(minimal_set_f, "w").write(makeMinimalSetAnalyse(db, conf, humanReadableKinds, kinds));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
     }
 

@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.mutate.backend.report.html.page_redundant;
+module dextool.plugin.mutate.backend.report.html.page_minimal_set;
 
 import logger = std.experimental.logger;
 import std.format : format;
@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
-auto makeRedundantAnalyse(ref Database db, ref const ConfigReport conf,
+auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
@@ -72,7 +72,7 @@ void toHtml(MinimalTestSet min_set, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
             r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
-            r.addChild("td", min_set.testCaseTime[tc.name].to!string);
+            r.addChild("td", min_set.testCaseTime[tc.name].time.to!string);
             sum += min_set.testCaseTime[tc.name].time;
         }
         root.addChild("p", format("Total test time: %s", sum));
