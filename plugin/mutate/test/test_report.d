@@ -174,7 +174,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@(testId ~ "shall report test cases with how many mutants killed correctly counting the sum of mutants to as two")
+@(testId ~ "shall report test cases with how many mutants killed correctly counting the sum of mutants as two")
 unittest {
     // regression that the count of mutations are the total are correct (killed+timeout+alive)
     import dextool.plugin.mutate.backend.type : TestCase;
@@ -208,11 +208,11 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        "| Percentage | Count | TestCase | Location |",
-        "|------------|-------|----------|----------|",
-        "| 80         | 4     | tc_2     |          |",
-        "| 40         | 2     | tc_3     |          |",
-        "| 40         | 2     | tc_1     |          |",
+        "| Percentage | Count | TestCase |",
+        "|------------|-------|----------|",
+        "| 80         | 4     | tc_2     |",
+        "| 40         | 2     | tc_3     |",
+        "| 40         | 2     | tc_1     |",
     ]).shouldBeIn(r.stdout);
 }
 

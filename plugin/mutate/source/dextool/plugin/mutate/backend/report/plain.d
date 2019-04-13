@@ -45,7 +45,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
-    long[TestCase] testCaseStat;
 
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
@@ -112,14 +111,6 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
                 auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
-
-                foreach (const a; r.testCases) {
-                    if (auto v = a in testCaseStat) {
-                        ++(*v);
-                    } else {
-                        testCaseStat[a] = 1;
-                    }
-                }
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
@@ -222,14 +213,13 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
         auto stdout_ = () @trusted { return stdout; }();
 
-        if (ReportSection.tc_stat in sections && testCaseStat.length != 0) {
+        if (ReportSection.tc_stat in sections) {
             logger.info("Test Case Kill Statistics");
-            Table!4 tc_tbl;
+            Table!3 tc_tbl;
 
-            tc_tbl.heading = ["Percentage", "Count", "TestCase", "Location"];
+            tc_tbl.heading = ["Percentage", "Count", "TestCase"];
             const total = db.totalMutants(kinds);
-            reportTestCaseStats(testCaseStat, total.count, conf.tcKillSortNum,
-                    conf.tcKillSortOrder, tc_tbl);
+            reportTestCaseStats(db, kinds, conf.tcKillSortNum, conf.tcKillSortOrder, tc_tbl);
 
             writeln(tc_tbl);
         }
