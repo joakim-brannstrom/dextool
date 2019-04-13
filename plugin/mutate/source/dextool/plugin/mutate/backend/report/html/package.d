@@ -260,37 +260,34 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
 
-        const stats_f = buildPath(logDir, "stats" ~ htmlExt);
-        const short_f = buildPath(logDir, "short_term_view" ~ htmlExt);
-        const long_f = buildPath(logDir, "long_term_view" ~ htmlExt);
-        const test_groups_f = buildPath(logDir, "test_groups" ~ htmlExt);
-        const nomut_f = buildPath(logDir, "nomut" ~ htmlExt);
-        const minimal_set_f = buildPath(logDir, "minimal_set" ~ htmlExt);
-
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
-        index.mainBody.addChild("p").addChild("a", "Statistics").href = stats_f.baseName;
-
-        if (!diff.empty) {
-            index.mainBody.addChild("p").addChild("a", "Short Term View").href = short_f.baseName;
-            File(short_f, "w").write(makeShortTermView(db, conf,
-                    humanReadableKinds, kinds, diff, fio.getOutputDir));
-        }
-        index.mainBody.addChild("p").addChild("a", "Long Term View").href = long_f.baseName;
-        index.mainBody.addChild("p").addChild("a", "Test Groups").href = test_groups_f.baseName;
-        index.mainBody.addChild("p").addChild("a", "NoMut Details").href = nomut_f.baseName;
-        index.mainBody.addChild("p").addChild("a", "Minimal Test Set").href = minimal_set_f
-            .baseName;
-
         files.data.toIndex(index.mainBody, htmlFileDir);
-
-        File(stats_f, "w").write(makeStats(db, conf, humanReadableKinds, kinds));
-        File(long_f, "w").write(makeLongTermView(db, conf, humanReadableKinds, kinds));
-        File(test_groups_f, "w").write(makeTestGroups(db, conf, humanReadableKinds, kinds));
-        File(nomut_f, "w").write(makeNomut(db, conf, humanReadableKinds, kinds));
-        File(minimal_set_f, "w").write(makeMinimalSetAnalyse(db, conf, humanReadableKinds, kinds));
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
+
+        void addSubPage(Fn)(Fn fn, string name, string link_txt) {
+            import std.functional : unaryFun;
+
+            const fname = buildPath(logDir, name ~ htmlExt);
+            index.mainBody.addChild("p").addChild("a", link_txt).href = fname.baseName;
+            File(fname, "w").write(fn());
+        }
+
+        addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
+        if (!diff.empty) {
+            addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds),
+                    "short_term_view", "Short Term View");
+        }
+        addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
+                "long_term_view", "Long Term View");
+        addSubPage(() => makeTestGroups(db, conf, humanReadableKinds, kinds),
+                "test_groups", "Test Groups");
+        addSubPage(() => makeNomut(db, conf, humanReadableKinds, kinds), "nomut", "NoMut Details");
+        addSubPage(() => makeMinimalSetAnalyse(db, conf, humanReadableKinds,
+                kinds), "minimal_set", "Minimal Test Set");
+        addSubPage(() => makeMinimalSetAnalyse(db, conf, humanReadableKinds,
+                kinds), "test_case_distance", "Test Case Distance");
     }
 
     override void endEvent(ref Database) {
