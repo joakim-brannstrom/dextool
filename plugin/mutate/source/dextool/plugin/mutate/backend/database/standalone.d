@@ -1063,6 +1063,29 @@ struct Database {
     }
 
     /// Returns: the test case id.
+    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
+        import core.time : dur;
+
+        const sql = format("SELECT sum(t2.time),count(t1.st_id)
+            FROM %s t0, %s t1, %s t2, %s t3
+            WHERE
+            t0.name = :name AND
+            t0.id = t1.tc_id AND
+            t1.st_id = t2.id AND
+            t2.id = t3.st_id AND
+            t3.kind IN (%(%s,%))", allTestCaseTable,
+                killedTestCaseTable, mutationStatusTable, mutationTable,
+                kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":name", tc.name);
+
+        typeof(return) rval;
+        foreach (a; stmt.execute)
+            rval = TestCaseInfo(a.peek!long(0).dur!"msecs", a.peek!long(1));
+        return rval;
+    }
+
+    /// Returns: the test case id.
     Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
         enum sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
         auto stmt = db.prepare(sql);
