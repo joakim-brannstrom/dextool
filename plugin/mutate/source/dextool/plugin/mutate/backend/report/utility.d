@@ -117,25 +117,32 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
  *  take_ = how many from the top should be moved to the table
  *  tbl = table to write the data to
  */
-void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
-        const long take_, const ReportKillSortOrder sort_order, ref Table!4 tbl) @safe nothrow {
-    import std.algorithm : sort;
+void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
+        const long take_, const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
+    import std.algorithm : sort, map;
     import std.array : array;
     import std.conv : to;
     import std.range : take, retro;
+    import std.typecons : Tuple;
+    import dextool.plugin.mutate.backend.database : spinSqlQuery;
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
+
+    alias TcInfo = Tuple!(string, "name", TestCaseInfo, "tc");
+
+    const total = spinSqlQuery!(() { return db.totalMutants(kinds).count; });
 
     // nothing to do. this also ensure that we do not divide by zero.
     if (total == 0)
         return;
 
     static bool cmp(T)(ref T a, ref T b) {
-        if (a.value > b.value)
+        if (a.tc.killedMutants > b.tc.killedMutants)
             return true;
-        else if (a.value < b.value)
+        else if (a.tc.killedMutants < b.tc.killedMutants)
             return false;
-        else if (a.key > b.key)
+        else if (a.name > b.name)
             return true;
-        else if (a.key < b.key)
+        else if (a.name < b.name)
             return false;
         return false;
     }
@@ -149,12 +156,17 @@ void reportTestCaseStats(ref const long[TestCase] mut_stat, const long total,
         }
     }
 
-    foreach (v; takeOrder(mut_stat.byKeyValue.array.sort!cmp)) {
+    auto test_cases = spinSqlQuery!(() { return db.getDetectedTestCases; });
+
+    foreach (v; takeOrder(test_cases.map!(a => TcInfo(a.name, spinSqlQuery!(() {
+                return db.getTestCaseInfo(a, kinds);
+            })))
+            .array
+            .sort!cmp)) {
         try {
-            auto percentage = (cast(double) v.value / cast(double) total) * 100.0;
+            auto percentage = (cast(double) v.tc.killedMutants / cast(double) total) * 100.0;
             typeof(tbl).Row r = [
-                percentage.to!string, v.value.to!string, v.key.name,
-                v.key.location
+                percentage.to!string, v.tc.killedMutants.to!string, v.name
             ];
             tbl.put(r);
         } catch (Exception e) {
