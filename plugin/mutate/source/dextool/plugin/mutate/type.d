@@ -95,6 +95,12 @@ enum ReportSection {
     tc_full_overlap,
     /// Test cases that kill the same mutants with a mutation ID column
     tc_full_overlap_with_mutation_id,
+    /// Test groups defined by the user
+    tc_groups,
+    /// Minimal set of tests
+    tc_min_set,
+    /// Similarity between test cases
+    tc_similarity,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

@@ -1008,14 +1008,19 @@ struct Database {
 
     /// Returns: detected test cases.
     TestCase[] getDetectedTestCases() @trusted {
-        enum sql = format("SELECT name FROM %s", allTestCaseTable);
+        import std.algorithm : copy;
 
         auto rval = appender!(TestCase[])();
-        auto stmt = db.prepare(sql);
-        foreach (a; stmt.execute) {
-            rval.put(TestCase(a.peek!string(0)));
-        }
+        db.run(select!AllTestCaseTbl).map!(a => TestCase(a.name)).copy(rval);
+        return rval.data;
+    }
 
+    /// Returns: detected test cases.
+    TestCaseId[] getDetectedTestCaseIds() @trusted {
+        import std.algorithm : copy;
+
+        auto rval = appender!(TestCaseId[])();
+        db.run(select!AllTestCaseTbl).map!(a => TestCaseId(a.id)).copy(rval);
         return rval.data;
     }
 
@@ -1085,6 +1090,19 @@ struct Database {
         return rval;
     }
 
+    /// Returns: the test case.
+    Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
+        enum sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            rval = TestCase(res.peek!string(0));
+        }
+        return rval;
+    }
+
     /// Returns: the test case id.
     Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
         enum sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
@@ -1098,6 +1116,7 @@ struct Database {
         return rval;
     }
 
+    /// The mutation ids are guaranteed to be sorted.
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
         immutable sql = format!"SELECT t2.id
@@ -1105,7 +1124,9 @@ struct Database {
             WHERE
             t1.tc_id = :tid AND
             t1.st_id = t2.st_id AND
-            t2.kind IN (%(%s,%))"(killedTestCaseTable,
+            t2.kind IN (%(%s,%))
+            ORDER BY
+            t2.id"(killedTestCaseTable,
                 mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();

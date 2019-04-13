@@ -508,3 +508,84 @@ partof: REQ-suppress_mutants
 ###
 
 The plugin shall count suppressed mutants as killed when calculating the mutation score.
+
+# REQ-overlap_between_test_cases
+partof: REQ-report
+###
+
+The user have a test suite divided in two parts, *high quality* (a) tests and *the rest* (b).
+
+The user is wondering if there are any tests in (b) that are redundant because those aspects are already verified by (a). The test, in other words, do not contribute to the test effectiveness. It is just a maintenance burden that cost money.
+
+The user is wondering if there are tests in (b) that verify a unique aspect of the software and thus should be moved from (b) to (a).
+
+# SPC-report_minimal_set
+partof: REQ-overlap_between_test_cases
+###
+
+The plugin shall calculate a minimal set of test cases that produce the same mutation score as if all test cases where used.
+
+The plugin shall produce a HTML report with the sections minimal set and the rest.
+
+## Algorithm
+
+The data is:
+
+$TC_x = \{ KM \}$
+
+$score = \{ KM \}$
+
+ * KM = killed mutant. A unique ID distinguish mutants from each other.
+ * TC\_x = set of mutant IDs that test case *x* killed.
+ * score = set of mutant IDs that result in the current mutation score.
+
+The minimal set is calculated by as:
+
+1. $minset_0 = \emptyset$
+   $score = \emptyset$
+2. $minset_1 = \{ TC_0 \} \cap minset_0$
+   $score_1 = score_1 \cap TC_0$
+3. $minset_2 = \{ TC_1 \} \cap minset_1$
+   $score_2 = score_2 \cap TC_1$
+4. if $|minset_1| = |minset_2|$ then the minimal set is $minset_1$. Exit. Otherwise repeat step 2-3.
+
+## Note
+
+The algorithm is heuristic because it depend on in which order the test cases are chosen. A different order will most likely result in a different minimal set. It is important that the user of the tool understand this.
+
+The calculated minimal set is further dependent on the mutation operators that are used. Another view of it is that the mutation operators are sample points in the software that the test suites *can* kill. If there are too few or missing samples it can lead to a shewed result. On the other hand this can be used as a technique by the tester to understand different aspects of the test suite. Such as how similare test cases that verify logical assumptions in the software are to each other by looking at the *LCR* and *DCR* mutation operators.
+
+# SPC-report_test_case_similarity
+partof: REQ-overlap_between_test_cases
+###
+
+The plugin shall calculate the similarity between all test cases.
+
+The plugin shall produce a HTML report with a section for each TC displaying the top X test cases that it is similare to.
+
+## Algorithm
+
+The data is:
+
+$TCx = \{ KM \}$
+
+ * KM = killed mutant. A unique ID distinguish mutants from each other.
+ * TCx = set of mutant IDs that test case *x* killed.
+
+The algorithm used to calculate the similarity is the *jaccard similarity* metric.
+
+$|TCx \cap TCy| / |TCx \cup TCy|$
+
+The number of items in the intersection divided by the number of items in the union.
+
+## Note
+
+The algorithm used is the *jaccard similarity* metric. The desired properties which lead to this choice where:
+ * the result is in the range 0.0 to 1.0. The closer to 1.0 the more similar the test cases are to each other.
+ * its intention is to compare sets with each other.
+
+The algorithm *gap weighted similarity* where briefly used but it had the following problems:
+ * the result where in the range 0 to infinity. The higher the more similar. The values could end up in the range of millions. This mean it is harder for a user to interpret the result at a glance.
+ * it seems to be an algorithm more suited for comparing text than sets.
+ * the data for a TC never contains duplicate mutants thus the *gap weighted similarity* which is affected by this is redundant. It just complicates the understanding of how the similarity should be interpreted.
+ * the algorithm takes into account the similarity between the subsets but this, I think, isn't of interest. It complicates things. Without data that states that this is needed I can't see a motivation to introduce this complication.

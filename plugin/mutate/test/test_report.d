@@ -547,3 +547,46 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         ]).shouldNotBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
     }
 }
+
+class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        // Arrange
+        const tc1 = TestCase("tc_1");
+        const tc2 = TestCase("tc_2");
+        const tc3 = TestCase("tc_3");
+        // tc1: [1,3,8,12,15]
+        // tc2: [1,8,12,15]
+        // tc3: [1,12]
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [tc1]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
+
+        // Act
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "html"])
+            .addArg(["--section", "tc_similarity"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+        testConsecutiveSparseOrder!SubStr([
+            `<h2>tc_1</h2>`,
+            `<td>tc_2</td>`,
+            `<td>0.666667</td>`,
+            `<td>tc_3</td>`,
+            `<td>0.333333</td>`,
+            `<h2>tc_2</h2>`,
+            `<td>tc_1</td>`,
+            `<td>0.666667</td>`,
+            `<td>tc_3</td>`,
+            `<td>0.5</td>`,
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "test_case_similarity.html")).byLineCopy.array);
+    }
+}
