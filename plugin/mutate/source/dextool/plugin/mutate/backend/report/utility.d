@@ -918,24 +918,27 @@ struct MinimalTestSet {
 }
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
-    import std.algorithm : map, filter;
+    import std.algorithm : map, filter, sort;
+    import std.array : array;
     import std.typecons : Tuple, tuple;
-    import dextool.plugin.mutate.backend.database : TestCaseId;
+    import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
     import dextool.set;
 
-    alias IdName = Tuple!(TestCase, "tc", TestCaseId, "id");
+    alias TcIdInfo = Tuple!(TestCase, "tc", TestCaseId, "id", TestCaseInfo, "info");
 
     MinimalTestSet rval;
 
     Set!MutationId killedMutants;
 
+    // start by picking test cases that have the fewest kills.
     foreach (const val; db.getDetectedTestCases
             .map!(a => tuple(a, db.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
-            .map!(a => IdName(a[0], a[1]))) {
-        const tc_info = db.getTestCaseInfo(val.tc, kinds);
-        if (!tc_info.isNull)
-            rval.testCaseTime[val.tc.name] = tc_info.get;
+            .map!(a => TcIdInfo(a[0], a[1], db.getTestCaseInfo(a[0], kinds)))
+            .filter!(a => a.info.killedMutants != 0)
+            .array
+            .sort!((a, b) => a.info.killedMutants < b.info.killedMutants)) {
+        rval.testCaseTime[val.tc.name] = val.info;
 
         const killed = killedMutants.length;
         foreach (const id; db.getTestCaseMutantKills(val.id, kinds)) {
