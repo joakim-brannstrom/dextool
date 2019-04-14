@@ -584,9 +584,14 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
             `<td>0.333333</td>`,
             `<h2>tc_2</h2>`,
             `<td>tc_1</td>`,
-            `<td>0.666667</td>`,
+            `<td>1</td>`,
             `<td>tc_3</td>`,
             `<td>0.5</td>`,
+            `<h2>tc_3</h2>`,
+            `<td>tc_1</td>`,
+            `<td>1</td>`,
+            `<td>tc_2</td>`,
+            `<td>1</td>`,
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "test_case_similarity.html")).byLineCopy.array);
     }
 }

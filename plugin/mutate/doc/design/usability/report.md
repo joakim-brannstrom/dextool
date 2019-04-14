@@ -572,17 +572,20 @@ $TCx = \{ KM \}$
  * KM = killed mutant. A unique ID distinguish mutants from each other.
  * TCx = set of mutant IDs that test case *x* killed.
 
-The algorithm used to calculate the similarity is the *jaccard similarity* metric.
+The algorithm used to calculate the similarity is a modified *jaccard similarity* metric.
 
-$|TCx \cap TCy| / |TCx \cup TCy|$
+$|TCx \cap TCy| / |TCx|$
 
-The number of items in the intersection divided by the number of items in the union.
+The number of items in the intersection divided by the number of items in the left side.
 
 ## Note
 
-The algorithm used is the *jaccard similarity* metric. The desired properties which lead to this choice where:
+The algorithm used is a modified *jaccard similarity* metric. The desired property which lead to this choise where:
  * the result is in the range 0.0 to 1.0. The closer to 1.0 the more similar the test cases are to each other.
  * its intention is to compare sets with each other.
+ * the metric is higher the more of a subset one side is to the other.
+
+The algorithm *jaccard similarity* metric where briefly used but discareded because it couldn't capture the subset similarity which is one of the key factors that the user asked for. The positive fact though of the *jaccard similarity* is that the metric is bidirectional. It doesn't matter in which order the sets are compared.
 
 The algorithm *gap weighted similarity* where briefly used but it had the following problems:
  * the result where in the range 0 to infinity. The higher the more similar. The values could end up in the range of millions. This mean it is harder for a user to interpret the result at a glance.

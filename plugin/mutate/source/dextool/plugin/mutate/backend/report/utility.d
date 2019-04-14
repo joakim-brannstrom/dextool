@@ -210,17 +210,15 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
-    // The Jaccard similarity measures the similarity between finite sample
-    // sets.
-    static double jaccardSimilarity(T)(T[] lhs_, T[] rhs_) {
+    // The set similairty measures how much of lhs is in rhs. This is a
+    // directional metric.
+    static double setSimilarity(T)(T[] lhs_, T[] rhs_) {
         import dextool.set;
 
         auto lhs = setFromList(lhs_);
         auto rhs = setFromList(rhs_);
         double intersection_cardinality = lhs.intersect(rhs).length;
-        lhs.add(rhs);
-        double union_cardinality = lhs.length;
-        return intersection_cardinality / union_cardinality;
+        return intersection_cardinality / cast(double) lhs.length;
     }
 
     // TODO: reduce the code duplication of the caches.
@@ -254,15 +252,15 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
 
     auto rval = new typeof(return);
 
-    foreach (tc_kill; test_cases.map!(a => TcKills(a, getKills(a)))) {
+    foreach (tc_kill; test_cases.map!(a => TcKills(a, getKills(a))).filter!(a => a.kills.length != 0)) {
         auto app = appender!(TestCaseSimilarityAnalyse.Similarity[])();
         foreach (tc; test_cases.filter!(a => a != tc_kill.id)
-                .map!(a => TcKills(a, getKills(a)))) {
+                .map!(a => TcKills(a, getKills(a))).filter!(a => a.kills.length != 0)) {
             auto distance = () @trusted {
                 // invert so it becomes easier to interpret as "low" value
                 // means two test cases are close to each other while a large
                 // value means they are far apart.
-                return jaccardSimilarity(tc_kill.kills, tc.kills);
+                return setSimilarity(tc_kill.kills, tc.kills);
             }();
             if (distance > 0)
                 app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id), distance));
