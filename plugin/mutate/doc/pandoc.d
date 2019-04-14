@@ -77,7 +77,7 @@ void pandoc(Pandoc dat, string[] files, const string output) {
     // dfmt off
     auto cmd = ["pandoc",
          "--template", dat.latexTemplate,
-         "-f", "markdown_github+citations+yaml_metadata_block+tex_math_dollars",
+         "-f", "markdown_github+citations+yaml_metadata_block+tex_math_dollars+raw_tex",
          "-S",
          "--standalone",
          "--toc",

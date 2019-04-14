@@ -17,5 +17,7 @@ immutable htmlFileDir = "files";
 immutable tableStat = "stat_tbl";
 immutable tableStyle = "overlap_tbl";
 immutable tableColumnHdrStyle = "tg-g59y";
+immutable matrixTableStyle = "vertical_tbl";
+immutable matrixTableHdrStyle = "tg";
 immutable tableRowStyle = "tg-0lax";
 immutable tableRowDarkStyle = "tg-0lax_dark";

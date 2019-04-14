@@ -124,6 +124,12 @@ body {font-family: monospace; font-size: 14px;}
 .overlap_tbl .tg-0lax{text-align:left;vertical-align:top}
 .overlap_tbl .tg-0lax_dark{background-color: lightgrey;text-align:left;vertical-align:top}
 
+.vertical_tbl   {border-collapse:collapse;border-spacing:0;}
+.vertical_tbl:before { content:''; padding-top:110%;/* takes width as reference, + 10% for faking some extra padding */ display:inline-block; vertical-align:middle; }
+.vertical_tbl td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
+.vertical_tbl th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
+.vertical_tbl .tg{ font-weight:bold;background-color:#ffce93;border-color:#000000;text-align:left;vertical-align:top;text-align:center; white-space:nowrap; transform-origin:50% 50%; -webkit-transform: rotate(90deg); -moz-transform: rotate(90deg); -ms-transform: rotate(90deg); -o-transform: rotate(90deg); transform: rotate(90deg); }
+
 .diff_del {background-color: lightpink;}
 .diff_add {background-color: lightgreen;}`);
 }
@@ -140,6 +146,25 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
     foreach (h; header) {
         auto th = tr.addChild("th", h);
         th.addClass(tableColumnHdrStyle);
+    }
+
+    tbl.addChild("thead").appendChild(tr);
+
+    return tbl;
+}
+
+Table tmplDefaultMatrixTable(Element n, string[] header) @trusted {
+    import std.algorithm : map;
+    import std.array : array;
+    import dextool.plugin.mutate.backend.report.html.constants;
+
+    auto tbl = n.addChild("table").require!Table;
+    tbl.addClass(matrixTableStyle);
+
+    auto tr = n.parentDocument.createElement("tr");
+    foreach (h; header) {
+        auto th = tr.addChild("th", h);
+        th.addClass(matrixTableHdrStyle);
     }
 
     tbl.addChild("thead").appendChild(tr);

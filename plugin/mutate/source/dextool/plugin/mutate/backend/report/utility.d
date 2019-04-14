@@ -112,9 +112,10 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
 /** Update the table with the score of test cases and how many mutants they killed.
  *
  * Params:
- *  mut_stat = holder of the raw statistics data to derive the mapping from
- *  total = total number of mutants
+ *  db = ?
+ *  kinds = type of mutants to count for the test case
  *  take_ = how many from the top should be moved to the table
+ *  sort_order = ctrl if the top or bottom of the test cases should be reported
  *  tbl = table to write the data to
  */
 void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
@@ -156,7 +157,7 @@ void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
         }
     }
 
-    auto test_cases = spinSqlQuery!(() { return db.getDetectedTestCases; });
+    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCases; });
 
     foreach (v; takeOrder(test_cases.map!(a => TcInfo(a.name, spinSqlQuery!(() {
                 return db.getTestCaseInfo(a, kinds);
@@ -173,6 +174,115 @@ void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
             logger.warning(e.msg).collectException;
         }
     }
+}
+
+/** The result of analysing the test cases to see how similare they are to each
+ * other.
+ */
+class TestCaseSimilarityAnalyse {
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    static struct Similarity {
+        TestCase testCase;
+        double value;
+        /// Mutants that are similare between `testCase` and the parent.
+        MutationId[] intersection;
+        /// Unique mutants that are NOT verified by `testCase`.
+        MutationId[] difference;
+    }
+
+    Similarity[][TestCase] similarities;
+}
+
+/** Update the table with the score of test cases and how many mutants they killed.
+ *
+ * TODO: the algorithm used is slow. Maybe matrix representation and sorted is better?
+ *
+ * Params:
+ *  db = ?
+ *  kinds = mutation kinds to use in the distance analyze
+ *  limit = limit the number of test cases to the top `limit`.
+ */
+TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
+        const Mutation.Kind[] kinds, ulong limit) @safe {
+    import std.algorithm : map, filter;
+    import std.array : array, appender;
+    import std.container.binaryheap;
+    import std.conv : to;
+    import std.range : take;
+    import std.typecons : Tuple;
+    import dextool.plugin.mutate.backend.database : spinSqlQuery;
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
+
+    alias Similarity = Tuple!(double, "value", MutationId[], "similarity",
+            MutationId[], "difference");
+
+    // The set similairty measures how much of lhs is in rhs. This is a
+    // directional metric.
+    static Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
+        import dextool.set;
+
+        auto lhs = setFromList(lhs_);
+        auto rhs = setFromList(rhs_);
+        auto intersect = lhs.intersect(rhs);
+        auto diff = lhs.setDifference(rhs);
+        return Similarity(cast(double) intersect.length / cast(double) lhs.length,
+                intersect.byKey.array, diff.byKey.array);
+    }
+
+    // TODO: reduce the code duplication of the caches.
+    // The DB lookups must be cached or otherwise the algorithm becomes too slow for practical use.
+
+    MutationId[][TestCaseId] kill_cache2;
+    MutationId[] getKills(TestCaseId id) @safe {
+        if (auto v = id in kill_cache2) {
+            return *v;
+        }
+        auto rval = spinSqlQuery!(() {
+            return db.getTestCaseMutantKills(id, kinds);
+        });
+        kill_cache2[id] = rval;
+        return rval;
+    }
+
+    TestCase[TestCaseId] tc_cache2;
+    TestCase getTestCase(TestCaseId id) {
+        if (auto v = id in tc_cache2) {
+            return *v;
+        }
+        auto rval = spinSqlQuery!(() { return db.getTestCase(id); });
+        tc_cache2[id] = rval;
+        return rval;
+    }
+
+    alias TcKills = Tuple!(TestCaseId, "id", MutationId[], "kills");
+
+    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCaseIds; });
+
+    auto rval = new typeof(return);
+
+    foreach (tc_kill; test_cases.map!(a => TcKills(a, getKills(a)))
+            .filter!(a => a.kills.length != 0)) {
+        auto app = appender!(TestCaseSimilarityAnalyse.Similarity[])();
+        foreach (tc; test_cases.filter!(a => a != tc_kill.id)
+                .map!(a => TcKills(a, getKills(a)))
+                .filter!(a => a.kills.length != 0)) {
+            auto distance = () @trusted {
+                return setSimilarity(tc_kill.kills, tc.kills);
+            }();
+            if (distance.value > 0)
+                app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id),
+                        distance.value, distance.similarity, distance.difference));
+        }
+        if (app.data.length != 0) {
+            () @trusted {
+                rval.similarities[getTestCase(tc_kill.id)] = heapify!((a,
+                        b) => a.value < b.value)(app.data).take(limit).array;
+            }();
+        }
+    }
+
+    return rval;
 }
 
 /// Statistics about dead test cases.
@@ -805,24 +915,27 @@ struct MinimalTestSet {
 }
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
-    import std.algorithm : map, filter;
+    import std.algorithm : map, filter, sort;
+    import std.array : array;
     import std.typecons : Tuple, tuple;
-    import dextool.plugin.mutate.backend.database : TestCaseId;
+    import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
     import dextool.set;
 
-    alias IdName = Tuple!(TestCase, "tc", TestCaseId, "id");
+    alias TcIdInfo = Tuple!(TestCase, "tc", TestCaseId, "id", TestCaseInfo, "info");
 
     MinimalTestSet rval;
 
     Set!MutationId killedMutants;
 
+    // start by picking test cases that have the fewest kills.
     foreach (const val; db.getDetectedTestCases
             .map!(a => tuple(a, db.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
-            .map!(a => IdName(a[0], a[1]))) {
-        const tc_info = db.getTestCaseInfo(val.tc, kinds);
-        if (!tc_info.isNull)
-            rval.testCaseTime[val.tc.name] = tc_info.get;
+            .map!(a => TcIdInfo(a[0], a[1], db.getTestCaseInfo(a[0], kinds)))
+            .filter!(a => a.info.killedMutants != 0)
+            .array
+            .sort!((a, b) => a.info.killedMutants < b.info.killedMutants)) {
+        rval.testCaseTime[val.tc.name] = val.info;
 
         const killed = killedMutants.length;
         foreach (const id; db.getTestCaseMutantKills(val.id, kinds)) {
