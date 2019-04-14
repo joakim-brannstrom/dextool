@@ -519,6 +519,8 @@ The user is wondering if there are any tests in (b) that are redundant because t
 
 The user is wondering if there are tests in (b) that verify a unique aspect of the software and thus should be moved from (b) to (a).
 
+The user wants to be able to inspect the uniqueness and overlap between test cases at detail to discern how and if they could be changed to be of higher quality.
+
 # SPC-report_minimal_set
 partof: REQ-overlap_between_test_cases
 ###
@@ -553,7 +555,7 @@ The minimal set is calculated by as:
 
 The algorithm is heuristic because it depend on in which order the test cases are chosen. A different order will most likely result in a different minimal set. It is important that the user of the tool understand this.
 
-The calculated minimal set is further dependent on the mutation operators that are used. Another view of it is that the mutation operators are sample points in the software that the test suites *can* kill. If there are too few or missing samples it can lead to a shewed result. On the other hand this can be used as a technique by the tester to understand different aspects of the test suite. Such as how similare test cases that verify logical assumptions in the software are to each other by looking at the *LCR* and *DCR* mutation operators.
+The calculated minimal set is further dependent on the mutation operators that are used. Another view of it is that the mutation operators are sample points in the software that the test suites *can* kill. If there are too few or missing samples it can lead to a shewed result. On the other hand this can be used as a technique by the tester to understand different aspects of the test suite. Such as how similar test cases that verify logical assumptions in the software are to each other by looking at the *LCR* and *DCR* mutation operators.
 
 # SPC-report_test_case_similarity
 partof: REQ-overlap_between_test_cases
@@ -561,7 +563,7 @@ partof: REQ-overlap_between_test_cases
 
 The plugin shall calculate the similarity between all test cases.
 
-The plugin shall produce a HTML report with a section for each TC displaying the top X test cases that it is similare to.
+The plugin shall produce a HTML report with a section for each TC displaying the top X test cases that it is similar to.
 
 ## Algorithm
 
@@ -580,12 +582,12 @@ The number of items in the intersection divided by the number of items in the le
 
 ## Note
 
-The algorithm used is a modified *jaccard similarity* metric. The desired property which lead to this choise where:
+The algorithm used is a modified *jaccard similarity* metric. The desired property which lead to this choice where:
  * the result is in the range 0.0 to 1.0. The closer to 1.0 the more similar the test cases are to each other.
  * its intention is to compare sets with each other.
  * the metric is higher the more of a subset one side is to the other.
 
-The algorithm *jaccard similarity* metric where briefly used but discareded because it couldn't capture the subset similarity which is one of the key factors that the user asked for. The positive fact though of the *jaccard similarity* is that the metric is bidirectional. It doesn't matter in which order the sets are compared.
+The algorithm *jaccard similarity* metric where briefly used but discarded because it couldn't capture the subset similarity which is one of the key factors that the user asked for. The positive fact though of the *jaccard similarity* is that the metric is bidirectional. It doesn't matter in which order the sets are compared.
 
 The algorithm *gap weighted similarity* where briefly used but it had the following problems:
  * the result where in the range 0 to infinity. The higher the more similar. The values could end up in the range of millions. This mean it is harder for a user to interpret the result at a glance.

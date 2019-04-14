@@ -185,6 +185,10 @@ class TestCaseSimilarityAnalyse {
     static struct Similarity {
         TestCase testCase;
         double value;
+        /// Mutants that are similare between `testCase` and the parent.
+        MutationId[] intersection;
+        /// Unique mutants that are NOT verified by `testCase`.
+        MutationId[] difference;
     }
 
     Similarity[][TestCase] distances;
@@ -210,15 +214,20 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
+    alias Similarity = Tuple!(double, "value", MutationId[], "similarity",
+            MutationId[], "difference");
+
     // The set similairty measures how much of lhs is in rhs. This is a
     // directional metric.
-    static double setSimilarity(T)(T[] lhs_, T[] rhs_) {
+    static Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
         import dextool.set;
 
         auto lhs = setFromList(lhs_);
         auto rhs = setFromList(rhs_);
-        double intersection_cardinality = lhs.intersect(rhs).length;
-        return intersection_cardinality / cast(double) lhs.length;
+        auto intersect = lhs.intersect(rhs);
+        auto diff = lhs.setDifference(rhs);
+        return Similarity(cast(double) intersect.length / cast(double) lhs.length,
+                intersect.byKey.array, diff.byKey.array);
     }
 
     // TODO: reduce the code duplication of the caches.
@@ -252,18 +261,21 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
 
     auto rval = new typeof(return);
 
-    foreach (tc_kill; test_cases.map!(a => TcKills(a, getKills(a))).filter!(a => a.kills.length != 0)) {
+    foreach (tc_kill; test_cases.map!(a => TcKills(a, getKills(a)))
+            .filter!(a => a.kills.length != 0)) {
         auto app = appender!(TestCaseSimilarityAnalyse.Similarity[])();
         foreach (tc; test_cases.filter!(a => a != tc_kill.id)
-                .map!(a => TcKills(a, getKills(a))).filter!(a => a.kills.length != 0)) {
+                .map!(a => TcKills(a, getKills(a)))
+                .filter!(a => a.kills.length != 0)) {
             auto distance = () @trusted {
                 // invert so it becomes easier to interpret as "low" value
                 // means two test cases are close to each other while a large
                 // value means they are far apart.
                 return setSimilarity(tc_kill.kills, tc.kills);
             }();
-            if (distance > 0)
-                app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id), distance));
+            if (distance.value > 0)
+                app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id),
+                        distance.value, distance.similarity, distance.difference));
         }
         if (app.data.length != 0) {
             () @trusted {
