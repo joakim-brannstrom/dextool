@@ -71,7 +71,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     }
 
     //const distances = result.distances.length;
-    const test_cases = result.distances.byKey.array.sort!((a, b) => a < b).array;
+    const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;
 
     //auto mat = tmplDefaultMatrixTable(root, test_cases.map!(a => a.name.idup).array);
 
@@ -84,7 +84,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
         auto tbl = tmplDefaultTable(root, [
                 "Test Case", "Similarity", "Intersection", "Difference"
                 ]);
-        foreach (const d; result.distances[tc]) {
+        foreach (const d; result.similarities[tc]) {
             auto r = tbl.appendRow();
             r.addChild("td", d.testCase.name);
             r.addChild("td", d.value.to!string);

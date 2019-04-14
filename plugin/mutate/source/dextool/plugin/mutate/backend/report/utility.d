@@ -191,7 +191,7 @@ class TestCaseSimilarityAnalyse {
         MutationId[] difference;
     }
 
-    Similarity[][TestCase] distances;
+    Similarity[][TestCase] similarities;
 }
 
 /** Update the table with the score of test cases and how many mutants they killed.
@@ -268,9 +268,6 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
                 .map!(a => TcKills(a, getKills(a)))
                 .filter!(a => a.kills.length != 0)) {
             auto distance = () @trusted {
-                // invert so it becomes easier to interpret as "low" value
-                // means two test cases are close to each other while a large
-                // value means they are far apart.
                 return setSimilarity(tc_kill.kills, tc.kills);
             }();
             if (distance.value > 0)
@@ -279,7 +276,7 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
         }
         if (app.data.length != 0) {
             () @trusted {
-                rval.distances[getTestCase(tc_kill.id)] = heapify!((a,
+                rval.similarities[getTestCase(tc_kill.id)] = heapify!((a,
                         b) => a.value < b.value)(app.data).take(limit).array;
             }();
         }
