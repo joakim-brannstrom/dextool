@@ -579,19 +579,19 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         testConsecutiveSparseOrder!SubStr([
             `<h2>tc_1</h2>`,
             `<td>tc_2</td>`,
-            `<td>0.666667</td>`,
+            `<td>0.667</td>`,
             `<td>tc_3</td>`,
-            `<td>0.333333</td>`,
+            `<td>0.333</td>`,
             `<h2>tc_2</h2>`,
             `<td>tc_1</td>`,
-            `<td>1</td>`,
+            `<td>1.00</td>`,
             `<td>tc_3</td>`,
-            `<td>0.5</td>`,
+            `<td>0.500</td>`,
             `<h2>tc_3</h2>`,
             `<td>tc_1</td>`,
-            `<td>1</td>`,
+            `<td>1.00</td>`,
             `<td>tc_2</td>`,
-            `<td>1</td>`,
+            `<td>1.00</td>`,
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "test_case_similarity.html")).byLineCopy.array);
     }
 }
