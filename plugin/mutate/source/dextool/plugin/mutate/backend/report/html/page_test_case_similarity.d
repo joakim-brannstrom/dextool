@@ -82,23 +82,23 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     foreach (const tc; test_cases) {
         root.addChild("h2", tc.name);
         auto tbl = tmplDefaultTable(root, [
-                "Test Case", "Similarity", "Intersection", "Difference"
+                "Test Case", "Similarity", "Difference", "Intersection"
                 ]);
         foreach (const d; result.similarities[tc]) {
             auto r = tbl.appendRow();
             r.addChild("td", d.testCase.name);
-            r.addChild("td", d.value.to!string);
-            auto similarity = r.addChild("td");
-            foreach (const mut; d.intersection) {
-                auto link = similarity.addChild("a", mut.to!string);
-                link.href = getPath(mut);
-                similarity.appendText(" ");
-            }
+            r.addChild("td", format("%#.3s", d.value));
             auto difference = r.addChild("td");
             foreach (const mut; d.difference) {
                 auto link = difference.addChild("a", mut.to!string);
                 link.href = getPath(mut);
                 difference.appendText(" ");
+            }
+            auto similarity = r.addChild("td");
+            foreach (const mut; d.intersection) {
+                auto link = similarity.addChild("a", mut.to!string);
+                link.href = getPath(mut);
+                similarity.appendText(" ");
             }
         }
     }
