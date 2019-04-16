@@ -87,7 +87,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
         foreach (const d; result.similarities[tc]) {
             auto r = tbl.appendRow();
             r.addChild("td", d.testCase.name);
-            r.addChild("td", format("%#.3s", d.value));
+            r.addChild("td", format("%#.3s", d.similarity));
             auto difference = r.addChild("td");
             foreach (const mut; d.difference) {
                 auto link = difference.addChild("a", mut.to!string);

@@ -184,7 +184,7 @@ class TestCaseSimilarityAnalyse {
 
     static struct Similarity {
         TestCase testCase;
-        double value;
+        double similarity;
         /// Mutants that are similare between `testCase` and the parent.
         MutationId[] intersection;
         /// Unique mutants that are NOT verified by `testCase`.
@@ -192,6 +192,29 @@ class TestCaseSimilarityAnalyse {
     }
 
     Similarity[][TestCase] similarities;
+}
+
+/// The result of the similarity analyse
+private struct Similarity {
+    /// The quota |A intersect B| / |A|. Thus it is how similare A is to B. If
+    /// B ever fully encloses A then the score is 1.0.
+    double similarity;
+    MutationId[] intersection;
+    MutationId[] difference;
+}
+
+// The set similairty measures how much of lhs is in rhs. This is a
+// directional metric.
+private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
+    import std.array : array;
+    import dextool.set;
+
+    auto lhs = setFromList(lhs_);
+    auto rhs = setFromList(rhs_);
+    auto intersect = lhs.intersect(rhs);
+    auto diff = lhs.setDifference(rhs);
+    return Similarity(cast(double) intersect.length / cast(double) lhs.length,
+            intersect.byKey.array, diff.byKey.array);
 }
 
 /** Update the table with the score of test cases and how many mutants they killed.
@@ -213,22 +236,6 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
-
-    alias Similarity = Tuple!(double, "value", MutationId[], "similarity",
-            MutationId[], "difference");
-
-    // The set similairty measures how much of lhs is in rhs. This is a
-    // directional metric.
-    static Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
-        import dextool.set;
-
-        auto lhs = setFromList(lhs_);
-        auto rhs = setFromList(rhs_);
-        auto intersect = lhs.intersect(rhs);
-        auto diff = lhs.setDifference(rhs);
-        return Similarity(cast(double) intersect.length / cast(double) lhs.length,
-                intersect.byKey.array, diff.byKey.array);
-    }
 
     // TODO: reduce the code duplication of the caches.
     // The DB lookups must be cached or otherwise the algorithm becomes too slow for practical use.
@@ -270,14 +277,14 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
             auto distance = () @trusted {
                 return setSimilarity(tc_kill.kills, tc.kills);
             }();
-            if (distance.value > 0)
+            if (distance.similarity > 0)
                 app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id),
-                        distance.value, distance.similarity, distance.difference));
+                        distance.similarity, distance.intersection, distance.difference));
         }
         if (app.data.length != 0) {
             () @trusted {
                 rval.similarities[getTestCase(tc_kill.id)] = heapify!((a,
-                        b) => a.value < b.value)(app.data).take(limit).array;
+                        b) => a.similarity < b.similarity)(app.data).take(limit).array;
             }();
         }
     }
