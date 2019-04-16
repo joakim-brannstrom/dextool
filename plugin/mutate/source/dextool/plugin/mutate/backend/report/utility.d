@@ -682,6 +682,20 @@ class TestGroupStat {
     MutantInfo[][FileId] killed;
 }
 
+import std.regex : Regex;
+
+private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
+    import std.regex : matchFirst;
+
+    auto m = matchFirst(tc.name, tg);
+    // the regex must match the full test case thus checking that
+    // nothing is left before or after
+    if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
+        return true;
+    }
+    return false;
+}
+
 TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         const(TestGroup) test_g) @safe {
     import std.algorithm : filter, map;
@@ -707,14 +721,8 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
     // map test cases to this test group
     foreach (tc; db.getDetectedTestCases) {
-        import std.regex : matchFirst;
-
-        auto m = matchFirst(tc.name, test_g.re);
-        // the regex must match the full test case thus checking that
-        // nothing is left before or after
-        if (!m.empty && m.pre.length == 0 && m.post.length == 0) {
+        if (tc.isTestCaseInTestGroup(test_g.re))
             r.testCases ~= tc;
-        }
     }
 
     // collect mutation statistics for each test case group
