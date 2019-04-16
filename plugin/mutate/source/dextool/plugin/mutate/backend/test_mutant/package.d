@@ -597,10 +597,13 @@ nothrow:
             bool success = true;
 
             if (test_case_cmd.length != 0)
-                success = success && externalProgram([test_case_cmd, stdout_, stderr_], gather_tc);
+                success = success && externalProgram([
+                        test_case_cmd, stdout_, stderr_
+                        ], gather_tc);
             if (tc_analyze_builtin.length != 0)
-                success = success && builtin(fio.getOutputDir, [stdout_,
-                        stderr_], tc_analyze_builtin, gather_tc);
+                success = success && builtin(fio.getOutputDir, [
+                        stdout_, stderr_
+                        ], tc_analyze_builtin, gather_tc);
 
             if (success) {
                 test_cases = gather_tc;
@@ -935,11 +938,13 @@ nothrow:
 
             bool success = true;
             if (data.conf.mutationTestCaseAnalyze.length != 0)
-                success = success && externalProgram([data.conf.mutationTestCaseAnalyze,
-                        stdout_, stderr_], gather_tc);
+                success = success && externalProgram([
+                        data.conf.mutationTestCaseAnalyze, stdout_, stderr_
+                        ], gather_tc);
             if (data.conf.mutationTestCaseBuiltin.length != 0)
-                success = success && builtin(data.filesysIO.getOutputDir, [stdout_,
-                        stderr_], data.conf.mutationTestCaseBuiltin, gather_tc);
+                success = success && builtin(data.filesysIO.getOutputDir, [
+                        stdout_, stderr_
+                        ], data.conf.mutationTestCaseBuiltin, gather_tc);
 
             all_found_tc = gather_tc.foundAsArray;
         } catch (Exception e) {
@@ -1156,17 +1161,22 @@ bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
     import std.algorithm : copy, splitter, filter, map;
     import std.ascii : newline;
     import std.process : execute;
-    import std.string : strip;
+    import std.string : strip, startsWith;
     import dextool.plugin.mutate.backend.type : TestCase;
+
+    immutable passed = "passed:";
+    immutable failed = "failed:";
 
     try {
         // [test_case_cmd, stdout_, stderr_]
         auto p = execute(cmd);
         if (p.status == 0) {
-            foreach (tc; p.output.splitter(newline).map!(a => a.strip)
-                    .filter!(a => a.length != 0)
-                    .map!(a => TestCase(a))) {
-                report.reportFailed(tc);
+            foreach (l; p.output.splitter(newline).map!(a => a.strip)
+                    .filter!(a => a.length != 0)) {
+                if (l.startsWith(passed))
+                    report.reportFound(TestCase(l[passed.length .. $].strip));
+                else if (l.startsWith(failed))
+                    report.reportFailed(TestCase(l[failed.length .. $].strip));
             }
             return true;
         } else {
