@@ -101,6 +101,8 @@ enum ReportSection {
     tc_min_set,
     /// Similarity between test cases
     tc_similarity,
+    /// Similarity between test groups
+    tc_groups_similarity,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

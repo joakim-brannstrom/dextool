@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
+module dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
 
 import logger = std.experimental.logger;
 import std.format : format;
@@ -23,29 +23,30 @@ import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
-auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
+auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
-    doc.title(format("Test Case Similarity Analyse %(%s %) %s",
+    doc.title(format("Test Group Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
-    doc.mainBody.addChild("p", "This is the similarity between test cases.")
-        .appendText(" The closer to 1.0 the more similare the test cases are in what they verify.");
+    doc.mainBody.addChild("p",
+            "This is the similarity between test groups as specified in the dextool mutate configuration file.")
+        .appendText(" The closer to 1.0 the more similare the test groups are in what they verify.");
     {
         auto p = doc.mainBody.addChild("p");
         p.addChild("b", "Note");
         p.appendText(": The analyse is based on the mutants that the test cases kill thus it is dependent on the mutation operators that are used when generating the report.");
     }
 
-    toHtml(db, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody);
+    toHtml(db, reportTestGroupsSimilarity(db, kinds, conf.testGroups), doc.mainBody);
 
     return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
+void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
     import std.algorithm : sort, map;
     import std.array : array;
     import std.conv : to;
@@ -70,23 +71,21 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
         return rval;
     }
 
-    //const distances = result.distances.length;
-    const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;
+    const test_groups = result.similarities.byKey.array.sort!((a, b) => a < b).array;
 
-    //auto mat = tmplDefaultMatrixTable(root, test_cases.map!(a => a.name.idup).array);
-
-    root.addChild("p", "The intersection column is the mutants that are killed by both the test case in the heading and in the column Test Case.")
+    root.addChild("p", "The intersection column are the mutants that are killed by both the test group in the heading and in the column Test Group.")
         .appendText(
-                " The difference column are the mutants that are only killed by the test case in the heading.");
+                " The difference column are the mutants that are only killed by the test group in the heading.");
 
-    foreach (const tc; test_cases) {
-        root.addChild("h2", tc.name);
+    foreach (const tg; test_groups) {
+        root.addChild("h2", format("%s (%s)", tg.description, tg.name));
+        root.addChild("p", tg.userInput);
         auto tbl = tmplDefaultTable(root, [
-                "Test Case", "Similarity", "Difference", "Intersection"
+                "Test Group", "Similarity", "Difference", "Intersection"
                 ]);
-        foreach (const d; result.similarities[tc]) {
+        foreach (const d; result.similarities[tg]) {
             auto r = tbl.appendRow();
-            r.addChild("td", d.testCase.name);
+            r.addChild("td", d.comparedTo.name);
             r.addChild("td", format("%#.3s", d.similarity));
             auto difference = r.addChild("td");
             foreach (const mut; d.difference) {
