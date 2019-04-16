@@ -259,6 +259,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_short_term_view;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
+        import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
 
         auto index = tmplBasicPage;
@@ -291,6 +292,9 @@ struct FileIndex {
         if (ReportSection.tc_similarity in sections)
             addSubPage(() => makeTestCaseSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_case_similarity", "Test Case Similarity");
+        if (ReportSection.tc_groups_similarity in sections)
+            addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
+                    kinds), "test_group_similarity", "Test Group Similarity");
 
         files.data.toIndex(index.mainBody, htmlFileDir);
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);

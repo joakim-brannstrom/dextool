@@ -217,7 +217,7 @@ private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
             intersect.byKey.array, diff.byKey.array);
 }
 
-/** Update the table with the score of test cases and how many mutants they killed.
+/** Analyse the similarity between test cases.
  *
  * TODO: the algorithm used is slow. Maybe matrix representation and sorted is better?
  *
@@ -274,9 +274,7 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
         foreach (tc; test_cases.filter!(a => a != tc_kill.id)
                 .map!(a => TcKills(a, getKills(a)))
                 .filter!(a => a.kills.length != 0)) {
-            auto distance = () @trusted {
-                return setSimilarity(tc_kill.kills, tc.kills);
-            }();
+            auto distance = setSimilarity(tc_kill.kills, tc.kills);
             if (distance.similarity > 0)
                 app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id),
                         distance.similarity, distance.intersection, distance.difference));
@@ -663,6 +661,93 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
         st.ratio = cast(double) st.overlap / cast(double) st.total;
 
     return st;
+}
+
+class TestGroupSimilarity {
+    static struct TestGroup {
+        string description;
+        string name;
+
+        /// What the user configured as regex. Useful when e.g. generating reports
+        /// for a user.
+        string userInput;
+
+        int opCmp(ref const TestGroup s) const {
+            import std.algorithm : cmp;
+
+            return cmp(name, s.name);
+        }
+    }
+
+    static struct Similarity {
+        /// The test group that the `key` is compared to.
+        TestGroup comparedTo;
+        /// How similare the `key` is to `comparedTo`.
+        double similarity;
+        /// Mutants that are similare between `testCase` and the parent.
+        MutationId[] intersection;
+        /// Unique mutants that are NOT verified by `testCase`.
+        MutationId[] difference;
+    }
+
+    Similarity[][TestGroup] similarities;
+}
+
+/** Analyze the similarity between the test groups.
+ *
+ * Assuming that a limit on how many test groups to report isn't interesting
+ * because they are few so it is never a problem.
+ *
+ */
+TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
+        const(Mutation.Kind)[] kinds, const(TestGroup)[] test_groups) @safe {
+    import std.algorithm : map, filter;
+    import std.array : appender, array;
+    import std.typecons : Tuple;
+    import cachetools : CacheLRU;
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
+
+    alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup", MutationId[], "kills");
+
+    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCaseIds; }).map!(
+            a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSqlQuery!(() {
+                return db.getTestCase(a);
+            }))).array;
+
+    MutationId[] gatherKilledMutants(const(TestGroup) tg) {
+        auto kills = appender!(MutationId[])();
+        foreach (tc; test_cases.filter!(a => a.tc.isTestCaseInTestGroup(tg.re))) {
+            kills.put(spinSqlQuery!(() {
+                    return db.getTestCaseMutantKills(tc.id, kinds);
+                }));
+        }
+        return kills.data;
+    }
+
+    TgKills[] test_group_kills;
+    foreach (const tg; test_groups) {
+        auto kills = gatherKilledMutants(tg);
+        if (kills.length != 0)
+            test_group_kills ~= TgKills(TestGroupSimilarity.TestGroup(tg.description,
+                    tg.name, tg.userInput), kills);
+    }
+
+    // calculate similarity between all test groups.
+    auto rval = new typeof(return);
+
+    foreach (tg_parent; test_group_kills) {
+        auto app = appender!(TestGroupSimilarity.Similarity[])();
+        foreach (tg_other; test_group_kills.filter!(a => a.testGroup != tg_parent.testGroup)) {
+            auto similarity = setSimilarity(tg_parent.kills, tg_other.kills);
+            if (similarity.similarity > 0)
+                app.put(TestGroupSimilarity.Similarity(tg_other.testGroup,
+                        similarity.similarity, similarity.intersection, similarity.difference));
+            if (app.data.length != 0)
+                rval.similarities[tg_parent.testGroup] = app.data;
+        }
+    }
+
+    return rval;
 }
 
 class TestGroupStat {
