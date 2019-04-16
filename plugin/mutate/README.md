@@ -61,7 +61,7 @@ search_paths = ["./build/compile_commands.json"]
 [mutant_test]
 test_cmd = "test.sh"
 build_cmd = "build.sh"
-analyze_using_builtin = ["gtest", "ctest"]
+analyze_using_builtin = ["gtest"]
 ```
 
 Generate a database of all mutation points:
@@ -99,11 +99,48 @@ For more examples [see here](examples).
 
 ## Custom Test Analyzer
 
-Create a file `test_analyze.sh` that will identify a failing test from stdout:
+Dextool need some help to understand the output from the test suite.
+
+To be able to find test cases that kill zero mutants, detect new test cases and
+dropped test cases it needs to *find* all these test cases at the beginning
+when it is measuring the performance of the test suite. This is why the
+`passed:` is important.
+
+To be able to map which test case killed which mutant it needs help finding the
+test cases that failed when the mutant where injected. This is where the
+`failed:` part comes in
+
+The requirement on the script is that it should parse the files that contains
+the output from the test suite. These are passed as argument one and two to the
+script.
+
+The analyzer should write to stdout with the following pattern for each test case:
+ * passed test: `passed:<name of test>`
+ * failed test: `failed:<name of test>`
+
+One line per test case.
+
+Example:
+
+Create a file `test_analyze.sh` that will identify passed and a failing test from stdout/stderr:
 ```sh
 #!/bin/bash
 # The arguments are paths to stdout ($1) and stderr ($2).
-grep -h "(Failed)" $1 $2
+# This script assumes that nothing is in stderr.
+
+# Using a more complex while loop to avoid side effects such as trimming leading
+# whitespace, interpretting backslash sequences, and skipping the trailing line
+# if it's missing a terminating linefeed. If these are concerns, you can do:
+while IFS="" read -r L || [ -n "$L" ]; do
+    echo "$L"|grep -h "(Failed)" > /dev/null
+    if [[ $? -eq 0  ]]; then
+        echo "failed:"$(echo "$L"|sed -e 's/(Failed)//')
+    fi
+    echo "$L"|grep -h "(Passed)" > /dev/null
+    if [[ $? -eq 0  ]]; then
+        echo "passed:"$(echo "$L"|sed -e 's/(Passed)//')
+    fi
+done < $1
 ```
 
 Don't forget to make it executable:

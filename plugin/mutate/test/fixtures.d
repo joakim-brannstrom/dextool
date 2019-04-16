@@ -72,7 +72,7 @@ exit 1
         // the test -e test that the output file has been created
         return "#!/bin/bash
 set -e
-test -e $1 && echo 'Failed 42'
+test -e $1 && echo 'failed:Failed 42'
 ";
     }
 }
