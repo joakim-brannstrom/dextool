@@ -941,7 +941,7 @@ struct Database {
             FROM %s t0, %s t1
             WHERE
             t0.name NOT IN (SELECT name FROM %s) AND
-            t0.id = t1.id", allTestCaseTable,
+            t0.id = t1.tc_id", allTestCaseTable,
                     killedTestCaseTable, tmp_name);
         foreach (res; db.prepare(mut_st_id).execute)
             mut_status_ids.put(res.peek!long(0).MutationStatusId);
