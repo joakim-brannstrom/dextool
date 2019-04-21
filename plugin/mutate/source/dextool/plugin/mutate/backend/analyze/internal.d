@@ -35,6 +35,7 @@ interface TokenStream {
  */
 class Cache {
     import cachetools : CacheLRU;
+    import dextool.cachetools;
 
     private {
         CacheLRU!(string, Checksum) file_;
@@ -92,68 +93,40 @@ class Cache {
     /** Calculate the checksum for the file content.
      */
     Checksum getFileChecksum(AbsolutePath p, const(ubyte)[] data) {
-        typeof(return) rval;
-        auto query = file_.get(p);
-        if (query.isNull) {
-            rval = checksum(data);
-            file_.put(p, rval);
-        } else {
-            rval = query.get;
-        }
-
+        typeof(return) rval = file_.require(cast(string) p, {
+            return checksum(data);
+        }());
         debug logEvents;
-
         return rval;
     }
 
     /** Calculate the checksum of the file path.
      */
     Checksum getPathChecksum(Path p) {
-        typeof(return) rval;
-        auto query = path_.get(p);
-        if (query.isNull) {
-            rval = checksum(cast(const(ubyte)[]) p.payload);
-            path_.put(p, rval);
-        } else {
-            rval = query.get;
-        }
-
+        typeof(return) rval = path_.require(p.payload, {
+            return checksum(cast(const(ubyte)[]) p.payload);
+        }());
         debug logEvents;
-
         return rval;
     }
 
     /** Returns: the files content converted to tokens.
      */
     Token[] getTokens(AbsolutePath p, TokenStream tstream) {
-        typeof(return) rval;
-        auto query = fileToken_.get(p);
-        if (query.isNull) {
-            rval = tstream.getTokens(p);
-            fileToken_.put(p, rval);
-        } else {
-            rval = query.get;
-        }
-
+        typeof(return) rval = fileToken_.require(cast(string) p, {
+            return tstream.getTokens(p);
+        }());
         debug logEvents;
-
         return rval;
     }
 
     /** Returns: the files content converted to tokens.
      */
     Token[] getFilteredTokens(AbsolutePath p, TokenStream tstream) {
-        typeof(return) rval;
-        auto query = fileFilteredToken_.get(p);
-        if (query.isNull) {
-            rval = tstream.getFilteredTokens(p);
-            fileFilteredToken_.put(p, rval);
-        } else {
-            rval = query.get;
-        }
-
+        typeof(return) rval = fileFilteredToken_.require(cast(string) p, {
+            return tstream.getFilteredTokens(p);
+        }());
         debug logEvents;
-
         return rval;
     }
 }
