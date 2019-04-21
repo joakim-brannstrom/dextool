@@ -9,44 +9,13 @@ one at http://mozilla.org/MPL/2.0/.
 
 This file contains a workaround for compiler version 2.082.
 It impossible to assign to a Nullable that may have indirections
+
+// TODO: remove this when upgrading the minimal compiler.
 */
 module dextool.nullable;
 
-static if (__VERSION__ == 2082) {
-    struct Nullable(T) {
-        T payload;
-        bool isNull_ = true;
-
-        bool isNull() @safe pure nothrow const @nogc {
-            return isNull_;
-        }
-
-        void opAssign(T rhs) {
-            isNull_ = false;
-            payload = rhs;
-        }
-
-        void opAssign(typeof(this) rhs) {
-            isNull_ = rhs.isNull_;
-            if (!isNull_)
-                payload = rhs.payload;
-        }
-
-        void nullify() @safe pure nothrow @nogc {
-            isNull_ = true;
-        }
-
-        ref inout(T) get() inout {
-            assert(!isNull_, "is null");
-            return payload;
-        }
-
-        alias get this;
-
-        T opCast(T)() {
-            return payload;
-        }
-    }
+static if (__VERSION__ == 2082L) {
+    static assert(0, "DMD 2.082 is not supported because of a bug in Nullable");
 } else {
     public import std.typecons : Nullable;
 }

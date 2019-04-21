@@ -69,7 +69,7 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  * This is a bit slow, I think. Optimize by reducing the created strings.
  * trusted: none of the unsafe accessed data escape this function.
  */
-auto tokenize(ref from.cpptooling.analyzer.clang.context.ClangContext ctx, Path file) @trusted {
+auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
     import std.array : appender;
     import clang.Index;
     import clang.TranslationUnit;

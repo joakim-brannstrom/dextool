@@ -93,7 +93,7 @@ class Cache {
     /** Calculate the checksum for the file content.
      */
     Checksum getFileChecksum(AbsolutePath p, const(ubyte)[] data) {
-        typeof(return) rval = file_.require(cast(string) p, {
+        typeof(return) rval = file_.cacheToolsRequire(cast(string) p, {
             return checksum(data);
         }());
         debug logEvents;
@@ -103,7 +103,7 @@ class Cache {
     /** Calculate the checksum of the file path.
      */
     Checksum getPathChecksum(Path p) {
-        typeof(return) rval = path_.require(p.payload, {
+        typeof(return) rval = path_.cacheToolsRequire(p.payload, {
             return checksum(cast(const(ubyte)[]) p.payload);
         }());
         debug logEvents;
@@ -113,7 +113,7 @@ class Cache {
     /** Returns: the files content converted to tokens.
      */
     Token[] getTokens(AbsolutePath p, TokenStream tstream) {
-        typeof(return) rval = fileToken_.require(cast(string) p, {
+        typeof(return) rval = fileToken_.cacheToolsRequire(cast(string) p, {
             return tstream.getTokens(p);
         }());
         debug logEvents;
@@ -123,7 +123,7 @@ class Cache {
     /** Returns: the files content converted to tokens.
      */
     Token[] getFilteredTokens(AbsolutePath p, TokenStream tstream) {
-        typeof(return) rval = fileFilteredToken_.require(cast(string) p, {
+        typeof(return) rval = fileFilteredToken_.cacheToolsRequire(cast(string) p, {
             return tstream.getFilteredTokens(p);
         }());
         debug logEvents;

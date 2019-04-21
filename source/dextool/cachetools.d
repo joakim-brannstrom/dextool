@@ -27,8 +27,11 @@ import dextool.from;
  * cache.require(5, { return "5"; }());
  * ---
  */
-V require(CT, K, V)(CT aa, K key, lazy V value = V.init)
-        if (is(CT == from.cachetools.CacheLRU!(K, V))) {
+//TODO: rename to require when the workaround for <2.082 compiles is removed.
+V cacheToolsRequire(CT, K, V)(CT aa, K key, lazy V value = V.init)
+        if (is(CT == class) && !is(CT == V[K])) {
+    // TODO: when upgrading to a 2.082+ compiler use this constraint instead
+    //if (is(CT == from!"cachetools".CacheLRU!(K, V))) {
     auto q = aa.get(key);
     if (q.isNull) {
         auto v = value;
@@ -36,4 +39,26 @@ V require(CT, K, V)(CT aa, K key, lazy V value = V.init)
         return v;
     }
     return q.get;
+}
+
+// TODO: remove this when upgrading the minimal compiler.
+static if (__VERSION__ < 2082L) {
+    /***********************************
+ * Looks up key; if it exists returns corresponding value else evaluates
+ * value, adds it to the associative array and returns it.
+ * Params:
+ *      aa =     The associative array.
+ *      key =    The key.
+ *      value =  The required value.
+ * Returns:
+ *      The value.
+ */
+    ref V require(K, V)(ref V[K] aa, K key, lazy V value = V.init) @trusted {
+        if (auto v = key in aa) {
+            return *v;
+        }
+
+        aa[key] = value;
+        return aa[key];
+    }
 }
