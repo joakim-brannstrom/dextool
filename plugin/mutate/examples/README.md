@@ -39,11 +39,11 @@ Reporting can be performed whenever you want.
 
 # Incremental Mutation Testing
 
-This example demonstrate the incremental mutatino testing capabilities of dextool.
+This example demonstrate the incremental mutation testing capabilities of dextool.
 
 Note that the initial test suite has full branch coverage and high MC/DC coverage but even though it do have this there are still a critical bug lurking in the shadows.
 
-The scenario is a developer using mutation testing to improve the test suites effectiveness. At the end it finds the bug in the implementation. Although a bit contrieved it do show the impact different mutation operators have on the test suite when trying to verify an implementation.
+The scenario is a developer using mutation testing to improve the test suites effectiveness. At the end it finds the bug in the implementation. Although a bit contrived it do show the impact different mutation operators have on the test suite when trying to verify an implementation.
 
 To run the demo:
 ```

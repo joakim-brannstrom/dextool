@@ -5,17 +5,16 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 The license of this module is Boost because the code is derived from a pull
 request for druntime.
-*/
 
-module dextool.from;
-
-/** Local imports everywhere.
+Local imports everywhere.
 
 Example:
 ---
-void fun(from!"std.string".Path p)
+std_.foo fun(std_.string.Path p)
 ---
 */
+module dextool.from;
+
 template from(string moduleName) {
     mixin("import from = " ~ moduleName ~ ";");
 }

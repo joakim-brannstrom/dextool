@@ -234,6 +234,7 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import std.conv : to;
     import std.range : take;
     import std.typecons : Tuple;
+    import dextool.cachetools;
     import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
@@ -241,25 +242,17 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     // The DB lookups must be cached or otherwise the algorithm becomes too slow for practical use.
 
     MutationId[][TestCaseId] kill_cache2;
-    MutationId[] getKills(TestCaseId id) @safe {
-        if (auto v = id in kill_cache2) {
-            return *v;
-        }
-        auto rval = spinSqlQuery!(() {
-            return db.getTestCaseMutantKills(id, kinds);
-        });
-        kill_cache2[id] = rval;
-        return rval;
+    MutationId[] getKills(TestCaseId id) @trusted {
+        return kill_cache2.require(id, spinSqlQuery!(() {
+                return db.getTestCaseMutantKills(id, kinds);
+            }));
     }
 
     TestCase[TestCaseId] tc_cache2;
-    TestCase getTestCase(TestCaseId id) {
-        if (auto v = id in tc_cache2) {
-            return *v;
-        }
-        auto rval = spinSqlQuery!(() { return db.getTestCase(id); });
-        tc_cache2[id] = rval;
-        return rval;
+    TestCase getTestCase(TestCaseId id) @trusted {
+        return tc_cache2.require(id, spinSqlQuery!(() {
+                return db.getTestCase(id);
+            }));
     }
 
     alias TcKills = Tuple!(TestCaseId, "id", MutationId[], "kills");
@@ -704,7 +697,6 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
     import std.algorithm : map, filter;
     import std.array : appender, array;
     import std.typecons : Tuple;
-    import cachetools : CacheLRU;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
     alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup", MutationId[], "kills");

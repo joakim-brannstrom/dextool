@@ -1,6 +1,7 @@
 # vim: filetype=cmake
 
 set(SRC_FILES
+    ${CMAKE_SOURCE_DIR}/source/dextool/cachetools.d
     ${CMAKE_SOURCE_DIR}/source/dextool/clang.d
     ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db/package.d
     ${CMAKE_SOURCE_DIR}/source/dextool/compilation_db/system_compiler.d
