@@ -19,6 +19,9 @@ interface TestCaseReport {
 
     /// A test case that is found
     void reportFound(TestCase tc) @safe nothrow;
+
+    /// One or more test cases are unstable.
+    void reportUnstable(TestCase tc) @safe nothrow;
 }
 
 /// A simple class to gather reported test cases.
@@ -29,6 +32,9 @@ class GatherTestCase : TestCaseReport {
 
     /// Test cases reported as failed.
     long[TestCase] failed;
+
+    /// The unstable test cases.
+    Set!TestCase unstable;
 
     /// Found test cases.
     Set!TestCase found;
@@ -41,8 +47,12 @@ class GatherTestCase : TestCaseReport {
                 failed[kv.key] = kv.value;
         }
 
-        foreach (k; o.found.byKey) {
+        foreach (k; setToRange!TestCase(o.found)) {
             found.add(k);
+        }
+
+        foreach (k; setToRange!TestCase(o.unstable)) {
+            unstable.add(k);
         }
     }
 
@@ -51,7 +61,11 @@ class GatherTestCase : TestCaseReport {
     }
 
     TestCase[] foundAsArray() @safe nothrow {
-        return found.byKey.array;
+        return setToList!TestCase(found);
+    }
+
+    TestCase[] unstableAsArray() @safe nothrow {
+        return setToList!TestCase(unstable);
     }
 
     override void reportFailed(TestCase tc) @safe nothrow {
@@ -69,5 +83,10 @@ class GatherTestCase : TestCaseReport {
     /// A test case that is found
     override void reportFound(TestCase tc) @safe nothrow {
         found.add(tc);
+    }
+
+    override void reportUnstable(TestCase tc) @safe nothrow {
+        found.add(tc);
+        unstable.add(tc);
     }
 }

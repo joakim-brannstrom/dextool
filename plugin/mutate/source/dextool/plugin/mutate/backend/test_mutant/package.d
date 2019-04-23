@@ -250,6 +250,8 @@ enum MutationDriverSignal {
     filesysError,
     /// An error for a single mutation. It is skipped.
     mutationError,
+    /// The test suite is unreliable which mean the mutant should be re-tested.
+    unstableTests,
 }
 
 /** Drive the control flow when testing **a** mutant.
@@ -352,6 +354,8 @@ struct MutationTestDriver(ImplT) {
             if (signal == MutationDriverSignal.next)
                 next_ = State.restoreCode;
             else if (signal == MutationDriverSignal.mutationError)
+                next_ = State.noResultRestoreCode;
+            else if (signal == MutationDriverSignal.unstableTests)
                 next_ = State.noResultRestoreCode;
             break;
         case State.restoreCode:
@@ -596,16 +600,24 @@ nothrow:
             // fails.
             bool success = true;
 
-            if (test_case_cmd.length != 0)
+            if (test_case_cmd.length != 0) {
                 success = success && externalProgram([
                         test_case_cmd, stdout_, stderr_
                         ], gather_tc);
-            if (tc_analyze_builtin.length != 0)
+            }
+            if (tc_analyze_builtin.length != 0) {
                 success = success && builtin(fio.getOutputDir, [
                         stdout_, stderr_
                         ], tc_analyze_builtin, gather_tc);
+            }
 
-            if (success) {
+            if (gather_tc.unstable.length != 0) {
+                logger.warningf("Unstable test cases found: [%-(%s, %)]",
+                        gather_tc.unstableAsArray);
+                logger.info(
+                        "As configured the result is ignored which will force the mutant to be re-tested");
+                driver_sig = MutationDriverSignal.unstableTests;
+            } else if (success) {
                 test_cases = gather_tc;
                 driver_sig = MutationDriverSignal.next;
             }
@@ -936,15 +948,17 @@ nothrow:
 
             auto gather_tc = new GatherTestCase;
 
-            bool success = true;
-            if (data.conf.mutationTestCaseAnalyze.length != 0)
-                success = success && externalProgram([
+            if (data.conf.mutationTestCaseAnalyze.length != 0) {
+                externalProgram([
                         data.conf.mutationTestCaseAnalyze, stdout_, stderr_
                         ], gather_tc);
-            if (data.conf.mutationTestCaseBuiltin.length != 0)
-                success = success && builtin(data.filesysIO.getOutputDir, [
-                        stdout_, stderr_
-                        ], data.conf.mutationTestCaseBuiltin, gather_tc);
+                logger.warningf(gather_tc.unstable.length != 0,
+                        "Unstable test cases found: [%-(%s, %)]", gather_tc.unstableAsArray);
+            }
+            if (data.conf.mutationTestCaseBuiltin.length != 0) {
+                builtin(data.filesysIO.getOutputDir, [stdout_, stderr_],
+                        data.conf.mutationTestCaseBuiltin, gather_tc);
+            }
 
             all_found_tc = gather_tc.foundAsArray;
         } catch (Exception e) {
@@ -1166,6 +1180,7 @@ bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
 
     immutable passed = "passed:";
     immutable failed = "failed:";
+    immutable unstable = "unstable:";
 
     try {
         // [test_case_cmd, stdout_, stderr_]
@@ -1177,6 +1192,8 @@ bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
                     report.reportFound(TestCase(l[passed.length .. $].strip));
                 else if (l.startsWith(failed))
                     report.reportFailed(TestCase(l[failed.length .. $].strip));
+                else if (l.startsWith(unstable))
+                    report.reportUnstable(TestCase(l[unstable.length .. $].strip));
             }
             return true;
         } else {
