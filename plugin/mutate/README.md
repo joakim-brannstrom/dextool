@@ -110,6 +110,10 @@ To be able to map which test case killed which mutant it needs help finding the
 test cases that failed when the mutant where injected. This is where the
 `failed:` part comes in
 
+To be able to test a mutant again because the test suite is unstable when it is
+executed on the injected mutant it needs some help. This is signaled from the
+analyser by writing writing `unstable:` to stdout.
+
 The requirement on the script is that it should parse the files that contains
 the output from the test suite. These are passed as argument one and two to the
 script.
@@ -117,6 +121,7 @@ script.
 The analyzer should write to stdout with the following pattern for each test case:
  * passed test: `passed:<name of test>`
  * failed test: `failed:<name of test>`
+ * unstable test: `unstable:<name of test>`
 
 One line per test case.
 

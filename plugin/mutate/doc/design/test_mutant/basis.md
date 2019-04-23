@@ -1,5 +1,11 @@
+# REQ-test_mutant
+partof: REQ-purpose
+###
+
+The user wants to process the mutants by applying the test suite on one mutant at a time and record the status for future processing.
+
 # SPC-test_mutant
-partof: SPC-architecture
+partof: REQ-test_mutant
 ###
 
 ## Design Decision
@@ -60,3 +66,34 @@ It is important to understand the assumptions the algorithm try to handle. The a
 
 The desired mathematical property of the algorithm for increasing the mutation testing is a sharp increase in the mutation time the second iteration. After that it slowly increases but flattens out.
 
+# REQ-unstable_test_suite
+partof: REQ-test_mutant
+###
+
+The users test suite is unreliable. Because of different reasons it can sometimes fail when testing a mutant. When the test suite fails the plugin should try, as instructed by the user, to apply a re-test strategy to achieve as accurate data as possible.
+
+In other words try to avoid writing erroneous or even wrong data which could result in a highly inaccurate report.
+
+Failing means either or a combination of these:
+1. the test suite is unable to state passed/failed by setting the exist status. This can happen if e.g. the test suite relies on external hardware that sometimes lock up and need to be manually restored. If the status "passed" where written (via exit status 0) it would be a lie because maybe the tests would have killed it. In the same vein a "failed" would also be a lie because maybe the test wouldn't fail? It is thus unknown what the actual status is on the test suite. Would the test suite kill the mutant or not.
+2. the test suite fail in the middle of running test cases but one of the tests killed the mutant. The problem here occurs when the user wants to record what test cases killed the mutant. In this case the suite *could* exit with exit status 1 because it has proved that at least one test case kills the mutant **but** because the test suite started to produce incomprehensible errors in the middle dextool is unable to discern all the test cases that killed the mutant.
+
+The two scenarios described will most likely require that two or more tools are provided to the user.
+
+## TODO
+
+Impl a strategy for handling scenario 1) if needed. For now the control over the exit status is always in the users hand (!= 0 means killed) together with the "retest:" mean that the user probably have enough tools at hand.
+
+# SPC-retest_mutant_on_unstable_test_case
+partof: REQ-unstable_test_suite
+###
+
+The plugin shall record *unknown* as the status of the mutant being tested when the *external test case analyser* writes "retest:" to stdout.
+
+**Note**: This mean that it ignores the exist status from the test suite if it finds a "retest:".
+
+## Rationale
+
+This makes it possible for a user to inform dextool that the mutant should be retested because the test suite started to become unstable when executing the test suite.
+
+The user is free to use this or to ignore the instability because if the user chooses to **not** write "retest:" to stdout the exist status will be used to write the status of the mutant.
