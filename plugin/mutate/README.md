@@ -125,7 +125,25 @@ The analyzer should write to stdout with the following pattern for each test cas
 
 One line per test case.
 
+Assume we have a test framework that generates results to stdout.
+
+Execute some tests and copy the stdout result to a file named `stdout.txt`.
+
 Example:
+
+```sh
+# Processing test cases.
+(Passed) OnePlusOne
+(Failed) TwoPlusTwo
+test.c:6: Fail
+      Expected: Add(2, 2)
+      Which is: 4
+To be equal to: 5
+(Passed) TestStuff
+# 3 tests processed. Summary:
+# PASSED: 2
+# FAILED: 1
+```
 
 Create a file `test_analyze.sh` that will identify passed and a failing test from stdout/stderr:
 ```sh
@@ -151,6 +169,15 @@ done < $1
 Don't forget to make it executable:
 ```sh
 chmod 755 test_analyze.sh
+```
+
+Check that the script works on your example:
+```sh
+touch stderr.txt
+./test_analyze.sh stdout.txt stderr.txt
+passed: OnePlusOne
+failed: TwoPlusTwo
+passed: TestStuff
 ```
 
 And configure dextool to use it. Either via CLI (`--test-case-analyze-cmd`) or config:
