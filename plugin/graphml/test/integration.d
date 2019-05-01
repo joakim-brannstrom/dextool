@@ -50,7 +50,9 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.out_xml = testEnv.outdir ~ "dextool_raw.graphml";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "graphml", "--debug"];
-    p.dexDiagramParams = ["--class-paramdep", "--class-inheritdep", "--class-memberdep"];
+    p.dexDiagramParams = [
+        "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+    ];
     p.dexFlags = [];
 
     return p;
@@ -482,12 +484,12 @@ unittest {
     auto graph = getGraph(p);
 
     // should look for the node below and then investigate that it contains
-    auto n = graph.getNode("c:@N@std@S@char_traits>#C");
+    auto n = graph.getNode("c:@ST>1#T@A");
     n.save.count.shouldEqual(1);
     auto ng = n.front.getNodeGraph.front;
 
     // contains
-    ng.countNode("c:@N@std@S@char_traits>#C@F@assign#&C#&1C#S").shouldEqual(1);
+    ng.countNode("c:template.hpp@ST>1#T@A@T@count_t").shouldEqual(1);
 }
 
 @(testId ~ "Should be a full representation of a C structs")
