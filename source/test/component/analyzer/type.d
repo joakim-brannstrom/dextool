@@ -7,8 +7,10 @@ Precise testing of the Type analyzer of the Clang AST.
 */
 module test.component.analyzer.type;
 
+import std.algorithm : map, filter;
 import std.conv : to;
 import std.format : format;
+import std.range : take;
 import std.typecons : scoped, Yes;
 import std.variant : visit;
 
@@ -24,8 +26,7 @@ import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
-import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType,
-    toStringDecl;
+import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType, toStringDecl;
 import cpptooling.utility.virtualfilesystem : FileName;
 
 /* These lines are useful when debugging.
@@ -85,6 +86,38 @@ final class TestVisitor : Visitor {
     }
 }
 
+final class AllFuncVisitor : Visitor {
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = Visitor.visit;
+    mixin generateIndentIncrDecr;
+
+    Container container;
+
+    FunctionDeclResult[] funcs;
+
+    override void visit(const(TranslationUnit) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(Namespace) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(UnexposedDecl) v) {
+        mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const(FunctionDecl) v) {
+        mixin(mixinNodeLog!());
+
+        funcs ~= analyzeFunctionDecl(v, container, indent);
+    }
+}
+
 final class TestRecordVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
 
@@ -136,7 +169,7 @@ final class TestDeclVisitor : Visitor {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.store : put;
 
-        auto type = () @trusted{
+        auto type = () @trusted {
             return retrieveType(v.cursor, container, indent);
         }();
         put(type, container, indent);
@@ -292,8 +325,7 @@ version (linux) {
         `;
 
         // arrange
-        auto visitor = new TestVisitor;
-        visitor.find = "c:@F@__uselocale";
+        auto visitor = new AllFuncVisitor;
 
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
@@ -305,9 +337,12 @@ version (linux) {
 
         // assert
         checkForCompilerErrors(tu).shouldBeFalse;
-        visitor.found.shouldBeTrue;
+        visitor.funcs.length.shouldBeGreaterThan(0);
         visitor.funcs[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-        (cast(string) visitor.funcs[0].name).shouldEqual("__uselocale");
+        visitor.funcs
+            .map!(a => a.name)
+            .filter!(a => a == "__uselocale")
+            .take(1).shouldEqual(["__uselocale"]);
     }
 }
 
