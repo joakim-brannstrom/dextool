@@ -7,7 +7,10 @@ Test utility for testing a sequence of data for expected content.
 */
 module dextool_test.sequence;
 
+import std.format : format;
 import std.range : isRandomAccessRange, isInfinite;
+
+import unit_threaded.exception : UnitTestException;
 
 enum isInputSequence(T) = isRandomAccessRange!T && !isInfinite!T;
 

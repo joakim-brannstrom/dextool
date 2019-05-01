@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool_test.utils;
 
 import scriptlike;
-import unit_threaded.exception;
 
 import std.range : isInputRange;
 import std.typecons : Flag;
