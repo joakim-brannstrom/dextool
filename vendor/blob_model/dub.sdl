@@ -1,0 +1,19 @@
+name "blob_model"
+description "Model of binary blobs of data that are modified by a stream of events"
+authors "Joakim Brännström"
+copyright "Copyright © 2019, Joakim Brännström"
+license "BSL-1.0"
+
+targetPath "build"
+
+configuration "application" {
+    targetType "library"
+    targetName "blob_model"
+}
+
+configuration "unittest" {
+    targetType "executable"
+    dependency "unit-threaded" version="~>0.9.3"
+    mainSourceFile "build/ut.d"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f build/ut.d"
+}
