@@ -34,18 +34,28 @@ struct Offset {
 struct Interval {
     Offset start;
     Offset end;
+    private bool append_;
 
     invariant {
         assert(start <= end);
     }
 
-    this(Offset s, Offset e) {
+    this(Offset s, Offset e) @safe pure nothrow @nogc {
         start = s;
         end = e;
     }
 
-    this(size_t s, size_t e) {
+    this(size_t s, size_t e) @safe pure nothrow @nogc {
         this(Offset(s), Offset(e));
+    }
+
+    /**Returns: An interval that will always be at the end which mean that if
+     * it is e.g. used for an Edit it will be appended to the file.
+     */
+    static Interval append() @safe pure nothrow @nogc {
+        auto r = Interval(0, 0);
+        r.append_ = true;
+        return r;
     }
 
     int opCmp(ref const Interval rhs) @safe pure nothrow const @nogc {
@@ -226,12 +236,21 @@ class BlobVfs {
      * blob = the blob to add an entry in the cache for.
      */
     bool open(const Blob blob) @safe pure {
-        bool constructed;
-        blobs.require(blob.uri, {
-            constructed = true;
-            return new Blob(blob.uri, blob.content);
-        }());
-        return constructed;
+        if (auto v = blob.uri in blobs)
+            return false;
+        blobs[blob.uri] = new Blob(blob.uri, blob.content);
+        return true;
+    }
+
+    /** Open a blob with the content read from the file system if it doesn't
+     * already exist in the VFS.
+     */
+    Blob openFromFile(const Uri uri) @safe {
+        if (auto v = uri in blobs)
+            return *v;
+        auto b = get(uri);
+        open(b);
+        return b;
     }
 
     /** Close a blob in the cache if it exists.
@@ -256,15 +275,22 @@ class BlobVfs {
      * This function may throw if the URI do not exists in the internal DB and
      * it refers to a file that do not exist on the filesystem.
      */
-    Blob get(const Uri uri) {
+    Blob get(const Uri uri) @safe {
         if (auto v = uri in blobs)
             return *v;
         return new Blob(uri, rawRead(cast(string) uri));
     }
 
     /// Returns: if there exists a blob with the URI.
-    bool exists(const Uri uri) {
+    bool exists(const Uri uri) @safe pure nothrow const @nogc {
         return (uri in blobs) !is null;
+    }
+
+    /**
+     * Returns: range of the filenames in the VFS.
+     */
+    auto uris() @safe pure nothrow const @nogc {
+        return blobs.byKey;
     }
 
     /** Apply a stream of edits to a blob.
@@ -295,21 +321,102 @@ class BlobVfs {
         if (blob is null || edits.length == 0)
             return false;
 
-        foreach (const e; edits) {
-            if (e.interval.start > e.interval.end)
-                continue;
-            const start = min(e.interval.start, blob.content.length);
-            const end = min(e.interval.end, blob.content.length);
-
-            auto app = appender!(const(ubyte)[])();
-            app.put(blob.content[0 .. start]);
-            app.put(cast(const(ubyte)[]) e.content);
-            app.put(blob.content[end .. $]);
-            blob.content = app.data;
-        }
-
+        change(*blob, edits);
         return true;
     }
+}
+
+/** Modify the blob.
+ */
+Blob change(Blob blob, const(Edit)[] edits) @safe pure nothrow {
+    import std.algorithm : min, filter;
+    import std.array : empty, appender;
+
+    foreach (const e; edits.filter!(a => !a.interval.append_)) {
+        if (e.interval.start > e.interval.end)
+            continue;
+        const start = min(e.interval.start, blob.content.length);
+        const end = min(e.interval.end, blob.content.length);
+
+        auto app = appender!(const(ubyte)[])();
+        app.put(blob.content[0 .. start]);
+        app.put(cast(const(ubyte)[]) e.content);
+        app.put(blob.content[end .. $]);
+        blob.content = app.data;
+    }
+
+    foreach (const e; edits.filter!(a => a.interval.append_)) {
+        blob.content ~= e.content;
+    }
+
+    return blob;
+}
+
+/** Merge edits by concatenation when the intervals overlap.
+ *
+ * TODO: this my be a bit inefficient because it starts by clearing the content
+ * and then adding it all back. Maybe there are a more efficient way?
+ * It should at least use the allocators.
+ */
+BlobEdit merge(const Blob blob, Edit[] edits_) @safe pure nothrow {
+    import std.algorithm : sort, min, filter;
+    import std.array : array, appender;
+
+    auto r = new BlobEdit(new BlobIdentifier(blob.uri));
+    const end = blob.content.length;
+
+    // start by clearing all content.
+    r.edits = [new Edit(Interval(0, end))];
+
+    // Current position into the original content which is the position to
+    // start taking data from. It is continiusly adjusted when the edits are
+    // analysed as to cover the last interval of the original content that
+    // where used.
+    size_t cur = 0;
+
+    auto app = appender!(const(ubyte)[])();
+    foreach (const e; edits_.sort!((a, b) => a.interval < b.interval)
+            .filter!(a => !a.interval.append_)) {
+        // add the original content until this point.
+        if (e.interval.start > cur && cur < end) {
+            auto ni = Interval(cur, min(e.interval.start, end));
+            app.put(blob.content[ni.start .. ni.end]);
+            cur = min(e.interval.end, end);
+        }
+        app.put(e.content);
+    }
+
+    if (cur < end) {
+        app.put(blob.content[cur .. $]);
+    }
+
+    foreach (const e; edits_.filter!(a => a.interval.append_)) {
+        app.put(e.content);
+    }
+
+    r.edits ~= new Edit(Interval(0, end), app.data);
+    return r;
+}
+
+@("shall merge multiple edits into two edits")
+unittest {
+    auto vfs = new BlobVfs;
+    auto uri = Uri("my blob");
+
+    vfs.open(new Blob(uri, "0123456789")).should == true;
+
+    {
+        // insert at the beginning and two in the middle concatenated
+        Edit[] e;
+        e ~= new Edit(Interval(2, 5), "def");
+        e ~= new Edit(Interval(8, 9), "ghi");
+        e ~= new Edit(Interval(2, 5), "abc");
+        e ~= new Edit(Interval(0, 0), "start");
+        auto m = merge(vfs.get(uri), e);
+        vfs.change(m);
+    }
+
+    (cast(string) vfs.get(uri).content).should == "start01abcdef567ghi9";
 }
 
 private:
@@ -321,7 +428,7 @@ auto workaroundLinkingBug() {
     return typeid(std.typecons.Tuple!(int, double));
 }
 
-const(ubyte)[] rawRead(string path) {
+const(ubyte)[] rawRead(string path) @safe {
     import std.array : appender;
     import std.stdio : File;
 
@@ -417,66 +524,4 @@ unittest {
 
     (cast(string) vfs.get(Uri(uri, 0)).content).should == "uri version 0";
     (cast(string) vfs.get(Uri(uri, 1)).content).should == "uri version 1";
-}
-
-/** Merge edits by concatenation when the intervals overlap.
- *
- * TODO: this my be a bit inefficient because it starts by clearing the content
- * and then adding it all back. Maybe there are a more efficient way?
- * It should at least use the allocators.
- */
-BlobEdit merge(const Blob blob, Edit[] edits_) {
-    import std.algorithm : sort, min;
-    import std.array : array, appender;
-
-    auto r = new BlobEdit(new BlobIdentifier(blob.uri));
-    const end = blob.content.length;
-
-    // start by clearing all content.
-    r.edits = [new Edit(Interval(0, end))];
-
-    // Current position into the original content which is the position to
-    // start taking data from. It is continiusly adjusted when the edits are
-    // analysed as to cover the last interval of the original content that
-    // where used.
-    size_t cur = 0;
-
-    auto app = appender!(const(ubyte)[])();
-    foreach (const e; edits_.sort!((a, b) => a.interval < b.interval)) {
-        // add the original content until this point.
-        if (e.interval.start > cur && cur < end) {
-            auto ni = Interval(cur, min(e.interval.start, end));
-            app.put(blob.content[ni.start .. ni.end]);
-            cur = min(e.interval.end, end);
-        }
-        app.put(e.content);
-    }
-
-    if (cur < end) {
-        app.put(blob.content[cur .. $]);
-    }
-
-    r.edits ~= new Edit(Interval(0, end), app.data);
-    return r;
-}
-
-@("shall merge multiple edits into two edits")
-unittest {
-    auto vfs = new BlobVfs;
-    auto uri = Uri("my blob");
-
-    vfs.open(new Blob(uri, "0123456789")).should == true;
-
-    {
-        // insert at the beginning and two in the middle concatenated
-        Edit[] e;
-        e ~= new Edit(Interval(2, 5), "def");
-        e ~= new Edit(Interval(8, 9), "ghi");
-        e ~= new Edit(Interval(2, 5), "abc");
-        e ~= new Edit(Interval(0, 0), "start");
-        auto m = merge(vfs.get(uri), e);
-        vfs.change(m);
-    }
-
-    (cast(string) vfs.get(uri).content).should == "start01abcdef567ghi9";
 }
