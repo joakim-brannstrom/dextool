@@ -31,7 +31,7 @@ struct ClangContext {
     import clang.Index : Index;
     import clang.TranslationUnit : TranslationUnit;
 
-    import cpptooling.utility.virtualfilesystem : VirtualFileSystem, FileName;
+    import blob_model : BlobVfs, Uri, Blob;
 
     import clang.c.Index : CXTranslationUnit_Flags;
 
@@ -43,12 +43,8 @@ struct ClangContext {
 
     /** Access to the virtual filesystem used when instantiating translation
      * units.
-     *
-     * Note:
-     * NOT using the abbreviation VFS because it is not commonly known. Better
-     * to be specific.
      */
-    VirtualFileSystem virtualFileSystem;
+    BlobVfs vfs;
 
     @disable this();
 
@@ -72,7 +68,7 @@ struct ClangContext {
     this(Flag!"useInternalHeaders" useInternalHeaders,
             Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
         this.index = Index(false, false);
-        this.virtualFileSystem = VirtualFileSystem();
+        this.vfs = new BlobVfs;
 
         if (useInternalHeaders) {
             import cpptooling.utility.virtualfilesystem : FileName;
@@ -81,8 +77,7 @@ struct ClangContext {
             Compiler compiler;
             this.internal_header_arg = compiler.extraIncludeFlags;
             foreach (hdr; compiler.extraHeaders) {
-                auto f = virtualFileSystem.openInMemory(hdr.filename.FileName);
-                f.write(hdr.content);
+                auto f = vfs.open(new Blob(Uri(hdr.filename), hdr.content));
             }
         }
 
@@ -116,14 +111,18 @@ struct ClangContext {
 
         debug logger.trace("Internal compiler flags: ", args.join(" "));
 
+        const uri = Uri(sourceFilename);
+
         // ensure the file exist in the filesys layer.
         // it has either been added as an in-memory file by the user or it is
         // read from the filesystem.
-        virtualFileSystem.open(cast(FileName) sourceFilename);
+        if (!vfs.exists(uri)) {
+            vfs.openFromFile(uri);
+        }
 
         import cpptooling.utility.virtualfilesystem : toClangFiles;
 
-        auto files = virtualFileSystem.toClangFiles;
+        auto files = vfs.toClangFiles;
 
         return TranslationUnit.parse(index, sourceFilename, args, files);
     }

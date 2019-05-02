@@ -17,7 +17,7 @@ import logger = std.experimental.logger;
 
 import unit_threaded;
 import test.clang_util;
-import test.helpers;
+import blob_model;
 
 // TODO this is a mega import. Reduce it.
 import cpptooling.data;
@@ -28,8 +28,7 @@ import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
-import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType,
-    toStringDecl;
+import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType, toStringDecl;
 import cpptooling.utility.virtualfilesystem : FileName;
 
 final class TestVisitor : Visitor {
@@ -178,7 +177,7 @@ unittest {
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto code = format(raw_code, getValue!string, getValue!(string[], 1)[0],
             getValue!(string[], 1)[1]);
-    ctx.virtualFileSystem.openAndWrite("issue.hpp".FileName, code);
+    ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
     // act

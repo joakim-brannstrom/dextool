@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2019, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -12,21 +12,21 @@ module cpptooling.utility.virtualfilesystem;
 import clang.c.Index : CXUnsavedFile;
 
 public import dextool.type : FileName;
-public import dextool.vfs : VirtualFileSystem;
+public import blob_model : BlobVfs;
 
 /** Convert to an array that can be passed on to clang to use as in-memory source code.
  *
  * Trusted: operates on files handled by a VirtualFileSystem that ensues that
  * they exists. The VFS has taken care of validating the files.
  */
-CXUnsavedFile[] toClangFiles(ref VirtualFileSystem vfs) @trusted {
+CXUnsavedFile[] toClangFiles(ref BlobVfs vfs) @trusted {
     import std.algorithm : map;
     import std.array : array;
     import std.string : toStringz;
 
-    return vfs.files.map!((a) {
-        auto s = vfs.open(a)[];
-        auto strz = (cast(char[]) a).toStringz;
-        return CXUnsavedFile(strz, cast(char*) s.ptr, s.length);
+    return vfs.uris.map!((a) {
+        auto s = vfs.get(a).content[];
+        auto fname = (cast(string) a).toStringz;
+        return CXUnsavedFile(fname, cast(char*) s.ptr, s.length);
     }).array();
 }

@@ -14,7 +14,7 @@ import dsrcgen.cpp : CppModule;
 
 import unit_threaded;
 import test.clang_util;
-import test.helpers;
+import blob_model;
 import test.extra_should;
 
 import dextool.type;
@@ -55,7 +55,7 @@ final class TestVisitor : Visitor {
     override void visit(const(Namespace) v) {
         mixin(mixinNodeLog!());
 
-        () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
+        () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
         // pop the stack when done
         scope (exit)
             ns_stack = ns_stack[0 .. $ - 1];
@@ -72,8 +72,7 @@ final class TestVisitor : Visitor {
     }
 
     void visitRecord(T)(const T v) @trusted {
-        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor,
-            analyzeRecord;
+        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor, analyzeRecord;
 
         mixin(mixinNodeLog!());
 
@@ -99,7 +98,7 @@ struct pod {
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
+    ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     auto codegen = new CppModule;
@@ -141,7 +140,7 @@ private:
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
+    ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
     auto codegen = new CppModule;

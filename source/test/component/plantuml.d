@@ -12,7 +12,7 @@ import std.typecons : BlackHole, Flag, Yes, No, scoped;
 
 import unit_threaded;
 import test.clang_util;
-import test.helpers;
+import blob_model;
 
 import clang.TranslationUnit : TranslationUnit;
 
@@ -146,9 +146,8 @@ class A_ByCtor {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite("/comp/ctor.hpp".FileName,
-            format(comp_ctor, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
+    be.ctx.vfs.open(new Blob(Uri("/comp/ctor.hpp"), format(comp_ctor, getValue!string)));
+    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
     auto tu0 = be.ctx.makeTranslationUnit("/comp/ctor.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -176,9 +175,8 @@ class A_ByParam {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite("/comp/a.hpp".FileName,
-            format(comp_method, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
+    be.ctx.vfs.open(new Blob(Uri("/comp/a.hpp"), format(comp_method, getValue!string)));
+    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
     auto tu0 = be.ctx.makeTranslationUnit("/comp/a.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -204,9 +202,8 @@ void free_func(A%s a);
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName,
-            format(comp_func, getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
+    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func, getValue!string)));
+    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -234,9 +231,9 @@ class A_ByMember {
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName, format(comp_func,
-            getValue!string.length == 0 ? Snippet.include_comp_a : "", getValue!string));
-    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
+    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func,
+            getValue!string.length == 0 ? Snippet.include_comp_a : "", getValue!string)));
+    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
@@ -281,8 +278,8 @@ A a;
 
     // arrange
     auto be = scoped!Backend();
-    be.ctx.virtualFileSystem.openAndWrite("/comp/fun.hpp".FileName, comp);
-    be.ctx.virtualFileSystem.openAndWrite("/comp_a/a.hpp".FileName, Snippet.comp_a);
+    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), comp));
+    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
     auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
     auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 

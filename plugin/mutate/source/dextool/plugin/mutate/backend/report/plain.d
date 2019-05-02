@@ -18,7 +18,7 @@ import std.typecons : Yes, No;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;

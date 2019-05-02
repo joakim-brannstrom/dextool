@@ -2,7 +2,6 @@
 
 set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/test/clang_util.d
-    ${CMAKE_SOURCE_DIR}/source/test/helpers.d
 
     ${CMAKE_SOURCE_DIR}/source/test/component/scratch.d
 
@@ -16,6 +15,6 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
-compile_d_unittest(component "${SRC_FILES}" "${flags}" "" "dextool_cpptooling")
+compile_d_unittest(component "${SRC_FILES}" "${flags}" "" "dextool_cpptooling;dextool_blob_model")

@@ -15,11 +15,10 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/dextool/type.d
     ${CMAKE_SOURCE_DIR}/source/dextool/user_filerange.d
     ${CMAKE_SOURCE_DIR}/source/dextool/utility.d
-    ${CMAKE_SOURCE_DIR}/source/dextool/vfs.d
     ${CMAKE_SOURCE_DIR}/source/dextool/xml.d
     )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -J${CMAKE_SOURCE_DIR}/clang/resources")
+set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
 compile_d_static_lib(dextool_dextool
     "${SRC_FILES}"

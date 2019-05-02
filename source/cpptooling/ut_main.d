@@ -31,7 +31,6 @@ int main(string[] args) {
                           "cpptooling.generator.utility",
                           "cpptooling.utility.dedup",
                           "cpptooling.utility.sort",
-                          "cpptooling.utility.virtualfilesystem",
                           );
     //dfmt on
 }

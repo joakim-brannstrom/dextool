@@ -15,7 +15,7 @@ import std.exception : collectException;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.type : MutationKind, ReportLevel;
 import dextool.plugin.mutate.backend.type : Mutation;
 
@@ -46,7 +46,7 @@ import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
     }
 
     override void mutationKindEvent(const MutationKind[]) {
-        compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted{
+        compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted {
             import std.stdio : stderr, write;
 
             stderr.write(s);

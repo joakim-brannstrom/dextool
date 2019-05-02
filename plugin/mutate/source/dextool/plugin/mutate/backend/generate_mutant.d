@@ -21,8 +21,10 @@ import std.utf : validate;
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSqlQuery;
 import dextool.plugin.mutate.backend.type : Language;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
+
+import blob_model : Blob, Edit, change, Interval, Uri, merge;
 
 enum GenerateMutantStatus {
     error,
@@ -58,11 +60,9 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
         return ExitStatusType.Errors;
     }
 
-    ubyte[] content;
+    Blob content;
     try {
-        content = fio.makeInput(mut_file).read;
-        if (content.length == 0)
-            return ExitStatusType.Errors;
+        content = fio.makeInput(mut_file);
     } catch (Exception e) {
         collectException(logger.error(e.msg));
         return ExitStatusType.Errors;
@@ -101,7 +101,7 @@ struct GenerateMutantResult {
     const(ubyte)[] to;
 }
 
-auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content, ref SafeOutput fout) @safe nothrow {
+auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref SafeOutput fout) @safe nothrow {
     import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
     if (mutp.mp.mutations.length == 0)
@@ -117,7 +117,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
 
     Checksum f_checksum;
     try {
-        f_checksum = checksum(cast(const(ubyte)[]) content);
+        f_checksum = checksum(original.content);
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
         return GenerateMutantResult(GenerateMutantStatus.filesysError);
@@ -138,18 +138,22 @@ auto generateMutant(ref Database db, MutationEntry mutp, const(ubyte)[] content,
     auto mut = makeMutation(mutp.mp.mutations[0].kind, mutp.lang);
 
     try {
-        fout.write(mut.top());
-        auto s = content.drop(mutp.mp.offset);
-        fout.write(s.front);
-        s.popFront;
+        Edit[] edits;
+        edits ~= new Edit(Interval(0, 0), mut.top());
 
-        auto from_ = content[mutp.mp.offset.begin .. mutp.mp.offset.end];
+        auto from_ = original.content[mutp.mp.offset.begin .. mutp.mp.offset.end];
         auto to_ = mut.mutate(from_);
-        fout.write(to_);
-        fout.write(s.front);
+
+        edits ~= new Edit(Interval(mutp.mp.offset.begin, mutp.mp.offset.end), to_);
 
         // #SPC-file_security-header_as_warning
-        fout.write("\n/* DEXTOOL: THIS FILE IS MUTATED */");
+        edits ~= new Edit(Interval.append, "\n/* DEXTOOL: THIS FILE IS MUTATED */");
+
+        auto blob = new Blob(original.uri, original.content);
+        auto m = merge(blob, edits);
+        blob = change(blob, m.edits);
+
+        fout.write(blob.content);
 
         return GenerateMutantResult(GenerateMutantStatus.ok, from_, to_);
     } catch (Exception e) {
@@ -430,13 +434,13 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
 }
 
 /// Returns: a snippet of the mutation if it is OK otherwise an empty snippet.
-auto makeMutationText(SafeInput file_, const Offset offs, Mutation.Kind kind, Language lang) @safe {
+auto makeMutationText(Blob file_, const Offset offs, Mutation.Kind kind, Language lang) @safe {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
     MakeMutationTextResult rval;
 
-    if (offs.begin < offs.end && offs.end < file_.read.length) {
-        rval.rawOriginal = file_.read[offs.begin .. offs.end];
+    if (offs.begin < offs.end && offs.end < file_.content.length) {
+        rval.rawOriginal = file_.content[offs.begin .. offs.end];
     }
 
     auto mut = makeMutation(kind, lang);

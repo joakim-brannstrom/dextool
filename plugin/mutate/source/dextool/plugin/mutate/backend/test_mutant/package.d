@@ -17,6 +17,8 @@ import std.exception : collectException;
 
 import logger = std.experimental.logger;
 
+import blob_model : Blob, Uri;
+
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -403,7 +405,7 @@ nothrow:
 
     Nullable!MutationEntry mutp;
     AbsolutePath mut_file;
-    const(ubyte)[] original_content;
+    Blob original;
 
     const(Mutation.Kind)[] mut_kind;
     const TestCaseAnalyzeBuiltin[] tc_analyze_builtin;
@@ -482,16 +484,9 @@ nothrow:
 
         try {
             mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getOutputDir));
-
-            // must duplicate because the buffer is memory mapped thus it can change
-            original_content = fio.makeInput(mut_file).read.dup;
+            original = fio.makeInput(mut_file);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
-            driver_sig = MutationDriverSignal.filesysError;
-            return;
-        }
-
-        if (original_content.length == 0) {
             logger.warning("Unable to read ", mut_file).collectException;
             driver_sig = MutationDriverSignal.filesysError;
             return;
@@ -500,7 +495,7 @@ nothrow:
         // mutate
         try {
             auto fout = fio.makeOutput(mut_file);
-            auto mut_res = generateMutant(db.get, mutp, original_content, fout);
+            auto mut_res = generateMutant(db.get, mutp, original, fout);
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
@@ -653,7 +648,7 @@ nothrow:
 
         // restore the original file.
         try {
-            fio.makeOutput(mut_file).write(original_content);
+            fio.makeOutput(mut_file).write(original.content);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             // fatal error because being unable to restore a file prohibit
@@ -876,7 +871,7 @@ nothrow:
             try {
                 auto abs_f = AbsolutePath(FileName(files[i]),
                         DirName(cast(string) data.filesysIO.getOutputDir));
-                auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).read[]);
+                auto f_checksum = checksum(data.filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
                     logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
                             abs_f);

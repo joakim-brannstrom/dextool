@@ -18,7 +18,7 @@ import dextool.from;
 public import dextool.plugin.mutate.backend.type;
 public import dextool.plugin.mutate.backend.mutation_type;
 public import dextool.clang_extensions : OpKind;
-public import dextool.plugin.mutate.backend.interface_ : SafeInput;
+public import dextool.plugin.mutate.backend.interface_ : Blob;
 
 @safe:
 

@@ -18,7 +18,6 @@ int main(string[] args) {
                           "dextool.fsm",
                           "dextool.type",
                           "dextool.utility",
-                          "dextool.vfs",
                           );
     //dfmt on
 }
