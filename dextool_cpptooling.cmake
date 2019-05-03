@@ -60,13 +60,13 @@ set(SRC_FILES
     ${CMAKE_SOURCE_DIR}/source/cpptooling/utility/virtualfilesystem.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/dsrcgen/source -J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
 compile_d_static_lib(dextool_cpptooling
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_libclang;dextool_taggedalgebraic")
+    "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_libclang;dextool_taggedalgebraic;dextool_blob_model")
 
 list(APPEND SRC_FILES "${CMAKE_SOURCE_DIR}/source/cpptooling/ut_main.d")
-compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen")
+compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang;dextool_dsrcgen;dextool_blob_model")

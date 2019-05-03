@@ -15,7 +15,7 @@ import std.typecons : Flag, Yes, No;
 
 import dextool.plugin.mutate.backend.database : Database, spinSqlQuery, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;

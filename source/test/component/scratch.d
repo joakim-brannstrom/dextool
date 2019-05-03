@@ -13,4 +13,3 @@ import std.typecons : Yes;
 
 import unit_threaded;
 import test.clang_util;
-import test.helpers;

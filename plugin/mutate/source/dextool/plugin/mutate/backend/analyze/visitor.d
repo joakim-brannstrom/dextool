@@ -1090,7 +1090,7 @@ class AnalyzeResult {
 
         auto p = AbsolutePath(a, DirName(fio.getOutputDir));
         auto fin = fio.makeInput(p);
-        auto cs = cache.getFileChecksum(p, fin.read);
+        auto cs = cache.getFileChecksum(p, fin.content);
 
         file_index.add(a);
         files.put(FileResult(a, cs, lang));

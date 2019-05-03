@@ -15,7 +15,7 @@ import logger = std.experimental.logger;
 
 import unit_threaded;
 import test.clang_util;
-import test.helpers;
+import blob_model;
 
 // TODO this is a mega import. Reduce it
 import cpptooling.data;
@@ -101,10 +101,9 @@ public:
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
+    ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
-    //visitor.find = "c:@F@some_func#";
 
     // act
     auto ast = ClangAST!(typeof(visitor))(tu.cursor);

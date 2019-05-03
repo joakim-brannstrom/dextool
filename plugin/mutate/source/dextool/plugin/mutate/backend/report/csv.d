@@ -18,12 +18,11 @@ import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
 import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, window, windowSize, reportMutationSubtypeStats,
-    reportStatistics, Table;
+    makeMutationText, window, windowSize, reportMutationSubtypeStats, reportStatistics, Table;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 
 @safe:

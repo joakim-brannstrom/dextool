@@ -13,6 +13,8 @@ import std.exception : collectException;
 import std.stdio : File;
 import logger = std.experimental.logger;
 
+public import blob_model : Blob;
+
 import dextool.type : AbsolutePath;
 
 @safe:
@@ -63,7 +65,7 @@ interface FilesysIO {
     SafeOutput makeOutput(AbsolutePath p);
 
     ///
-    SafeInput makeInput(AbsolutePath p);
+    Blob makeInput(AbsolutePath p);
 
 protected:
     void putFile(AbsolutePath fname, const(ubyte)[] data);
@@ -98,23 +100,15 @@ struct SafeOutput {
         buf.put(data);
     }
 
+    void write(Blob b) {
+        buf.put(b.content);
+    }
+
     void close() {
         if (is_open) {
             fsys.putFile(fname, buf.data);
             buf.clear;
         }
         is_open = false;
-    }
-}
-
-struct SafeInput {
-    private ubyte[] data;
-
-    this(ubyte[] data) {
-        this.data = data;
-    }
-
-    ubyte[] read() {
-        return data;
     }
 }

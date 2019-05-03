@@ -18,7 +18,7 @@ import logger = std.experimental.logger;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeInput;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 

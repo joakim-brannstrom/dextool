@@ -14,7 +14,7 @@ module test.component.analyzer.test_clang;
 import std.typecons : Yes;
 
 import test.clang_util;
-import test.helpers;
+import blob_model;
 
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.context : ClangContext;
@@ -61,7 +61,7 @@ enum EnumFoo {
 
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.virtualFileSystem.openAndWrite("/issue.hpp".FileName, code);
+    ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
 

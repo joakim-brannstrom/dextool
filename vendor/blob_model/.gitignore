@@ -1,0 +1,25 @@
+*.[oa]
+*.obj
+*.svn
+
+# editor junk files
+*~
+*.orig
+tags
+*.swp
+
+# dlang
+build/
+.dub
+docs.json
+__dummy.html
+*.lst
+__test__*__
+
+# rust
+target/
+**/*.rs.bk
+
+# python
+*.pyc
+

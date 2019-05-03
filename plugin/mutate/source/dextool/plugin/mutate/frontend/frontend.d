@@ -41,8 +41,6 @@ ExitStatusType runMutate(ArgParser conf) {
         if (auto f = conf.toolMode in modes) {
             return () @trusted {
                 auto dacc = DataAccess.make(conf);
-                scope (exit)
-                    dacc.io.release;
                 return (*f)(conf, dacc);
             }();
         } catch (Exception e) {
@@ -112,11 +110,11 @@ struct DataAccess {
 final class FrontendIO : FilesysIO {
     import std.exception : collectException;
     import std.stdio : File;
+    import blob_model;
     import dextool.type : AbsolutePath, Path;
-    import dextool.plugin.mutate.backend : SafeOutput, SafeInput;
-    import dextool.vfs : VirtualFileSystem, VfsFile;
+    import dextool.plugin.mutate.backend : SafeOutput, Blob;
 
-    VirtualFileSystem vfs;
+    BlobVfs vfs;
 
     private AbsolutePath[] restrict_dir;
     private AbsolutePath output_dir;
@@ -126,10 +124,7 @@ final class FrontendIO : FilesysIO {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
         this.dry_run = dry_run;
-    }
-
-    void release() {
-        vfs.release();
+        this.vfs = new BlobVfs;
     }
 
     override File getDevNull() {
@@ -157,19 +152,23 @@ final class FrontendIO : FilesysIO {
         return SafeOutput(p, this);
     }
 
-    override SafeInput makeInput(AbsolutePath p) @safe {
+    override Blob makeInput(AbsolutePath p) @safe {
         import std.file;
 
         verifyPathInsideRoot(output_dir, p, dry_run);
 
-        auto f = vfs.open(cast(FileName) p);
-        return SafeInput(f[]);
+        const uri = Uri(cast(string) p);
+        if (!vfs.exists(uri)) {
+            auto blob = vfs.get(Uri(cast(string) p));
+            vfs.open(blob);
+        }
+        return vfs.get(uri);
     }
 
     override void putFile(AbsolutePath fname, const(ubyte)[] data) @safe {
         import std.stdio : File;
 
-        // because a SafeInput/SafeOutput could theoretically be created via
+        // because a Blob/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
         verifyPathInsideRoot(output_dir, fname, dry_run);
