@@ -61,7 +61,7 @@ import std.range : takeOne;
 import dextool.plugin.mutate.backend.type : Language;
 
 import d2sqlite3 : SqlDatabase = Database;
-import microrm : Microrm, TableName, buildSchema, ColumnParam, TableForeignKey,
+import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
     TableConstraint, KeyRef, KeyParam, ColumnName, delete_, insert, select;
 
 immutable allTestCaseTable = "all_test_case";
@@ -85,7 +85,7 @@ private immutable testCaseTableV1 = "test_case";
  *
  * Returns: an open sqlite3 database object.
  */
-Microrm initializeDB(const string p) @trusted
+Miniorm initializeDB(const string p) @trusted
 in {
     assert(p.length != 0);
 }
@@ -118,7 +118,7 @@ do {
         sqliteDb = SqlDatabase(p, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
     }
 
-    auto db = Microrm(sqliteDb);
+    auto db = Miniorm(sqliteDb);
 
     // TODO: remove all key off in upgrade schemas.
     db.run("PRAGMA foreign_keys=OFF;");
@@ -158,7 +158,7 @@ struct RawSrcMetadata {
 }
 
 // Associate metadata from lines with the mutation status.
-void makeSrcMetadataView(ref Microrm db) {
+void makeSrcMetadataView(ref Miniorm db) {
     // check if a NOMUT is on or between the start and end of a mutant.
     immutable src_metadata_tbl = "CREATE VIEW %s
     AS
@@ -205,7 +205,7 @@ void makeSrcMetadataView(ref Microrm db) {
     db.run(format(nomut_data_tbl, nomutDataTable, mutationTable, rawSrcMetadataTable, nomutTable));
 }
 
-// Reconstruct the view in Microrm.
+// Reconstruct the view in Miniorm.
 @TableName(srcMetadataTable)
 struct SrcMetadataTbl {
     @ColumnName("mut_id")
@@ -224,7 +224,7 @@ struct SrcMetadataTbl {
     long nomutCount;
 }
 
-// Reconstruct the nomut table in Microrm.
+// Reconstruct the nomut table in Miniorm.
 @TableName(nomutTable)
 struct NomutTbl {
     @ColumnName("mp_id")
@@ -381,7 +381,7 @@ struct MutationStatusTbl {
     ulong checksum1;
 }
 
-void updateSchemaVersion(ref Microrm db, long ver) nothrow {
+void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
         db.run(insert!VersionTbl.insert, VersionTbl(ver));
@@ -390,7 +390,7 @@ void updateSchemaVersion(ref Microrm db, long ver) nothrow {
     }
 }
 
-long getSchemaVersion(ref Microrm db) nothrow {
+long getSchemaVersion(ref Miniorm db) nothrow {
     try {
         auto v = db.run(select!VersionTbl).takeOne;
         return v.empty ? 0 : v.front.version_;
@@ -399,10 +399,10 @@ long getSchemaVersion(ref Microrm db) nothrow {
     return 0;
 }
 
-void upgrade(ref Microrm db) nothrow {
+void upgrade(ref Miniorm db) nothrow {
     import d2sqlite3;
 
-    alias upgradeFunc = void function(ref Microrm db);
+    alias upgradeFunc = void function(ref Miniorm db);
     enum tbl = makeUpgradeTable;
 
     while (true) {
@@ -446,7 +446,7 @@ void upgrade(ref Microrm db) nothrow {
 /** If the database start it version 0, not initialized, then initialize to the
  * latest schema version.
  */
-void upgradeV0(ref Microrm db) {
+void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl,
@@ -458,7 +458,7 @@ void upgradeV0(ref Microrm db) {
 }
 
 /// 2018-04-08
-void upgradeV1(ref Microrm db) {
+void upgradeV1(ref Miniorm db) {
     @TableName(testCaseTableV1)
     @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
     static struct TestCaseKilledTblV1 {
@@ -477,7 +477,7 @@ void upgradeV1(ref Microrm db) {
 }
 
 /// 2018-04-22
-void upgradeV2(ref Microrm db) {
+void upgradeV2(ref Miniorm db) {
     @TableName(filesTable)
     static struct FilesTbl {
         ulong id;
@@ -501,7 +501,7 @@ void upgradeV2(ref Microrm db) {
 }
 
 /// 2018-09-01
-void upgradeV3(ref Microrm db) {
+void upgradeV3(ref Miniorm db) {
     @TableName(killedTestCaseTable)
     @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
     struct TestCaseKilledTblV2 {
@@ -530,7 +530,7 @@ void upgradeV3(ref Microrm db) {
 }
 
 /// 2018-09-24
-void upgradeV4(ref Microrm db) {
+void upgradeV4(ref Miniorm db) {
     @TableName(killedTestCaseTable)
     @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
     @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
@@ -587,7 +587,7 @@ void upgradeV4(ref Microrm db) {
  *
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
-void upgradeV5(ref Microrm db) {
+void upgradeV5(ref Miniorm db) {
     @TableName(mutationTable)
     @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
     @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
@@ -635,7 +635,7 @@ void upgradeV5(ref Microrm db) {
 }
 
 /// 2018-10-11
-void upgradeV6(ref Microrm db) {
+void upgradeV6(ref Miniorm db) {
     @TableName(mutationStatusTable)
     @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
     static struct MutationStatusTbl {
@@ -665,7 +665,7 @@ void upgradeV6(ref Microrm db) {
 }
 
 /// 2018-10-15
-void upgradeV7(ref Microrm db) {
+void upgradeV7(ref Miniorm db) {
     immutable new_tbl = "new_" ~ killedTestCaseTable;
 
     db.run(buildSchema!TestCaseKilledTbl("new_"));
@@ -683,7 +683,7 @@ void upgradeV7(ref Microrm db) {
 }
 
 /// 2018-10-20
-void upgradeV8(ref Microrm db) {
+void upgradeV8(ref Miniorm db) {
     immutable new_tbl = "new_" ~ mutationPointTable;
     db.run(buildSchema!MutationPointTbl("new_"));
     db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
@@ -696,7 +696,7 @@ void upgradeV8(ref Microrm db) {
 }
 
 /// 2018-11-10
-void upgradeV9(ref Microrm db) {
+void upgradeV9(ref Miniorm db) {
     immutable new_tbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
@@ -709,7 +709,7 @@ void upgradeV9(ref Microrm db) {
 }
 
 /// 2018-11-25
-void upgradeV10(ref Microrm db) {
+void upgradeV10(ref Miniorm db) {
     @TableName(rawSrcMetadataTable)
     @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
     @TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
@@ -727,7 +727,7 @@ void upgradeV10(ref Microrm db) {
     }
 
     db.run(buildSchema!RawSrcMetadata);
-    void makeSrcMetadataView(ref Microrm db) {
+    void makeSrcMetadataView(ref Miniorm db) {
         // check if a NOMUT is on or between the start and end of a mutant.
         immutable src_metadata_v1_tbl = "CREATE VIEW %s
             AS
@@ -758,7 +758,7 @@ void upgradeV10(ref Microrm db) {
 }
 
 /// 2019-04-06
-void upgradeV11(ref Microrm db) {
+void upgradeV11(ref Miniorm db) {
     immutable new_tbl = "new_" ~ rawSrcMetadataTable;
     db.run(buildSchema!RawSrcMetadata("new_"));
     db.run(format!"INSERT INTO %s (id,file_id,line,nomut) SELECT t.id,t.file_id,t.line,t.nomut FROM %s t"(new_tbl,
@@ -771,13 +771,13 @@ void upgradeV11(ref Microrm db) {
     updateSchemaVersion(db, 12);
 }
 
-void replaceTbl(ref Microrm db, string src, string dst) {
+void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run(format("DROP TABLE %s", dst));
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
 }
 
 struct UpgradeTable {
-    alias UpgradeFunc = void function(ref Microrm db);
+    alias UpgradeFunc = void function(ref Miniorm db);
     UpgradeFunc[long] tbl;
     alias tbl this;
 

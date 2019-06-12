@@ -5,14 +5,14 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/stan
 
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-mutate)
 
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source -J${CMAKE_SOURCE_DIR}/clang/resources -version=SqliteEnableColumnMetadata -version=SqliteEnableUnlockNotify -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source -I${CMAKE_SOURCE_DIR}/vendor/toml/src -I${CMAKE_SOURCE_DIR}/vendor/arsd -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src -I${CMAKE_SOURCE_DIR}/libs/microrm/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source -J${CMAKE_SOURCE_DIR}/clang/resources -version=SqliteEnableColumnMetadata -version=SqliteEnableUnlockNotify -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source -I${CMAKE_SOURCE_DIR}/vendor/toml/src -I${CMAKE_SOURCE_DIR}/vendor/arsd -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_microrm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools"
+    "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -24,7 +24,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_microrm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
+compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
 
 setup_integration_testing_env()
 
@@ -37,4 +37,4 @@ list(APPEND SUT_REUSED_FILES
     )
 file(GLOB_RECURSE TEST_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.d)
 file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_SOURCE_DIR}/test/testdata/* ${CMAKE_CURRENT_LIST_DIR}/testdata/*)
-compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_scriptlike;dextool_dextool_test;dextool_microrm;dextool_d2sqlite3;dextool_dextool" "${TESTDATA_FILES}")
+compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_scriptlike;dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool" "${TESTDATA_FILES}")
