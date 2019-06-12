@@ -61,6 +61,40 @@ Don't be shy to report any issue that you find.
 
 ## Common Build Errors
 
+## component_tests Fail
+
+The most common reason for why `component_tests` fail is that clang++ try to use the latest GCC that is installed but the c++ standard library is not installed for that compiler.
+
+Try to compile the following code with clang++:
+```c++
+#include <string>
+
+int main(int argc, char **argv) {
+    return 0;
+}
+```
+
+```sh
+clang++ -v test.cpp
+```
+
+If it fails with something like this:
+```sh
+test.cpp:1:10: fatal error: 'string' file not found
+```
+
+it means that you need to install the c++ standard library for your compiler.
+
+In the output look for this line:
+```sh
+ /usr/bin/../lib/gcc/x86_64-linux-gnu/XYZ/../../../../include/c++
+```
+
+From that line we can deduce that the package to install in Ubuntu is:
+```sh
+sudo apt install libstdc++-XYZ-dev
+```
+
 ### Mismatch Clang and LLVM
 
 To build dextool the dev packages are required. Dextool is optimistic and assume that the latest and greatest version of llvm+libclang should be used. But this also requires that the dev packages are installed.
