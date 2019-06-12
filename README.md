@@ -31,12 +31,18 @@ Dextool depends on the following software packages:
  * [D compiler](https://dlang.org/download.html) (dmd 2.081.2+, ldc 1.11.0+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
 
-Dextool has been tested with libclang [4.0, 5.0].
+Dextool has been tested with libclang [4.0, 5.0, 6.0, 7.0, 8.0].
 
 For people running Ubuntu two of the dependencies can be installed via apt-get.
 The version of clang and llvm depend on your ubuntu version.
 ```sh
-sudo apt install build-essential cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev ldc dub
+sudo apt install build-essential cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev
+```
+
+It is recommended to install the D compiler by downloading it from the official distribution page.
+```sh
+# link https://dlang.org/download.html
+curl -fsS https://dlang.org/install.sh | bash -s dmd
 ```
 
 Once the dependencies are installed it is time to download the source code and
@@ -54,6 +60,40 @@ Done! Have fun.
 Don't be shy to report any issue that you find.
 
 ## Common Build Errors
+
+## component_tests Fail
+
+The most common reason for why `component_tests` fail is that clang++ try to use the latest GCC that is installed but the c++ standard library is not installed for that compiler.
+
+Try to compile the following code with clang++:
+```c++
+#include <string>
+
+int main(int argc, char **argv) {
+    return 0;
+}
+```
+
+```sh
+clang++ -v test.cpp
+```
+
+If it fails with something like this:
+```sh
+test.cpp:1:10: fatal error: 'string' file not found
+```
+
+it means that you need to install the c++ standard library for your compiler.
+
+In the output look for this line:
+```sh
+ /usr/bin/../lib/gcc/x86_64-linux-gnu/XYZ/../../../../include/c++
+```
+
+From that line we can deduce that the package to install in Ubuntu is:
+```sh
+sudo apt install libstdc++-XYZ-dev
+```
 
 ### Mismatch Clang and LLVM
 

@@ -17,8 +17,7 @@ const clang::Decl* getCursorParentDecl(CXCursor Cursor) {
 }
 
 // See: CXCursor.cpp
-CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
-                          CXTranslationUnit TU,
+CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent, CXTranslationUnit TU,
                           clang::SourceRange RegionOfInterest) {
     assert(S && TU && "Invalid arguments!");
     CXCursorKind K = CXCursor_NotImplemented;
@@ -139,7 +138,6 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
         K = CXCursor_SEHLeaveStmt;
         break;
 
-
     case Stmt::OpaqueValueExprClass:
         if (Expr* Src = cast<OpaqueValueExpr>(S)->getSourceExpr()) {
             return dex_MakeCXCursor(Src, Parent, TU, RegionOfInterest);
@@ -148,8 +146,8 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
         break;
 
     case Stmt::PseudoObjectExprClass:
-        return dex_MakeCXCursor(cast<PseudoObjectExpr>(S)->getSyntacticForm(),
-                                Parent, TU, RegionOfInterest);
+        return dex_MakeCXCursor(cast<PseudoObjectExpr>(S)->getSyntacticForm(), Parent, TU,
+                                RegionOfInterest);
 
     case Stmt::CompoundStmtClass:
         K = CXCursor_CompoundStmt;
@@ -389,14 +387,12 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
         K = CXCursor_UnexposedExpr;
     }
 
-
-    CXCursor C = { K, 0, { Parent, S, TU } };
+    CXCursor C = {K, 0, {Parent, S, TU}};
     return C;
 }
 
-
-} // NS: cxcursor
-} // NS: clang
+} // namespace cxcursor
+} // namespace clang
 
 namespace dextool_clang_extension {
 
@@ -435,9 +431,8 @@ const clang::Expr* getCursorExpr(CXCursor Cursor) {
 
 // See: CXCursor.cpp
 const clang::Stmt* getCursorStmt(CXCursor Cursor) {
-    if (Cursor.kind == CXCursor_ObjCSuperClassRef ||
-            Cursor.kind == CXCursor_ObjCProtocolRef ||
-            Cursor.kind == CXCursor_ObjCClassRef) {
+    if (Cursor.kind == CXCursor_ObjCSuperClassRef || Cursor.kind == CXCursor_ObjCProtocolRef ||
+        Cursor.kind == CXCursor_ObjCClassRef) {
         return nullptr;
     }
 
@@ -446,32 +441,37 @@ const clang::Stmt* getCursorStmt(CXCursor Cursor) {
 
 // See: CXSourceLocation.h
 /// \brief Translate a Clang source location into a CIndex source location.
-CXSourceLocation translateSourceLocation(const clang::SourceManager& SM, const clang::LangOptions& LangOpts,
+CXSourceLocation translateSourceLocation(const clang::SourceManager& SM,
+                                         const clang::LangOptions& LangOpts,
                                          clang::SourceLocation Loc) {
     if (Loc.isInvalid()) {
         clang_getNullLocation();
     }
 
-    CXSourceLocation Result = { { &SM, &LangOpts, },
-        Loc.getRawEncoding()
-    };
+    CXSourceLocation Result = {{
+                                   &SM,
+                                   &LangOpts,
+                               },
+                               Loc.getRawEncoding()};
     return Result;
 }
 
-
 // See: CXSourceLocation.h
-CXSourceLocation translateSourceLocation(clang::ASTContext& Context,
-                                         clang::SourceLocation Loc) {
-    return translateSourceLocation(Context.getSourceManager(),
-                                   Context.getLangOpts(),
-                                   Loc);
+CXSourceLocation translateSourceLocation(clang::ASTContext& Context, clang::SourceLocation Loc) {
+    return translateSourceLocation(Context.getSourceManager(), Context.getLangOpts(), Loc);
 }
 
 // See: CIndex.cpp
 CXSourceLocation getLocation(CXCursor C) {
     if (clang_isExpression(C.kind)) {
         const clang::Expr* expr = getCursorExpr(C);
+// the API has changed from 4->8. getStartLoc where finally removed in
+// libclang-8.
+#if CINDEX_VERSION < 50
         clang::SourceLocation loc = expr->getLocStart();
+#else
+        clang::SourceLocation loc = expr->getBeginLoc();
+#endif
         return translateSourceLocation(*getCursorContext(C), loc);
     }
 
@@ -507,4 +507,4 @@ CXCursor dex_getUnderlyingExprNode(const CXCursor cx_expr) {
     return clang::cxcursor::dex_MakeCXCursor(expr, parent, tu, expr->getSourceRange());
 }
 
-} // NS: dextool_clang_extension {
+} // namespace dextool_clang_extension
