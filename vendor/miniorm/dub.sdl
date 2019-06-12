@@ -1,0 +1,31 @@
+name "miniorm"
+description "A minimalistic ORM for SQLite"
+authors "Joakim Brännström"
+copyright "Copyright © 2019, Joakim Brännström"
+license "MIT"
+
+targetPath "build"
+targetType "library"
+
+dependency "d2sqlite3" version="~>0.18.1"
+dependency "sumtype" version="~>0.8.6"
+dependency "unit-threaded" version="~>0.9.3"
+
+configuration "with-lib" {
+    subConfiguration "d2sqlite3" "with-lib"
+}
+
+configuration "all-included" {
+    subConfiguration "d2sqlite3" "all-included"
+}
+
+configuration "without-lib" {
+    subConfiguration "d2sqlite3" "without-lib"
+}
+
+configuration "unittest" {
+    targetType "executable"
+    mainSourceFile "build/ut.d"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f build/ut.d"
+    excludedSourceFiles "source/app.d"
+}

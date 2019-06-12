@@ -1,4 +1,4 @@
-module microrm.queries;
+module miniorm.queries;
 
 import std.algorithm : joiner, map;
 import std.exception : enforce;
@@ -7,13 +7,13 @@ import std.string : join;
 import d2sqlite3;
 import sumtype;
 
-import microrm.api : Microrm;
-import microrm.exception;
-import microrm.schema : tableName, fieldToCol, fieldToCol, ColumnName;
+import miniorm.api : Miniorm;
+import miniorm.exception;
+import miniorm.schema : tableName, fieldToCol, fieldToCol, ColumnName;
 
-public import microrm.query_ast : OrderingTermSort, InsertOpt;
+public import miniorm.query_ast : OrderingTermSort, InsertOpt;
 
-debug (microrm) import std.stdio : stderr;
+debug (miniorm) import std.stdio : stderr;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -24,17 +24,16 @@ auto select(T)() {
 }
 
 struct Select(T) {
-    import std.traits : isNumeric, isSomeString;
-    import microrm.query_ast;
+    import miniorm.query_ast;
 
-    microrm.query_ast.Select query;
+    miniorm.query_ast.Select query;
 
-    this(microrm.query_ast.Select q) {
+    this(miniorm.query_ast.Select q) {
         this.query = q;
     }
 
     this(string from) {
-        this.query.opts.from = Blob(from).From;
+        this.query.from = Blob(from).From;
     }
 
     /// Convert to a SQL statement that can e.g. be pretty printed.
@@ -44,66 +43,45 @@ struct Select(T) {
 
     /// Count the number of matching rows.
     auto count() @safe pure {
-        microrm.query_ast.Select rval = query;
+        miniorm.query_ast.Select rval = query;
         rval.columns.required = ResultColumn(ResultColumnExpr(Blob("count(*)")));
         return Select!T(rval);
     }
 
     /// Order the result by `s` in the order the fields are defined in `T`.
-    auto orderBy(OrderingTermSort s) @safe pure {
-        enum fields = fieldToCol!("", T);
-
+    auto orderBy(OrderingTermSort s, string[] fields = null) @safe pure {
+        OrderingTerm required;
         OrderingTerm[] optional;
-        static foreach (i, field; fields) {
-            static if (i == 0)
-                auto required = OrderingTerm(Blob(field.columnName), s);
-            else
-                optional ~= OrderingTerm(Blob(field.columnName), s);
+
+        if (fields) {
+            required = OrderingTerm(Blob("'" ~ fields[0] ~ "'"), s);
+            foreach (f; fields[1 .. $])
+                optional ~= OrderingTerm(Blob("'" ~ f ~ "'"), s);
+        } else {
+            enum fields_ = fieldToCol!("", T);
+            static foreach (i, field; fields_) {
+                static if (i == 0)
+                    required = OrderingTerm(Blob(field.quoteColumnName), s);
+                else
+                    optional ~= OrderingTerm(Blob(field.quoteColumnName), s);
+            }
         }
 
-        microrm.query_ast.Select rval = query;
-        rval.opts.orderBy = OrderBy(required, optional);
+        miniorm.query_ast.Select rval = query;
+        rval.orderBy = OrderBy(required, optional);
         return Select!T(rval);
     }
 
-    auto where(T)(string lhs, T rhs) if (isNumeric!T || isSomeString!T) {
-        import std.format : format;
+    /// Limit the query to this number of answers
+    auto limit(long value) @safe pure {
+        import std.conv : to;
 
-        return this.where(format("%s %s", lhs, rhs));
+        miniorm.query_ast.Select rval = query;
+        rval.limit = Limit(Blob(value.to!string));
+        return Select!T(rval);
     }
 
-    /// Add a WHERE condition.
-    auto where(string condition) @safe pure {
-        static struct WhereOptional {
-            Select!T value;
-            alias value this;
-
-            private auto where(string condition, WhereOp op) @safe pure {
-                import sumtype;
-
-                Select!T rval = value;
-
-                Where w = value.query.opts.where.tryMatch!((Where v) => v);
-                WhereExpr we = w.tryMatch!((WhereExpr v) => v);
-                we.optional ~= WhereExpr.Opt(op, Expr(condition));
-                rval.query.opts.where = Where(we);
-                return WhereOptional(rval);
-            }
-
-            WhereOptional and(string condition) @safe pure {
-                return where(condition, WhereOp.AND);
-            }
-
-            WhereOptional or(string condition) @safe pure {
-                return where(condition, WhereOp.OR);
-            }
-        }
-
-        microrm.query_ast.Select rval = query;
-        rval.opts.where = WhereExpr(Expr(condition)).Where;
-
-        return WhereOptional(typeof(this)(rval));
-    }
+    mixin WhereMixin!(T, typeof(this), miniorm.query_ast.Select);
 }
 
 unittest {
@@ -135,15 +113,19 @@ unittest {
 }
 
 auto insert(T)() {
-    return Insert!T(tableName!T);
+    return Insert!T(tableName!T).insert;
+}
+
+auto insertOrReplace(T)() {
+    return Insert!T(tableName!T).insertOrReplace;
 }
 
 struct Insert(T) {
-    import microrm.query_ast;
+    import miniorm.query_ast;
 
-    microrm.query_ast.Insert query;
+    miniorm.query_ast.Insert query;
 
-    this(microrm.query_ast.Insert q) {
+    this(miniorm.query_ast.Insert q) {
         this.query = q;
     }
 
@@ -156,12 +138,12 @@ struct Insert(T) {
         return query.Query.Sql;
     }
 
-    void run(ref Microrm db) {
+    void run(ref Miniorm db) {
         db.run(toSql.toString);
     }
 
     auto op(InsertOpt o) @safe pure nothrow const @nogc {
-        microrm.query_ast.Insert rval = query;
+        miniorm.query_ast.Insert rval = query;
         rval.opt = o;
         return Insert!T(rval);
     }
@@ -195,7 +177,7 @@ struct Insert(T) {
                 values.optional ~= val;
         }
 
-        microrm.query_ast.Insert rval = query;
+        miniorm.query_ast.Insert rval = query;
         rval.values = InsertValues(values);
         return Insert!T(rval);
     }
@@ -205,8 +187,8 @@ struct Insert(T) {
         return op(InsertOpt.Insert).setColumns(true);
     }
 
-    /// Replace an existing row.
-    auto replace() @safe pure nothrow const {
+    /// Insert or replace an existing row.
+    auto insertOrReplace() @safe pure nothrow const {
         return op(InsertOpt.InsertOrReplace).setColumns(false);
     }
 
@@ -222,13 +204,13 @@ struct Insert(T) {
                 continue;
 
             if (addRequired) {
-                columns.required = microrm.query_ast.ColumnName(field.columnName);
+                columns.required = miniorm.query_ast.ColumnName(field.columnName);
                 addRequired = false;
             } else
-                columns.optional ~= microrm.query_ast.ColumnName(field.columnName);
+                columns.optional ~= miniorm.query_ast.ColumnName(field.columnName);
         }
 
-        microrm.query_ast.Insert rval = query;
+        miniorm.query_ast.Insert rval = query;
         rval.columns = InsertColumns(columns);
         return Insert!T(rval);
     }
@@ -245,15 +227,15 @@ unittest {
         string version_;
     }
 
-    insert!Foo.replace.values(1).toSql.toString.shouldEqual(
+    insertOrReplace!Foo.values(1).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?);");
-    insert!Foo.insert.values(1).toSql.toString.shouldEqual(
+    insert!Foo.values(1).toSql.toString.shouldEqual(
             "INSERT INTO Foo ('text','val','ts','version') VALUES (?,?,?,?);");
 
-    insert!Foo.replace.values(2).toSql.toString.shouldEqual(
+    insertOrReplace!Foo.values(2).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?),(?,?,?,?,?);");
 
-    insert!Foo.insert.values(2).toSql.toString.shouldEqual(
+    insert!Foo.values(2).toSql.toString.shouldEqual(
             "INSERT INTO Foo ('text','val','ts','version') VALUES (?,?,?,?),(?,?,?,?);");
 }
 
@@ -271,11 +253,11 @@ unittest {
         Foo foo;
     }
 
-    insert!Bar.replace.values(1).toSql.toString.shouldEqual(
+    insertOrReplace!Bar.values(1).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Bar ('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?,?);");
-    insert!Bar.insert.values(1).toSql.toString.shouldEqual(
+    insert!Bar.values(1).toSql.toString.shouldEqual(
             "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?);");
-    insert!Bar.insert.values(3).toSql.toString.shouldEqual(
+    insert!Bar.values(3).toSql.toString.shouldEqual(
             "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?),(?,?,?,?,?),(?,?,?,?,?);");
 }
 
@@ -298,7 +280,7 @@ unittest {
         float w;
     }
 
-    insert!Baz.replace.values(1).toSql.toString.shouldEqual("INSERT OR REPLACE INTO Baz ('id','v','xyz.v','xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES (?,?,?,?,?,?,?);");
+    insertOrReplace!Baz.values(1).toSql.toString.shouldEqual("INSERT OR REPLACE INTO Baz ('id','v','xyz.v','xyz.foo.text','xyz.foo.val','xyz.foo.ts','w') VALUES (?,?,?,?,?,?,?);");
 }
 
 auto delete_(T)() {
@@ -306,11 +288,11 @@ auto delete_(T)() {
 }
 
 struct Delete(T) {
-    import microrm.query_ast;
+    import miniorm.query_ast;
 
-    microrm.query_ast.Delete query;
+    miniorm.query_ast.Delete query;
 
-    this(microrm.query_ast.Delete q) {
+    this(miniorm.query_ast.Delete q) {
         this.query = q;
     }
 
@@ -323,23 +305,51 @@ struct Delete(T) {
         return query.Query.Sql;
     }
 
-    void run(ref Microrm db) {
+    void run(ref Miniorm db) {
         db.run(toSql.toString);
     }
 
-    /// Add or replace a WHERE condition.
+    mixin WhereMixin!(T, typeof(this), miniorm.query_ast.Delete);
+}
+
+mixin template WhereMixin(T, QueryT, AstT) {
+    import std.datetime : SysTime;
+    import std.traits : isNumeric, isSomeString;
+
+    /// Automatically quotes `rhs`.
+    auto where(string lhs, string rhs) {
+        import std.format : format;
+
+        return this.where(format("%s '%s'", lhs, rhs));
+    }
+
+    /// Converts `rhs` to a datetime that sqlite understand.
+    auto where(string lhs, SysTime rhs) {
+        import std.format : format;
+        import miniorm.api : toSqliteDateTime;
+
+        return this.where(format("%s datetime('%s')", lhs, rhs.toUTC.toSqliteDateTime));
+    }
+
+    auto where(T)(string lhs, T rhs) if (isNumeric!T || isSomeString!T) {
+        import std.format : format;
+
+        return this.where(format("%s %s", lhs, rhs));
+    }
+
+    /// Add a WHERE condition.
     auto where(string condition) @safe pure {
+        import miniorm.query_ast;
+
         static struct WhereOptional {
-            Delete!T value;
+            QueryT!T value;
             alias value this;
 
             private auto where(string condition, WhereOp op) @safe pure {
                 import sumtype;
 
-                Delete!T rval = value;
+                QueryT!T rval = value;
 
-                // there should always be a Where in the sumtype because that
-                // is what is initialized to.
                 Where w = value.query.where.tryMatch!((Where v) => v);
                 WhereExpr we = w.tryMatch!((WhereExpr v) => v);
                 we.optional ~= WhereExpr.Opt(op, Expr(condition));
@@ -356,7 +366,7 @@ struct Delete(T) {
             }
         }
 
-        microrm.query_ast.Delete rval = query;
+        AstT rval = query;
         rval.where = WhereExpr(Expr(condition)).Where;
 
         return WhereOptional(typeof(this)(rval));
@@ -375,55 +385,36 @@ unittest {
 }
 
 auto count(T)() {
+    //return Count!T(Select!T(tableName!T).count);
+    //import miniorm.query_ast;
+    //
+    //miniorm.query_ast.Select query;
     return Count!T(tableName!T);
 }
 
 struct Count(T) {
-    Select!T query;
-    alias query this;
+    import miniorm.query_ast : Sql;
 
-    this(microrm.query_ast.Select q) {
-        this.query = Select!T(q);
+    Select!T query_;
+
+    this(miniorm.query_ast.Select q) {
+        this.query_ = Select!T(q);
     }
 
     this(string from) {
-        this.query = Select!T(from).count;
+        this.query_ = Select!T(from).count;
     }
 
-    /// Add a WHERE condition.
-    auto where(string condition) @safe pure {
-        import microrm.query_ast;
-
-        static struct WhereOptional {
-            Count!T value;
-            alias value this;
-
-            private auto where(string condition, WhereOp op) @safe pure {
-                import sumtype;
-
-                Count!T rval = value;
-
-                Where w = value.query.query.opts.where.tryMatch!((Where v) => v);
-                WhereExpr we = w.tryMatch!((WhereExpr v) => v);
-                we.optional ~= WhereExpr.Opt(op, Expr(condition));
-                rval.query.query.opts.where = Where(we);
-                return WhereOptional(rval);
-            }
-
-            WhereOptional and(string condition) @safe pure {
-                return where(condition, WhereOp.AND);
-            }
-
-            WhereOptional or(string condition) @safe pure {
-                return where(condition, WhereOp.OR);
-            }
-        }
-
-        microrm.query_ast.Select rval = query.query;
-        rval.opts.where = WhereExpr(Expr(condition)).Where;
-
-        return WhereOptional(typeof(this)(rval));
+    /// Convert to a SQL statement that can e.g. be pretty printed.
+    Sql toSql() {
+        return query_.toSql;
     }
+
+    private ref miniorm.query_ast.Select query() @safe pure nothrow @nogc {
+        return query_.query;
+    }
+
+    mixin WhereMixin!(T, typeof(this), miniorm.query_ast.Select);
 }
 
 unittest {

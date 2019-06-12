@@ -1,11 +1,11 @@
 /**
 Copyright: Copyright (c) 2017, Oleg Butko. All rights reserved.
-Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2018-2019, Joakim Brännström. All rights reserved.
 License: MIT
 Author: Oleg Butko (deviator)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module microrm.schema;
+module miniorm.schema;
 
 version (unittest) {
     import std.algorithm : map;
@@ -19,6 +19,11 @@ struct TableName {
 
 /// UDA controlling constraints of a table.
 struct TableConstraint {
+    string value;
+}
+
+/// UDA setting a field other than id to being the primary key.
+struct TablePrimaryKey {
     string value;
 }
 
@@ -203,13 +208,28 @@ unittest {
 `);
 }
 
+@("shall create a schema with a column where the second column is a string and primary key")
+unittest {
+    import std.datetime : SysTime;
+
+    @TablePrimaryKey("key")
+    static struct Foo {
+        ulong id;
+        string key;
+    }
+
+    buildSchema!Foo.shouldEqual(`CREATE TABLE IF NOT EXISTS Foo (
+'id' INTEGER NOT NULL,
+'key' TEXT PRIMARY KEY);
+`);
+}
+
 import std.format : format, formattedWrite;
 import std.traits;
 import std.meta : Filter;
 
 package:
 
-enum IDNAME = "id";
 enum SEPARATOR = ".";
 
 string tableName(T)() {
@@ -233,6 +253,14 @@ string[] tableConstraints(T)() {
             rval ~= "CONSTRAINT " ~ c.value;
     }
     return rval;
+}
+
+string tablePrimaryKey(T)() {
+    enum keyAttr = getUDAs!(T, TablePrimaryKey);
+    static if (keyAttr.length != 0) {
+        return keyAttr[0].value;
+    } else
+        return "id";
 }
 
 string[] tableForeinKeys(T)() {
@@ -282,9 +310,12 @@ unittest {
     import std.algorithm;
     import std.utf;
 
-    assert(fieldNames!("", Bar) == ["'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"]);
-    fieldToCol!("", Bar).map!"a.quoteIdentifier".shouldEqual(["'id'", "'abc'",
-            "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"]);
+    assert(fieldNames!("", Bar) == [
+            "'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"
+            ]);
+    fieldToCol!("", Bar).map!"a.quoteIdentifier".shouldEqual([
+            "'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"
+            ]);
 }
 
 struct FieldColumn {
@@ -327,6 +358,11 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
                 "Building a schema from a type is only supported for struct's. This type is not supported: "
                 ~ T.stringof);
 
+    static if (tablePrimaryKey!T.length != 0)
+        enum primaryKey = tablePrimaryKey!T;
+    else
+        enum primaryKey = "id";
+
     T t;
     FieldColumn[] ret;
     foreach (i, f; t.tupleof) {
@@ -338,11 +374,11 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
                     getUDAs!(t.tupleof[i], ColumnName));
 
         static if (is(F == SysTime))
-            ret ~= fieldToColInternal!(fname, F, depth, udas)(np);
+            ret ~= fieldToColInternal!(fname, primaryKey, F, depth, udas)(np);
         else static if (is(F == struct))
             ret ~= fieldToColRecurse!(fname, F, depth + 1)(np);
         else
-            ret ~= fieldToColInternal!(fname, F, depth, udas)(np);
+            ret ~= fieldToColInternal!(fname, primaryKey, F, depth, udas)(np);
     }
     return ret;
 }
@@ -351,56 +387,59 @@ FieldColumn[] fieldToColRecurse(string name, T, ulong depth)(string prefix) {
  * Params:
  *  depth = A primary key can only be at the outer most struct. Any other "id" fields are normal integers.
  */
-FieldColumn[] fieldToColInternal(string name, T, ulong depth, FieldUDAs...)(string prefix) {
+FieldColumn[] fieldToColInternal(string name, string primaryKey, T, ulong depth, FieldUDAs...)(
+        string prefix) {
     import std.datetime : SysTime;
     import std.traits : OriginalType;
 
     enum bool isFieldParam(alias T) = is(typeof(T) == ColumnParam);
     enum bool isFieldName(alias T) = is(typeof(T) == ColumnName);
 
-    static if (name == IDNAME && depth == 0)
-        return [FieldColumn(prefix ~ name, prefix ~ IDNAME, "INTEGER", " PRIMARY KEY", true)];
-    else {
-        string type, param;
+    string type, param;
 
-        enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
-        static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
-                "Found multiple ColumnParam UDAs on " ~ T.stringof);
-        enum hasParam = paramAttrs.length;
-        static if (hasParam) {
-            static if (paramAttrs[0].value.length == 0)
-                param = "";
-            else
-                param = " " ~ paramAttrs[0].value;
-        } else
-            param = " NOT NULL";
-
-        static if (is(T == enum))
-            alias originalT = OriginalType!T;
+    enum paramAttrs = Filter!(isFieldParam, FieldUDAs);
+    static assert(paramAttrs.length == 0 || paramAttrs.length == 1,
+            "Found multiple ColumnParam UDAs on " ~ T.stringof);
+    enum hasParam = paramAttrs.length;
+    static if (hasParam) {
+        static if (paramAttrs[0].value.length == 0)
+            param = "";
         else
-            alias originalT = T;
+            param = " " ~ paramAttrs[0].value;
+    } else
+        param = " NOT NULL";
 
-        static if (isFloatingPoint!originalT)
-            type = "REAL";
-        else static if (isNumeric!originalT || is(originalT == bool)) {
-            type = "INTEGER";
-        } else static if (isSomeString!originalT)
-            type = "TEXT";
-        else static if (isArray!originalT)
-            type = "BLOB";
-        else static if (is(originalT == SysTime)) {
-            type = "DATETIME";
-        } else
-            static assert(0, "unsupported type: " ~ T.stringof);
+    static if (is(T == enum))
+        alias originalT = OriginalType!T;
+    else
+        alias originalT = T;
 
-        string columnName = name;
+    static if (isFloatingPoint!originalT)
+        type = "REAL";
+    else static if (isNumeric!originalT || is(originalT == bool)) {
+        type = "INTEGER";
+    } else static if (isSomeString!originalT)
+        type = "TEXT";
+    else static if (isArray!originalT)
+        type = "BLOB";
+    else static if (is(originalT == SysTime)) {
+        type = "DATETIME";
+    } else
+        static assert(0, "unsupported type: " ~ T.stringof);
 
-        enum nameAttr = Filter!(isFieldName, FieldUDAs);
-        static assert(nameAttr.length == 0 || nameAttr.length == 1,
-                "Found multiple ColumnName UDAs on " ~ T.stringof);
-        static if (nameAttr.length)
-            columnName = nameAttr[0].value;
+    enum nameAttr = Filter!(isFieldName, FieldUDAs);
+    static assert(nameAttr.length == 0 || nameAttr.length == 1,
+            "Found multiple ColumnName UDAs on " ~ T.stringof);
+    static if (nameAttr.length)
+        enum columnName = nameAttr[0].value;
+    else
+        enum columnName = name;
 
+    static if (columnName == primaryKey && depth == 0) {
+        return [
+            FieldColumn(prefix ~ name, prefix ~ columnName, type, " PRIMARY KEY", true)
+        ];
+    } else {
         return [FieldColumn(prefix ~ name, prefix ~ columnName, type, param)];
     }
 }
@@ -427,8 +466,11 @@ unittest {
 
     enum shouldWorkAtCompileTime = fieldToCol!("", Bar);
 
-    fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual(["'id' INTEGER PRIMARY KEY",
-            "'abc' REAL NOT NULL", "'foo.xx' REAL NOT NULL", "'foo.yy' TEXT NOT NULL",
+    fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual([
+            "'id' INTEGER PRIMARY KEY", "'abc' REAL NOT NULL",
+            "'foo.xx' REAL NOT NULL", "'foo.yy' TEXT NOT NULL",
             "'foo.baz.a' TEXT NOT NULL", "'foo.baz.b' TEXT NOT NULL",
-            "'foo.zz' INTEGER NOT NULL", "'baz' TEXT NOT NULL", "'data' BLOB NOT NULL"]);
+            "'foo.zz' INTEGER NOT NULL", "'baz' TEXT NOT NULL",
+            "'data' BLOB NOT NULL"
+            ]);
 }

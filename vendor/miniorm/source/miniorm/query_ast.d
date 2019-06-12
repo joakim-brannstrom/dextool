@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2018-2019, Joakim Brännström. All rights reserved.
 License: MIT
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -30,8 +30,7 @@ SQL         <- blank* Query (spacing / eoi)
 Query       <- Select
 
 # --- SELECT START ---
-Select      <- "SELECT" :blank+ ResultColumns :blank+ SelectOpt Values? Limit?
-SelectOpt   <- From? Where? GroupBy? (Window :blank+)? OrderBy?
+Select      <- "SELECT" :blank+ ResultColumns :blank+ From? Where? GroupBy? (Window :blank+)? OrderBy? Values? Limit?
 
 ResultColumns       <- ResultColumn ("," ResultColumn)*
 ResultColumn        <- Star / ResultColumnExpr
@@ -49,7 +48,7 @@ OrderBy         <- :blank+ "ORDER BY" :blank+ OrderingTerm ("," OrderingTerm)
 OrderingTerm    <- Expr :blank+ OrderingTermSort?
 OrderingTermSort <- "ASC" / "DESC" / ""
 
-Limit <- "LIMIT" :blank+ (("OFFSET" :blank+ Expr) / ("," Expr))?
+Limit <- "LIMIT" :blank+ Expr :blank+ (("OFFSET" :blank+ Expr) / ("," Expr))?
 
 TableOrSubQueries       <- TableOrQuery ("," TableOrSubQuery)*
 TableOrSubQuery         <- TableOrSubQuerySelect / ("(" TableOrSubQueries ")") / (TableRef Blob*) / Blob
@@ -95,7 +94,7 @@ Star        <- "*"
  * Literals are used as is.
  * All nodes have a `toString`.
 */
-module microrm.query_ast;
+module miniorm.query_ast;
 
 import std.array : empty;
 import std.conv : to;
@@ -107,8 +106,6 @@ import std.traits : TemplateArgsOf;
 import sumtype;
 
 @safe:
-
-//alias TableOrQuery = SumType!(TableName, Query);
 
 /// A SQL statement.
 struct Sql {
@@ -153,15 +150,26 @@ struct Query {
 /// A Select statement.
 struct Select {
     ResultColumns columns;
+
     /// Optional parts of the statement. At least one must in the end be active.
-    SelectOpt opts;
+    SumType!(None, From) from;
+    SumType!(None, Where) where;
+    //SumType!(None, Window) window_;
+    SumType!(None, OrderBy) orderBy;
+    SumType!(None, Limit) limit;
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        // TODO: add an assert that at least one of opts is not None?
         put(w, "SELECT ");
         columns.toString(w);
+
         put(w, " ");
-        opts.toString(w);
+
+        // TODO: add an assert that at least one of opts is not None?
+        from.match!((None v) {}, (From v) { v.toString(w); });
+        where.match!((None v) {}, (Where v) { v.toString(w); });
+        //window.match!((None v) {}, (Window v) { v.toString(w); });
+        orderBy.match!((None v) {}, (OrderBy v) { v.toString(w); });
+        limit.match!((None v) {}, (Limit v) { v.toString(w); });
     }
 }
 
@@ -193,20 +201,6 @@ struct ResultColumnExpr {
     SumType!(Blob, Query*) value;
     mixin ToStringSumType!value;
     mixin(makeCtor!(typeof(value))("value"));
-}
-
-struct SelectOpt {
-    SumType!(None, From) from;
-    SumType!(None, Where) where;
-    //SumType!(None, Window) window_;
-    SumType!(None, OrderBy) orderBy;
-
-    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        from.match!((None v) {}, (From v) { v.toString(w); });
-        where.match!((None v) {}, (Where v) { v.toString(w); });
-        //window.match!((None v) {}, (Window v) { v.toString(w); });
-        orderBy.match!((None v) {}, (OrderBy v) { v.toString(w); });
-    }
 }
 
 struct From {
@@ -337,6 +331,7 @@ struct OrderingTerm {
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         expr.match!((None n) {}, (Blob v) { v.toString(w); });
         sortTerm.match!((None n) {}, (OrderingTermSort v) {
+            put(w, " ");
             put(w, v.to!string);
         });
     }
@@ -345,6 +340,37 @@ struct OrderingTerm {
 enum OrderingTermSort {
     ASC,
     DESC,
+}
+
+struct Limit {
+    SumType!(None, Blob) expr;
+    SumType!(None, LimitOffset, Blob) optional;
+
+    mixin(makeCtor!(typeof(expr))("expr"));
+
+    this(Blob expr, LimitOffset l) @safe pure nothrow @nogc {
+        this.expr = expr;
+        this.optional = l;
+    }
+
+    this(Blob expr, Blob l) @safe pure nothrow @nogc {
+        this.expr = expr;
+        this.optional = l;
+    }
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        put(w, " LIMIT ");
+        expr.match!((None n) {}, (Blob v) { v.toString(w); });
+        optional.match!((None n) {}, (LimitOffset v) {
+            put(w, " OFFSET ");
+            v.toString(w);
+        }, (Blob v) { put(w, ","); v.toString(w); });
+    }
+}
+
+struct LimitOffset {
+    Blob expr;
+    alias expr this;
 }
 
 // #########################################################################
@@ -668,8 +694,8 @@ unittest {
     // arrange
     Select qblob, qtblRef, q;
     // act
-    qblob.opts.from = Blob("foo").From;
-    qtblRef.opts.from = TableOrSubQueries(TableOrQuery(TableRef("foo"))).From;
+    qblob.from = Blob("foo").From;
+    qtblRef.from = TableOrSubQueries(TableOrQuery(TableRef("foo"))).From;
     // assert
     immutable expected = "SELECT * FROM foo;";
     foreach (s; [qblob, qtblRef])
@@ -681,11 +707,11 @@ unittest {
     // arrange
     Select qblob, qAlias, qRef, qsubBlob;
     // act
-    qsubBlob.opts.from = Blob("foo I dance").From;
-    qblob.opts.from = TableOrSubQueries(TableOrQuery(new TableOrSubQuerySelect(qsubBlob))).From;
-    qAlias.opts.from = TableOrSubQueries(TableOrQuery(new TableOrSubQuerySelect(qsubBlob,
+    qsubBlob.from = Blob("foo I dance").From;
+    qblob.from = TableOrSubQueries(TableOrQuery(new TableOrSubQuerySelect(qsubBlob))).From;
+    qAlias.from = TableOrSubQueries(TableOrQuery(new TableOrSubQuerySelect(qsubBlob,
             TableAlias("bar")))).From;
-    qRef.opts.from = TableOrSubQueries(TableOrQuery(new TableOrSubQueries(TableRef("foo")
+    qRef.from = TableOrSubQueries(TableOrQuery(new TableOrSubQueries(TableRef("foo")
             .TableOrQuery, [TableRef("smurf").TableOrQuery]))).From;
     // assert
     // a subquery as a blob that should be represented as-is.
@@ -700,9 +726,9 @@ unittest {
 unittest {
     // arrange
     Select q;
-    q.opts.from = Blob("foo").From;
+    q.from = Blob("foo").From;
     // act
-    q.opts.orderBy = OrderBy(OrderingTerm(Blob("bar")));
+    q.orderBy = OrderBy(OrderingTerm(Blob("bar")));
     // assert
     q.Query.Sql.toString.shouldEqual("SELECT * FROM foo ORDER BY bar;");
 }
@@ -712,9 +738,10 @@ unittest {
     // arrange
     Select q;
     // act
-    q.opts.from = Blob("foo").From;
-    q.opts.where = WhereExpr(Expr("foo = bar"), [WhereExpr.Opt(WhereOp.OR,
-            Expr("batman NOT NULL"))]).Where;
+    q.from = Blob("foo").From;
+    q.where = WhereExpr(Expr("foo = bar"), [
+            WhereExpr.Opt(WhereOp.OR, Expr("batman NOT NULL"))
+            ]).Where;
     // assert
     q.Query.Sql.toString.shouldEqual("SELECT * FROM foo WHERE foo = bar OR batman NOT NULL;");
 }
@@ -732,7 +759,9 @@ unittest {
 unittest {
     // act
     auto q = Insert(InsertOpt.Insert, TableRef("foo"));
-    q.values = InsertValues(Values(Value(Expr("1"), [Expr("2")]), [Value(Expr("4"), [Expr("5")])]));
+    q.values = InsertValues(Values(Value(Expr("1"), [Expr("2")]), [
+                Value(Expr("4"), [Expr("5")])
+            ]));
     // assert
     q.Query.Sql.toString.shouldEqual("INSERT INTO foo VALUES (1,2),(4,5);");
 }
@@ -741,9 +770,20 @@ unittest {
 unittest {
     // act
     Select s;
-    s.opts.from = Blob("bar").From;
+    s.from = Blob("bar").From;
     auto q = Insert(InsertOpt.Insert, TableRef("foo"));
     q.values = InsertValues(s);
     // assert
     q.Query.Sql.toString.shouldEqual("INSERT INTO foo SELECT * FROM bar;");
+}
+
+@("shall convert a Select with a limit to SQL")
+unittest {
+    // arrange
+    Select q;
+    q.from = Blob("foo").From;
+    // act
+    q.limit = Limit(Blob("10"), LimitOffset(Blob("42")));
+    // assert
+    q.Query.Sql.toString.shouldEqual("SELECT * FROM foo LIMIT 10 OFFSET 42;");
 }

@@ -1,18 +1,20 @@
 /**
-Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017, Oleg Butko. All rights reserved.
+Copyright: Copyright (c) 2018-2019, Joakim Brännström. All rights reserved.
 License: MIT
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
+Author: Oleg Butko (deviator)
 */
-module microrm.api;
+module miniorm.api;
 
 import logger = std.experimental.logger;
 
 import std.array : Appender;
-import std.datetime : SysTime;
+import std.datetime : SysTime, Duration;
 import std.range;
 
-import microrm.exception;
-import microrm.queries;
+import miniorm.exception;
+import miniorm.queries;
 
 import d2sqlite3;
 
@@ -22,7 +24,7 @@ version (unittest) {
 }
 
 ///
-struct Microrm {
+struct Miniorm {
     private Statement[string] cachedStmt;
     /// True means that all queries are logged.
     private bool log_;
@@ -72,8 +74,10 @@ struct Microrm {
         db = rhs.db;
     }
 
-    void run(string script, bool delegate(ResultRange) dg = null) {
-        db.run(script, dg);
+    void run(string sql, bool delegate(ResultRange) dg = null) {
+        if (isLog)
+            logger.trace(sql);
+        db.run(sql, dg);
     }
 
     void close() {
@@ -82,8 +86,10 @@ struct Microrm {
     }
 
     size_t run(T)(Count!T v) {
-        const q = v.toSql.toString;
-        return db.executeCheck(q).front.front.as!size_t;
+        const sql = v.toSql.toString;
+        if (isLog)
+            logger.trace(sql);
+        return db.executeCheck(sql).front.front.as!size_t;
     }
 
     auto run(T)(Select!T v) {
@@ -91,16 +97,20 @@ struct Microrm {
         import std.format : format;
         import std.range : inputRangeObject;
 
-        auto result = db.executeCheck(v.toSql.toString);
+        const sql = v.toSql.toString;
+        if (isLog)
+            logger.trace(sql);
+
+        auto result = db.executeCheck(sql);
 
         static T qconv(typeof(result.front) e) {
-            import microrm.schema : fieldToCol;
+            import miniorm.schema : fieldToCol;
 
             T ret;
             static string rr() {
                 string[] res;
                 res ~= "import std.traits : isStaticArray, OriginalType;";
-                res ~= "import microrm.api : fromSqLiteDateTime;";
+                res ~= "import miniorm.api : fromSqLiteDateTime;";
                 foreach (i, a; fieldToCol!("", T)()) {
                     res ~= `{`;
                     if (a.columnType == "DATETIME") {
@@ -136,7 +146,10 @@ struct Microrm {
     }
 
     void run(T)(Delete!T v) {
-        db.run(v.toSql.toString);
+        const sql = v.toSql.toString;
+        if (isLog)
+            logger.trace(sql);
+        db.run(sql);
     }
 
     void run(AggregateInsert all = AggregateInsert.no, T0, T1)(Insert!T0 v, T1[] arr...)
@@ -161,7 +174,7 @@ struct Microrm {
         // Expects the variable to read values from to be named "v".
         // Indexing start from 1 according to the sqlite manual.
         static string genBinding(T)(bool replace) {
-            import microrm.schema : fieldToCol;
+            import miniorm.schema : fieldToCol;
 
             string s;
             foreach (i, v; fieldToCol!("", T)) {
@@ -187,9 +200,6 @@ struct Microrm {
 
         const sql = q.toSql.toString;
 
-        if (isLog)
-            logger.trace(sql);
-
         if (sql !in cachedStmt)
             cachedStmt[sql] = db.prepare(sql);
         auto stmt = cachedStmt[sql];
@@ -203,6 +213,8 @@ struct Microrm {
                     mixin(genBinding!T(false));
                 }
             }
+            if (isLog)
+                logger.trace(sql, " -> ", rng);
             stmt.execute();
             stmt.reset();
         } else {
@@ -213,6 +225,8 @@ struct Microrm {
                 } else {
                     mixin(genBinding!T(false));
                 }
+                if (isLog)
+                    logger.trace(sql, " -> ", v);
                 stmt.execute();
                 stmt.reset();
             }
@@ -240,7 +254,7 @@ enum AggregateInsert {
 }
 
 version (unittest) {
-    import microrm.schema;
+    import miniorm.schema;
 
     import std.conv : text, to;
     import std.range;
@@ -273,7 +287,7 @@ unittest {
     //}
 
     // TODO: replace the one below with the above code.
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!One);
     db.run(insert!One.insert, iota(0, 10).map!(i => One(i * 100, "hello" ~ text(i))));
     db.run(count!One).shouldEqual(10);
@@ -285,7 +299,7 @@ unittest {
 
     db.run(delete_!One);
     db.run(count!One).shouldEqual(0);
-    db.run(insert!One.replace, iota(0, 499).map!(i => One((i + 1) * 100, "hello" ~ text(i))));
+    db.run(insertOrReplace!One, iota(0, 499).map!(i => One((i + 1) * 100, "hello" ~ text(i))));
     ones = db.run(select!One).array;
     ones.length.shouldEqual(499);
     assert(ones.all!(a => a.id >= 100));
@@ -303,7 +317,7 @@ unittest {
         SysTime time;
     }
 
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!One);
 
     const time = Clock.currTime;
@@ -322,7 +336,7 @@ unittest {
         string text;
     }
 
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!One);
 
     db.run(count!One).shouldEqual(0);
@@ -341,7 +355,7 @@ unittest {
     import std.datetime;
     import std.conv : to;
 
-    db.run!(AggregateInsert.yes)(insert!One.replace, iota(0, 499)
+    db.run!(AggregateInsert.yes)(insertOrReplace!One, iota(0, 499)
             .map!(i => One((i + 1) * 100, "hello" ~ text(i))));
     ones = db.run(select!One).array;
     assert(ones.length == 499);
@@ -361,7 +375,7 @@ unittest {
         MyEnum enum_;
     }
 
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!Foo);
 
     db.run(insert!Foo.insert, Foo(0, Foo.MyEnum.bar));
@@ -385,15 +399,15 @@ unittest {
         Limits limits;
     }
 
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!Settings);
     assert(db.run(count!Settings) == 0);
-    db.run(insert!Settings.replace, Settings(10, Limits(Limit(0, 12), Limit(-10, 10))));
+    db.run(insertOrReplace!Settings, Settings(10, Limits(Limit(0, 12), Limit(-10, 10))));
     assert(db.run(count!Settings) == 1);
 
-    db.run(insert!Settings.replace, Settings(10, Limits(Limit(0, 2), Limit(-3, 3))));
-    db.run(insert!Settings.replace, Settings(11, Limits(Limit(0, 11), Limit(-11, 11))));
-    db.run(insert!Settings.replace, Settings(12, Limits(Limit(0, 12), Limit(-12, 12))));
+    db.run(insertOrReplace!Settings, Settings(10, Limits(Limit(0, 2), Limit(-3, 3))));
+    db.run(insertOrReplace!Settings, Settings(11, Limits(Limit(0, 11), Limit(-11, 11))));
+    db.run(insertOrReplace!Settings, Settings(12, Limits(Limit(0, 12), Limit(-12, 12))));
 
     assert(db.run(count!Settings) == 3);
     assert(db.run(count!Settings.where(`"limits.volt.max" = 2`)) == 1);
@@ -408,7 +422,7 @@ unittest {
         int[5] data;
     }
 
-    auto db = Microrm(":memory:");
+    auto db = Miniorm(":memory:");
     db.run(buildSchema!Settings);
 
     db.run(insert!Settings.insert, Settings(0, [1, 2, 3, 4, 5]));
@@ -424,7 +438,7 @@ SysTime fromSqLiteDateTime(string raw_dt) {
     import std.format : formattedRead;
 
     int year, month, day, hour, minute, second, msecs;
-    formattedRead(raw_dt, "%s-%s-%sT%s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
+    formattedRead(raw_dt, "%s-%s-%s %s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
     auto dt = DateTime(year, month, day, hour, minute, second);
 
     return SysTime(dt, msecs.dur!"msecs", UTC());
@@ -433,7 +447,39 @@ SysTime fromSqLiteDateTime(string raw_dt) {
 string toSqliteDateTime(SysTime ts) {
     import std.format;
 
-    return format("%04s-%02s-%02sT%02s:%02s:%02s.%s", ts.year,
+    return format("%04s-%02s-%02s %02s:%02s:%02s.%s", ts.year,
             cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
             ts.fracSecs.total!"msecs");
+}
+
+class SpinSqlTimeout : Exception {
+    this() {
+        super(null);
+    }
+}
+
+/** Execute an SQL query until it succeeds.
+ *
+ * Note: If there are any errors in the query it will go into an infinite loop.
+ */
+auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout = Duration.max) {
+    import core.thread : Thread;
+    import core.time : dur;
+    import std.datetime.stopwatch : StopWatch, AutoStart;
+    import std.exception : collectException;
+    import std.random : uniform;
+
+    const sw = StopWatch(AutoStart.yes);
+
+    while (sw.peek < timeout) {
+        try {
+            return query();
+        } catch (Exception e) {
+            logFn(e.msg).collectException;
+            // even though the database have a builtin sleep it still result in too much spam.
+            Thread.sleep(uniform(50, 150).dur!"msecs");
+        }
+    }
+
+    throw new SpinSqlTimeout();
 }
