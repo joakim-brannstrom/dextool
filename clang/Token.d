@@ -116,7 +116,7 @@ struct TokenRange {
         }
     }
 
-    private const RefCounted!(Container) container;
+    private RefCounted!(Container) container;
     private size_t begin;
     private size_t end;
 
@@ -129,7 +129,7 @@ struct TokenRange {
         return result;
     }
 
-    private this(const RefCounted!(Container) container, size_t begin, size_t end) {
+    private this(RefCounted!(Container) container, size_t begin, size_t end) {
         this.container = container;
         this.begin = begin;
         this.end = end;
@@ -161,7 +161,7 @@ struct TokenRange {
         --end;
     }
 
-    @property TokenRange save() const {
+    @property TokenRange save() {
         return this;
     }
 
@@ -175,7 +175,7 @@ struct TokenRange {
         return Token(container.translationUnit, container.tokens[begin + index]);
     }
 
-    TokenRange opSlice(size_t begin, size_t end) const {
+    TokenRange opSlice(size_t begin, size_t end) {
         assert(this.begin + begin <= this.end);
         assert(this.begin + end <= this.end);
         return TokenRange(container, this.begin + begin, this.begin + end);
