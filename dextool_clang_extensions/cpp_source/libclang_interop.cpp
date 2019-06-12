@@ -471,7 +471,13 @@ CXSourceLocation translateSourceLocation(clang::ASTContext& Context,
 CXSourceLocation getLocation(CXCursor C) {
     if (clang_isExpression(C.kind)) {
         const clang::Expr* expr = getCursorExpr(C);
+// the API has changed from 4->8. getStartLoc where finally removed in
+// libclang-8.
+#if CINDEX_VERSION < 50
         clang::SourceLocation loc = expr->getLocStart();
+#else
+        clang::SourceLocation loc = expr->getBeginLoc();
+#endif
         return translateSourceLocation(*getCursorContext(C), loc);
     }
 
