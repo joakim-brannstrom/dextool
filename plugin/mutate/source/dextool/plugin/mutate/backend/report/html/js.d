@@ -12,34 +12,21 @@ module dextool.plugin.mutate.backend.report.html.js;
 immutable js_file = `
 var g_show_mutant = true;
 var g_active_mutid = 0;
-
 function init() {
+
+    var info_box = document.getElementById('info');
+    var current_mutant_selector = document.getElementById('current_mutant');
     var mutid = window.location.hash.substring(1);
     if(mutid) {
         set_active_mutant(mutid);
         highlight_mutant(mutid);
     }
-
-    document.getElementById('current_mutant').addEventListener("change",
-    function() {
-        if (document.getElementById("current_mutant").selectedIndex == 0) {
-            location.hash = "#";
-            set_active_mutant(-1);
-            deactivate_mutants();
-            return;
-        }
-        var id = document.getElementById('current_mutant').value;
-        set_active_mutant(id);
-        highlight_mutant(id);
-        scroll_to(id, true);
-        document.getElementById('current_mutant').focus();
-    });
-
-    var top = document.getElementById('info').offsetTop - document.getElementById('info').style.marginTop;
-    var left = window.innerWidth - document.getElementById('info').clientWidth - 30;
-    document.getElementById('info').style.left = left + "px";
-    document.getElementById('info').style.top = top + "px";
-
+    current_mutant_selector.addEventListener("change", current_mutant_onchange );
+    window.addEventListener("resize", on_window_resize);
+    var top = info_box.offsetTop - info_box.style.marginTop;
+    var left = window.innerWidth - info_box.clientWidth - 30;
+    info_box.style.left = left + "px";
+    info_box.style.top = top + "px";
     for(var i=0; i<g_mutids.length; i++) {
         var s = document.createElement('OPTION');
         s.value = g_mutids[i];
@@ -48,12 +35,32 @@ function init() {
             txt += "+";
         txt += g_mutids[i] + ":'" + g_muts_orgs[i] + "' to '" + g_muts_muts[i] + "'";
         s.text = txt;
-        document.getElementById('current_mutant').add(s,g_mutids[i]);
+        current_mutant_selector.add(s,g_mutids[i]);
         if (mutid == g_mutids[i])
-            document.getElementById('current_mutant').selectedIndex = i+1;
+            current_mutant_selector.selectedIndex = i+1;
     }
 }
-
+function on_window_resize() {
+    var info_box = document.getElementById('info');
+    var top = info_box.offsetTop - info_box.style.marginTop;
+    var left = window.innerWidth - info_box.clientWidth - 30;
+    info_box.style.left = left + "px";
+    info_box.style.top = top + "px";
+}
+function current_mutant_onchange() {
+    var current_mutant_selector = document.getElementById("current_mutant"); 
+    if (current_mutant_selector.selectedIndex == 0) {
+        location.hash = "#";
+        set_active_mutant(-1);
+        deactivate_mutants();
+        return;
+    }
+    var id = current_mutant_selector.value;
+    set_active_mutant(id);
+    highlight_mutant(id);
+    scroll_to(id, true);
+    current_mutant_selector.focus();
+}
 function ui_set_mut(id) {
     set_active_mutant(id);
     highlight_mutant(id);
