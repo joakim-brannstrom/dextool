@@ -5,7 +5,7 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/stan
 
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-mutate)
 
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source -J${CMAKE_SOURCE_DIR}/clang/resources -version=SqliteEnableColumnMetadata -version=SqliteEnableUnlockNotify -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source -I${CMAKE_SOURCE_DIR}/vendor/toml/src -I${CMAKE_SOURCE_DIR}/vendor/arsd -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source -J${CMAKE_CURRENT_LIST_DIR}/view -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/dsrcgen/source -I${CMAKE_SOURCE_DIR}/clang -I${CMAKE_SOURCE_DIR}/libclang -I${CMAKE_SOURCE_DIR}/plugin/source -I${CMAKE_SOURCE_DIR}/dextool_clang_extensions/source -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source -J${CMAKE_SOURCE_DIR}/clang/resources -version=SqliteEnableColumnMetadata -version=SqliteEnableUnlockNotify -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source -I${CMAKE_SOURCE_DIR}/vendor/toml/src -I${CMAKE_SOURCE_DIR}/vendor/arsd -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
 build_d_executable(
     ${EXE_NAME}
