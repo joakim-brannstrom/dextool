@@ -25,6 +25,7 @@ function init() {
     var left = window.innerWidth - info_box.clientWidth - 30;
     info_box.style.left = left + "px";
     info_box.style.top = top + "px";
+
     for(var i=0; i<g_mutids.length; i++) {
         var s = document.createElement('OPTION');
         s.value = g_mutids[i];
@@ -39,11 +40,19 @@ function init() {
     }
     locs = document.getElementsByClassName("loc");
     for(var i=0; i<locs.length;i++){
-        locs[i].addEventListener("mouseenter", function(e){on_loc_hover(e);},true);
+        locs[i].addEventListener("mouseenter", function(e){on_loc_enter(e);});
+        locs[i].addEventListener("mouseleave", function(e){on_loc_leave(e);});
+        locs[i].addEventListener("dblclick", function(e){on_loc_dblclick(e);});
     }
 }
-function on_loc_hover(e){
-    console.log("You entered loc: ", e.target.id);
+function on_loc_enter(e){
+    return;
+}
+function on_loc_leave(e){
+    return;
+}
+function on_loc_dblclick(e){
+    return;
 }
 function on_window_resize() {
     var info_box = document.getElementById('info');
