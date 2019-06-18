@@ -170,24 +170,28 @@ struct FileIndex {
         auto lastLoc = SourceLoc(1, 1);
 
         auto root = ctx.doc.mainBody;
-        root.addChild("span", "1:").addClass("line_nr");
+        auto line = root.addChild("div").setAttribute("id", format("%s-%d", "line", (1)));
+
+        line.addChild("span", "1:").addClass("line_nr");
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
                 lastLoc.column = 1;
             }
-
             auto meta = MetaSpan(s.muts);
 
             foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
-                root.addChild("br");
                 // force a newline in the generated html to improve readability
                 root.appendText("\n");
-                root.addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
+                with (line = root.addChild("div")) {
+                    setAttribute("id", format("%s-%d", "line", (lastLoc.line + i + 1)));
+                    addClass("loc");
+                    addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
+                }
+
             }
             const spaces = max(0, s.tok.loc.column - lastLoc.column);
-            root.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
-
-            auto d0 = root.addChild("div").setAttribute("style", "display: inline;");
+            line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
+            auto d0 = line.addChild("div").setAttribute("style", "display: inline;");
             with (d0.addChild("span", s.tok.spelling)) {
                 addClass("original");
                 addClass(s.tok.toName);
@@ -220,7 +224,7 @@ struct FileIndex {
             lastLoc = s.tok.locEnd;
         }
 
-        with (root.addChild("script")) {
+        with (line.addChild("script")) {
             import dextool.plugin.mutate.backend.report.utility : window;
 
             // force a newline in the generated html to improve readability
