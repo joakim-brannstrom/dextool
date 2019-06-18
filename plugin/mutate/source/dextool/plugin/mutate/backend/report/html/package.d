@@ -170,7 +170,10 @@ struct FileIndex {
         auto lastLoc = SourceLoc(1, 1);
 
         auto root = ctx.doc.mainBody;
-        auto line = root.addChild("div").setAttribute("id", format("%s-%d", "line", (1)));
+        auto lines = root.addChild("table").setAttribute("id", "locs");
+        auto line = lines.addChild("tr").addChild("td").setAttribute("id",
+                format("%s-%d", "loc", (1)));
+        line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
         foreach (const s; ctx.span.toRange) {
@@ -182,8 +185,8 @@ struct FileIndex {
             foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
                 // force a newline in the generated html to improve readability
                 root.appendText("\n");
-                with (line = root.addChild("div")) {
-                    setAttribute("id", format("%s-%d", "line", (lastLoc.line + i + 1)));
+                with (line = lines.addChild("tr").addChild("td")) {
+                    setAttribute("id", format("%s-%d", "loc", (lastLoc.line + i + 1)));
                     addClass("loc");
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }

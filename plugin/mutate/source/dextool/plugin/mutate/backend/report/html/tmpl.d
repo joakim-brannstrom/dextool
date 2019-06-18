@@ -84,7 +84,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
   <tr>
     <td><span class="xx_label">Original: </span></td>
     <td><span id="current_mutant_original"></span></td>
-    <td></td>
+    <td><a href="#" style="color: white" id="legend">Legend</a></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
