@@ -84,7 +84,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
   <tr>
     <td><span class="xx_label">Original: </span></td>
     <td><span id="current_mutant_original"></span></td>
-    <td><a href="#" style="color: white" id="legend">Legend</a></td>
+    <td><input id="show_legend" type="checkbox" onclick='toggle_legend(this)'/><span class="xx_label"" id="legend">Legend</span></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
@@ -95,7 +95,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
     <td><span class="xx_label">Mutant: </span></td>
     <td>
       <select id="current_mutant">
-        <option value="-1">Original</option>
+        <option value="-1" selected="selected">Original</option>
       </select>
     </td>
     <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
