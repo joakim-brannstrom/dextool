@@ -149,7 +149,7 @@ struct FileIndex {
         import std.conv : to;
         import std.range : repeat;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
-
+        import std.traits : EnumMembers;
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
@@ -205,7 +205,6 @@ struct FileIndex {
                 if (meta.onClick2.length != 0)
                     setAttribute("onclick", meta.onClick2);
             }
-
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
@@ -226,8 +225,7 @@ struct FileIndex {
 
             lastLoc = s.tok.locEnd;
         }
-
-        with (line.addChild("script")) {
+        with (root.addChild("script")) {
             import dextool.plugin.mutate.backend.report.utility : window;
 
             // force a newline in the generated html to improve readability
@@ -238,11 +236,14 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.original)))));
             appendText("\n");
+            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%(\"%s\",%)\"];", 
+                [EnumMembers!(Mutation.Status)])));
+            appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
-                    muts.data.map!(a => a.mut.status.to!string))));
+            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%d,%)];",
+                    muts.data.map!(a => a.mut.status.to!int))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
@@ -732,7 +733,7 @@ struct MetaSpan {
         immutable click_fmt = "onclick='ui_set_mut(%s)'";
         immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
-
+        // I can't see the use of these 'onclick' events.
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             /*if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {

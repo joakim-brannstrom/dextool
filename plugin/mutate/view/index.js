@@ -20,8 +20,8 @@ var g_mut_option_text = {};
 var g_active_locid = null;
 var g_legend_html = null;
 
-var key_traverse_locs_up = 'ShiftLeft';
-var key_traverse_locs_down = 'Tab';
+var key_traverse_locs_up = 'ArrowUp';
+var key_traverse_locs_down = 'ArrowDown';
 var key_traverse_muts_up = 'ArrowLeft';
 var key_traverse_muts_down = 'ArrowRight';
 var key_toggle_show_mutant = 'ControlLeft';
@@ -33,8 +33,8 @@ function init() {
     window.addEventListener('resize', on_window_resize);
     document.addEventListener('keydown', function(e) { on_keyboard_input(e); });
     on_window_resize();
-    init_legend();
-    document.getElementById("legend").addEventListener('click', alert(g_legend_html.html()));
+    //init_legend();
+    //document.getElementById("legend").addEventListener('click', alert(g_legend_html.html()));
     for(var i=0; i<g_mutids.length; i++) {
         var txt = "";
         if (g_muts_st[i] == "alive")
@@ -50,7 +50,8 @@ function init() {
         locs[i].addEventListener('wheel', function(e) { on_loc_wheel(e); });
         locs[i].addEventListener('click', function(e) { on_loc_dblclick(e); }, true);
     }
-
+     
+    
     select_loc(locs[0].id);
     g_show_mutant = true;
     var mutid = window.location.hash.substring(1);
@@ -59,19 +60,20 @@ function init() {
         highlight_mutant(mutid);
     }
 }
+
 function on_keyboard_input(e) {
     switch (e.code) {
         case key_traverse_locs_down:
-            traverse_locs(1);
+        traverse_locs(1);
             break;
         case key_traverse_locs_up:
-            traverse_locs(-1);
+        traverse_locs(-1);
             break;
         case key_traverse_muts_down:
-            traverse_mutants(1);
+        traverse_mutants(1);
             break;
         case key_traverse_muts_up:
-            traverse_mutants(-1);
+        traverse_mutants(-1);
             break;
         case key_toggle_show_mutant:
             g_show_mutant = document.getElementById("show_mutant").checked = !g_show_mutant;
@@ -89,12 +91,10 @@ function on_loc_wheel(e) {
 }
 
 function on_loc_enter(e) {
-    //e.target.style.backgroundColor = '#cecece';
     return;
 }
 
 function on_loc_leave(e) {
-    //e.target.style.backgroundColor = '#ffffff';
     return;
 }
 
@@ -153,8 +153,8 @@ function set_mutation_options(mut_ids) {
 /**
  * Changes the active mutant on a given line
  * @param {*} direction positive for next, negative for previous
- */line
-funline
+ */
+function traverse_mutants(direction) {
     deactivate_mutants();
     current_mutant_selector = document.getElementById('current_mutant');
     selected = current_mutant_selector.selectedIndex;
@@ -309,8 +309,7 @@ function deactivate_mutants() {
     }
 }
 
-function highlight_mutant(mutid) {key_traverse_mutant_up
-    key_traverse_mutant_up
+function highlight_mutant(mutid) {
     mut = document.getElementById(mutid);
     if(mut) {
         deactivate_mutants();
@@ -318,7 +317,7 @@ function highlight_mutant(mutid) {key_traverse_mutant_up
 
         for(var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
-                document.getElementById("current_mutant_status").innerText = g_muts_st[i];
+                document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_st[i]];
                 document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
                 document.getElementById("current_mutant_id").innerText = mutid;
                 document.getElementById("current_mutant_original").innerText = g_muts_orgs[i];
