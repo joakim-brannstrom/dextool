@@ -74,14 +74,16 @@ function init() {
     if (mutid) {
         set_active_mutant(mutid);
         highlight_mutant(mutid);
+        select_loc(get_closest_loc(document.getElementById(mutid)).id, true);
     }
 }
 
 function toggle_legend() {
-    if (document.getElementById("legend_box").style.display === "none")
-        document.getElementById("legend_box").style.display = "inline";
+    var legend = document.getElementById("legend_box");
+    if (legend.style.display === "none")
+        legend.style.display = "inline";
     else
-        document.getElementById("legend_box").style.display = "none";
+        legend.style.display = "none";
 }
 
 function on_keyboard_input(e) {
@@ -127,7 +129,7 @@ function on_loc_click(e) {
     return;
 }
 
-function select_loc(loc_id) {
+function select_loc(loc_id, pure) {
     locs = document.getElementsByClassName('loc');
     if(g_active_locid)
         document.getElementById(g_active_locid).style.backgroundColor = LOC_BACKGROUND_COLOR;
@@ -135,10 +137,11 @@ function select_loc(loc_id) {
     loc = document.getElementById(loc_id);
     g_active_locid = loc.id;
     loc.style.backgroundColor = LOC_HIGHLIGHT_COLOR;
-    
-    set_active_mutant(-1);
-    deactivate_mutants();
-    clear_mutation_options();
+    if(!pure) {
+        set_active_mutant(-1);
+        deactivate_mutants();
+        clear_mutation_options();
+    }
     set_mutation_options(g_active_locid);
 }
 
