@@ -84,7 +84,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
   <tr>
     <td><span class="xx_label">Original: </span></td>
     <td><span id="current_mutant_original"></span></td>
-    <td><input id="show_legend" type="checkbox" onclick='toggle_legend(this)'/><span class="xx_label"" id="legend">Legend</span></td>
+    <td><input id="show_legend" type="checkbox" onclick='toggle_legend(this)'/><span class="xx_label" id="legend">Legend</span></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
@@ -143,14 +143,18 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
     import std.algorithm : map;
     import std.array : array;
     import dextool.plugin.mutate.backend.report.html.constants;
+    import std.format : format;
 
     auto tbl = n.addChild("table").require!Table;
     tbl.addClass(tableStyle);
 
     auto tr = n.parentDocument.createElement("tr");
+    int i = 0;
     foreach (h; header) {
         auto th = tr.addChild("th", h);
         th.addClass(tableColumnHdrStyle);
+        th.setAttribute("id", format("%s-%d", "col", i));
+        i++;
     }
 
     tbl.addChild("thead").appendChild(tr);

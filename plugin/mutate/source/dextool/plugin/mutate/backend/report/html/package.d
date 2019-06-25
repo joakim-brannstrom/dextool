@@ -150,6 +150,14 @@ struct FileIndex {
         import std.range : repeat;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
         import std.traits : EnumMembers;
+<<<<<<< HEAD
+<<<<<<< HEAD
+
+=======
+>>>>>>> a8c246b4... Un-documented from previous: Removed the onclick event for original identifiers as i could not see the use for it. Changed the mutation status list to contain indices instead of text strings.
+=======
+
+>>>>>>> aec116bb... Cleaned up changes made to allow for sorting table. The script can be added to any page with a table that has the class overlap_tbl
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
@@ -236,8 +244,8 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.original)))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%(\"%s\",%)\"];", 
-                [EnumMembers!(Mutation.Status)])));
+            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%(\"%s\",%)\"];",
+                    [EnumMembers!(Mutation.Status)])));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
@@ -274,6 +282,40 @@ struct FileIndex {
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
 
+        //There's probably a more appropriate place to do this
+        index.root.childElements("head")[0].addChild(new RawSource(index, "<script> 
+            g_lastCol = -1;
+            function init() { 
+                console.log('init');
+                theads = document.getElementsByClassName('tg-g59y');
+                for (var i = 0; i < theads.length; i++) {
+                    theads[i].addEventListener('click', function(e) {table_onclick(e);});
+                }
+            }
+            function table_onclick(e) {
+                var col = e.target.id.split('-',2)[1];
+                var tbody = e.target.closest('table').tBodies[0];
+                var sorted = Array.prototype.slice.call(tbody.children);
+                
+                if (col === g_lastCol) {
+                    sorted.sort( function(a,b) {
+                        return a.children[col].innerText > b.children[col].innerText;
+                    });
+                    g_lastCol = -1;
+                } else {
+                    sorted.sort( function(a,b) {
+                        return a.children[col].innerText < b.children[col].innerText;
+                    });
+                    g_lastCol = col;
+                }
+                while (tbody.lastChild) {
+                    tbody.removeChild(tbody.lastChild);
+                }
+                for(var i = 0; i<sorted.length; i++) {
+                    tbody.insertRow(i).innerHTML = sorted[i].innerHTML;
+                }
+            }
+            </script>"));
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
 
@@ -711,6 +753,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     root.addChild("p", "NoMut is the number of alive mutants in the file that are ignored.")
         .appendText(" This increases the score.");
+    root.setAttribute("onload", "init()");
 }
 
 /// Metadata about the span to be used to e.g. color it.
@@ -736,16 +779,7 @@ struct MetaSpan {
         // I can't see the use of these 'onclick' events.
         foreach (ref const m; muts) {
             status = pickColor(m, status);
-            /*if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt, m.id);
-                onClick2 = format(click_fmt2, m.id);
-            }*/
         }
-        /*
-        if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt, muts[0].id);
-            onClick2 = format(click_fmt2, muts[0].id);
-        }*/
     }
 }
 

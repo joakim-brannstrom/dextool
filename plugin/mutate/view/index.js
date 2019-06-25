@@ -24,7 +24,7 @@ var key_traverse_locs_up = 'ArrowUp';
 var key_traverse_locs_down = 'ArrowDown';
 var key_traverse_muts_up = 'ArrowLeft';
 var key_traverse_muts_down = 'ArrowRight';
-var key_toggle_show_mutant = 'ControlLeft';
+var key_toggle_show_mutant = 'Numpad0';
 
 function init() {
 
@@ -222,7 +222,15 @@ function get_closest_loc(target) {
         return target;
     else
         return target.closest(".loc");
+<<<<<<< HEAD
+<<<<<<< HEAD
+}
+=======
     }
+>>>>>>> 68992aa2... cleanup
+=======
+}
+>>>>>>> f3e94783... added ability to sort the table on index.html
 
 function on_window_resize() {
     var info_box = document.getElementById('info');
