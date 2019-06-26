@@ -741,6 +741,15 @@ struct MetaSpan {
         // I can't see the use of these 'onclick' events.
         foreach (ref const m; muts) {
             status = pickColor(m, status);
+            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
+                onClick = format(click_fmt, m.id);
+                onClick2 = format(click_fmt2, m.id);
+            }
+        }
+
+        if (onClick.length == 0 && muts.length != 0) {
+            onClick = format(click_fmt, muts[0].id);
+            onClick2 = format(click_fmt2, muts[0].id);
         }
     }
 }

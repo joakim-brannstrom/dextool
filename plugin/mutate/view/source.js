@@ -74,6 +74,7 @@ function init() {
         highlight_mutant(mutid);
         select_loc(get_closest_loc(document.getElementById(mutid)).id, true);
     }
+    document.body.focus();
 }
 /**
  * Toggles whether to show the legend or not
@@ -126,6 +127,8 @@ function on_loc_wheel(e) {
  * @param {event} e the captured click event 
  */
 function on_loc_click(e) { 
+    if (!e.target.classList.contains("loc") && e.target.onclick != null)
+        return;
     var loc = get_closest_loc(e.target);
     if (loc) {
         select_loc(loc.id);
@@ -160,8 +163,8 @@ function select_loc(loc_id, pure) {
  */
 function set_mutation_options(loc_id) {
     var mutids;
-    mutids = g_loc_mutids[loc_id];
-    current_mutant_selector = document.getElementById('current_mutant');
+    var mutids = g_loc_mutids[loc_id];
+    var current_mutant_selector = document.getElementById('current_mutant');
         
     current_mutant_selector.selectedIndex = 0;
     for (var i = 0; i < mutids.length; i++) {
@@ -281,13 +284,20 @@ function clear_mutation_options() {
  * Updates the ui to display the mutant with the given id as selected.
  */
 function ui_set_mut(id) {
+    loc_id = get_closest_loc(document.getElementById(id)).id
+    if (loc_id != g_active_locid){
+        select_loc(loc_id);
+        return;
+    }
+    mutids = g_loc_mutids[loc_id];
     set_active_mutant(id);
     highlight_mutant(id);
     scroll_to(id, false);
 
-    for (var i=0; i<g_mutids.length; i++) {
-        if (id == g_mutids[i]) {
-            document.getElementById('current_mutant').selectedIndex = i+1;
+    var current_mutant_selector = document.getElementById('current_mutant');
+    for (var i=0; i<mutids.length; i++) {
+        if (id == mutids[i]) {
+            current_mutant_selector.selectedIndex = i+1;
             break;
         }
     }
