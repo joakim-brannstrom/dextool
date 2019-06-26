@@ -148,16 +148,9 @@ struct FileIndex {
         import std.array : appender;
         import std.conv : to;
         import std.range : repeat;
-        import dextool.plugin.mutate.backend.database.type : MutantMetaData;
         import std.traits : EnumMembers;
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
->>>>>>> a8c246b4... Un-documented from previous: Removed the onclick event for original identifiers as i could not see the use for it. Changed the mutation status list to contain indices instead of text strings.
-=======
-
->>>>>>> aec116bb... Cleaned up changes made to allow for sorting table. The script can be added to any page with a table that has the class overlap_tbl
+        import dextool.plugin.mutate.backend.database.type : MutantMetaData;
+        
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
@@ -179,8 +172,7 @@ struct FileIndex {
 
         auto root = ctx.doc.mainBody;
         auto lines = root.addChild("table").setAttribute("id", "locs");
-        auto line = lines.addChild("tr").addChild("td").setAttribute("id",
-                format("%s-%d", "loc", (1)));
+        auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
         line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
@@ -194,7 +186,7 @@ struct FileIndex {
                 // force a newline in the generated html to improve readability
                 root.appendText("\n");
                 with (line = lines.addChild("tr").addChild("td")) {
-                    setAttribute("id", format("%s-%d", "loc", (lastLoc.line + i + 1)));
+                    setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
                     addClass("loc");
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }
@@ -244,14 +236,14 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.original)))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%(\"%s\",%)\"];",
+            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%d,%)];",
-                    muts.data.map!(a => a.mut.status.to!int))));
+            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
+                    muts.data.map!(a => a.mut.status.to!ubyte))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
@@ -283,38 +275,9 @@ struct FileIndex {
                 humanReadableKinds, Clock.currTime);
 
         //There's probably a more appropriate place to do this
-        index.root.childElements("head")[0].addChild(new RawSource(index, "<script> 
-            g_lastCol = -1;
-            function init() { 
-                theads = document.getElementsByClassName('tg-g59y');
-                for (var i = 0; i < theads.length; i++) {
-                    theads[i].addEventListener('click', function(e) {table_onclick(e);});
-                }
-            }
-            function table_onclick(e) {
-                var col = e.target.id.split('-',2)[1];
-                var tbody = e.target.closest('table').tBodies[0];
-                var sorted = Array.prototype.slice.call(tbody.children);
-                
-                if (col === g_lastCol) {
-                    sorted.sort( function(a,b) {
-                        return a.children[col].innerText > b.children[col].innerText;
-                    });
-                    g_lastCol = -1;
-                } else {
-                    sorted.sort( function(a,b) {
-                        return a.children[col].innerText < b.children[col].innerText;
-                    });
-                    g_lastCol = col;
-                }
-                while (tbody.lastChild) {
-                    tbody.removeChild(tbody.lastChild);
-                }
-                for(var i = 0; i<sorted.length; i++) {
-                    tbody.insertRow(i).innerHTML = sorted[i].innerHTML;
-                }
-            }
-            </script>"));
+        auto s = index.root.childElements("head")[0].addChild("script");
+        s.addChild(new RawSource(index, js_index));
+        
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
 
@@ -389,7 +352,7 @@ struct FileCtx {
         s.addChild(new RawSource(r.doc, tmplIndexStyle));
 
         s = r.doc.root.childElements("head")[0].addChild("script");
-        s.addChild(new RawSource(r.doc, js_file));
+        s.addChild(new RawSource(r.doc, js_source));
 
         r.doc.mainBody.appendHtml(tmplIndexBody);
 

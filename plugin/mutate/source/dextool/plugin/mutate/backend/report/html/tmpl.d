@@ -142,19 +142,18 @@ body {font-family: monospace; font-size: 14px;}
 Table tmplDefaultTable(Element n, string[] header) @trusted {
     import std.algorithm : map;
     import std.array : array;
-    import dextool.plugin.mutate.backend.report.html.constants;
+    import std.range : enumerate;
     import std.format : format;
+    import dextool.plugin.mutate.backend.report.html.constants;
 
     auto tbl = n.addChild("table").require!Table;
     tbl.addClass(tableStyle);
 
     auto tr = n.parentDocument.createElement("tr");
-    int i = 0;
-    foreach (h; header) {
-        auto th = tr.addChild("th", h);
+    foreach (h; header.enumerate) {
+        auto th = tr.addChild("th", h.value);
         th.addClass(tableColumnHdrStyle);
-        th.setAttribute("id", format("%s-%d", "col", i));
-        i++;
+        th.setAttribute("id", format("%s-%d", "col", h.index));
     }
 
     tbl.addChild("thead").appendChild(tr);
