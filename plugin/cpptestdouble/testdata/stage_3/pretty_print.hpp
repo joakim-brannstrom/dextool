@@ -44,11 +44,15 @@ struct primitive_aggregate_types {
 struct inner {
     int inner_member_a;
     int inner_member_b;
+
+    inner() : inner_member_a(0), inner_member_b(0) {}
 };
 
 struct nested {
     inner x;
     int y;
+
+    nested() : x(), y(0) {}
 };
 
 struct cpp_data_structure_types {
