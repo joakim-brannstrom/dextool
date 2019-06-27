@@ -577,17 +577,17 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
         testConsecutiveSparseOrder!SubStr([
-            `<h2>tc_1</h2>`,
+            `<h2 class="tbl_header">tc_1</h2>`,
             `<td>tc_2</td>`,
             `<td>0.667</td>`,
             `<td>tc_3</td>`,
             `<td>0.333</td>`,
-            `<h2>tc_2</h2>`,
+            `<h2 class="tbl_header">tc_2</h2>`,
             `<td>tc_1</td>`,
             `<td>1.00</td>`,
             `<td>tc_3</td>`,
             `<td>0.500</td>`,
-            `<h2>tc_3</h2>`,
+            `<h2 class="tbl_header">tc_3</h2>`,
             `<td>tc_1</td>`,
             `<td>1.00</td>`,
             `<td>tc_2</td>`,
