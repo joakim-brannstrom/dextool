@@ -150,7 +150,7 @@ struct FileIndex {
         import std.range : repeat;
         import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
-        
+
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
@@ -202,8 +202,8 @@ struct FileIndex {
                     addClass(v);
                 if (s.muts.length != 0)
                     addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
-                if (meta.onClick2.length != 0)
-                    setAttribute("onclick", meta.onClick2);
+                if (meta.onClick.length != 0)
+                    setAttribute("onclick", meta.onClick);
             }
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
@@ -277,7 +277,7 @@ struct FileIndex {
         //There's probably a more appropriate place to do this
         auto s = index.root.childElements("head")[0].addChild("script");
         s.addChild(new RawSource(index, js_index));
-        
+
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
 
@@ -718,7 +718,15 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     root.setAttribute("onload", "init()");
 }
 
-/// Metadata about the span to be used to e.g. color it.
+/** Metadata about the span to be used to e.g. color it.
+ *
+ * Each span has a mutant that becomes activated when the user click on the
+ * span. The user most likely is interested in seeing **a** mutant that has
+ * survived on that point becomes the color is red.
+ *
+ * This is why the algorithm uses the same prio as the one for choosing
+ * color. These two are strongly correlated with each other.
+ */
 struct MetaSpan {
     // ordered in priority
     enum StatusColor {
@@ -732,28 +740,25 @@ struct MetaSpan {
 
     StatusColor status;
     string onClick;
-    string onClick2;
 
     this(const(FileMutant)[] muts) {
-        immutable click_fmt = "onclick='ui_set_mut(%s)'";
         immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
-        // I can't see the use of these 'onclick' events.
+
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt, m.id);
-                onClick2 = format(click_fmt2, m.id);
+                onClick = format(click_fmt2, m.id);
             }
         }
 
         if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt, muts[0].id);
-            onClick2 = format(click_fmt2, muts[0].id);
+            onClick = format(click_fmt2, muts[0].id);
         }
     }
 }
 
+/// Choose a color for a mutant span by prioritizing alive mutants above all.
 MetaSpan.StatusColor pickColor(const FileMutant m,
         MetaSpan.StatusColor status = MetaSpan.StatusColor.none) {
     final switch (m.mut.status) {
