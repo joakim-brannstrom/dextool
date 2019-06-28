@@ -148,8 +148,9 @@ struct FileIndex {
         import std.array : appender;
         import std.conv : to;
         import std.range : repeat;
+        import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
-
+        
         static struct MData {
             MutationId id;
             FileMutant.Text txt;
@@ -170,7 +171,9 @@ struct FileIndex {
         auto lastLoc = SourceLoc(1, 1);
 
         auto root = ctx.doc.mainBody;
-        auto line = root.addChild("div").setAttribute("id", format("%s-%d", "line", (1)));
+        auto lines = root.addChild("table").setAttribute("id", "locs");
+        auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
+        line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
         foreach (const s; ctx.span.toRange) {
@@ -182,8 +185,8 @@ struct FileIndex {
             foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
                 // force a newline in the generated html to improve readability
                 root.appendText("\n");
-                with (line = root.addChild("div")) {
-                    setAttribute("id", format("%s-%d", "line", (lastLoc.line + i + 1)));
+                with (line = lines.addChild("tr").addChild("td")) {
+                    setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
                     addClass("loc");
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }
@@ -202,7 +205,6 @@ struct FileIndex {
                 if (meta.onClick2.length != 0)
                     setAttribute("onclick", meta.onClick2);
             }
-
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
@@ -223,8 +225,7 @@ struct FileIndex {
 
             lastLoc = s.tok.locEnd;
         }
-
-        with (line.addChild("script")) {
+        with (root.addChild("script")) {
             import dextool.plugin.mutate.backend.report.utility : window;
 
             // force a newline in the generated html to improve readability
@@ -235,11 +236,14 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.original)))));
             appendText("\n");
+            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%('%s',%)'];",
+                    [EnumMembers!(Mutation.Status)])));
+            appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
-                    muts.data.map!(a => a.mut.status.to!string))));
+                    muts.data.map!(a => a.mut.status.to!ubyte))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
@@ -270,6 +274,10 @@ struct FileIndex {
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
 
+        //There's probably a more appropriate place to do this
+        auto s = index.root.childElements("head")[0].addChild("script");
+        s.addChild(new RawSource(index, js_index));
+        
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
 
@@ -344,7 +352,7 @@ struct FileCtx {
         s.addChild(new RawSource(r.doc, tmplIndexStyle));
 
         s = r.doc.root.childElements("head")[0].addChild("script");
-        s.addChild(new RawSource(r.doc, js_file));
+        s.addChild(new RawSource(r.doc, js_source));
 
         r.doc.mainBody.appendHtml(tmplIndexBody);
 
@@ -707,6 +715,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     root.addChild("p", "NoMut is the number of alive mutants in the file that are ignored.")
         .appendText(" This increases the score.");
+    root.setAttribute("onload", "init()");
 }
 
 /// Metadata about the span to be used to e.g. color it.
@@ -729,7 +738,7 @@ struct MetaSpan {
         immutable click_fmt = "onclick='ui_set_mut(%s)'";
         immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
-
+        // I can't see the use of these 'onclick' events.
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {

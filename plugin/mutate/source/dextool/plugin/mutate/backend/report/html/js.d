@@ -9,4 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.js;
 
-immutable js_file = import("index.js");
+// Script file for the test case similarity page
+immutable js_similarity = import("similarity.js");
+
+immutable js_index = import("index.js");
+
+immutable js_source = import("source.js");
+
+

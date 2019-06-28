@@ -12,10 +12,11 @@ module dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
 import logger = std.experimental.logger;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table;
+import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, tmplDefaultMatrixTable;
 import dextool.plugin.mutate.backend.report.utility;
@@ -28,8 +29,13 @@ auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
+    
+    auto s = doc.root.childElements("head")[0].addChild("script");
+    s.addChild(new RawSource(doc, js_similarity));
+    
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
+    doc.mainBody.setAttribute("onload", "init()");
     doc.mainBody.addChild("p", "This is the similarity between test cases.")
         .appendText(" The closer to 1.0 the more similare the test cases are in what they verify.");
     {
@@ -73,10 +79,15 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     root.addChild("p", "The intersection column is the mutants that are killed by both the test case in the heading and in the column Test Case.")
         .appendText(
                 " The difference column are the mutants that are only killed by the test case in the heading.");
-
+    root.addChild("p", "The tables are hidden by default, click on the corresponding header to display a table.");
     foreach (const tc; test_cases) {
-        root.addChild("h2", tc.name);
-        auto tbl = tmplDefaultTable(root, [
+        // Containers allows for hiding a table by clicking the corresponding header.
+        // Defaults to hiding tables.
+        auto comp_container = root.addChild("div").addClass("comp_container");
+        comp_container.addChild("h2", tc.name).addClass("tbl_header");
+        auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
+        tbl_container.setAttribute("style", "display: none;");
+        auto tbl = tmplDefaultTable(tbl_container, [
                 "Test Case", "Similarity", "Difference", "Intersection"
                 ]);
         foreach (const d; result.similarities[tc]) {

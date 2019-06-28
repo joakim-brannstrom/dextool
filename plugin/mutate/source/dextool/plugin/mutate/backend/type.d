@@ -136,7 +136,7 @@ struct Mutation {
     }
 
     /// The status of a mutant.
-    enum Status {
+    enum Status : ubyte {
         /// the mutation isn't tested
         unknown,
         /// killed by the test suite
