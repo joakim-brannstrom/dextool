@@ -176,7 +176,8 @@ struct FileIndex {
         line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
-        auto mut_fly_html = "g_mut_fly_html = {};\n";
+        auto mut_fly_html = "var g_mut_fly_html = {};\n";
+        mut_fly_html ~= "g_mut_fly_html[-1] = '<span>No info for original</span>';\n";
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
                 lastLoc.column = 1;
@@ -212,22 +213,20 @@ struct FileIndex {
                     muts.put(MData(m.id, m.txt, m.mut, db.getMutantationMetaData(m.id)));
                     const inside_fly = format(`%-(%s %)`, s.muts.map!(a => styleHover(m.id, a)))
                         .toJson;
-                    const fly = format(`fly(event, %s)`, inside_fly);
                     with (d0.addChild("span", m.mutation)) {
                         addClass("mutant");
                         addClass(s.tok.toName);
                         setAttribute("id", m.id.to!string);
-                        setAttribute("onmouseenter", fly);
-                        setAttribute("onmouseleave", fly);
                     }
                     d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
                     mut_fly_html~=format("g_mut_fly_html[%s] = %s\n", m.id, inside_fly);
                 }
             }
-
             lastLoc = s.tok.locEnd;
         }
+
         with (root.addChild("script")) {
+            import std.algorithm.sorting : sort;
             import dextool.plugin.mutate.backend.report.utility : window;
 
             // force a newline in the generated html to improve readability
@@ -252,6 +251,29 @@ struct FileIndex {
             appendText("\n");
             appendChild(new RawSource(ctx.doc, mut_fly_html));
             appendText("\n");
+            appendChild(new RawSource(ctx.doc, "var g_muts_testcases = {}"));
+            appendText("\n");
+
+            //Creates a list of which test cases killed a mutant, sorted by number of kills in descending order.
+            alias cond = (a,b) => db.getTestCaseInfo(a, kinds).killedMutants 
+                    < db.getTestCaseInfo(b, kinds).killedMutants;
+            foreach (id ; muts.data.map!(a => a.id)) {
+                auto testCases = db.getTestCases(id);
+                testCases.sort!(cond);
+                if (testCases.length) {
+                    appendChild(new RawSource(ctx.doc, format("g_muts_testcases[%s] = [%('%s',%)'];", 
+                        id, testCases )));
+                    appendText("\n");
+                }
+            }
+            // Creates a list of number of kills per testcase.
+            appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
+            appendText("\n");
+            foreach (tc ; db.getDetectedTestCases()){
+                appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];", 
+                    tc, db.getTestCaseInfo(tc, kinds).killedMutants)));
+                appendText("\n");
+            }
         }
 
         try {
