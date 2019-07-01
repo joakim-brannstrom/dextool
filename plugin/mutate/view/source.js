@@ -8,11 +8,10 @@ v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
 
-const LOC_BACKGROUND_COLOR = '#ffffff';
-const LOC_HIGHLIGHT_COLOR = '#cecece';
 const LOC_TRAVERSE_LOOP = true;
 const MUT_TRAVERSE_LOOP = false;
 const LOC_SCROLL_TO_ON_TRAVERSE = true;
+const NUM_TESTCASES = 3; //Number of testcases displayed in the info line
 
 var g_show_mutant = true;
 var g_active_mutid = 0;
@@ -49,7 +48,7 @@ function init() {
         g_mut_option_text[g_mutids[i]] = txt;
     }
     var locs_table = document.getElementById("locs");
-    locs_table.style.maxWidth = "80%";
+    locs_table.style.width = "60%";
 
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
@@ -66,27 +65,34 @@ function init() {
         }
     }
     select_loc(locs[0].id);
-
-    g_mut_fly_html[-1] = '<span>No info for original</span>';
-    g_show_mutant = true;
+    //Select loc or mutant by hash
     var mutid = -1;
-    var mutid = window.location.hash.substring(1);
-    if (mutid) {
-        set_active_mutant(mutid);
-        highlight_mutant(mutid);
-        select_loc(get_closest_loc(document.getElementById(mutid)).id, true);
+    var hash = window.location.hash.substring(1);
+    if (document.getElementById(hash)) {
+        if (document.getElementById(hash).classList.contains('mutant')) {
+            mutid = hash;
+            set_active_mutant(mutid);
+            highlight_mutant(mutid);
+            select_loc(get_closest_loc(document.getElementById(mutid)).id, true);
+        } else if (document.getElementById(hash).classList.contains('loc')) {
+            select_loc(hash, true);
+        }
     }
+    click_show_legend();
+    click_show_mutant();
     document.body.focus();
 }
 /**
  * Toggles whether to show the legend or not
  */
-function toggle_legend() {
+function click_show_legend() {
+    var show_legend = document.getElementById("show_legend").checked;
     var legend = document.getElementById("legend_box");
-    if (legend.style.display === "none")
+    if (show_legend) {
         legend.style.display = "inline";
-    else
+    } else {
         legend.style.display = "none";
+    }
 }
 /**
  * Manages all keyboard bindings
@@ -147,12 +153,12 @@ function on_loc_click(e) {
 function select_loc(loc_id, pure) {
     locs = document.getElementsByClassName('loc');
     if(g_active_locid){
-        document.getElementById(g_active_locid).style.backgroundColor = LOC_BACKGROUND_COLOR;
+        document.getElementById(g_active_locid).classList.toggle("loc_selected");
         remove_info_line();
     }
     loc = document.getElementById(loc_id);
     g_active_locid = loc.id;
-    loc.style.backgroundColor = LOC_HIGHLIGHT_COLOR;
+    loc.classList.toggle("loc_selected");
     if(!pure) {
         set_active_mutant(-1);
         deactivate_mutants();
@@ -168,11 +174,22 @@ function show_info_line() {
     var line = g_active_locid.split('-',2)[1];
     var info_row = loc_table.insertRow(line);
    
-    info_row.innerHTML = "<td id='info_line'></td>";
+    info_row.innerHTML = `
+    <td id='info_line'>
+    <table id='info_table'>
+        <tr id="fly"></tr>
+
+    </table>
+    </td>
+    `;
+    var info_table =document.getElementById("info_table");
+    for (var i = 0; i < NUM_TESTCASES; i++) {
+        var id = "tc" + parseInt(i+1);
+        row = info_table.insertRow(i+1);
+        row.id = id;
+        row.innerHTML = make_td("<span>->:</span>");
+    }
     set_info_line(g_active_mutid);
-    info_line = document.getElementById("info_line");
-    info_line.style.backgroundColor = '#2e3639';
-    info_line.style.color = '#eeeeee';
 }
 function remove_info_line() {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
@@ -181,10 +198,30 @@ function remove_info_line() {
     document.getElementById("locs").deleteRow(line);
 }
 function set_info_line(mutid) {
-    info_line = document.getElementById("info_line");
-    if(!info_line)
+    for (var i = 0; i < NUM_TESTCASES; i++) {
+        var id = "tc" + parseInt(i+1);
+        var row = document.getElementById(id)
+        if (row)
+            row.innerHTML = make_td("<span>->:</span>");
+    }
+    document.getElementById("fly").innerHTML = make_td("<span>->:</span>") + make_td(g_mut_fly_html[mutid]);
+    if (!g_muts_testcases[mutid])
         return;
-    info_line.innerHTML = "<span>->:</span>" + g_mut_fly_html[mutid];
+    
+    for (var i = 0; i < NUM_TESTCASES; i++) {
+        
+        var test_case = g_muts_testcases[mutid][i];
+        if (test_case) {
+            var id = "tc" + parseInt(i+1);
+            row = document.getElementById(id);
+            row.innerHTML = make_td("<span>->:</span>")  + make_td(test_case + ": "+g_testcases_kills[test_case]);
+        }
+    }
+}
+function make_td(html, id) {
+    if(!id)
+        return "<td>"+html+"</td>";
+    return "<td id='"+id+"'>"+html+"</td>";
 }
 /**
  * Adds the mutants on the loc for the given id 
@@ -227,8 +264,13 @@ function traverse_mutants(direction) {
     }
     var mutid = current_mutant_selector.value;
     set_active_mutant(mutid);
-    highlight_mutant(mutid);   
-    set_info_line(mutid); 
+    highlight_mutant(mutid);
+    if (mutid != -1)
+        scroll_to(mutid);
+    else
+        scroll_to(g_active_locid);
+    if (current_mutant_selector.children.length>1)
+        set_info_line(mutid); 
 }
 /**
  * Changes the active line 
@@ -323,7 +365,7 @@ function ui_set_mut(id) {
     set_active_mutant(id);
     highlight_mutant(id);
     scroll_to(id, false);
-
+    set_info_line(id);
     var current_mutant_selector = document.getElementById('current_mutant');
     for (var i=0; i<mutids.length; i++) {
         if (id == mutids[i]) {
@@ -456,23 +498,14 @@ function scroll_to(anchor, center) {
 }
 // Move most of this to html at some point
 function init_legend() {
-    var table = document.createElement('table');
-    add_table_row_with_text(table, "Next loc: "+key_traverse_locs_down);
-    add_table_row_with_text(table, "Prev loc: "+key_traverse_locs_up);
-    add_table_row_with_text(table, "Next mut: "+key_traverse_muts_down);
-    add_table_row_with_text(table, "Prev mut: "+key_traverse_muts_up);
-    add_table_row_with_text(table, "Toggle show: "+key_toggle_show_mutant);
-
-    table.style.display = "none";
-    table.id = "legend_box";
-    document.getElementById("info").appendChild(table);
-}
-function add_table_row_with_text(table, text) {
-    var row = document.createElement('tr');
-    var cell = document.createElement('td');
-    var text_span = document.createElement('span');
-    text_span.textContent=text;
-    cell.appendChild(text_span);
-    row.appendChild(cell);
-    table.appendChild(row);
+   document.getElementById("legend1_action").innerHTML = "Next line: ";
+   document.getElementById("legend2_action").innerHTML = "Prev line: ";
+   document.getElementById("legend3_action").innerHTML = "Next mutant: ";
+   document.getElementById("legend4_action").innerHTML = "Prev mutant: ";
+   document.getElementById("legend5_action").innerHTML = "Toggle show: ";
+   document.getElementById("legend1_key").innerHTML = key_traverse_locs_down;
+   document.getElementById("legend2_key").innerHTML = key_traverse_locs_up;
+   document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
+   document.getElementById("legend4_key").innerHTML = key_traverse_muts_up;
+   document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
 }

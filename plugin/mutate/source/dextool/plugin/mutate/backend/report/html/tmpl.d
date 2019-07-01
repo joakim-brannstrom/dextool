@@ -70,6 +70,19 @@ span.xx_label {
 #info select {
     width: 250px;
 }
+#info_line {
+    background: #2e3639;
+    color: #eeeeee;
+}
+.loc {
+    display: table-cell;
+    vertical-align: inherit;
+    background: #ffffff;
+}
+
+.loc_selected {
+    background: #cecece;
+}
 `;
 
 immutable tmplIndexBody = `<div id="mousehover"></div>
@@ -84,7 +97,7 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
   <tr>
     <td><span class="xx_label">Original: </span></td>
     <td><span id="current_mutant_original"></span></td>
-    <td><input id="show_legend" type="checkbox" onclick='toggle_legend(this)'/><span class="xx_label" id="legend">Legend</span></td>
+    <td><input id="show_legend" type="checkbox" onclick='click_show_legend(this)'/><span class="xx_label" id="legend">Legend</span></td>
   </tr>
   <tr>
     <td><span class="xx_label">Status: </span></td>
@@ -99,6 +112,28 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
       </select>
     </td>
     <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
+  </tr>
+</table>
+<table style="display: none;" id="legend_box">
+  <tr id="legend1">
+    <td><span id="legend1_action" class="xx_label"></span></td>
+    <td><span id="legend1_key"></span></td>
+  </tr>
+  <tr id="legend2">
+    <td><span id="legend2_action" class="xx_label"></span></td>
+    <td><span id="legend2_key"></span></td>
+  </tr>
+  <tr id="legend3">
+    <td><span id="legend3_action" class="xx_label"></span></td>
+    <td><span id="legend3_key"></span></td>
+  </tr>
+  <tr id="legend4">
+    <td><span id="legend4_action" class="xx_label"></span></td>
+    <td><span id="legend4_key"></span></td>
+  </tr>
+  <tr id="legend5">
+    <td><span id="legend5_action" class="xx_label"></span></td>
+    <td><span id="legend5_key"></span></td>
   </tr>
 </table>
 </div>
