@@ -160,7 +160,7 @@ struct FileIndex {
 
         static string styleHover(MutationId this_mut, const(FileMutant) m) {
             if (this_mut == m.id)
-                return format(`<b class="%s">%s</b>`, pickColor(m).toHover, m.mut.kind);
+                return format(`<b class="%s"><u>%s</u></b>`, pickColor(m).toHover, m.mut.kind);
             return format(`<span class="%s">%s</span>`, pickColor(m).toHover, m.mut.kind);
         }
 
@@ -176,6 +176,7 @@ struct FileIndex {
         line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
+        auto mut_fly_html = "g_mut_fly_html = {};\n";
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
                 lastLoc.column = 1;
@@ -220,6 +221,7 @@ struct FileIndex {
                         setAttribute("onmouseleave", fly);
                     }
                     d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
+                    mut_fly_html~=format("g_mut_fly_html[%s] = %s\n", m.id, inside_fly);
                 }
             }
 
@@ -247,6 +249,8 @@ struct FileIndex {
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
+            appendText("\n");
+            appendChild(new RawSource(ctx.doc, mut_fly_html));
             appendText("\n");
         }
 

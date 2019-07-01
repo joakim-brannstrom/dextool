@@ -40,7 +40,6 @@ function init() {
 
     init_legend();
     on_window_resize();
-
     // Construct the text displayed in the select field for all mutants
     for(var i=0; i<g_mutids.length; i++) {
         var txt = "";
@@ -49,6 +48,8 @@ function init() {
         txt += "'"+g_muts_muts[i]+"'";
         g_mut_option_text[g_mutids[i]] = txt;
     }
+    var locs_table = document.getElementById("locs");
+    locs_table.style.maxWidth = "80%";
 
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
@@ -66,6 +67,7 @@ function init() {
     }
     select_loc(locs[0].id);
 
+    g_mut_fly_html[-1] = '<span>No info for original</span>';
     g_show_mutant = true;
     var mutid = -1;
     var mutid = window.location.hash.substring(1);
@@ -144,9 +146,10 @@ function on_loc_click(e) {
  */
 function select_loc(loc_id, pure) {
     locs = document.getElementsByClassName('loc');
-    if(g_active_locid)
+    if(g_active_locid){
         document.getElementById(g_active_locid).style.backgroundColor = LOC_BACKGROUND_COLOR;
-    
+        remove_info_line();
+    }
     loc = document.getElementById(loc_id);
     g_active_locid = loc.id;
     loc.style.backgroundColor = LOC_HIGHLIGHT_COLOR;
@@ -155,7 +158,33 @@ function select_loc(loc_id, pure) {
         deactivate_mutants();
         clear_mutation_options();
     }
+    show_info_line();
     set_mutation_options(g_active_locid);
+}
+function show_info_line() {
+    if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
+        return; 
+    var loc_table = document.getElementById("locs");
+    var line = g_active_locid.split('-',2)[1];
+    var info_row = loc_table.insertRow(line);
+   
+    info_row.innerHTML = "<td id='info_line'></td>";
+    set_info_line(g_active_mutid);
+    info_line = document.getElementById("info_line");
+    info_line.style.backgroundColor = '#2e3639';
+    info_line.style.color = '#eeeeee';
+}
+function remove_info_line() {
+    if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
+        return; 
+    var line = g_active_locid.split('-',2)[1];
+    document.getElementById("locs").deleteRow(line);
+}
+function set_info_line(mutid) {
+    info_line = document.getElementById("info_line");
+    if(!info_line)
+        return;
+    info_line.innerHTML = "<span>->:</span>" + g_mut_fly_html[mutid];
 }
 /**
  * Adds the mutants on the loc for the given id 
@@ -198,7 +227,8 @@ function traverse_mutants(direction) {
     }
     var mutid = current_mutant_selector.value;
     set_active_mutant(mutid);
-    highlight_mutant(mutid);    
+    highlight_mutant(mutid);   
+    set_info_line(mutid); 
 }
 /**
  * Changes the active line 
@@ -260,7 +290,7 @@ function current_mutant_onchange(e) {
 
     current_mutant_selector.focus();
     current_mutant_selector.blur();
-    
+    document.body.focus();
     if (id == -1) {
         location.hash = "#";
         set_active_mutant(id);
