@@ -74,10 +74,14 @@ span.xx_label {
     background: #2e3639;
     color: #eeeeee;
 }
+#info_table {
+    width: 100%;
+}
 .loc {
     display: table-cell;
     vertical-align: inherit;
     background: #ffffff;
+    width: 100%;
 }
 .loc_selected {
     background: #cecece;

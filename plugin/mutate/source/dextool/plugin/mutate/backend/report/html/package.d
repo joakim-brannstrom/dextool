@@ -145,6 +145,7 @@ struct FileIndex {
 
     override void endFileEvent(ref Database db) @trusted {
         import std.algorithm : max, each, map, min, canFind;
+        import std.algorithm.sorting : sort;
         import std.array : appender;
         import std.conv : to;
         import std.range : repeat, enumerate;
@@ -176,10 +177,9 @@ struct FileIndex {
         line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
-        auto mut_fly_html = "var g_mut_fly_html = {};\n";
-        mut_fly_html ~= "g_mut_fly_html[-1] = '<span>No info for original</span>';\n";
-        auto muts_kind = "var g_muts_kind = {};\n";
-        auto muts_st = "var g_muts_st = {};\n";
+        auto mut_data = "var g_muts_data = {};\n";
+        alias cond = (a,b) => db.getTestCaseInfo(a, kinds).killedMutants 
+                    < db.getTestCaseInfo(b, kinds).killedMutants;
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
                 lastLoc.column = 1;
@@ -194,7 +194,6 @@ struct FileIndex {
                     addClass("loc");
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }
-
             }
             const spaces = max(0, s.tok.loc.column - lastLoc.column);
             line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
@@ -229,71 +228,43 @@ struct FileIndex {
                         setAttribute("id", m.id.to!string);
                     }
                     d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
-                    muts_kind~=format("g_muts_kind[%s] = %s;\n", m.id, temp(m.mut.kind, kinds));
-                    //muts_kind~=format("g_muts_kind[%s] = %s;\n", m.id, m.mut.kind.to!int);
-                    mut_fly_html~=format("g_mut_fly_html[%s] = %s\n", m.id, inside_fly);
-                    muts_st~=format("g_muts_st[%s] = %s\n", m.id, m.mut.status.to!ubyte);
+                    auto testCases = db.getTestCases(m.id);
+                    testCases.sort!(cond);
+                    if (testCases.length)
+                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'status' : %s, 'testCases' : [%('%s',%)']};\n", 
+                            m.id, temp(m.mut.kind, kinds), m.mut.status.to!ubyte, testCases);
+                    else
+                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'status' : %s, 'testCases' : null};\n", 
+                            m.id, temp(m.mut.kind, kinds), m.mut.status.to!ubyte);
                 }
             }
             lastLoc = s.tok.locEnd;
         }
 
         with (root.addChild("script")) {
-            import std.algorithm.sorting : sort;
             import dextool.plugin.mutate.backend.report.utility : window;
 
             // force a newline in the generated html to improve readability
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_mutids = [%(%s,%)];",
+            addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
                     muts.data.map!(a => a.id))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_muts_orgs = [%(%s,%)];",
+            addChild(new RawSource(ctx.doc, format("const g_muts_orgs = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.original)))));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_mut_st_map = [%('%s',%)'];",
+            addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
+            addChild(new RawSource(ctx.doc, format("const g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
             appendText("\n");
-            /*
-            addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
-                    muts.data.map!(a => a.mut.status.to!ubyte))));
-            appendText("\n");
-            */
-            addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
+            addChild(new RawSource(ctx.doc, format("const g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
             appendText("\n");
-            /*
-            addChild(new RawSource(ctx.doc, format("var g_mut_kind_map = [%('%s',%)'];",
-                    [EnumMembers!(Mutation.Kind)])));
-            appendText("\n");
-            */
-
-            appendChild(new RawSource(ctx.doc, muts_st));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("var g_mut_kind_map = [%('%s',%)'];",
+            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
                     kinds)));
             appendText("\n");
-            appendChild(new RawSource(ctx.doc, mut_fly_html));
-            appendText("\n");
-            appendChild(new RawSource(ctx.doc, muts_kind));
-            appendText("\n");
-            appendChild(new RawSource(ctx.doc, "var g_muts_testcases = {}"));
-            appendText("\n");
-
-            //Creates a list of which test cases killed a mutant, sorted by number of kills in descending order.
-            alias cond = (a,b) => db.getTestCaseInfo(a, kinds).killedMutants 
-                    < db.getTestCaseInfo(b, kinds).killedMutants;
-            foreach (id ; muts.data.map!(a => a.id)) {
-                auto testCases = db.getTestCases(id);
-                testCases.sort!(cond);
-                if (testCases.length) {
-                    appendChild(new RawSource(ctx.doc, format("g_muts_testcases[%s] = [%('%s',%)'];", 
-                        id, testCases )));
-                    appendText("\n");
-                }
-            }
+            
             // Creates a list of number of kills per testcase.
             appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
             appendText("\n");
@@ -302,6 +273,8 @@ struct FileIndex {
                     tc, db.getTestCaseInfo(tc, kinds).killedMutants)));
                 appendText("\n");
             }
+            appendChild(new RawSource(ctx.doc, mut_data));
+            appendText("\n");
         }
 
         try {
