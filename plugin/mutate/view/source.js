@@ -45,10 +45,12 @@ function init() {
     // Construct the text displayed in the select field for all mutants
     for(var i=0; i<g_mutids.length; i++) {
         var txt = "";
-        if (g_mut_st_map[g_muts_st[g_mutids[i]]] == "alive")
+        var mutid = g_mutids[i]
+        var mut = g_muts_data[mutid];
+        if (g_mut_st_map[mut.status] == "alive")
             txt += "+";
         txt += "'"+g_muts_muts[i]+"'";
-        g_mut_option_text[g_mutids[i]] = txt;
+        g_mut_option_text[mutid] = txt;
     }
     var locs_table = document.getElementById("locs");
     locs_table.style.width = "60%";
@@ -211,17 +213,21 @@ function set_info_line(mutid) {
         if (row)
             row.innerHTML = make_td("<span>->:</span>");
     }
-    document.getElementById("fly").innerHTML = make_td("<span>->:</span>") + make_td(g_mut_fly_html[mutid]);
-    if (!g_muts_testcases[mutid])
+    document.getElementById("fly").innerHTML = make_td("<span>->:</span>") 
+        + make_td(make_kind_status_info(g_active_locid, mutid));
+    if (mutid==-1)
+        return;
+    var tcs = g_muts_data[mutid].testCases
+    if (!tcs)
         return;
     
     for (var i = 0; i < NUM_TESTCASES; i++) {
-        
-        var test_case = g_muts_testcases[mutid][i];
+        var test_case = tcs[i];
         if (test_case) {
             var id = "tc" + parseInt(i+1);
             row = document.getElementById(id);
-            row.innerHTML = make_td("<span>->:</span>")  + make_td(test_case + ": "+g_testcases_kills[test_case]);
+            row.innerHTML = make_td("<span>->:</span>") 
+                + make_td(test_case + ": "+g_testcases_kills[test_case]);
         }
     }
 }
@@ -230,23 +236,44 @@ function make_td(html, id) {
         return "<td>"+html+"</td>";
     return "<td id='"+id+"'>"+html+"</td>";
 }
+function make_kind_status_info(locid, curr_mutid) {
+    if (curr_mutid == -1) {
+        return "<span>No active mutant</span>";
+    }
+    var mutids = g_loc_mutids[locid];
+    var html ="";
+    for (var i=0; i<mutids.length; i++) {
+        var mutid = mutids[i];
+        var mut = g_muts_data[mutid];
+        if (!g_filter_kinds.includes(mut.kind) &&
+            !g_filter_status.includes(mut.status)) 
+        {
+            if (mutids[i]==curr_mutid)
+                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+g_mut_kind_map[mut.kind]+`</b></u> </span>`;
+            else
+                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`">`+g_mut_kind_map[mut.kind]+` </span>`;
+        }
+    }
+    return html;
+}
 /**
  * Adds the mutants on the loc for the given id 
  * @param {id} loc_id id of the loc whose mutants to add
  */
 function set_mutation_options(loc_id) {
-    var mutids;
     var mutids = g_loc_mutids[loc_id];
     var current_mutant_selector = document.getElementById('current_mutant');
         
     current_mutant_selector.selectedIndex = 0;
     for (var i = 0; i < mutids.length; i++) {
-        if (!g_filter_kinds.includes(g_muts_kind[mutids[i]]) &&
-            !g_filter_status.includes(g_muts_st[mutids[i]])) 
+        var mutid = mutids[i];
+        var mut = g_muts_data[mutid];
+        if (!g_filter_kinds.includes(mut.kind) &&
+            !g_filter_status.includes(mut.status)) 
         {
             var s = document.createElement('OPTION');
-            s.value = mutids[i];
-            s.text = g_mut_option_text[mutids[i]];
+            s.value = mutid;
+            s.text = g_mut_option_text[mutid];
             current_mutant_selector.add(s);
             if (g_active_mutid === s.value)
                 current_mutant_selector.selectedIndex = i+1;
@@ -350,11 +377,13 @@ function current_mutant_onchange(e) {
         location.hash = "#";
         set_active_mutant(id);
         deactivate_mutants();
+        set_info_line(id);
         return;
     }
     
     set_active_mutant(id);
     highlight_mutant(id);
+    set_info_line(id);
 }
 /**
  * Removes all options (except the first) from the selector.
@@ -451,13 +480,9 @@ function highlight_mutant(mutid) {
         return;
     if (mut.classList.contains("mutant")) {
         activate_mutant(mutid);
-
         for (var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
-                document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_st[g_mutids[i]]];
-                document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
-                document.getElementById("current_mutant_id").innerText = mutid;
-                document.getElementById("current_mutant_original").innerText = g_muts_orgs[i];
+                set_current_mutant_info(mutid, i);
                 break;
             }
         }
@@ -474,18 +499,18 @@ function click_filter_kind(kind) {
          }
     }
     else {
-        console.log("Add: "+kind);
         g_filter_kinds.push(kind);
     }
+    set_active_mutant(-1);
+    deactivate_mutants();
     clear_mutation_options();
     set_mutation_options(g_active_locid);
+    set_info_line(g_active_mutid);
 }
 function click_filter_status(status) {
     var checkbox = document.getElementById(g_mut_st_map[status]);
     if(checkbox.checked) {
-        console.log("Remove: "+status);
         for( var i = 0; i < g_filter_status.length; i++){
-            console.log("filterI: "+g_filter_status[i]+ " kind: "+status); 
             if (g_filter_status[i] === status) {
                 
                 g_filter_status.splice(i, 1); 
@@ -493,11 +518,19 @@ function click_filter_status(status) {
          }
     }
     else {
-        console.log("Add: "+status);
         g_filter_status.push(status);
     }
+    set_active_mutant(-1);
+    deactivate_mutants();
     clear_mutation_options();
     set_mutation_options(g_active_locid);
+    set_info_line(g_active_mutid);
+}
+function set_current_mutant_info(mutid, i) {
+    document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_data[mutid].status];
+    document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
+    document.getElementById("current_mutant_id").innerText = mutid;
+    document.getElementById("current_mutant_original").innerText = g_muts_orgs[i];
 }
 /**
  * Clears the info box of mutant related text.
