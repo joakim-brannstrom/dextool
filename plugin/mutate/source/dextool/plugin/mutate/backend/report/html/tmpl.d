@@ -49,7 +49,7 @@ span.xx_label {
 #info {
     position: absolute;
     top: 0;
-    width: 400px;
+    width: 300px;
     background: grey;
     border-radius: 10px;
     -moz-border-radius: 10px;
@@ -68,7 +68,7 @@ span.xx_label {
     font-family: sans-serif;
 }
 #info select {
-    width: 250px;
+    width: 150px;
 }
 #info_line {
     background: #2e3639;
@@ -86,9 +86,21 @@ span.xx_label {
 .loc_selected {
     background: #cecece;
 }
+#filter_wrapper {
+    display: block;
+}
 #filter_wrapper table {
-    background: #445055;
-    width: 100%;
+    background: #394347;
+    display: block
+}
+#filter_wrapper table tr{
+    display: block;
+}
+#filter_wrapper table td {
+    background : #445055;
+    display: block;
+    margin-top: 3px;
+    margin-bottom: 3px;
 }
 .filter_title {
     color: #ffffff;
@@ -98,9 +110,9 @@ span.xx_label {
 
 #filter_wrapper tbody {
     width: 100%;
-    height: 130px;       /* Just for the demo          */
-    overflow-y: auto;    /* Trigger vertical scroll    */
-    overflow-x: hidden;  /* Hide the horizontal scroll */
+    height: 135px;  
+    overflow-y: auto; 
+    overflow-x: hidden;
 }
 `;
 
