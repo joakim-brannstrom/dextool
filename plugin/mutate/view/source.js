@@ -18,12 +18,15 @@ var g_active_mutid = 0;
 var g_mut_option_text = {};
 var g_active_locid = null;
 var g_loc_mutids = {};
+var g_filter_kinds = [];
+var g_filter_status = [];
 
 var key_traverse_locs_up = 'ArrowUp';
 var key_traverse_locs_down = 'ArrowDown';
 var key_traverse_muts_up = 'ArrowLeft';
 var key_traverse_muts_down = 'ArrowRight';
 var key_toggle_show_mutant = 'Numpad0';
+
 
 /**
  * Initializes event listeners, data and intial state
@@ -42,7 +45,7 @@ function init() {
     // Construct the text displayed in the select field for all mutants
     for(var i=0; i<g_mutids.length; i++) {
         var txt = "";
-        if (g_mut_st_map[g_muts_st[i]] == "alive")
+        if (g_mut_st_map[g_muts_st[g_mutids[i]]] == "alive")
             txt += "+";
         txt += "'"+g_muts_muts[i]+"'";
         g_mut_option_text[g_mutids[i]] = txt;
@@ -80,6 +83,8 @@ function init() {
     }
     click_show_legend();
     click_show_mutant();
+    init_filter_kind();
+    init_filter_status();
     document.body.focus();
 }
 /**
@@ -192,12 +197,14 @@ function show_info_line() {
     set_info_line(g_active_mutid);
 }
 function remove_info_line() {
-    if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
+    if (!document.getElementById("info_line"))
         return; 
     var line = g_active_locid.split('-',2)[1];
     document.getElementById("locs").deleteRow(line);
 }
 function set_info_line(mutid) {
+    if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
+        return; 
     for (var i = 0; i < NUM_TESTCASES; i++) {
         var id = "tc" + parseInt(i+1);
         var row = document.getElementById(id)
@@ -234,12 +241,16 @@ function set_mutation_options(loc_id) {
         
     current_mutant_selector.selectedIndex = 0;
     for (var i = 0; i < mutids.length; i++) {
-        var s = document.createElement('OPTION');
-        s.value = mutids[i];
-        s.text = g_mut_option_text[mutids[i]];
-        current_mutant_selector.add(s);
-        if (g_active_mutid === s.value)
-            current_mutant_selector.selectedIndex = i+1;
+        if (!g_filter_kinds.includes(g_muts_kind[mutids[i]]) &&
+            !g_filter_status.includes(g_muts_st[mutids[i]])) 
+        {
+            var s = document.createElement('OPTION');
+            s.value = mutids[i];
+            s.text = g_mut_option_text[mutids[i]];
+            current_mutant_selector.add(s);
+            if (g_active_mutid === s.value)
+                current_mutant_selector.selectedIndex = i+1;
+        }
     }
 }
 /**
@@ -269,8 +280,10 @@ function traverse_mutants(direction) {
         scroll_to(mutid);
     else
         scroll_to(g_active_locid);
-    if (current_mutant_selector.children.length>1)
-        set_info_line(mutid); 
+    //if (current_mutant_selector.children.length>1)
+    set_info_line(mutid); 
+    //else 
+        //remove_info_line();
 }
 /**
  * Changes the active line 
@@ -441,7 +454,7 @@ function highlight_mutant(mutid) {
 
         for (var i=0; i<g_mutids.length; i++) {
             if (g_mutids[i] == mutid) {
-                document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_st[i]];
+                document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_st[g_mutids[i]]];
                 document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
                 document.getElementById("current_mutant_id").innerText = mutid;
                 document.getElementById("current_mutant_original").innerText = g_muts_orgs[i];
@@ -449,6 +462,42 @@ function highlight_mutant(mutid) {
             }
         }
     }
+}
+function click_filter_kind(kind) {
+    var checkbox = document.getElementById(g_mut_kind_map[kind]);
+    if(checkbox.checked) {
+        for( var i = 0; i < g_filter_kinds.length; i++){
+            if (g_filter_kinds[i] === kind) {
+                
+                g_filter_kinds.splice(i, 1); 
+            }
+         }
+    }
+    else {
+        console.log("Add: "+kind);
+        g_filter_kinds.push(kind);
+    }
+    clear_mutation_options();
+    set_mutation_options(g_active_locid);
+}
+function click_filter_status(status) {
+    var checkbox = document.getElementById(g_mut_st_map[status]);
+    if(checkbox.checked) {
+        console.log("Remove: "+status);
+        for( var i = 0; i < g_filter_status.length; i++){
+            console.log("filterI: "+g_filter_status[i]+ " kind: "+status); 
+            if (g_filter_status[i] === status) {
+                
+                g_filter_status.splice(i, 1); 
+            }
+         }
+    }
+    else {
+        console.log("Add: "+status);
+        g_filter_status.push(status);
+    }
+    clear_mutation_options();
+    set_mutation_options(g_active_locid);
 }
 /**
  * Clears the info box of mutant related text.
@@ -508,4 +557,23 @@ function init_legend() {
    document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
    document.getElementById("legend4_key").innerHTML = key_traverse_muts_up;
    document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
+}
+function init_filter_kind() {
+    var table = document.getElementById("filter_kind");
+    
+    for (var i=0; i < g_mut_kind_map.length; i++) {
+        var row = table.insertRow(i);
+        row.innerHTML = `<td><input id="`+g_mut_kind_map[i]+ `" type="checkbox" onclick='click_filter_kind(`+i+`)' checked />
+                        <span class="xx_label">`+g_mut_kind_map[i]+`</span></td>`;
+    }
+}
+function init_filter_status() {
+    var table = document.getElementById("filter_status");
+
+    for (var i=0; i<g_mut_st_map.length; i++) {
+        var row = table.insertRow(i);
+        row.innerHTML = `<td><input id="`+g_mut_st_map[i]+ `" type="checkbox" onclick='click_filter_status(`+i+`)' checked />
+        <span class="xx_label">`+g_mut_st_map[i]+`</span></td>`;
+    }
+    return;
 }
