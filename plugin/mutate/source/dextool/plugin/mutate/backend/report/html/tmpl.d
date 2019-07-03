@@ -79,9 +79,24 @@ span.xx_label {
     vertical-align: inherit;
     background: #ffffff;
 }
-
 .loc_selected {
     background: #cecece;
+}
+#filter_wrapper table {
+    background: #445055;
+    width: 100%;
+}
+.filter_title {
+    color: #ffffff;
+    font-family: sans-serif;
+}
+#filter_wrapper thead, tbody { display: block; }
+
+#filter_wrapper tbody {
+    width: 100%;
+    height: 130px;       /* Just for the demo          */
+    overflow-y: auto;    /* Trigger vertical scroll    */
+    overflow-x: hidden;  /* Hide the horizontal scroll */
 }
 `;
 
@@ -114,6 +129,14 @@ immutable tmplIndexBody = `<div id="mousehover"></div>
     <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
   </tr>
 </table>
+<div id="filter_wrapper">
+<p class="filter_title">Filter by kind</p>
+<table id="filter_kind">
+</table>
+<p class="filter_title">Filter by status</p>
+<table id="filter_status">
+</table>
+</div>
 <table style="display: none;" id="legend_box">
   <tr id="legend1">
     <td><span id="legend1_action" class="xx_label"></span></td>

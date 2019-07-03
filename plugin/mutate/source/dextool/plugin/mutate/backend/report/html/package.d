@@ -147,7 +147,7 @@ struct FileIndex {
         import std.algorithm : max, each, map, min, canFind;
         import std.array : appender;
         import std.conv : to;
-        import std.range : repeat;
+        import std.range : repeat, enumerate;
         import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
 
@@ -178,6 +178,8 @@ struct FileIndex {
         line.addChild("span", "1:").addClass("line_nr");
         auto mut_fly_html = "var g_mut_fly_html = {};\n";
         mut_fly_html ~= "g_mut_fly_html[-1] = '<span>No info for original</span>';\n";
+        auto muts_kind = "var g_muts_kind = {};\n";
+        auto muts_st = "var g_muts_st = {};\n";
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
                 lastLoc.column = 1;
@@ -207,6 +209,14 @@ struct FileIndex {
                 if (meta.onClick.length != 0)
                     setAttribute("onclick", meta.onClick);
             }
+            auto temp = function(const Mutation.Kind a, const Mutation.Kind[] lkinds) { 
+            foreach (b; lkinds.enumerate) {
+                if(a == b.value) {
+                    return b.index;
+                }
+            }
+            return 0;
+            };
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
@@ -219,7 +229,10 @@ struct FileIndex {
                         setAttribute("id", m.id.to!string);
                     }
                     d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
+                    muts_kind~=format("g_muts_kind[%s] = %s;\n", m.id, temp(m.mut.kind, kinds));
+                    //muts_kind~=format("g_muts_kind[%s] = %s;\n", m.id, m.mut.kind.to!int);
                     mut_fly_html~=format("g_mut_fly_html[%s] = %s\n", m.id, inside_fly);
+                    muts_st~=format("g_muts_st[%s] = %s\n", m.id, m.mut.status.to!ubyte);
                 }
             }
             lastLoc = s.tok.locEnd;
@@ -243,13 +256,28 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("var g_muts_muts = [%(%s,%)];",
                     muts.data.map!(a => window(a.txt.mutation)))));
             appendText("\n");
+            /*
             addChild(new RawSource(ctx.doc, format("var g_muts_st = [%(%s,%)];",
                     muts.data.map!(a => a.mut.status.to!ubyte))));
             appendText("\n");
+            */
             addChild(new RawSource(ctx.doc, format("var g_muts_meta = [%(%s,%)];",
                     muts.data.map!(a => a.metaData.kindToString))));
             appendText("\n");
+            /*
+            addChild(new RawSource(ctx.doc, format("var g_mut_kind_map = [%('%s',%)'];",
+                    [EnumMembers!(Mutation.Kind)])));
+            appendText("\n");
+            */
+
+            appendChild(new RawSource(ctx.doc, muts_st));
+            appendText("\n");
+            addChild(new RawSource(ctx.doc, format("var g_mut_kind_map = [%('%s',%)'];",
+                    kinds)));
+            appendText("\n");
             appendChild(new RawSource(ctx.doc, mut_fly_html));
+            appendText("\n");
+            appendChild(new RawSource(ctx.doc, muts_kind));
             appendText("\n");
             appendChild(new RawSource(ctx.doc, "var g_muts_testcases = {}"));
             appendText("\n");
