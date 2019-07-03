@@ -49,7 +49,7 @@ function init() {
         var mut = g_muts_data[mutid];
         if (g_mut_st_map[mut.status] == "alive")
             txt += "+";
-        txt += "'"+g_muts_muts[i]+"'";
+        txt += "'"+mut.mutText+"'";
         g_mut_option_text[mutid] = txt;
     }
     var locs_table = document.getElementById("locs");
@@ -527,10 +527,11 @@ function click_filter_status(status) {
     set_info_line(g_active_mutid);
 }
 function set_current_mutant_info(mutid, i) {
-    document.getElementById("current_mutant_status").innerText = g_mut_st_map[g_muts_data[mutid].status];
-    document.getElementById("current_mutant_metadata").innerText = g_muts_meta[i];
+    mut = g_muts_data[mutid];
+    document.getElementById("current_mutant_status").innerText = g_mut_st_map[mut.status];
+    document.getElementById("current_mutant_metadata").innerText = mut.meta;
     document.getElementById("current_mutant_id").innerText = mutid;
-    document.getElementById("current_mutant_original").innerText = g_muts_orgs[i];
+    document.getElementById("current_mutant_original").innerText = mut.orgText;
 }
 /**
  * Clears the info box of mutant related text.
