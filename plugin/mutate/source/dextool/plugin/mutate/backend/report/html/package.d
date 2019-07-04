@@ -179,6 +179,7 @@ struct FileIndex {
 
         line.addChild("span", "1:").addClass("line_nr");
         auto mut_data = "var g_muts_data = {};\n";
+        mut_data~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
         alias sort_tcs_on_kills = (a,b) => db.getTestCaseInfo(a, kinds).killedMutants 
                     < db.getTestCaseInfo(b, kinds).killedMutants;
         
@@ -251,14 +252,14 @@ struct FileIndex {
 
             // force a newline in the generated html to improve readability
             appendText("\n");
+            addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;", db.getDetectedTestCases().length
+                    )));  
+            appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
                     muts.data.map!(a => a.id))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_muts_meta = [%(%s,%)];",
-                    muts.data.map!(a => a.metaData.kindToString))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
                     kinds)));

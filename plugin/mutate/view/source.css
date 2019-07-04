@@ -1,0 +1,134 @@
+
+
+
+.mutant {display:none; background-color: yellow;}
+.status_alive {background-color: lightpink;}
+.status_killed {background-color: lightgreen;}
+.status_killedByCompiler {background-color: #eeeeee;}
+.status_timeout {background-color: limegreen;}
+.status_unknown {background-color: mistyrose;}
+.hover_alive {color: lightpink;}
+.hover_killed {color: lightgreen;}
+.hover_killedByCompiler {color: #eeeeee;}
+.hover_timeout {color: limegreen;}
+.hover_unknown {color: mistyrose;}
+.literal {color: darkred;}
+.keyword {color: blue;}
+.comment {color: grey;}
+.line_nr {color: grey;}
+#mousehover {
+    background: grey;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    padding: 5px;
+    display: none;
+    position: absolute;
+    background: #2e3639;
+    color: #fff;
+}
+span.xx_label {
+    font-weight: bold;
+}
+#info_wrapper {
+    position: absolute;
+    width: 99%;
+}
+#info {
+    position: absolute;
+    top: 0;
+    width: 300px;
+    background: grey;
+    border-radius: 10px;
+    -moz-border-radius: 10px;
+    padding: 5px;
+    border: 1px solid;
+    opacity:0.9;
+
+    background: #2e3639;
+}
+#info.fixed {
+    position: fixed;
+}
+#info span {
+    font-size: 80%;
+    color: #fff;
+    font-family: sans-serif;
+}
+#info select {
+    width: 150px;
+}
+#info_line {
+    background: #2e3639;
+    color: #eeeeee;
+}
+.loc {
+    display: table-cell;
+    vertical-align: inherit;
+    background: #ffffff;
+    width: 100%;
+}
+.loc_selected {
+    background: #cecece;
+}
+#filter_wrapper {
+    display: block;
+}
+#filter_wrapper table {
+    background: #394347;
+    display: block
+}
+#filter_wrapper table tr{
+    display: block;
+}
+#filter_wrapper table td {
+    background : #445055;
+    display: block;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+.filter_title {
+    color: #ffffff;
+    font-family: sans-serif;
+}
+#filter_wrapper thead, tbody { display: block; }
+
+#filter_wrapper tbody {
+    width: 100%;
+    height: 135px;  
+    overflow-y: auto; 
+    overflow-x: hidden;
+}
+#testcases thead, tbody { display: block; }
+#testcases tbody {
+    width: 100%;
+    height: 135px;  
+    overflow-y: auto; 
+    overflow-x: hidden;
+}
+#testcases {
+    height: 135px; 
+    background: #394347;
+    display: block
+}
+#testcases tr{
+    background : #445055;
+    display: block;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    padding: 2px;
+}
+
+#info_table {
+    width: 100%;
+}
+#locs {
+    display: block;
+    width: 60%;
+}
+#locs  tr{
+    display: block;
+}
+
+#locs td {
+    display: block;
+}

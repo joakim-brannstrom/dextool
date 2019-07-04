@@ -9,13 +9,12 @@ one at http://mozilla.org/MPL/2.0/.
 */
 
 const LOC_TRAVERSE_LOOP = true;
-const MUT_TRAVERSE_LOOP = false;
+const MUT_TRAVERSE_NEXT_LOC = true;
 const LOC_SCROLL_TO_ON_TRAVERSE = true;
-const NUM_TESTCASES = 3; //Number of testcases displayed in the info line
 
+var g_displayed_testcases = 10; //Number of testcases displayed in the info line
 var g_show_mutant = true;
 var g_active_mutid = 0;
-var g_mut_option_text = {};
 var g_active_locid = null;
 var g_loc_mutids = {};
 var g_filter_kinds = [];
@@ -33,28 +32,21 @@ var key_toggle_show_mutant = 'Numpad0';
  */
 function init() {
     var current_mutant_selector = document.getElementById('current_mutant');
+    var num_testcases = document.getElementById("num_testcases");
     current_mutant_selector.addEventListener('change', 
         function(e) { current_mutant_onchange(e); });
+    num_testcases.addEventListener('change', 
+        function(e) { on_num_testcases_change(e); });
     window.addEventListener('resize', 
         on_window_resize);
     window.addEventListener('keydown', 
         function(e) { on_keyboard_input(e); });
-
+    g_displayed_testcases = num_testcases.value;
+    num_testcases.max = MAX_NUM_TESTCASES;
     init_legend();
     on_window_resize();
-    // Construct the text displayed in the select field for all mutants
-    for(var i=0; i<g_mutids.length; i++) {
-        var txt = "";
-        var mutid = g_mutids[i]
-        var mut = g_muts_data[mutid];
-        if (g_mut_st_map[mut.status] == "alive")
-            txt += "+";
-        txt += "'"+mut.mutText+"'";
-        g_mut_option_text[mutid] = txt;
-    }
     var locs_table = document.getElementById("locs");
     locs_table.style.width = "60%";
-
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
         locs[i].addEventListener('wheel', 
@@ -101,6 +93,13 @@ function click_show_legend() {
         legend.style.display = "none";
     }
 }
+function on_num_testcases_change(e) {
+    num_testcases = e.target;
+    if (num_testcases.value != g_displayed_testcases) {
+        g_displayed_testcases = num_testcases.value;
+        set_info_line(g_active_mutid);
+    }
+}
 /**
  * Manages all keyboard bindings
  * @param {event} e the captured keyboard event
@@ -133,8 +132,10 @@ function on_keyboard_input(e) {
  */
 function on_loc_wheel(e) {
     var loc = get_closest_loc(e.target);
-    if(loc.id === g_active_locid)
+    if(loc.id === g_active_locid) {
+        e.preventDefault();
         traverse_mutants(e.deltaY);
+    }
     return;
 }
 /**
@@ -184,18 +185,13 @@ function show_info_line() {
     info_row.innerHTML = `
     <td id='info_line'>
     <table id='info_table'>
-        <tr id="fly"></tr>
-
+        <tr id="loc_muts_info"></tr>
+        <tr>
+            <td><table id="testcases" ></table</td>
+        </tr>
     </table>
     </td>
     `;
-    var info_table =document.getElementById("info_table");
-    for (var i = 0; i < NUM_TESTCASES; i++) {
-        var id = "tc" + parseInt(i+1);
-        row = info_table.insertRow(i+1);
-        row.id = id;
-        row.innerHTML = make_td("<span>->:</span>");
-    }
     set_info_line(g_active_mutid);
 }
 function remove_info_line() {
@@ -206,28 +202,30 @@ function remove_info_line() {
 }
 function set_info_line(mutid) {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
-        return; 
-    for (var i = 0; i < NUM_TESTCASES; i++) {
+        return;
+
+    var testcases = document.getElementById("testcases");
+    document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid));
+    var tcs = g_muts_data[mutid].testCases
+    if (!tcs) {
+        while(testcases.rows.length > 0) {
+            testcases.deleteRow(-1);
+        }
+        return;
+    }
+    while(testcases.rows.length > Math.min(g_displayed_testcases, tcs.length)) {
+        testcases.deleteRow(-1);
+    }
+    for (var i = 0; i < Math.min(g_displayed_testcases, tcs.length); i++) {
         var id = "tc" + parseInt(i+1);
         var row = document.getElementById(id)
-        if (row)
-            row.innerHTML = make_td("<span>->:</span>");
-    }
-    document.getElementById("fly").innerHTML = make_td("<span>->:</span>") 
-        + make_td(make_kind_status_info(g_active_locid, mutid));
-    if (mutid==-1)
-        return;
-    var tcs = g_muts_data[mutid].testCases
-    if (!tcs)
-        return;
-    
-    for (var i = 0; i < NUM_TESTCASES; i++) {
+        if (!row) {
+            row = testcases.insertRow(i);
+            row.id = id;
+        }
         var test_case = tcs[i];
         if (test_case) {
-            var id = "tc" + parseInt(i+1);
-            row = document.getElementById(id);
-            row.innerHTML = make_td("<span>->:</span>") 
-                + make_td(test_case + ": "+g_testcases_kills[test_case]);
+            row.innerHTML = make_td(test_case + ": "+g_testcases_kills[test_case]);
         }
     }
 }
@@ -273,7 +271,7 @@ function set_mutation_options(loc_id) {
         {
             var s = document.createElement('OPTION');
             s.value = mutid;
-            s.text = g_mut_option_text[mutid];
+            s.text = mut.mutText;
             current_mutant_selector.add(s);
             if (g_active_mutid === s.value)
                 current_mutant_selector.selectedIndex = i+1;
@@ -291,14 +289,16 @@ function traverse_mutants(direction) {
     if (direction>0) {
         if (selected+1 < current_mutant_selector.options.length)
             current_mutant_selector.selectedIndex += 1;
-        else if (MUT_TRAVERSE_LOOP)
-            current_mutant_selector.selectedIndex = 0;
+        else if (MUT_TRAVERSE_NEXT_LOC)
+            traverse_locs(1);
         
     } else if (direction < 0) {
         if (selected-1 >= 0)
             current_mutant_selector.selectedIndex-=1;
-        else if (MUT_TRAVERSE_LOOP)
-            current_mutant_selector.selectedIndex = current_mutant_selector.options.length -1;
+        else if (MUT_TRAVERSE_NEXT_LOC) {
+            traverse_locs(-1);
+            current_mutant_selector.selectedIndex = current_mutant_selector.options.length-1;
+        }
     }
     var mutid = current_mutant_selector.value;
     set_active_mutant(mutid);
@@ -307,10 +307,7 @@ function traverse_mutants(direction) {
         scroll_to(mutid);
     else
         scroll_to(g_active_locid);
-    //if (current_mutant_selector.children.length>1)
     set_info_line(mutid); 
-    //else 
-        //remove_info_line();
 }
 /**
  * Changes the active line 
@@ -480,12 +477,7 @@ function highlight_mutant(mutid) {
         return;
     if (mut.classList.contains("mutant")) {
         activate_mutant(mutid);
-        for (var i=0; i<g_mutids.length; i++) {
-            if (g_mutids[i] == mutid) {
-                set_current_mutant_info(mutid, i);
-                break;
-            }
-        }
+        set_current_mutant_info(mutid);
     }
 }
 function click_filter_kind(kind) {
@@ -526,7 +518,7 @@ function click_filter_status(status) {
     set_mutation_options(g_active_locid);
     set_info_line(g_active_mutid);
 }
-function set_current_mutant_info(mutid, i) {
+function set_current_mutant_info(mutid) {
     mut = g_muts_data[mutid];
     document.getElementById("current_mutant_status").innerText = g_mut_st_map[mut.status];
     document.getElementById("current_mutant_metadata").innerText = mut.meta;
