@@ -243,7 +243,7 @@ function make_kind_status_info(locid, curr_mutid) {
     for (var i=0; i<mutids.length; i++) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
-        if (!g_filter_kinds.includes(mut.kind) &&
+        if (!g_filter_kinds.includes(mut.kindGroup) &&
             !g_filter_status.includes(mut.status)) 
         {
             if (mutids[i]==curr_mutid)
@@ -266,7 +266,7 @@ function set_mutation_options(loc_id) {
     for (var i = 0; i < mutids.length; i++) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
-        if (!g_filter_kinds.includes(mut.kind) &&
+        if (!g_filter_kinds.includes(mut.kindGroup) &&
             !g_filter_status.includes(mut.status)) 
         {
             var s = document.createElement('OPTION');
@@ -481,7 +481,7 @@ function highlight_mutant(mutid) {
     }
 }
 function click_filter_kind(kind) {
-    var checkbox = document.getElementById(g_mut_kind_map[kind]);
+    var checkbox = document.getElementById(g_mut_kindGroup_map[kind]);
     if(checkbox.checked) {
         for( var i = 0; i < g_filter_kinds.length; i++){
             if (g_filter_kinds[i] === kind) {
@@ -587,10 +587,10 @@ function init_legend() {
 function init_filter_kind() {
     var table = document.getElementById("filter_kind");
     
-    for (var i=0; i < g_mut_kind_map.length; i++) {
+    for (var i=0; i < g_mut_kindGroup_map.length; i++) {
         var row = table.insertRow(i);
-        row.innerHTML = `<td><input id="`+g_mut_kind_map[i]+ `" type="checkbox" onclick='click_filter_kind(`+i+`)' checked />
-                        <span class="xx_label">`+g_mut_kind_map[i]+`</span></td>`;
+        row.innerHTML = `<td><input id="`+g_mut_kindGroup_map[i]+ `" type="checkbox" onclick='click_filter_kind(`+i+`)' checked />
+                        <span class="xx_label">`+g_mut_kindGroup_map[i]+`</span></td>`;
     }
 }
 function init_filter_status() {

@@ -150,8 +150,10 @@ struct FileIndex {
         import std.conv : to;
         import std.range : repeat, enumerate;
         import std.traits : EnumMembers;
+        import dextool.plugin.mutate.type : MutationKind;
         import dextool.plugin.mutate.backend.database.type : MutantMetaData;
         import dextool.plugin.mutate.backend.report.utility : window;
+        import dextool.plugin.mutate.backend.mutation_type : toUser;
 
         static struct MData {
             MutationId id;
@@ -236,18 +238,17 @@ struct FileIndex {
                     auto testCases = db.getTestCases(m.id);
                     testCases.sort!(sort_tcs_on_kills);
                     if (testCases.length)
-                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
-                            m.id, find_kind_index(m.mut.kind, kinds), m.mut.status.to!ubyte, 
+                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
+                            m.id, find_kind_index(m.mut.kind, kinds), toUser(m.mut.kind).to!int, m.mut.status.to!ubyte, 
                             testCases, window(m.txt.original), window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
                     else
-                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
-                            m.id, find_kind_index(m.mut.kind, kinds), m.mut.status.to!ubyte, 
+                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
+                            m.id, find_kind_index(m.mut.kind, kinds), toUser(m.mut.kind).to!int, m.mut.status.to!ubyte, 
                             window(m.txt.original), window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
         }
-
         with (root.addChild("script")) {
 
             // force a newline in the generated html to improve readability
@@ -263,6 +264,9 @@ struct FileIndex {
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
                     kinds)));
+            appendText("\n");
+            addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
+                    [EnumMembers!(MutationKind)])));
             appendText("\n");
             
             // Creates a list of number of kills per testcase.
