@@ -1,0 +1,63 @@
+<div id="mousehover"></div>
+<div id="info_wrapper">
+<div id="info" class="fixed">
+<table>
+  <tr>
+    <td><span class="xx_label">Id: </span> <span id="current_mutant_id"></span></td>
+    <td></td>
+    <td><a href="../index.html" style="color: white">Back</a></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Original: </span></td>
+    <td><span id="current_mutant_original"></span></td>
+    <td><input id="show_legend" type="checkbox" onclick='click_show_legend(this)'/><span class="xx_label" id="legend">Legend</span></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Status: </span></td>
+    <td><span id="current_mutant_status"></span></td>
+    <td><span id="current_mutant_metadata"></span></td>
+  </tr>
+  <tr>
+    <td><span class="xx_label">Mutant: </span></td>
+    <td>
+      <select id="current_mutant">
+        <option value="-1" selected="selected">Original</option>
+      </select>
+    </td>
+    <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)'/><span class="xx_label">Show</span></td>
+  </tr>
+</table>
+<div id="filter_wrapper">
+<p class="filter_title">Testcases to display</p>
+<input id="num_testcases" type="number" min="0" max="10" step="1" value="5"/>
+<p class="filter_title">Filter by kind</p>
+<table id="filter_kind">
+</table>
+<p class="filter_title">Filter by status</p>
+<table id="filter_status">
+</table>
+</div>
+<table style="display: none;" id="legend_box">
+  <tr id="legend1">
+    <td><span id="legend1_action" class="xx_label"></span></td>
+    <td><span id="legend1_key"></span></td>
+  </tr>
+  <tr id="legend2">
+    <td><span id="legend2_action" class="xx_label"></span></td>
+    <td><span id="legend2_key"></span></td>
+  </tr>
+  <tr id="legend3">
+    <td><span id="legend3_action" class="xx_label"></span></td>
+    <td><span id="legend3_key"></span></td>
+  </tr>
+  <tr id="legend4">
+    <td><span id="legend4_action" class="xx_label"></span></td>
+    <td><span id="legend4_key"></span></td>
+  </tr>
+  <tr id="legend5">
+    <td><span id="legend5_action" class="xx_label"></span></td>
+    <td><span id="legend5_key"></span></td>
+  </tr>
+</table>
+</div>
+</div>
