@@ -188,9 +188,21 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
     import std.algorithm : map, filter, splitter;
     import std.array : array;
     import std.exception : assumeUnique;
-    import std.json : JSON_TYPE;
     import std.range : only;
     import std.utf : byUTF;
+
+    static if (__VERSION__ < 2085L) {
+        import std.json : JSON_TYPE;
+
+        alias JSONType = JSON_TYPE;
+        alias JSONType_array = JSON_TYPE.ARRAY;
+        alias JSONType_string = JSON_TYPE.STRING;
+    } else {
+        import std.json : JSONType;
+
+        alias JSONType_array = JSONType.array;
+        alias JSONType_string = JSONType.string;
+    }
 
     string[] command = () {
         string[] cmd;
@@ -207,13 +219,13 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         try {
             enum j_arg = "arguments";
             const auto j_type = v[j_arg].type;
-            if (j_type == JSON_TYPE.STRING)
+            if (j_type == JSONType_string)
                 cmd = v[j_arg].str.splitter.filter!(a => a.length != 0).array;
-            else if (j_type == JSON_TYPE.ARRAY) {
+            else if (j_type == JSONType_array) {
                 import std.range;
 
                 cmd = v[j_arg].arrayNoRef
-                    .filter!(a => a.type == JSON_TYPE.STRING)
+                    .filter!(a => a.type == JSONType_string)
                     .map!(a => a.str)
                     .filter!(a => a.length != 0)
                     .array;
@@ -240,7 +252,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         const directory = v["directory"];
         const file = v["file"];
 
-        foreach (a; only(directory, file).map!(a => !a.isNull && a.type == JSON_TYPE.STRING)
+        foreach (a; only(directory, file).map!(a => !a.isNull && a.type == JSONType_string)
                 .filter!(a => !a)) {
             // sanity check.
             // if any element is false then break early.
