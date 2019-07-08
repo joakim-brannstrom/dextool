@@ -29,10 +29,10 @@ auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
-    
+
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, js_similarity));
-    
+
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
@@ -79,12 +79,24 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     root.addChild("p", "The intersection column is the mutants that are killed by both the test case in the heading and in the column Test Case.")
         .appendText(
                 " The difference column are the mutants that are only killed by the test case in the heading.");
-    root.addChild("p", "The tables are hidden by default, click on the corresponding header to display a table.");
+    root.addChild("p",
+            "The tables are hidden by default, click on the corresponding header to display a table.");
+    with (root.addChild("button", "expand all")) {
+        setAttribute("type", "button");
+        setAttribute("id", "expand_all");
+    }
+    with (root.addChild("button", "collapse all")) {
+        setAttribute("type", "button");
+        setAttribute("id", "collapse_all");
+    }
     foreach (const tc; test_cases) {
         // Containers allows for hiding a table by clicking the corresponding header.
         // Defaults to hiding tables.
         auto comp_container = root.addChild("div").addClass("comp_container");
-        comp_container.addChild("h2", tc.name).addClass("tbl_header");
+        auto heading = comp_container.addChild("h2").addClass("tbl_header");
+        heading.addChild("i").addClass("right");
+        heading.appendText(" ");
+        heading.appendText(tc.name);
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, [

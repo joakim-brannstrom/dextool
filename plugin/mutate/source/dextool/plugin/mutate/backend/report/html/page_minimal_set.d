@@ -33,14 +33,12 @@ auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf,
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, js_similarity));
 
-
-    doc.title(format("Minimal Set Analyse %(%s %) %s", 
-        humanReadableKinds, Clock.currTime));
+    doc.title(format("Minimal Set Analyse %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
     doc.mainBody.addChild("p",
             "This are the minimal set of mutants that result in the mutation score.");
 
-         auto p = doc.mainBody.addChild("p");
+    auto p = doc.mainBody.addChild("p");
 
     toHtml(reportMinimalSet(db, kinds), doc.mainBody);
 
@@ -52,14 +50,25 @@ private:
 void toHtml(MinimalTestSet min_set, Element root) {
     import core.time : Duration;
     import std.conv : to;
+
     {
-        root.addChild("p", "The tables are hidden by default, click on the corresponding header to display a table.");
-
+        root.addChild("p",
+                "The tables are hidden by default, click on the corresponding header to display a table.");
+        with (root.addChild("button", "expand all")) {
+            setAttribute("type", "button");
+            setAttribute("id", "expand_all");
+        }
+        with (root.addChild("button", "collapse all")) {
+            setAttribute("type", "button");
+            setAttribute("id", "collapse_all");
+        }
         auto comp_container = root.addChild("div").addClass("comp_container");
-        comp_container.addChild("h2",format!"Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
-                min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total)).addClass("tbl_header");
-        comp_container.addChild("p", "These test cases do not contribute towards the mutation score.");
-
+        auto heading = comp_container.addChild("h2").addClass("tbl_header");
+        heading.addChild("i").addClass("right");
+        heading.appendText(format!" Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
+                min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total));
+        comp_container.addChild("p",
+                "These test cases do not contribute towards the mutation score.");
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, [
@@ -76,11 +85,14 @@ void toHtml(MinimalTestSet min_set, Element root) {
         }
         tbl_container.addChild("p", format("Total test time: %s", sum));
     }
-    { 
+    {
         auto comp_container = root.addChild("div").addClass("comp_container");
-        comp_container.addChild("h2", format!"Minimal Set (%s/%s %s)"(min_set.minimalSet.length,
-                min_set.total, cast(double) min_set.minimalSet.length / cast(double) min_set.total)).addClass("tbl_header");
-        comp_container.addChild("p", "This is the minimum set of tests that achieve the mutation score.");
+        auto heading = comp_container.addChild("h2").addClass("tbl_header");
+        heading.addChild("i").addClass("right");
+        heading.appendText(format!" Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
+                min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total));
+        comp_container.addChild("p",
+                "This is the minimum set of tests that achieve the mutation score.");
 
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");

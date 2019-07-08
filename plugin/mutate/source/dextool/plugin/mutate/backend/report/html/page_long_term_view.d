@@ -12,11 +12,12 @@ module dextool.plugin.mutate.backend.report.html.page_long_term_view;
 import logger = std.experimental.logger;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table;
+import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -29,6 +30,9 @@ auto makeLongTermView(ref Database db, ref const ConfigReport conf,
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
+    auto s = doc.root.childElements("head")[0].addChild("script");
+    s.addChild(new RawSource(doc, js_index));
+    doc.mainBody.setAttribute("onload", "init()");
     doc.title(format("Long Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
 
     toHtml(reportSelectedAliveMutants(db, kinds, 10), doc.mainBody);
@@ -47,9 +51,11 @@ void toHtml(const MutantSample mut_sample, Element root) {
     if (mut_sample.hardestToKill.length != 0) {
         root.addChild("h3", "Longest Surviving Mutant");
         root.addChild("p",
-                "This mutants has survived countless test runs. Slay one or more of them to be the hero of the team.");
+                "These mutants has survived countless test runs. Slay one or more of them to be the hero of the team.");
 
-        auto tbl = tmplDefaultTable(root, ["Link", "Discovered", "Last Updated", "Survived"]);
+        auto tbl = tmplDefaultTable(root, [
+                "Link", "Discovered", "Last Updated", "Survived"
+                ]);
 
         foreach (const mutst; mut_sample.hardestToKill) {
             const mut = mut_sample.mutants[mutst.statusId];
