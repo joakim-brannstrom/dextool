@@ -48,6 +48,8 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
         auto th = tr.addChild("th", h.value);
         th.addClass(tableColumnHdrStyle);
         th.setAttribute("id", format("%s-%d", "col", h.index));
+        th.appendText(" ");
+        th.addChild("i").addClass("right");
     }
 
     tbl.addChild("thead").appendChild(tr);

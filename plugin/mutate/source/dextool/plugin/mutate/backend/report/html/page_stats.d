@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table;
+import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.html.constants;
@@ -22,6 +22,7 @@ import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
+import dextool.plugin.mutate.backend.report.html.js;
 
 string makeStats(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
@@ -31,8 +32,11 @@ string makeStats(ref Database db, ref const ConfigReport conf,
     auto sections = setFromList(conf.reportSection);
 
     auto doc = tmplBasicPage;
-    doc.title(format("Mutation Testing Report %(%s %) %s", humanReadableKinds, Clock.currTime));
 
+    auto s = doc.root.childElements("head")[0].addChild("script");
+    s.addChild(new RawSource(doc, js_index));
+    doc.title(format("Mutation Testing Report %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.mainBody.setAttribute("onload", "init()");
     overallStat(reportStatistics(db, kinds), doc.mainBody);
     if (ReportSection.tc_killed_no_mutants in sections)
         deadTestCase(reportDeadTestCases(db), doc.mainBody);
@@ -59,9 +63,12 @@ void overallStat(const MutationStat s, Element n) {
     }
 
     auto tbl = tmplDefaultTable(n, ["Type", "Value"]);
-    foreach (const d; [tuple("Alive", s.alive), tuple("Killed", s.killed),
-            tuple("Timeout", s.timeout), tuple("Total", s.total), tuple("Untested",
-                s.untested), tuple("Killed by compiler", s.killedByCompiler),]) {
+    foreach (const d; [
+            tuple("Alive", s.alive), tuple("Killed", s.killed),
+            tuple("Timeout", s.timeout), tuple("Total", s.total),
+            tuple("Untested", s.untested),
+            tuple("Killed by compiler", s.killedByCompiler),
+        ]) {
         tbl.appendRow(d[0], d[1]);
     }
 
