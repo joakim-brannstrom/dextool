@@ -12,9 +12,10 @@ module dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
 import logger = std.experimental.logger;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table;
+import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, tmplDefaultMatrixTable;
@@ -28,6 +29,8 @@ auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
+    auto s = doc.root.childElements("head")[0].addChild("script");
+    s.addChild(new RawSource(doc, js_similarity));
     doc.title(format("Test Group Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.addChild("p",
@@ -71,11 +74,25 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
     root.addChild("p", "The intersection column are the mutants that are killed by both the test group in the heading and in the column Test Group.")
         .appendText(
                 " The difference column are the mutants that are only killed by the test group in the heading.");
-
+    root.addChild("p",
+            "The tables are hidden by default, click on the corresponding header to display a table.");
+    with (root.addChild("button", "expand all")) {
+        setAttribute("type", "button");
+        setAttribute("id", "expand_all");
+    }
+    with (root.addChild("button", "collapse all")) {
+        setAttribute("type", "button");
+        setAttribute("id", "collapse_all");
+    }
     foreach (const tg; test_groups) {
-        root.addChild("h2", format("%s (%s)", tg.description, tg.name));
-        root.addChild("p", tg.userInput);
-        auto tbl = tmplDefaultTable(root, [
+        auto comp_container = root.addChild("div").addClass("comp_container");
+        auto heading = comp_container.addChild("h2").addClass("tbl_header");
+        heading.addChild("i").addClass("right");
+        heading.appendText(format(" %s (%s)", tg.description, tg.name));
+        comp_container.addChild("p", tg.userInput);
+        auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
+        tbl_container.setAttribute("style", "display: none;");
+        auto tbl = tmplDefaultTable(tbl_container, [
                 "Test Group", "Similarity", "Difference", "Intersection"
                 ]);
         foreach (const d; result.similarities[tg]) {
