@@ -1,0 +1,47 @@
+{"children":[
+	{"name":"f1","children":[
+		
+		{"name":"file_b","score":0, "locs": 100},
+		{"name":"file_c","score":1, "locs": 200},
+		{"name":"file_d","score":0.7, "locs": 500},
+		{"name":"f4","children":[
+			{"name":"file_ac","score":0.3, "locs": 50},
+			{"name":"file_ad","score":0.2, "locs": 240},
+			{"name":"f5","children":[
+				{"name":"file_bc","score":0.8, "locs": 100},
+				{"name":"file_bd","score":0.1, "locs": 100}
+			]}
+		]}
+	]},
+	{"name":"f2","children":[
+		{"name":"mister_e","score":1, "locs": 80},
+		{"name":"mister_f","score":1, "locs": 10},
+		{"name":"mister_g","score":1, "locs": 150},
+		{"name":"mister_h","score":0.5, "locs": 100},
+		{"name":"f6","children":[
+			{"name":"mister_i","score":0.8, "locs": 100},
+			{"name":"mister_j","score":1, "locs": 10},
+			{"name":"mister_k","score":1, "locs": 400},
+			{"name":"mister_l","score":0.5, "locs": 50},
+			{"name":"mister_m","score":0.3, "locs": 100},
+			{"name":"mister_n","score":1, "locs": 100},
+			{"name":"f9","children":[
+				{"name":"mister_i","score":0.8, "locs": 100},
+				{"name":"mister_j","score":1, "locs": 10},
+				{"name":"mister_k","score":1, "locs": 400},
+				{"name":"mister_l","score":0.5, "locs": 50},
+				{"name":"mister_m","score":0.3, "locs": 100},
+				{"name":"mister_n","score":1, "locs": 100}
+			]}
+		]}
+	]},
+	{"name":"f3","children":[
+		{"name":"mister_i","score":0.8, "locs": 100},
+		{"name":"mister_j","score":1, "locs": 10},
+		{"name":"mister_k","score":1, "locs": 400},
+		{"name":"mister_l","score":0.5, "locs": 50},
+		{"name":"mister_m","score":0.3, "locs": 100},
+		{"name":"mister_n","score":1, "locs": 100}
+	]}
+],"name":"root"}
+
