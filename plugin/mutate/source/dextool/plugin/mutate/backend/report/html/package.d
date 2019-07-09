@@ -704,7 +704,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.conv : to;
     import std.path : buildPath;
 
-    auto tbl = tmplDefaultTable(root, [
+    auto tbl_container = root.addChild("div").addClass("tbl_container");
+    auto tbl = tmplDefaultTable(tbl_container, [
             "Path", "Score", "Alive", "NoMut", "Total"
             ]);
 
