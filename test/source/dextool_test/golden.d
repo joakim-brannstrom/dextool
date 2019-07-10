@@ -9,15 +9,20 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool_test.golden;
 
+import std.exception : ErrnoException;
 import std.path : buildPath;
+import std.process : escapeShellFileName;
+import std.range : lockstep, enumerate;
+import std.stdio : File;
+import std.typecons : Flag, Yes, No;
 
-import scriptlike;
+import dextool_test.types;
 
 struct BuildCompare {
     import std.typecons : Yes, No;
 
     private {
-        string outdir_;
+        Path outdir_;
 
         Flag!"sortLines" sort_lines = No.sortLines;
         Flag!"skipComments" skip_comments = Yes.skipComments;
@@ -36,16 +41,16 @@ struct BuildCompare {
         Path result;
     }
 
-    this(string outdir) {
+    this(Path outdir) {
         this.outdir_ = outdir;
     }
 
     Path outdir() {
-        return Path(outdir_);
+        return outdir_;
     }
 
     auto addCompare(Path gold, string result_file) {
-        this.gold_results ~= GoldResult(gold, buildPath(outdir_, result_file).Path);
+        this.gold_results ~= GoldResult(gold, buildPath(outdir_.toString, result_file).Path);
         return this;
     }
 
@@ -96,19 +101,19 @@ private CompareResult compare(const Path gold, const Path result,
         Flag!"sortLines" sortLines, Flag!"skipComments" skipComments) {
     import std.format : format;
     import std.stdio : File;
-    import dextool_test.utils : escapePath, removeJunk;
+    import dextool_test.utils : removeJunk;
 
     CompareResult res;
 
-    res.msg ~= "Comparing gold:" ~ gold.raw;
-    res.msg ~= "        result:" ~ result.raw;
+    res.msg ~= "Comparing gold:" ~ gold.toString;
+    res.msg ~= "        result:" ~ result.toString;
 
     File goldf;
     File resultf;
 
     try {
-        goldf = File(gold.escapePath);
-        resultf = File(result.escapePath);
+        goldf = File(gold.toString);
+        resultf = File(result.toString);
     } catch (ErrnoException ex) {
         res.errorMsg = ex.msg;
         res.status = false;
@@ -153,7 +158,7 @@ private CompareResult compare(const Path gold, const Path result,
     res.status = !diff_detected;
 
     if (diff_detected) {
-        res.errorMsg = "Output is different from reference file (gold): " ~ gold.escapePath;
+        res.errorMsg = "Output is different from reference file (gold): " ~ gold.toString;
     }
 
     return res;
@@ -202,7 +207,7 @@ struct CompareResult {
     }
 }
 
-private auto nextFreeLogfile(string outdir) {
+private auto nextFreeLogfile(Path outdir) {
     import std.file : exists;
     import std.path : baseName;
     import std.string : format;
@@ -210,7 +215,7 @@ private auto nextFreeLogfile(string outdir) {
     int idx;
     string f;
     do {
-        f = buildPath(outdir, format("run_compare%s.log", idx));
+        f = buildPath(outdir.toString, format("run_compare%s.log", idx));
         ++idx;
     }
     while (exists(f));

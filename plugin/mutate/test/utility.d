@@ -5,9 +5,11 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.utility;
 
+import std.string : splitLines;
+
+public import logger = std.experimental.logger;
 public import std.typecons : Yes, No;
 
-public import scriptlike;
 public import unit_threaded;
 
 public import dextool_test;
@@ -50,8 +52,10 @@ auto makeCompile(const ref TestEnv env, Path srcdir) {
     return dextool_test.makeCompile(env, "g++").addInclude(srcdir).outputToDefaultBinary;
 }
 
-auto readOutput(const ref TestEnv testEnv, string fname) {
-    return std.file.readText((testEnv.outdir ~ fname).toString).splitLines.array();
+string[] readOutput(const ref TestEnv testEnv, string fname) {
+    import std.file : readText;
+
+    return readText((testEnv.outdir ~ fname).toString).splitLines;
 }
 
 void makeExecutable(string fname) {

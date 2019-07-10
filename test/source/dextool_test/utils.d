@@ -5,9 +5,16 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.utils;
 
-import scriptlike;
-
-import std.range : isInputRange;
+import std.algorithm : map, joiner, filter, among;
+import std.array : array;
+import std.conv : text;
+import std.exception : collectException, ErrnoException;
+import std.file : mkdirRecurse, remove, dirEntries, SpanMode, exists;
+import std.path : absolutePath, stripExtension, buildPath;
+import std.process : escapeShellFileName, execute;
+import std.range : isInputRange, only, lockstep, enumerate;
+import std.stdio : File;
+import std.string : strip, leftJustifier;
 import std.typecons : Flag;
 public import std.typecons : Yes, No;
 
@@ -16,71 +23,17 @@ import logger = std.experimental.logger;
 enum dextoolExePath = "path_to_dextool/dextool_debug";
 
 import dextool_test.builders : BuildCommandRun;
+import dextool_test.types;
 
-auto buildArtifacts() {
-    return Path("build");
+// backwards compatible logging.
+alias yap = logger.info;
+
+string buildArtifacts() @safe {
+    return "build";
 }
 
-auto gmockLib() {
-    return buildArtifacts ~ "libgmock_gtest.a";
-}
-
-private void delegate(string) oldYap = null;
-private string[] yapLog;
-
-static this() {
-    scriptlikeCustomEcho = (string s) => dextoolYap(s);
-    echoOn;
-}
-
-void dextoolYap(string msg) nothrow {
-    yapLog ~= msg;
-}
-
-void dextoolYap(T...)(T args) {
-    import std.format : format;
-
-    yapLog ~= format(args);
-}
-
-string[] getYapLog() {
-    return yapLog.dup;
-}
-
-void resetYapLog() {
-    yapLog.length = 0;
-}
-
-void echoOn() {
-    .scriptlikeEcho = true;
-}
-
-void echoOff() {
-    .scriptlikeEcho = false;
-}
-
-string escapePath(in Path p) {
-    import scriptlike : escapeShellArg;
-
-    return p.raw.dup.escapeShellArg;
-}
-
-deprecated("to be removed") auto runAndLog(T)(T args_) {
-    import std.traits : Unqual;
-
-    static if (is(Unqual!T == Path)) {
-        string args = args_.escapePath;
-    } else static if (is(Unqual!T == Args)) {
-        string args = args_.data;
-    } else {
-        string args = args_;
-    }
-
-    auto status = tryRunCollect(args);
-
-    yap("Exit status: ", status.status);
-    yap(status.output);
-    return status;
+string gmockLib() @safe {
+    return buildPath(buildArtifacts, "libgmock_gtest.a");
 }
 
 void syncMkdirRecurse(string p) nothrow {
@@ -92,23 +45,25 @@ void syncMkdirRecurse(string p) nothrow {
     }
 }
 
+/// Logs saved to "log.txt" in the test environment.
 struct TestEnv {
     import std.ascii : newline;
 
-    private Path outdir_;
+    // the old thread local logger. Is replaced when the test env is terminated.
+    private logger.Logger oldLog;
+
+    private Path buildBase;
+    private string outdir_;
     private string outdir_suffix;
     private Path dextool_;
 
     this(Path dextool) {
-        this.dextool_ = dextool.absolutePath;
+        this.dextool_ = dextool;
+        this.buildBase = buildArtifacts;
     }
 
-    Path outdir() const nothrow {
-        try {
-            return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix).absolutePath;
-        } catch (Exception e) {
-            return ((buildArtifacts ~ outdir_).stripExtension ~ outdir_suffix);
-        }
+    Path outdir() const {
+        return buildPath(buildBase.toString, outdir_, outdir_suffix).Path;
     }
 
     Path dextool() const {
@@ -116,18 +71,11 @@ struct TestEnv {
     }
 
     string toString() {
-        // dfmt off
-        return only(
-                    ["dextool:", dextool.toString],
-                    ["outdir:", outdir.toString],
-                    )
-            .map!(a => leftJustifier(a[0], 10).text ~ a[1])
-            .joiner(newline)
+        return only("dextool: " ~ dextool.toString, "outdir: " ~ outdir.toString).joiner(newline)
             .text;
-        // dfmt on
     }
 
-    void setOutput(Path outdir__) {
+    void setOutput(string outdir__) {
         this.outdir_ = outdir__;
     }
 
@@ -145,54 +93,40 @@ struct TestEnv {
     }
 
     void setupEnv() {
-        yap("Test environment:", newline, toString);
         syncMkdirRecurse(outdir.toString);
         cleanOutdir;
+
+        // change the thread local logger for the duration of the test
+        oldLog = logger.stdThreadLocalLog;
+        logger.stdThreadLocalLog = new logger.FileLogger(buildPath(outdir.toString, "log.txt"));
+
+        logger.info("Test environment:");
+        logger.info(toString);
     }
 
     void cleanOutdir() nothrow {
-        // ensure logs are empty
-        const auto d = outdir();
-
-        string[] files;
-
-        try {
-            files = dirEntries(d, SpanMode.depth).filter!(a => a.isFile)
-                .map!(a => a.name)
-                .array();
-        } catch (Exception e) {
-        }
-
-        foreach (a; files) {
-            // tryRemove can fail, usually duo to I/O when tests are ran in
-            // parallel.
+        const string[] files = () {
             try {
-                tryRemove(Path(a));
+                return dirEntries(outdir.toString, SpanMode.depth).filter!(a => a.isFile)
+                    .map!(a => a.name)
+                    .array();
             } catch (Exception e) {
             }
+            return null;
+        }();
+
+        foreach (a; files) {
+            remove(a).collectException;
         }
     }
 
-    void setup(Path outdir__) {
+    void setup(string outdir__) {
         setOutput(outdir__);
         setupEnv;
     }
 
     void teardown() {
-        auto stdout_path = outdir ~ "console.log";
-        File logfile;
-        try {
-            logfile = File(stdout_path.toString, "w");
-        } catch (Exception e) {
-            logger.trace(e.msg);
-            return;
-        }
-
-        // Use when saving error data for later analyze
-        foreach (l; getYapLog) {
-            logfile.writeln(l);
-        }
-        resetYapLog();
+        logger.stdThreadLocalLog = oldLog;
     }
 }
 
@@ -205,7 +139,9 @@ string envSetup(string logdir, Flag!"setupEnv" setupEnv = Yes.setupEnv) {
     import std.format : format;
 
     auto txt = `
-    import scriptlike;
+    import std.file : chdir, thisExePath;
+    import std.path : dirName, stripExtension;
+    import dextool_test.types : Path;
 
     auto testEnv = TestEnv(Path("%s"));
 
@@ -216,16 +152,17 @@ string envSetup(string logdir, Flag!"setupEnv" setupEnv = Yes.setupEnv) {
     chdir(thisExePath.dirName);
 
     {
+        import std.path : buildPath;
         import std.traits : fullyQualifiedName;
         int _ = 0;
-        testEnv.setOutput(Path("%s/" ~ fullyQualifiedName!_));
+        testEnv.setOutput(buildPath("%s", fullyQualifiedName!_).stripExtension);
     }
 `;
 
     txt = format(txt, dextoolExePath, logdir);
 
     if (setupEnv) {
-        txt ~= "\ntestEnv.setupEnv();\n";
+        txt ~= "testEnv.setupEnv();";
     }
 
     return txt;
@@ -262,17 +199,15 @@ auto removeJunk(R)(R r, Flag!"skipComments" skipComments) {
  */
 deprecated("to be removed") void compare(in Path gold, in Path result,
         Flag!"sortLines" sortLines, Flag!"skipComments" skipComments = Yes.skipComments) {
-    import std.stdio : File;
-
-    yap("Comparing gold:", gold.raw);
-    yap("        result:", result.raw);
+    yap("Comparing gold:", gold);
+    yap("        result:", result);
 
     File goldf;
     File resultf;
 
     try {
-        goldf = File(gold.escapePath);
-        resultf = File(result.escapePath);
+        goldf = File(gold.toString);
+        resultf = File(result.toString);
     } catch (ErrnoException ex) {
         throw new ErrorLevelException(-1, ex.msg);
     }
@@ -314,29 +249,24 @@ deprecated("to be removed") void compare(in Path gold, in Path result,
 
     //TODO replace with enforce
     if (diff_detected) {
-        yap("Output is different from reference file (gold): " ~ gold.escapePath);
+        yap("Output is different from reference file (gold): ", gold);
         throw new ErrorLevelException(-1,
-                "Output is different from reference file (gold): " ~ gold.escapePath);
+                "Output is different from reference file (gold): " ~ gold.toString);
     }
 }
 
-deprecated("to be removed") bool stdoutContains(const string txt) {
+/// Check if a log contains the fragment txt.
+bool sliceContains(string log, string txt) {
     import std.string : indexOf;
 
-    return getYapLog().joiner().array().indexOf(txt) != -1;
+    return log.indexOf(txt) != -1;
 }
 
 /// Check if a log contains the fragment txt.
-bool sliceContains(const string[] log, const string txt) {
+bool sliceContains(string[] log, string txt) {
     import std.string : indexOf;
 
-    return log.dup.joiner().array().indexOf(txt) != -1;
-}
-
-/// Check if the logged stdout data contains the input range.
-bool stdoutContains(T)(const T gold_lines) if (isInputRange!T) {
-    auto result_lines = getYapLog().map!(a => a.splitLines).joiner().array();
-    return sliceContains(result_lines, gold_lines);
+    return log.joiner.array.indexOf(txt) != -1;
 }
 
 /// Check if the log contains the input range.
@@ -407,34 +337,6 @@ bool sliceContains(T)(const string[] log, const T gold_lines) if (isInputRange!T
     return state == ContainState.BlockFound;
 }
 
-/// Check if the logged stdout contains the golden block.
-///TODO refactor function. It is unnecessarily complex.
-bool stdoutContains(in Path gold) {
-    import std.array : array;
-    import std.range : enumerate;
-    import std.stdio : File;
-
-    yap("Contains gold:", gold.raw);
-
-    File goldf;
-
-    try {
-        goldf = File(gold.escapePath);
-    } catch (ErrnoException ex) {
-        yap(ex.msg);
-        return false;
-    }
-
-    bool status = stdoutContains(goldf.byLine.array());
-
-    if (!status) {
-        yap("Output do not contain the reference file (gold): " ~ gold.escapePath);
-        return false;
-    }
-
-    return true;
-}
-
 /** Run dextool.
  *
  * Return: The runtime in ms.
@@ -442,21 +344,18 @@ bool stdoutContains(in Path gold) {
 deprecated("to be removed") auto runDextool(T)(in T input,
         const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     import std.traits : isArray;
-    import std.algorithm : min;
 
-    Args args;
-    args ~= testEnv.dextool;
+    string[] args;
+    args ~= testEnv.dextool.toString;
     args ~= pre_args.dup;
-    args ~= "--out=" ~ testEnv.outdir.escapePath;
+    args ~= ["--out", testEnv.outdir.toString];
 
     static if (isArray!T) {
         foreach (f; input) {
-            args ~= "--in=" ~ f.escapePath;
+            args ~= ["--in", f.toString];
         }
     } else {
-        if (input.escapePath.length > 0) {
-            args ~= "--in=" ~ input.escapePath;
-        }
+        args ~= ["--in", input.toString];
     }
 
     if (flags.length > 0) {
@@ -468,33 +367,16 @@ deprecated("to be removed") auto runDextool(T)(in T input,
 
     StopWatch sw;
     sw.start;
-    auto output = runAndLog(args.data);
+    auto output = execute(args);
     sw.stop;
-    yap("Dextool execution time was ms: " ~ sw.peek().msecs.text);
+    logger.info("Dextool execution time was ms: " ~ sw.peek().msecs.text);
+    logger.info(output.output);
 
     if (output.status != 0) {
-        auto l = min(100, output.output.length);
-
-        throw new ErrorLevelException(output.status, output.output[0 .. l].dup);
+        throw new ErrorLevelException(output.status, output.output);
     }
 
-    return sw.peek.msecs;
-}
-
-deprecated("to be removed") auto filesToDextoolInFlags(T)(const T in_files) {
-    Args args;
-
-    static if (isArray!T) {
-        foreach (f; input) {
-            args ~= "--in=" ~ f.escapePath;
-        }
-    } else {
-        if (input.escapePath.length > 0) {
-            args ~= "--in=" ~ input.escapePath;
-        }
-    }
-
-    return args;
+    return output.output;
 }
 
 /** Construct an execution of dextool with needed arguments.
@@ -502,7 +384,7 @@ deprecated("to be removed") auto filesToDextoolInFlags(T)(const T in_files) {
 auto makeDextool(const ref TestEnv testEnv) {
     import dextool_test.builders : BuildDextoolRun;
 
-    return BuildDextoolRun(testEnv.dextool.escapePath, testEnv.outdir.escapePath);
+    return BuildDextoolRun(testEnv.dextool, testEnv.outdir);
 }
 
 /** Construct an execution of a command.
@@ -514,13 +396,13 @@ auto makeCommand(string command) {
 /** Construct an execution of a command.
  */
 auto makeCommand(const ref TestEnv testEnv, string command) {
-    return BuildCommandRun(command, testEnv.outdir.escapePath);
+    return BuildCommandRun(command, testEnv.outdir);
 }
 
 auto makeCompare(const ref TestEnv env) {
     import dextool_test.golden : BuildCompare;
 
-    return BuildCompare(env.outdir.escapePath);
+    return BuildCompare(env.outdir);
 }
 
 deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
@@ -528,7 +410,7 @@ deprecated("to be removed") void compareResult(T...)(Flag!"sortLines" sortLines,
     static assert(args.length >= 1);
 
     foreach (a; args) {
-        if (existsAsFile(a.gold)) {
+        if (exists(a.gold.toString)) {
             compare(a.gold, a.result, sortLines, skipComments);
         }
     }
@@ -549,8 +431,12 @@ string testId(uint line = __LINE__) {
  * Returns: a list of all files with the extension
  */
 auto recursiveFilesWithExtension(Path dir, string ext) {
+    import std.file : dirEntries, SpanMode;
+    import std.algorithm : filter, map;
+    import std.path : extension;
+
     // dfmt off
-    return std.file.dirEntries(dir.toString, SpanMode.depth)
+    return dirEntries(dir.toString, SpanMode.depth)
         .filter!(a => a.isFile)
         .filter!(a => extension(a.name) == ext)
         .map!(a => Path(a));

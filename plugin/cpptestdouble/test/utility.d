@@ -7,11 +7,11 @@ module dextool_test.utility;
 
 import std.typecons : Flag, Yes, No;
 
-public import scriptlike;
 public import unit_threaded;
 
-public import dextool_test;
 public import dextool_test.config;
+public import dextool_test.types;
+public import dextool_test;
 
 auto makeDextool(const ref TestEnv env) {
     return dextool_test.makeDextool(env).args(["cpptestdouble", "-d", "--gmock"]);

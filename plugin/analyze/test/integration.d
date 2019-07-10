@@ -5,26 +5,30 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.integration;
 
-import scriptlike;
+import std.array : array;
+import std.algorithm : filter;
+import std.string : splitLines, indexOf;
+import std.file : readText;
+
 import unit_threaded : shouldEqual, shouldBeTrue, shouldBeFalse;
 
-import dextool_test.utils;
+import dextool_test;
 
 enum globalTestdir = "analyze_tests";
 
 immutable mcCabeJsonFile = "result_mccabe.json";
 
 auto testData() {
-    return Path("plugin_testdata").absolutePath;
+    return Path("plugin_testdata");
 }
 
 auto makeDextool(const ref TestEnv testEnv) {
-    return dextool_test.utils.makeDextool(testEnv).args(["analyze", "--mccabe"]);
+    return dextool_test.makeDextool(testEnv).args(["analyze", "--mccabe"]);
 }
 
 auto readMcCabe(const ref TestEnv testEnv) {
     // dfmt off
-    return std.file.readText((testEnv.outdir ~ mcCabeJsonFile).toString)
+    return readText((testEnv.outdir ~ mcCabeJsonFile).toString)
         .splitLines
         // remove locations because they are absolute path and those can be
         // mapped to a "function" if needed
@@ -101,7 +105,7 @@ unittest {
         .addArg("--output-json").addArg("--mccabe-threshold=1").run;
 
     // will throw if the json file is invalid
-    auto json = std.file.readText((testEnv.outdir ~ mcCabeJsonFile).toString).parseJSON;
+    auto json = readText((testEnv.outdir ~ mcCabeJsonFile).toString).parseJSON;
 }
 
 @(
@@ -215,8 +219,10 @@ unittest {
         .run;
     // dfmt on
 
-    r.stdout.sliceContains(["1      free_func_counted1",
-            "1      free_func_counted2", "1      inline_counted"]).shouldBeTrue;
+    r.stdout.sliceContains([
+            "1      free_func_counted1", "1      free_func_counted2",
+            "1      inline_counted"
+            ]).shouldBeTrue;
 }
 
 @(

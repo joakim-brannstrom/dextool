@@ -7,6 +7,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.mutate_dcc;
 
+import std.algorithm : joiner, count;
+
 import dextool_test.utility;
 
 // dfmt off

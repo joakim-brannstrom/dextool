@@ -7,6 +7,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.mutate_ror;
 
+import std.format : format;
+
 import dextool_test.utility;
 
 import unit_threaded;
@@ -49,12 +51,12 @@ void verifyRor(string[] txt) {
     foreach (mut; tbl.byKeyValue) {
         foreach (op; mut.value.ops) {
             auto expected = format("from '%s' to '%s'", mut.key, op);
-            dextoolYap("Testing: " ~ expected);
+            logger.info("Testing: ", expected);
             txt.sliceContains(expected).shouldBeTrue;
         }
 
         auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
-        dextoolYap("Testing: " ~ expected);
+        logger.info("Testing: ", expected);
         txt.sliceContains(expected).shouldBeTrue;
     }
 }
@@ -92,12 +94,12 @@ void verifyFloatRor(string[] txt) {
     foreach (mut; tbl.byKeyValue) {
         foreach (op; mut.value.ops) {
             auto expected = format("from '%s' to '%s'", mut.key, op);
-            dextoolYap("Testing: " ~ expected);
+            logger.info("Testing: ", expected);
             txt.sliceContains(expected).shouldBeTrue;
         }
 
         auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
-        dextoolYap("Testing: " ~ expected);
+        logger.info("Testing: ", expected);
         txt.sliceContains(expected).shouldBeTrue;
     }
 }

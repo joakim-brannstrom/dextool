@@ -167,7 +167,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
     endif()
 
     set(target_name ${name}_integration)
-    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source")
     set(lflags "${linker_args}")
 
     conv_to_proper_args(dflags "${dflags}")
@@ -184,7 +184,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
         )
 
     # link libraries to executable
-    foreach (lib "${libs};dextool_unit_threaded;dextool_scriptlike;dextool_dextool_test")
+    foreach (lib "${libs};dextool_unit_threaded;dextool_dextool_test")
         target_link_libraries(${target_name} ${lib})
     endforeach()
 

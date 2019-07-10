@@ -8,18 +8,16 @@ plugin.
 */
 module dextool_test.config;
 
+import dextool_test.types;
+
 enum globalTestdir = "mutate_tests";
 
-auto testData() {
-    import scriptlike : Path, absolutePath;
-
-    return Path("plugin_testdata").absolutePath;
+Path testData() {
+    return Path("plugin_testdata");
 }
 
 immutable defaultDb = "database.sqlite3";
 
-string workDir() {
-    import std.path;
-
-    return absolutePath("../../..").buildNormalizedPath;
+Path workDir() {
+    return Path("../../..");
 }

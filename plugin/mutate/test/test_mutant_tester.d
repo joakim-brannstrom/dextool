@@ -7,6 +7,8 @@ module dextool_test.test_mutant_tester;
 
 import core.thread : Thread;
 import core.time : dur;
+import std.algorithm : filter;
+import std.stdio : File;
 import std.traits : EnumMembers;
 import std.typecons : Yes;
 

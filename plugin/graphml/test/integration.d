@@ -5,11 +5,14 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.integration;
 
+import logger = std.experimental.logger;
+import std.algorithm : filter, count, map;
+import std.conv : to, text;
+import std.path : buildPath;
 import std.typecons : Flag, Yes, No;
 
-import scriptlike;
 import unit_threaded : shouldEqual, ShouldFail, shouldBeTrue, shouldBeFalse;
-import dextool_test.utils;
+import dextool_test;
 
 enum globalTestdir = "graphml_tests";
 
@@ -44,8 +47,8 @@ struct TestParams {
 TestParams genTestParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("testdata/graphml").absolutePath;
-    p.input_ext = p.root ~ Path(f);
+    p.root = Path("testdata/graphml");
+    p.input_ext = p.root ~ f;
 
     p.out_xml = testEnv.outdir ~ "dextool_raw.graphml";
 
@@ -59,7 +62,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 }
 
 void runTestFile(const ref TestParams p, ref TestEnv testEnv) {
-    dextoolYap("Input:%s", p.input_ext.raw);
+    logger.info("Input: ", p.input_ext);
     runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 }
 
@@ -184,7 +187,7 @@ unittest {
 
     auto graph = getGraph(p);
 
-    string fid = thisExePath.dirName.toString ~ "/testdata/graphml/variables.h";
+    const fid = buildPath(thisExePath.dirName, "testdata/graphml/variables.h");
 
     // Nodes for all globals exist.
     graph.countNode("c:@expect_primitive").shouldEqual(1);
@@ -217,12 +220,12 @@ unittest {
     graph.countEdge(fid, "c:@expect_const_my_int").shouldEqual(1);
 
     // a ptr at a primitive do not result in an edge to the type
-    graph.countEdge("c:@expect_d", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:23 Column:13$1expect_d").shouldEqual(0);
+    graph.countEdge("c:@expect_d", "File:" ~ buildPath(thisExePath.dirName,
+            "testdata/graphml/variables.h Line:23 Column:13$1expect_d")).shouldEqual(0);
 
     // a ptr at e.g. a typedef of a primitive type result in an edge to the type
-    graph.countEdge("c:@expect_const_ptr_my_int", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int").shouldEqual(
+    graph.countEdge("c:@expect_const_ptr_my_int", "File:" ~ buildPath(thisExePath.dirName,
+            "testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int")).shouldEqual(
             1);
 }
 
@@ -267,12 +270,12 @@ unittest {
     graph.countEdge(fid, "c:@N@ns@expect_const_my_int").shouldEqual(1);
 
     // a ptr at a primitive do not result in an edge to the type
-    graph.countEdge("c:@N@ns@expect_d", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:23 Column:13$1expect_d").shouldEqual(0);
+    graph.countEdge("c:@N@ns@expect_d", "File:" ~ buildPath(thisExePath.dirName,
+            "testdata/graphml/variables.h Line:23 Column:13$1expect_d")).shouldEqual(0);
 
     // a ptr at e.g. a typedef of a primitive type result in an edge to the type
-    graph.countEdge("c:@N@ns@expect_const_ptr_my_int", "File:" ~ thisExePath.dirName.toString
-            ~ "/testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int").shouldEqual(
+    graph.countEdge("c:@N@ns@expect_const_ptr_my_int", "File:" ~ buildPath(thisExePath.dirName,
+            "testdata/graphml/variables.h Line:36 Column:28§1expect_const_ptr_my_int")).shouldEqual(
             1);
 }
 
@@ -321,7 +324,7 @@ unittest {
     // dfmt on
 
     // test that a node and edge to a funcptr is formed
-    string fid = "File:" ~ thisExePath.dirName.toString ~ "/testdata/graphml/class_members.hpp";
+    const fid = "File:" ~ buildPath(thisExePath.dirName, "testdata/graphml/class_members.hpp");
     graph.countNode("c:@S@ToFuncPtr").shouldEqual(1);
     graph.countEdge("c:@S@ToFuncPtr@FI@__foo", fid ~ " Line:44 Column:12§1__foo").shouldEqual(1);
 }

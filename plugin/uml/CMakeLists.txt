@@ -36,5 +36,5 @@ compile_d_integration_test(${EXE_NAME}
     "${TEST_SRC_FILES}"
     ""
     ""
-    "dextool_scriptlike;dextool_dextool_test"
+    "dextool_dextool_test"
     "${TESTDATA_FILES}")

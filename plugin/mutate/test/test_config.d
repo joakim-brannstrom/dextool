@@ -7,6 +7,9 @@ This module test the configuration functionality.
 */
 module dextool_test.test_config;
 
+import std.file : copy, exists;
+import std.stdio : File;
+
 import dextool_test.utility;
 
 @(testId ~ "shall read the config sections without errors")
@@ -15,11 +18,14 @@ unittest {
 
     immutable conf = (testEnv.outdir ~ ".dextool_mutate.toml").toString;
 
-    copy(testData ~ "config/all_section.toml", conf);
+    copy((testData ~ "config/all_section.toml").toString, conf);
     File((testEnv.outdir ~ "compile_commands.json").toString, "w").write("[]");
 
-    auto res = makeDextoolAnalyze(testEnv).addArg(["-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString])
-        .addArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString]).run;
+    auto res = makeDextoolAnalyze(testEnv).addArg([
+            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+            ]).addArg([
+            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+            ]).run;
 
     res.success.shouldBeTrue;
 }
@@ -40,14 +46,18 @@ unittest {
 
     immutable conf = (testEnv.outdir ~ ".dextool_mutate.toml").toString;
 
-    copy(testData ~ "config/read_test_groups.toml", conf);
+    copy((testData ~ "config/read_test_groups.toml").toString, conf);
     File((testEnv.outdir ~ "compile_commands.json").toString, "w").write("[]");
 
-    auto r = makeDextoolAnalyze(testEnv).addArg(["-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString])
-        .addArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString]).run;
+    auto r = makeDextoolAnalyze(testEnv).addArg([
+            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+            ]).addArg([
+            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+            ]).run;
 
-    testConsecutiveSparseOrder!SubStr(["uc1, Parameterized Tests, Value.*|TypeTrait.*|Typed.*"]).shouldBeIn(
-            r.stdout);
+    testConsecutiveSparseOrder!SubStr([
+            "uc1, Parameterized Tests, Value.*|TypeTrait.*|Typed.*"
+            ]).shouldBeIn(r.stdout);
     testConsecutiveSparseOrder!SubStr(
             ["uc2, Test Report, TestResult.*|TestPartResult.*|TestInfo.*"]).shouldBeIn(r.stdout);
     testConsecutiveSparseOrder!SubStr(["uc3, Resetting Mocks, VerifyAndClear.*"]).shouldBeIn(
@@ -64,9 +74,13 @@ unittest {
     File((testEnv.outdir ~ ".dextool_mutate.toml").toString, "a").writefln(
             `use_compiler_system_includes = "%s/fake_cc.d"`, testEnv.outdir.toString);
 
-    auto r = makeDextoolAnalyze(testEnv).addArg(["-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString])
-        .addArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString]).run;
+    auto r = makeDextoolAnalyze(testEnv).addArg([
+            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+            ]).addArg([
+            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+            ]).run;
 
-    testConsecutiveSparseOrder!SubStr(["trace: Compiler flags: -xc++ -isystem /foo/bar"]).shouldBeIn(
-            r.stdout);
+    testConsecutiveSparseOrder!SubStr([
+            "trace: Compiler flags: -xc++ -isystem /foo/bar"
+            ]).shouldBeIn(r.stdout);
 }

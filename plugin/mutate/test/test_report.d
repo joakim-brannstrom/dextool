@@ -10,7 +10,10 @@ TODO the full test specification is not implemented.
 module dextool_test.test_report;
 
 import core.time : dur;
-import std.path : buildPath, buildNormalizedPath, absolutePath;
+import std.array : array;
+import std.file : exists, readText;
+import std.path : buildPath, buildNormalizedPath, absolutePath, relativePath, setExtension;
+import std.stdio : File;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type;
@@ -377,8 +380,8 @@ class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         // assert
-        const file1 = dextool.type.Path(relativePath(programFile, workDir));
-        const file2 = dextool.type.Path(relativePath(programFile.setExtension("hpp"), workDir));
+        const file1 = dextool.type.Path(relativePath(programFile, workDir.toString));
+        const file2 = dextool.type.Path(relativePath(programFile.setExtension("hpp"), workDir.toString));
         auto fid = db.getFileId(file1);
         auto fid2 = db.getFileId(file2);
         fid.isNull.shouldBeFalse;
