@@ -3,9 +3,7 @@
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 #include "limit_params.hpp"
 
-static void test_failed() {
-    *((char*) 0) = 'x';
-}
+static void test_failed() { *((char*)0) = 'x'; }
 
 bool s[10];
 
@@ -44,3 +42,5 @@ void band_limit(int v) {
         s[9] = true;
     }
 }
+
+void this_is_removed() {}

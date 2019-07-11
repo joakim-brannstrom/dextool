@@ -13,4 +13,5 @@ public import dextool_test.builders;
 public import dextool_test.compiler;
 public import dextool_test.golden;
 public import dextool_test.sequence;
+public import dextool_test.types;
 public import dextool_test.utils;

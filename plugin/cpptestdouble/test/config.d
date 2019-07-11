@@ -8,14 +8,14 @@ plugin.
 */
 module dextool_test.config;
 
-import scriptlike : Path, absolutePath;
+import dextool_test.types;
 
 enum globalTestdir = "cpp_tests";
 
 auto testData() {
-    return Path("testdata/cpp").absolutePath;
+    return Path("testdata/cpp");
 }
 
 auto pluginTestData() {
-    return Path("plugin_testdata").absolutePath;
+    return Path("plugin_testdata");
 }

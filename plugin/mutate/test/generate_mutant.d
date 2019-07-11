@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.generate_mutant;
 
+import std.file : copy;
+
 import dextool_test.utility;
 
 // dfmt off
@@ -15,7 +17,7 @@ unittest {
 
     immutable dst = testEnv.outdir ~ "report_one_ror_mutation_point.cpp";
 
-    copy(testData ~ "report_one_ror_mutation_point.cpp", dst);
+    copy((testData ~ "report_one_ror_mutation_point.cpp").toString, dst.toString);
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(dst)

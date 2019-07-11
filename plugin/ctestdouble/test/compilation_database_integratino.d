@@ -5,7 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.compilation_database_integration;
 
-import std.typecons : No;
+import std.path : buildPath;
+import std.typecons : No, Yes;
 
 import dextool_test.utility;
 
@@ -61,31 +62,20 @@ unittest {
 @(testId ~ "Should load compiler settings from the second compilation database")
 unittest {
     mixin(envSetup(globalTestdir));
-    TestParams p;
-    p.root = Path("testdata/compile_db").absolutePath;
-    p.input_ext = p.root ~ Path("file2.h");
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-
-    // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexParams = ["ctestdouble", "--debug", "--compile-db=" ~ (p.root ~ "db1.json")
-        .toString, "--compile-db=" ~ (p.root ~ "db2.json").toString];
-
-    p.skipCompile = Yes.skipCompile;
-    runTestFile(p, testEnv);
+    auto r = makeDextool(testEnv)
+        .addArg(["--compile-db", "testdata/compile_db/db1.json"])
+        .addArg(["--compile-db", "testdata/compile_db/db2.json"])
+        // find compilation flags by looking up how single_file_main.c was compiled
+        .addInputArg("file2.h")
+        .run;
 }
 
 @(testId ~ "Should use the exact supplied --in=... as key when looking in compile db")
 unittest {
     mixin(envSetup(globalTestdir));
-    TestParams p;
-    p.root = Path("testdata/compile_db").absolutePath;
-    p.input_ext = p.root ~ Path("file2.h");
-    p.out_hdr = testEnv.outdir ~ "test_double.hpp";
-
-    p.dexParams = ["ctestdouble", "--debug",
-        "--compile-db=" ~ (p.root ~ "db2.json").toString, "--in=file2.h"];
-
-    p.skipCompile = Yes.skipCompile;
-    p.skipCompare = Yes.skipCompare;
-    runTestFile(p, testEnv);
+    auto r = makeDextool(testEnv)
+        .addArg(["--compile-db", "testdata/compile_db/db1.json"])
+        .addArg(["--compile-db", "testdata/compile_db/db2.json"])
+        .addInputArg("testdata/compile_db/file2.h".Path)
+        .run;
 }

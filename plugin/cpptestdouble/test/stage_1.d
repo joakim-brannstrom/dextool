@@ -8,10 +8,11 @@ category to put them in.
 */
 module dextool_test.stage_1;
 
-import std.typecons : Flag, Yes, No;
-import std.file : isFile, readText;
 import std.algorithm : splitter;
 import std.array : array;
+import std.file : isFile, readText;
+import std.path : buildPath;
+import std.typecons : Flag, Yes, No;
 
 import dextool_test.utility;
 
@@ -43,7 +44,7 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+    const file = (testEnv.outdir ~ "test_double_log.xml").toString;
 
     assert(isFile(file));
 
@@ -69,7 +70,7 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+    const file = (testEnv.outdir ~ "test_double_log.xml").toString;
 
     assert(isFile(file));
 
@@ -95,7 +96,7 @@ unittest {
         .addArg("-DTEST_INCLUDE")
         .run;
 
-    auto file = testEnv.outdir.escapePath ~ "/test_double_log.xml";
+    const file = (testEnv.outdir ~ "test_double_log.xml").toString;
 
     assert(isFile(file));
 

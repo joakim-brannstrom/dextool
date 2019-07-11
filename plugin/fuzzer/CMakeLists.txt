@@ -50,7 +50,7 @@ install(TARGETS dextoolfuzz dextoolfuzz_g ARCHIVE DESTINATION lib)
 setup_integration_testing_env()
 
 file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_CURRENT_LIST_DIR}/test/testdata/*)
-compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_scriptlike;dextool_dextool_test" "${TESTDATA_FILES}")
+compile_d_integration_test(${EXE_NAME} "${CMAKE_SOURCE_DIR}/test/integration_main.d;${CMAKE_CURRENT_LIST_DIR}/test/integration.d" "" "" "dextool_dextool_test" "${TESTDATA_FILES}")
 
 # Additional test environment
 if (BUILD_TEST)

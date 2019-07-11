@@ -5,7 +5,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module dextool_test.integration;
 
-import std.typecons : No;
+import std.file : copy, exists;
+import std.path : baseName, stripExtension, setExtension, buildPath;
+import std.typecons : No, Yes;
 
 import dextool_test.utility;
 
@@ -132,10 +134,10 @@ unittest {
     p.dexFlags ~= "-DPRE_INCLUDES";
     p.compileFlags ~= "-DPRE_INCLUDES";
 
-    copy(p.root ~ "stage_2/no_overwrite_pre_includes.hpp",
-            testEnv.outdir ~ "test_double_pre_includes.hpp");
-    copy(p.root ~ "stage_2/no_overwrite_post_includes.hpp",
-            testEnv.outdir ~ "test_double_post_includes.hpp");
+    copy((p.root ~ "stage_2/no_overwrite_pre_includes.hpp").toString,
+            (testEnv.outdir ~ "test_double_pre_includes.hpp").toString);
+    copy((p.root ~ "stage_2/no_overwrite_post_includes.hpp").toString,
+            (testEnv.outdir ~ "test_double_post_includes.hpp").toString);
 
     runTestFile(p, testEnv);
 }
@@ -155,8 +157,8 @@ unittest {
 unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_exclude_many_files.h", testEnv);
-    p.dexParams ~= ["--file-exclude=.*/" ~ p.input_ext.baseName.toString,
-        `--file-exclude='.*/include/b\.[h,c]'`];
+    p.dexParams ~= ["--file-exclude", ".*/" ~ p.input_ext.baseName,
+        "--file-exclude", `.*/include/b\.[h,c]`];
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
     p.compileFlags ~= ["-DTEST_INCLUDE"];
 
@@ -186,7 +188,7 @@ unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_exclude_one_file.h", testEnv);
     p.compileIncls ~= "-I" ~ (p.root ~ "stage_2/include").toString;
-    p.dexParams ~= "--file-exclude=.*/" ~ p.input_ext.baseName.toString;
+    p.dexParams ~= "--file-exclude=.*/" ~ p.input_ext.baseName;
     p.compileFlags ~= ["-DTEST_INCLUDE"];
 
     p.dexFlags = p.compileIncls;
@@ -204,13 +206,13 @@ unittest {
 
     runTestFile(p, testEnv);
 
-    dextoolYap("Comparing");
-    auto input = p.input_ext.stripExtension;
+    logger.info("Comparing");
+    auto input = p.input_ext.toString.stripExtension;
     compareResult(No.sortLines, Yes.skipComments,
-                  GR(input ~ Ext(".hpp.ref"), p.out_hdr),
-                  GR(input ~ Ext(".cpp.ref"), p.out_impl),
-                  GR(input.up ~ "param_gen_pre_includes.hpp.ref", testEnv.outdir ~ "test_double_pre_includes.hpp"),
-                  GR(input.up ~ "param_gen_post_includes.hpp.ref", testEnv.outdir ~ "test_double_post_includes.hpp"));
+                  GR(input.setExtension(".hpp.ref").Path, p.out_hdr),
+                  GR(input.setExtension(".cpp.ref").Path, p.out_impl),
+                  GR(buildPath(input.dirName ~ "param_gen_pre_includes.hpp.ref").Path, testEnv.outdir ~ "test_double_pre_includes.hpp"),
+                  GR(buildPath(input.dirName ~ "param_gen_post_includes.hpp.ref").Path, testEnv.outdir ~ "test_double_post_includes.hpp"));
 }
 
 @(testId ~ "Should be all from this and b with the extra include stdio.h")
@@ -265,8 +267,8 @@ unittest {
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/param_main.h", testEnv);
     p.dexParams ~= ["--main=Stub", "--main-fname=stub"];
-    p.out_hdr = p.out_hdr.up ~ "stub.hpp";
-    p.out_impl = p.out_impl.up ~ "stub.cpp";
+    p.out_hdr = p.out_hdr.dirName.Path ~ "stub.hpp";
+    p.out_impl = p.out_impl.dirName.Path ~ "stub.cpp";
     p.compileFlags = [];
     runTestFile(p, testEnv);
 }
@@ -320,13 +322,13 @@ unittest {
 unittest {
     // Test how --file-exclude and multiple --in interact to generate the
     // include's.
-    // There is a bug where --in override include's that are needed.
-    // expecting includes of b.h and c.h
+    // There is a bug where --in override include's that are needed.  expecting
+    // includes of b.h and c.h
 
     mixin(envSetup(globalTestdir));
     auto p = genTestParams("stage_2/header_include_bug.h", testEnv);
     p.dexParams ~= ["--in=" ~ (p.root ~ "stage_2/include/c.h").toString,
-        "--file-exclude='.*/header_include_bug.h'"];
+        "--file-exclude", ".*/header_include_bug.h"];
     p.dexFlags ~= "-I" ~ (p.root ~ "stage_2/include").toString;
     p.skipCompile = Yes.skipCompile;
 
@@ -347,8 +349,8 @@ unittest {
         .addArg(getValue!(string[])[1])
         .run;
     makeCompare(testEnv)
-        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".hpp.ref"), "test_double.hpp")
-        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]) ~ Ext(".cpp.ref"), "test_double.cpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]).setExtension(".hpp.ref"), "test_double.hpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]).setExtension(".cpp.ref"), "test_double.cpp")
         .run;
     makeCompile(testEnv, testData ~ "stage_2")
         .addDefine("TEST_INCLUDE")

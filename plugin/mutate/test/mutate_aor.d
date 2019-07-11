@@ -28,7 +28,7 @@ unittest {
     verifyAor(r.stdout);
 }
 
-void verifyAor(const(string)[] txt) {
+void verifyAor(string[] txt) {
     import std.algorithm : filter;
     import std.format : format;
 
@@ -37,15 +37,15 @@ void verifyAor(const(string)[] txt) {
     foreach (op; ops) {
         foreach (mut; ops.filter!(a => a != op)) {
             auto expected = format("from '%s' to '%s'", op, mut);
-            dextoolYap("Testing: " ~ expected);
+            logger.info("Testing: ", expected);
             txt.sliceContains(expected).shouldBeTrue;
 
             auto rhs = format("from 'a %s' to ''", op);
-            dextoolYap("Testing: " ~ rhs);
+            logger.info("Testing: ", rhs);
             txt.sliceContains(rhs).shouldBeTrue;
 
             auto lhs = format("from '%s b' to ''", op);
-            dextoolYap("Testing: " ~ lhs);
+            logger.info("Testing: ", lhs);
             txt.sliceContains(lhs).shouldBeTrue;
         }
     }
