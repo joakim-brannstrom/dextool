@@ -300,7 +300,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
-
+        import dextool.plugin.mutate.backend.report.html.page_tree_map;
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
@@ -317,7 +317,13 @@ struct FileIndex {
             logger.infof("Generating %s (%s)", link_txt, name);
             File(fname, "w").write(fn());
         }
+        void addDataSource(Fn)(Fn fn, string name, string ext) {
+            import std.functional : unaryFun;
 
+            const fname = buildPath(logDir, name ~ ext);
+            File(fname, "w").write(fn());
+        }
+        
         addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
         if (!diff.empty) {
             addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds),
@@ -325,6 +331,10 @@ struct FileIndex {
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
+        addSubPage(() => makeTreeMapPage(),
+                 "tree_map", "Treemap");
+        addDataSource(() => makeTreeMapJSON(files.data)
+            , "files", ".json");
         if (ReportSection.tc_groups in sections)
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
                     kinds), "test_groups", "Test Groups");

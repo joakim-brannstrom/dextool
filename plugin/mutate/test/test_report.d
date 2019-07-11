@@ -506,9 +506,22 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             .run;
 
         // assert
+	/*
         testConsecutiveSparseOrder!SubStr([
             `var g_muts_meta = ["","","","","","","","","","","","","","","","","","","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","","","","","","","","","nomut","","","","","","","","","","nomut"]`
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
+	*/
+	testConsecutiveSparseOrder!SubStr([
+		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", 			"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", 
+		"'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'",
+		"'meta' : 'nomut'", 
+		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
+		"'meta' : 'nomut'",
+		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
+		"'meta' : 'nomut'",
+		
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
+	
     }
 }
 
@@ -577,17 +590,17 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
         testConsecutiveSparseOrder!SubStr([
-            `<h2 class="tbl_header">tc_1</h2>`,
+            `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
             `<td>tc_2</td>`,
             `<td>0.667</td>`,
             `<td>tc_3</td>`,
             `<td>0.333</td>`,
-            `<h2 class="tbl_header">tc_2</h2>`,
+            `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
             `<td>tc_1</td>`,
             `<td>1.00</td>`,
             `<td>tc_3</td>`,
             `<td>0.500</td>`,
-            `<h2 class="tbl_header">tc_3</h2>`,
+            `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
             `<td>tc_1</td>`,
             `<td>1.00</td>`,
             `<td>tc_2</td>`,
