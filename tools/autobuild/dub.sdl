@@ -2,7 +2,7 @@ name "autobuild"
 description "Run suite of tests for dextool"
 copyright "Copyright © 2014-2016, Joakim Brännström"
 authors "Joakim Brännström"
-license "Boost"
+license "BSL-1.0"
 
 dflags "-dip25" "-dip1000" "-dip1008"
 

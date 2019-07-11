@@ -113,18 +113,9 @@ add_subdirectory(vendor)
 
 # base libraries used by binaries
 add_subdirectory(libs)
-include(dextool_clang.cmake)
 include(dextool_cpptooling.cmake)
-include(dextool_dextool.cmake)
-include(dextool_dsrcgen.cmake)
-include(dextool_libclang.cmake)
-add_subdirectory(dextool_clang_extensions)
-
-# TODO wrap in an if-statement that libLLVM is detected
-include(dextool_llvm_hiwrap.cmake)
 
 if(BUILD_TEST)
-    include(dextool_devtool.cmake)
     add_subdirectory(source/test)
     add_subdirectory(test)
 endif()

@@ -1,0 +1,40 @@
+name "devtool"
+description "Tools for developers of dextool"
+authors "Joakim Brännström"
+copyright "Copyright © 2019, Joakim Brännström"
+license "BSL-1.0"
+
+targetPath "build"
+
+dependency "devtool:blob_model" version="*"
+subPackage "../../vendor/blob_model"
+
+dependency "devtool:taggedalgebraic" version="*"
+subPackage "../../vendor/taggedalgebraic"
+
+dependency "devtool:colorlog" version="*"
+subPackage "../../vendor/colorlog"
+
+dependency "devtool:dsrcgen" version="*"
+subPackage "../../libs/dsrcgen"
+
+lflags "-L/usr/lib/llvm-8/lib"
+libs  ":libclang.so.1"
+
+configuration "tok" {
+    targetType "executable"
+    targetName "tok"
+    excludedSourceFiles "source/generate_clang_ast_nodes.d" "../../source/cpptooling/ut_main.d" "../../source/dextool/ut_main.d"
+    sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../source/cpptooling" "../../source/dextool"
+    importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../source/"
+    stringImportPaths "../../libs/clang/resources"
+}
+
+configuration "generate" {
+    targetType "executable"
+    targetName "generate"
+    excludedSourceFiles "source/tok_main.d" "../../source/cpptooling/ut_main.d" "../../source/dextool/ut_main.d"
+    sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../source/cpptooling" "../../source/dextool"
+    importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../source/"
+    stringImportPaths "../../libs/clang/resources"
+}

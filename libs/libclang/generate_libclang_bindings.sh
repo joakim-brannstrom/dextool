@@ -16,7 +16,7 @@ dstep ./*.h \
   --public-submodules \
   --package clang.c \
   --space-after-function-name=false \
-  -o "$cwd"/clang/c \
+  -o "$cwd"/source/clang/c \
   --skip CXCursorVisitorBlock \
   --skip CXCursorAndRangeVisitorBlock \
   --skip clang_visitChildrenWithBlock \

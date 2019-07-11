@@ -2,7 +2,7 @@
 
 file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/source/dextool/plugin/*.d)
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/libs/dextool/source")
 
 compile_d_static_lib(dextool_plugin_utility "${SRC_FILES}" "${flags}" "" "dextool_dextool")
 

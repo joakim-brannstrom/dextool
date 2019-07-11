@@ -78,7 +78,6 @@ function(compile_d_static_lib name input_d compiler_args linker_args libs)
         LINK_FLAGS                  "${lflags}"
     )
 
-    # link libraries to executable
     foreach (lib "${libs}")
         target_link_libraries(${name} PUBLIC ${lib})
     endforeach()
