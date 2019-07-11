@@ -72,7 +72,6 @@ auto sourcePath() {
 
     // dfmt off
     return only(
-                "dextool_clang_extensions",
                 "libs",
                 "plugin",
                 "source",
@@ -609,7 +608,6 @@ int main(string[] args) {
 
     // dfmt off
     auto inotify_paths = only(
-                              "dextool_clang_extensions",
                               "dub.sdl",
                               "libs",
                               "plugin",

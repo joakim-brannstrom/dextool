@@ -114,10 +114,8 @@ add_subdirectory(vendor)
 # base libraries used by binaries
 add_subdirectory(libs)
 include(dextool_cpptooling.cmake)
-include(dextool_dextool.cmake)
 
 if(BUILD_TEST)
-    include(dextool_devtool.cmake)
     add_subdirectory(source/test)
     add_subdirectory(test)
 endif()

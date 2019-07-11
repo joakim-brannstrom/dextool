@@ -8,7 +8,7 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/plugin.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/libs/dextool/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source")
 
 build_d_executable(
     "${DEXTOOL_MAIN_EXE}"
