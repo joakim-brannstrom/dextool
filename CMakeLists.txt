@@ -113,7 +113,6 @@ add_subdirectory(vendor)
 
 # base libraries used by binaries
 add_subdirectory(libs)
-include(dextool_clang.cmake)
 include(dextool_cpptooling.cmake)
 include(dextool_dextool.cmake)
 include(dextool_dsrcgen.cmake)
