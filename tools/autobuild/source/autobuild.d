@@ -74,7 +74,6 @@ auto sourcePath() {
     return only(
                 "dextool_clang_extensions",
                 "libs",
-                "llvm_hiwrap/source",
                 "plugin",
                 "source",
                )
@@ -613,7 +612,6 @@ int main(string[] args) {
                               "dextool_clang_extensions",
                               "dub.sdl",
                               "libs",
-                              "llvm_hiwrap",
                               "plugin",
                               "source",
                               "test/source",
