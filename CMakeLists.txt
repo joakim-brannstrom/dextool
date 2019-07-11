@@ -115,7 +115,6 @@ add_subdirectory(vendor)
 add_subdirectory(libs)
 include(dextool_cpptooling.cmake)
 include(dextool_dextool.cmake)
-add_subdirectory(dextool_clang_extensions)
 
 if(BUILD_TEST)
     include(dextool_devtool.cmake)
