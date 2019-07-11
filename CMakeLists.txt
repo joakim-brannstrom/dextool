@@ -114,7 +114,9 @@ add_subdirectory(vendor)
 # base libraries used by binaries
 add_subdirectory(libs)
 
-add_subdirectory(test)
+if(BUILD_TEST)
+    add_subdirectory(test)
+endif()
 
 # binary
 add_subdirectory(source)
