@@ -56,6 +56,12 @@ cmake -DCMAKE_INSTALL_PREFIX=/path/to/where/to/install/dextool/binaries ..
 make install -j2
 ```
 
+or use dub.
+```sh
+dub build
+ls dub_build
+```
+
 Done! Have fun.
 Don't be shy to report any issue that you find.
 
