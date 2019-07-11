@@ -24,7 +24,7 @@ libs  ":libclang.so.1"
 configuration "tok" {
     targetType "executable"
     targetName "tok"
-    excludedSourceFiles "source/generate_clang_ast_nodes.d" "../../source/cpptooling/ut_main.d" "../../source/dextool/ut_main.d"
+    excludedSourceFiles "source/generate_clang_ast_nodes.d" "../../source/cpptooling/ut_main.d"
     sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../source/cpptooling" "../../source/dextool"
     importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../source/"
     stringImportPaths "../../libs/clang/resources"
@@ -33,7 +33,7 @@ configuration "tok" {
 configuration "generate" {
     targetType "executable"
     targetName "generate"
-    excludedSourceFiles "source/tok_main.d" "../../source/cpptooling/ut_main.d" "../../source/dextool/ut_main.d"
+    excludedSourceFiles "source/tok_main.d" "../../source/cpptooling/ut_main.d"
     sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../source/cpptooling" "../../source/dextool"
     importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../source/"
     stringImportPaths "../../libs/clang/resources"
