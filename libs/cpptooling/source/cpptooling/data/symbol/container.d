@@ -386,7 +386,6 @@ unittest {
     import std.conv : to;
     import cpptooling.data : CppClass, CppClassName;
     import cpptooling.data.type : Location;
-    import test.extra_should : shouldEqualPretty;
 
     Container cont;
 
@@ -398,7 +397,7 @@ unittest {
         cont.put(kind);
     }
 
-    cont.toString.shouldEqualPretty(`types [
+    cont.toString.shouldEqual(`types [
   null_ key0 -> TypeIdLR("", "")
   null_ key1 -> TypeIdLR("", "")]
 locations [

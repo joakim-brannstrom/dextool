@@ -15,8 +15,7 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "dextool.plugin.backend.plantuml",
-                          // component tests
-                          "test.component.plantuml",
+                          "dextool.plugin.plantuml.unittest_",
                           );
     //dfmt on
 }

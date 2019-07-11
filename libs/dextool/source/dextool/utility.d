@@ -11,6 +11,10 @@ import dextool.compilation_db : CompileCommandDB, CompileCommand, orDefaultDb, f
 
 public import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType;
 
+version (unittest) {
+    import unit_threaded.assertions : shouldEqual;
+}
+
 @safe:
 
 enum PreferLang : string {
@@ -44,10 +48,8 @@ pure string[] prependLangFlagIfMissing(in string[] in_cflags, const PreferLang l
 }
 
 @system unittest {
-    import test.extra_should : shouldEqualPretty;
-
     auto cflags = ["-DBEFORE", "-xc++", "-DAND_A_DEFINE", "-I/3906164"];
-    cflags.shouldEqualPretty(prependLangFlagIfMissing(cflags, PreferLang.c));
+    cflags.shouldEqual(prependLangFlagIfMissing(cflags, PreferLang.c));
 }
 
 /** Apply the visitor on the clang AST derived from the input_file.

@@ -112,7 +112,7 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
 
     # create the executable
     set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
-    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    compile_d_module("${input_d}" "${dflags}" ${object_file})
     add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
     set_target_properties(${target_name} PROPERTIES
         LINKER_LANGUAGE D
@@ -174,7 +174,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
 
     # create the executable
     set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
-    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    compile_d_module("${input_d}" "${dflags}" ${object_file})
     add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
     set_target_properties(${target_name} PROPERTIES
         LINKER_LANGUAGE D

@@ -41,7 +41,6 @@ import dextool.plugin.utility : MarkArray;
 static import cpptooling.data.class_classification;
 
 version (unittest) {
-    import test.extra_should : shouldEqualPretty;
     import unit_threaded : Name, shouldEqual;
 } else {
     private struct Name {
@@ -740,7 +739,7 @@ unittest {
     auto uml = new UMLClassDiagram;
     uml.put(UMLClassDiagram.Key("A"), UMLClassDiagram.DisplayName("A"));
 
-    uml.toString.shouldEqualPretty("UML Class Diagram (Total 1) {
+    uml.toString.shouldEqual("UML Class Diagram (Total 1) {
 A -> A
 } // UML Class Diagram");
 }
@@ -755,7 +754,7 @@ unittest {
 
     uml.relate(ka, kb, UMLClassDiagram.DisplayName("B"), Relate.Kind.Extend);
 
-    uml.toString.shouldEqualPretty("UML Class Diagram (Total 2) {
+    uml.toString.shouldEqual("UML Class Diagram (Total 2) {
 A -> A
 B -> B
 A -Extend- [1]B
@@ -774,7 +773,7 @@ unittest {
 
     uml.relate(ka, kb, cast(UMLComponentDiagram.DisplayName) "B", Relate.Kind.Relate);
 
-    uml.toString.shouldEqualPretty("UML Component Diagram (Total 2) {
+    uml.toString.shouldEqual("UML Component Diagram (Total 2) {
 a as A
   file.h
 b as B

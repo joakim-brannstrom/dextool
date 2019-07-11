@@ -88,7 +88,7 @@ auto addDefine(BuildCommandRun br, string v) {
 string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
-    auto r = BuildCommandRun("g++").addArg("-dumpversion").yapOutput(false)
+    auto r = BuildCommandRun("g++").addArg("-dumpversion").saveOutput(false)
         .throwOnExitStatus(false).run;
 
     if (!r.success)

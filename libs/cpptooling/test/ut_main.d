@@ -14,11 +14,11 @@ int main(string[] args) {
     writeln(`Running component tests`);
     //dfmt off
     return args.runTests!(
-                          "test.component.generator",
                           "test.component.analyzer.cpp_class_visitor",
                           "test.component.analyzer.test_clang",
                           "test.component.analyzer.type",
                           "test.component.analyzer.utility",
+                          "test.component.generator",
                           "test.component.scratch",
                           );
     //dfmt on

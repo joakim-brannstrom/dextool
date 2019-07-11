@@ -48,7 +48,6 @@ import dextool.hash : makeHash;
 static import cpptooling.data.class_classification;
 
 version (unittest) {
-    import test.extra_should : shouldEqualPretty;
     import unit_threaded : Name;
     import unit_threaded : shouldBeTrue, shouldEqual, shouldBeGreaterThan;
     import unit_threaded : writelnUt;
@@ -1963,7 +1962,7 @@ unittest {
     auto m = CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public));
     c.put(m);
     shouldEqual(c.methods_pub.length, 1);
-    shouldEqualPretty(format("%u", c), "class Foo { // Normal
+    shouldEqual(format("%u", c), "class Foo { // Normal
 public:
   void voider(); // dummyUSR
 }; //Class:Foo");
@@ -1975,7 +1974,7 @@ unittest {
     auto op = CppMethodOp(dummyUSR, CppMethodName("operator="), CppAccess(AccessType.Public));
     c.put(op);
 
-    shouldEqualPretty(format("%u", c), "class Foo { // Normal
+    shouldEqual(format("%u", c), "class Foo { // Normal
 public:
   void operator=(); // dummyUSR
 }; //Class:Foo");
@@ -2022,7 +2021,7 @@ unittest {
             CppVariable("x"))), makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
             CxReturnType(rtk), VariadicType.no, StorageClass.None);
 
-    shouldEqualPretty(format("%u", f), "int nothing(char* x, char* y); // None dummyUSR");
+    shouldEqual(format("%u", f), "int nothing(char* x, char* y); // None dummyUSR");
 }
 
 @("Test of Ctor's")
@@ -2081,7 +2080,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(format("%u", c), "class Foo { // Abstract
+    shouldEqual(format("%u", c), "class Foo { // Abstract
 public:
   void voider(); // dummyUSR
   Foo(); // dummyUSR
@@ -2098,7 +2097,7 @@ unittest {
     auto ns = CppNsStack([CppNs("a_ns"), CppNs("another_ns")]);
     auto c = CppClass(CppClassName("A_Class"), CppInherit[].init, ns);
 
-    shouldEqualPretty(c.toString, "class A_Class { // Unknown
+    shouldEqual(c.toString, "class A_Class { // Unknown
 }; //Class:a_ns::another_ns::A_Class");
 }
 
@@ -2111,7 +2110,7 @@ unittest {
 
     auto c = CppClass(CppClassName("Foo"), inherit);
 
-    shouldEqualPretty(c.toString,
+    shouldEqual(c.toString,
             "class Foo : public pub, protected prot, private priv { // Unknown
 }; //Class:Foo");
 }
@@ -2124,7 +2123,7 @@ unittest {
     c.put(CppClass(CppClassName("Prot")), AccessType.Protected);
     c.put(CppClass(CppClassName("Priv")), AccessType.Private);
 
-    shouldEqualPretty(c.toString, "class Foo { // Unknown
+    shouldEqual(c.toString, "class Foo { // Unknown
 public:
 class Pub { // Unknown
 }; //Class:Pub
@@ -2158,7 +2157,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(format("%u", c), "class Foo { // Virtual
+    shouldEqual(format("%u", c), "class Foo { // Virtual
 public:
   Foo(); // dummyUSR
   virtual ~Foo(); // dummyUSR
@@ -2187,7 +2186,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(format("%u", c), "class Foo { // Pure
+    shouldEqual(format("%u", c), "class Foo { // Pure
 public:
   Foo(); // dummyUSR
   virtual ~Foo(); // dummyUSR
@@ -2203,7 +2202,7 @@ unittest {
     c.put(CppMethod(dummyUSR, CppMethodName("voider"), CppAccess(AccessType.Public)));
     ns.put(c);
 
-    shouldEqualPretty(format("%s", ns), "namespace simple { //simple
+    shouldEqual(format("%s", ns), "namespace simple { //simple
 class Foo { // Normal
 public:
   void voider();
@@ -2215,7 +2214,7 @@ public:
 unittest {
     auto stack = CppNsStack([CppNs("foo"), CppNs("bar")]);
     auto n = CppNamespace(stack);
-    shouldEqualPretty(n.toString, "namespace bar { //foo::bar
+    shouldEqual(n.toString, "namespace bar { //foo::bar
 } //NS:bar");
 }
 
@@ -2235,7 +2234,7 @@ unittest {
 
     root.put(CppNamespace.make(CppNs("simple")));
 
-    shouldEqualPretty(format("%s", root), "void nothing(); // None
+    shouldEqual(format("%s", root), "void nothing(); // None
 class Foo { // Normal
 public:
   void voider();
@@ -2255,7 +2254,7 @@ unittest {
     depth2.put(depth3);
     depth1.put(depth2);
 
-    shouldEqualPretty(depth1.toString, "namespace Depth1 { //Depth1
+    shouldEqual(depth1.toString, "namespace Depth1 { //Depth1
 namespace Depth2 { //Depth1::Depth2
 namespace Depth3 { //Depth1::Depth2::Depth3
 } //NS:Depth3
@@ -2267,7 +2266,7 @@ namespace Depth3 { //Depth1::Depth2::Depth3
 unittest {
     auto n = CppNamespace.makeAnonymous();
 
-    shouldEqualPretty(n.toString, "namespace  { //
+    shouldEqual(n.toString, "namespace  { //
 } //NS:");
 }
 
@@ -2277,7 +2276,7 @@ unittest {
     auto f = CFunction(dummyUSR, CFunctionName("nothing"));
     n.put(f);
 
-    shouldEqualPretty(format("%s", n), "namespace  { //
+    shouldEqual(format("%s", n), "namespace  { //
 void nothing(); // None
 } //NS:");
 }
@@ -2303,8 +2302,8 @@ unittest {
     auto v0 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto v1 = CxGlobalVariable(dummyUSR, makeSimple("int"), CppVariable("y"));
 
-    shouldEqualPretty(format("%u", v0), "int x; // dummyUSR");
-    shouldEqualPretty(format("%u", v1), "int y; // dummyUSR");
+    shouldEqual(format("%u", v0), "int x; // dummyUSR");
+    shouldEqual(format("%u", v1), "int y; // dummyUSR");
 }
 
 @("Should be globals stored in the root object")
@@ -2316,7 +2315,7 @@ unittest {
     r.put(v);
     r.put(n);
 
-    shouldEqualPretty(format("%s", r), "int x;
+    shouldEqual(format("%s", r), "int x;
 namespace  { //
 int x;
 } //NS:
@@ -2371,7 +2370,7 @@ unittest {
     auto c = CppClass(CppClassName("A"));
     c.put(ih);
 
-    shouldEqualPretty(c.toString, "class A : public ns1::Class { // Unknown
+    shouldEqual(c.toString, "class A : public ns1::Class { // Unknown
 }; //Class:A");
 }
 
@@ -2381,7 +2380,7 @@ unittest {
     auto tk = makeSimple("int");
     c.put(TypeKindVariable(tk, CppVariable("x")), AccessType.Public);
 
-    shouldEqualPretty(c.toString, "class Foo { // Unknown
+    shouldEqual(c.toString, "class Foo { // Unknown
 public:
   int x;
 }; //Class:Foo");
@@ -2407,7 +2406,7 @@ unittest {
         c.put(m);
     }
 
-    shouldEqualPretty(format("%u", c), "class Foo { // Abstract
+    shouldEqual(format("%u", c), "class Foo { // Abstract
 public:
   ~Foo(); // dummyUSR
   virtual void wun() = 0; // dummyUSR
@@ -2421,7 +2420,7 @@ unittest {
     auto c = CppClass(CppClassName("Foo"));
     c.comment("A comment");
 
-    shouldEqualPretty(c.toString, "// A comment
+    shouldEqual(c.toString, "// A comment
 class Foo { // Unknown
 }; //Class:Foo");
 }

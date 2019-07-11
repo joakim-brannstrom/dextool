@@ -17,6 +17,10 @@ import dsrcgen.cpp : CppModule;
 
 import logger = std.experimental.logger;
 
+version (unittest) {
+    import unit_threaded.assertions : shouldEqual;
+}
+
 struct MutableGlobal {
     CxGlobalVariable mutable;
     TypeKind underlying;
@@ -297,7 +301,6 @@ void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Conta
 @("Should be an interface of globals")
 unittest {
     import std.array;
-    import test.extra_should : shouldEqualPretty;
     import cpptooling.data;
 
     immutable dummyUSR = USRType("dummyUSR1");
@@ -306,7 +309,7 @@ unittest {
 
     auto if_ = makeGlobalInterface([v0], CppClassName("TestDouble"));
 
-    if_.toString.shouldEqualPretty("class TestDouble { // Pure
+    if_.toString.shouldEqual("class TestDouble { // Pure
 public:
   virtual ~TestDouble();
   virtual void x() = 0;
