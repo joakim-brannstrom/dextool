@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/devtool
+devtool.so
+devtool.dylib
+devtool.dll
+devtool.a
+devtool.lib
+devtool-test-*
+*.exe
+*.o
+*.obj
+*.lst
