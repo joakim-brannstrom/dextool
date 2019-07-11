@@ -15,7 +15,6 @@ import dsrcgen.cpp : CppModule;
 import unit_threaded;
 import test.clang_util;
 import blob_model;
-import test.extra_should;
 
 import dextool.type;
 import dextool.utility;
@@ -28,6 +27,10 @@ import cpptooling.utility.virtualfilesystem : FileName;
 
 import cpptooling.generator.gtest;
 import cpptooling.generator.gmock;
+
+version (unittest) {
+    import unit_threaded.assertions : shouldEqual;
+}
 
 final class TestVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;
@@ -113,7 +116,7 @@ struct pod {
 
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
-    codegen.render.shouldEqualPretty(`    void PrintTo(const pod& x0, ::std::ostream* os);
+    codegen.render.shouldEqual(`    void PrintTo(const pod& x0, ::std::ostream* os);
 
     void PrintTo(const pod& x0, ::std::ostream* os) {
         *os << "x:" << ::testing::PrintToString(x0.x);
@@ -153,7 +156,7 @@ private:
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     auto mock = makeGmock(visitor.classes[0]);
-    mock.toString.shouldEqualPretty(`class Sneaky { // Pure
+    mock.toString.shouldEqual(`class Sneaky { // Pure
 public:
   virtual void priv() = 0;
   virtual void prot() = 0;

@@ -5,13 +5,12 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 Test of the backend for the plugin plantuml.
 */
-module test.component.plantuml;
+module dextool.plugin.plantuml.unittest_;
 
 import std.format : format;
 import std.typecons : BlackHole, Flag, Yes, No, scoped;
 
 import unit_threaded;
-import test.clang_util;
 import blob_model;
 
 import clang.TranslationUnit : TranslationUnit;
@@ -104,8 +103,10 @@ class Backend {
 
 void actTwoFiles(BackendT)(ref TranslationUnit tu0, ref TranslationUnit tu1, ref BackendT be)
         if (is(BackendT == typeof(scoped!Backend()))) {
-    checkForCompilerErrors(tu0).shouldBeFalse;
-    checkForCompilerErrors(tu1).shouldBeFalse;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors;
+
+    tu0.hasParseErrors.shouldBeFalse;
+    tu1.hasParseErrors.shouldBeFalse;
 
     be.ast.root = tu0.cursor;
     be.ast.accept(be.visitor);

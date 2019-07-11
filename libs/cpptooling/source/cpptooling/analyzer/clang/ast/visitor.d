@@ -14,7 +14,6 @@ version (unittest) {
     import std.array : array;
     import std.string : strip;
     import unit_threaded : shouldEqual;
-    import test.extra_should : shouldEqualPretty;
 }
 
 /// Inject incr/decr that is called by the accept function when visiting the AST.

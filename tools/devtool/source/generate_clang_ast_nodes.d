@@ -21,7 +21,7 @@ version (unittest) {
     import std.algorithm : map, splitter;
     import std.array : array;
     import std.string : strip;
-    import test.extra_should : shouldEqualPretty;
+    import unit_threaded : shouldEqual;
 }
 
 void main(string[] args) {
@@ -133,7 +133,7 @@ unittest {
     generateNodeClass("CXCursorKind.unexposedDecl", "UtNode")
         .splitter('\n')
         .map!(a => a.strip)
-        .shouldEqualPretty(
+        .shouldEqual(
     q{
         final class UnexposedDecl : UtNode {
             import clang.Cursor : Cursor;
