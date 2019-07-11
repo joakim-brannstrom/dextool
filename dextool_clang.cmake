@@ -17,7 +17,7 @@ set(SRC_FILES
 )
 
 set(flags
-    "-J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/libclang"
+    "-J${CMAKE_SOURCE_DIR}/clang/resources -I${CMAKE_SOURCE_DIR}/libs/libclang/source"
 )
 
 compile_d_static_lib(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang")

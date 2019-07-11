@@ -120,37 +120,6 @@ auto gitChangdedFiles(string[] file_extensions) {
     // dfmt on
 }
 
-auto sourceAsInclude() {
-    // dfmt off
-    return only(
-                "dsrcgen/source",
-                "source",
-                "clang",
-                "libclang",
-               )
-        .map!(a => buildPath(thisExePath.dirName, a))
-        .map!(a => "-I" ~ a)
-        .array();
-    // dfmt on
-}
-
-auto consoleStaticAnalyse(R)(R lines) {
-    import std.algorithm;
-    import std.string;
-
-    // dfmt off
-    auto needles = [
-        "taggedalgebraic",
-         "Could not resolve location of module"];
-
-    return lines
-        // remove those that contains the substrings
-        .filter!((string line) => !any!(a => indexOf(line, a) != -1)(needles))
-        // 15 is arbitrarily chosen
-        .take(15);
-    // dfmt on
-}
-
 void print(T...)(Color c, T args) {
     static immutable string[] escCodes = [
         "\033[31;1m", "\033[32;1m", "\033[33;1m", "\033[0;;m"
@@ -596,63 +565,6 @@ struct Fsm {
         analyzeCount = 0;
     }
 
-    void stateStaticAnalyse() {
-        static import std.file;
-
-        static import std.stdio;
-
-        static import core.stdc.stdlib;
-
-        printStatus(Status.Run, "Static analyze");
-
-        // dscanner hangs during analysis
-        if (skipStaticAnalysis)
-            return;
-
-        string phobos_path = core.stdc.stdlib.getenv("DLANG_PHOBOS_PATH".toStringz)
-            .fromStringz.idup;
-        string druntime_path = core.stdc.stdlib.getenv("DLANG_DRUNTIME_PATH".toStringz)
-            .fromStringz.idup;
-
-        string[] a;
-        a ~= "dscanner";
-        a ~= ["--config", buildPath(thisExePath.dirName, ".dscanner.ini")];
-        a ~= "--styleCheck";
-        a ~= "--skipTests";
-
-        if (phobos_path.length > 0 && druntime_path.length > 0) {
-            a ~= ["-I", phobos_path];
-            a ~= ["-I", druntime_path];
-        } else {
-            println(Color.red, "Extra errors during static analyze");
-            println(Color.red, "Missing env variable DLANG_PHOBOS_PATH and/or DLANG_DRUNTIME_PATH");
-        }
-
-        a ~= sourceAsInclude;
-        a ~= gitChangdedFiles([".d"]).array;
-
-        auto r = execute(a, null, Config.none, size_t.max, thisExePath.dirName);
-
-        string reportFile = buildPath(thisExePath.dirName, "dscanner_report.txt");
-        if (r.status != 0) {
-            auto lines = r.output.splitter("\n");
-            const auto dscanner_count = lines.save.count;
-
-            // console dump
-            consoleStaticAnalyse(lines.save).each!writeln;
-
-            // dump to file
-            auto fout = File(reportFile, "w");
-            fout.writef("%-(%s %)\n%s", a, r.output);
-
-            printStatus(Status.Fail, "Static analyze failed. Found ",
-                    dscanner_count, " error(s). See report ", reportFile);
-        } else {
-            remove(reportFile);
-            printStatus(Status.Ok, "Static analysis");
-        }
-    }
-
     void stateExitOrRestart() {
     }
 
@@ -704,7 +616,6 @@ int main(string[] args) {
                               "dextool_clang_extensions",
                               "dsrcgen/source",
                               "dub.sdl",
-                              "libclang",
                               "libs",
                               "llvm_hiwrap",
                               "plugin",
