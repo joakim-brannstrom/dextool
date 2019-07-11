@@ -117,9 +117,6 @@ include(dextool_cpptooling.cmake)
 include(dextool_dextool.cmake)
 add_subdirectory(dextool_clang_extensions)
 
-# TODO wrap in an if-statement that libLLVM is detected
-include(dextool_llvm_hiwrap.cmake)
-
 if(BUILD_TEST)
     include(dextool_devtool.cmake)
     add_subdirectory(source/test)
