@@ -73,7 +73,6 @@ auto sourcePath() {
     // dfmt off
     return only(
                 "dextool_clang_extensions",
-                "dsrcgen/source",
                 "libs",
                 "llvm_hiwrap/source",
                 "plugin",
@@ -612,7 +611,6 @@ int main(string[] args) {
     // dfmt off
     auto inotify_paths = only(
                               "dextool_clang_extensions",
-                              "dsrcgen/source",
                               "dub.sdl",
                               "libs",
                               "llvm_hiwrap",

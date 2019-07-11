@@ -115,7 +115,6 @@ add_subdirectory(vendor)
 add_subdirectory(libs)
 include(dextool_cpptooling.cmake)
 include(dextool_dextool.cmake)
-include(dextool_dsrcgen.cmake)
 add_subdirectory(dextool_clang_extensions)
 
 # TODO wrap in an if-statement that libLLVM is detected
