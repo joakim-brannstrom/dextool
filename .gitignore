@@ -19,3 +19,4 @@ dub.selections.json
 .autobuild.bin
 dscanner_report.txt
 docs.json
+dub_build/

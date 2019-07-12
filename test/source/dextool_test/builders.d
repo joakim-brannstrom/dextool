@@ -9,18 +9,23 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool_test.builders;
 
+import core.thread : Thread;
+import core.time : dur, msecs;
 import logger = std.experimental.logger;
+import std.algorithm : map, min, each, joiner;
+import std.array : array, Appender;
 import std.datetime.stopwatch : StopWatch;
 import std.path : buildPath;
 import std.range : isInputRange;
+import std.stdio : File;
+import std.string : join;
 import std.traits : ReturnType;
 import std.typecons : Yes, No, Flag;
 
-import scriptlike;
-
 static import core.thread;
+static import std.process;
 
-import dextool_test.utils : escapePath;
+import dextool_test.types;
 
 /** Build the command line arguments and working directory to use when invoking
  * dextool.
@@ -39,8 +44,8 @@ struct BuildDextoolRun {
         /// Data to stream into stdin upon execute.
         string stdin_data;
 
-        /// if the output from running the command should be yapped via scriptlike
-        bool yap_output = true;
+        /// if the output from running the command should be saved to a logfile
+        bool save_output = true;
 
         /// if --debug is added to the arguments
         bool arg_debug = true;
@@ -58,6 +63,10 @@ struct BuildDextoolRun {
         this.dextool = dextool;
         this.workdir_ = workdir;
         this.test_outputdir = workdir;
+    }
+
+    this(Path dextool, Path workdir) {
+        this(dextool.toString, workdir.toString);
     }
 
     Path workdir() {
@@ -120,29 +129,27 @@ struct BuildDextoolRun {
     }
 
     auto addArg(Path v) {
-        this.args_ ~= v.escapePath;
+        this.args_ ~= v.toString;
         return this;
     }
 
     auto addInputArg(string v) {
-        post_args ~= "--in=" ~ Path(v).escapePath;
+        post_args ~= ["--in", v];
         return this;
     }
 
     auto addInputArg(string[] v) {
-        post_args ~= v.map!(a => Path(a))
-            .map!(a => "--in=" ~ a.escapePath)
-            .array();
+        post_args ~= v.map!(a => ["--in", a]).joiner.array();
         return this;
     }
 
     auto addInputArg(Path v) {
-        post_args ~= "--in=" ~ v.escapePath;
+        post_args ~= ["--in", v.toString];
         return this;
     }
 
     auto addInputArg(Path[] v) {
-        post_args ~= v.map!(a => "--in=" ~ a.escapePath).array();
+        post_args ~= v.map!(a => ["--in", a.toString]).joiner.array();
         return this;
     }
 
@@ -157,7 +164,7 @@ struct BuildDextoolRun {
     }
 
     auto addPostArg(Path v) {
-        this.post_args ~= v.escapePath;
+        this.post_args ~= v.toString;
         return this;
     }
 
@@ -167,8 +174,13 @@ struct BuildDextoolRun {
         return this;
     }
 
-    auto yapOutput(bool v) {
-        yap_output = v;
+    deprecated("replaced by saveOutput") auto yapOutput(bool v) {
+        save_output = v;
+        return this;
+    }
+
+    auto saveOutput(bool v) {
+        save_output = v;
         return this;
     }
 
@@ -229,7 +241,7 @@ struct BuildDextoolRun {
 
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
-        if (yap_output) {
+        if (save_output) {
             auto f = File(nextFreeLogfile(test_outputdir), "w");
             f.writef("%s", rval);
         }
@@ -257,14 +269,15 @@ struct BuildCommandRun {
         string command;
         string workdir_;
         string[] args_;
+        string[] post_args;
 
         /// Data to stream into stdin upon execute.
         string stdin_data;
 
         bool run_in_outdir;
 
-        /// if the output from running the command should be yapped via scriptlike
-        bool yap_output = true;
+        /// if the output from running the command should be saved to a file.
+        bool save_output = true;
 
         /// Throw an exception if the exit status is NOT zero
         bool throw_on_exit_status = true;
@@ -284,6 +297,10 @@ struct BuildCommandRun {
         this.command = command;
         this.workdir_ = workdir;
         run_in_outdir = true;
+    }
+
+    this(string command, Path workdir) {
+        this(command, workdir.toString);
     }
 
     Path workdir() {
@@ -316,13 +333,18 @@ struct BuildCommandRun {
         return this;
     }
 
+    auto postArgs(string[] v) {
+        this.post_args = v;
+        return this;
+    }
+
     auto addArg(string v) {
         this.args_ ~= v;
         return this;
     }
 
     auto addArg(Path v) {
-        this.args_ ~= v.escapePath;
+        this.args_ ~= v.toString;
         return this;
     }
 
@@ -331,13 +353,33 @@ struct BuildCommandRun {
         return this;
     }
 
+    auto addPostArg(string v) {
+        this.post_args ~= v;
+        return this;
+    }
+
+    auto addPostArg(Path v) {
+        this.post_args ~= v.toString;
+        return this;
+    }
+
+    auto addPostArg(string[] v) {
+        this.post_args ~= v;
+        return this;
+    }
+
     auto addFileFromOutdir(string v) {
         this.args_ ~= buildPath(workdir_, v);
         return this;
     }
 
-    auto yapOutput(bool v) {
-        yap_output = v;
+    deprecated("replaced by saveOutput") auto yapOutput(bool v) {
+        save_output = v;
+        return this;
+    }
+
+    auto saveOutput(bool v) {
+        save_output = v;
         return this;
     }
 
@@ -350,6 +392,7 @@ struct BuildCommandRun {
         else
             cmd ~= command;
         cmd ~= args_.dup;
+        cmd ~= post_args;
 
         StopWatch sw;
         ReturnType!(std.process.tryWait) exit_;
@@ -390,14 +433,13 @@ struct BuildCommandRun {
 
         auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
                 stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
-        if (yap_output) {
+        if (save_output) {
             auto f = File(nextFreeLogfile(workdir_), "w");
             f.writef("%s", rval);
         }
 
         if (throw_on_exit_status && exit_.status != 0) {
-            auto l = min(10, stderr_.data.length);
-            throw new ErrorLevelException(exit_.status, stderr_.data[0 .. l].join(newline));
+            throw new ErrorLevelException(exit_.status, stderr_.data.join(newline));
         } else {
             return rval;
         }

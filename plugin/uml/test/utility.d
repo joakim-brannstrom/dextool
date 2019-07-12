@@ -7,7 +7,6 @@ module dextool_test.utility;
 
 import std.typecons : Flag, Yes, No;
 
-public import scriptlike;
 public import unit_threaded;
 
 public import dextool_test;
@@ -18,5 +17,7 @@ auto makeDextool(const ref TestEnv env) {
 }
 
 auto addClassArg(BuildDextoolRun br) {
-    return br.addArg(["--class-paramdep", "--class-inheritdep", "--class-memberdep"]);
+    return br.addArg([
+            "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+            ]);
 }

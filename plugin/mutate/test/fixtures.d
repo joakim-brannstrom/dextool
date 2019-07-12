@@ -5,6 +5,10 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.fixtures;
 
+import std.file : copy;
+import std.stdio : File;
+import std.format : format;
+
 import dextool_test.utility;
 
 /// Fejk database entries

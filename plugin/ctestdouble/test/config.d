@@ -5,11 +5,11 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.config;
 
-import scriptlike : Path, absolutePath;
+import dextool_test.types;
 
 enum globalTestdir = "c_tests";
 enum xmlLog = "test_double_log.xml";
 
-auto testData() {
-    return Path("testdata/cstub").absolutePath;
+Path testData() {
+    return Path("testdata/cstub");
 }

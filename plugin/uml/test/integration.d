@@ -5,11 +5,14 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.integration;
 
+import logger = std.experimental.logger;
+import std.path : dirName, stripExtension, setExtension, baseName;
 import std.typecons : Flag, Yes, No;
 
-import scriptlike;
 import unit_threaded : shouldBeTrue, shouldBeFalse;
+
 import dextool_test.utils;
+import dextool_test.types;
 
 enum globalTestdir = "plantuml_tests";
 
@@ -30,14 +33,16 @@ struct TestParams {
 TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("plugin_testdata/uml").absolutePath;
-    p.input_ext = p.root ~ Path(f);
-    p.base_file_compare = p.input_ext.stripExtension;
+    p.root = Path("plugin_testdata/uml");
+    p.input_ext = p.root ~ f;
+    p.base_file_compare = p.input_ext.toString.stripExtension;
 
     p.out_pu = testEnv.outdir ~ "view_classes.pu";
 
-    p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
-    p.dexDiagramParams = ["--class-paramdep", "--class-inheritdep", "--class-memberdep"];
+    p.dexParams = ["uml", "--debug"];
+    p.dexDiagramParams = [
+        "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+    ];
     p.dexFlags = [];
 
     return p;
@@ -46,34 +51,39 @@ TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
 TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
     TestParams p;
 
-    p.root = Path("plugin_testdata/uml").absolutePath;
-    p.input_ext = p.root ~ Path(f);
-    p.base_file_compare = p.input_ext.stripExtension;
+    p.root = Path("plugin_testdata/uml");
+    p.input_ext = p.root ~ f;
+    p.base_file_compare = p.input_ext.toString.stripExtension;
 
     p.out_pu = testEnv.outdir ~ "view_components.pu";
 
-    p.dexParams = ["--DRT-gcopt=profile:1", "uml", "--debug"];
+    p.dexParams = ["uml", "--debug"];
     p.dexDiagramParams = [];
-    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("a")).toString,
-        "-I" ~ (p.input_ext.dirName ~ Path("b")).toString];
+    p.dexFlags = [
+        "-I" ~ (p.input_ext.dirName ~ "a").toString,
+        "-I" ~ (p.input_ext.dirName ~ "b").toString
+    ];
 
     return p;
 }
 
-void runTestFile(const ref TestParams p, ref TestEnv testEnv,
+/// Returns: the output (stdout) from dextool.
+string runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = Yes.sortLines) {
-    dextoolYap("Input:%s", p.input_ext.raw);
-    runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
+    logger.info("Input: ", p.input_ext);
+    auto output = runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 
     if (!p.skipCompare) {
-        dextoolYap("Comparing");
+        logger.info("Comparing");
         Path input = p.base_file_compare;
         // dfmt off
         compareResult(sortLines, Yes.skipComments,
-                      GR(input ~ Ext(".pu.ref"), p.out_pu),
+                      GR(input.toString.setExtension(".pu.ref").Path, p.out_pu),
                       );
         // dfmt on
     }
+
+    return output;
 }
 
 // BEGIN Test of single file analyze of Class Diagrams #######################
@@ -183,7 +193,7 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
-    p.dexDiagramParams ~= ["--file-restrict='.*/'" ~ p.input_ext.baseName.toString];
+    p.dexDiagramParams ~= ["--file-restrict", ".*/" ~ p.input_ext.baseName];
     runTestFile(p, testEnv);
 }
 
@@ -226,46 +236,57 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("compile_db/single_file_main.hpp", testEnv);
     // find compilation flags by looking up how single_file_main.c was compiled
-    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString];
+    p.dexDiagramParams ~= [
+        "--compile-db=" ~ (p.root ~ "compile_db/single_file_db.json").toString
+    ];
     runTestFile(p, testEnv);
 }
 
 @(testId ~ "Should process all files in the compilation database")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestClassParams("compile_db/two_files.hpp", testEnv);
-    p.input_ext = Path("");
-    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/two_file_db.json").toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg([
+            "--compile-db", (testData ~ "compile_db/two_file_db.json").toString
+            ]).addArg([
+            "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+            ]).run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "compile_db/two_file_db.pu.ref", testEnv.outdir ~ "view_classes.pu"));
 }
 
 @(testId ~ "Should track the component relation between dirs even though it is forward declared classes refering via method dependency and the return value")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestComponentParams("compile_db/track_return_via_ptr_ref.hpp", testEnv);
-    p.input_ext = Path("");
-    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/multi_file_db.json").toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg([
+            "--compile-db", (testData ~ "compile_db/multi_file_db.json").toString
+            ]).run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "compile_db/track_return_via_ptr_ref.pu.ref",
+                testEnv.outdir ~ "view_components.pu"));
 }
 
 @(testId ~ "Should merge classes in namespaces when processing the compilation DB")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestClassParams("compile_db/merge_nested_ns.hpp", testEnv);
-    p.input_ext = Path("");
-    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/merge_nested_ns_db.json")
-        .toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg([
+            "--compile-db", (testData ~ "compile_db/merge_nested_ns_db.json").toString
+            ]).addArg([
+            "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+            ]).run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "compile_db/merge_nested_ns.pu.ref", testEnv.outdir ~ "view_classes.pu"));
 }
 
 @(testId ~ "Should continue even though a compile error occured")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestClassParams("compile_db/bad_code.hpp", testEnv);
-    p.input_ext = Path("");
-    p.dexDiagramParams ~= ["--compile-db=" ~ (p.root ~ "compile_db/bad_code_db.json")
-        .toString, "--skip-file-error"];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addArg([
+            "--compile-db", (testData ~ "compile_db/bad_code_db.json").toString
+            ]).addArg([
+            "--class-paramdep", "--class-inheritdep", "--class-memberdep"
+            ]).addArg("--skip-file-error").run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "compile_db/bad_code.pu.ref", testEnv.outdir ~ "view_classes.pu"));
 }
 
 // END   Compilation Database Tests ##########################################
@@ -277,7 +298,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
     p.dexDiagramParams = [];
-    p.base_file_compare = p.input_ext.up ~ "cli_none";
+    p.base_file_compare = p.input_ext.dirName.Path ~ "cli_none";
     runTestFile(p, testEnv);
 }
 
@@ -286,7 +307,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
     p.dexDiagramParams = ["--class-method"];
-    p.base_file_compare = p.input_ext.up ~ "cli_class_method";
+    p.base_file_compare = p.input_ext.dirName.Path ~ "cli_class_method";
     runTestFile(p, testEnv);
 }
 
@@ -295,7 +316,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
     p.dexDiagramParams = ["--class-paramdep"];
-    p.base_file_compare = p.input_ext.up ~ "cli_class_param_dep";
+    p.base_file_compare = p.input_ext.dirName.Path ~ "cli_class_param_dep";
     runTestFile(p, testEnv);
 }
 
@@ -304,7 +325,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
     p.dexDiagramParams = ["--class-inheritdep"];
-    p.base_file_compare = p.input_ext.up ~ "cli_class_inherit_dep";
+    p.base_file_compare = p.input_ext.dirName.Path ~ "cli_class_inherit_dep";
     runTestFile(p, testEnv);
 }
 
@@ -313,7 +334,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestClassParams("cli/cli_classes.hpp", testEnv);
     p.dexDiagramParams = ["--class-memberdep"];
-    p.base_file_compare = p.input_ext.up ~ "cli_class_member_dep";
+    p.base_file_compare = p.input_ext.dirName.Path ~ "cli_class_member_dep";
     runTestFile(p, testEnv);
 }
 
@@ -335,21 +356,22 @@ unittest {
 @(testId ~ "Test of CLI --comp-strip")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestComponentParams("cli/cli_comp_strip.hpp", testEnv);
-    p.dexDiagramParams ~= "--comp-strip='(.*)/strip_this'";
-    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
-        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "cli/cli_comp_strip.hpp").addArg([
+            "--comp-strip", "(.*)/strip_this"
+            ]).addIncludeFlag(testData ~ "cli/strip_this")
+        .addIncludeFlag(testData ~ "cli/keep_this").run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "cli/cli_comp_strip.pu.ref", testEnv.outdir ~ "view_components.pu"));
 }
 
 @(testId ~ "Test of CLI --comp-strip using a regex with 'OR'")
 unittest {
     mixin(EnvSetup(globalTestdir));
-    auto p = genTestComponentParams("cli/cli_comp_strip_complex.hpp", testEnv);
-    p.dexDiagramParams ~= "--comp-strip='(.*)/strip_this|(.*)/keep_this'";
-    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
-        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
-    runTestFile(p, testEnv);
+    makeDextool(testEnv).addInputArg(testData ~ "cli/cli_comp_strip_complex.hpp")
+        .addArg(["--comp-strip", "(.*)/strip_this|(.*)/keep_this"])
+        .addIncludeFlag(testData ~ "cli/strip_this").addIncludeFlag(testData ~ "cli/keep_this").run;
+    compareResult(Yes.sortLines, Yes.skipComments,
+            GR(testData ~ "cli/cli_comp_strip_complex.pu.ref", testEnv.outdir ~ "view_components.pu"));
 }
 
 @(testId ~ "Test of CLI --comp-by-file. Should be components created from filenames")
@@ -357,8 +379,10 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_comp_by_file.hpp", testEnv);
     p.dexDiagramParams ~= ["--comp-by-file"];
-    p.dexFlags = ["-I" ~ (p.input_ext.dirName ~ Path("strip_this")).toString,
-        "-I" ~ (p.input_ext.dirName ~ Path("keep_this")).toString];
+    p.dexFlags = [
+        "-I" ~ (p.input_ext.dirName.Path ~ "strip_this").toString,
+        "-I" ~ (p.input_ext.dirName.Path ~ "keep_this").toString
+    ];
     runTestFile(p, testEnv);
 }
 
@@ -367,14 +391,20 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_incl_dotfile.hpp", testEnv);
     p.dexDiagramParams ~= ["--gen-dot"];
-    foreach (f; [["cli_gen_doc_incl_dotfile_class_dot",
-            "view_classes_dot.dot"], ["cli_gen_dot_incl_dotfile_class_neato",
-            "view_classes_neato.dot"],
-            ["cli_gen_dot_incl_dotfile_component_dot",
-            "view_components_dot.dot"], ["cli_gen_dot_incl_dotfile_component_neato",
-            "view_components_neato.dot"]]) {
-        p.base_file_compare = p.base_file_compare.up ~ Path(f[0]);
-        p.out_pu = testEnv.outdir ~ f[1] ~ Ext(".pu");
+    foreach (f; [
+            ["cli_gen_doc_incl_dotfile_class_dot", "view_classes_dot.dot"],
+            ["cli_gen_dot_incl_dotfile_class_neato", "view_classes_neato.dot"],
+            [
+                "cli_gen_dot_incl_dotfile_component_dot",
+                "view_components_dot.dot"
+            ],
+            [
+                "cli_gen_dot_incl_dotfile_component_neato",
+                "view_components_neato.dot"
+            ]
+        ]) {
+        p.base_file_compare = p.base_file_compare.dirName.Path ~ f[0];
+        p.out_pu = testEnv.outdir ~ f[1].setExtension(".pu");
         runTestFile(p, testEnv);
     }
 }
@@ -383,12 +413,13 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_class.hpp", testEnv);
-    p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
-        "--class-inheritdep", "--class-paramdep"];
-    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_dot");
+    p.dexDiagramParams ~= [
+        "--gen-dot", "--class-memberdep", "--class-inheritdep", "--class-paramdep"
+    ];
+    p.base_file_compare = p.base_file_compare.dirName.Path ~ "cli_gen_dot_class_dot";
     p.out_pu = testEnv.outdir ~ "view_classes_dot.dot";
     runTestFile(p, testEnv);
-    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_class_neato");
+    p.base_file_compare = p.base_file_compare.dirName.Path ~ "cli_gen_dot_class_neato";
     p.out_pu = testEnv.outdir ~ "view_classes_neato.dot";
     runTestFile(p, testEnv);
 }
@@ -397,12 +428,13 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("cli/cli_gen_dot_component.hpp", testEnv);
-    p.dexDiagramParams ~= ["--gen-dot", "--class-memberdep",
-        "--class-inheritdep", "--class-paramdep"];
-    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_component_dot");
+    p.dexDiagramParams ~= [
+        "--gen-dot", "--class-memberdep", "--class-inheritdep", "--class-paramdep"
+    ];
+    p.base_file_compare = p.base_file_compare.dirName.Path ~ "cli_gen_dot_component_dot";
     p.out_pu = testEnv.outdir ~ "view_components_dot.dot";
     runTestFile(p, testEnv);
-    p.base_file_compare = p.base_file_compare.up ~ Path("cli_gen_dot_component_neato");
+    p.base_file_compare = p.base_file_compare.dirName.Path ~ "cli_gen_dot_component_neato";
     p.out_pu = testEnv.outdir ~ "view_components_neato.dot";
     runTestFile(p, testEnv);
 }
@@ -416,11 +448,11 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
     p.skipCompare = Yes.skipCompare;
-    runTestFile(p, testEnv);
+    auto output = runTestFile(p, testEnv);
 
-    stdoutContains("$100").shouldBeFalse;
-    stdoutContains(`as include`).shouldBeTrue;
-    stdoutContains(`as bits`).shouldBeTrue;
+    output.sliceContains("$100").shouldBeFalse;
+    output.sliceContains(`as include`).shouldBeTrue;
+    output.sliceContains(`as bits`).shouldBeTrue;
 }
 
 @(testId ~ "Should always be able to backtrack")
@@ -428,9 +460,9 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto p = genTestComponentParams("dev/bug_crash_on_sigset.hpp", testEnv);
     p.skipCompare = Yes.skipCompare;
-    runTestFile(p, testEnv);
+    auto output = runTestFile(p, testEnv);
 
-    stdoutContains("$100").shouldBeFalse;
+    output.sliceContains("$100").shouldBeFalse;
 }
 
 @(testId ~ "Should be a component diagram of two component related by class members")
@@ -492,3 +524,11 @@ unittest {
 }
 
 // END   Test Component Diagrams #############################################
+
+auto makeDextool(const ref TestEnv env) {
+    return dextool_test.makeDextool(env).setWorkdir(env.outdir).args(["uml"]);
+}
+
+Path testData() {
+    return Path("plugin_testdata/uml");
+}

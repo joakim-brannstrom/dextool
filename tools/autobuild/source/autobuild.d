@@ -5,21 +5,52 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
  */
 module autobuild;
 
-import std.typecons : Flag, Yes, No;
-
-import scriptlike;
+import std.algorithm : map, splitter, filter, among, each, canFind, count;
+import std.array : array;
+import std.file : thisExePath, exists, mkdir, remove, dirEntries, SpanMode, chdir;
+import std.format : format;
+import std.path : buildPath, dirName, extension;
+import std.process : execute, spawnShell, Config, wait;
+import std.range : only, chain, take;
+import std.stdio : stdin, writeln, File, write, writefln;
+import std.string : splitLines, toStringz, fromStringz;
+import std.typecons : Flag, Yes, No, Tuple;
 
 Flag!"SignalInterrupt" signalInterrupt;
 Flag!"TestsPassed" signalExitStatus;
 
 bool skipStaticAnalysis = true;
 
-void echoOn() {
-    .scriptlikeEcho = true;
-}
+/// Tag a string as a path and make it absolute+normalized.
+struct Path {
+    import std.path : absolutePath, buildNormalizedPath;
 
-void echoOff() {
-    .scriptlikeEcho = false;
+    private string value_;
+    alias value this;
+
+    this(Path p) {
+        value_ = p.value_;
+    }
+
+    this(string p) {
+        value_ = p.absolutePath.buildNormalizedPath;
+    }
+
+    string value() @safe pure nothrow const @nogc {
+        return value_;
+    }
+
+    void opAssign(string rhs) @safe pure {
+        value_ = rhs.absolutePath.buildNormalizedPath;
+    }
+
+    void opAssign(typeof(this) rhs) @safe pure nothrow {
+        value_ = rhs.value_;
+    }
+
+    string toString() @safe pure nothrow const @nogc {
+        return value_;
+    }
 }
 
 enum Color {
@@ -41,16 +72,11 @@ auto sourcePath() {
 
     // dfmt off
     return only(
-                "clang",
-                "dextool_clang_extensions",
-                "dsrcgen/source",
                 "libs",
-                "llvm_hiwrap/source",
                 "plugin",
                 "source",
                )
-        .map!(a => thisExePath.dirName ~ a)
-        .map!(a => a.toString)
+        .map!(a => buildPath(thisExePath.dirName, a))
         .array();
     // dfmt on
 }
@@ -59,7 +85,7 @@ auto gitHEAD() {
     // Initial commit: diff against an empty tree object
     string against = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
-    auto res = tryRunCollect("git rev-parse --verify HEAD");
+    auto res = execute("git rev-parse --verify HEAD");
     if (res.status == 0) {
         against = res.output;
     }
@@ -68,58 +94,25 @@ auto gitHEAD() {
 }
 
 auto gitChangdedFiles(string[] file_extensions) {
-    import std.ascii : newline;
-
-    Args a;
+    string[] a;
     a ~= "git";
     a ~= "diff-index";
     a ~= "--name-status";
     a ~= ["--cached", gitHEAD];
 
-    auto res = tryRunCollect(a.data);
+    auto res = execute(a);
     if (res.status != 0) {
         writeln("error: ", res.output);
     }
 
     // dfmt off
     return res.output
-        .splitter(newline)
+        .splitLines
         .map!(a => a.splitter.array())
         .filter!(a => a.length == 2)
         .filter!(a => a[0].among("M", "A"))
-        .filter!(a => canFind(file_extensions, std.path.extension(a[1])))
+        .filter!(a => canFind(file_extensions, extension(a[1])))
         .map!(a => a[1]);
-    // dfmt on
-}
-
-auto sourceAsInclude() {
-    // dfmt off
-    return only(
-                "dsrcgen/source",
-                "source",
-                "clang",
-                "libclang",
-               )
-        .map!(a => thisExePath.dirName ~ a)
-        .map!(a => "-I" ~ a.toString)
-        .array();
-    // dfmt on
-}
-
-auto consoleStaticAnalyse(R)(R lines) {
-    import std.algorithm;
-    import std.string;
-
-    // dfmt off
-    auto needles = [
-        "taggedalgebraic",
-         "Could not resolve location of module"];
-
-    return lines
-        // remove those that contains the substrings
-        .filter!((string line) => !any!(a => indexOf(line, a) != -1)(needles))
-        // 15 is arbitrarily chosen
-        .take(15);
     // dfmt on
 }
 
@@ -191,7 +184,7 @@ void playSound(Flag!"Positive" positive) nothrow {
 }
 
 bool sanityCheck() {
-    if (!existsAsFile("dub.sdl")) {
+    if (!exists("dub.sdl")) {
         writeln("Missing dub.sdl");
         return false;
     }
@@ -207,18 +200,19 @@ void consoleToFile(Path fname, string console) {
 }
 
 Path cmakeDir() {
-    return thisExePath.dirName ~ "build";
+    return buildPath(thisExePath.dirName, "build").Path;
 }
 
 void setup() {
     //echoOn;
 
-    if (!existsAsDir("build")) {
-        tryRemove("build");
+    if (!exists("build")) {
         mkdir("build");
     }
 
-    auto r = tryRunCollect(cmakeDir, "cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..");
+    auto r = execute([
+            "cmake", "-DCMAKE_BUILD_TYPE=Debug", "-DBUILD_TEST=ON", ".."
+            ], null, Config.none, size_t.max, cmakeDir);
     writeln(r.output);
 
     import core.stdc.signal;
@@ -243,7 +237,7 @@ void cleanup(Flag!"keepCoverage" keep_cov) {
           keep_cov.predSwitch(Yes.keepCoverage, string[].init.map!(a => Path(a)).array(),
                               No.keepCoverage, dirEntries(".", "*.lst", SpanMode.shallow).map!(a => Path(a)).array())
          )
-        .each!(a => tryRemove(a));
+        .each!(a => remove(a));
     // dfmt on
 
     printStatus(Status.Ok, "Cleanup");
@@ -457,7 +451,7 @@ struct Fsm {
     void stateWait() {
         println(Color.yellow, "================================");
 
-        Args a;
+        string[] a;
         a ~= "inotifywait";
         a ~= "-q";
         a ~= "-r";
@@ -468,7 +462,7 @@ struct Fsm {
         a ~= ["--format", "%w"];
         a ~= inotify_paths;
 
-        auto r = tryRunCollect(thisExePath.dirName, a.data);
+        auto r = execute(a, null, Config.none, size_t.max, thisExePath.dirName);
 
         import core.thread;
 
@@ -480,7 +474,7 @@ struct Fsm {
             Thread.sleep(dur!("msecs")(500));
         } else {
             enum SLEEP = 10;
-            writeln(a.data);
+            writefln("%-(%s %)", a);
             printStatus(Status.Warn, "Error: ", r.output);
             writeln("sleeping ", SLEEP, "s");
             Thread.sleep(dur!("seconds")(SLEEP));
@@ -491,7 +485,7 @@ struct Fsm {
         immutable test_header = "Compile and run unittest";
         printStatus(Status.Run, test_header);
 
-        auto status = tryRun(cmakeDir, "make check -j $(nproc)");
+        auto status = spawnShell("make check -j $(nproc)", null, Config.none, cmakeDir).wait;
         flagUtTestPassed = cast(Flag!"UtTestPassed")(status == 0);
 
         printExitStatus(status, test_header);
@@ -504,7 +498,7 @@ struct Fsm {
     void stateDebug_build() {
         printStatus(Status.Run, "Debug build");
 
-        auto r = tryRun(cmakeDir, "make all -j $(nproc)");
+        auto r = spawnShell("make all -j $(nproc)", null, Config.none, cmakeDir).wait;
         flagCompileError = cast(Flag!"CompileError")(r != 0);
         printExitStatus(r, "Debug build with debug symbols");
     }
@@ -513,7 +507,8 @@ struct Fsm {
         immutable test_header = "Compile and run integration tests";
         printStatus(Status.Run, test_header);
 
-        auto status = tryRun(cmakeDir, `make check_integration -j $(nproc)`);
+        auto status = spawnShell(`make check_integration -j $(nproc)`, null,
+                Config.none, cmakeDir).wait;
 
         if (status != 0) {
             testErrorLog ~= ErrorMsg(cmakeDir, "integration_test", "failed");
@@ -553,74 +548,17 @@ struct Fsm {
         scope (exit)
             printStatus(Status.Ok, "Code statistics");
 
-        Args a;
+        string[] a;
         a ~= "dscanner";
         a ~= "--sloc";
         a ~= sourcePath.array();
 
-        auto r = tryRunCollect(thisExePath.dirName, a.data);
+        auto r = execute(a, null, Config.none, size_t.max, thisExePath.dirName);
         if (r.status == 0) {
             writeln(r.output);
         }
 
         analyzeCount = 0;
-    }
-
-    void stateStaticAnalyse() {
-        static import std.file;
-
-        static import std.stdio;
-
-        static import core.stdc.stdlib;
-
-        printStatus(Status.Run, "Static analyze");
-
-        // dscanner hangs during analysis
-        if (skipStaticAnalysis)
-            return;
-
-        string phobos_path = core.stdc.stdlib.getenv("DLANG_PHOBOS_PATH".toStringz)
-            .fromStringz.idup;
-        string druntime_path = core.stdc.stdlib.getenv("DLANG_DRUNTIME_PATH".toStringz)
-            .fromStringz.idup;
-
-        Args a;
-        a ~= "dscanner";
-        a ~= ["--config", (thisExePath.dirName ~ ".dscanner.ini").toString];
-        a ~= "--styleCheck";
-        a ~= "--skipTests";
-
-        if (phobos_path.length > 0 && druntime_path.length > 0) {
-            a ~= ["-I", phobos_path];
-            a ~= ["-I", druntime_path];
-        } else {
-            println(Color.red, "Extra errors during static analyze");
-            println(Color.red, "Missing env variable DLANG_PHOBOS_PATH and/or DLANG_DRUNTIME_PATH");
-        }
-
-        a ~= sourceAsInclude;
-        a ~= gitChangdedFiles([".d"]);
-
-        auto r = tryRunCollect(thisExePath.dirName, a.data);
-
-        string reportFile = (thisExePath.dirName ~ "dscanner_report.txt").toString;
-        if (r.status != 0) {
-            auto lines = r.output.splitter("\n");
-            const auto dscanner_count = lines.save.count;
-
-            // console dump
-            consoleStaticAnalyse(lines.save).each!writeln;
-
-            // dump to file
-            auto fout = File(reportFile, "w");
-            fout.write(a.data ~ "\n" ~ r.output);
-
-            printStatus(Status.Fail, "Static analyze failed. Found ",
-                    dscanner_count, " error(s). See report ", reportFile);
-        } else {
-            tryRemove(reportFile);
-            printStatus(Status.Ok, "Static analysis");
-        }
     }
 
     void stateExitOrRestart() {
@@ -670,20 +608,15 @@ int main(string[] args) {
 
     // dfmt off
     auto inotify_paths = only(
-                              "clang",
-                              "dextool_clang_extensions",
-                              "dsrcgen/source",
                               "dub.sdl",
-                              "libclang",
                               "libs",
-                              "llvm_hiwrap",
                               "plugin",
                               "source",
                               "test/source",
                               "test/testdata",
                               "vendor",
         )
-        .map!(a => thisExePath.dirName ~ a)
+        .map!(a => buildPath(thisExePath.dirName, a).Path)
         .array;
     // dfmt on
 

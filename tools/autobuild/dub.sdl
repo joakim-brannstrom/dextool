@@ -2,12 +2,9 @@ name "autobuild"
 description "Run suite of tests for dextool"
 copyright "Copyright © 2014-2016, Joakim Brännström"
 authors "Joakim Brännström"
-license "Boost"
+license "BSL-1.0"
 
-dependency "autobuild:scriptlike" version="*"
-subPackage "../../vendor/scriptlike/"
-
-dflags "-dip25"
+dflags "-dip25" "-dip1000" "-dip1008"
 
 targetName "../../.autobuild.bin"
 targetType "executable"

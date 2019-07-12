@@ -7,7 +7,7 @@ file(GLOB SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/plantuml_tests.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src -I${CMAKE_SOURCE_DIR}/test/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/test/source")
 
 # Setup expected test environment around the integration test binary
 execute_process(

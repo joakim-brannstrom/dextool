@@ -2,9 +2,8 @@
 /+ dub.sdl:
     name "symlink"
 +/
-
-import std.stdio;
-import std.file;
+import std.stdio : writeln;
+import std.file : symlink, remove, exists;
 
 int main(string[] args) {
     if (args.length != 3) {
@@ -17,7 +16,7 @@ int main(string[] args) {
 
     if (exists(dst))
         remove(dst);
-    std.file.symlink(src, dst);
+    symlink(src, dst);
 
     return 0;
 }

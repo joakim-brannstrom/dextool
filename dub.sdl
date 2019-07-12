@@ -1,17 +1,17 @@
 name "dextool"
-description "C/C++ tooling for testing and visualisation"
+description "C/C++ tooling for mocking, mutation testing and visualisation"
 copyright "Copyright © 2014-2016, Joakim Brännström"
 authors "Joakim Brännström"
 license "MPL-2"
 
-systemDependencies "libclang.so.1 3.6+"
+systemDependencies "for ubuntu: sudo apt install build-essential cmake llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev libsqlite3-dev"
 
-targetPath "build"
+targetPath "dub_build"
+targetType "executable"
+targetName "dub_dummy"
 
-configuration "no-build" {
-    targetType "library"
-    targetPath "deleteme"
-    importPaths "dummy"
-    sourcePaths "dummy"
-    excludedSourceFiles "source/*"
-}
+preGenerateCommands "$PACKAGE_DIR/tools/dub_integration.d preGenerate $PACKAGE_DIR"
+postBuildCommands "$PACKAGE_DIR/tools/dub_integration.d postBuild $PACKAGE_DIR"
+
+excludedSourceFiles "source/application/*"
+sourceFiles "source/dub_dummy.d"

@@ -1,6 +1,0 @@
-#ifndef dextool_wrapper_hpp
-#define dextool_wrapper_hpp
-#include "dextool/fuzz_helper.hpp"
-
-void wrap_func(dextool::RawData &raw_data);
-#endif // dextool_wrapper_hpp

@@ -78,7 +78,6 @@ function(compile_d_static_lib name input_d compiler_args linker_args libs)
         LINK_FLAGS                  "${lflags}"
     )
 
-    # link libraries to executable
     foreach (lib "${libs}")
         target_link_libraries(${name} PUBLIC ${lib})
     endforeach()
@@ -113,7 +112,7 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
 
     # create the executable
     set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
-    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    compile_d_module("${input_d}" "${dflags}" ${object_file})
     add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
     set_target_properties(${target_name} PROPERTIES
         LINKER_LANGUAGE D
@@ -167,7 +166,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
     endif()
 
     set(target_name ${name}_integration)
-    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/scriptlike/src")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source")
     set(lflags "${linker_args}")
 
     conv_to_proper_args(dflags "${dflags}")
@@ -175,7 +174,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
 
     # create the executable
     set(object_file ${CMAKE_CURRENT_BINARY_DIR}/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
-    compile_d_module("${input_d};${CMAKE_SOURCE_DIR}/source/test/extra_should.d" "${dflags}" ${object_file})
+    compile_d_module("${input_d}" "${dflags}" ${object_file})
     add_executable(${target_name} EXCLUDE_FROM_ALL ${object_file})
     set_target_properties(${target_name} PROPERTIES
         LINKER_LANGUAGE D
@@ -184,7 +183,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
         )
 
     # link libraries to executable
-    foreach (lib "${libs};dextool_unit_threaded;dextool_scriptlike;dextool_dextool_test")
+    foreach (lib "${libs};dextool_unit_threaded;dextool_dextool_test")
         target_link_libraries(${target_name} ${lib})
     endforeach()
 

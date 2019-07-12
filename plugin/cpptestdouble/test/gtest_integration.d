@@ -5,6 +5,9 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.gtest_integration;
 
+import std.file : exists;
+import std.path : buildPath;
+
 import dextool_test.utility;
 
 // dfmt off
@@ -145,9 +148,9 @@ unittest {
         .addInputArg(pluginTestData ~ "stage_1/test_pretty_print_generator.hpp")
         .run;
 
-    exists(testEnv.outdir ~ "test_double_pod_empty_gtest.hpp").shouldBeFalse;
-    exists(testEnv.outdir ~ "test_double_pod_only_private_gtest.hpp").shouldBeFalse;
-    exists(testEnv.outdir ~ "test_double_pod_only_protected_gtest.hpp").shouldBeFalse;
+    exists((testEnv.outdir ~ "test_double_pod_empty_gtest.hpp").toString).shouldBeFalse;
+    exists((testEnv.outdir ~ "test_double_pod_only_private_gtest.hpp").toString).shouldBeFalse;
+    exists((testEnv.outdir ~ "test_double_pod_only_protected_gtest.hpp").toString).shouldBeFalse;
 
     makeCompile(testEnv, pluginTestData ~ "stage_1")
         .addFileFromOutdir("test_double_fused_gtest.cpp")
