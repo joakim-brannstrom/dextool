@@ -12,34 +12,37 @@ int main(string[] args) {
     }
 
     const command = args[1];
-    const packageDir = args[2];
-    const dubTargetPath = environment.get("DUB_TARGET_PATH",
-            buildPath(packageDir, "dub_fallback_install"));
+    const packageDir = args[2].absolutePath;
+    const dubTargetPath = environment.get("DUB_TARGET_PATH", "dub_fallback_install");
 
     const buildDir = buildPath(packageDir, dubTargetPath);
 
     const cmakeDir = buildPath(buildDir, "cmake_build");
 
-    const preBuildDubStamp = buildPath(cmakeDir, "prebuild_dub.stamp");
+    const postBuildStamp = buildPath(buildDir, "prebuild_dub.stamp");
+
+    if (exists(postBuildStamp))
+        return 0;
 
     if (!exists(cmakeDir))
         mkdirRecurse(cmakeDir);
 
     switch (command) {
     case "preGenerate":
-        if (exists(preBuildDubStamp))
-            return 0;
         if (spawnProcess([
                     "cmake", "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_INSTALL_PREFIX=" ~ buildDir.escapeShellFileName,
                     packageDir
                 ], null, Config.none, cmakeDir).wait != 0)
             return 1;
-        File(preBuildDubStamp, "w").write;
         return 0;
     case "postBuild":
-        return spawnProcess(["make", "-j", totalCPUs.to!string, "install"],
-                null, Config.none, cmakeDir).wait;
+        if (spawnProcess(["make", "-j", totalCPUs.to!string, "install"], null,
+                Config.none, cmakeDir).wait != 0)
+            return 1;
+        rmdirRecurse(cmakeDir);
+        File(postBuildStamp, "w").write;
+        return 0;
     default:
         writeln("Unknown command");
     }
