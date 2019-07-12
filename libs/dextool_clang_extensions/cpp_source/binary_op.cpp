@@ -553,9 +553,6 @@ DXOperator dex_getExprOperator(const CXCursor cx_expr) {
         return rval;
     }
 
-    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
-    CXTranslationUnit tu = getCursorTU(cx_expr);
-
     if (llvm::isa<clang::BinaryOperator>(expr)) {
         const clang::BinaryOperator* op = llvm::cast<const clang::BinaryOperator>(expr);
         if (!toOpKind(op->getOpcode(), rval)) {
