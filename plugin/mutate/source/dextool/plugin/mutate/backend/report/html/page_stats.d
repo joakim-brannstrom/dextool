@@ -67,7 +67,7 @@ void overallStat(const MutationStat s, Element n) {
 
     auto comp_container = n.addChild("div").addClass("comp_container");
     auto heading = comp_container.addChild("h2").addClass("tbl_header");
-    
+
     comp_container.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
     comp_container.addChild("p", format("Execution time %s", s.totalTime));
     heading.addChild("i").addClass("right");
@@ -93,7 +93,8 @@ void overallStat(const MutationStat s, Element n) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);
         tbl.appendRow("NoMut/total", s.suppressedOfTotal.to!string);
 
-        auto p = comp_container.addChild("p", "NoMut is the number of mutants that are alive but ignored.");
+        auto p = comp_container.addChild("p",
+                "NoMut is the number of mutants that are alive but ignored.");
         p.appendHtml(" They are <i>suppressed</i>.");
         p.appendText(" This result in those mutants increasing the mutation score.");
         p.appendText(" The suppressed/total is how much it has increased.");
@@ -108,10 +109,11 @@ void deadTestCase(const TestCaseDeadStat s, Element n) {
     auto heading = comp_container.addChild("h2").addClass("tbl_header");
     heading.addChild("i").addClass("right");
     heading.appendText(" Dead Test Cases");
-    
+
     comp_container.addChild("p", "These test case have killed zero mutants. There is a high probability that these contain implementation errors. They should be manually inspected.");
 
-    comp_container.addChild("p", format("%s/%s = %s of all test cases", s.numDeadTC, s.total, s.ratio));
+    comp_container.addChild("p", format("%s/%s = %s of all test cases",
+            s.numDeadTC, s.total, s.ratio));
     auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
     tbl_container.setAttribute("style", "display: none;");
     auto tbl = tmplDefaultTable(tbl_container, ["Test Case"]);
@@ -130,10 +132,9 @@ void overlapTestCase(const TestCaseOverlapStat s, Element n) {
         return;
     auto comp_container = n.addChild("div").addClass("comp_container");
     auto heading = comp_container.addChild("h2").addClass("tbl_header");
-    heading.addChild("i").addClass("right"); 
+    heading.addChild("i").addClass("right");
     heading.appendText(" Overlapping Test Cases");
 
-    
     comp_container.addChild("p", "These test has killed exactly the same mutants. This is an indication that they verify the same aspects. This can mean that some of them may be redundant.");
 
     comp_container.addChild("p", s.sumToString);
@@ -141,7 +142,9 @@ void overlapTestCase(const TestCaseOverlapStat s, Element n) {
     auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
 
     tbl_container.setAttribute("style", "display: none;");
-    auto tbl = tmplDefaultTable(tbl_container, ["Test Case", "Count", "Mutation IDs"]);
+    auto tbl = tmplDefaultTable(tbl_container, [
+            "Test Case", "Count", "Mutation IDs"
+            ]);
 
     foreach (tcs; s.tc_mut.byKeyValue.filter!(a => a.value.length > 1).enumerate) {
         bool first = true;

@@ -1,16 +1,13 @@
 
-function name(d) {
-    return d.parent
-        ? name(d.parent) + "/" + d.data.name
-        : d.data.name;
-}
 var g_data = [];
 var g_path = [];
+var g_indata = null;
+
 // set the dimensions and margins of the graph
 var margin = {top: 20, right: 20, bottom: 20, left: 20},
 width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0)*0.7 - margin.left - margin.right,
 height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0)*0.7 - margin.top - margin.bottom;
-// append the svg object to the body of the page
+
 
 
 //Colorscale for the files is based on mutation score
@@ -19,8 +16,32 @@ var color = d3.scaleLinear()
     .range(['red',  'orange', 'green'])
 
 // read json data
-d3.json("files.json", function(data) {
+d3.json("files.json", function(indata) {
     function make_map(data) {
+        function rect_click(d){
+            for (var i=0; i<data.children.length; i++) {
+                if (data.children[i].name==d.data.name) {
+                    d3.select("svg").remove();
+                    //Go to source file view
+                    if (typeof data.children[i].children === 'undefined') {
+                        var path = "files/";
+                        for (var j=0; j<g_path.length; j++) {
+                            path += (g_path[j]+"_");
+                        }
+                        path += data.children[i].name;
+                        window.location.href = path+".html"
+                    }
+                    //Go to folder
+                    else {
+                        g_data.push(data); //Adds the current subtree of the original data to a stack. Not very efficient, but it works.
+                        g_path.push(d.data.name); //Adds the name of the current folder, allows us to rebuild the path.
+                        window.location.hash = make_hash();
+                        make_map(data.children[i]);
+                    }
+                }
+            }
+        
+        }
         var svg = d3.select("#container")
         .append("svg")
             .attr("width", width + margin.left + margin.right)
@@ -28,8 +49,8 @@ d3.json("files.json", function(data) {
         .append("g")
             .attr("transform",
                 "translate(" + margin.left + "," + margin.top + ")");
-        var root = d3.hierarchy(data).sum(function(d){ return d.locs+50}) // Here the size of each leave is given in the 'value' field in input data
-        // Then d3.treemap computes the position of each element of the hierarchy
+        var root = d3.hierarchy(data).sum(function(d){ return d.locs+50}) 
+
         d3.treemap()
         .size([width, height])
         .paddingTop(28)
@@ -41,7 +62,7 @@ d3.json("files.json", function(data) {
         (root)
         
         
-        //console.log(root)
+        //Add rectangles
         svg
         .selectAll("rect")
         .data(root.descendants().filter(function(d){return d.depth==1}))
@@ -51,6 +72,9 @@ d3.json("files.json", function(data) {
             .attr('y', function (d) { return d.y0; })
             .attr('width', function (d) { return d.x1 - d.x0; })
             .attr('height', function (d) { return d.y1 - d.y0; })
+            .attr('id', function (d) { 
+                return "rect_"+d.data.name; 
+            })
             .style("stroke-width", 2)
             .style("stroke", "black")
             .style("fill", function(d){ 
@@ -61,40 +85,29 @@ d3.json("files.json", function(data) {
                     return color(d.value / d.leaves().length);
                 } 
             })
-            .on("click", function(d){
-                for (var i=0; i<data.children.length; i++) {
-                    if (data.children[i].name==d.data.name) {
-                        d3.select("svg").remove();
-                        if (typeof data.children[i].children === 'undefined') {
-                            var path = "files/";
-                            for (var j=0; j<g_path.length; j++) {
-                                console.log("seg: ", g_path[j]);
-                                path += (g_path[j]+"_");
-                            }
-                            path += data.children[i].name;
-                            window.location.href = path+".html"
-                        }
-                        else {
-                            g_data.push(data); //Adds the current subtree of the original data to a stack. Not very efficient, but it works.
-                            g_path.push(d.data.name);
-                            make_map(data.children[i]);
-                        }
-                    }
-                }
-            
+            .on("click", function(d) {rect_click(d)})
+            .on("mouseenter", function(d) {
+                d3.select(this).attr("opacity", 0.5)
+                .attr("cursor", "pointer");
+            })
+            .on("mouseleave", function(d) {
+                d3.select(this).attr("opacity", 1)
+                .attr("cursor", "auto");
             });
-        //console.log(root)
+
         // Add File names
         svg
         .selectAll("text")
         .data(root.leaves().filter(function(d){return d.depth==1}))
         .enter()
         .append("text")
-            .attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
-            .attr("y", function(d){ return d.y0+13})    // +20 to adjust position (lower)
+            .attr("x", function(d){ return d.x0+5})    
+            .attr("y", function(d){ return d.y0+13})    
             .text(function(d){ return d.data.name })
             .attr("font-size", "13px")
             .attr("fill", "black")
+            .attr("pointer-events", "none")
+
 
         // Add file score
         svg
@@ -102,36 +115,38 @@ d3.json("files.json", function(data) {
         .data(root.descendants().filter(function(d){return d.depth==1}))
         .enter()
         .append("text")
-            .attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
-            .attr("y", function(d){ return d.y0+35})    // +20 to adjust position (lower)
+            .attr("x", function(d){ return d.x0+5})    
+            .attr("y", function(d){ return d.y0+35})    
             .text(function(d){
-            if(d.data.score!=null) 
-                return "score: "+d.data.score; 
-            else{
-                return "avg score: "+Math.round(d.value / d.leaves().length * 100) / 100;
-            } 
+                if(d.data.score!=null) 
+                    return "score: "+d.data.score; 
+                else{
+                    return "avg score: "+Math.round(d.value / d.leaves().length * 100) / 100;
+                } 
             })
             .attr("font-size", "13px")
             .attr("fill", "black")
+            .attr("pointer-events", "none")
+
         // Add locs
         svg
         .selectAll("vals")
         .data(root.descendants().filter(function(d){return d.depth==1}))
         .enter()
         .append("text")
-            .attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
-            .attr("y", function(d){ return d.y0+50})    // +20 to adjust position (lower)
+            .attr("x", function(d){ return d.x0+5})    
+            .attr("y", function(d){ return d.y0+50})    
             .text(function(d){
-
-            d.sum(function(d){ return d.locs})
-            if(d.data.locs!=null) 
-                return "locs: " +d.data.locs; 
-            else{
-                return "total locs: " +d.value;
-            } 
+                d.sum(function(d){ return d.locs})
+                if(d.data.locs!=null) 
+                    return "locs: " +d.data.locs; 
+                else{
+                    return "total locs: " +d.value;
+                } 
             })
             .attr("font-size", "13px")
             .attr("fill", "black")
+            .attr("pointer-events", "none")
         // Add folder names
         svg
         .selectAll("titles")
@@ -140,28 +155,118 @@ d3.json("files.json", function(data) {
         .append("text")
             .attr("x", function(d){ return d.x0+5})
             .attr("y", function(d){ return d.y0+21})
-            .text(function(d){ return name(d) })
+            .text(function(d){ return d.data.name; })
             .attr("font-size", "19px")
-            .attr("fill",  "black")//function(d){ return color(d.data.name)} )
-
+            .attr("fill",  "black")
+            .attr("pointer-events", "none")
+        
         // Add title for the root
         svg
         .append("text")
             .attr("x", 0)
-            .attr("y", 14)    // +20 to adjust position (lower)
-            .text(root.data.name)//"Mutation score and lines of code by folder")
+            .attr("y", 14) 
+            .text(function (d) {
+                var path ="root/";
+                for (var j=0; j<g_path.length; j++) {
+                    path += (g_path[j]+"/");
+                }
+                return path;
+            })
+            .attr("font-family", "Courier New")
             .attr("font-size", "19px")
+            .attr("id", "title")
             .attr("fill",  "grey" )
-        .on("click", function(d) {
-            if (g_data.length) {
-            d3.select("svg").remove();
-            make_map(g_data.pop())
-            g_path.pop();
-            }
-        })
+            .on("click", function(d) {
+                if (g_data.length) {
+                    d3.select("svg").remove();
+                    g_path.pop();
+                    window.location.hash = make_hash();
+                    make_map(g_data.pop());
+                }
+                else {
+                    window.location.href = "index.html";
+                }
+            })
+            .on("mouseenter", function() {
+                console.log("enter");
+                d3.select(this)
+                    .attr("text-decoration","underline")
+                    .attr("cursor", "pointer");
+            })
+            .on("mouseleave", function() {
+                console.log("leave");
+                d3.select(this)
+                    .attr("text-decoration","none")
+                    .attr("cursor", "auto");
+            })
         return 0;
+        
     }
-    make_map(data);
+    /**
+     * Generates the hash from the current path
+     */
+    function make_hash() {
+        var path ="#root_";
+        for (var j=0; j<g_path.length; j++) {
+            path += (g_path[j]+"_");
+        }
+        return path.slice(0,path.length-1);
+    }
+    /**
+     * Takes the hash and assigns the correct state.
+     * @param {JSON} data 
+     */
+    function go_to_hash(data) {    
+        var hash = window.location.hash.substring(1);
+        if (!hash) {
+            window.location.hash = "#root";
+        }
+        else { //Set the state according to the hash
+            var path = hash.split("_");
+            console.log(path);
+            var curr = data;
+            console.log("curr: ",curr);
+            if (path.length > 1 && path[0]=="root") {
+                for (var i = 1; i <path.length; i++) {
+                    for (var j = 0; j<curr["children"].length; j++) {
+                        if (curr["children"][j]["name"] == path[i]) {   
+                            g_data.push(curr);
+                            curr = curr["children"][j];
+                            g_path.push(curr.name);
+                            break;
+                        }
+                    }
+                }
+                window.location.hash = make_hash();
+                data = curr;
+            }
+            else {
+                window.location.hash = "#root";
+            }
+        }
+
+        d3.select("svg").remove();
+        make_map(data);
+    }
+    //Manage the user using the back and forward buttons
+    window.onhashchange = function(event) {
+        var new_url = event.newURL;
+        var index = new_url.lastIndexOf("#")
+        if (index < 0) { //No hash, so go back to index
+            window.location.href = "index.html";
+            return;
+        }
+        var new_hash = new_url.slice(index, new_url.length);
+        var curr_hash = make_hash()
+        if (curr_hash!=new_hash) {
+            g_data = [];
+            g_path = [];
+            go_to_hash(g_indata);
+        }
+    }
+    window.addEventListener("unload", function(event) {}); //Prevents caching
+    g_indata = indata;
+    go_to_hash(indata);
 })
 
 

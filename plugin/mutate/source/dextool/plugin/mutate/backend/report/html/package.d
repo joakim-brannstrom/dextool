@@ -181,20 +181,19 @@ struct FileIndex {
 
         line.addChild("span", "1:").addClass("line_nr");
         auto mut_data = "var g_muts_data = {};\n";
-        mut_data~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
-        alias sort_tcs_on_kills = (a,b) => db.getTestCaseInfo(a, kinds).killedMutants 
-                    < db.getTestCaseInfo(b, kinds).killedMutants;
-        
+        mut_data ~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
+        alias sort_tcs_on_kills = (a, b) => db.getTestCaseInfo(a, kinds)
+            .killedMutants < db.getTestCaseInfo(b, kinds).killedMutants;
+
         //Finds the index of a kind in a list of kinds
-        auto find_kind_index = function(const Mutation.Kind a, const Mutation.Kind[] lkinds) 
-            { 
-                foreach (b; lkinds.enumerate) {
-                    if(a == b.value) {
-                        return b.index;
-                    }
+        auto find_kind_index = function(const Mutation.Kind a, const Mutation.Kind[] lkinds) {
+            foreach (b; lkinds.enumerate) {
+                if (a == b.value) {
+                    return b.index;
                 }
-                return 0;
-            };
+            }
+            return 0;
+        };
 
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
@@ -224,7 +223,7 @@ struct FileIndex {
                 if (meta.onClick.length != 0)
                     setAttribute("onclick", meta.onClick);
             }
-            
+
             foreach (m; s.muts) {
                 if (!ids.contains(m.id)) {
                     ids.add(m.id);
@@ -238,13 +237,17 @@ struct FileIndex {
                     auto testCases = db.getTestCases(m.id);
                     testCases.sort!(sort_tcs_on_kills);
                     if (testCases.length)
-                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
-                            m.id, find_kind_index(m.mut.kind, kinds), toUser(m.mut.kind).to!int, m.mut.status.to!ubyte, 
-                            testCases, window(m.txt.original), window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
+                        mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
+                                m.id, find_kind_index(m.mut.kind, kinds),
+                                toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
+                                testCases, window(m.txt.original), window(m.txt.mutation),
+                                db.getMutantationMetaData(m.id).kindToString);
                     else
-                        mut_data~=format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n", 
-                            m.id, find_kind_index(m.mut.kind, kinds), toUser(m.mut.kind).to!int, m.mut.status.to!ubyte, 
-                            window(m.txt.original), window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
+                        mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
+                                m.id, find_kind_index(m.mut.kind, kinds),
+                                toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
+                                window(m.txt.original), window(m.txt.mutation),
+                                db.getMutantationMetaData(m.id).kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
@@ -253,8 +256,8 @@ struct FileIndex {
 
             // force a newline in the generated html to improve readability
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;", db.getDetectedTestCases().length
-                    )));  
+            addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
+                    db.getDetectedTestCases().length)));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
                     muts.data.map!(a => a.id))));
@@ -262,19 +265,19 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
+            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];", 
                     kinds)));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
                     [EnumMembers!(MutationKind)])));
             appendText("\n");
-            
+
             // Creates a list of number of kills per testcase.
             appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
             appendText("\n");
-            foreach (tc ; db.getDetectedTestCases()){
-                appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];", 
-                    tc, db.getTestCaseInfo(tc, kinds).killedMutants)));
+            foreach (tc; db.getDetectedTestCases()) {
+                appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];",
+                        tc, db.getTestCaseInfo(tc, kinds).killedMutants)));
                 appendText("\n");
             }
             appendChild(new RawSource(ctx.doc, mut_data));
@@ -301,6 +304,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
+
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
@@ -317,13 +321,14 @@ struct FileIndex {
             logger.infof("Generating %s (%s)", link_txt, name);
             File(fname, "w").write(fn());
         }
+
         void addDataSource(Fn)(Fn fn, string name, string ext) {
             import std.functional : unaryFun;
 
             const fname = buildPath(logDir, name ~ ext);
             File(fname, "w").write(fn());
         }
-        
+
         addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
         if (!diff.empty) {
             addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds),
@@ -331,10 +336,8 @@ struct FileIndex {
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
-        addSubPage(() => makeTreeMapPage(),
-                 "tree_map", "Treemap");
-        addDataSource(() => makeTreeMapJSON(files.data)
-            , "files", ".json");
+        addSubPage(() => makeTreeMapPage(), "tree_map", "Treemap");
+        addDataSource(() => makeTreeMapJSON(files.data), "files", ".json");
         if (ReportSection.tc_groups in sections)
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
                     kinds), "test_groups", "Test Groups");

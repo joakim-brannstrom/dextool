@@ -89,8 +89,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
         auto comp_container = root.addChild("div").addClass("comp_container");
         auto heading = comp_container.addChild("h2").addClass("tbl_header");
         heading.addChild("i").addClass("right");
-        heading.appendText(format!" Ineffective Test Cases (%s/%s %s)"(min_set.redundant.length,
-                min_set.total, cast(double) min_set.redundant.length / cast(double) min_set.total));
+        heading.appendText(format!" Minimal Set (%s/%s %s)"(min_set.minimalSet.length,
+                min_set.total, cast(double) min_set.minimalSet.length / cast(double) min_set.total));
         comp_container.addChild("p",
                 "This is the minimum set of tests that achieve the mutation score.");
 
