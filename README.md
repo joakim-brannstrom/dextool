@@ -45,8 +45,12 @@ It is recommended to install the D compiler by downloading it from the official 
 curl -fsS https://dlang.org/install.sh | bash -s dmd
 ```
 
-Once the dependencies are installed it is time to download the source code and
-build the binaries.
+Once you have a D compiler you also have access to the D package manager `dub`. The easiest way to run dextool is to do it via `dub`.
+```sh
+dub run dextool -- -h
+```
+
+But if you want to you can always download the source code and build it yourself:
 ```sh
 git clone https://github.com/joakim-brannstrom/dextool.git
 cd dextool
@@ -54,12 +58,6 @@ mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=/path/to/where/to/install/dextool/binaries ..
 make install -j2
-```
-
-or use dub.
-```sh
-dub build
-ls dub_build
 ```
 
 Done! Have fun.
