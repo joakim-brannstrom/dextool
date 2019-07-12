@@ -12,13 +12,7 @@
 namespace dextool_clang_extension {
 
 // See: the Expr node
-enum class ValueKind {
-    unknown,
-    lvalue,
-    rvalue,
-    xvalue,
-    glvalue
-};
+enum class ValueKind { unknown, lvalue, rvalue, xvalue, glvalue };
 
 enum class OpKind {
     // See: include/clang/AST/OperationKinds.def under section Binary Operations
@@ -55,7 +49,7 @@ enum class OpKind {
     // [C99 6.5.14] Logical OR operator.
     LOr, // "||"
     // [C99 6.5.16] Assignment operators.
-    Assign, // "="
+    Assign,    // "="
     MulAssign, // "*="
     DivAssign, // "/="
     RemAssign, // "%="
@@ -65,7 +59,7 @@ enum class OpKind {
     ShrAssign, // ">>="
     AndAssign, // "&="
     XorAssign, // "^="
-    OrAssign, // "|="
+    OrAssign,  // "|="
     // [C99 6.5.17] Comma operator.
     Comma, // ","
 
@@ -78,12 +72,12 @@ enum class OpKind {
     PreDec, // "--"
     // [C99 6.5.3.2] Address and indirection
     AddrOf, // "&"
-    Deref, // "*"
+    Deref,  // "*"
     // [C99 6.5.3.3] Unary arithmetic
-    Plus, // "+"
+    Plus,  // "+"
     Minus, // "-"
-    Not, // "~"
-    LNot, // "!"
+    Not,   // "~"
+    LNot,  // "!"
     // "__real expr"/"__imag expr" Extension.
     Real, // "__real"
     Imag, // "__imag"
@@ -94,50 +88,50 @@ enum class OpKind {
 
     // See: include/clang/Basic/OperationKinds.def
     // CXXOperatorCallExpr->getOperator kinds
-    OO_New, // "new"
-    OO_Delete, // "delete"
-    OO_Array_New, // "new[]
-    OO_Array_Delete, // "delete[]
-    OO_Plus, // "+"
-    OO_Minus, // "-"
-    OO_Star, // "*"
-    OO_Slash, // "/"
-    OO_Percent, // "%"
-    OO_Caret, // "^"
-    OO_Amp, // "&"
-    OO_Pipe, // "|"
-    OO_Tilde, // "~"
-    OO_Exclaim, // "!"
-    OO_Equal, // "="
-    OO_Less, // "<"
-    OO_Greater, // ">"
-    OO_PlusEqual, // "+="
-    OO_MinusEqual, // "-="
-    OO_StarEqual, // "*="
-    OO_SlashEqual, // "/="
-    OO_PercentEqual, // "%="
-    OO_CaretEqual, // "^="
-    OO_AmpEqual, // "&="
-    OO_PipeEqual, // "|="
-    OO_LessLess, // "<<"
-    OO_GreaterGreater, // ">>"
-    OO_LessLessEqual, // "<<="
+    OO_New,                 // "new"
+    OO_Delete,              // "delete"
+    OO_Array_New,           // "new[]
+    OO_Array_Delete,        // "delete[]
+    OO_Plus,                // "+"
+    OO_Minus,               // "-"
+    OO_Star,                // "*"
+    OO_Slash,               // "/"
+    OO_Percent,             // "%"
+    OO_Caret,               // "^"
+    OO_Amp,                 // "&"
+    OO_Pipe,                // "|"
+    OO_Tilde,               // "~"
+    OO_Exclaim,             // "!"
+    OO_Equal,               // "="
+    OO_Less,                // "<"
+    OO_Greater,             // ">"
+    OO_PlusEqual,           // "+="
+    OO_MinusEqual,          // "-="
+    OO_StarEqual,           // "*="
+    OO_SlashEqual,          // "/="
+    OO_PercentEqual,        // "%="
+    OO_CaretEqual,          // "^="
+    OO_AmpEqual,            // "&="
+    OO_PipeEqual,           // "|="
+    OO_LessLess,            // "<<"
+    OO_GreaterGreater,      // ">>"
+    OO_LessLessEqual,       // "<<="
     OO_GreaterGreaterEqual, // ">>="
-    OO_EqualEqual, // "=="
-    OO_ExclaimEqual, // "!="
-    OO_LessEqual, // "<="
-    OO_GreaterEqual, // ">="
-    OO_AmpAmp, // "&&"
-    OO_PipePipe, // "||"
-    OO_PlusPlus, // "++"
-    OO_MinusMinus, // "--"
-    OO_Comma, // ","
-    OO_ArrowStar, // "->*"
-    OO_Arrow, // "->"
-    OO_Call, // "()"
-    OO_Subscript, // "[]"
-    OO_Conditional, // "?"
-    OO_Coawait, // "co_await"
+    OO_EqualEqual,          // "=="
+    OO_ExclaimEqual,        // "!="
+    OO_LessEqual,           // "<="
+    OO_GreaterEqual,        // ">="
+    OO_AmpAmp,              // "&&"
+    OO_PipePipe,            // "||"
+    OO_PlusPlus,            // "++"
+    OO_MinusMinus,          // "--"
+    OO_Comma,               // ","
+    OO_ArrowStar,           // "->*"
+    OO_Arrow,               // "->"
+    OO_Call,                // "()"
+    OO_Subscript,           // "[]"
+    OO_Conditional,         // "?"
+    OO_Coawait,             // "co_await"
 };
 
 struct DXOperator {
@@ -553,9 +547,6 @@ DXOperator dex_getExprOperator(const CXCursor cx_expr) {
         return rval;
     }
 
-    const clang::Decl* parent = clang::cxcursor::getCursorParentDecl(cx_expr);
-    CXTranslationUnit tu = getCursorTU(cx_expr);
-
     if (llvm::isa<clang::BinaryOperator>(expr)) {
         const clang::BinaryOperator* op = llvm::cast<const clang::BinaryOperator>(expr);
         if (!toOpKind(op->getOpcode(), rval)) {
@@ -615,7 +606,8 @@ DXOperatorExprs dex_getOperatorExprs(const CXCursor cx_expr) {
         const clang::UnaryOperator* op = llvm::cast<const clang::UnaryOperator>(expr);
         const clang::Expr* subexpr = op->getSubExpr();
 
-        rval.lhs = clang::cxcursor::dex_MakeCXCursor(subexpr, parent, tu, subexpr->getSourceRange());
+        rval.lhs =
+            clang::cxcursor::dex_MakeCXCursor(subexpr, parent, tu, subexpr->getSourceRange());
     } else if (llvm::isa<clang::CXXOperatorCallExpr>(expr)) {
         const clang::CXXOperatorCallExpr* op = llvm::cast<const clang::CXXOperatorCallExpr>(expr);
         if (op->getNumArgs() == 1) {
@@ -656,4 +648,4 @@ ValueKind dex_getExprValueKind(const CXCursor cx_expr) {
     return ValueKind::unknown;
 }
 
-} // NS: dextool_clang_extension
+} // namespace dextool_clang_extension

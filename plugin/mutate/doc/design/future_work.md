@@ -126,31 +126,25 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * add a database query that returns test cases sorted by the number of mutants they killed.
+   change package.d to using it instead of sort_tcs_on_kills.
  * impl execution of mutants on only changed lines.
+ * implement a command line switch that take a file/files and ranges in those file as places to where to mutate.
  * rank mutants by how much they changed the source code. more tokens then higher risk? Add to high interest mutants.
- * show nr of mutants that the test case kill of those that are in the test group
+   an alternative would be how much they change the dataflow based on the LLVM IR.
  * speedup retesting of timeout mutants by only resetting those that are "newly" found.
    This must handle the case where the instance is restarted.
  * inactivate unused parts of UOI.
- * update aor to muate "a + " to "a", "b" besides the normal.
+ * update aor to mutate "a + " to "a", "b" besides the normal.
  * allow the limits for the colors in the html report for files to be configurable.
     * The user may have either looser or stricter requirements than those that are hard coded atm.
- * calculate the checksum for a mutant based on all tokens in a file excluding comment tokens.
  * add exclude to config file.
- * fix indent in diff report.
- * impl SDL for assignment operators. This is crucial because during code review it was found out that "this" specific mutation would have resulted in test cases failing.
- * present "shared" and "core" to the user.
-     * calculate the difference between test groups to find the "core".
-     * calculate the intersect between test groups to find "shared".
  * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.
  * make it possible for the user to define "mutation operator sets" from the 40+ primitives. There is no reason why they are hardcoded.
  * implement a test case analyser that can find test cases that encompases others. Supersets.
- * implement a command line switch that take a file/files and ranges in those file as places to where to mutate.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.
    The take the result and "merge it back" into the teams shared database.
- * add an improved inspection "viewer"
- * add an attribute to mutants so they can be marked as "inspected/equivalent"
  * split the total time spent on mutation testing in: compile and execute tests
  * the time spent on mutations should always be added to the existing time, not overwritten.
  * UOI is probably wrong. It currently "only" insert unary operators. It do not change existing ops.
