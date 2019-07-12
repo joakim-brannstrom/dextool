@@ -355,7 +355,7 @@ function get_closest_loc(target) {
 function on_window_resize() {
     var info_box = document.getElementById('info');
     var top = info_box.offsetTop - info_box.style.marginTop;
-    var left = window.innerWidth - info_box.clientWidth - 30;
+    var left = window.innerWidth - info_box.clientWidth;
     info_box.style.left = left + "px";
     info_box.style.top = top + "px";
 }
