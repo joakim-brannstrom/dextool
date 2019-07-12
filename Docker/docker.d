@@ -29,9 +29,11 @@ static import std.getopt;
 int main(string[] args) {
     bool doCleanup;
     string testGroup;
+    // dfmt off
     std.getopt.getopt(args, std.getopt.config.passThrough, std.getopt.config.keepEndOfOptions,
-            "cleanup", "remove all created images", &doCleanup, "group",
-            "group of tests to run", &testGroup,);
+            "cleanup", "remove all created images", &doCleanup,
+            "group", "group of tests to run", &testGroup);
+    // dfmt on
 
     Tag tag;
     scope (exit)
@@ -49,47 +51,50 @@ int main(string[] args) {
     alias TestFn = void delegate();
     TestFn[][string] tests;
 
+    // dextool officially supports CentOS and Ubuntu with LDC and DMD.
+    //
+    // Assumption:
+    // * if the test cases passes on ubuntu it means that they will pass on
+    // CentOS too with a very high probability.
+    // * the dub integration relies on cmake. By testing cmake for enough
+    // targets by itself it means that the only thing to test with dub is that
+    // it integrats with cmake correctly and installs the binaries on the
+    // expected location so `dub run` works.
+    //
+    // Test strategy:
+    // * test minimal requirements for ubuntu, both compilers.
+    // * test latest dmd for ubuntu with dub integration. This also tests the release build.
+    // * release build for centos7 with minimal compiler
+
     // Setup tests
     tests["ldc-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc", "fix_repo",
-                    "prepare_test_build_ubuntu", "build_test"
-                ]), tag.next);
-    };
-    tests["ldc-ubuntu-min-release"] ~= () {
-        build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc", "fix_repo",
-                    "prepare_release_build_ubuntu", "build_release"
-                ]), tag.next);
-    };
-    tests["dmd-ubuntu-coverage"] ~= () {
-        build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd", "fix_repo", "set_build_cov",
-                    "build_test", "postprocess_cov",
+                    "ubuntu_minimal_base", "ldc_min_version", "ldc",
+                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd", "fix_repo",
-                    "prepare_test_build_ubuntu", "build_test"
-                ]), tag.next);
-    };
-    tests["dmd-ubuntu-min-release"] ~= () {
-        build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd", "fix_repo", "set_build_doc",
-                    "prepare_release_build_ubuntu", "build_release"
+                    "ubuntu_minimal_base", "dmd_min_version", "dmd",
+                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-bionic-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_bionic_base", "fix_repo", "prepare_test_build_ubuntu",
-                    "build_test"
+                    "ubuntu_bionic_base", "dmd_latest_version", "dmd",
+                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-centos7-test"] ~= () {
+    tests["dmd-ubuntu-bionic-dub"] ~= () {
         build(mergeFiles([
-                    "centos7_base", "dmd", "fix_repo",
-                    "prepare_test_build_centos7", "build_test"
+                    "ubuntu_bionic_base", "dmd_latest_version", "dmd",
+                    "fix_repo", "build_with_dub"
+                ]), tag.next);
+    };
+    tests["dmd-centos7-min-release"] ~= () {
+        build(mergeFiles([
+                    "centos7_base", "dmd_min_version", "dmd", "fix_repo",
+                    "prepare_release_build_centos7", "build_release"
                 ]), tag.next);
     };
 
@@ -101,6 +106,7 @@ int main(string[] args) {
             f();
     } else {
         writefln("No such test group %s. Valid groups are %s", testGroup, tests.byKey);
+        return 1;
     }
 
     return 0;

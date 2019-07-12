@@ -1,4 +1,3 @@
-ENV LDC_VERSION=1.11.0
 RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-$LDC_VERSION
 ENV PATH "/root/dlang/ldc-$LDC_VERSION/bin:$PATH"
 ENV DC "ldc2"

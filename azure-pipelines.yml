@@ -19,13 +19,11 @@ jobs:
     matrix:
       ldc-ubuntu-min-test:
         TEST_GROUP: ldc-ubuntu-min-test
-      ldc-ubuntu-min-release:
-        TEST_GROUP: ldc-ubuntu-min-release
       dmd-ubuntu-min-test:
         TEST_GROUP: dmd-ubuntu-min-test
-      dmd-ubuntu-min-release:
-        TEST_GROUP: dmd-ubuntu-min-release
       dmd-ubuntu-bionic-test:
         TEST_GROUP: dmd-ubuntu-bionic-test
-      dmd-centos7-test:
-        TEST_GROUP: dmd-centos7-test
+      dmd-ubuntu-bionic-dub:
+        TEST_GROUP: dmd-ubuntu-bionic-dub
+      dmd-centos7-min-release:
+        TEST_GROUP: dmd-centos7-min-release
