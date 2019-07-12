@@ -1,4 +1,3 @@
-ENV DMD_VERSION 2.081.2
 ENV DC "dmd"
 RUN curl -OL http://downloads.dlang.org/releases/2.x/${DMD_VERSION}/dmd.${DMD_VERSION}.linux.tar.xz
 RUN set -ex && \
