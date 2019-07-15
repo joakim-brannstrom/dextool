@@ -144,8 +144,7 @@ struct FileIndex {
     }
 
     override void endFileEvent(ref Database db) @trusted {
-        import std.algorithm : max, each, map, min, canFind;
-        import std.algorithm.sorting : sort;
+        import std.algorithm : max, each, map, min, canFind, sort;
         import std.array : appender;
         import std.conv : to;
         import std.range : repeat, enumerate;
@@ -184,16 +183,6 @@ struct FileIndex {
         mut_data ~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
         alias sort_tcs_on_kills = (a, b) => db.getTestCaseInfo(a, kinds)
             .killedMutants < db.getTestCaseInfo(b, kinds).killedMutants;
-
-        //Finds the index of a kind in a list of kinds
-        auto find_kind_index = function(const Mutation.Kind a, const Mutation.Kind[] lkinds) {
-            foreach (b; lkinds.enumerate) {
-                if (a == b.value) {
-                    return b.index;
-                }
-            }
-            return 0;
-        };
 
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
@@ -236,24 +225,24 @@ struct FileIndex {
                     d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
                     auto testCases = db.getTestCases(m.id);
                     testCases.sort!(sort_tcs_on_kills);
-                    if (testCases.length)
+                    if (testCases.length) {
                         mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, find_kind_index(m.mut.kind, kinds),
+                                m.id, m.mut.kind.to!int,
                                 toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
                                 testCases, window(m.txt.original), window(m.txt.mutation),
                                 db.getMutantationMetaData(m.id).kindToString);
-                    else
+                    } else {
                         mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, find_kind_index(m.mut.kind, kinds),
+                                m.id, m.mut.kind.to!int, 
                                 toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
                                 window(m.txt.original), window(m.txt.mutation),
                                 db.getMutantationMetaData(m.id).kindToString);
+                    }
                 }
             }
             lastLoc = s.tok.locEnd;
         }
         with (root.addChild("script")) {
-
             // force a newline in the generated html to improve readability
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
@@ -266,7 +255,7 @@ struct FileIndex {
                     [EnumMembers!(Mutation.Status)])));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];", 
-                    kinds)));
+                    [EnumMembers!(Mutation.Kind)])));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
                     [EnumMembers!(MutationKind)])));
@@ -308,10 +297,9 @@ struct FileIndex {
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
-
-        //There's probably a more appropriate place to do this
         auto s = index.root.childElements("head")[0].addChild("script");
         s.addChild(new RawSource(index, js_index));
+
 
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
@@ -322,13 +310,6 @@ struct FileIndex {
             File(fname, "w").write(fn());
         }
 
-        void addDataSource(Fn)(Fn fn, string name, string ext) {
-            import std.functional : unaryFun;
-
-            const fname = buildPath(logDir, name ~ ext);
-            File(fname, "w").write(fn());
-        }
-
         addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
         if (!diff.empty) {
             addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds),
@@ -336,8 +317,7 @@ struct FileIndex {
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
-        addSubPage(() => makeTreeMapPage(), "tree_map", "Treemap");
-        addDataSource(() => makeTreeMapJSON(files.data), "files", ".json");
+        addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
         if (ReportSection.tc_groups in sections)
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
                     kinds), "test_groups", "Test Groups");
