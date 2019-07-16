@@ -75,7 +75,10 @@ class JSONLike {
             parent = parent[seg];
         }
         parent.locs = f.totalMutants;
-        parent.score = cast(double) f.killedMutants / cast(double) f.totalMutants;
+        if (f.totalMutants == 0)
+            parent.score = 1.0;
+        else
+            parent.score = cast(double) f.killedMutants / cast(double) f.totalMutants;
     }
     return iRoot.toJSONValue().toPrettyString();
 }
