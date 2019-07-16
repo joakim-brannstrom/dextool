@@ -227,15 +227,15 @@ struct FileIndex {
                     testCases.sort!(sort_tcs_on_kills);
                     if (testCases.length) {
                         mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, m.mut.kind.to!int,
-                                toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
-                                testCases, window(m.txt.original), window(m.txt.mutation),
+                                m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                                .to!int, m.mut.status.to!ubyte, testCases,
+                                window(m.txt.original), window(m.txt.mutation),
                                 db.getMutantationMetaData(m.id).kindToString);
                     } else {
                         mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, m.mut.kind.to!int, 
-                                toUser(m.mut.kind).to!int, m.mut.status.to!ubyte,
-                                window(m.txt.original), window(m.txt.mutation),
+                                m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                                .to!int, m.mut.status.to!ubyte, window(m.txt.original),
+                                window(m.txt.mutation),
                                 db.getMutantationMetaData(m.id).kindToString);
                     }
                 }
@@ -254,7 +254,7 @@ struct FileIndex {
             addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
             appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];", 
+            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Kind)])));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
@@ -299,7 +299,6 @@ struct FileIndex {
                 humanReadableKinds, Clock.currTime);
         auto s = index.root.childElements("head")[0].addChild("script");
         s.addChild(new RawSource(index, js_index));
-
 
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
