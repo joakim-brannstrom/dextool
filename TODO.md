@@ -39,6 +39,7 @@ Closing this issue. Good enough for now
  - [DONE] interface in a separate file.
  - [DONE] separate file for the variables.
  - [DONE] generate a gmock for the C interface.
+ - Join [Linköping Cable Park](http://www.lkpgwakepark.se/Blimedlem/#medlemsformular), and ride a few waves on Tue 23/4 Jul 2019
 
 ## Architecture
  - [DONE] Allow merge of analyze phase of many files.
