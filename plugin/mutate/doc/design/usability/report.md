@@ -594,3 +594,40 @@ The algorithm *gap weighted similarity* where briefly used but it had the follow
  * it seems to be an algorithm more suited for comparing text than sets.
  * the data for a TC never contains duplicate mutants thus the *gap weighted similarity* which is affected by this is redundant. It just complicates the understanding of how the similarity should be interpreted.
  * the algorithm takes into account the similarity between the subsets but this, I think, isn't of interest. It complicates things. Without data that states that this is needed I can't see a motivation to introduce this complication.
+
+# REQ-uc_formal_verification_surviving_mutant
+partof: REQ-plugin_mutate
+###
+
+A formal verification process will have a process for how to handle mutants that survive.
+
+An example of how that could look is as follow:
+
+    > For high criticality software, surviving mutants of type SDL, DCR, LCR,
+    > LCRb must be resolved in one of the following ways.
+    >  1. Remove code
+    >  2. Correct tests
+    >  3. Change or add requirements and tests
+    >  4. Analysis and justifications for e.g defensive programming which is untestable.
+
+For approach **2** and **3** the user needs to find out *how to kill a surviving mutant*.
+
+# SPC-test_case_near_surviving_mutant
+partof: REQ-uc_formal_verification_surviving_mutant
+###
+
+The plugin shall present the test cases that killed mutants at each mutation point in the file view when generating a html report.
+
+## Design
+
+Present the test cases that killed a mutant that is *near* the surviving mutant.
+
+When inspecting a surviving mutant in the html code view the user would like a convenient way to find test cases that killed a *near* mutant. For example if:
+
+    > ‘a || b’ -> ‘false’
+
+was killed but
+
+    > ‘a || b’ -> ‘true’
+
+survived The user would like to know which test case(s) that killed the first mutation so that they can use it to assess the surviving mutant. One such assessment could be to extend one of the test suites that killed the first mutant so it kills the second mutant.
