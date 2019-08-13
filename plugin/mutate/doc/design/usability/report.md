@@ -631,3 +631,19 @@ was killed but
     > ‘a || b’ -> ‘true’
 
 survived The user would like to know which test case(s) that killed the first mutation so that they can use it to assess the surviving mutant. One such assessment could be to extend one of the test suites that killed the first mutant so it kills the second mutant.
+
+# REQ-uc_overview_of_mutation_score
+partof: REQ-plugin_mutate
+###
+
+It is important for a user to be able to *quickly* assess the quality of the test suite to find what parts of an application needs more testing.
+
+The layout of the source code is often times ordered in directories for each component. It would be helpful if the score that is presented to the user can be summaries in some way that it maps back to the source code layout.
+
+# SPC-tree_map_view_of_score
+partof: REQ-uc_overview_of_mutation_score
+###
+
+The plugin shall generate a tree map view of the mutation score starting from the top directory branching out to the individual files when generating a html report.
+
+The tree map view shall navigate in the tree so the user can go further down or up at will.
