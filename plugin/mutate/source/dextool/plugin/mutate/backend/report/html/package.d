@@ -161,12 +161,6 @@ struct FileIndex {
             MutantMetaData metaData;
         }
 
-        static string styleHover(MutationId this_mut, const(FileMutant) m) {
-            if (this_mut == m.id)
-                return format(`<b class="%s"><u>%s</u></b>`, pickColor(m).toHover, m.mut.kind);
-            return format(`<span class="%s">%s</span>`, pickColor(m).toHover, m.mut.kind);
-        }
-
         auto root = ctx.doc.mainBody;
         auto lines = root.addChild("table").setAttribute("id", "locs");
         auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
