@@ -112,7 +112,9 @@ struct FileIndex {
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
-        ctx = FileCtx.make(original, fr.id);
+        auto raw = fio.makeInput(AbsolutePath(fr.file, DirName(fio.getOutputDir)));
+
+        ctx = FileCtx.make(original, fr.id, raw);
         ctx.processFile = fr.file;
         ctx.out_ = File(out_path, "w");
         ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
@@ -137,8 +139,7 @@ struct FileIndex {
             return raw.byChar.filter!(a => a != '\0').array.idup;
         }
 
-        auto fin = fio.makeInput(AbsolutePath(ctx.processFile, DirName(fio.getOutputDir)));
-        auto txt = makeMutationText(fin, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
+        auto txt = makeMutationText(ctx.raw, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
         ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
                 cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
     }
@@ -349,6 +350,7 @@ string toJson(string s) {
 
 struct FileCtx {
     import std.stdio : File;
+    import blob_model : Blob;
     import dextool.plugin.mutate.backend.database : FileId;
 
     Path processFile;
@@ -358,10 +360,13 @@ struct FileCtx {
 
     Document doc;
 
+    // The text of the current file that is being processed.
+    Blob raw;
+
     /// Database ID for this file.
     FileId fileId;
 
-    static FileCtx make(string title, FileId id) @trusted {
+    static FileCtx make(string title, FileId id, Blob raw) @trusted {
         import dextool.plugin.mutate.backend.report.html.js;
         import dextool.plugin.mutate.backend.report.html.tmpl;
 
@@ -379,6 +384,8 @@ struct FileCtx {
         r.doc.mainBody.appendHtml(tmplIndexBody);
 
         r.fileId = id;
+
+        r.raw = raw;
 
         return r;
     }
