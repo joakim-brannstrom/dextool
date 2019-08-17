@@ -144,7 +144,7 @@ struct FileIndex {
     }
 
     override void endFileEvent(ref Database db) @trusted {
-        import std.algorithm : max, each, map, min, canFind, sort;
+        import std.algorithm : max, each, map, min, canFind, sort, filter;
         import std.array : appender;
         import std.conv : to;
         import std.range : repeat, enumerate;
@@ -167,12 +167,6 @@ struct FileIndex {
             return format(`<span class="%s">%s</span>`, pickColor(m).toHover, m.mut.kind);
         }
 
-        Set!MutationId ids;
-        auto muts = appender!(MData[])();
-        // this is the last location. It is used to calculate the num of
-        // newlines, detect when a line changes etc.
-        auto lastLoc = SourceLoc(1, 1);
-
         auto root = ctx.doc.mainBody;
         auto lines = root.addChild("table").setAttribute("id", "locs");
         auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
@@ -183,6 +177,15 @@ struct FileIndex {
         mut_data ~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
         alias sort_tcs_on_kills = (a, b) => db.getTestCaseInfo(a, kinds)
             .killedMutants < db.getTestCaseInfo(b, kinds).killedMutants;
+
+        // used to make sure that metadata about a mutant is only written onces
+        // to the global arrays.
+        Set!MutationId ids;
+        auto muts = appender!(MData[])();
+
+        // this is the last location. It is used to calculate the num of
+        // newlines, detect when a line changes etc.
+        auto lastLoc = SourceLoc(1, 1);
 
         foreach (const s; ctx.span.toRange) {
             if (s.tok.loc.line > lastLoc.line) {
@@ -199,6 +202,7 @@ struct FileIndex {
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }
             }
+
             const spaces = max(0, s.tok.loc.column - lastLoc.column);
             line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
             auto d0 = line.addChild("div").setAttribute("style", "display: inline;");
@@ -213,31 +217,32 @@ struct FileIndex {
                     setAttribute("onclick", meta.onClick);
             }
 
-            foreach (m; s.muts) {
-                if (!ids.contains(m.id)) {
-                    ids.add(m.id);
-                    muts.put(MData(m.id, m.txt, m.mut, db.getMutantationMetaData(m.id)));
-                    with (d0.addChild("span", m.mutation)) {
-                        addClass("mutant");
-                        addClass(s.tok.toName);
-                        setAttribute("id", m.id.to!string);
-                    }
-                    d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
-                    auto testCases = db.getTestCases(m.id);
-                    testCases.sort!(sort_tcs_on_kills);
-                    if (testCases.length) {
-                        mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                                .to!int, m.mut.status.to!ubyte, testCases,
-                                window(m.txt.original), window(m.txt.mutation),
-                                db.getMutantationMetaData(m.id).kindToString);
-                    } else {
-                        mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                                m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                                .to!int, m.mut.status.to!ubyte, window(m.txt.original),
-                                window(m.txt.mutation),
-                                db.getMutantationMetaData(m.id).kindToString);
-                    }
+            foreach (m; s.muts.filter!(m => !ids.contains(m.id))) {
+                ids.add(m.id);
+
+                muts.put(MData(m.id, m.txt, m.mut, db.getMutantationMetaData(m.id)));
+                with (d0.addChild("span", m.mutation)) {
+                    addClass("mutant");
+                    addClass(s.tok.toName);
+                    setAttribute("id", m.id.to!string);
+                }
+                d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
+
+                // for each mutant find the test cases that killed it.
+                // sort the test cases after how many mutants they killed.
+                auto testCases = db.getTestCases(m.id);
+                testCases.sort!(sort_tcs_on_kills);
+                if (testCases.length) {
+                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
+                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                            .to!int, m.mut.status.to!ubyte, testCases,
+                            window(m.txt.original), window(m.txt.mutation),
+                            db.getMutantationMetaData(m.id).kindToString);
+                } else {
+                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
+                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                            .to!int, m.mut.status.to!ubyte, window(m.txt.original),
+                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
