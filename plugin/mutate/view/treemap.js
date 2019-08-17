@@ -47,7 +47,7 @@ function make_map(data) {
     .append("g")
         .attr("transform",
             "translate(" + margin.left + "," + margin.top + ")");
-    var root = d3.hierarchy(data).sum(function(d){ return d.locs}) 
+    var root = d3.hierarchy(data).sum(function(d){ return d.locs})
 
     d3.treemap()
     .size([width, height])
@@ -58,7 +58,7 @@ function make_map(data) {
     .paddingBottom(15)
     .tile(d3["treemapBinary"])
     (root)
-    
+
     //Add rectangles
     svg
     .selectAll("rect")
@@ -69,18 +69,18 @@ function make_map(data) {
         .attr('y', function (d) { return d.y0; })
         .attr('width', function (d) { return d.x1 - d.x0; })
         .attr('height', function (d) { return d.y1 - d.y0; })
-        .attr('id', function (d) { 
-            return "rect_"+d.data.name; 
+        .attr('id', function (d) {
+            return "rect_"+d.data.name;
         })
         .style("stroke-width", 2)
         .style("stroke", "black")
-        .style("fill", function(d){ 
+        .style("fill", function(d){
             d.sum(function(d) {return d.score;})
-            if(d.data.score!=null) 
-                return color(d.data.score); 
+            if(d.data.score!=null)
+                return color(d.data.score);
             else{
                 return color(d.value / d.leaves().length);
-            } 
+            }
         })
         .on("click", function(d) {rect_click(d)})
         .on("mouseenter", function(d) {
@@ -98,8 +98,8 @@ function make_map(data) {
     .data(root.leaves().filter(function(d){return d.depth==1}))
     .enter()
     .append("text")
-        .attr("x", function(d){ return d.x0+5})    
-        .attr("y", function(d){ return d.y0+13})    
+        .attr("x", function(d){ return d.x0+5})
+        .attr("y", function(d){ return d.y0+13})
         .text(function(d){ return d.data.name })
         .attr("font-size", "13px")
         .attr("fill", "black")
@@ -112,14 +112,14 @@ function make_map(data) {
     .data(root.descendants().filter(function(d){return d.depth==1}))
     .enter()
     .append("text")
-        .attr("x", function(d){ return d.x0+5})    
-        .attr("y", function(d){ return d.y0+35})    
+        .attr("x", function(d){ return d.x0+5})
+        .attr("y", function(d){ return d.y0+35})
         .text(function(d){
-            if(d.data.score!=null) 
-                return "score: "+d.data.score; 
+            if(d.data.score!=null)
+                return "score: "+d.data.score;
             else{
                 return "avg score: "+Math.round(d.value / d.leaves().length * 100) / 100;
-            } 
+            }
         })
         .attr("font-size", "13px")
         .attr("fill", "black")
@@ -131,15 +131,15 @@ function make_map(data) {
     .data(root.descendants().filter(function(d){return d.depth==1}))
     .enter()
     .append("text")
-        .attr("x", function(d){ return d.x0+5})    
-        .attr("y", function(d){ return d.y0+50})    
+        .attr("x", function(d){ return d.x0+5})
+        .attr("y", function(d){ return d.y0+50})
         .text(function(d){
             d.sum(function(d){ return d.locs})
-            if(d.data.locs!=null) 
-                return "locs: " +d.data.locs; 
+            if(d.data.locs!=null)
+                return "locs: " +d.data.locs;
             else{
                 return "total locs: " +d.value;
-            } 
+            }
         })
         .attr("font-size", "13px")
         .attr("fill", "black")
@@ -156,12 +156,12 @@ function make_map(data) {
         .attr("font-size", "19px")
         .attr("fill",  "black")
         .attr("pointer-events", "none")
-    
+
     // Add title for the root
     svg
     .append("text")
         .attr("x", 0)
-        .attr("y", 14) 
+        .attr("y", 14)
         .text(function (d) {
             var path ="root/";
             for (var j=0; j<g_path.length; j++) {
@@ -208,9 +208,9 @@ function make_hash() {
 }
 /**
  * Takes the hash and assigns the correct state.
- * @param {JSON} data 
+ * @param {JSON} data
  */
-function go_to_hash(data) {    
+function go_to_hash(data) {
     var hash = window.location.hash.substring(1);
     if (!hash) {
         window.location.hash = "#root";
@@ -221,7 +221,7 @@ function go_to_hash(data) {
         if (path.length > 1 && path[0]=="root") {
             for (var i = 1; i <path.length; i++) {
                 for (var j = 0; j<curr["children"].length; j++) {
-                    if (curr["children"][j]["name"] == path[i]) {   
+                    if (curr["children"][j]["name"] == path[i]) {
                         g_previous_states.push(curr);
                         curr = curr["children"][j];
                         g_path.push(curr.name);
