@@ -94,19 +94,19 @@ span.xx_label {
 
 #filter_wrapper tbody {
     width: 100%;
-    height: 135px;  
-    overflow-y: auto; 
+    height: 135px;
+    overflow-y: auto;
     overflow-x: hidden;
 }
 #testcases thead, tbody { display: block; }
 #testcases tbody {
     width: 100%;
-    height: 135px;  
-    overflow-y: auto; 
+    height: 135px;
+    overflow-y: auto;
     overflow-x: hidden;
 }
 #testcases {
-    height: 135px; 
+    height: 135px;
     background: #394347;
     display: block
 }

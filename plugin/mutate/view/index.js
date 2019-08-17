@@ -3,7 +3,7 @@
  */
 var g_lastCol = -1;
 
-function init() { 
+function init() {
     theads = document.getElementsByClassName('tg-g59y');
     for (var i = 0; i < theads.length; i++) {
         theads[i].addEventListener('click', function(e) {table_onclick(e);});

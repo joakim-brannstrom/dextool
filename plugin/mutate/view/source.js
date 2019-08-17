@@ -33,13 +33,13 @@ var key_toggle_show_mutant = 'Numpad0';
 function init() {
     var current_mutant_selector = document.getElementById('current_mutant');
     var num_testcases = document.getElementById("num_testcases");
-    current_mutant_selector.addEventListener('change', 
+    current_mutant_selector.addEventListener('change',
         function(e) { current_mutant_onchange(e); });
-    num_testcases.addEventListener('change', 
+    num_testcases.addEventListener('change',
         function(e) { on_num_testcases_change(e); });
-    window.addEventListener('resize', 
+    window.addEventListener('resize',
         on_window_resize);
-    window.addEventListener('keydown', 
+    window.addEventListener('keydown',
         function(e) { on_keyboard_input(e); });
     g_displayed_testcases = num_testcases.value;
     num_testcases.max = MAX_NUM_TESTCASES;
@@ -49,11 +49,11 @@ function init() {
     locs_table.style.width = "60%";
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
-        locs[i].addEventListener('wheel', 
+        locs[i].addEventListener('wheel',
             function(e) { on_loc_wheel(e); });
-        locs[i].addEventListener('click', 
+        locs[i].addEventListener('click',
             function(e) { on_loc_click(e); });
-        
+
         // Get all mutant ids in the loc.
         muts = locs[i].getElementsByClassName('mutant');
         g_loc_mutids[locs[i].id] = [];
@@ -140,9 +140,9 @@ function on_loc_wheel(e) {
 }
 /**
  * Selects a loc when any element within it captures a click event.
- * @param {event} e the captured click event 
+ * @param {event} e the captured click event
  */
-function on_loc_click(e) { 
+function on_loc_click(e) {
     if (!e.target.classList.contains("loc") && e.target.onclick != null)
         return;
     var loc = get_closest_loc(e.target);
@@ -177,11 +177,11 @@ function select_loc(loc_id, pure) {
 }
 function show_info_line() {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
-        return; 
+        return;
     var loc_table = document.getElementById("locs");
     var line = g_active_locid.split('-',2)[1];
     var info_row = loc_table.insertRow(line);
-   
+
     info_row.innerHTML = `
     <td id='info_line'>
     <table id='info_table'>
@@ -196,7 +196,7 @@ function show_info_line() {
 }
 function remove_info_line() {
     if (!document.getElementById("info_line"))
-        return; 
+        return;
     var line = g_active_locid.split('-',2)[1];
     document.getElementById("locs").deleteRow(line);
 }
@@ -244,7 +244,7 @@ function make_kind_status_info(locid, curr_mutid) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
         if (!g_filter_kinds.includes(mut.kindGroup) &&
-            !g_filter_status.includes(mut.status)) 
+            !g_filter_status.includes(mut.status))
         {
             if (mutids[i]==curr_mutid)
                 html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+g_mut_kind_map[mut.kind]+`</b></u> </span>`;
@@ -255,19 +255,19 @@ function make_kind_status_info(locid, curr_mutid) {
     return html;
 }
 /**
- * Adds the mutants on the loc for the given id 
+ * Adds the mutants on the loc for the given id
  * @param {id} loc_id id of the loc whose mutants to add
  */
 function set_mutation_options(loc_id) {
     var mutids = g_loc_mutids[loc_id];
     var current_mutant_selector = document.getElementById('current_mutant');
-        
+
     current_mutant_selector.selectedIndex = 0;
     for (var i = 0; i < mutids.length; i++) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
         if (!g_filter_kinds.includes(mut.kindGroup) &&
-            !g_filter_status.includes(mut.status)) 
+            !g_filter_status.includes(mut.status))
         {
             var s = document.createElement('OPTION');
             s.value = mutid;
@@ -291,7 +291,7 @@ function traverse_mutants(direction) {
             current_mutant_selector.selectedIndex += 1;
         else if (MUT_TRAVERSE_NEXT_LOC)
             traverse_locs(1);
-        
+
     } else if (direction < 0) {
         if (selected-1 >= 0)
             current_mutant_selector.selectedIndex-=1;
@@ -307,10 +307,10 @@ function traverse_mutants(direction) {
         scroll_to(mutid);
     else
         scroll_to(g_active_locid);
-    set_info_line(mutid); 
+    set_info_line(mutid);
 }
 /**
- * Changes the active line 
+ * Changes the active line
  * @param {*} direction positive for next, negative for previous
  */
 function traverse_locs(direction) {
@@ -327,7 +327,7 @@ function traverse_locs(direction) {
                 if (i-1 >= 0)
                     select_loc(locs[i-1].id);
                 else if (LOC_TRAVERSE_LOOP)
-                    select_loc(locs[locs.length-1].id);            
+                    select_loc(locs[locs.length-1].id);
             }
             break;
         }
@@ -361,10 +361,10 @@ function on_window_resize() {
 }
 /**
  * Updates the selected mutant when using the selector
- * @param {event} e captured change event 
+ * @param {event} e captured change event
  */
 function current_mutant_onchange(e) {
-    var current_mutant_selector = document.getElementById('current_mutant'); 
+    var current_mutant_selector = document.getElementById('current_mutant');
     var id = current_mutant_selector.value;
 
     current_mutant_selector.focus();
@@ -377,7 +377,7 @@ function current_mutant_onchange(e) {
         set_info_line(id);
         return;
     }
-    
+
     set_active_mutant(id);
     highlight_mutant(id);
     set_info_line(id);
@@ -435,7 +435,7 @@ function click_show_mutant() {
 }
 /**
  * Activates the mutant of the given id.
- * @param {id} mutid id of the mutant to activate 
+ * @param {id} mutid id of the mutant to activate
  */
 function activate_mutant(mutid) {
     if (!g_show_mutant) {
@@ -485,8 +485,8 @@ function click_filter_kind(kind) {
     if(checkbox.checked) {
         for( var i = 0; i < g_filter_kinds.length; i++){
             if (g_filter_kinds[i] === kind) {
-                
-                g_filter_kinds.splice(i, 1); 
+
+                g_filter_kinds.splice(i, 1);
             }
          }
     }
@@ -504,8 +504,8 @@ function click_filter_status(status) {
     if(checkbox.checked) {
         for( var i = 0; i < g_filter_status.length; i++){
             if (g_filter_status[i] === status) {
-                
-                g_filter_status.splice(i, 1); 
+
+                g_filter_status.splice(i, 1);
             }
          }
     }
@@ -586,7 +586,7 @@ function init_legend() {
 }
 function init_filter_kind() {
     var table = document.getElementById("filter_kind");
-    
+
     for (var i=0; i < g_mut_kindGroup_map.length; i++) {
         var row = table.insertRow(i);
         row.innerHTML = `<td><input id="`+g_mut_kindGroup_map[i]+ `" type="checkbox" onclick='click_filter_kind(`+i+`)' checked />

@@ -60,8 +60,9 @@ auto makeTreeMapJSON(FileIndex[] files) {
 }
 
 class JSONLike {
-    import std.typecons : Nullable;
     import std.array : empty;
+    import std.format : format;
+    import std.typecons : Nullable;
 
     string name;
     private JSONLike[string] children;
@@ -82,7 +83,7 @@ class JSONLike {
             root.object["locs"] = JSONValue(locs.get);
 
         if (!score.isNull)
-            root.object["score"] = JSONValue(score.get);
+            root.object["score"] = JSONValue(format("%.2s", score.get));
 
         return root;
     }

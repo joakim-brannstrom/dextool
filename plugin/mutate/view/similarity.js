@@ -1,6 +1,6 @@
 /**
  * Javascript for the subpage "test_case_similarity"
- * 
+ *
  */
 
  /**
@@ -14,13 +14,13 @@ function init() {
     for (var i = 0; i < theads.length; i++) {
         theads[i].addEventListener('click', function(e) {table_onclick(e);});
         theads[i].addEventListener('mouseenter', function(e) {header_enter(e)});
-        theads[i].addEventListener('mouseleave', function(e) {header_leave(e)}); 
+        theads[i].addEventListener('mouseleave', function(e) {header_leave(e)});
     }
     var headers = document.getElementsByClassName('tbl_header');
     for (var i = 0; i < headers.length; i++) {
         headers[i].addEventListener('click', function(e) {header_onclick(e)});
         headers[i].addEventListener('mouseenter', function(e) {header_enter(e)});
-        headers[i].addEventListener('mouseleave', function(e) {header_leave(e)}); 
+        headers[i].addEventListener('mouseleave', function(e) {header_leave(e)});
     }
     var button = document.getElementById("expand_all");
     button.addEventListener("click", function(e) {expand_tables(e)});
@@ -39,7 +39,7 @@ function expand_tables(e) {
 }
 function collapse_tables(e) {
     var tables = document.getElementsByClassName("tbl_container");
-    
+
     for (var i=0; i<tables.length; i++) {
         tables[i].style.display = "none";
         var tbl_container = tables[i].closest('.comp_container');
@@ -55,7 +55,7 @@ function header_enter(e) {
     e.target.style.textDecoration = 'underline';
 }
 /**
- * 
+ *
  * @param {event} e click event
  */
 function header_onclick(e) {
