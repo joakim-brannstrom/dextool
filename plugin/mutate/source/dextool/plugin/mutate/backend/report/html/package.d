@@ -145,7 +145,7 @@ struct FileIndex {
 
     override void endFileEvent(ref Database db) @trusted {
         import std.algorithm : max, each, map, min, canFind, sort, filter;
-        import std.array : appender;
+        import std.array : appender, empty;
         import std.conv : to;
         import std.range : repeat, enumerate;
         import std.traits : EnumMembers;
@@ -232,17 +232,17 @@ struct FileIndex {
                 // sort the test cases after how many mutants they killed.
                 auto testCases = db.getTestCases(m.id);
                 testCases.sort!(sort_tcs_on_kills);
-                if (testCases.length) {
+                if (testCases.empty) {
+                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
+                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                            .to!int, m.mut.status.to!ubyte, window(m.txt.original),
+                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
+                } else {
                     mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
                             m.id, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte, testCases,
                             window(m.txt.original), window(m.txt.mutation),
                             db.getMutantationMetaData(m.id).kindToString);
-                } else {
-                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                            .to!int, m.mut.status.to!ubyte, window(m.txt.original),
-                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
