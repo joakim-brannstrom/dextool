@@ -119,6 +119,12 @@ struct TestCaseInfo {
     long killedMutants;
 }
 
+/// What mutants a test case killed.
+struct TestCaseInfo2 {
+    TestCase name;
+    MutationId[] killed;
+}
+
 struct MutationStatusTime {
     import std.datetime : SysTime;
 

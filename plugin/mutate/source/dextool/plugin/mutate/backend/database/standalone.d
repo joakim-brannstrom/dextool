@@ -1090,6 +1090,37 @@ struct Database {
         return rval;
     }
 
+    TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
+        import std.algorithm : copy;
+
+        // row of test case name and mutation id.
+        const sql = format("SELECT t0.name,t3.id
+            FROM %s t0, %s t1, %s t2, %s t3, %s t4
+            WHERE
+            t0.id = t1.tc_id AND
+            t1.st_id = t2.id AND
+            t2.id = t3.st_id AND
+            t4.id = :file_id AND
+            t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
+                mutationStatusTable, mutationTable, filesTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.bind(":file_id", cast(long) file);
+
+        MutationId[][string] data;
+        foreach (row; stmt.execute) {
+            const name = row.peek!string(0);
+            if (auto v = name in data) {
+                *v ~= MutationId(row.peek!long(1));
+            } else {
+                data[name] = [MutationId(row.peek!long(1))];
+            }
+        }
+
+        auto app = appender!(TestCaseInfo2[])();
+        data.byKeyValue.map!(a => TestCaseInfo2(TestCase(a.key), a.value)).copy(app);
+        return app.data;
+    }
+
     /// Returns: the test case.
     Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
         enum sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);

@@ -114,7 +114,9 @@ struct FileIndex {
 
         auto raw = fio.makeInput(AbsolutePath(fr.file, DirName(fio.getOutputDir)));
 
-        ctx = FileCtx.make(original, fr.id, raw);
+        auto tc_info = db.getAllTestCaseInfo2(fr.id, kinds);
+
+        ctx = FileCtx.make(original, fr.id, raw, tc_info);
         ctx.processFile = fr.file;
         ctx.out_ = File(out_path, "w");
         ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
@@ -170,8 +172,6 @@ struct FileIndex {
         line.addChild("span", "1:").addClass("line_nr");
         auto mut_data = "var g_muts_data = {};\n";
         mut_data ~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
-        alias sort_tcs_on_kills = (a, b) => db.getTestCaseInfo(a, kinds)
-            .killedMutants < db.getTestCaseInfo(b, kinds).killedMutants;
 
         // used to make sure that metadata about a mutant is only written onces
         // to the global arrays.
@@ -189,13 +189,13 @@ struct FileIndex {
             auto meta = MetaSpan(s.muts);
 
             foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
-                // force a newline in the generated html to improve readability
-                root.appendText("\n");
                 with (line = lines.addChild("tr").addChild("td")) {
                     setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
                     addClass("loc");
                     addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
                 }
+                // force a newline in the generated html to improve readability
+                lines.appendText("\n");
             }
 
             const spaces = max(0, s.tok.loc.column - lastLoc.column);
@@ -223,10 +223,7 @@ struct FileIndex {
                 }
                 d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
 
-                // for each mutant find the test cases that killed it.
-                // sort the test cases after how many mutants they killed.
-                auto testCases = db.getTestCases(m.id);
-                testCases.sort!(sort_tcs_on_kills);
+                auto testCases = ctx.getTestCaseInfo(m.id);
                 if (testCases.empty) {
                     mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
                             m.id, m.mut.kind.to!int, toUser(m.mut.kind)
@@ -235,13 +232,18 @@ struct FileIndex {
                 } else {
                     mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
                             m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                            .to!int, m.mut.status.to!ubyte, testCases,
-                            window(m.txt.original), window(m.txt.mutation),
-                            db.getMutantationMetaData(m.id).kindToString);
+                            .to!int, m.mut.status.to!ubyte,
+                            testCases.map!(a => a.name), window(m.txt.original),
+                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
         }
+
+        // make sure there is a newline before the script start to improve
+        // readability of the html document source.
+        root.appendText("\n");
+
         with (root.addChild("script")) {
             // force a newline in the generated html to improve readability
             appendText("\n");
@@ -264,9 +266,9 @@ struct FileIndex {
             // Creates a list of number of kills per testcase.
             appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
             appendText("\n");
-            foreach (tc; db.getDetectedTestCases()) {
-                appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];",
-                        tc, db.getTestCaseInfo(tc, kinds).killedMutants)));
+            foreach (tc; ctx.testCases) {
+                appendChild(new RawSource(ctx.doc,
+                        format("g_testcases_kills['%s'] = [%s];", tc.name, tc.killed)));
                 appendText("\n");
             }
             appendChild(new RawSource(ctx.doc, mut_data));
@@ -351,7 +353,7 @@ string toJson(string s) {
 struct FileCtx {
     import std.stdio : File;
     import blob_model : Blob;
-    import dextool.plugin.mutate.backend.database : FileId;
+    import dextool.plugin.mutate.backend.database : FileId, TestCaseInfo2;
 
     Path processFile;
     File out_;
@@ -366,7 +368,15 @@ struct FileCtx {
     /// Database ID for this file.
     FileId fileId;
 
-    static FileCtx make(string title, FileId id, Blob raw) @trusted {
+    /// Find the test cases that killed a mutant. They are sorted by most killed -> least killed.
+    TestCaseInfo[][MutationId] tcKilledMutant;
+
+    /// All test cases in the file.
+    TestCaseInfo[] testCases;
+
+    static FileCtx make(string title, FileId id, Blob raw, TestCaseInfo2[] tc_info) @trusted {
+        import std.algorithm : sort;
+        import std.array : array;
         import dextool.plugin.mutate.backend.report.html.js;
         import dextool.plugin.mutate.backend.report.html.tmpl;
 
@@ -387,7 +397,55 @@ struct FileCtx {
 
         r.raw = raw;
 
+        typeof(tcKilledMutant) tmp;
+        foreach (a; tc_info) {
+            foreach (mut; a.killed) {
+                if (auto v = mut in tmp) {
+                    *v ~= TestCaseInfo(a.name, a.killed.length);
+                } else {
+                    tmp[mut] = [TestCaseInfo(a.name, a.killed.length)];
+                }
+            }
+            r.testCases ~= TestCaseInfo(a.name, a.killed.length);
+        }
+        foreach (kv; tmp.byKeyValue) {
+            r.tcKilledMutant[kv.key] = kv.value.sort.array;
+        }
+
         return r;
+    }
+
+    TestCaseInfo[] getTestCaseInfo(MutationId mutationId) @safe pure nothrow {
+        if (auto v = mutationId in tcKilledMutant)
+            return *v;
+        return null;
+    }
+
+    static struct TestCaseInfo {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        TestCase name;
+        long killed;
+
+        int opCmp(ref const typeof(this) s) @safe pure nothrow const @nogc scope {
+            if (killed < s.killed)
+                return -1;
+            else if (killed > s.killed)
+                return 1;
+            else if (name < s.name)
+                return -1;
+            else if (name > s.name)
+                return 1;
+            return 0;
+        }
+
+        bool opEquals(ref const typeof(this) s) @safe pure nothrow const @nogc scope {
+            return name == s.name;
+        }
+
+        size_t toHash() @safe nothrow const scope {
+            return name.toHash;
+        }
     }
 }
 
