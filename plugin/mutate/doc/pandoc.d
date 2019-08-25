@@ -26,10 +26,9 @@ void main(string[] args) {
     const string root = getcwd();
 
     const latex_dir = buildPath(root, "latex");
-    if (exists(latex_dir)) {
-        run(["rm", "-r", latex_dir]);
+    if (!exists(latex_dir)) {
+        mkdir(latex_dir);
     }
-    mkdir(latex_dir);
 
     chdir(latex_dir);
     scope (exit)
@@ -100,9 +99,9 @@ void pandoc(Pandoc dat, string[] files, const string output) {
         run(["bibtex", output ~ ".aux"]);
     } catch (Exception e) {
     }
-    // resolve pass 1
+
+    // continue resolving references. At least two times is needed.
     run(["pdflatex", output ~ ".latex"]);
-    // resolve pass 2
     run(["pdflatex", output ~ ".latex"]);
 }
 
