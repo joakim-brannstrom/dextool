@@ -22,9 +22,9 @@ The implementation testing mutants should separate the drivers in three parts:
 partof: SPC-test_mutant
 ###
 
-The program shall terminate a test suite when it reached the *timeout*.
+The plugin shall terminate a test suite when it reached the *timeout*.
 
-The program shall *adjust* the timeout when there are no mutants in the state *unknown* and there are at least one mutant in the state *timeout*.
+The plugin shall *adjust* the timeout when there are no mutants in the state *unknown* and there are at least one mutant in the state *timeout*.
 
 TODO: further refine the requirements. The intent is what is described in the below algorithm.
 
@@ -46,14 +46,14 @@ $timeout(R, n) = R \times
 Pseudo-code:
  1. set loop variable *n* to 0.
  2. measure the runtime of the test suite. Save as *t*.
-     3. test mutants with `timeout(t, 0)`
-     4. add mutations that timeout to pool $p_0$
- 5. increment *n*.
- 6. if there are any mutants in $p_{n-1}$
-     7. test mutations with timeout `timeout(t, n)`
-     8. add mutations that timeout to pool $p_n$
- 9. if $(p_{n-1} - p_n) != 0$
-     10. goto 3 (5 when viewing as Markdown)
+     a. test mutants with `timeout(t, 0)`
+     b. add mutations that timeout to pool $p_0$
+ 3. increment *n*.
+ 4. if there are any mutants in $p_{n-1}$
+     a. test mutations with timeout `timeout(t, n)`
+     b. add mutations that timeout to pool $p_n$
+ 5. if $(p_{n-1} - p_n) != 0$
+     a. goto
 
 #### Mathematical Properties of Timeout Increase
 
@@ -64,7 +64,76 @@ It is important to understand the assumptions the algorithm try to handle. The a
  * the normal runtime will fluctuate when a mutant fails. By choosing a timeout of 200% of the normal runtime these fluctuations are covered
  * by increasing the mutation timeout to 1000% the second iteration it is such a sharp increase that it should with a wide margin catch those cases there is a test suite that takes *markedly* longer to finish for *some* mutations but still result in the mutant being killed
 
-The desired mathematical property of the algorithm for increasing the mutation testing is a sharp increase in the mutation time the second iteration. After that it slowly increases but flattens out.
+The desired mathematical property of the algorithm for increasing the mutation
+testing is a sharp increase in the mutation time the second iteration. After
+that it slowly increases but flattens out.
+
+### Background for the improvements to the timeout algorithm
+
+The previous algorithm where problematic when there are multiple instances
+dextool running in parallel an using the same database among them.
+
+What happens when there are significant amount of timeout mutants is that the
+instances aren't aware of each other and thus end up constantly resetting the
+timeout mutants which mean that they basically end up in a loop behavior that
+takes a long time to break.
+
+It can go like this:
+1. A is testing the mutants.
+2. B is testing the mutants.
+3. A finish mutation testing but some are marked as timeout.
+4. A resets the timeout mutants to unknown.
+5. B see that there are no mutants left to test and that some are marked as
+   timeout. B reset the timeout mutants to unknown. This invalidate some of A's
+   results.
+6. A and B are testing the timeout mutants in tandem.
+7. B finish a mutant and see that all are now tested. It increases the timeout
+   limit and resets all mutants to unknown.  A did not observe this state and
+   thinks it still has to test some mutants so keeps going with the old timeout
+   limit.
+8. etc etc....
+
+The proposed change is to improve the marking of timeout mutants in such a way
+that an instance know in which iteration it is. That should mean that B in step
+7 is aware that A has already reset the mutants and thus do not need to do it.
+
+**Note**: It was also problematic when only a subset of the timeout mutants
+needed to be tested because it added all mutants it knew to the worklist. This
+lead to a scaling problem.
+
+#### Design
+
+The design is based on a shared context that is stored in the database. The
+shared context consist of:
+ * a `worklist` which contains the timeout mutants that are being processed.
+ * an `iter` which is how many times the FSM have passed through the `running`
+   state.
+ * the `state` which is the state that the timeout algorithm is in. This is the states in figure \ref{fig-timeout-mutant-fsm} marked with bold.
+ * a `worklist_cnt` which is how many mutants there are in the worklist. This is used by the purge state in figure \ref{fig-timeout-mutant-fsm}.
+
+Any access to the shared context is guarded by a traditional database
+transaction. This ensures that modifications to the context is multi-process
+safe which allows multiple instances of the plugin to be ran in parallel.
+
+The state machine, see figure \ref{fig-timeout-mutant-fsm}, governs any changes
+to the shared context.
+
+The state machine is updated after each time a mutation status update has been
+performed.
+
+The state machines state is set to `init` and `iter` is set to one if the
+plugin do an analyse.
+
+![FSM for timeout mutants](figures/timeout_mutant_001.eps){#fig-timeout-mutant-fsm height=60%}
+
+Description of the events used in figure \ref{fig-timeout-mutant-fsm}:
+ * evAllStatus. All mutants has a status other thatn `unknown`.
+ * evChange. The mutants that are left in the worklist has changed compared to the counter in the context. $worklist_{count} != count(worklist)$
+ * evSame. The inverse of evChange. $worklist_{count} == count(worklist)$
+
+The status of a mutant is update as described in figure \ref{fig-timeout-mutant-act}.
+
+![Setting the status of a mutant](figures/timeout_mutant.eps){#fig-timeout-mutant-act}
 
 # REQ-unstable_test_suite
 partof: REQ-test_mutant
