@@ -22,7 +22,7 @@
  *
 \*===----------------------------------------------------------------------===*/
 
-#ifndef __CLANG_LIMITS_H
+#if !defined(__CLANG_LIMITS_H) || !defined(_LIBC_LIMITS_H_)
 #define __CLANG_LIMITS_H
 
 /* The system's limits.h may, in turn, try to #include_next GCC's limits.h.
