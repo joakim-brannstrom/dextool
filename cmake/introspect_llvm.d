@@ -59,7 +59,7 @@ string[] osSpecificLinkerFlag() {
     version (OSX) {
         return null;
     } else {
-        return ["-Wl,--enable-new-dtags,-Wl,--no-as-needed"];
+        return ["-Wl,--enable-new-dtags,--no-as-needed"];
     }
 }
 
