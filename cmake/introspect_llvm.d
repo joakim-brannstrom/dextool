@@ -59,12 +59,12 @@ string[] osSpecificLinkerFlag() {
     version (OSX) {
         return null;
     } else {
-        return ["-Wl,--enable-new-dtags"];
+        return ["-Wl,--enable-new-dtags,-Wl,--no-as-needed"];
     }
 }
 
 string llvmLibs() {
-    const string[] base = osSpecificLinkerFlag ~ ["-Wl,--no-as-needed"];
+    const string[] base = osSpecificLinkerFlag;
     const string[] libdir = ["-Wl,-rpath", llvmLibdir];
 
     // sometimes llvm-config forget the dependency on c and c++ stdlib
@@ -124,7 +124,7 @@ string llvmLibClang() {
 }
 
 string llvmClangFlags() {
-    const string[] base = osSpecificLinkerFlag ~ ["-Wl,--no-as-needed"];
+    const string[] base = osSpecificLinkerFlag;
 
     const string[] libdir = ["-L" ~ llvmLibdir, "-Wl,-rpath", llvmLibdir];
 
