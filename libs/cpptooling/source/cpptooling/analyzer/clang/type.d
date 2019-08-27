@@ -1554,8 +1554,10 @@ body {
     }
 
     Nullable!TypeResults rval;
-    foreach (idx, f; [&handlePointer, &handleArray, &handleTypedef,
-            &handleTypeWithDecl, &fallback]) {
+    foreach (idx, f; [
+            &handlePointer, &handleArray, &handleTypedef, &handleTypeWithDecl,
+            &fallback
+        ]) {
         debug {
             import std.conv : to;
 
@@ -1782,8 +1784,10 @@ body {
     }
 
     typeof(return) rval;
-    foreach (idx, f; [&handleTypeRefToTypeDeclFuncProto, &handleArray,
-            &handleTyperef, &handleFuncProto, &handleDecl, &underlying, &fallback]) {
+    foreach (idx, f; [
+            &handleTypeRefToTypeDeclFuncProto, &handleArray, &handleTyperef,
+            &handleFuncProto, &handleDecl, &underlying, &fallback
+        ]) {
         debug {
             import std.conv : to;
 
@@ -2119,7 +2123,10 @@ out (result) {
 body {
     Nullable!string r;
 
-    with (CXTypeKind) switch (kind) {
+    // a good file to see what the types are:
+    // https://github.com/llvm-mirror/clang/blob/master/include/clang/AST/BuiltinTypes.def
+
+    final switch (kind) with (CXTypeKind) {
     case invalid:
         break;
     case unexposed:
@@ -2153,6 +2160,7 @@ body {
         r = "unsigned long long";
         break;
     case uInt128:
+        r = "__uint128_t";
         break;
     case charS:
         r = "char";
@@ -2176,6 +2184,7 @@ body {
         r = "long long";
         break;
     case int128:
+        r = "__int128_t";
         break;
     case float_:
         r = "float";
@@ -2187,16 +2196,62 @@ body {
         r = "long double";
         break;
     case nullPtr:
-        r = "null";
+        r = "nullptr";
         break;
     case overload:
+        // The type of an unresolved overload set.  A placeholder type.
+        // Expressions with this type have one of the following basic
+        // forms, with parentheses generally permitted:
+        //   foo          # possibly qualified, not if an implicit access
+        //   foo          # possibly qualified, not if an implicit access
+        //   &foo         # possibly qualified, not if an implicit access
+        //   x->foo       # only if might be a static member function
+        //   &x->foo      # only if might be a static member function
+        //   &Class::foo  # when a pointer-to-member; sub-expr also has this type
+        // OverloadExpr::find can be used to analyze the expression.
+        //
+        // Overload should be the first placeholder type, or else change
+        // BuiltinType::isNonOverloadPlaceholderType()
         break;
     case dependent:
+        // This represents the type of an expression whose type is
+        // totally unknown, e.g. 'T::foo'.  It is permitted for this to
+        // appear in situations where the structure of the type is
+        // theoretically deducible.
         break;
 
     case objCId:
     case objCClass:
     case objCSel:
+        break;
+
+    case float128:
+        r = "__float128";
+        break;
+
+    case half:
+        // half in OpenCL, otherwise __fp16
+    case float16:
+        r = "__fp16";
+        break;
+
+    case shortAccum:
+        r = "short _Accum";
+        break;
+    case accum:
+        r = "_Accum";
+        break;
+    case longAccum:
+        r = "long _Accum";
+        break;
+    case uShortAccum:
+        r = "unsigned short _Accum";
+        break;
+    case uAccum:
+        r = "unsigned _Accum";
+        break;
+    case uLongAccum:
+        r = "unsigned long _Accum";
         break;
 
     case complex:
@@ -2207,14 +2262,21 @@ body {
     case record:
     case enum_:
     case typedef_:
+    case objCInterface:
+    case objCObjectPointer:
     case functionNoProto:
     case functionProto:
+    case constantArray:
     case vector:
     case incompleteArray:
     case variableArray:
     case dependentSizedArray:
     case memberPointer:
+        break;
+
     case auto_:
+        r = "auto";
+        break;
 
         /**
      * \brief Represents a type that was referred to using an elaborated type keyword.
@@ -2222,10 +2284,66 @@ body {
      * E.g., struct S, or via a qualified name, e.g., N::M::type, or both.
      */
     case elaborated:
-        break;
+    case pipe:
+    case oclImage1dRO:
+    case oclImage1dArrayRO:
+    case oclImage1dBufferRO:
+    case oclImage2dRO:
+    case oclImage2dArrayRO:
+    case oclImage2dDepthRO:
+    case oclImage2dArrayDepthRO:
+    case oclImage2dMSAARO:
+    case oclImage2dArrayMSAARO:
+    case oclImage2dMSAADepthRO:
+    case oclImage2dArrayMSAADepthRO:
+    case oclImage3dRO:
+    case oclImage1dWO:
+    case oclImage1dArrayWO:
+    case oclImage1dBufferWO:
+    case oclImage2dWO:
+    case oclImage2dArrayWO:
+    case oclImage2dDepthWO:
+    case oclImage2dArrayDepthWO:
+    case oclImage2dMSAAWO:
+    case oclImage2dArrayMSAAWO:
+    case oclImage2dMSAADepthWO:
+    case oclImage2dArrayMSAADepthWO:
+    case oclImage3dWO:
+    case oclImage1dRW:
+    case oclImage1dArrayRW:
+    case oclImage1dBufferRW:
+    case oclImage2dRW:
+    case oclImage2dArrayRW:
+    case oclImage2dDepthRW:
+    case oclImage2dArrayDepthRW:
+    case oclImage2dMSAARW:
+    case oclImage2dArrayMSAARW:
+    case oclImage2dMSAADepthRW:
+    case oclImage2dArrayMSAADepthRW:
+    case oclImage3dRW:
+    case oclSampler:
+    case oclEvent:
+    case oclQueue:
+    case oclReserveID:
 
-    default:
-        logger.trace("Unhandled type kind ", to!string(kind));
+    case objCObject:
+    case objCTypeParam:
+    case attributed:
+
+    case oclIntelSubgroupAVCMcePayload:
+    case oclIntelSubgroupAVCImePayload:
+    case oclIntelSubgroupAVCRefPayload:
+    case oclIntelSubgroupAVCSicPayload:
+    case oclIntelSubgroupAVCMceResult:
+    case oclIntelSubgroupAVCImeResult:
+    case oclIntelSubgroupAVCRefResult:
+    case oclIntelSubgroupAVCSicResult:
+    case oclIntelSubgroupAVCImeResultSingleRefStreamout:
+    case oclIntelSubgroupAVCImeResultDualRefStreamout:
+    case oclIntelSubgroupAVCImeSingleRefStreamin:
+
+    case oclIntelSubgroupAVCImeDualRefStreamin:
+        break;
     }
 
     return r;
