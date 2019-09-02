@@ -1,7 +1,7 @@
 # dextool [![Build Status](https://dev.azure.com/wikodes/wikodes/_apis/build/status/joakim-brannstrom.dextool?branchName=master)](https://dev.azure.com/wikodes/wikodes/_build/latest?definitionId=1&branchName=master) [![codecov](https://codecov.io/gh/joakim-brannstrom/dextool/branch/master/graph/badge.svg)](https://codecov.io/gh/joakim-brannstrom/dextool)
 
 **Dextool** is a framework for writing plugins using libclang. The main focus
-is tools for testing and analyze.
+is tools for testing and static analysis.
 
 The plugins in a standard installation of Dextool are:
  - Analyze. Analyze C/C++ code to generate complexity numbers such as McCabe.
@@ -45,12 +45,12 @@ It is recommended to install the D compiler by downloading it from the official 
 curl -fsS https://dlang.org/install.sh | bash -s dmd
 ```
 
-Once you have a D compiler you also have access to the D package manager `dub`. The easiest way to run dextool is to do it via `dub`.
+Once you have a D compiler, you also have access to the D package manager `dub`. The easiest way to run dextool is to do it via `dub`.
 ```sh
 dub run dextool -- -h
 ```
 
-But if you want to you can always download the source code and build it yourself:
+But if you want to, you can always download the source code and build it yourself:
 ```sh
 git clone https://github.com/joakim-brannstrom/dextool.git
 cd dextool
@@ -67,7 +67,7 @@ Don't be shy to report any issue that you find.
 
 ## component_tests Fail
 
-The most common reason for why `component_tests` fail is that clang++ try to use the latest GCC that is installed but the c++ standard library is not installed for that compiler.
+The most common reason for why `component_tests` fail is that clang++ try to use the latest GCC that is installed, but the c++ standard library is not installed for that compiler.
 
 Try to compile the following code with clang++:
 ```c++
@@ -101,7 +101,7 @@ sudo apt install libstdc++-XYZ-dev
 
 ### Mismatch Clang and LLVM
 
-To build dextool the dev packages are required. Dextool is optimistic and assume that the latest and greatest version of llvm+libclang should be used. But this also requires that the dev packages are installed.
+To build dextool, the dev packages are required. Dextool is optimistic and assume that the latest and greatest version of llvm+libclang should be used. But this also requires that the dev packages are installed.
 
 If you get this error:
 ```sh
@@ -113,7 +113,7 @@ It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the 
 
 ### SQLite link or missing
 
-The sqlite3 library source code with a cmake build file in the vendors directory. It is intended for those old OSs that have too old versions of sqlite.
+The sqlite3 library source code with a CMake build file in the vendor's directory. It is intended for those old OSs that have too old versions of SQLite.
 
 To use it do something like this.
 ```sh
@@ -131,4 +131,4 @@ See the usage examples in respective plugin directory:
 
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
-this code base. Without DStep Dextool wouldn't exist.
+this code base. Without DStep, Dextool wouldn't exist.
