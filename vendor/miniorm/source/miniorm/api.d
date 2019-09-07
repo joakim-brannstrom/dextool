@@ -37,8 +37,6 @@ struct Miniorm {
         return db;
     }
 
-    alias getUnderlyingDb this;
-
     ///
     this(Database db) {
         this.db = db;
