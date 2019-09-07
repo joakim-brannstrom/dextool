@@ -25,8 +25,7 @@ import cpptooling.data.type : LocationTag, Location;
 struct Backend {
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.data.symbol : Container;
-    import cpptooling.testdouble.header_filter : GenericTestDoubleIncludes,
-        LocationType;
+    import cpptooling.testdouble.header_filter : GenericTestDoubleIncludes, LocationType;
     import dextool.type : ExitStatusType;
     import std.regex : Regex;
 
@@ -72,7 +71,7 @@ struct Backend {
                 (USRType usr) @safe => container.find!LocationTag(usr));
         // dfmt on
 
-        analyze.root.merge(filtered, MergeMode.full);
+        analyze.get.root.merge(filtered, MergeMode.full);
 
         gen_code_includes.process();
 
@@ -87,10 +86,10 @@ struct Backend {
 
         debug {
             logger.trace(container.toString);
-            logger.tracef("Filtered:\n%u", analyze.root);
+            logger.tracef("Filtered:\n%u", analyze.get.root);
         }
 
-        auto impl_data = translate(analyze.root, syms, container);
+        auto impl_data = translate(analyze.get.root, syms, container);
         analyze.nullify();
 
         debug {
@@ -121,8 +120,7 @@ private:
 private:
 @safe:
 
-import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable,
-    CppNs, Language;
+import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable, CppNs, Language;
 import cpptooling.data.symbol : Container;
 import dextool.plugin.fuzzer.type : Param, Symbol;
 
@@ -158,7 +156,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
         // ask controller if to generate wrapper for the function based on file location
         .filterAnyLocation!(a => ctrl.doSymbolAtLocation(a.location.file, a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
-        .tee!(a => putLoc(FileName(a.location.file), LocationType.Leaf, a.value.language))
+        .tee!(a => putLoc(FileName(a.location.file), LocationType.Leaf, a.value.language.get))
         .each!(a => filtered.put(a.value));
     // dfmt on
 
@@ -187,19 +185,22 @@ ImplData translate(SymbolsT)(CppRoot root, ref SymbolsT symbols, ref Container c
     }
 
     // prepare the sequence number generator with all the used valid seq. nums.
-    foreach (sym; symbols.byKeyValue.map!(a => a.value)
+    foreach (sym; symbols.byKeyValue
+            .map!(a => a.value)
             .filter!(a => a.filter == Symbol.FilterKind.keep && a.sequenceId.isValid)) {
         updateSeq(sym);
     }
 
     // assign new, valid seq. nums for those symbols that had an invalid sequence.
-    foreach (sym; symbols.byKeyValue.map!(a => a.value)
+    foreach (sym; symbols.byKeyValue
+            .map!(a => a.value)
             .filter!(a => a.filter == Symbol.FilterKind.keep && !a.sequenceId.isValid)) {
         updateSeq(sym);
     }
 
     // prepare generation of the xml data from the excluded symbols.
-    foreach (sym; symbols.byKeyValue.map!(a => a.value)
+    foreach (sym; symbols.byKeyValue
+            .map!(a => a.value)
             .filter!(a => a.filter == Symbol.FilterKind.exclude)) {
         impl.excludedSymbols ~= IgnoreSymbol(sym.fullyQualifiedName);
     }

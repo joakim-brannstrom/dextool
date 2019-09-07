@@ -360,8 +360,8 @@ string getType(const CxParam p) @trusted {
 
     return p.visit!((const TypeKindVariable t) { return t.type.toStringDecl; },
             (const TypeKindAttr t) { return t.toStringDecl; }, (const VariadicType a) {
-                return "...";
-            });
+        return "...";
+    });
 }
 
 /// Make a variadic parameter.
@@ -420,7 +420,7 @@ struct CxGlobalVariable {
     Nullable!Language language;
 
     invariant {
-        assert(usr.isNull || usr.length > 0);
+        assert(usr.isNull || usr.get.length > 0);
     }
 
     /**
@@ -535,18 +535,18 @@ struct CppMethodGeneric {
                 import std.algorithm : among;
 
                 with (MemberVirtualType) {
-                    return classification_.among(Virtual, Pure) != 0;
+                    return classification_.get.among(Virtual, Pure) != 0;
                 }
             }
 
             bool isPure() {
                 with (MemberVirtualType) {
-                    return classification_ == Pure;
+                    return classification_.get == Pure;
                 }
             }
 
             MemberVirtualType classification() {
-                return classification_;
+                return classification_.get;
             }
 
             CppAccess accessType() {
@@ -554,7 +554,7 @@ struct CppMethodGeneric {
             }
 
             CppMethodName name() {
-                return name_;
+                return name_.get;
             }
         }
 
@@ -633,7 +633,7 @@ struct CFunction {
 
     invariant() {
         if (!usr.isNull) {
-            assert(usr.length > 0);
+            assert(usr.get.length > 0);
             assert(name_.length > 0);
             assert(returnType_.toStringDecl.length > 0);
 
@@ -734,8 +734,8 @@ struct CppCtor {
 
     invariant() {
         if (!name_.isNull) {
-            assert(usr.isNull || usr.length > 0);
-            assert(name_.length > 0);
+            assert(usr.isNull || usr.get.length > 0);
+            assert(name_.get.length > 0);
             foreach (p; params_) {
                 assertVisit(p);
             }
@@ -786,8 +786,8 @@ struct CppDtor {
 
     invariant() {
         if (!name_.isNull) {
-            assert(usr.isNull || usr.length > 0);
-            assert(name_.length > 0);
+            assert(usr.isNull || usr.get.length > 0);
+            assert(name_.get.length > 0);
             assert(classification_ != MemberVirtualType.Unknown);
         }
     }
@@ -799,14 +799,14 @@ struct CppDtor {
         this.accessType_ = access;
         this.name_ = name;
 
-        setUniqueId(name_);
+        setUniqueId(name_.get);
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.format : formattedWrite;
 
         helperPutComments(w);
-        formattedWrite(w, "%s%s();", helperVirtualPre(classification_), name_);
+        formattedWrite(w, "%s%s();", helperVirtualPre(classification_.get), name_);
         if (!usr.isNull && fmt.spec == 'u') {
             formattedWrite(w, " // %s", usr);
         }
@@ -825,8 +825,8 @@ struct CppMethod {
 
     invariant {
         if (!name_.isNull) {
-            assert(usr.isNull || usr.length > 0);
-            assert(name_.length > 0);
+            assert(usr.isNull || usr.get.length > 0);
+            assert(name_.get.length > 0);
             assert(returnType_.toStringDecl.length > 0);
             assert(classification_ != MemberVirtualType.Unknown);
             foreach (p; params_) {
@@ -867,13 +867,13 @@ struct CppMethod {
         import std.range.primitives : put;
 
         helperPutComments(w);
-        put(w, helperVirtualPre(classification_));
+        put(w, helperVirtualPre(classification_.get));
         put(w, returnType_.toStringDecl);
         put(w, " ");
         put(w, name_);
         formattedWrite(w, "(%s)", paramRange.joinParams);
         put(w, helperConst(isConst));
-        put(w, helperVirtualPost(classification_));
+        put(w, helperVirtualPost(classification_.get));
         put(w, ";");
 
         if (!usr.isNull && fmt.spec == 'u') {
@@ -897,7 +897,7 @@ struct CppMethodOp {
 
     invariant() {
         if (!name_.isNull) {
-            assert(name_.length > 0);
+            assert(name_.get.length > 0);
             assert(returnType_.toStringDecl.length > 0);
             assert(classification_ != MemberVirtualType.Unknown);
 
@@ -940,13 +940,13 @@ struct CppMethodOp {
         import std.range.primitives : put;
 
         helperPutComments(w);
-        put(w, helperVirtualPre(classification_));
+        put(w, helperVirtualPre(classification_.get));
         put(w, returnType_.toStringDecl);
         put(w, " ");
         put(w, name_);
         formattedWrite(w, "(%s)", paramRange.joinParams);
         put(w, helperConst(isConst));
-        put(w, helperVirtualPost(classification_));
+        put(w, helperVirtualPost(classification_.get));
         put(w, ";");
 
         if (!usr.isNull && fmt.spec == 'u') {
@@ -970,10 +970,10 @@ const:
     /// The operator type, aka in C++ the part after "operator"
     auto op()
     in {
-        assert(name_.length > 8);
+        assert(name_.get.length > 8);
     }
     body {
-        return CppMethodName((cast(string) name_)[8 .. $]);
+        return CppMethodName((cast(string) name_.get)[8 .. $]);
     }
 }
 
@@ -1592,7 +1592,7 @@ enum MergeMode {
 
     /// Put item in storage.
     void put(CFunction f) pure nothrow {
-        auto tmp = SortByString!CFunction(f, f.usr);
+        auto tmp = SortByString!CFunction(f, f.usr.get);
 
         try {
             () @trusted pure{ funcs.insert(tmp); }();
@@ -1824,7 +1824,7 @@ struct CppRoot {
 
     /// Put item in storage.
     void put(CFunction f) pure nothrow {
-        auto tmp = SortByString!CFunction(f, f.usr);
+        auto tmp = SortByString!CFunction(f, f.usr.get);
 
         try {
             () @trusted pure{ funcs.insert(tmp); }();
@@ -2017,9 +2017,10 @@ unittest {
     auto ptk = makeSimple("char*");
     ptk.attr.isPtr = Yes.isPtr;
     auto rtk = makeSimple("int");
-    auto f = CFunction(dummyUSR, CFunctionName("nothing"), [makeCxParam(TypeKindVariable(ptk,
-            CppVariable("x"))), makeCxParam(TypeKindVariable(ptk, CppVariable("y")))],
-            CxReturnType(rtk), VariadicType.no, StorageClass.None);
+    auto f = CFunction(dummyUSR, CFunctionName("nothing"), [
+            makeCxParam(TypeKindVariable(ptk, CppVariable("x"))),
+            makeCxParam(TypeKindVariable(ptk, CppVariable("y")))
+            ], CxReturnType(rtk), VariadicType.no, StorageClass.None);
 
     shouldEqual(format("%u", f), "int nothing(char* x, char* y); // None dummyUSR");
 }
@@ -2110,8 +2111,7 @@ unittest {
 
     auto c = CppClass(CppClassName("Foo"), inherit);
 
-    shouldEqual(c.toString,
-            "class Foo : public pub, protected prot, private priv { // Unknown
+    shouldEqual(c.toString, "class Foo : public pub, protected prot, private priv { // Unknown
 }; //Class:Foo");
 }
 
@@ -2455,7 +2455,9 @@ unittest {
 
     ns2.merge(ns1, MergeMode.shallow);
 
-    ns2.classRange.map!(a => cast(string) a.name).array().shouldEqual(["ns2_class", "ns1_class"]);
+    ns2.classRange.map!(a => cast(string) a.name).array().shouldEqual([
+            "ns2_class", "ns1_class"
+            ]);
     ns2.globalRange.array().map!(a => cast(string) a.name).array()
         .shouldEqual(["ns1_var", "ns2_var"]);
     ns2.funcRange.array().map!(a => cast(string) a.name).array()
@@ -2483,7 +2485,9 @@ unittest {
     // Act
     ns2.merge(ns1, MergeMode.full);
     ns2.namespaceRange.length.shouldEqual(1);
-    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual(["ns3"]);
+    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
+            "ns3"
+            ]);
 }
 
 @("Shall merge two namespaces recursively with common namespaces merged to ensure no duplication")
@@ -2533,7 +2537,9 @@ unittest {
 
     // Assert
     ns2.namespaceRange.length.shouldEqual(1);
-    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual(["ns3"]);
+    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
+            "ns3"
+            ]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(1);
     ns2.namespaceRange[0].funcRange.array().length.shouldEqual(1);
     ns2.namespaceRange[0].globalRange.array().length.shouldEqual(1);
@@ -2544,7 +2550,9 @@ unittest {
 
     // Assert
     ns2.namespaceRange.length.shouldEqual(1);
-    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual(["ns3"]);
+    ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
+            "ns3"
+            ]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(2);
     ns2.namespaceRange[0].funcRange.array().length.shouldEqual(2);
     ns2.namespaceRange[0].globalRange.array().length.shouldEqual(2);

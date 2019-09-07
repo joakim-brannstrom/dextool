@@ -197,7 +197,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         }
 
         xmlConfig = conf;
-        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
+        compiler_flag_filter = CompileCommandFilter(conf.get.filterClangFlags,
+                conf.get.skipCompilerArgs);
 
         return this;
     }

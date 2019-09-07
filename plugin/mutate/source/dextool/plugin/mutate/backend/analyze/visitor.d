@@ -122,16 +122,16 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, TokenStream t
     rval.transf.binaryOpLhsCallback ~= (OpKind k, OpTypeInfo) => aorLhsMutations(k);
 
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo tyi) {
-        if (k in isRor)
+        if (k in isRor) {
             return rorMutations(k, tyi).op.map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
+        }
+        return null;
     };
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
-        if (k in isRor)
+        if (k in isRor) {
             return rorMutations(k, OpTypeInfo.none).expr;
-        else
-            return null;
+        }
+        return null;
     };
 
     //rval.transf.binaryOpLhsCallback ~= (OpKind k) => uoiLvalueMutations;
@@ -144,14 +144,12 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, TokenStream t
     rval.transf.binaryOpOpCallback ~= (OpKind k, OpTypeInfo) {
         if (auto v = k in isCor)
             return corOpMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
+        return null;
     };
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         if (auto v = k in isCor)
             return corExprMutations(*v).map!(a => cast(Mutation.Kind) a).array();
-        else
-            return null;
+        return null;
     };
 
     return rval;
@@ -218,7 +216,7 @@ class BaseVisitor : ExtendedVisitor {
         v.accept(vis);
 
         if (!vis.entry.isNull) {
-            enum_cache.put(EnumCache.USR(v.cursor.usr), vis.entry);
+            enum_cache.put(EnumCache.USR(v.cursor.usr), vis.entry.get);
         }
 
         debug logger.tracef("%s", enum_cache);
@@ -1320,16 +1318,16 @@ final class EnumVisitor : Visitor {
             entry = EnumCache.Entry(value, [EnumCache.USR(c.usr)], value, [
                     EnumCache.USR(c.usr)
                     ]);
-        } else if (value < entry.minValue) {
-            entry.minValue = value;
-            entry.minId = [EnumCache.USR(c.usr)];
-        } else if (value == entry.minValue) {
-            entry.minId ~= EnumCache.USR(c.usr);
-        } else if (value > entry.maxValue) {
-            entry.maxValue = value;
-            entry.maxId = [EnumCache.USR(c.usr)];
-        } else if (value == entry.maxValue) {
-            entry.maxId ~= EnumCache.USR(c.usr);
+        } else if (value < entry.get.minValue) {
+            entry.get.minValue = value;
+            entry.get.minId = [EnumCache.USR(c.usr)];
+        } else if (value == entry.get.minValue) {
+            entry.get.minId ~= EnumCache.USR(c.usr);
+        } else if (value > entry.get.maxValue) {
+            entry.get.maxValue = value;
+            entry.get.maxId = [EnumCache.USR(c.usr)];
+        } else if (value == entry.get.maxValue) {
+            entry.get.maxId ~= EnumCache.USR(c.usr);
         }
 
         v.accept(this);

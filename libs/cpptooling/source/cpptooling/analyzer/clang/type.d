@@ -361,12 +361,12 @@ body {
     case unionDecl:
         auto type = c.type;
         rval = TypeResult();
-        rval.type = makeTypeKindAttr(type, c);
+        rval.get.type = makeTypeKindAttr(type, c);
 
         string spell = type.spelling;
-        rval.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(spell)));
-        rval.type.kind.usr = USRType(c.usr);
-        rval.location = makeLocation(c);
+        rval.get.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(spell)));
+        rval.get.type.kind.usr = USRType(c.usr);
+        rval.get.location = makeLocation(c);
         break;
     default:
     }
@@ -411,18 +411,16 @@ body {
     case unionDecl:
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
-
-        rval.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(nextSequence)));
-        rval.type.kind.usr = USRType(c.usr);
-        rval.location = makeLocation(c);
+        rval.get.type.kind.info = TypeKind.RecordInfo(SimpleFmt(TypeId(nextSequence)));
+        rval.get.type.kind.usr = USRType(c.usr);
+        rval.get.location = makeLocation(c);
         break;
     case enumDecl:
         auto type = c.type;
         rval = TypeResult(makeTypeKindAttr(type, c), LocationTag.init);
-
-        rval.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(nextSequence)));
-        rval.type.kind.usr = USRType(c.usr);
-        rval.location = makeLocation(c);
+        rval.get.type.kind.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(nextSequence)));
+        rval.get.type.kind.usr = USRType(c.usr);
+        rval.get.location = makeLocation(c);
         break;
     default:
     }
@@ -644,7 +642,7 @@ body {
         case cxxMethod:
         case functionDecl:
             rval = pass4(child, container, indent);
-            if (!rval.isNull && rval.primary.type.kind.info.kind != TypeKind.Info.Kind.func) {
+            if (!rval.isNull && rval.get.primary.type.kind.info.kind != TypeKind.Info.Kind.func) {
                 // cases like typeof(x) y;
                 // fix in the future
                 rval.nullify;
@@ -975,9 +973,9 @@ in {
     assert(type.kind.among(CXTypeKind.pointer, CXTypeKind.lValueReference));
 }
 out (result) {
-    logTypeResult(result, this_indent);
+    logTypeResult(result.get, this_indent);
     with (TypeKind.Info.Kind) {
-        assert(result.primary.type.kind.info.kind.among(funcPtr, pointer));
+        assert(result.get.primary.type.kind.info.kind.among(funcPtr, pointer));
     }
 }
 body {
@@ -1096,7 +1094,7 @@ out (result) {
     logTypeResult(result, this_indent);
     with (TypeKind.Info.Kind) {
         // allow catching the logical error in debug build
-        assert(!result.primary.type.kind.info.kind.among(ctor, dtor, record, simple, array));
+        assert(!result.get.primary.type.kind.info.kind.among(ctor, dtor, record, simple, array));
     }
 }
 body {
@@ -1117,10 +1115,10 @@ body {
     auto pointee = typeToFuncProto(c, pointee_type, container, indent + 1);
 
     TypeKind.FuncPtrInfo info;
-    info.pointee = pointee.primary.type.kind.usr;
+    info.pointee = pointee.get.primary.type.kind.usr;
     info.attrs = attrs.ptrs;
     info.fmt = () {
-        auto tid = pointee.primary.type.kind.splitTypeId(indent);
+        auto tid = pointee.get.primary.type.kind.splitTypeId(indent);
         return FuncPtrFmt(TypeIdLR(Left(tid.left ~ "("), Right(")" ~ tid.right)));
     }();
 
@@ -1132,7 +1130,7 @@ body {
     // TODO remove this hack
     rval.primary.type.attr = attrs.base;
 
-    rval.extra = [pointee.primary] ~ pointee.extra;
+    rval.extra = [pointee.get.primary] ~ pointee.get.extra;
 
     return typeof(return)(rval);
 }
@@ -1344,8 +1342,8 @@ in {
     logType(type, this_indent);
 }
 out (result) {
-    logTypeResult(result, this_indent);
-    assert(result.primary.type.kind.info.kind == TypeKind.Info.Kind.array);
+    logTypeResult(result.get, this_indent);
+    assert(result.get.primary.type.kind.info.kind == TypeKind.Info.Kind.array);
 }
 body {
     import std.format : format;
@@ -1491,7 +1489,7 @@ body {
             foreach (tref; c.children.takeOne) {
                 auto child = retrieveType(tref, container, indent);
                 if (!child.isNull) {
-                    rval.extra ~= [child.primary] ~ child.extra;
+                    rval.get.extra ~= [child.get.primary] ~ child.get.extra;
                 }
             }
             break;
@@ -1519,11 +1517,9 @@ body {
 
         if (!rval.isNull) {
             // depend on the underlying cursor
-            auto old_def = rval.primary.type.attr.isDefinition;
-
-            rval.primary.type.attr = makeTypeAttr(c_type, c);
-
-            rval.primary.type.attr.isDefinition = old_def;
+            auto old_def = rval.get.primary.type.attr.isDefinition;
+            rval.get.primary.type.attr = makeTypeAttr(c_type, c);
+            rval.get.primary.type.attr.isDefinition = old_def;
         }
     }
 
@@ -1548,8 +1544,8 @@ body {
     }
 
     auto ensureUSR(ref Nullable!TypeResults rval) {
-        if (!rval.isNull && rval.primary.type.kind.usr.length == 0) {
-            rval.primary.type.kind.usr = makeFallbackUSR(c, this_indent);
+        if (!rval.isNull && rval.get.primary.type.kind.usr.length == 0) {
+            rval.get.primary.type.kind.usr = makeFallbackUSR(c, this_indent);
         }
     }
 
@@ -1602,14 +1598,14 @@ body {
         // Maybe this is a special case?
         // Shouldn't be per se locked to a TypeDefDecl but rather the concept
         // of a type that is an alias for another.
-        if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.info.canonicalRef, container, indent);
+        if (tref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.info.canonicalRef, container, indent);
         } else {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.usr, container, indent);
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.usr, container, indent);
         }
-        rval.extra = [tref.primary] ~ tref.extra;
+        rval.get.extra = [tref.get.primary] ~ tref.get.extra;
     }
 
     if (rval.isNull && c.kind == CXCursorKind.typeAliasDecl) {
@@ -1648,14 +1644,14 @@ body {
             auto tref = pass4(child, container, indent);
 
             auto type = c.type;
-            if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-                rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                        tref.primary.type.kind.info.canonicalRef, container, indent);
+            if (tref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+                rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                        tref.get.primary.type.kind.info.canonicalRef, container, indent);
             } else {
-                rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                        tref.primary.type.kind.usr, container, indent);
+                rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                        tref.get.primary.type.kind.usr, container, indent);
             }
-            rval.extra = [tref.primary] ~ tref.extra;
+            rval.get.extra = [tref.get.primary] ~ tref.get.extra;
         }
     }
 
@@ -1669,14 +1665,14 @@ body {
         auto tref = retrieveType(c_child, container, indent);
 
         auto type = c.type;
-        if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.info.canonicalRef, container, indent);
+        if (tref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.info.canonicalRef, container, indent);
         } else {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.usr, container, indent);
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.usr, container, indent);
         }
-        rval.extra = [tref.primary] ~ tref.extra;
+        rval.get.extra = [tref.get.primary] ~ tref.get.extra;
     }
 
     auto handleTypeRefToTypeDeclFuncProto(ref Nullable!TypeResults rval) {
@@ -1712,14 +1708,14 @@ body {
 
         // TODO consolidate code. Copied from handleDecl
         auto type = c.type;
-        if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.info.canonicalRef, container, indent);
+        if (tref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.info.canonicalRef, container, indent);
         } else {
-            rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
-                    tref.primary.type.kind.usr, container, indent);
+            rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
+                    tref.get.primary.type.kind.usr, container, indent);
         }
-        rval.extra = [tref.primary] ~ tref.extra;
+        rval.get.extra = [tref.get.primary] ~ tref.get.extra;
     }
 
     auto handleFuncProto(ref Nullable!TypeResults rval) {
@@ -1730,9 +1726,9 @@ body {
         auto type = c.type;
         auto func = typeToFuncProto!(TypeKind.FuncSignatureInfo)(c, type, container, indent);
 
-        rval = typeToTypedef(c, type, func.primary.type.kind.usr,
-                func.primary.type.kind.usr, container, indent);
-        rval.extra = [func.primary] ~ func.extra;
+        rval = typeToTypedef(c, type, func.get.primary.type.kind.usr,
+                func.get.primary.type.kind.usr, container, indent);
+        rval.get.extra = [func.get.primary] ~ func.get.extra;
     }
 
     auto underlying(ref Nullable!TypeResults rval) {
@@ -1748,20 +1744,20 @@ body {
         } else {
             tref = passType(c, underlying, container, indent);
             // ensure it is unique
-            tref.primary.type.kind.usr = makeFallbackUSR(c, indent);
+            tref.get.primary.type.kind.usr = makeFallbackUSR(c, indent);
         }
 
         USRType canonical_usr;
-        if (tref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-            canonical_usr = tref.primary.type.kind.info.canonicalRef;
+        if (tref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+            canonical_usr = tref.get.primary.type.kind.info.canonicalRef;
         } else {
-            canonical_usr = tref.primary.type.kind.usr;
+            canonical_usr = tref.get.primary.type.kind.usr;
         }
 
         auto type = c.type;
-        rval = typeToTypedef(c, type, tref.primary.type.kind.usr,
+        rval = typeToTypedef(c, type, tref.get.primary.type.kind.usr,
                 canonical_usr, container, indent);
-        rval.extra = [tref.primary] ~ tref.extra;
+        rval.get.extra = [tref.get.primary] ~ tref.get.extra;
     }
 
     void handleArray(ref Nullable!TypeResults rval) {
@@ -1859,13 +1855,13 @@ body {
             continue;
         }
 
-        if (retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.func) {
+        if (retrieved_ref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func) {
             // fast path
             rval = retrieved_ref;
-        } else if (retrieved_ref.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        } else if (retrieved_ref.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
             // check the canonical type
-            foreach (k; chain(only(retrieved_ref.primary), retrieved_ref.extra)) {
-                if (k.type.kind.usr != retrieved_ref.primary.type.kind.info.canonicalRef) {
+            foreach (k; chain(only(retrieved_ref.get.primary), retrieved_ref.get.extra)) {
+                if (k.type.kind.usr != retrieved_ref.get.primary.type.kind.info.canonicalRef) {
                     continue;
                 }
 
@@ -1874,7 +1870,7 @@ body {
                 } else if (k.type.kind.info.kind == TypeKind.Info.Kind.funcSignature) {
                     // function declaration of a typedef'ed signature
                     rval = retrieved_ref;
-                    rval.extra ~= rval.primary;
+                    rval.get.extra ~= rval.get.primary;
 
                     auto prim = k;
                     auto info = k.type.kind.info;
@@ -1882,7 +1878,7 @@ body {
                             info.return_, info.returnAttr, info.params);
                     prim.location = makeLocation(c);
                     prim.type.kind.usr = makeFallbackUSR(c, this_indent);
-                    rval.primary = prim;
+                    rval.get.primary = prim;
                 }
             }
         }
@@ -1970,7 +1966,7 @@ body {
         }
     }
 
-    return typeof(return)(rval);
+    return rval;
 }
 
 /** Extract the type of a parameter cursor.
@@ -2055,8 +2051,8 @@ body {
 
             auto tka = retrieveType(p, container, indent);
             auto id = p.spelling;
-            rval.params ~= ExtractParamsResult(tka.primary, id, No.isVariadic);
-            rval.extra ~= tka.extra;
+            rval.params ~= ExtractParamsResult(tka.get.primary, id, No.isVariadic);
+            rval.extra ~= tka.get.extra;
         }
 
         if (type.func.isVariadic) {

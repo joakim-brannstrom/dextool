@@ -186,11 +186,11 @@ private @safe struct DeclLocation {
     }
 
     bool hasDefinition() pure nothrow const @nogc {
-        return !definition_.isNull && definition_.kind != LocationTag.Kind.noloc;
+        return !definition_.isNull && definition_.get.kind != LocationTag.Kind.noloc;
     }
 
     bool hasDeclaration() pure nothrow const @nogc {
-        return !first_decl.isNull && first_decl.kind != LocationTag.Kind.noloc;
+        return !first_decl.isNull && first_decl.get.kind != LocationTag.Kind.noloc;
     }
 
 private:
@@ -260,7 +260,7 @@ struct Container {
         }
         put(w, "]\n");
         put(w, "locations [");
-        () @trusted{
+        () @trusted {
             foreach (a; locations.lookupRange) {
                 formattedWrite(w, "\n  %s ->", cast(string) a.key);
                 if (a.value.hasDefinition) {
@@ -308,8 +308,7 @@ struct Container {
 
         debug {
             import std.conv : to;
-            import cpptooling.data : TypeKind, toStringDecl, TypeAttr,
-                LocationTag, Location;
+            import cpptooling.data : TypeKind, toStringDecl, TypeAttr, LocationTag, Location;
 
             logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
                     cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));

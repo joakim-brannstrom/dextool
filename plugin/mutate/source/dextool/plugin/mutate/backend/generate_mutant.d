@@ -54,7 +54,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
 
     AbsolutePath mut_file;
     try {
-        mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getOutputDir));
+        mut_file = AbsolutePath(FileName(mutp.get.file), DirName(fio.getOutputDir));
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
@@ -72,9 +72,9 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
     try {
         auto ofile = makeOutputFilename(val_loc, fio, mut_file);
         auto fout = fio.makeOutput(ofile);
-        auto res = generateMutant(db, mutp, content, fout);
+        auto res = generateMutant(db, mutp.get, content, fout);
         if (res.status == GenerateMutantStatus.ok) {
-            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.id,
+            logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.get.id,
                     cast(const(char)[]) res.from, cast(const(char)[]) res.to, ofile);
             exit_st = ExitStatusType.Ok;
         }
@@ -130,8 +130,8 @@ auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref Safe
     } else if (db_checksum != f_checksum) {
         logger.errorf(
                 "Unable to mutate %s (%s%s) because the checksum is different from the one in the database (%s%s)",
-                mutp.file, f_checksum.c0,
-                f_checksum.c1, db_checksum.c0, db_checksum.c1).collectException;
+                mutp.file, f_checksum.c0, f_checksum.c1,
+                db_checksum.get.c0, db_checksum.get.c1).collectException;
         return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 

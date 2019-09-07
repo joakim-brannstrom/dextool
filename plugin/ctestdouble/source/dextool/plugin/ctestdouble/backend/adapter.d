@@ -107,26 +107,26 @@ private struct BuildAdapter {
             //    preferred to generate a test double as the one-parameter
             //    c'tor before the global variable initializer.
             if (hasTestDouble && hasGlobalInitializer && zeroGlobalsInitializer) {
-                data.adapterKind[ctor.usr] = AdapterKind.ctor_testDouble_zeroGlobal;
+                data.adapterKind[ctor.usr.get] = AdapterKind.ctor_testDouble_zeroGlobal;
             } else if (hasTestDouble) {
-                data.adapterKind[ctor.usr] = AdapterKind.ctor_testDouble;
+                data.adapterKind[ctor.usr.get] = AdapterKind.ctor_testDouble;
             } else if (hasGlobalInitializer) {
-                data.adapterKind[ctor.usr] = AdapterKind.ctor_initGlobal;
+                data.adapterKind[ctor.usr.get] = AdapterKind.ctor_initGlobal;
             }
         }
         if (params.length == 2) {
             auto ctor = CppCtor(makeUniqueUSR, classCtor, params, CppAccess(AccessType.Public));
             c.put(ctor);
-            data.adapterKind[ctor.usr] = AdapterKind.ctor_testDouble_initGlobal;
+            data.adapterKind[ctor.usr.get] = AdapterKind.ctor_testDouble_initGlobal;
         }
 
         auto dtor = CppDtor(makeUniqueUSR, classDtor, CppAccess(AccessType.Public),
                 CppVirtualMethod(MemberVirtualType.Normal));
         c.put(dtor);
         if (hasTestDouble) {
-            data.adapterKind[dtor.usr] = AdapterKind.dtor_testDouble;
+            data.adapterKind[dtor.usr.get] = AdapterKind.dtor_testDouble;
         } else {
-            data.adapterKind[dtor.usr] = AdapterKind.dtor_empty;
+            data.adapterKind[dtor.usr.get] = AdapterKind.dtor_empty;
         }
 
         return c;
@@ -187,7 +187,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         import cpptooling.data : TypeKind;
 
         AdapterKind kind;
-        if (auto l = lookup(m.usr)) {
+        if (auto l = lookup(m.usr.get)) {
             kind = *l;
         } else {
             logger.error("c'tor for the adapter is corrupted");
@@ -195,7 +195,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         }
 
         string params = m.paramRange().joinParams();
-        auto body_ = impl.ctor_body(m.name, params);
+        auto body_ = impl.ctor_body(m.name.get, params);
 
         switch (kind) with (AdapterKind) {
         case ctor_initGlobal:
@@ -228,7 +228,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 
     void genDtor(const ref CppClass adapter, const ref CppDtor m, CppModule impl) {
         AdapterKind kind;
-        if (auto l = lookup(m.usr)) {
+        if (auto l = lookup(m.usr.get)) {
             kind = *l;
         } else {
             logger.error("d'tor for the adapter is corrupted");

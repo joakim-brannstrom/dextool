@@ -15,7 +15,7 @@ import unit_threaded;
 
 // dfmt off
 
-@("shall produce all ROR mutations")
+@(testId ~ "shall produce all ROR mutations")
 @Values("ror_primitive.cpp", "ror_overload.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
@@ -61,7 +61,7 @@ void verifyRor(string[] txt) {
     }
 }
 
-@("shall produce all ROR mutations according to the alternative schema when both types are floating point types")
+@(testId ~ "shall produce all ROR mutations according to the alternative schema when both types are floating point types")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -104,7 +104,7 @@ void verifyFloatRor(string[] txt) {
     }
 }
 
-@("shall produce all ROR mutations according to the enum schema when both types are enum type and one is an enum const declaration")
+@(testId ~ "shall produce all ROR mutations according to the enum schema when both types are enum type and one is an enum const declaration")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -153,7 +153,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to the enum schema for equal when both types are enum type and one is an enum const declaration")
+@(testId ~ "shall produce all ROR mutations according to the enum schema for equal when both types are enum type and one is an enum const declaration")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -200,7 +200,7 @@ unittest {
     ]).shouldNotBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to the enum schema for not-equal when both types are enum type and one is an enum const declaration")
+@(testId ~ "shall produce all ROR mutations according to the enum schema for not-equal when both types are enum type and one is an enum const declaration")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -236,7 +236,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to floating point schema when either type are pointers")
+@(testId ~ "shall produce all ROR mutations according to floating point schema when either type are pointers")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -271,7 +271,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to floating point schema when either type are pointers")
+@(testId ~ "shall produce all ROR mutations according to floating point schema when either type are pointers")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -301,7 +301,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to the bool schema when both types are bools")
+@(testId ~ "shall produce all ROR mutations according to the bool schema when both types are bools")
 unittest {
     mixin(envSetup(globalTestdir));
 
@@ -322,7 +322,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce all ROR mutations according to the bool schema when both functions return type is bool")
+@(testId ~ "shall produce all ROR mutations according to the bool schema when both functions return type is bool")
 unittest {
     mixin(envSetup(globalTestdir));
 

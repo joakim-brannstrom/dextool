@@ -20,7 +20,7 @@ void put(ref Nullable!TypeResults tr, ref Container container, in uint indent = 
         return;
     }
 
-    foreach (a; chain(only(tr.primary), tr.extra)) {
+    foreach (a; chain(only(tr.get.primary), tr.get.extra)) {
         container.put(a.type.kind);
         container.put(a.location, a.type.kind.usr, a.type.attr.isDefinition);
     }

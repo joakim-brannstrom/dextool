@@ -31,9 +31,9 @@ import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.store : put;
 import cpptooling.data : AccessType, VariadicType, CxParam, TypeKindVariable,
-    CppVariable, LocationTag, Location, CxReturnType, CppVirtualMethod,
-    CppMethodName, CppClassName, CppNs, CppAccess, StorageClass, CFunctionName,
-    Language, CFunction, CxGlobalVariable;
+    CppVariable, LocationTag, Location, CxReturnType,
+    CppVirtualMethod, CppMethodName, CppClassName, CppNs, CppAccess,
+    StorageClass, CFunctionName, Language, CFunction, CxGlobalVariable;
 import cpptooling.data.symbol : Container, USRType;
 
 import dextool.nullable;
@@ -43,7 +43,7 @@ private CppVirtualMethod classify(T)(T c) @safe if (is(Unqual!T == Cursor)) {
     import cpptooling.data.type : MemberVirtualType;
 
     auto is_virtual = MemberVirtualType.Normal;
-    auto func = () @trusted{ return c.func; }();
+    auto func = () @trusted { return c.func; }();
 
     if (!func.isValid) {
         // do nothing
@@ -113,7 +113,7 @@ private CxParam[] toCxParam(ref TypeKind kind, ref Container container) @safe {
               });
     // dfmt on
 
-    return () @trusted{ return params.array(); }();
+    return () @trusted { return params.array(); }();
 }
 
 private auto locToTag(SourceLocation c_loc) {
@@ -194,8 +194,7 @@ body {
     import std.functional : pipe;
 
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.type : TypeKind, retrieveType,
-        logTypeResult;
+    import cpptooling.analyzer.clang.type : TypeKind, retrieveType, logTypeResult;
     import cpptooling.data : TypeResult, TypeKindAttr, CxParam, CFunctionName,
         CxReturnType, CFunction, VariadicType, LocationTag, StorageClass;
     import cpptooling.data.symbol : Container;
@@ -204,12 +203,12 @@ body {
     // design is pipe and data transformation
 
     Nullable!TypeResults extractAndStoreRawType(const(Cursor) c) @safe {
-        auto tr = () @trusted{ return retrieveType(c, container, indent); }();
+        auto tr = () @trusted { return retrieveType(c, container, indent); }();
         if (tr.isNull) {
             return tr;
         }
 
-        assert(tr.primary.type.kind.info.kind.among(TypeKind.Info.Kind.func,
+        assert(tr.get.primary.type.kind.info.kind.among(TypeKind.Info.Kind.func,
                 TypeKind.Info.Kind.typeRef, TypeKind.Info.Kind.simple));
         put(tr, container, indent);
 
@@ -221,14 +220,14 @@ body {
             return tr;
         }
 
-        if (tr.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        if (tr.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
             // replace typeRef kind with the func
-            auto kind = container.find!TypeKind(tr.primary.type.kind.info.canonicalRef).front;
-            tr.primary.type.kind = kind;
+            auto kind = container.find!TypeKind(tr.get.primary.type.kind.info.canonicalRef).front;
+            tr.get.primary.type.kind = kind;
         }
 
         logTypeResult(tr, indent);
-        assert(tr.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
+        assert(tr.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
 
         return tr;
     }
@@ -270,7 +269,7 @@ body {
         // that can be a variadic, therefor only needing to peek at that
         // one.
         if (params.length > 0) {
-            is_variadic = cast(VariadicType)() @trusted{
+            is_variadic = cast(VariadicType)() @trusted {
                 return params[$ - 1].peek!VariadicType;
             }();
         }
@@ -324,7 +323,7 @@ body {
     import cpptooling.analyzer.clang.type : retrieveType;
     import cpptooling.data : CppVariable;
 
-    auto type = () @trusted{ return retrieveType(v, container, indent); }();
+    auto type = () @trusted { return retrieveType(v, container, indent); }();
     put(type, container, indent);
 
     auto name = CppVariable(v.spelling);
@@ -337,9 +336,9 @@ body {
     // USR.
     container.put(loc, instance_usr, Yes.isDefinition);
 
-    auto storage = () @trusted{ return v.storageClass.toStorageClass; }();
+    auto storage = () @trusted { return v.storageClass.toStorageClass; }();
 
-    return VarDeclResult(type.primary.type, name, loc, instance_usr, storage);
+    return VarDeclResult(type.get.primary.type, name, loc, instance_usr, storage);
 }
 
 struct ConstructorResult {
@@ -358,13 +357,13 @@ struct ConstructorResult {
  * Returns: analyzed data.
  */
 auto analyzeConstructor(const(Constructor) v, ref Container container, in uint indent) @safe {
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+    auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
-    auto params = toCxParam(type.primary.type.kind, container);
+    auto params = toCxParam(type.get.primary.type.kind, container);
     auto name = CppMethodName(v.cursor.spelling);
 
-    return ConstructorResult(type.primary.type, name, params, type.primary.location);
+    return ConstructorResult(type.get.primary.type, name, params, type.get.primary.location);
 }
 
 struct DestructorResult {
@@ -376,13 +375,13 @@ struct DestructorResult {
 
 /// ditto
 auto analyzeDestructor(const(Destructor) v, ref Container container, in uint indent) @safe {
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+    auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
     auto name = CppMethodName(v.cursor.spelling);
     auto virtual_kind = classify(v.cursor);
 
-    return DestructorResult(type.primary.type, name, virtual_kind, type.primary.location);
+    return DestructorResult(type.get.primary.type, name, virtual_kind, type.get.primary.location);
 }
 
 struct CxxMethodResult {
@@ -402,19 +401,20 @@ CxxMethodResult analyzeCxxMethod(const(CxxMethod) v, ref Container container, in
 
 /// ditto
 CxxMethodResult analyzeCxxMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
-    auto type = () @trusted{ return retrieveType(v, container, indent); }();
+    auto type = () @trusted { return retrieveType(v, container, indent); }();
     assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
     put(type, container, indent);
 
     auto name = CppMethodName(v.spelling);
-    auto params = toCxParam(type.primary.type.kind, container);
+    auto params = toCxParam(type.get.primary.type.kind, container);
     auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
-            type.primary.type.kind.info.return_).front, type.primary.type.kind.info.returnAttr));
+            type.get.primary.type.kind.info.return_).front,
+            type.get.primary.type.kind.info.returnAttr));
     auto is_virtual = classify(v);
 
-    return CxxMethodResult(type.primary.type, name, params,
+    return CxxMethodResult(type.get.primary.type, name, params,
             cast(Flag!"isOperator") isOperator(name), return_type, is_virtual,
-            cast(Flag!"isConst") type.primary.type.attr.isConst, type.primary.location);
+            cast(Flag!"isConst") type.get.primary.type.attr.isConst, type.get.primary.location);
 }
 
 struct FieldDeclResult {
@@ -428,7 +428,7 @@ struct FieldDeclResult {
 auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint indent) @safe {
     import cpptooling.analyzer.clang.type : makeEnsuredUSR;
 
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+    auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
     auto name = CppVariable(v.cursor.spelling);
@@ -437,12 +437,12 @@ auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint inden
     // Assuming that all field declarations have a USR
     assert(instance_usr.length > 0);
 
-    auto loc = () @trusted{ return locToTag(v.cursor.location()); }();
+    auto loc = () @trusted { return locToTag(v.cursor.location()); }();
     // store the location to enable creating relations to/from this instance
     // USR.
     container.put(loc, instance_usr, Yes.isDefinition);
 
-    return FieldDeclResult(type.primary.type, name, instance_usr, loc);
+    return FieldDeclResult(type.get.primary.type, name, instance_usr, loc);
 }
 
 struct CxxBaseSpecifierResult {
@@ -473,15 +473,15 @@ auto analyzeCxxBaseSpecified(const(CxxBaseSpecifier) v, ref Container container,
     import cpptooling.analyzer.clang.cursor_backtrack : backtrackScopeRange;
     import cpptooling.data : toStringDecl;
 
-    auto type = () @trusted{ return retrieveType(v.cursor, container, indent); }();
+    auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
-    auto name = CppClassName(type.primary.type.toStringDecl);
-    auto access = CppAccess(toAccessType(() @trusted{ return v.cursor.access; }().accessSpecifier));
-    auto usr = type.primary.type.kind.usr;
+    auto name = CppClassName(type.get.primary.type.toStringDecl);
+    auto access = CppAccess(toAccessType(() @trusted { return v.cursor.access; }().accessSpecifier));
+    auto usr = type.get.primary.type.kind.usr;
 
-    if (type.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-        usr = type.primary.type.kind.info.canonicalRef;
+    if (type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        usr = type.get.primary.type.kind.info.canonicalRef;
     }
 
     CppNs[] namespace;
@@ -497,7 +497,7 @@ auto analyzeCxxBaseSpecified(const(CxxBaseSpecifier) v, ref Container container,
         namespace = namespace[1 .. $];
     }
 
-    return CxxBaseSpecifierResult(type.primary.type, name, namespace, usr, access);
+    return CxxBaseSpecifierResult(type.get.primary.type, name, namespace, usr, access);
 }
 
 struct RecordResult {
@@ -513,12 +513,12 @@ RecordResult analyzeRecord(T)(const(T) decl, ref Container container, in uint in
 }
 
 RecordResult analyzeRecord(const(Cursor) cursor, ref Container container, in uint indent) @safe {
-    auto type = () @trusted{ return retrieveType(cursor, container, indent); }();
+    auto type = () @trusted { return retrieveType(cursor, container, indent); }();
     put(type, container, indent);
 
     auto name = CppClassName(cursor.spelling);
 
-    return RecordResult(type.primary.type, name, type.primary.location);
+    return RecordResult(type.get.primary.type, name, type.get.primary.location);
 }
 
 ///

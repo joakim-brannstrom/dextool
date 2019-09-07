@@ -66,7 +66,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     link_cache.ttl = 30; // magic number
     Path getPath(MutationId id) {
         return dextool.cachetools.cacheToolsRequire(link_cache, id, {
-            auto path = spinSqlQuery!(() => db.getPath(id));
+            auto path = spinSqlQuery!(() => db.getPath(id)).get;
             return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
         }()).Path;
     }

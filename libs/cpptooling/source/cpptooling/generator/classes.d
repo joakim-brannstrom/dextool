@@ -46,7 +46,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
 
     static void genCtor(const ref CppCtor m, CppModule hdr) {
         string params = m.paramRange().joinParams();
-        hdr.ctor(m.name, params);
+        hdr.ctor(m.name.get, params);
     }
 
     static void genDtor(const ref CppDtor m, CppModule hdr, Flag!"inlineDtor" inline_dtor) {
@@ -62,7 +62,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
         import cpptooling.data;
 
         if (loc_as_comment) {
-            hdr.comment(genLocationComment(m.usr, lookup))[$.begin = "/// "];
+            hdr.comment(genLocationComment(m.usr.get, lookup))[$.begin = "/// "];
         }
 
         foreach (comment; m.comments) {

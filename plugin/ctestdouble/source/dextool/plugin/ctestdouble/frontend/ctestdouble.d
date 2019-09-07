@@ -424,9 +424,10 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         }
 
         xmlConfig = conf;
-        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
-        restrict_symbols = conf.restrictSymbols;
-        exclude_symbols = conf.excludeSymbols;
+        compiler_flag_filter = CompileCommandFilter(conf.get.filterClangFlags,
+                conf.get.skipCompilerArgs);
+        restrict_symbols = conf.get.restrictSymbols;
+        exclude_symbols = conf.get.excludeSymbols;
 
         return this;
     }

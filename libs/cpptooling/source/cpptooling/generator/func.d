@@ -73,8 +73,9 @@ CppClass makeFuncInterface(Tr)(Tr r, const CppClassName name, const CppNsStack n
         }
 
         auto meth_name = CppMethodName(f.name);
-        auto m = CppMethod(f.usr, meth_name, params, f.returnType(), CppAccess(AccessType.Public),
-                CppConstMethod(false), CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(f.usr.get, meth_name, params, f.returnType(),
+                CppAccess(AccessType.Public), CppConstMethod(false),
+                CppVirtualMethod(MemberVirtualType.Pure));
 
         c.put(m);
     }

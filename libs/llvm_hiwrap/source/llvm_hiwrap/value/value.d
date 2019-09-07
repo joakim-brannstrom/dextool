@@ -237,12 +237,12 @@ struct UseValueRange {
 
     UseValue front() @safe pure nothrow {
         assert(!empty, "Can't get front of an empty range");
-        return cur;
+        return cur.get;
     }
 
     void popFront() nothrow {
         assert(!empty, "Can't pop front of an empty range");
-        if (auto raw = LLVMGetNextUse(cur)) {
+        if (auto raw = LLVMGetNextUse(cur.get)) {
             cur = raw.LxUseValue.UseValue;
         } else {
             cur.nullify;

@@ -479,8 +479,8 @@ Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db, const s
         rval = SearchResult.init;
         auto p = compile_commands[0].parseFlag(flag_filter, user_compiler);
         p.prependCflags(cflags.dup);
-        rval.flags = p;
-        rval.absoluteFile = compile_commands[0].absoluteFile;
+        rval.get.flags = p;
+        rval.get.absoluteFile = compile_commands[0].absoluteFile;
     }
 
     return rval;
@@ -846,7 +846,7 @@ unittest {
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c",
             "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home"), null);
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -857,7 +857,7 @@ unittest {
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun"
             ], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -869,7 +869,7 @@ unittest {
             "bar", "-Igun", "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -881,7 +881,7 @@ unittest {
             "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -892,7 +892,7 @@ unittest {
             "g++", "-std=c++11", "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-std=c++11"]);
 }
 
@@ -901,7 +901,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
             "b"], AbsoluteCompileDbDirectory("/home"), null);
 
-    auto s = cmd.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-Da", "-D", "b"]);
 }
 
